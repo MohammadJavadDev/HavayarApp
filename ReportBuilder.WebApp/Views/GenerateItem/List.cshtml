@@ -1,0 +1,62 @@
+﻿@using ReportBuilder.Services.Contracts
+@inject IReportBuilderService rbs;
+@{
+    Layout = "/Views/Panel/Shared/_PanelLayout.cshtml";
+    var objects = await rbs.ListDbObjects();
+}
+
+<div class="card">
+    <div class="card-header">
+        لیست جداول
+    </div>
+    <div class="card-body row">
+        <nav>
+            <div class="nav nav-pills flex-column flex-sm-row" id="nav-tab" role="tablist">
+                <button class="flex-sm-fill text-sm-center nav-link active" id="nav-tabel-tab" data-bs-toggle="tab" data-bs-target="#nav-tabel" type="button" role="tab" aria-controls="nav-tabel" aria-selected="true">Tables</button>
+                <button class="flex-sm-fill text-sm-center nav-link" id="nav-view-tab" data-bs-toggle="tab" data-bs-target="#nav-view" type="button" role="tab" aria-controls="nav-view" aria-selected="false">Views</button>
+                <button class="flex-sm-fill text-sm-center nav-link" id="nav-storeprocedure-tab" data-bs-toggle="tab" data-bs-target="#nav-storeprocedure" type="button" role="tab" aria-controls="nav-storeprocedure" aria-selected="false">StoreProcedure</button>
+            </div>
+        </nav>
+
+        <div class="tab-content" id="nav-tabContent">
+            <div class="tab-pane fade show active p-5 " id="nav-tabel" role="tabpanel" aria-labelledby="nav-tabel-tab">
+                <div class="row">
+
+                
+                @foreach (var o in objects.Where(c => c.Type == "BASE TABLE"))
+                {
+                    var name = o.Schema + "." + o.Name;
+                    <div class="col-md-4 mt-3">
+                            <a href="/System/ReportBuilder/Edit/@name/@o.Type" class="btn btn-outline btn-outline-primary">  @name </a>
+                    </div>
+                }
+                </div>
+           </div>
+            <div class="tab-pane fade row" id="nav-view" role="tabpanel" aria-labelledby="nav-view-tab">
+                <div class="row">
+                @foreach (var o in objects.Where(c => c.Type == "VIEW"))
+                {
+                    var name = o.Schema + "." + o.Name;
+                    <div class="col-md-4 mt-3">
+                            <a href="/System/ReportBuilder/Edit/@name/@o.Type" class="btn btn-outline btn-outline-primary">  @name </a>
+                    </div>
+                }
+            </div>
+            </div>
+            <div class="tab-pane fade row" id="nav-storeprocedure" role="tabpanel" aria-labelledby="nav-storeprocedure-tab">
+                <div class="row">
+                @foreach (var o in objects.Where(c => c.Type == "Store_Procedures"))
+                {
+                    var name = o.Schema + "." + o.Name;
+                    <div class="col-md-6 mt-3">
+                            <a href="/System/ReportBuilder/Edit/@name/@o.Type" class="btn btn-outline btn-outline-primary">  @name </a>
+                    </div>
+                }
+                
+            </div>
+            </div>
+       </div>
+      
+    </div>
+
+</div>

@@ -1,0 +1,1968 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+
+@{
+
+    
+}
+
+<style>
+
+    .mainDropPage {
+        background-color: var(--bs-app-bg-color);
+        border: 1px dotted;
+        border-radius: 5px;
+        padding: 5px;
+    }
+
+
+
+    .tooltip-row-s {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        align-content: space-between;
+        justify-content: space-between;
+        align-items: baseline;
+    }
+
+    .droppeble-element {
+    }
+
+    .dropzone {
+        padding: 1.5rem 1.75rem !important;
+        text-align: center !important;
+        cursor: pointer !important;
+        border: 1px dashed var(--bs-primary) !important;
+        background-color: var(--bs-primary-light) !important;
+        border-radius: 0.475rem !important;
+    }
+
+
+
+    [role-systemPage] {
+        padding: 6px 12px;
+        min-height: 150px;
+    }
+
+
+    [role-systemtab] li .active {
+        color: var(--bs-nav-pills-link-active-color) !important;
+        background-color: var(--bs-nav-pills-link-active-bg) !important;
+    }
+
+    [data-element=true] {
+        padding: 1.5rem 1.75rem !important;
+        cursor: pointer !important;
+        border: 1px dashed black !important;
+        border-radius: 0.475rem !important;
+    }
+
+
+    li .nav-link i {
+        float: left;
+        border: 1px solid;
+        padding: 3px;
+        border-radius: 5px;
+    }
+
+
+   
+
+
+    .select2-selection__choice__remove {
+        left: 5px;
+    }
+</style>
+
+
+<div class="card m-2">
+    <div class="card-header align-items-center justify-content-center">
+        سند ساز
+    </div>
+    <div class="card-body">
+        <ul class="nav nav-pills nav-justified" id="myTab" role="tablist">
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link " id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="home" aria-selected="false">اطلاعات</button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="field-tab" data-bs-toggle="tab" data-bs-target="#field" type="button" role="tab" aria-controls="field" aria-selected="true">ستون ها</button>
+            </li>
+
+
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tabel-tab" data-bs-toggle="tab" data-bs-target="#tabel" type="button" role="tab" aria-controls="contact" aria-selected="false">جدول</button>
+            </li>
+
+
+        </ul>
+        <div class="tab-content" id="pageTabs">
+            <div class="tab-pane fade  p-3" id="info" role="tabpanel" aria-labelledby="home-tab">
+                <div class="row">
+                    <div class="col-md-6 mb-10">
+                        <div class="">
+                            <label class="required form-label">نام </label>
+                            <input type="text" class="form-control " data-bind="className" />
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-10">
+                        <div class=" ">
+                            <label class="required form-label">عنوان </label>
+                            <input type="text" class="form-control" data-bind="displayName" />
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+            <div class="tab-pane fade show active" id="field" role="tabpanel" aria-labelledby="field-tab">
+
+                <div class="row mt-3 ">
+                    <div class="col-md-2 border-1 border p-3 drp">
+                        طرح ها
+                        <hr>
+                        <div id="componets">
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="container" data-tmplid="#containerTmpl">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Div Row</span> </div>
+                                </div>
+                            </div>
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="Col12" data-tmplid="#Col12">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Div Col-12</span> </div>
+                                </div>
+                            </div>
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="Col6" data-tmplid="#Col6">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Div Col-6</span> </div>
+                                </div>
+                            </div>
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="Col4" data-tmplid="#Col4">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Div Col-4</span> </div>
+                                </div>
+                            </div>
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="Col3" data-tmplid="#Col3">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Div Col-3</span> </div>
+                                </div>
+                            </div>
+
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="container" data-tmplid="#containerTmpl">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Div Row</span> </div>
+                                </div>
+                            </div>
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="card" data-tmplid="#cardTmpl">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Card</span> </div>
+                                </div>
+                            </div>
+
+                            <div class="dropzone droppeble-element">
+                                <div class="row p-4 border m-1 item" data-componetDrop="tab" data-tmplid="#tabTmpl">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>Tab</span> </div>
+                                </div>
+                            </div>
+                            <div class="dropzone droppeble-element">
+
+                                <div class="row p-4 border m-1 item" data-componetDrop="gridview" data-tmplid="#gridviewTmpl">
+                                    <div class='col-md-2 align-content-center'>
+                                        <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="col-md-10">  <span>GridView</span> </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+
+
+                    </div>
+
+                    <div class="col-md-7 border-1 border p-10 drp">
+                        <div id="designPlace" data-dropzone="true" data-section="ture">
+                            <div>
+
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <button class="btn btn-success" data-action="saveform">ذخیره</button>
+                                    </div>
+                                </div>
+                                <div class="mainDropPage droppeble-element" style="min-height: 150px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 border-1 border p-3 ">
+                        فیلد ها
+                        <hr>
+                        <div id="fieldsPlace" class="drp">
+                        </div>
+                        <div>
+                            <button class="btn btn-success w-100" id="addfield">افزودن فیلد</button>
+                        </div>
+                    </div>
+
+                </div>
+
+
+            </div>
+
+            <div class="tab-pane fade" id="tabel" role="tabpanel" aria-labelledby="tabel-tab">
+                <div class="col-md-12">
+                    <div class="bg-light-warning col-md-12 mb-6 mt-6 p-2 row text-center">
+                        <div class="col-md-5">
+                            <label>فیلد فرم</label>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label>عنوان</label>
+                        </div>
+
+                        <div class="col-md-3">
+                            مرتب سازی
+                        </div>
+
+                    </div>
+                    <div id="tableDesignPlace">
+                    </div>
+
+                </div>
+                <div class="row justify-content-center mt-3 mb-3">
+                    <div class="col-md-6">
+                        <button class="btn btn-light-info" style="width:100%" id="addCol">افزودن ستون</button>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-md-3">
+                <button id="save" class="btn btn-light-success">
+                    ذخیره
+                </button>
+                <button id="publish" class="btn btn-success">
+                    انتشار
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+@section Scripts{
+
+
+
+    <script type="text/x-jquery-tmpl" id="tooltipTmpl">
+        <div class="tooltip-row-s">
+         <div class="mx-1">
+            <a class=" hover-scale " role="button" data-action="edit" data-containerid="${id}"  data-containerparentid="${parentId}" >
+                        <i class="ki-duotone ki-pencil fs-2  text-warning ">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                    </a>
+                     </div>
+                      <div class="mx-1">
+                     <a class="hover-scale " role="button" data-action="remove" data-containerid="${id}"   data-containerparentid="${parentId}" >
+                            <i class="ki-duotone ki-trash  fs-2  text-danger ">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                                <span class="path3"></span>
+                                <span class="path4"></span>
+                                <span class="path5"></span>
+                            </i>
+                        </a>
+                     </div>
+          </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="tabelDesignTmpl">
+        <div class="row mt-3" data-sortTabelFeild="true">
+            <div class="col-md-5 row">
+                <div class="col-md-1">
+                  <i class="fa fa-arrows-alt" aria-hidden="true" data-handler="true"></i>
+                </div>
+
+                <div class="col-md-1">
+                    <a class="hover-scale " role="button" data-action="removeFeildTabel">
+                <i class="ki-duotone ki-trash  fs-2  text-danger ">
+                         <span class="path1"></span>
+                         <span class="path2"></span>
+                         <span class="path3"></span>
+                         <span class="path4"></span>
+                         <span class="path5"></span>
+                        </i>
+                       </a>
+                  </div>
+
+                       <div class="col-md-10">
+                    <select class="form-control" multiple >
+
+                    </select>
+                    </div>
+            </div>
+            <div class="col-md-4">
+             <input class="form-control" data-bind="title" />
+            </div>
+            <div class="col-md-3">
+            <select class="form-control" >
+            <option value="">
+                بدون تغییر
+            </option>
+            <option value="0">
+                کم به زیاد
+            </option>
+            <option value="1">
+                زیاد به کم
+            </option>
+            </select>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="feildElementTmpl">
+
+        <div class="">
+             <label class=" {{if required === true}} required {{else}}  {{/if}} form-label">${displayName} </label>
+
+                {{if fieldType === "string"}}
+                      {{if multiLine === false}}
+                         <input type="text" value="${defaultValue}" {{if readOnly === true}} disabled {{/if}} {{if customStringRegex && customStringRegex.length > 0 }}  data-inputmask=" 'regex':'${customStringRegex}'  ,   'placeholder' : '' " {{else}}  {{/if}}  {{if maxLength && maxLength.length > 0}} maxlength="${maxLength}"  {{else}}  {{/if}}  class="form-control " data-bind="${name}" inputmode="text">
+                         {{else}}
+                          <textarea type="text" {{if readOnly === true}} disabled {{/if}}  {{if customStringRegex && customStringRegex.length > 0 }}  data-inputmask=" 'regex':'${customStringRegex}'  ,   'placeholder' : '' " {{else}}  {{/if}}  {{if maxLength && maxLength.length > 0}} maxlength="${maxLength}"  {{else}}  {{/if}}  class="form-control " data-bind="${name}" inputmode="text">${defaultValue}</textarea>
+                         {{/if}}
+
+                {{/if}}
+
+                {{if fieldType === "long"}}
+                           <input type="text" value="${defaultValue}" {{if readOnly === true}} disabled {{/if}}    data-inputmask=" 'regex':'^[0-9]*$'  ,   'placeholder' : '' "    class="form-control " data-bind="${name}" inputmode="text">
+                 {{/if}}
+
+                  {{if fieldType === "autoNumber"}}
+                    <input type="text"  disabled  class="form-control " data-bind="${name}" inputmode="text">
+                 {{/if}}
+                  {{if fieldType === "guid"}}
+                      <input type="text" value="${defaultValue}"  {{if readOnly === true}} disabled {{/if}}  class="form-control " data-bind="${name}" inputmode="text">
+                 {{/if}}
+                  {{if fieldType === "file"}}
+                        <div class="fv-row">
+
+                                 <div class="upload-image-dropzone" data-uploadFile="true" data-uploadFileMaxSize="${maxFileSize}" data-uploadFileTypeFormat="${customFileTypeFormat}" data-uploadFileName="${name}">
+
+                                     <div class="dz-message needsclick">
+                                         <i class="ki-duotone ki-file-up fs-3x text-primary">
+                                             <span class="path1"> </span>
+                                             <span class="path2"></span>
+                                         </i>
+
+                                         <div class="ms-4">
+                                             <h3 class="fs-5 fw-bold text-gray-900 mb-1">فایل اینجا رها کنید یا کلیلک کنید</h3>
+                                             <span class="fs-7 fw-semibold text-gray-500">${customFileTypeFormat} فرمت های مجاز</span>
+                                         </div>
+
+                                     </div>
+                                 </div>
+
+                             </div>
+                 {{/if}}
+                  {{if fieldType === "time"}}
+                 <input  class="form-control " {{if readOnly === true}} disabled {{/if}}  data-bind="${name}" data-persionDatePicker="true" data-persionDatePickerOption='{"onlyTimePicker" : true , "format" :"HH:mm:ss" ,"inline": false,"calendarType": "persian" }'>
+                 {{/if}}
+                   {{if fieldType === "date"}}
+                                 <input  {{if readOnly === true}} disabled {{/if}}  class="form-control " data-bind="${name}" data-persionDatePicker="true" data-persionDatePickerOption='{ "format" :"YYYY/MM/DD" ,"inline": false,"calendarType": "persian" }'>
+
+                 {{/if}}
+
+                  {{if fieldType === "dateTime"}}
+                   <input  class="form-control " {{if readOnly === true}} disabled {{/if}}  data-bind="${name}" data-persionDatePicker="true" data-persionDatePickerOption='{ "timePicker": {"enabled" : true} , "format" :"YYYY/MM/DD HH:mm:ss" ,"inline": false,"calendarType": "persian" }'>
+
+                 {{/if}}
+
+                  {{if fieldType === "bool"}}
+
+                      <div class="col-md-12   row text-center">
+                         <div class="  col-md-6">
+                                     <input {{if readOnly === true}} disabled {{/if}}  class="form-check-input" type="radio" value="true" id="${id}1${tmpId}" name="${name}${tmpId}" data-bind="${name}">
+                                     <label class="form-check-label" for="${id}1${tmpId}">
+                                            بله
+                                     </label>
+                                 </div>
+
+                             <div class="  col-md-6">
+                                 <input {{if readOnly === true}} disabled {{/if}}  class="form-check-input" type="radio" value="false" id="${id}2${tmpId}" name="${name}${tmpId}" data-bind="${name}">
+                                 <label class="form-check-label" for="${id}2${tmpId}">
+                                    خیر
+                                 </label>
+                             </div>
+                    </div>
+
+                  {{/if}}
+
+                  {{if fieldType === "select"}}
+                  <select data-bind="${name}" {{if readOnly === true}} disabled {{/if}} class="form-control" >
+
+                     {{each(prop, val) options}}
+                         <option value="${val.value}">  ${val.title}</option>
+                     {{/each}}
+
+                  </select>
+
+                 {{/if}}
+
+
+             <span class="text-gray-500 mt-1 fw-semibold fs-6">${helperText}</span>
+         </div>
+
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="feildElementColTabelTmpl">
+
+        <td>
+
+
+                  {{if fieldType === "string"}}
+                        {{if multiLine === false}}
+                           <input type="text" value="${defaultValue}" {{if readOnly === true}} disabled {{/if}} {{if customStringRegex && customStringRegex.length > 0 }}  data-inputmask=" 'regex':'${customStringRegex}'  ,   'placeholder' : '' " {{else}}  {{/if}}  {{if maxLength && maxLength.length > 0}} maxlength="${maxLength}"  {{else}}  {{/if}}  class="form-control " data-bind="${name}" inputmode="text">
+                           {{else}}
+                            <textarea type="text" {{if readOnly === true}} disabled {{/if}}  {{if customStringRegex && customStringRegex.length > 0 }}  data-inputmask=" 'regex':'${customStringRegex}'  ,   'placeholder' : '' " {{else}}  {{/if}}  {{if maxLength && maxLength.length > 0}} maxlength="${maxLength}"  {{else}}  {{/if}}  class="form-control " data-bind="${name}" inputmode="text">${defaultValue}</textarea>
+                           {{/if}}
+
+                  {{/if}}
+
+                  {{if fieldType === "long"}}
+                             <input type="text" value="${defaultValue}" {{if readOnly === true}} disabled {{/if}}    data-inputmask=" 'regex':'^[0-9]*$'  ,   'placeholder' : '' "    class="form-control " data-bind="${name}" inputmode="text">
+                   {{/if}}
+
+                    {{if fieldType === "autoNumber"}}
+                      <input type="text"  disabled  class="form-control " data-bind="${name}" inputmode="text">
+                   {{/if}}
+                    {{if fieldType === "guid"}}
+                        <input type="text" value="${defaultValue}"  {{if readOnly === true}} disabled {{/if}}  class="form-control " data-bind="${name}" inputmode="text">
+                   {{/if}}
+                    {{if fieldType === "file"}}
+                          <div class="fv-row">
+
+                                   <div class="upload-image-dropzone" data-uploadFile="true" data-uploadFileMaxSize="${maxFileSize}" data-uploadFileTypeFormat="${customFileTypeFormat}" data-uploadFileName="${name}">
+
+                                       <div class="dz-message needsclick">
+                                           <i class="ki-duotone ki-file-up fs-3x text-primary">
+                                               <span class="path1"> </span>
+                                               <span class="path2"></span>
+                                           </i>
+
+                                           <div class="ms-4">
+                                               <h3 class="fs-5 fw-bold text-gray-900 mb-1">فایل اینجا رها کنید یا کلیلک کنید</h3>
+                                               <span class="fs-7 fw-semibold text-gray-500">${customFileTypeFormat} فرمت های مجاز</span>
+                                           </div>
+
+                                       </div>
+                                   </div>
+
+                               </div>
+                   {{/if}}
+                    {{if fieldType === "time"}}
+                   <input  class="form-control " {{if readOnly === true}} disabled {{/if}}  data-bind="${name}" data-persionDatePicker="true" data-persionDatePickerOption='{"onlyTimePicker" : true , "format" :"HH:mm:ss" ,"inline": false,"calendarType": "persian" }'>
+                   {{/if}}
+                     {{if fieldType === "date"}}
+                                   <input  {{if readOnly === true}} disabled {{/if}}  class="form-control " data-bind="${name}" data-persionDatePicker="true" data-persionDatePickerOption='{ "format" :"YYYY/MM/DD" ,"inline": false,"calendarType": "persian" }'>
+
+                   {{/if}}
+
+                    {{if fieldType === "dateTime"}}
+                     <input  class="form-control " {{if readOnly === true}} disabled {{/if}}  data-bind="${name}" data-persionDatePicker="true" data-persionDatePickerOption='{ "timePicker": {"enabled" : true} , "format" :"YYYY/MM/DD HH:mm:ss" ,"inline": false,"calendarType": "persian" }'>
+
+                   {{/if}}
+
+                    {{if fieldType === "bool"}}
+
+                        <div class="col-md-12   row text-center">
+                           <div class="  col-md-6">
+                                       <input {{if readOnly === true}} disabled {{/if}}  class="form-check-input" type="radio" value="true" id="${id}1${tmpId}" name="${name}${tmpId}" data-bind="${name}">
+                                       <label class="form-check-label" for="${id}1${tmpId}">
+                                              بله
+                                       </label>
+                                   </div>
+
+                               <div class="  col-md-6">
+                                   <input {{if readOnly === true}} disabled {{/if}}  class="form-check-input" type="radio" value="false" id="${id}2${tmpId}" name="${name}${tmpId}" data-bind="${name}">
+                                   <label class="form-check-label" for="${id}2${tmpId}">
+                                      خیر
+                                   </label>
+                               </div>
+                      </div>
+
+                    {{/if}}
+
+                    {{if fieldType === "select"}}
+                    <select data-bind="${name}" {{if readOnly === true}} disabled {{/if}} class="form-control" >
+
+                       {{each(prop, val) options}}
+                           <option value="${val.value}">  ${val.title}</option>
+                       {{/each}}
+
+                    </select>
+
+                   {{/if}}
+
+         </td>
+
+    </script>
+
+
+    <script type="text/x-jquery-tmpl" id="keyValueTmpl">
+
+        <div class='row mt-1 mb-1' data-op="true" >
+                      <div class="col-md-1">  <i class="fas fa-expand-arrows-alt" data-handeler="i"></i></div>
+                      <div  class='col-md-5'>
+                        <input type="text" class="form-control " value="${title}" data-bind="title"  placeholder="عنوان" />
+                      </div>
+                      <div  class='col-md-5'>
+                        <input type="text" class="form-control " value="${value}" data-bind="value"  placeholder="مقدار" />
+                      </div>
+                      <div class=" col-md-1">
+                          <a class="hover-scale " role="button"  data-action="removeOption">
+                              <i class="ki-duotone ki-trash  fs-2  text-danger ">
+                                   <span class="path1"></span>
+                                   <span class="path2"></span>
+                                   <span class="path3"></span>
+                                   <span class="path4"></span>
+                                   <span class="path5"></span>
+                              </i>
+                          </a>
+                      </div>
+              </div>
+
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="feildArraySecTmpl">
+        <div class="col-md-6">
+            <div class="form-check mt-5 px-12">
+                <input class="form-check-input" type="checkbox" data-feildName="${name}" data-feildid="${id}" data-feildDisplayName ="${displayName}" id="${id}${name}">
+                <label class="form-check-label" for="${id}${name}">
+                 ${displayName}
+                </label>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="tooltipElmentEditTmpl">
+         <div class="col-md-12 row">
+
+        <div class="col-md-12 p-10 row text-center border-bottom border-bottom-5">
+         <div class="  col-md-6">
+                         <input class="form-check-input" type="radio" value="html" id="flexCheckDefault1" name="htmlOrGraf">
+                         <label class="form-check-label" for="flexCheckDefault1">
+                                 ویرایش Html
+                         </label>
+                     </div>
+
+         <div class="  col-md-6">
+             <input class="form-check-input" type="radio" value="graphic" id="flexCheckChecked1" name="htmlOrGraf" checked="">
+             <label class="form-check-label" for="flexCheckChecked1">
+                ویرایش گرافیکی
+             </label>
+         </div>
+        </div>
+         <div class="mt-1 d-none" id="htmlSection">
+             <label class="required form-label">Html </label>
+           <div id="newjsEditor" style="height: 400px;"></div>
+
+         </div>
+             <div class="mt-1 col-md-12   row" id="graphicSection">
+                 <div class="mt-1 col-md-6">
+                     <label class="required form-label">کلاس ها </label>
+                     <input type="text"  class="form-control " data-bind="classes"  value="${classes}"  >
+                 </div>
+                   <div class="mt-1 col-md-6">
+                     <label class="required form-label">استایل ها </label>
+                     <input type="text"  class="form-control " data-bind="styles" value="${css}"  >
+                 </div>
+                 {{if typeComponet === "gridview"}}
+                     <div class="mt-1 col-md-6">
+                         <select id="feildDocumentArray" class="form-control">
+                            <option value="100">انتخاب کنید</option>
+                         </select>
+                     </div>
+
+                 {{/if}}
+                 <div class="row" id="feildArraySec">
+
+                 </div>
+             </div>
+
+         </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="dropZonehtml">
+            <div class="dropzone droppeble-element"  data-parentId="${parentid}" data-pageid="${pageid}" data-dropzone="true" data-componetIndex="${componetIndex}">
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="containerTmpl">
+        <div class=" item">
+           <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class="droppeble-element row" data-element="true"  data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+                <span data-textsample="true">بدن خالی</span>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="Col12">
+        <div class=" col-md-12 item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class="droppeble-element" data-element="true"  data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+                <span data-textsample="true">بدن خالی</span>
+            </div>
+        </div>
+    </script>
+    <script type="text/x-jquery-tmpl" id="Col6">
+        <div class=" col-md-6 item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class="droppeble-element" data-element="true"  data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+                <span data-textsample="true">بدن خالی</span>
+            </div>
+        </div>
+    </script>
+
+
+    <script type="text/x-jquery-tmpl" id="Col3">
+        <div class=" col-md-3 item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class="droppeble-element" data-element="true"  data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+                <span data-textsample="true">بدن خالی</span>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="Col4">
+        <div class=" col-md-4 item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class="droppeble-element" data-element="true"  data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+                <span data-textsample="true">بدن خالی</span>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="tabliTmpl">
+        <li class="nav-item" >
+              <button class="nav-link" tab-id="#${id}">
+                 <span>تب جدید</span>
+                   <i class="fa fa-times  " aria-hidden="true"> </i>
+               </button>
+           </li>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="tabpageTmpl">
+        <div id="${id}" role-systemPage="true" class="tabcontent  d-none  droppeble-element">
+            <span data-textsample="true">بدنه تب جدید</span>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="tabTmpl">
+        <div class="item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class=" " data-element="true"   data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+
+                <div class="tab" role-systemtab="true">
+                    <ul class="nav nav-pills nav-justified" role-systemlabel="true">
+
+                           <li class="nav-item " >
+                             <button class="nav-link active" tab-id="#tab1${id}">
+                               <span>تب اول</span>
+                               <i class="fa fa-times  " aria-hidden="true"> </i>
+                             </button>
+                           </li>
+                          <li class="nav-item" >
+                              <button class="nav-link" tab-id="#tab2${id}">
+                                    <span>تب دوم</span>
+                                   <i class="fa fa-times  " aria-hidden="true"> </i>
+                             </button>
+
+                          </li>
+                         <li class="nav-item" >
+                            <button class="nav-link" tab-id="#tab3${id}">
+                               <span>تب سوم</span>
+                                 <i class="fa fa-times  " aria-hidden="true"> </i>
+                             </button>
+                         </li>
+                         <li class="nav-item" >
+                            <button class="btn btn-light-info" data-action="addNewTab">
+                               <span>تب جدید</span>
+                                 <i class="fa fa-plus" aria-hidden="true"> </i>
+                             </button>
+                         </li>
+
+                    </ul>
+
+                </div>
+                <div role-systemPageGroup="true">
+
+                            <div id="tab1${id}" role-systemPage="true" class="tabcontent   droppeble-element">
+                                <span data-textsample="true">بدنه تب اول</span>
+                            </div>
+
+                            <div id="tab2${id}"   role-systemPage="true" class="tabcontent d-none droppeble-element">
+                               <span data-textsample="true">بدنه تب دوم</span>
+                            </div>
+
+                            <div id="tab3${id}"   role-systemPage="true"  class="tabcontent d-none droppeble-element">
+                                  <span data-textsample="true">بدنه تب سوم</span>
+                            </div>
+                      </div>
+            </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="gridviewTmpl">
+        <div class="item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+           <div class="card"  data-element="true"data-element="true"  data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+           <div class="card-header border-0 pt-5">
+                                         <div class="card-toolbar">
+                                                    <a href="#" class="btn btn-sm btn-light-success" data-action="addnewRow">
+                                                    <i class="ki-duotone ki-plus fs-2"></i> جدید</a>
+                                                </div>
+                                                <h3 class="card-title align-items-end flex-column">
+                                                    <span class="card-label fw-bold fs-3 mb-1"> </span>
+                                                </h3>
+                                            </div>
+           <div class="card-body">
+
+
+             <div class="table-responsive scroll-horizontal-vertical " >
+                <table class="table table-striped  table-bordered">
+                    <thead>
+                        <tr>
+                            <th>
+                            ستون اول
+                            </th>
+                             <th>
+                            ستون دوم
+                            </th>
+                        </tr>
+                    </thead>
+                        <tbody>
+                         <tr>
+                             <td colspan ="2">
+                             بدون اطلاعات
+                             </td>
+                         </tr>
+                        </tbody>
+                </tabel>
+           </div>
+            </div>
+           </div>
+        </div>
+    </script>
+
+    <script type="text/x-jquery-tmpl" id="cardTmpl">
+        <div class="  item">
+        <i class="fas fa-expand-arrows-alt" data-handler="true"></i>
+            <div class="" data-element="true"   data-parentId="${parentId}" data-id="${id}" data-pageid="${pageId}" data-componetIndex="${componetIndex}">
+                 <div class="card">
+                    <div class="card-header">
+                       سر صفحه کارت
+                    </div>
+                    <div class="card-body droppeble-element row">
+                         <span data-textsample="true">بدنه کارت</span>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    </script>
+
+    <script src="~/panelLib/plugins/custom/draggable/draggable.boundle.js"></script>
+    <script>
+
+
+        let listOffields = [];
+        let arrayofFeilds = [];
+ 
+        let tmpId = KTUtil.getUniqueId("page");
+        let designbuilder = [
+            {
+                id: tmpId,
+                classes: [],
+                styles: {},
+                childrens: []
+            }
+        ];
+
+        $("#addfield").click(function () {
+            openDialog();
+        });
+
+        const tabelFeild = new Draggable.Sortable(
+            $("#tableDesignPlace")[0],
+            {
+                draggable: '[data-sortTabelFeild=true]',
+                handle: "[data-handler=true]",
+                mirror: {
+                    constrainDimensions: true,
+                },
+            }
+        );
+
+
+ 
+
+
+        function openDialog(model) {
+            debugger
+
+            let $t = $(`
+
+            <div class="row col-md-12 p-3 justify-content-center">
+            <input type="hidden" data-bind="id" />
+              <input type="hidden" data-bind="parentId" />
+            <div class="mt-1">
+                <label class="required form-label">نام </label>
+                <input type="text" data-invalidMessage='فقط حروف لاتین'  data-inputmask="'regex':'^[A-Za-z][A-Za-z0-9]*$' , 'placeholder' : ''" class="form-control " data-bind="name" ${model?.name ? 'disabled' : ''} />
+            </div>
+              <div class="mt-1">
+                <label class="required form-label">عنوان </label>
+                <input type="text" class="form-control " data-bind="displayName" />
+            </div>
+             <div class="form-check mt-5 px-12">
+                <input class="form-check-input" type="checkbox" data-bind="required" id="flexCheckDefaultrequired" />
+                <label class="form-check-label" for="flexCheckDefaultrequired">
+                اجباری
+                </label>
+            </div>
+             <div class="mt-1">
+                <label class=" form-label">توضیحات </label>
+                <input type="text" class="form-control " data-bind="helperText" />
+            </div>
+             <div class="mt-1 d-none"  data-actiontyep="string long bool">
+                <label class=" form-label ">مقدار پیشفرض </label>
+                <input type="text" class="form-control " data-bind="defaultValue" />
+            </div>
+             <div class="mt-1">
+                <label class=" form-label">نوع فیلد </label>
+               <select  class="form-control" data-bind="fieldType" ${model?.fieldType ? 'disabled' : ''}>
+                        <option value="string">متن</option>
+                        <option value="long">عداد</option>
+                        <option value="autoNumber">شمارنده خودکار</option>
+                        <option value="guid">شناسه یکتا</option>
+                        <option value="file">فایل</option>
+                        <option value="date">تاریخ</option>
+                        <option value="time">ساعت</option>
+                        <option value="dateTime">تاریخ ساعت</option>
+                        <option value="bool">صحیح و غلط</option>
+                        <option value="select">چندمقداری</option>
+                        <option value="document">سند</option>
+                      </select>
+            </div>
+             <div class="mt-1 d-none" data-actiontyep="document">
+                <label class=" form-label">نوع سند </label>
+               <select  class="form-control" data-bind="documentType">
+                   <option value="" disabled>
+                            انتخاب کنید
+                          </option>
+                          <option value="subDocument">زیرآیتم تکی</option>
+                          <option value="subArrayDocument">زیر آیتم مجموعه</option>
+                          <option value="subDocumentExist">
+                            زیر آیتم سند موجود تکی
+                          </option>
+                          <option value="subArrayDocumentExist">
+                            زیر آیتم سند موجود مجموعه
+                          </option>
+                      </select>
+            </div>
+               <div class="mt-1 d-none"  data-actiontyep="autoNumber">
+                <label class=" form-label"> شروع </label>
+                <input type="text" class="form-control " data-bind="autoNumberStart" />
+            </div>
+
+              <div class="mt-1 d-none" data-actiontyep="autoNumber">
+                <label class=" form-label"> پرش </label>
+                <input type="text" class="form-control " data-bind="autoNumberStep" />
+            </div>
+
+
+
+            <div class="mt-1 d-none" data-actiontyep="file">
+                <label class=" form-label">نوع فایل </label>
+               <select  class="form-control" data-bind="fileTypeFormat">
+                            <option value="">فرمت خاص</option>
+                            <option value="*.png *.jpg *.jpge">تصویر</option>
+                            <option value="*.docm *.docx *.dot *.dotx">word</option>
+                            <option value="*.pdf">pdf</option>
+                      </select>
+            </div>
+
+             <div class="mt-1 d-none" data-actiontyep="file">
+                <label class=" form-label"> فرمت فایل </label>
+                <input dir="ltr" type="text" class="form-control " data-bind="customFileTypeFormat" placeholder="فرمت فایل *.png *.doc *.xlsx ..." />
+            </div>
+
+            <div class="row mt-1 d-none"  data-actiontyep="file">
+                <div class="col-md-6">
+                    <label class=" form-label"> حداقل حجم </label>
+                <input type="text" class="form-control " data-bind="minFileSize" />
+                </div>
+                 <div class="col-md-6">
+                     <label class=" form-label"> حداکثر حجم </label>
+                <input type="text" class="form-control " data-bind="maxFileSize" />
+                </div>
+            </div>
+
+              <div class="row mt-1 d-none"  data-actiontyep="string">
+                <div class="col-md-6">
+                    <label class=" form-label">حداقل کاراکتر </label>
+                <input type="text" class="form-control " data-bind="minLength" />
+                </div>
+                 <div class="col-md-6">
+                     <label class=" form-label">حداکثر کاراکتر </label>
+                   <input type="text" class="form-control " data-bind="maxLength" />
+                </div>
+            </div>
+             <div class="col-md-12 mt-2  ms-2 d-none"  data-actiontyep="string">
+
+             <div class="form-check">
+                <input class="form-check-input" type="checkbox" data-bind="multiLine" id="flexCheckDefault" />
+                <label class="form-check-label" for="flexCheckDefault">
+                   چند خطی
+                </label>
+            </div>
+
+            </div>
+             <div class="col-md-12 mt-2 ms-2"  >
+
+                <div class="form-check">
+                <input class="form-check-input" type="checkbox" data-bind="readOnly" id="readOnlyDefault" />
+                <label class="form-check-label" for="readOnlyDefault">
+                   فقط خواندنی
+                </label>
+
+            </div>
+
+                </div>
+
+                 <div class="mt-1 d-none"  data-actiontyep="string">
+                    <label class=" form-label"> فرمت خاص </label>
+                    <input dir="ltr" type="text"  class="form-control " data-bind="customStringRegex" placeholder="فرمت خاص" />
+               </div>
+
+               <div class="border border-2 col-md-12 mt-3 p-3 d-none"  style="max-width: 95%;"  data-actiontyep="select">
+                <div id="optionSection">
+                </div>
+                <button id="addOptions" class="btn btn-light-success" style="width: 100%;">
+                      افزودن
+                    </button>
+               </div>
+
+            </div>
+            `);
+
+            if (model !== undefined) {
+                $t.dataBind(model);
+            }
+
+            $t.find("[data-bind='fieldType']").change(function () {
+                debugger
+                let type = $(this).val();
+
+                $t.find(`[data-actiontyep]`)
+                    .each((c, d) => {
+                        let dat = $(d).attr("data-actiontyep");
+                        if (dat.includes(type)) {
+                            $(d).removeClass("d-none");
+                        }
+                        else {
+                            $(d).addClass("d-none");
+                        }
+                    })
+
+            }).change();
+
+
+            const sortable = new Draggable.Sortable(
+                $t.find("#optionSection")[0],
+                {
+                    draggable: '[data-op=true]',
+                    handle: "[data-handeler=i]",
+                    mirror: {
+                        constrainDimensions: true,
+                    },
+                });
+
+            $t.find("#addOptions").click(function () {
+
+                let $ttpa = $("#keyValueTmpl").tmpl();
+
+                $ttpa.find("[data-action=removeOption]").click(function () {
+                    $ttpa.remove();
+                })
+
+                $t.find("#optionSection").append($ttpa);
+
+
+            });
+
+
+
+
+
+
+            $t.find("[data-inputmask]").inputmask();
+
+
+
+
+            $.confirm({
+                title: "ایجاد فیلد",
+                content: $t,
+                buttons: {
+
+                    somethingElse: {
+                        text: 'ایجاد',
+                        btnClass: 'btn-blue',
+                        action: function () {
+                            debugger
+                            let feildModel = this.$content.dataBind();
+                            feildModel.fieldTypeTitle = this.$content.find("[data-bind=fieldType] option:selected").text();
+
+
+                            if (feildModel.fieldType === "select") {
+
+                                let arrOpt = [];
+                                this.$content.find("#optionSection [data-op]").each((i, c) => {
+                                    let mdb = $(c).dataBind();
+                                    mdb.order = i;
+                                    arrOpt.push(
+                                        mdb
+                                    );
+                                })
+                                feildModel.options = arrOpt;
+                            }
+
+                            return addFeild(feildModel);
+                        }
+                    },
+                    close: {
+                        text: 'بستن',
+                        btnClass: 'btn-red',
+                        action: function () {
+
+                        }
+                    }
+                }
+            });
+
+        }
+
+
+        function renderfields() {
+
+            debugger
+
+            $("#fieldsPlace").html("");
+            $("#fieldsPlace").append(field(listOffields));
+
+
+        }
+
+        function renderDragDrop() {
+
+            $("#designPlace").find(".mainDropPage").attr("data-parentid", tmpId)
+
+            const droppable = new Draggable.Draggable(
+                [$(".drp")[0], $(".drp")[1], $(".drp")[2]], {
+
+                draggable: '.item',
+                handle: "[data-handler=true]",
+
+            });
+
+
+            const sortable2 = new Draggable.Sortable(
+                $("#designPlace").find(".mainDropPage")[0],
+                {
+                    draggable: '.item',
+                    handle: "[data-handler=true]",
+                    mirror: {
+                        constrainDimensions: true,
+                    },
+                });
+
+
+            droppable.on('drag:stop', (evt) => {
+
+                debugger
+                evt.cancel();
+
+                let typeComponet = evt.source.dataset.componetdrop;
+                let tmplId = evt.source.dataset.tmplid;
+
+                if ($("#designPlace").find(".dropzone").length !== 0) {
+
+                    let parentEl = $("#designPlace").find(".dropzone").last();
+                    let addComponetId = KTUtil.getUniqueId("component");
+
+                    let dataparentId = parentEl.data("parentid");
+
+                    if (!dataparentId) {
+                        dataparentId = parentEl.closest("[data-parentId]").data("parentid")
+                    }
+
+                    let ddParentId = dataparentId + "-" + addComponetId;
+
+                    let pageId = tmpId;
+
+                    let currentPage = designbuilder.firstOrDefault(c => c.id === pageId);
+                    let currentComponent = currentPage;
+                    let componetIndex = 1;
+
+                    if (currentPage.childrens.length !== 0) {
+                        let listParentId = ddParentId.split('-').slice(1);
+
+                        listParentId.forEach(c => {
+                            if (currentComponent.childrens.length !== 0 && currentComponent.childrens.any(z => z.id === c)) {
+                                componetIndex++;
+                                currentComponent = currentComponent.childrens.firstOrDefault(z => z.id === c);
+                            }
+                        });
+
+                    }
+
+                    let $tpl = {};
+                    if (typeComponet === "feild") {
+
+                        let feildId = evt.source.dataset.feildid;
+                        let parentidfeildid = evt.source.dataset.parentidfeildid;
+
+                        var objectUpdate = listOffields;
+
+
+                        if (parentidfeildid) {
+
+                            const parentIds = parentidfeildid.split("-");
+
+
+                            parentIds.forEach(ids => {
+                                if (!KTUtil.isEmpty(ids)) {
+                                    if (KTUtil.isArray(objectUpdate)) {
+                                        objectUpdate = objectUpdate.filter(c => c.id == ids)[0];
+
+
+                                    }
+                                    else {
+                                        objectUpdate = objectUpdate.fields.filter(c => c.id == ids)[0];
+                                    }
+
+
+                                }
+
+                            });
+
+                        }
+
+                        let tmpId = KTUtil.getUniqueId("radio");
+
+                        if (objectUpdate.fieldType === "document") {
+                            parentEl.removeClass("dropzone")
+                            return error2("امکان افزودن سند به طراحی نمیباشد.");
+                        }
+                        $tpl = $("#feildElementTmpl").tmpl({ parentId: ddParentId, id: addComponetId, pageId: pageId, componetIndex, ...objectUpdate, tmpId });
+
+                    }
+                    else {
+                        $tpl = $(tmplId).tmpl({ parentId: ddParentId, id: addComponetId, pageId: pageId, componetIndex });
+
+                        if (typeComponet === "tab") {
+                            $tpl.find(".nav-link").click(function () {
+                                debugger
+                                let tabId = $(this).attr("tab-id");
+                                $(this).closest("ul").find(".active").removeClass("active")
+                                $(this).addClass("active")
+                                $tpl.find("[role-systemPage]").addClass("d-none")
+                                $tpl.find(tabId).removeClass("d-none");
+
+                            });
+
+                            $tpl.find(".nav-link i").click(function () {
+                                debugger
+
+                                if ($tpl.find(".nav-link").length === 1) {
+                                    return;
+                                }
+
+                                let tabId = $(this).closest(".nav-link").attr("tab-id");
+                                $(this).closest(".nav-item").remove();
+                                $tpl.find(tabId).remove();
+
+                            });
+
+                            $tpl.find("[data-action=addNewTab]").click(function () {
+                                let newtabid = KTUtil.getUniqueId("tab");
+
+                                let $tli = $("#tabliTmpl").tmpl({ id: newtabid });
+
+                                let $tpt = $("#tabpageTmpl").tmpl({ id: newtabid });
+
+                                $tpl.find("[data-action=addNewTab]").parent().before($tli);
+
+                                $tpl.find("[role-systemPageGroup=true]").append($tpt);
+
+                                $tli.dblclick(function () {
+                                    var $this = $(this).find("span");
+                                    $this.attr('contentEditable', true);
+                                    $this.on('blur', function () {
+                                        $this.attr('contentEditable', false);
+                                    });
+                                });
+
+
+                                $tli.find("i").click(function () {
+                                    debugger
+
+                                    if ($tpl.find(".nav-link").length === 1) {
+                                        return;
+                                    }
+
+                                    let tabId = $(this).closest(".nav-link").attr("tab-id");
+                                    $(this).closest(".nav-item").remove();
+                                    $tpl.find(tabId).remove();
+
+                                });
+
+
+                                $tli.find(".nav-link").click(function () {
+                                    debugger
+                                    let tabId = $(this).attr("tab-id");
+                                    $(this).closest("ul").find(".active").removeClass("active")
+                                    $(this).addClass("active")
+                                    $tpl.find("[role-systemPage]").addClass("d-none")
+                                    $tpl.find(tabId).removeClass("d-none");
+
+                                });
+
+                            })
+
+                            $tpl.find(".nav-link").dblclick(function () {
+                                var $this = $(this).find("span");
+                                $this.attr('contentEditable', true);
+                                $this.on('blur', function () {
+                                    $this.attr('contentEditable', false);
+                                });
+                            });
+                        }
+
+                    }
+
+                    let $ttlTpl = $("#tooltipTmpl").tmpl({ id: addComponetId, parentId: ddParentId });
+
+                    $ttlTpl.find("[data-action=remove]").click(function () {
+                        debugger;
+
+                        let id = $(this).data("containerid");
+                        let containerparentid = $(this).data("containerparentid");
+
+                        let listParentId = containerparentid.split('-');
+
+                        let currentComponent = designbuilder.firstOrDefault(c => c.id === listParentId[0]);
+
+                        listParentId = listParentId.slice(1)
+
+                        if (listParentId.length === 1) {
+                            currentComponent.childrens.firstOrDefault(z => z.id === id).$el.remove();
+                            currentComponent.childrens.firstOrDefault(z => z.id === id).$parent.removeClass("draggable-dropzone--occupied");
+                            currentComponent.childrens.remove(z => z.id === id);
+                        }
+                        else {
+                            listParentId.forEach(c => {
+
+                                if ((currentComponent.parentId + "-" + id) !== containerparentid) {
+                                    if (currentComponent.childrens.length !== 0) {
+                                        currentComponent = currentComponent.childrens.firstOrDefault(z => z.id === c);
+                                    }
+                                }
+                                else {
+                                    currentComponent.childrens.firstOrDefault(z => z.id === id).$el.remove();
+                                    currentComponent.childrens.firstOrDefault(z => z.id === id).$parent.removeClass("draggable-dropzone--occupied");
+                                    currentComponent.childrens.remove(z => z.id === id);
+                                }
+
+                            });
+
+                        }
+
+
+
+
+
+                    })
+
+                    $ttlTpl.find("[data-action=edit]").click(function () {
+
+                        debugger
+                        let objEdit = {}
+
+                        objEdit.html = $tpl.html();
+                        objEdit.css = $tpl.find("[data-element]").attr("style");
+                        objEdit.classes = $tpl.find("[data-element]").attr("class").replace("droppeble-element", "");
+                        objEdit.typeComponet = typeComponet;
+
+
+                        let $tplHtmlEdit = $("#tooltipElmentEditTmpl").tmpl(objEdit);
+
+                        if (typeComponet === "gridview") {
+                            readAllDocumentArrayfields(listOffields).forEach(lof => {
+                                $tplHtmlEdit.find("#feildDocumentArray").append(
+                                    `<option value="${lof.id}">${lof.displayName}</option>`
+                                );
+                            });
+
+                            $tplHtmlEdit.find("#feildDocumentArray").change(function () {
+                                if ($(this).val() == "100") { }
+                                else {
+
+                                    findArrayfieldsById($(this).val(), listOffields).forEach(fbi => {
+                                        let $fast = $("#feildArraySecTmpl").tmpl(fbi);
+                                        $tplHtmlEdit.find("#feildArraySec").append($fast)
+                                    })
+
+                                }
+
+
+
+
+                            })
+
+                        }
+
+                        var newjsEditor = ace.edit($tplHtmlEdit.find("#newjsEditor")[0]);
+                        newjsEditor.setTheme('ace/theme/chrome');
+                        newjsEditor.session.setMode('ace/mode/html');
+
+                        newjsEditor.setValue(objEdit.html);
+                        beautify.beautify(newjsEditor.session);
+
+
+
+                        $tplHtmlEdit.find("[name=htmlOrGraf]").change(function () {
+                            if ($(this).val() === "html") {
+                                $tplHtmlEdit.find("#htmlSection").removeClass("d-none")
+                                $tplHtmlEdit.find("#graphicSection").addClass("d-none")
+                            }
+                            else {
+                                $tplHtmlEdit.find("#graphicSection").removeClass("d-none")
+                                $tplHtmlEdit.find("#htmlSection").addClass("d-none")
+                            }
+                        })
+
+
+
+
+                        $.confirm({
+                            title: "ویرایش طراحی",
+                            content: $tplHtmlEdit,
+                            columnClass: "col-md-12",
+                            buttons: {
+                                accept: {
+                                    text: 'ثبت',
+                                    btnClass: 'btn btn-success',
+                                    action: function () {
+                                        debugger
+                                        let typeEdit = this.$content.find("[name=htmlOrGraf]:checked").val();
+
+                                        if (typeEdit === "html") {
+
+                                            $tpl.html(newjsEditor.getValue());
+
+                                        }
+                                        else {
+                                            $tpl.find("[data-element]").attr("style", this.$content.find("[data-bind=styles]").val());
+                                            $tpl.find("[data-element]").attr("class", this.$content.find("[data-bind=classes]").val() + " droppeble-element");
+
+                                            if (typeComponet === "gridview") {
+
+                                                let cols = this.$content.find("[data-feildName]:checked").map((i, c) => {
+                                                    return { name: $(c).attr("data-feildName"), displayName: $(c).attr("data-feilddisplayname"), id: $(c).attr("data-feildid") }
+                                                }).get()
+
+                                                $tpl.find("table thead tr").html("");
+                                                $tpl.find("table tbody tr").html("");
+                                                $tpl.find("[data-rowTempl]").remove();
+
+                                                $tpl.find("table thead tr").append("<th>#</th>")
+                                                let $trow = $(`<tr></tr>`)
+
+                                                $trow.append($(`<td class="min-w-200px">
+                                                                        <a href="#" class="btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1">
+                                                                            <i class="ki-duotone ki-switch fs-2">
+                                                                                <span class="path1"></span>
+                                                                                <span class="path2"></span>
+                                                                            </i>
+                                                                        </a>
+
+                                                                        <a href="#" class="btn btn-icon btn-bg-light btn-active-color-primary btn-sm">
+                                                                            <i class="ki-duotone ki-trash fs-2">
+                                                                                <span class="path1"></span>
+                                                                                <span class="path2"></span>
+                                                                                <span class="path3"></span>
+                                                                                <span class="path4"></span>
+                                                                                <span class="path5"></span>
+                                                                            </i>
+                                                                        </a>
+                                                                    </td>
+                                                                    `))
+
+
+                                                cols.forEach(c => {
+
+                                                    $tpl.find("table thead tr").append(`<th class="min-w-200px">${c.displayName}</th>`);
+
+                                                    let fieldCol = arrayofFeilds.firstOrDefault(d => d.id === c.id);
+
+                                                    let $ttps = $("#feildElementColTabelTmpl").tmpl(fieldCol);
+
+                                                    $trow.append($ttps);
+                                                });
+
+                                                let idRowBodyId = KTUtil.getUniqueId("idRowBodyId");
+
+                                                $tpl.find("[data-action=addnewRow]").attr("data-tmplrowId", "#" + idRowBodyId);
+
+                                                $trow.addClass("d-none");
+
+                                                $trow.attr("id", idRowBodyId);
+                                                $trow.attr("data-rowTempl", true);
+
+                                                $tpl.find(".card").append($trow);
+
+                                                $tpl.find("[data-action=addnewRow]").unbind('click');
+
+                                                $tpl.find("[data-action=addnewRow]").click(function () {
+                                                    let d = $($(this).attr("data-tmplrowId")).clone();
+                                                    d.removeClass("d-none");
+                                                    d.removeAttr("id");
+                                                    $tpl.find("table tbody").append(d)
+                                                })
+
+
+                                            }
+                                        }
+
+
+                                    }
+                                },
+
+                                close: {
+                                    text: 'بستن',
+                                    btnClass: 'btn btn-danger',
+                                    action: function () {
+
+                                    }
+                                }
+                            }
+                        })
+                    })
+
+                    let tolpOption = {
+                        html: true,
+                        title: $ttlTpl,
+                        delay: { hide: 2000 },
+                        dismiss: "click"
+                    }
+
+
+
+                    const tooltip = new bootstrap.Tooltip($tpl[0], tolpOption);
+
+
+                    parentEl.find("[data-textsample=true]").remove();
+                    parentEl.append($tpl);
+
+
+                    currentComponent.childrens.push(
+                        {
+                            id: addComponetId,
+                            parentId: ddParentId,
+                            pageId: tmpId,
+                            $el: $tpl,
+                            $parent: parentEl,
+                            styles: {},
+                            classes: [],
+                            childrens: []
+                        }
+                    );
+
+                    parentEl.attr("data-dropzone", false)
+                    parentEl.attr("data-section", true)
+                    parentEl.removeClass("dropzone")
+
+
+                    var totalHeight = 0;
+
+                    $("#designPlace").find(".mainDropPage ").children().each(function () {
+                        totalHeight = totalHeight + $(this).outerHeight(true);
+                    });
+
+                    $(".mainDropPage").css("min-height", `${totalHeight + 150}px`)
+
+                }
+
+
+                initUploadFileDropzone($("#designPlace"))
+                $("#designPlace").find("[data-inputmask]").inputmask();
+                designEditorHtml.setValue($("#designPlace").html());
+                initPersionDatePicker($("#designPlace"))
+
+
+
+            });
+
+            droppable.on('drag:move', (evt) => {
+
+                $("#designPlace").find(".droppeble-element").removeClass("dropzone")
+
+                if ($(evt.originalEvent.toElement).hasClass("droppeble-element")) {
+                    $(evt.originalEvent.toElement).addClass("dropzone");
+                }
+            });
+
+            let droppableOrigin;
+
+        }
+
+        function field(renderfields) {
+
+            if (renderfields === undefined || renderfields.length === 0) {
+                return null;
+            }
+            return renderfields.map((f) => {
+
+                let idparentId = f.id;
+
+                if (!KTUtil.isEmpty(f.parentId)) {
+                    idparentId = f.parentId + '-' + idparentId;
+                }
+
+                let $feild = $(` <div>
+                            <div class="row item" data-parentIdFeildId=${idparentId} data-feildId=${f.id} data-componetDrop="feild" data-tmplId="#feildElement${f.fieldType}Tmpl">
+                                <div class="col-md-1">
+                                  <i class="fa fa-arrows-alt" aria-hidden="true" data-handler="true"></i>
+                                </div>
+                                <div class=" ${f.fieldType === "document" ? "col-md-3" : "col-md-7"} "> ${f.displayName}  -  ${f.fieldTypeTitle} </div>
+                                                        ${f.fieldType === "document" ? `
+                                                            <div class=" col-md-2">
+                                                                  <a   class=" hover-scale " role="button" data-action="${idparentId}addFeildToDocument">
+                                                                         <i class="ki-duotone ki-plus fs-2   text-success"></i>
+                                                                  </a>
+                                                                </div>
+
+                                                             <div class=" col-md-2">
+                                                                  <a  class=" hover-scale " role="button" data-action="${idparentId}toggleDocSection">
+
+                                                                      <i class="ki-duotone ki-double-down fs-2  text-info" data-taggle="${idparentId}hide">
+                                                                         <span class="path1"></span>
+                                                                         <span class="path2"></span>
+                                                                         <span class="path3"></span>
+                                                                    </i>
+
+                                                                     <i class="ki-duotone ki-double-up fs-2   text-info d-none" data-taggle="${idparentId}show">
+                                                                         <span class="path1"></span>
+                                                                         <span class="path2"></span>
+                                                                         <span class="path3"></span>
+                                                                    </i>
+
+                                                                  </a>
+                                                                </div>
+                                                            `: ``
+                    }
+                                                      <div class=" col-md-2">
+                                                          <a   class=" hover-scale " role="button" data-action="${idparentId}edit">
+                                                            <i class="ki-duotone ki-pencil fs-2   text-warning ">
+                                                                        <span class="path1"></span>
+                                                                        <span class="path2"></span>
+                                                                    </i>
+                                                          </a>
+                                                        </div>
+                                                         <div class=" col-md-2">
+                                                            <a  class="hover-scale " role="button" data-action="${idparentId}remove">
+                                                            <i class="ki-duotone ki-trash  fs-2  text-danger ">
+                                                                     <span class="path1"></span>
+                                                                     <span class="path2"></span>
+                                                                     <span class="path3"></span>
+                                                                     <span class="path4"></span>
+                                                                     <span class="path5"></span>
+                                                                    </i>
+                                                                   </a>
+                                                        </div>
+                                    </div>
+                                     ${f.fieldType === "document" ? `
+                                         <div data-parentId="${idparentId}" class="d-none">
+
+                                         </div>
+                                         `
+                        : ``
+                    }
+
+                                   </div> `
+                );
+                if (f.fields && f.fields.length !== 0) {
+
+                    $feild.find("[data-parentId]").append(field(f.fields));
+
+                    $feild.find(`[data-action=${idparentId}toggleDocSection]`).click(function () {
+                        let $divhide = $feild.find(`[data-parentId="${idparentId}"]`);
+
+                        if ($feild.find(`[data-action=${idparentId}toggleDocSection]`).find(".d-none").data("taggle") === `${idparentId}hide`) {
+                            $feild.find(`[data-action=${idparentId}toggleDocSection]`).find(`[data-taggle=${idparentId}hide]`).removeClass("d-none")
+                            $feild.find(`[data-action=${idparentId}toggleDocSection]`).find(`[data-taggle=${idparentId}show]`).addClass("d-none")
+                        }
+                        else {
+                            $feild.find(`[data-action=${idparentId}toggleDocSection]`).find(`[data-taggle=${idparentId}show]`).removeClass("d-none")
+                            $feild.find(`[data-action=${idparentId}toggleDocSection]`).find(`[data-taggle=${idparentId}hide]`).addClass("d-none")
+                        }
+
+                        $divhide.toggleClass("d-none");
+
+                    });
+
+                }
+
+                $feild.find(`[data-action=${idparentId}edit]`).click(function () {
+                    openDialog(f);
+                });
+
+                $feild.find(`[data-action=${idparentId}remove]`).click(function () {
+                    removeFeild(f.id, idparentId)
+                });
+
+                $feild.find(`[data-action=${idparentId}addFeildToDocument]`).click(function () {
+
+                    openDialog({ parentId: `${idparentId}` });
+                });
+
+
+                return $feild;
+            })
+
+        }
+
+        function removeFeild(id, parentId) {
+
+            $.confirm({
+                title: "حذف فیلد",
+                content: $(`<div class='col-md-12'> <span>آیا فیلد حذف شود ؟</span></div>`),
+                buttons: {
+
+                    somethingElse: {
+                        text: 'حذف',
+                        btnClass: 'btn btn-light-danger',
+                        action: function () {
+                            debugger
+
+                            let objectUpdate = listOffields;
+
+                            if (parentId) {
+
+                                const parentIds = parentId.split("-");
+
+
+                                parentIds.forEach(ids => {
+                                    if (!KTUtil.isEmpty(ids)) {
+                                        if (KTUtil.isArray(objectUpdate)) {
+                                            objectUpdate.remove(c => c.id === ids);
+
+                                        }
+                                        else {
+                                            objectUpdate.fields.remove(c => c.id === ids);
+                                        }
+
+
+                                    }
+
+                                });
+
+                            }
+                            renderfields();
+                            arrayofFeilds.remove(c => c.id === id)
+                        }
+                    },
+                    close: {
+                        text: 'انصراف',
+                        btnClass: 'btn btn-danger',
+                        action: function () {
+
+                        }
+                    }
+                }
+            });
+
+        }
+
+        function addFeild(feildModel) {
+            debugger
+
+            let pathObject = `data`;
+            feildModel.id = KTUtil.isEmpty(feildModel?.id) ? KTUtil.getUniqueId("feild") : feildModel?.id;
+
+            let objectUpdate = listOffields;
+
+            if (feildModel.parentId) {
+
+                const parentIds = feildModel?.parentId.split("-");
+
+
+                parentIds.forEach(ids => {
+                    if (!KTUtil.isEmpty(ids)) {
+                        if (KTUtil.isArray(objectUpdate)) {
+                            objectUpdate = objectUpdate.filter(c => c.id == ids)[0];
+
+
+                        }
+                        else {
+                            objectUpdate = objectUpdate.fields.filter(c => c.id == ids)[0];
+                        }
+
+                        pathObject += `.${objectUpdate.name}`
+                    }
+
+                });
+
+            }
+
+            feildModel.path = pathObject;
+
+            if (KTUtil.isArray(objectUpdate)) {
+
+                objectUpdate.remove(c => c.id === feildModel.id);
+                objectUpdate.push(feildModel);
+
+            }
+            else {
+                if (!objectUpdate.fields) {
+                    objectUpdate.fields = [];
+                }
+
+                objectUpdate.fields.remove(c => c.id === feildModel.id);
+                objectUpdate.fields.push(feildModel);
+
+            }
+            arrayofFeilds.remove(c => c.id === feildModel.id);
+            arrayofFeilds.push(feildModel);
+
+
+            renderfields();
+            return true;
+        }
+
+        renderfields();
+        renderDragDrop();
+
+        $("#design-tab").click(function () {
+            debugger
+
+
+            beautify.beautify(designEditorHtml.session);
+
+        })
+
+        $("#field-tab").click(function () {
+
+            //  $$.designPlace.html(designEditorHtml.getValue());
+        })
+
+        $("#addCol").click(function () {
+
+            debugger;
+
+            let $t = $("#tabelDesignTmpl").tmpl();
+
+            $t.find("[data-action=removeFeildTabel]").click(function () {
+                $t.remove();
+            })
+
+            readAllfields(listOffields).forEach(c => {
+                $t.find("[multiple]").append(
+                    `<option value="${c.path}" data-feildId="${c.id}"> ${c.displayName}</option>`
+                )
+            })
+
+
+            $t.find("[multiple]").select2({
+                dir: "rtl",
+                dropdownAutoWidth: true,
+            });
+
+            $("#tableDesignPlace").append($t)
+        })
+
+        function readAllfields(fields, parentName = "") {
+
+            let listfields = [];
+
+            fields.forEach(c => {
+                if (c.fieldType === "document" && c.documentType === "subDocument") {
+                    var d = readAllfields(c.fields, c.displayName);
+                    listfields.push(...d)
+
+                }
+                else {
+                    listfields.push(
+                        { displayName: parentName + "." + c.displayName, path: c.path + "." + c.name }
+                    )
+                }
+
+            });
+            return listfields;
+        }
+
+        function readAllDocumentArrayfields(fields, parentName = "") {
+
+            let listfields = [];
+
+            fields.forEach(c => {
+                if (c.fieldType === "document" && c.documentType === "subDocument") {
+                    var d = readAllfields(c.fields, c.displayName);
+                    listfields.push(...d)
+
+                }
+                else if (c.fieldType === "document" && c.documentType === "subArrayDocument") {
+                    listfields.push(
+                        { id: c.id, displayName: parentName + "." + c.displayName, path: c.path + "." + c.name }
+                    )
+                }
+
+            });
+            return listfields;
+        }
+
+        function findArrayfieldsById(id, fields) {
+            let listfeilds = [];
+            fields.forEach(c => {
+                if (c.id === id) {
+                    listfeilds = c.fields;
+                }
+                else if (c.fieldType === "document" && c.documentType === "subArrayDocument") {
+
+                }
+                else if (c.fieldType === "document" && c.documentType === "subDocument") {
+                    listfeilds = findArrayfieldsById(id, c.fields);
+                }
+
+
+            });
+            return listfeilds;
+        }
+
+        function findfieldsById(id, fields) {
+            let listfeilds = {};
+            fields.forEach(c => {
+                if (c.id === id) {
+                    listfeilds = c;
+                }
+                else if (c.fieldType === "document" && c.documentType === "subArrayDocument") {
+                    listfeilds = findArrayfieldsById(id, c.fields);
+                }
+                else if (c.fieldType === "document" && c.documentType === "subDocument") {
+                    listfeilds = findArrayfieldsById(id, c.fields);
+                }
+
+            });
+            if (listfeilds)
+                return listfeilds;
+        }
+
+
+        $("#publish").click(function () {
+
+            if (listOffields.length === 0)
+                return error2("هیچ فیلدی برای ذخیره سازی تعریف نشده است.");
+
+
+            debugger
+            let saveModel = {};
+            saveModel.className = $("[data-bind= className]").val();
+            saveModel.displayName = $("[data-bind= displayName]").val();
+
+            if (!saveModel.className) {
+                return error2("نام سند وارد نشده است.");
+            }
+
+            if (!saveModel.displayName) {
+                return error2("عنوان سند وارد نشده است.");
+            }
+
+            saveModel.fieldsSave = listOffields;
+            saveModel.saveHtml = $("#designPlace").html();
+
+            let $ts = $(saveModel.saveHtml);
+            $ts.find("[data-handler=true]").remove();
+            saveModel.saveHtml = $ts.html();
+
+
+
+            saveModel.tableInfo = $("#tabel").find("[data-sortTabelFeild]").map((i, c) => {
+                let rt = {};
+                rt.path = $(c).find("[multiple]").select2("val").join();
+                rt.title = $(c).find("[data-bind=title]").val();
+                rt.order = i
+                return rt
+            }).get();
+
+
+
+
+            post("/api/document/SaveNewDocument", saveModel, function (r) {
+
+                if (!r.isSuccess) return error2(r.message);
+
+
+                success2("ذخیره سازی با موفقیت انجام شد")
+
+            })
+
+
+
+        })
+
+
+    </script>
+
+}                       

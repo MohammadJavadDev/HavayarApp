@@ -1,0 +1,265 @@
+﻿@model Entities.Base.Menu.SystemMenu;
+@using Common.Attributes
+@using Common.Auth.Enums
+@using Common.Utilities
+@using Data.Contracts
+@using Entities.Auth
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@using ReportBuilder.Services.Contracts
+@using Services.AccessServices
+@inject IRepository<Role> serviceRole;
+@inject IAccessMemoryStorage ams;
+@inject IReportBuilderService reportBuilderService
+@{
+ 
+     // var reports = reportBuilderService.GetListReports();
+
+     var systemRoles = serviceRole.TableNoTracking.Select(c => new { c.Id, c.Name, c.Title }).ToArray();
+
+     var accessControllers = ams.GetAllAccessControllers();
+
+     if (Model == null)
+     {
+          
+     }
+    
+
+
+    // if (accessControllers.Any(c => c.Id == 564000))
+    // {
+    //     accessControllers.FirstOrDefault(c => c.Id == 564000).Actions = reports.Select(c => new AccessAction()
+    //             {
+    //                 Title = c.Title,
+    //                 Name = "Rep" + c.Title,
+    //                 Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
+    //                 ActionAccessType = ActionAccessType.View
+    //             }).ToList();
+    // }
+    // else
+    // {
+    //     var newAccessController = new AccessController()
+    //             {
+    //                 Title = "گزارشات",
+    //                 Name = "Reports",
+    //                 Id = 564000,
+    //                 Actions = reports.Select(c => new AccessAction()
+    //                 {
+    //                     Title = c.Title,
+    //                     Name = "Rep" + c.Title,
+    //                     Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
+    //                     ActionAccessType = ActionAccessType.View
+    //                 }).ToList()
+
+    //             };
+    //     accessControllers.Add(newAccessController);
+    // }
+
+}
+@section Style {
+    <link href="~/panelLib/plugins/custom/jstree/jstree.bundle.rtl.css" rel="stylesheet" type="text/css" />
+ }
+
+<div class="card" id="pageMenuBuilder">
+    <div class="card-header">
+        <div class='col-md-12 align-content-center  text-center  fa-2x justify-content-center'>
+            <span>منو</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 border border-3">
+                <div id="tree"></div>
+            </div>
+            <div class="col-md-4 align-content-center">
+                <div class="mb-3">
+                    <label>عنوان</label>
+                    <input id="title" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label>آیکن</label>
+                    <textarea id="icon" class="form-control" style="direction: ltr;"></textarea>
+                </div >
+                <div class="mb-4">
+                    <label>آدرس</label>
+                    <select id="url" class="form-control">
+                        @foreach (var i in accessControllers)
+                        {
+                            foreach (var action in i.Actions.Where(c=>c.ActionAccessType == ActionAccessType.View))
+                            {
+                                        <option value="@action.Path">@i.DisplayName - @action.DisplayName</option>
+                            }
+                        }
+                         
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <button class="btn btn-warning" id="editMenu" style="width: 100%"> ویرایش منو</button>
+                </div>
+                <div class="mb-3">
+                    <button class="btn btn-danger" id="removeMenu" style="width: 100%"> حذف منو</button>
+                </div>
+                <div class="mb-3">
+                    <button class="btn btn-info" id="addMenu" style="width: 100%"> افزودن منو</button>
+                </div>
+            </div>
+
+            <div class="col-md-4 align-content-center">
+                <div>
+                    <label>عنوان منو</label>
+                    <input id="menuTitle" class="form-control" asp-for="@Model.Title" />
+                    <input id="id" type="hidden" class="form-control" asp-for="@Model.Id" />
+                </div>
+                <div>
+                    <label>نام منو</label>
+                    <input id="menuName" class="form-control" asp-for="@Model.Name" />
+                </div>
+                <button class="btn btn-success" id="save" style="width: 100%"> ذخیره</button>
+             </div>
+            <div class="col-md-4 align-content-center">
+                <div class="form-group">
+                    <label>نقش</label>
+
+                    <select class="form-control" multiple="multiple" data-bind="accessRoles">
+
+                        @foreach (var r in systemRoles)
+                        {
+                            if (Model?.AccessRoles?.Contains(r.Name) ?? false)
+                            {
+                                <option value="@r.Name" selected>@r.Title</option>
+                            }
+                            else
+                            {
+                                <option value="@r.Name">@r.Title</option>
+                            }
+
+                        }
+
+                    </select>
+                </div>
+            </div>
+            </div>
+    </div>
+</div>
+<script src="~/panelLib/plugins/custom/jstree/jstree.bundle.js"></script>
+<script>
+      $$('select[multiple]').select2({
+          tags: true,
+          tokenSeparators: [',']
+      });
+
+      $$('#url').select2();
+
+      let dataz = [];
+
+      @if (Model?.Content == null || !Model.Content.HasValue(true))
+      {
+                    @Html.Raw("dataz = [")
+           ;
+               @foreach (var i in ams.GetAllAccessControllers())
+               {
+                                  var actions = i.Actions.Where(c => c.ActionAccessType == ActionAccessType.View).Select(c => $"{{\"text\" : \"{c.DisplayName}\" ,\"url\" : \"{c.Path}\" , \"a_attr\":{{\"href\":\"{c.Path}\"}}}}").ToList();
+                        var strActions = string.Join(",", actions);
+                                  @Html.Raw($"{{\"text\": \"{i.DisplayName} \",\"children\": [{strActions}]}}, ")
+               }
+
+               @Html.Raw("]")
+      }
+      else
+      {
+               @Html.Raw($"data = {Model.Content}")
+               ;
+      }
+
+
+
+      $$("#tree").jstree({
+          "core": {
+              "themes": {
+                  "responsive": false,
+              },
+              // so that create works
+              "check_callback": true,
+              'data':  dataz
+          },
+          "types": {
+              "default": {
+                  "icon": "ki-solid ki-folder text-success"
+              },
+              "file": {
+                  "icon": "ki-solid ki-file  text-success"
+              }
+          },
+          "state": { "key": "demo2" },
+          "plugins": ["dnd", "state", "types"]
+      });
+      let selecetdNode = null;
+      let sn = {};
+     $$('#tree').on('select_node.jstree',
+          function(e, data) {
+                 
+              selecetdNode = data.node;
+              sn = data;
+              $$("#title").val(data.node.text)
+              $$("#icon").val(data.node.icon)
+              $$("#url").val(data.node.original?.a_attr.href).change()
+          });
+
+     $$("#addMenu").click(function() {
+
+          $$("#tree").jstree('create_node', selecetdNode, { "text": "منو جدید" }, "last", false, false);
+
+      });
+
+      $$("#removeMenu").click(function () {
+
+          $$("#tree").jstree("delete_node", selecetdNode);
+          selecetdNode = null;
+
+      });
+
+      $$("#editMenu").click(function () {
+           debugger
+
+          selecetdNode.text = $("#title").val();
+          selecetdNode.icon = $("#icon").val();
+          selecetdNode.a_attr.href = $("#url").val();
+
+
+          $$('#tree').jstree(true).set_icon(selecetdNode, selecetdNode.icon);
+          $$('#tree').jstree(true).set_text(selecetdNode, selecetdNode.text)
+
+
+      });
+
+      $$("#save").click(function() {
+          debugger
+
+          var model = {};
+
+          model.title = $$("#menuTitle").val();
+          model.name = $$("#menuName").val();
+          model.content = JSON.stringify(menuItemConverter($$("#tree").jstree(true).get_json()));
+          model.accessRoles = $$("[data-bind=accessRoles]").val();
+          model.id = $$("#id").val();
+
+          $$.post("/System/MenuBuilder/Save", model, function (r) {
+              if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+              toastr.success("ذخیره سازی با موفقیت انجام شد .");
+          })
+
+      });
+
+      function menuItemConverter(p) {
+          let array = [];
+
+          array = p.map(c => {
+              return {
+                  text: c.text, icon: c.icon, path: c.a_attr.href, a_attr: { href: c.a_attr.href }, children: menuItemConverter(c.children)
+              }
+          });
+          return array;
+      }
+
+
+</script>

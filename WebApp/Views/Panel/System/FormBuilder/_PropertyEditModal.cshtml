@@ -1,0 +1,262 @@
+@using Common.Attributes;
+
+<!-- Property Edit Modal -->
+<div class="modal fade" id="propertyEditModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-lg modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3 class="modal-title">ویرایش ویژگی</h3>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<input type="hidden" id="editPropertyIndex" />
+				<input type="hidden" id="editPropertySectionId" />
+
+				<div class="row g-3">
+					<!-- Basic Info -->
+					<div class="col-md-6">
+						<label class="required">نام نمایشی (فارسی)</label>
+						<input type="text" class="form-control" id="editPropertyDisplayName"
+							placeholder="مثال: عنوان" />
+						<small class="form-text text-muted">
+							<i class="ki-duotone ki-information fs-5">
+								<span class="path1"></span>
+								<span class="path2"></span>
+								<span class="path3"></span>
+							</i>
+							نام انگلیسی به صورت خودکار تولید می‌شود
+						</small>
+					</div>
+
+					<div class="col-md-6">
+						<label class="required">نام ویژگی (Property Name)</label>
+						<div class="input-group">
+							<input type="text" class="form-control" id="editPropertyName" placeholder="مثال: Title" />
+							<button type="button" class="btn btn-light-primary" id="btnRegeneratePropertyName"
+								title="تولید مجدد">
+								<i class="ki-duotone ki-arrows-circle fs-2">
+									<span class="path1"></span>
+									<span class="path2"></span>
+								</i>
+							</button>
+						</div>
+						<small class="form-text text-success" id="propertyNameStatus" style="display: none;">
+							<i class="ki-duotone ki-check-circle fs-5">
+								<span class="path1"></span>
+								<span class="path2"></span>
+							</i>
+							<span></span>
+						</small>
+					</div>
+
+					<div class="col-md-6">
+						<label class="required">نوع سیستم</label>
+						<select class="form-select" id="editPropertySystemType">
+							<option value="">انتخاب کنید...</option>
+							@foreach (SystemType type in Enum.GetValues(typeof(SystemType)))
+							{
+								<option value="@type">@type</option>
+							}
+						</select>
+					</div>
+
+					<div class="col-md-6">
+						<label>سایز Column</label>
+						<select class="form-select" id="editPropertyColSize">
+							<option value="col-md-3">col-md-3 (25%)</option>
+							<option value="col-md-4">col-md-4 (33%)</option>
+							<option value="col-md-6" selected>col-md-6 (50%)</option>
+							<option value="col-md-8">col-md-8 (66%)</option>
+							<option value="col-md-12">col-md-12 (100%)</option>
+						</select>
+					</div>
+
+					<div class="col-md-6">
+						<label>حداکثر طول</label>
+						<input type="number" class="form-control" id="editPropertyMaxLength" placeholder="مثال: 200" />
+					</div>
+
+					<!-- Checkboxes -->
+					<div class="col-md-12">
+						<div class="row">
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" id="editPropertyAddToTable" />
+									<label class="form-check-label" for="editPropertyAddToTable">افزودن به جدول</label>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" id="editPropertyRequired" />
+									<label class="form-check-label" for="editPropertyRequired">الزامی</label>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" id="editPropertyShowInRelation" />
+									<label class="form-check-label" for="editPropertyShowInRelation">نمایش در
+										رابطه</label>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" id="editPropertySystemProperty" />
+									<label class="form-check-label" for="editPropertySystemProperty">ویژگی
+										سیستمی</label>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Conditional Fields Container -->
+					<div class="col-md-12">
+						<!-- String Type Fields -->
+						<div class="conditional-edit-field" data-show-for="String" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label>الگوی Regex</label>
+									<input type="text" class="form-control" id="editPropertyRegex"
+										placeholder="مثال: ^[A-Za-z]+$" />
+								</div>
+								<div class="col-md-6">
+									<label>پیام خطای Regex</label>
+									<input type="text" class="form-control" id="editPropertyRegexError"
+										placeholder="مثال: فقط حروف انگلیسی" />
+								</div>
+							</div>
+						</div>
+
+						<!-- File Type Fields -->
+						<div class="conditional-edit-field" data-show-for="File" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label>انواع فایل مجاز</label>
+									<input type="text" class="form-control" id="editPropertyFileTypes"
+										placeholder="مثال: .pdf,.docx,.jpg" />
+								</div>
+								<div class="col-md-6">
+									<label>حداکثر حجم (MB)</label>
+									<input type="number" class="form-control" id="editPropertyMaxFileSize" value="10" />
+								</div>
+							</div>
+						</div>
+
+						<!-- AutoNumber Fields -->
+						<div class="conditional-edit-field" data-show-for="AutoNumber" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label>شروع</label>
+									<input type="number" class="form-control" id="editPropertyAutoStart" value="1" />
+								</div>
+								<div class="col-md-6">
+									<label>گام</label>
+									<input type="number" class="form-control" id="editPropertyAutoStep" value="1" />
+								</div>
+							</div>
+						</div>
+
+						<!-- Entity Type Fields -->
+						<div class="conditional-edit-field" data-show-for="Entity" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-12">
+									<label class="required">موجودیت مرتبط</label>
+									<select class="form-select" id="editPropertyRelatedEntity">
+										<option value="">در حال بارگذاری...</option>
+									</select>
+								</div>
+								<div class="col-md-12">
+									<label>قالب نمایش (Display Template)</label>
+									<input type="text" class="form-control mb-2" id="editPropertyDisplayTemplate"
+										placeholder="مثال: نام مخاطب : {Name} نام خانوادگی : {LastName}" />
+									<div class="mb-2">
+										<label class="form-label">انتخاب فیلد:</label>
+										<div class="border rounded p-3" style="max-height: 300px; overflow-y: auto; ">
+											<div id="entityFieldsTree" class="entity-fields-tree">
+												<div class="text-muted text-center py-3">
+													<i class="ki-duotone ki-loader fs-2">
+														<span class="path1"></span>
+														<span class="path2"></span>
+													</i>
+													<div class="mt-2">در حال بارگذاری...</div>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div class="alert alert-info mb-0">
+										<small>
+											<strong>راهنما:</strong> می‌توانید متن دلخواه وارد کنید و با کلیک روی فیلدها
+											در درخت بالا، آن‌ها را به قالب اضافه کنید.
+											<br>
+											<strong>مثال:</strong> نام مخاطب : {Name} شهر : {City.Name} استان :
+											{City.Province.Name}
+										</small>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Select Type Fields (Enum Builder) -->
+						<div class="conditional-edit-field" data-show-for="Select" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label>نام Enum</label>
+									<input type="text" class="form-control" id="editPropertyEnumName"
+										placeholder="مثال: ProductStatusEnum" />
+								</div>
+								<div class="col-md-6">
+									<label>یا انتخاب موجودیت</label>
+									<select class="form-select" id="editPropertyRelatedEntityEnum">
+										<option value="">بدون انتخاب (Enum جدید)</option>
+									</select>
+								</div>
+								<div class="col-md-12">
+									<div class="d-flex justify-content-between align-items-center mb-2">
+										<label class="fw-bold">گزینه‌های Enum</label>
+										<button type="button" class="btn btn-sm btn-light-primary"
+											id="btnAddEditEnumOption">
+											<i class="ki-duotone ki-plus fs-3"></i>
+											افزودن گزینه
+										</button>
+									</div>
+									<div id="editEnumOptionsContainer" class="enum-options-grid">
+										<!-- Enum options will be added here -->
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- ListEntity Type Fields -->
+						<div class="conditional-edit-field" data-show-for="ListEntity" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label class="required">نام کلاس فرزند</label>
+									<input type="text" class="form-control" id="editPropertyChildEntityName"
+										placeholder="مثال: OrderItem" />
+								</div>
+								<div class="col-md-6">
+									<label class="required">نام نمایشی کلاس فرزند</label>
+									<input type="text" class="form-control" id="editPropertyChildEntityDisplayName"
+										placeholder="مثال: آیتم سفارش" />
+								</div>
+								<div class="col-md-12">
+									<button type="button" class="btn btn-light-primary" id="btnEditNestedEntity">
+										<i class="ki-duotone ki-setting-2 fs-2">
+											<span class="path1"></span>
+											<span class="path2"></span>
+										</i>
+										تعریف ویژگی‌های کلاس فرزند (<span id="nestedPropsCount">0</span> ویژگی)
+									</button>
+									<input type="hidden" id="editNestedPropertiesJson" value='[]' />
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+				<button type="button" class="btn btn-primary" id="btnSavePropertyEdit">ذخیره</button>
+			</div>
+		</div>
+	</div>
+</div>

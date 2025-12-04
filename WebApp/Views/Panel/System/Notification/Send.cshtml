@@ -1,0 +1,140 @@
+﻿@using Entities.Auth
+@using Services.Auth
+@inject IUserService _userService
+@{
+     var listUser = _userService.TableNoTracking.ToArray();
+}
+
+<div class="card">
+     <div class="card-header justify-content-center align-content-center ">
+          <h2>ارسال اعلان </h2>
+     </div>
+
+     <div class="card-body">
+               <div class="row">
+               <div class="col-md-12 mb-5">
+                    <label class="form-label">کاربران دریافت کننده</label>
+                    <select id="selecetUser" class="form-select">
+                         <option>انتخاب کنید</option>
+                    </select>
+               </div>
+               <div class="col-md-3">
+                         <div class="form-check mb-5">
+                    <input class="form-check-input" type="checkbox" value="" id="allUsers" />
+                    <label class="form-check-label" for="allUsers">
+                         همه کاربران
+                    </label>
+               </div>
+               </div>
+               <div class="col-md-3">
+                      <div class="form-check mb-5">
+                    <input class="form-check-input" type="checkbox" value="" id="saveNotification" />
+                    <label class="form-check-label" for="saveNotification">
+                         ذخیره اعلان
+                    </label>
+               </div>
+               </div>
+          
+          </div>
+          <div class="row">
+               <div class="col-md-6 form-group">
+                    <label>عنوان اعلان</label>
+                    <input class="form-control" id="title" />
+               </div>
+                   <div class="col-md-6 form-group">
+                    <label>توضیحات</label>
+                    <textarea class="form-control" id="description" ></textarea>
+               </div>
+          </div>
+
+          <div class="mt-5" >
+               <textarea id="editor"></textarea>
+          </div>
+          <div class="col-md-3 mt-5">
+               <button class="btn btn-success w-100" id="send">ارسال</button>
+          </div>
+
+     </div>
+
+</div>
+<script src="~/panellib/plugins/custom/tinymce/js/tinymce/tinymce.min.js"></script>
+
+
+<script>
+     tinymce.init({
+          selector: '#editor',
+          directionality: 'rtl',
+
+          plugins: [
+               'advlist', 'anchor', 'autolink', 'autosave',
+               'charmap', 'code', 'codesample', 'directionality', 'emoticons',
+               'fullscreen', 'help', 'image', 'importcss',
+               'insertdatetime', 'link', 'lists', 'media', 'nonbreaking',
+               'pagebreak', 'preview', 'quickbars', 'save', 'searchreplace', 'table',
+               'visualblocks', 'visualchars', 'wordcount'
+          ],
+          toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | ' +
+               'alignleft aligncenter alignright | numlist bullist | outdent indent | ' +
+               'link image | table media | forecolor backcolor removeformat | ' +
+               'charmap emoticons | fullscreen preview | pagebreak anchor codesample | ltr rtl',
+
+          menubar: 'file edit view insert format tools table ',
+
+          promotion: false
+     });
+
+     $$("#selecetUser").select2({
+          dir: "rtl",
+          width: "100%",
+          placeholder: "انتخاب کنید",
+          allowClear: true,
+          minimumInputLength: 2,
+          ajax: {
+               url: "/Authenticate/GetUserByName",
+               type: "POST",
+               delay: 250,
+               data: function (params) {
+                    return { name: params.term || "" };
+               },
+               processResults: function (resp) {
+                    var payload = resp && (resp.data || resp.Data) || [];
+                    var results = (payload || []).map(function (u) {
+                         return { id: (u.id || u.Id), text: (u.name || u.Name) };
+                    });
+                    return { results: results };
+               },
+               cache: true
+          }
+     });
+
+     $$("#allUsers").change(function(){
+          
+          if(this.checked == true)
+          {
+                $$("#selecetUser").val(null).trigger('change');
+                $$("#selecetUser").prop('disabled', true);
+
+          }
+          else
+          {
+                 $$("#selecetUser").prop('disabled', false);
+          }
+     })
+
+     $$("#send").click(function(){
+          debugger
+          var model = {};
+
+          model.allUsers = $$("#allUsers")[0].checked
+          model.saveNotification = $$("#saveNotification")[0].checked
+          model.body =  tinymce.activeEditor.getContent();
+
+           model.title = $$("#title").val();
+           model.description = $$("#description").val();
+
+           $$.post("/panel/SendNotification",model,function(r){
+               if(!r.isSuccess) return error2(r.message);
+               success2("ارسال اعلان با موفقیت انجام شد.");
+           })
+     })
+</script>

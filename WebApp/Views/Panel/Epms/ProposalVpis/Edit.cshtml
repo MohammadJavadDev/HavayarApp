@@ -1,0 +1,116 @@
+@using Entities.App.Epms;
+@using Entities.Auth
+@model ProposalVpis
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProposalVpis)"></form-action-buttons></div>
+	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.Proposal?.Id" value-title="@Model?.Proposal?.Title" bind="ProposalId" entity-type="typeof(Proposal)" label="پروپوزال"></entityselector>
+
+		</div>
+
+		<div class='col-md-6'>
+			<label class='required'>شناسه پروپوزال</label>
+			<input class='form-control' data-bind='proposalId' required data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProposalId' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شناسه نوع مدرک  </label>
+			<input class='form-control' data-bind='vpisTypeId' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='VpisTypeId' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''> نوع مدرک  </label>
+			<input class='form-control' data-bind='vpisType' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='VpisType' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class='required'>عنوان مدرک</label>
+			<input class='form-control' data-bind='documentTitle' required asp-for='DocumentTitle' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شماره مدرک</label>
+			<input class='form-control' data-bind='documentNumber' asp-for='DocumentNumber' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.MainResponsible?.Id" value-title="@Model?.MainResponsible?.Name" bind="MainResponsibleId" entity-type="typeof(User)" label="مسئول اصلی"></entityselector>
+
+		</div>
+
+
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.ControlResponsible?.Id" value-title="@Model?.ControlResponsible?.Name" bind="ControlResponsibleId" entity-type="typeof(User)" label="مسئول کنترل"></entityselector>
+
+		</div>
+
+
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.ApprovedUser?.Id" value-title="@Model?.ApprovedUser?.Name" bind="ApprovedUserId" entity-type="typeof(User)" label="تایید کننده"></entityselector>
+
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>کامنت</label>
+			<input class='form-control' data-bind='comment' asp-for='Comment' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+
+
+<script>
+
+			  function savefn($btnAction){
+				   if(validateError($$('.card')))
+					   { return; }
+				   var model = $$('.card').dataBind();
+					 const $btn = $(this.element).block();
+				   $$.post('save',
+					   model,
+					   function(r) {
+						   $btn.block(false);
+						   if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+						   toastr.success('ذخیره سازی با موفقیت انجام شد .');
+						   $$('.card').dataBind(r.data);
+						   $btnAction.baseaction();
+					   })
+			    }
+
+	     self.FormActionButtons.saveandclose.onclick(function() {savefn(this)})
+
+
+</script>
+
+

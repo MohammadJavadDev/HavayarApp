@@ -1,0 +1,269 @@
+@using Entities.App.Edms;
+@using Entities.App.Hrm
+@using Entities.Auth
+@model Project
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Project)"></form-action-buttons></div>
+	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-3'>
+			<label class='required'>عنوان</label>
+			<input class='form-control' data-bind='title' required asp-for='Title' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>نام</label>
+			<input class='form-control' data-bind='name' asp-for='Name' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>کد</label>
+			<input class='form-control' data-bind='code' asp-for='Code' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>شرکت طرف قرارداد (مشترى)</label>
+			<input class='form-control' data-bind='contractPartyCustomer' asp-for='ContractPartyCustomer' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>نام سایت (یا نام پروژه اصلى در مدارك کارفرما)</label>
+			<input class='form-control' data-bind='projectName' asp-for='ProjectName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>نوع پکیج (هوا، درایر، نیتروژن و غیره)</label>
+			<input class='form-control' data-bind='packageType' asp-for='PackageType' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ شروع شمسی</label>
+			<input class='form-control' data-bind='startShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.StartShamsiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+ 
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ پایان شمسی</label>
+			<input class='form-control' data-bind='expirationShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ExpirationShamsiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ProjectManager?.Id" value-title="@Model?.ProjectManager?.Name" bind="ProjectManagerId" entity-type="typeof(User)" label="مدیر پروژه"></entityselector>
+		</div>
+
+		<div class='col-md-3'>
+			<label class='required'>وضعیت</label>
+			<select class='form-control' data-bind='status' required asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectStatusEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ProjectManagerPSL?.Id" value-title="@Model?.ProjectManagerPSL?.Name" bind="ProjectManagerPSLId" entity-type="typeof(User)" label="مهندس مسئول psl"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.Coordinator?.Id" value-title="@Model?.Coordinator?.Name" bind="CoordinatorId" entity-type="typeof(User)" label="هماهنگ کننده"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.SubjectUnit?.Id" value-title="@Model?.SubjectUnit?.Title" bind="SubjectUnitId" entity-type="typeof(OrgUnit)" label="واحد ذینفع"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.SalesExpert?.Id" value-title="@Model?.SalesExpert?.Name" bind="SalesExpertId" entity-type="typeof(User)" label="کارشناس فروش"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.Dcc?.Id" value-title="@Model?.Dcc?.Name" bind="DccId" entity-type="typeof(User)" label="dcc"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ProcessEngineer?.Id" value-title="@Model?.ProcessEngineer?.Name" bind="ProcessEngineerId" entity-type="typeof(User)" label="کارشناس فرآیند"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.MechanicExpert?.Id" value-title="@Model?.MechanicExpert?.Name" bind="MechanicExpertId" entity-type="typeof(User)" label="کارشناس مکانیک"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ControlEngineer?.Id" value-title="@Model?.ControlEngineer?.Name" bind="ControlEngineerId" entity-type="typeof(User)" label="کارشناس کنترل"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ToolExpert?.Id" value-title="@Model?.ToolExpert?.Name" bind="ToolExpertId" entity-type="typeof(User)" label="کارشناس ابزاردقیق"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ElectricEngineer?.Id" value-title="@Model?.ElectricEngineer?.Name" bind="ElectricEngineerId" entity-type="typeof(User)" label="کارشناس برق"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.PipingExpert?.Id" value-title="@Model?.PipingExpert?.Name" bind="PipingExpertId" entity-type="typeof(User)" label="کارشناس پایپینگ"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ProjectReviewer?.Id" value-title="@Model?.ProjectReviewer?.Name" bind="ProjectReviewerId" entity-type="typeof(User)" label="	بازرس پروژه"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.PowerAndPrecisionPrepManager?.Id" value-title="@Model?.PowerAndPrecisionPrepManager?.Name" bind="PowerAndPrecisionPrepManagerId" entity-type="typeof(User)" label="مسئول تدارکات برق/ابزار دقیق"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.MechanicalPreparationsResponsible?.Id" value-title="@Model?.MechanicalPreparationsResponsible?.Name" bind="MechanicalPreparationsResponsibleId" entity-type="typeof(User)" label="مسئول تدارکات مکانیک"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ForeignPreparationsAgent?.Id" value-title="@Model?.ForeignPreparationsAgent?.Name" bind="ForeignPreparationsAgentId" entity-type="typeof(User)" label="مسئول تدارکات خارجی"></entityselector>
+		</div>
+
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.HasAccessToArchiveAndInputDocuments?.Id" value-title="@Model?.HasAccessToArchiveAndInputDocuments?.Name" bind="HasAccessToArchiveAndInputDocumentsId" entity-type="typeof(User)" label="دارای دسترسی به آرشیو و اسناد ورودی (غیر مهندسی)"></entityselector>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='projectIsVendoriType' class="form-check-input" type="checkbox" asp-for='ProjectIsVendoriType' />
+				<label class="form-check-label" asp-for='ProjectIsVendoriType'>
+					پروژه از نوع وندوری هست
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>پیش کد ترانسمیتال</label>
+			<input class='form-control' data-bind='transmissionPrefix' asp-for='TransmissionPrefix' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>گیرنده ترانسمیتال</label>
+			<input class='form-control' data-bind='transmitterRecipient' asp-for='TransmitterRecipient' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>گیرنده کپی ترانسمیتال </label>
+			<input class='form-control' data-bind='receiverCopyTransmital' asp-for='ReceiverCopyTransmital' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>ایمیل متفرقه/عمومی</label>
+			<input class='form-control' data-bind='emailAddress' asp-for='EmailAddress' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='explanation' asp-for='Explanation' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='isBeneficiary' class="form-check-input" type="checkbox" asp-for='IsBeneficiary' />
+				<label class="form-check-label" asp-for='IsBeneficiary'>
+					محرمانه است
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>کاربران محرمانه</label>
+			<input class='form-control' data-bind='sensitiveUsers' asp-for='SensitiveUsers' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شناسه کاربران محرمانه</label>
+			<input class='form-control' data-bind='sensitiveUsersIds' asp-for='SensitiveUsersIds' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12 align-content-center my-5'>
+			<div class="form-check">
+				<input data-bind='isTakvinProject' class="form-check-input" type="checkbox" asp-for='IsTakvinProject' />
+				<label class="form-check-label" asp-for='IsTakvinProject'>
+					پروژه تکوین است
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>ذینفعان</label>
+			<input class='form-control' data-bind='userBenefitTakvin' asp-for='UserBenefitTakvin' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شناسه کاربران تکوین</label>
+			<input class='form-control' data-bind='userBenefitTakvinIds' asp-for='UserBenefitTakvinIds' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>روز تاخیر مجاز هوایار</label>
+			<input class='form-control' data-bind='legalDelayHavayar' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='LegalDelayHavayar' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>روز تاخیر مجاز کارفرما</label>
+			<input class='form-control' data-bind='legalClientDayDelay' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='LegalClientDayDelay' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) { return; }
+		var model = $$('.card').dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				$$('.card').dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

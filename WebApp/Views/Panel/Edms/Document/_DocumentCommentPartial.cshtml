@@ -1,0 +1,70 @@
+@using Entities.App.Edms
+@using Entities.Auth
+@model DocumentComment
+<div class="row">
+	<input class='form-control' type="hidden" data-bind='comments.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<fileuploader bind="comments.attachment" file-id="@Model?.AttachmentId" file-entity="@Model?.Attachment"
+				    Label="پیوست"
+				    entity-type="DocumentComment"
+				    entity-prop-name="Attachment"
+				    max-file-size="10"
+				    accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+	</div>
+	<div class='col-md-3'>
+		<label class=''>وضعیت مدرک</label>
+		<select class='form-control' data-bind='comments.status' asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-6'>
+		<label class=''>توضیحات</label>
+		<textarea class='form-control' data-bind='comments.comment' value='@Model?.Comment'>@Model?.Comment</textarea>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+
+
+
+
+	<div class='col-md-6'>
+		<label class=''>متولی Hold</label>
+		<select class='form-control' data-bind='comments.legalHolder' asp-for='LegalHolder' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentLegalHolderEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class="col-md-6">
+		<label class="form-label">مسئول Hold</label>
+		@(Html.EntitySelector<User>
+				(
+				"HOLDOwnerSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					Name = c.Name,
+
+				},
+				c => new { c.Username, c.Name },
+				"{Name}",
+				"comments.HOLDOwnerId",
+				null,
+				Model?.HOLDOwnerId.ToString()
+				))
+ 
+	</div>
+
+
+	<div class='col-md-6'>
+		<label class=''>توضیحات Hold</label>
+		<input class='form-control' data-bind='comments.holdDetails' asp-for='HoldDetails' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+
+
+	 
+
+</div>

@@ -1,0 +1,481 @@
+@using Entities.App.Inv;
+@using WebFramework.TagHelpers;
+@model PartExtraInfo
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(PartExtraInfo)"></form-action-buttons></div>
+	 
+</div>
+
+<div class="card my-3">
+	<div class="card-body" style="display: flex;justify-content: space-evenly;">
+		<div class="form-check form-check-custom form-check-success form-check-solid">
+		    <input class="form-check-input" type="radio" value="1" name="r1"  id="flexCheckboxLg"/>
+		    <label class="form-check-label" for="flexCheckboxLg">
+			   کمپرسور اسکرو اویل اینجکت
+		    </label>
+		</div>
+		<div class="form-check form-check-custom form-check-warning form-check-solid">
+		    <input class="form-check-input" type="radio" value="2" name="r1"  id="flexRadioLg"/>
+		    <label class="form-check-label" for="flexRadioLg">
+			 کمپرسور اسکرو اویل فری
+		    </label>
+		</div>
+
+		<div class="form-check form-check-custom form-check-danger form-check-solid">
+		    <input class="form-check-input" type="radio" value="3" name="r1"  id="flexCheckboxSm"  />
+		    <label class="form-check-label" for="flexCheckboxSm">
+		درایر	
+		    </label>
+		</div>
+
+		<div class="form-check form-check-custom  form-check-solid">
+		    <input class="form-check-input" type="radio" value="4" name="r1"  id="flexRadioLg4"/>
+		    <label class="form-check-label" for="flexRadioLg4">
+			PSA
+		    </label>
+		</div>
+		<div class="form-check form-check-custom form-check-warning form-check-solid">
+		    <input class="form-check-input" type="radio" value="5" name="r1"  id="flexRadioLg5"/>
+		    <label class="form-check-label" for="flexRadioLg5">
+					ثابت
+		    </label>
+		</div>
+		
+	</div>
+</div>
+
+<div class="card my-3">
+	<div class="card-body row">
+	<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-md-3">
+			<label class='required'>Product</label>
+			@(Html.EntitySelector<Part>(
+				"ProductSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Code = c.Code, Name = c.Name
+				},
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"ProductId",
+				"ProductName",
+				Model?.ProductId.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+		 
+		<div class='col-md-3'>
+			<label class=''>Design Type</label>
+			<select class='form-control' data-bind='designType'  asp-for='DesignType' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartExtraInfoDesignTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		 
+
+		<div class='col-md-3'>
+			<label class='required'>مدل</label>
+			<input class='form-control' data-bind='model' required asp-for='Model' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>سایز</label>
+			<input class='form-control' data-bind='size'  asp-for='Size' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Power KW</label>
+			<input class='form-control' data-bind='powerKw'  asp-for='PowerKw' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+ 
+
+		<div class='col-md-3'>
+			<label class=''>Motor RPM</label>
+			<input class='form-control' data-bind='motorRpm'  asp-for='MotorRpm' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Airend RPM</label>
+			<input class='form-control'  data-bind='airEndRPM'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='AirEndRPM' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Model Motor</label>
+			<input class='form-control' data-bind='motorModel'  asp-for='MotorModel' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+ 
+
+		<div class='col-md-3'>
+			<label class=''>Pressure Working</label>
+			<input class='form-control'  data-bind='workPressure'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='WorkPressure' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+ 
+
+		<div class='col-md-3'>
+			<label class=''>Mode Airend</label>
+			<input class='form-control' data-bind='airEndMode'  asp-for='AirEndMode' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+		<div class='col-md-3'>
+			<label class=''>Class</label>
+			<input class='form-control' data-bind='className'  asp-for='ClassName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Capacity(M3/Min)</label>
+			<input class='form-control'  data-bind='capacityM3PerMinute'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CapacityM3PerMinute' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Gear Ratio</label>
+			<input class='form-control' data-bind='gearRatio'  asp-for='GearRatio' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='inverter' class="form-check-input" type="checkbox" asp-for='Inverter' />
+				<label class="form-check-label" asp-for='Inverter'>
+					Inverter
+				</label>
+			</div>
+		</div>
+
+ 
+
+</div>
+</div>
+
+<div class="card">
+	<div class="card-body row">
+		
+		<div class='col-md-3'>
+			<label class=''>Compressor Type</label>
+			<input class='form-control' data-bind='compressorType'  asp-for='CompressorType' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Power Transmission	</label>
+			<select class='form-control' data-bind='powerTransmission'  asp-for='PowerTransmission' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartExtraInfoPowerTransmissionEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Min & Max. Ambient Working Temprature	</label>
+			<input class='form-control' data-bind='minMaxAmbientWorkingTemperature'  asp-for='MinMaxAmbientWorkingTemperature' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-3'>
+			<label class=''>Installation Location</label>
+			<select class='form-control' data-bind='installationLocation'  asp-for='InstallationLocation' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartExtraInfoInstallationLocationEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Hazardous Area Clasification	</label>
+			<select class='form-control' data-bind='hazardousAreaClassification'  asp-for='HazardousAreaClassification' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartExtraInfoHazardousAreaClassificationEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Noise Level</label>
+			<input class='form-control'  data-bind='noiseLevel'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='NoiseLevel' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>L</label>
+			<input class='form-control'  data-bind='l'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='L' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>W</label>
+			<input class='form-control'  data-bind='w'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='W' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>H</label>
+			<input class='form-control'  data-bind='h'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='H' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Weight</label>
+			<input class='form-control'  data-bind='weight'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Weight' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Starting Method</label>
+			<input class='form-control' data-bind='startingMethod'  asp-for='StartingMethod' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Control Panel	</label>
+			<input class='form-control' data-bind='controlPanel'  asp-for='ControlPanel' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Cooling Method	</label>
+			<select class='form-control' data-bind='coolingMethod'  asp-for='CoolingMethod' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartExtraInfoCoolingMethodEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Connection Size</label>
+			<input class='form-control' data-bind='connectionSize'  asp-for='ConnectionSize' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Starter Panel</label>
+			<input class='form-control' data-bind='starterPanel'  asp-for='StarterPanel' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>OilCapacityQty</label>
+			<input class='form-control' data-bind='oilCapacityQuantity'  asp-for='OilCapacityQuantity' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>OilCapacityBrand</label>
+			<input class='form-control' data-bind='oilCapacityBrand'  asp-for='OilCapacityBrand' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>AirOilFilterSepratorBrand</label>
+			<input class='form-control' data-bind='airOilFilterSeparatorBrand'  asp-for='AirOilFilterSeparatorBrand' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Barometric Pressure</label>
+			<input class='form-control'  data-bind='barometricPressure'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='BarometricPressure' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Maximum Temperature</label>
+			<input class='form-control'  data-bind='maximumTemperature'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='MaximumTemperature' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>Relative Humidity</label>
+			<input class='form-control'  data-bind='relativeHumidity'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='RelativeHumidity' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+ 
+
+		<div class='col-md-3'>
+			<label class=''>Comment</label>
+			<input class='form-control' data-bind='comment'  asp-for='Comment' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+	</div>
+
+</div>
+
+<div class="card my-3">
+	<div class=" card-body row">
+		
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='oilHeater' class="form-check-input" type="checkbox" asp-for='OilHeater' />
+				<label class="form-check-label" asp-for='OilHeater'>
+					Oil Heater	
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='motorHeater' class="form-check-input" type="checkbox" asp-for='MotorHeater' />
+				<label class="form-check-label" asp-for='MotorHeater'>
+					Motor Heater	
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='spaceHeater' class="form-check-input" type="checkbox" asp-for='SpaceHeater' />
+				<label class="form-check-label" asp-for='SpaceHeater'>
+					SpaceHeater
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='motorPTC' class="form-check-input" type="checkbox" asp-for='MotorPTC' />
+				<label class="form-check-label" asp-for='MotorPTC'>
+					Motor PTC	
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='antiCondensationPanel' class="form-check-input" type="checkbox" asp-for='AntiCondensationPanel' />
+				<label class="form-check-label" asp-for='AntiCondensationPanel'>
+					Anti Condence Panel	
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='coolerPanel' class="form-check-input" type="checkbox" asp-for='CoolerPanel' />
+				<label class="form-check-label" asp-for='CoolerPanel'>
+					Cooler Panel	
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='heavyDutyIntakeFilter' class="form-check-input" type="checkbox" asp-for='HeavyDutyIntakeFilter' />
+				<label class="form-check-label" asp-for='HeavyDutyIntakeFilter'>
+					Heavy Duty Intake Filter	
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-3 align-content-center'>
+			<div class="form-check">
+				<input data-bind='departmentIntakeFilter' class="form-check-input" type="checkbox" asp-for='DepartmentIntakeFilter' />
+				<label class="form-check-label" asp-for='DepartmentIntakeFilter'>
+					Dpt / Dps Intake Filter	
+				</label>
+			</div>
+		</div>
+
+	</div>
+</div>
+<div class="card">
+<div class='  card-body row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	 
+	function savefn($btnAction) {
+	 
+		 
+		if (validateError($$('.card'))) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				$$('.card').dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+
+	$$("[name=r1]").change(function(){
+		var vl =$(this).val();
+		
+		if(vl=='1'){
+			$$("[data-bind=airOilFilterSeparatorBrand]").parent().hide();
+			$$("[data-bind=motorRpm]").parent().hide();
+			$$("[data-bind=airEndMode]").parent().hide();
+			$$("[data-bind=powerKw]").parent().show();
+			$$("[data-bind=gearRatio]").parent().show();
+		}
+		if(vl=='2'){
+			$$("[data-bind=airOilFilterSeparatorBrand]").parent().show();
+			$$("[data-bind=motorRpm]").parent().show();
+			$$("[data-bind=airEndMode]").parent().show();
+			$$("[data-bind=powerKw]").parent().hide();
+			$$("[data-bind=gearRatio]").parent().hide();
+		}
+		if(vl=='3'){
+			$$("[data-bind=airOilFilterSeparatorBrand]").parent().show();
+			$$("[data-bind=motorRpm]").parent().show();
+			$$("[data-bind=airEndMode]").parent().show();
+			$$("[data-bind=powerKw]").parent().show();
+			$$("[data-bind=gearRatio]").parent().hide();
+		}
+		if(vl=='4'){
+			$$("[data-bind=airOilFilterSeparatorBrand]").parent().show();
+			$$("[data-bind=motorRpm]").parent().show();
+			$$("[data-bind=airEndMode]").parent().show();
+			$$("[data-bind=powerKw]").parent().hide();
+			$$("[data-bind=gearRatio]").parent().show();
+		}
+	})
+</script>

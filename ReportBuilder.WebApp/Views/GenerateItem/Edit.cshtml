@@ -1,0 +1,182 @@
+﻿@model ReportBuilder.Entities.DbObjects
+@{
+    Layout = "/Views/Panel/Shared/_PanelLayout.cshtml";
+     var outResultCounter = 1;
+ }
+
+<div class="card">
+    <div class="card-header">
+        لیست آیتم ها
+    </div>
+    <div class="card-body row justify-content-center">
+        <div class="col-md-12 justify-content-center row mb-15">
+            <div class="col-md-6 text-center" style="">
+                <label class="required">عنوان</label>
+                <input class="form-control" id="tableTitle" value="@ViewBag?.tableTitle">
+                <input id="id" value="@ViewBag?.id" type="hidden" />
+                <input id="objectType" value="@ViewBag?.objectType" type="hidden" />
+            </div>
+        </div>
+       
+      
+        
+        
+        @if (ViewBag?.objectType == "Store_Procedures")
+        {
+            <div class="separator separator-content my-15 border-primary">
+                <i class="ki-duotone ki-entrance-left fs-2tx text-primary">
+                    <span class="path1"></span>
+                    <span class="path2"></span>
+                </i>
+            </div>
+                @foreach (var o in Model.Filters)
+                {
+
+                    <div class="col-md-6 mt-3" data-sectionItem="">
+                        <div class="input-group mb-5">
+                            <span class="input-group-text">
+                                @Html.CheckBox(null, true, new { name = @o.ColumnName, id = @o.ColumnName, dataType = @o.DataType, disabled = "disabled" , dataFilter="true" })
+                            </span>
+                            <input type="text" class="form-control" placeholder="@o.ColumnName" data-bind="title" value="@o.Title" />
+                            <span class="input-group-text">@o.ColumnName</span>
+                        </div>
+                    </div>
+                }
+            
+      }
+                
+        
+        <div class="separator separator-dotted separator-content border-success my-15">
+            <i class="ki-duotone ki-exit-left fs-2tx text-success">
+                <span class="path1"></span>
+                <span class="path2"></span>
+            </i>
+        </div>
+
+   
+            @foreach (var select in Model.Selects)
+        {
+            var placeholderText = " عنوان خروجی " + outResultCounter;
+            <div class="row border border-2 m-5 p-5 border-warning border-dashed" data-section="selects">
+          
+                <div class="row col-md-12 justify-content-center">
+                    <div class="col-md-8">
+                        <input class="form-control" placeholder="@placeholderText" value="@select?.Title" data-select-title="true" />
+                    </div>
+                </div>
+                @foreach (var o in select.Items)
+                {
+                    <div class="col-md-6 mt-3" data-sectionItem="">
+                        <div class="input-group mb-5">
+                            <span class="input-group-text">
+                                @Html.CheckBox(null, o.Show, new { name = @o.ColumnName, id = @o.ColumnName, dataType = @o.DataType })
+                            </span>
+                            <input type="text" class="form-control" placeholder="@o.ColumnName" data-bind="title" value="@o.Title"/>
+                            <span class="input-group-text">@o.ColumnName</span>
+                        </div>
+                    </div>
+                }
+                </div>
+                    
+                outResultCounter++;
+                    
+            }
+
+                <div class="col-md-12 row justify-content-center">
+                    <div class="col-md-3">
+                        <button class="btn btn-success" id="save" style="width: 100%">ذخیره</button>
+                    </div>
+                </div>
+            </div>
+
+</div>
+
+
+@section Scripts
+{
+
+    <script>
+        $("#save")
+            .click(function() {
+
+                let model = {};
+                model.objectName = '@ViewBag.objectName';
+                model.objectSchema = '@ViewBag.objectSchema';
+                model.title = $("#tableTitle").val();
+                model.id = $("#id").val();
+                model.objectType = $("#objectType").val();
+
+                if (!model.title || model.title.length < 3) {
+                   return toastr.error(`عنوان آیتم وارد نشده است.`, 'خطا');
+
+                }
+
+               
+
+                model.reportBuilderTableFilters = $("[dataFilter]").map((i, c) => {
+
+                    let title = $(c).closest("[data-sectionItem]")
+                        .find("input[data-bind='title']").val();
+
+                    if (!title) {
+                        title = $(c).closest("[data-sectionItem]")
+                            .find("input[data-bind='title']")
+                            .attr("placeholder");
+                    }
+
+                    let columnName = $(c).attr("id");
+                    let dataType = $(c).attr("dataType");
+
+                    return { title, columnName, dataType, show: false, filter : true };
+
+                }).get();
+
+
+                model.reportBuilderTableSelects = $("[data-section='selects']")
+                    .map((i, c) => {
+                        var newSelect = {};
+                        newSelect.title = $(c).find("[data-select-title='true']").val();
+                        if (!newSelect.title) {
+                            newSelect.title = $(c).find("[data-select-title='true']")
+                                .attr("placeholder");
+                        }
+                        newSelect.reportBuilderReportItems = $(c).find("input:checked")
+                            .map((x, z) => {
+
+                                let title = $(z).closest("[data-sectionItem]")
+                                    .find("input[data-bind='title']").val();
+
+                                if (!title) {
+                                    title = $(z).closest("[data-sectionItem]")
+                                        .find("input[data-bind='title']")
+                                        .attr("placeholder");
+                                }
+
+                                let columnName = $(z).attr("id");
+                                let dataType = $(z).attr("dataType");
+
+                                let show = true;
+                                 
+                                return { title, columnName, dataType, show, filter : false };
+                            }).get();
+
+                        return newSelect;
+                    }).get();
+
+              
+
+                const $btn = $(this).block();
+
+                post('/System/ReportBuilder/SaveItem',
+                    model,
+                    function (r) {
+                        $btn.block(false);
+                        if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+                        toastr.success('ذخیره سازی با موفقیت انجام شد .');
+
+                    });
+            });
+
+    </script>
+}

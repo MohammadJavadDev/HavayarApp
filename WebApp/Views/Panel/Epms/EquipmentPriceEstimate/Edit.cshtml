@@ -1,0 +1,111 @@
+@using Entities.App.Epms;
+@model EquipmentPriceEstimate
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(EquipmentPriceEstimate)"></form-action-buttons></div>
+	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.Proposal?.Id" value-title="@Model?.Proposal?.Title" bind="ProposalId" entity-type="typeof(Entities.App.Epms.Proposal)" label="پروپوزال"></entityselector>
+
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>بازنگری</label>
+			<input class='form-control' data-bind='revision' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<fileuploader bindid="priceInquiry" file-id="@Model?.PriceInquiryId" file-entity="@Model?.PriceInquiry"
+					    Label="استعلام قیمت"
+					    entity-type="EquipmentPriceEstimate"
+					    entity-prop-name="PriceInquiryId"
+					    bind="PriceInquiryId"
+					    accepted-file-types=".pdf,.rar,.zip"></fileuploader>
+		</div>
+
+
+		<div class='col-md-6'>
+			<fileuploader bindid="bom" file-id="@Model?.BomId" file-entity="@Model?.Bom"
+					    Label="Bom"
+					    entity-type="EquipmentPriceEstimate"
+					    entity-prop-name="BomId"
+					    bind="BomId"
+					    accepted-file-types=".pdf,.rar,.zip"></fileuploader>
+		</div>
+
+	
+
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت به دقیقه</label>
+			<input class='form-control' data-bind='consumedManHours' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ConsumedManHours' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		
+
+		<div class='col-md-6'>
+			<label class=''>وضعیت</label>
+			<select class='form-control' data-bind='status' asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.EquipmentPriceEstimateStatusEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+		<div class='col-md-6'>
+			<label class=''>کامنت</label>
+			<textarea class='form-control' data-bind='comment' asp-for='Comment'>@Model?.Comment</textarea>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+  
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+
+
+<script>
+
+				  function savefn($btnAction){
+			   if(validateError($$('.card')))
+				   { return; }
+			   var model = $$('.card').dataBind();
+				 const $btn = $(this.element).block();
+			   $$.post('save',
+				   model,
+				   function(r) {
+					   $btn.block(false);
+					   if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+					   toastr.success('ذخیره سازی با موفقیت انجام شد .');
+					   $$('.card').dataBind(r.data);
+					   $btnAction.baseaction();
+				   })
+		    }
+
+
+	 self.FormActionButtons.save.onclick(function() {savefn(this)})
+	 self.FormActionButtons.saveandnew.onclick(function() {savefn(this)})
+	self.FormActionButtons.saveandclose.onclick(function() {savefn(this)})
+
+
+</script>
+
+

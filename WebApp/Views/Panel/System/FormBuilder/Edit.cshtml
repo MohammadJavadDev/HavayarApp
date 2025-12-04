@@ -1,0 +1,645 @@
+@using Common.Attributes
+@using Entities.Base.FormBuilder;
+@model FormDefinition
+<link rel="stylesheet" href="~/css/formBuilder.css" />
+
+<div class="card" id="formBuilderCard">
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(FormDefinition)"></form-action-buttons>
+		<button type="button" class="btn btn-info" id="btnPreviewCode">
+			<i class="ki-duotone ki-eye fs-2"><span class="path1"></span><span class="path2"></span><span
+					class="path3"></span></i>
+			پیش‌نمایش کد
+		</button>
+		<button type="button" class="btn btn-success" id="btnSaveFiles">
+			<i class="ki-duotone ki-file-down fs-2"><span class="path1"></span><span class="path2"></span></i>
+			ذخیره فایل‌ها
+		</button>
+		<button type="button" class="btn btn-primary" id="btnShowJson">
+			<i class="ki-duotone ki-file-down fs-2"><span class="path1"></span><span class="path2"></span></i>
+			نمایش JSON
+		</button>
+	</div>
+
+	<div class="card-body">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+
+		<!-- Section A: Entity Information -->
+		<div class="row mb-5">
+			<div class="col-12">
+				<h3 class="fw-bold text-dark mb-5">اطلاعات موجودیت</h3>
+			</div>
+
+			<div class='col-md-4'>
+				<label class='required'>نام موجودیت (انگلیسی)</label>
+				<input class='form-control' data-bind='entityName' required asp-for='EntityName'
+					placeholder="مثال: Product" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4'>
+				<label class='required'>نام نمایشی (فارسی)</label>
+				<input class='form-control' data-bind='displayName' required asp-for='DisplayName'
+					placeholder="مثال: محصول" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4'>
+				<label class='required'>ماژول</label>
+				<div class="input-group">
+					<select class='form-control' data-bind='module' required asp-for='Module' id="moduleSelect"
+						data-initial-value="@Model?.Module">
+						<option value="">انتخاب کنید...</option>
+					</select>
+					<button type="button" class="btn btn-secondary" id="btnNewModule">
+						<i class="ki-duotone ki-plus fs-2"></i>
+					</button>
+				</div>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4'>
+				<label>Schema</label>
+				<input class='form-control' data-bind='schema' asp-for='Schema' value="dbo" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4'>
+				<label>Namespace (اختیاری)</label>
+				<input class='form-control' data-bind='namespace' asp-for='Namespace'
+					placeholder="Entities.App.ModuleName" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4'>
+				<label>موجودیت پایه</label>
+				<input class='form-control' data-bind='baseEntityType' asp-for='BaseEntityType' value="BaseEntity" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-12'>
+				<label>توضیحات</label>
+				<textarea class='form-control' data-bind='description' asp-for='Description' rows="2"></textarea>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-12 mt-3'>
+				<button type="button" class="btn btn-light-primary" id="btnLoadFromEntity">
+					<i class="ki-duotone ki-file-up fs-2"><span class="path1"></span><span class="path2"></span></i>
+					بارگذاری از موجودیت موجود
+				</button>
+			</div>
+		</div>
+
+		<!-- Section B: Properties Builder -->
+		<div class="row">
+			<div class="col-12">
+				<div class="d-flex justify-content-between align-items-center mb-5">
+					<h3 class="fw-bold text-dark">ویژگی‌ها</h3>
+					<div class="d-flex gap-2">
+						<button type="button" class="btn btn-outline-primary" id="btnAddSection">
+							<i class="ki-duotone ki-plus fs-2"></i>
+							افزودن بخش
+						</button>
+						<button type="button" class="btn btn-primary" id="btnAddProperty">
+							<i class="ki-duotone ki-plus fs-2"></i>
+							افزودن ویژگی
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-12">
+				<div id="sectionsContainer" class="sections-container">
+					<!-- Sections will be rendered here by JavaScript -->
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<!-- Code Preview Modal -->
+<div class="modal fade" id="codePreviewModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-xl modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3 class="modal-title">پیش‌نمایش کد تولید شده</h3>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<ul class="nav nav-tabs nav-line-tabs mb-5" role="tablist">
+					<li class="nav-item">
+						<a class="nav-link active" data-bs-toggle="tab" href="#entityTab">Entity Class</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#controllerTab">Controller</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#editViewTab">Edit View</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#listViewTab">List View</a>
+					</li>
+					<li class="nav-item" id="partialViewsTabNav" style="display:none;">
+						<a class="nav-link" data-bs-toggle="tab" href="#partialViewsTab">Partial Views</a>
+					</li>
+					<li class="nav-item" id="enumsTabNav" style="display:none;">
+						<a class="nav-link" data-bs-toggle="tab" href="#enumsTab">Enums</a>
+					</li>
+				</ul>
+
+				<div class="tab-content" dir="ltr">
+					<div class="tab-pane fade show active" id="entityTab">
+						<div class="mb-3 d-flex justify-content-between align-items-center" dir="rtl">
+							<div class="flex-grow-1">
+								<label class="form-label fw-bold">مسیر فایل:</label>
+								<code id="entityPath" class="d-block bg-light p-2 rounded"></code>
+							</div>
+							<button type="button" class="btn btn-sm btn-light-primary ms-3 btn-copy-code"
+								data-code-id="entityCode" title="کپی کد">
+								<i class="ki-duotone ki-copy fs-3">
+									<span class="path1"></span>
+									<span class="path2"></span>
+									<span class="path3"></span>
+									<span class="path4"></span>
+								</i>
+								کپی
+							</button>
+						</div>
+						<pre dir="ltr"><code id="entityCode" class="language-csharp"></code></pre>
+					</div>
+					<div class="tab-pane fade" id="controllerTab">
+						<div class="mb-3 d-flex justify-content-between align-items-center" dir="rtl">
+							<div class="flex-grow-1">
+								<label class="form-label fw-bold">مسیر فایل:</label>
+								<code id="controllerPath" class="d-block bg-light p-2 rounded"></code>
+							</div>
+							<button type="button" class="btn btn-sm btn-light-primary ms-3 btn-copy-code"
+								data-code-id="controllerCode" title="کپی کد">
+								<i class="ki-duotone ki-copy fs-3">
+									<span class="path1"></span>
+									<span class="path2"></span>
+									<span class="path3"></span>
+									<span class="path4"></span>
+								</i>
+								کپی
+							</button>
+						</div>
+						<pre dir="ltr"><code id="controllerCode" class="language-csharp"></code></pre>
+					</div>
+					<div class="tab-pane fade" id="editViewTab">
+						<div class="mb-3 d-flex justify-content-between align-items-center" dir="rtl">
+							<div class="flex-grow-1">
+								<label class="form-label fw-bold">مسیر فایل:</label>
+								<code id="editViewPath" class="d-block bg-light p-2 rounded"></code>
+							</div>
+							<button type="button" class="btn btn-sm btn-light-primary ms-3 btn-copy-code"
+								data-code-id="editViewCode" title="کپی کد">
+								<i class="ki-duotone ki-copy fs-3">
+									<span class="path1"></span>
+									<span class="path2"></span>
+									<span class="path3"></span>
+									<span class="path4"></span>
+								</i>
+								کپی
+							</button>
+						</div>
+						<pre dir="ltr"><code id="editViewCode" class="language-cshtml"></code></pre>
+					</div>
+					<div class="tab-pane fade" id="listViewTab">
+						<div class="mb-3 d-flex justify-content-between align-items-center" dir="rtl">
+							<div class="flex-grow-1">
+								<label class="form-label fw-bold">مسیر فایل:</label>
+								<code id="listViewPath" class="d-block bg-light p-2 rounded"></code>
+							</div>
+							<button type="button" class="btn btn-sm btn-light-primary ms-3 btn-copy-code"
+								data-code-id="listViewCode" title="کپی کد">
+								<i class="ki-duotone ki-copy fs-3">
+									<span class="path1"></span>
+									<span class="path2"></span>
+									<span class="path3"></span>
+									<span class="path4"></span>
+								</i>
+								کپی
+							</button>
+						</div>
+						<pre dir="ltr"><code id="listViewCode" class="language-cshtml"></code></pre>
+					</div>
+					<div class="tab-pane fade" id="partialViewsTab">
+						<div id="partialViewsContent"></div>
+					</div>
+					<div class="tab-pane fade" id="enumsTab">
+						<div id="enumsContent"></div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+				<button type="button" class="btn btn-success" id="btnSaveFilesFromPreview">
+					<i class="ki-duotone ki-file-down fs-2"><span class="path1"></span><span class="path2"></span></i>
+					ذخیره فایل‌ها
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Load From Entity Modal -->
+<div class="modal fade" id="loadEntityModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3 class="modal-title">انتخاب موجودیت</h3>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<label class="form-label">موجودیت را انتخاب کنید:</label>
+				<select class="form-select" id="entitySelector">
+					<option value="">انتخاب کنید...</option>
+				</select>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+				<button type="button" class="btn btn-primary" id="btnConfirmLoadEntity">بارگذاری</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Nested Entity Modal (Multi-Level Support) -->
+<div class="modal fade" id="nestedEntityModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"
+	data-bs-keyboard="false">
+	<div class="modal-dialog modal-xl modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<div class="flex-grow-1">
+					<div class="d-flex align-items-center justify-content-between">
+						<div>
+							<h3 class="modal-title">تعریف موجودیت فرزند</h3>
+							<nav aria-label="breadcrumb" class="mt-2">
+								<ol class="breadcrumb mb-0" id="nestedBreadcrumb">
+								</ol>
+							</nav>
+						</div>
+						<div>
+							<span class="badge badge-light-info fs-6">سطح: <span
+									id="currentNestingLevel">1</span></span>
+						</div>
+					</div>
+				</div>
+				<button type="button" class="btn-close" id="btnCloseNestedModal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div class="row mb-4">
+					<div class="col-md-6">
+						<label class="required">نام کلاس فرزند</label>
+						<input type="text" class="form-control" id="childEntityName" placeholder="مثال: OrderItem" />
+					</div>
+					<div class="col-md-6">
+						<label class="required">نام نمایشی</label>
+						<input type="text" class="form-control" id="childEntityDisplayName"
+							placeholder="مثال: آیتم سفارش" />
+					</div>
+				</div>
+
+				<div class="d-flex justify-content-between align-items-center mb-3">
+					<h5 class="fw-bold">ویژگی‌های کلاس فرزند</h5>
+					<button type="button" class="btn btn-sm btn-primary" id="btnAddNestedProperty">
+						<i class="ki-duotone ki-plus fs-3"></i>
+						افزودن ویژگی
+					</button>
+				</div>
+
+				<div id="nestedPropertiesContainer" class="properties-container row g-3">
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" id="btnCancelNestedEntity">انصراف</button>
+				<button type="button" class="btn btn-primary" id="btnSaveNestedEntity">ذخیره</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Nested Property Edit Modal (for properties inside nested entities) -->
+<div class="modal fade" id="nestedPropertyEditModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+	<div class="modal-dialog modal-lg modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<div class="flex-grow-1">
+					<h3 class="modal-title">ویرایش ویژگی فرزند</h3>
+					<small class="text-muted d-block mt-1">سطح: <span id="nestedEditLevel">2</span></small>
+				</div>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<input type="hidden" id="nestedEditPropertyIndex" />
+
+				<div class="row g-3">
+					<!-- Same fields as property edit modal -->
+					<div class="col-md-6">
+						<label class="required">نام نمایشی (فارسی)</label>
+						<input type="text" class="form-control" id="nestedEditPropertyDisplayName"
+							placeholder="مثال: عنوان" />
+						<small class="form-text text-muted">
+							<i class="ki-duotone ki-information fs-5">
+								<span class="path1"></span>
+								<span class="path2"></span>
+								<span class="path3"></span>
+							</i>
+							نام انگلیسی به صورت خودکار تولید می‌شود
+						</small>
+					</div>
+
+					<div class="col-md-6">
+						<label class="required">نام ویژگی (Property Name)</label>
+						<div class="input-group">
+							<input type="text" class="form-control" id="nestedEditPropertyName"
+								placeholder="مثال: Title" readonly />
+							<button type="button" class="btn btn-light-primary" id="btnRegenerateNestedPropertyName"
+								title="تولید مجدد">
+								<i class="ki-duotone ki-arrows-circle fs-2">
+									<span class="path1"></span>
+									<span class="path2"></span>
+								</i>
+							</button>
+						</div>
+						<small class="form-text text-success" id="nestedPropertyNameStatus" style="display: none;">
+							<i class="ki-duotone ki-check-circle fs-5">
+								<span class="path1"></span>
+								<span class="path2"></span>
+							</i>
+							<span></span>
+						</small>
+					</div>
+
+					<div class="col-md-6">
+						<label class="required">نوع سیستم</label>
+						<select class="form-select" id="nestedEditPropertySystemType">
+							<option value="">انتخاب کنید...</option>
+							@foreach (SystemType type in Enum.GetValues(typeof(SystemType)))
+							{
+								<option value="@type">@type</option>
+							}
+						</select>
+					</div>
+
+					<div class="col-md-6">
+						<label>سایز Column</label>
+						<select class="form-select" id="nestedEditPropertyColSize">
+							<option value="col-md-3">col-md-3 (25%)</option>
+							<option value="col-md-4">col-md-4 (33%)</option>
+							<option value="col-md-6" selected>col-md-6 (50%)</option>
+							<option value="col-md-8">col-md-8 (66%)</option>
+							<option value="col-md-12">col-md-12 (100%)</option>
+						</select>
+					</div>
+
+					<div class="col-md-6">
+						<label>حداکثر طول</label>
+						<input type="number" class="form-control" id="nestedEditPropertyMaxLength"
+							placeholder="مثال: 200" />
+					</div>
+
+					<!-- Checkboxes -->
+					<div class="col-md-12">
+						<div class="row">
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" id="nestedEditPropertyAddToTable" />
+									<label class="form-check-label">افزودن به جدول</label>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox" id="nestedEditPropertyRequired" />
+									<label class="form-check-label">الزامی</label>
+								</div>
+							</div>
+							<div class="col-md-3">
+								<div class="form-check">
+									<input class="form-check-input" type="checkbox"
+										id="nestedEditPropertyShowInRelation" />
+									<label class="form-check-label">نمایش در رابطه</label>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Conditional Fields for Nested Properties -->
+					<div class="col-md-12">
+						<!-- String -->
+						<div class="nested-conditional-edit-field" data-show-for="String" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label>الگوی Regex</label>
+									<input type="text" class="form-control" id="nestedEditPropertyRegex" />
+								</div>
+								<div class="col-md-6">
+									<label>پیام خطای Regex</label>
+									<input type="text" class="form-control" id="nestedEditPropertyRegexError" />
+								</div>
+							</div>
+						</div>
+
+						<!-- File -->
+						<div class="nested-conditional-edit-field" data-show-for="File" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label>انواع فایل مجاز</label>
+									<input type="text" class="form-control" id="nestedEditPropertyFileTypes" />
+								</div>
+								<div class="col-md-6">
+									<label>حداکثر حجم (MB)</label>
+									<input type="number" class="form-control" id="nestedEditPropertyMaxFileSize"
+										value="10" />
+								</div>
+							</div>
+						</div>
+
+						<!-- Entity -->
+						<div class="nested-conditional-edit-field" data-show-for="Entity" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-12">
+									<label class="required">موجودیت مرتبط</label>
+									<select class="form-select" id="nestedEditPropertyRelatedEntity">
+										<option value="">در حال بارگذاری...</option>
+									</select>
+								</div>
+								<div class="col-md-12">
+									<label>قالب نمایش (Display Template)</label>
+									<input type="text" class="form-control mb-2" id="nestedEditPropertyDisplayTemplate"
+										placeholder="مثال: نام مخاطب : {Name} نام خانوادگی : {LastName}" />
+									<div class="mb-2">
+										<label class="form-label">انتخاب فیلد:</label>
+										<div class="border rounded p-3 tree-view-container">
+											<div id="nestedEntityFieldsTree" class="entity-fields-tree">
+												<div class="text-muted text-center py-3">
+													<i class="ki-duotone ki-loader fs-2">
+														<span class="path1"></span>
+														<span class="path2"></span>
+													</i>
+													<div class="mt-2">در حال بارگذاری...</div>
+												</div>
+											</div>
+										</div>
+									</div>
+									<div class="alert alert-info mb-0">
+										<small>
+											<strong>راهنما:</strong> می‌توانید متن دلخواه وارد کنید و با کلیک روی فیلدها
+											در درخت بالا، آن‌ها را به قالب اضافه کنید.
+											<br>
+											<strong>مثال:</strong> نام مخاطب : {Name} شهر : {City.Name} استان :
+											{City.Province.Name}
+										</small>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Select (Enum) -->
+						<div class="nested-conditional-edit-field" data-show-for="Select" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-12">
+									<label>نام Enum</label>
+									<input type="text" class="form-control" id="nestedEditPropertyEnumName" />
+								</div>
+								<div class="col-md-12">
+									<div class="d-flex justify-content-between align-items-center mb-2">
+										<label class="fw-bold">گزینه‌های Enum</label>
+										<button type="button" class="btn btn-sm btn-light-primary"
+											id="btnAddNestedEditEnumOption">
+											<i class="ki-duotone ki-plus fs-3"></i>
+											افزودن گزینه
+										</button>
+									</div>
+									<div id="nestedEditEnumOptionsContainer" class="enum-options-grid">
+										<!-- Enum options will be added here -->
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- ListEntity (Recursive) -->
+						<div class="nested-conditional-edit-field" data-show-for="ListEntity" style="display:none;">
+							<div class="row g-3">
+								<div class="col-md-6">
+									<label class="required">نام کلاس فرزند</label>
+									<input type="text" class="form-control" id="nestedEditPropertyChildEntityName" />
+								</div>
+								<div class="col-md-6">
+									<label class="required">نام نمایشی کلاس فرزند</label>
+									<input type="text" class="form-control"
+										id="nestedEditPropertyChildEntityDisplayName" />
+								</div>
+								<div class="col-md-12">
+									<button type="button" class="btn btn-light-primary" id="btnEditDeeperNestedEntity">
+										<i class="ki-duotone ki-setting-2 fs-2">
+											<span class="path1"></span>
+											<span class="path2"></span>
+										</i>
+										تعریف ویژگی‌های کلاس فرزند (<span id="deeperNestedPropsCount">0</span> ویژگی)
+									</button>
+									<input type="hidden" id="nestedEditNestedPropertiesJson" value='[]' />
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+				<button type="button" class="btn btn-primary" id="btnSaveNestedPropertyEdit">ذخیره</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+@await Html.PartialAsync("_PropertyEditModal.cshtml")
+
+<!-- Section Edit Modal -->
+<div class="modal fade" id="sectionEditModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h3 class="modal-title">ویرایش بخش</h3>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<input type="hidden" id="sectionId" />
+
+				<div class="row g-3">
+					<div class="col-12">
+						<label class="required">عنوان بخش</label>
+						<input type="text" class="form-control" id="sectionTitle" placeholder="مثال: اطلاعات شخصی" />
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+				<button type="button" class="btn btn-primary" id="btnSaveSectionEdit">ذخیره</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- SortableJS for drag and drop (fallback if jQuery UI sortable not available) -->
+<script src="~/panelLib/plugins/custom/sortable/Sortable.min.js"></script>
+
+<script src="~/js/formBuilderModalHelper.js"></script>
+<script src="~/js/formBuilder.js"></script>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) { return; }
+
+		// Collect properties data
+		FormBuilderApp.collectPropertiesData();
+
+		var model = $$('.card').dataBind();
+
+		model.Properties = $$('#formBuilderCard').data('properties');
+		var sectionsData = $$('#formBuilderCard').data('sections');
+		if (!sectionsData && typeof FormBuilderApp.getSectionsData === 'function') {
+			sectionsData = FormBuilderApp.getSectionsData();
+		}
+		model.Sections = sectionsData || [];
+		const $btn = $(this.element).block();
+
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				$$('.card').dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+	// Initialize form builder and pass $$ jQuery reference
+	FormBuilderApp.init($$);
+</script>

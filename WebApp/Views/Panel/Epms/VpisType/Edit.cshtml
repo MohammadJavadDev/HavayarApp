@@ -1,0 +1,100 @@
+@using Entities.App.Epms;
+@model VpisType
+ <div class="card">
+
+
+     <div class="">
+          <div class="" data-system-action="actionbuttons">
+               <div class="  gap-2 d-md-flex justify-content-start align-items-center  col-md-auto me-auto">
+                    <button class="btn-sm btn btn-icon btn-active-icon-dark btn-color-primary" data-action="new" data-bs-toggle="tooltip" data-bs-placement="top" title="جدید">
+                         <i class="fs-2 fa-jelly fa-light fa-circle-plus" style="padding-right: 2px;padding-top: 2px;"></i>
+                    </button>
+
+                    <button class="btn-sm btn btn-icon btn-active-icon-dark btn-color-primary " data-action="save" data-bs-toggle="tooltip" data-bs-placement="top" title="ذخیر">
+                         <i class="fs-2 fa-light fa-floppy-disk" style=" padding-top: 2px;   padding-right: 2px;"></i>
+
+                    </button>
+                    <button class="btn-sm btn btn-icon btn-active-icon-dark btn-color-success p-2" data-action="exportExcell" data-bs-toggle="tooltip" data-bs-placement="top" title="ذخیر و جدید">
+                         <i class="fs-2 fa-light fa-floppy-disk-circle-arrow-right"></i>
+
+                    </button>
+
+                    <button class="btn-sm btn btn-icon btn-active-icon-dark btn-color-danger" data-action="new" data-bs-toggle="tooltip" data-bs-placement="top" title="ذخیر و  بستن">
+                         <i class="fs-2 fa-light fa-floppy-disk-circle-xmark" style="padding-right: 2px;padding-top: 2px;"></i>
+
+                    </button>
+
+
+                    <button class="btn-sm btn btn-icon btn-active-icon-dark btn-color-info " data-system-action="history" data-bs-toggle="tooltip" data-bs-placement="top" title="تاریخچه">
+                         <i class="fs-2 fa-light fa-files-medical" style=" padding-right: 2px;padding-top: 2px;"></i>
+
+                    </button>
+
+
+
+               </div>
+          </div>
+
+          <input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+          <div class="row card-body">
+               <div class='col-md-6'>
+                    <label class='required'>عنوان</label>
+                    <input class='form-control' data-bind='title' required asp-for='Title' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+         
+          </div>
+
+     </div>
+     <div class='card-footer '>
+          <div class="row">
+               <div class='col-md-3'>
+                    <span>ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class='col-md-3'>
+                    <span>تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class='col-md-3'>
+                    <span>ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class='col-md-3'>
+                    <span>تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+          </div>
+
+     </div>
+</div>
+
+                                         <script>
+
+                                               $$('[data-action=save]').click(function() {
+
+                                                if(validateError($$('.card')))
+                                                    { return; }
+
+                                                var model = $$('.card').dataBind();
+                                                    
+                                                   const $btn = $(this).block();
+                                                post('/VpisType/save',
+                                                    model,
+                                                    function(r) {
+                                                        $btn.block(false);
+                                                        if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+                                                        toastr.success('ذخیره سازی با موفقیت انجام شد .');
+                                                        $$('.card').dataBind(r.data);
+                                                    })
+                                            })
+                                            
+                                                
+                                        </script>
+                     
+                                    

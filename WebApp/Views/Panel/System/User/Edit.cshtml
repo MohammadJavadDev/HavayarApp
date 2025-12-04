@@ -1,0 +1,163 @@
+﻿@using Data.Contracts
+@using Entities.Auth
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@model Entities.Auth.User
+@inject IRepository<Role> serviceRole;
+@{
+
+ 
+
+    var systemRoles =   serviceRole.TableNoTracking.Select(c => new { c.Id, c.Name, c.Title }).ToArray();
+
+}
+
+<style>
+    .image-input-placeholder {
+        background-image: url('assets/media/svg/files/blank-image.svg');
+    }
+
+    [data-bs-theme="dark"] .image-input-placeholder {
+        background-image: url('assets/media/svg/files/blank-image-dark.svg');
+    }</style>
+<link rel="stylesheet" href="~/css/Select2.css" asp-append-version="true" />
+
+<div class="card">
+    <div class="card-body">
+        
+            <div class="row">
+                <div class="mb-7">
+
+                    <label class="fs-6 fw-semibold mb-3">
+                        <span>بروزرسانی تصویر پروفایل</span>
+
+                    </label>
+
+                    <div class="mt-1">
+
+                        <div class="image-input image-input-outline image-input-placeholder image-input-empty image-input-empty">
+
+                            <div class="image-input-wrapper w-100px h-100px" id="imageplaceholder" style="background-image: url('@Html.Raw( @Model?.ProfileUrl ?? "/media/account/avatar.png")')"></div>
+
+                            <label class="btn btn-icon btn-circle btn-active-color-primary w-25px h-25px bg-body shadow">
+
+                                <i class="fa fa-pencil" aria-hidden="true" id="uploadProfileImage"></i>
+
+                            <input type="hidden" value="@Model?.ProfileUrl" data-input-name="profileUrl" data-bind="profileUrl">
+
+                            </label>
+
+                            <span class="btn btn-icon btn-circle btn-active-color-primary w-25px h-25px bg-body shadow">
+                                <i class="ki-duotone ki-cross fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </span>
+
+                            <span class="btn btn-icon btn-circle btn-active-color-primary w-25px h-25px bg-body shadow">
+                                <i class="ki-duotone ki-cross fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="col-md-6 ">
+                    <div class="form-group">
+                        <label class="form-label">نام</label>
+                        <input value="@Model?.Name" class="form-control" data-bind="Name" />
+                    <input type="hidden" value="@Model?.Id" data-bind="Id" />
+                    
+                    </div>
+
+                </div>
+                <div class="col-md-6 ">
+                    <div class="form-group">
+                        <label class="form-label">نام کاربری</label>
+                    <input value="@Model?.Username" class="form-control" data-bind="Username" />
+                    
+                    </div>
+                </div>
+                <div class="col-md-6 ">
+                    <div class="form-group">
+                        <label class="form-label">رمز عبور </label>
+                    <input value="" class="form-control" data-bind="password" />
+
+                    </div>
+                </div>
+ 
+                <div class="form-group">
+                    <label >نقش</label>
+
+                <select class="form-control" multiple="multiple" data-bind="Roles">
+
+                        @foreach (var r in systemRoles)
+                        {
+                            if ( Model?.Roles?.Contains(r.Name) ?? false)
+                            {
+                                <option value="@r.Name" selected>@r.Title</option>
+                            }
+                            else
+                            {
+                                <option value="@r.Name">@r.Title</option>
+                            }
+
+                        }
+
+                    </select>
+                </div>
+                <div class="col-md-6 mt-10">
+                    <button type="button" id="saveUser" class="btn btn-primary">ذخیره</button>
+                </div>
+
+
+            </div>
+        
+    </div>
+</div>
+
+
+
+<script src="~/js/Select2.js"></script>
+<script>
+
+     $$('select[multiple]').select2({
+         tags: true,
+         tokenSeparators: [',']
+     });
+
+     $$("#uploadProfileImage")
+         .click(function () {
+
+             upload({
+                 allowedTypes: "*.png,*.jpg,*.jpeg",
+                 path: "UserProfileImage",
+                 onComplete: function (g) {
+                     if (!g.data.path) return error(g.message);
+                     debugger
+
+                     $("[data-input-name=profileUrl]").val(g.data.path)
+                     $("#imageplaceholder").css("background-image", `url('${g.data.path}')`)
+
+                 }
+             })
+
+         });
+
+     $$("#saveUser").click(function () {
+         var model = $(".card").dataBind();
+ 
+         post("/panel/SaveUser", model, function (r) {
+
+             if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+             $('.card').dataBind(r.data);
+             toastr.success("ذخیره سازی با موفقیت انجام شد .");
+         })
+     });
+
+</script>
+                        

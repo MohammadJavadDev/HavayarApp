@@ -1,0 +1,25 @@
+﻿@using Stimulsoft.Report.Mvc
+@{
+     Layout = null;
+ }
+ <div style="direction: ltr">
+	 @Html.StiNetCoreDesigner("STDesiner",new StiNetCoreDesignerOptions()
+	 {
+		 Actions =
+		 {
+			 GetReport = "GetReport",
+			 SaveReport = "SaveReport",
+			 DesignerEvent = "DesignerEvent",
+
+        
+		 }
+
+	 })
+ </div>
+ 
+ 
+	 <script>
+		 window.jsSTDesiner = jsSTDesiner;
+
+	 </script>
+  

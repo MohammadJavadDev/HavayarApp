@@ -1,0 +1,450 @@
+﻿ 
+<style>
+ 
+
+     .container-custom {
+          max-width: 900px;
+          margin: 0 auto;
+     }
+
+     .page-header {
+          background: white;
+          border-radius: 15px;
+          padding: 25px 30px;
+          margin-bottom: 25px;
+          box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+     }
+
+          .page-header h1 {
+               margin: 0;
+               color: #667eea;
+               font-size: 28px;
+               font-weight: bold;
+               display: flex;
+               align-items: center;
+               gap: 10px;
+          }
+
+     .filter-section {
+          background: white;
+          border-radius: 15px;
+          padding: 20px 30px;
+          margin-bottom: 25px;
+          box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+          display: flex;
+          gap: 30px;
+          align-items: center;
+     }
+
+          .filter-section label {
+               display: flex;
+               align-items: center;
+               gap: 8px;
+               cursor: pointer;
+               font-size: 15px;
+               color: #555;
+               margin: 0;
+          }
+
+          .filter-section input[type="checkbox"] {
+               width: 20px;
+               height: 20px;
+               cursor: pointer;
+          }
+
+     .notifications-container {
+          max-height: calc(100vh - 300px);
+          overflow-y: auto;
+          padding-right: 5px;
+     }
+
+          .notifications-container::-webkit-scrollbar {
+               width: 8px;
+          }
+
+          .notifications-container::-webkit-scrollbar-track {
+               background: rgba(255, 255, 255, 0.1);
+               border-radius: 10px;
+          }
+
+          .notifications-container::-webkit-scrollbar-thumb {
+               background: rgba(255, 255, 255, 0.3);
+               border-radius: 10px;
+          }
+
+               .notifications-container::-webkit-scrollbar-thumb:hover {
+                    background: rgba(255, 255, 255, 0.5);
+               }
+
+     .notification-card {
+          background: white;
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 15px;
+          box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+          transition: all 0.3s ease;
+          border-right: 5px solid;
+          position: relative;
+     }
+
+          .notification-card:hover {
+               transform: translateY(-2px);
+               box-shadow: 0 5px 25px rgba(0, 0, 0, 0.15);
+          }
+
+          .notification-card.unread {
+               border-right-color: #667eea;
+               background: linear-gradient(to left, rgba(102, 126, 234, 0.05), white);
+          }
+
+          .notification-card.read {
+               border-right-color: #e0e0e0;
+               opacity: 0.85;
+          }
+
+     .notification-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: start;
+          margin-bottom: 12px;
+     }
+
+     .notification-title {
+          font-size: 18px;
+          font-weight: bold;
+          color: #333;
+          margin: 0;
+          flex: 1;
+     }
+
+     .notification-actions {
+          display: flex;
+          gap: 10px;
+     }
+
+     .notification-badge {
+          background: #667eea;
+          color: white;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: bold;
+          text-transform: uppercase;
+     }
+
+          .notification-badge.read-badge {
+               background: #95a5a6;
+          }
+
+     .notification-body {
+          color: #555;
+          line-height: 1.6;
+          margin-bottom: 12px;
+     }
+
+          .notification-body.html-content {
+               border: 1px solid #f0f0f0;
+               padding: 15px;
+               border-radius: 8px;
+               background: #fafafa;
+          }
+
+     .notification-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 15px;
+          padding-top: 12px;
+          border-top: 1px solid #f0f0f0;
+     }
+
+     .notification-date {
+          color: #999;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+     }
+
+     .btn-mark-read {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          border: none;
+          padding: 8px 20px;
+          border-radius: 20px;
+          font-size: 13px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+     }
+
+          .btn-mark-read:hover {
+               transform: scale(1.05);
+               box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+          }
+
+          .btn-mark-read:disabled {
+               background: #95a5a6;
+               cursor: not-allowed;
+               transform: scale(1);
+          }
+
+     .loading-spinner {
+          text-align: center;
+          padding: 30px;
+          color: white;
+          font-size: 16px;
+     }
+
+          .loading-spinner i {
+               font-size: 32px;
+               animation: spin 1s linear infinite;
+          }
+
+     @@keyframes spin {
+          0% {
+               transform: rotate(0deg);
+          }
+
+          100% {
+               transform: rotate(360deg);
+          }
+     }
+
+     .no-notifications {
+          background: white;
+          border-radius: 15px;
+          padding: 50px;
+          text-align: center;
+          box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+     }
+
+          .no-notifications i {
+               font-size: 64px;
+               color: #ddd;
+               margin-bottom: 20px;
+          }
+
+          .no-notifications p {
+               color: #999;
+               font-size: 18px;
+               margin: 0;
+          }
+
+     .alert {
+          border-radius: 10px;
+          box-shadow: 0 3px 15px rgba(0, 0, 0, 0.1);
+     }
+</style>
+    <div class="container-custom">
+        <div class="page-header">
+            <h1>
+                <i class="fas fa-bell"></i>
+                اعلانات من
+            </h1>
+        </div>
+
+        <div class="filter-section">
+            <label>
+                <input type="checkbox" id="filterUnread" checked>
+                <span><i class="fas fa-envelope"></i> خوانده نشده</span>
+            </label>
+            <label>
+                <input type="checkbox" id="filterRead" checked>
+                <span><i class="fas fa-envelope-open"></i> خوانده شده</span>
+            </label>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="notifications-container" id="notificationsContainer">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner"></i>
+                <p>در حال بارگذاری اعلانات...</p>
+            </div>
+        </div>
+    </div>
+
+ 
+    <script>
+        let currentPage = 1;
+        let isLoading = false;
+        let hasMore = true;
+        const pageSize = 10;
+
+        function getFilterParams() {
+            const showUnread = $$('#filterUnread').is(':checked');
+            const showRead = $$('#filterRead').is(':checked');
+
+            if (showUnread && showRead) {
+                return null; // هر دو
+            } else if (showUnread) {
+                return false; // فقط خوانده نشده
+            } else if (showRead) {
+                return true; // فقط خوانده شده
+            } else {
+                return null; // هیچکدام (نمایش همه)
+            }
+        }
+
+        function loadNotifications(reset = false) {
+            if (isLoading || (!hasMore && !reset)) return;
+
+            if (reset) {
+                currentPage = 1;
+                hasMore = true;
+                $$('#notificationsContainer').html(`
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner"></i>
+                        <p>در حال بارگذاری اعلانات...</p>
+                    </div>
+                `);
+            } else {
+                $$('#notificationsContainer').append(`
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner"></i>
+                        <p>در حال بارگذاری...</p>
+                    </div>
+                `);
+            }
+
+            isLoading = true;
+            const isReadFilter = getFilterParams();
+
+            $.ajax({
+                url: '/System/Notify/GetMyNotifications',
+                type: 'GET',
+                data: {
+                    page: currentPage,
+                    pageSize: pageSize,
+                    isRead: isReadFilter
+                },
+                success: function (response) {
+                     debugger
+                      
+                    $$('.loading-spinner').remove();
+
+           let notifications = response.data.notifications;
+
+                 if (response.data && notifications.length > 0) {
+                        if (reset) {
+                            $$('#notificationsContainer').empty();
+                        }
+
+                    notifications.forEach(function (notification) {
+                            const card = createNotificationCard(notification);
+                            $$('#notificationsContainer').append(card);
+                        });
+
+                        hasMore = response.data.hasMore;
+                        currentPage++;
+                    } else if (reset || currentPage === 1) {
+                        $$('#notificationsContainer').html(`
+                            <div class="no-notifications">
+                                <i class="fas fa-inbox"></i>
+                                <p>اعلانی برای نمایش وجود ندارد</p>
+                            </div>
+                        `);
+                    }
+
+                    isLoading = false;
+                },
+                error: function () {
+                    $$('.loading-spinner').remove();
+                    showAlert('خطا در دریافت اعلانات. لطفاً دوباره تلاش کنید.', 'danger');
+                    isLoading = false;
+                }
+            });
+
+     $$().on("click","[data-action=markAsRead]",function(){
+                let id = $(this).attr("data-id")
+                markAsRead(id);
+           })
+        }
+
+        function createNotificationCard(notification) {
+            const readClass = notification.isRead ? 'read' : 'unread';
+            const badgeClass = notification.isRead ? 'read-badge' : '';
+            const badgeText = notification.isRead ? 'خوانده شده' : 'جدید';
+
+            let contentHtml = '';
+            if (notification.body) {
+                contentHtml = `<div class="notification-body html-content">${notification.body}</div>`;
+            } else if (notification.description) {
+                contentHtml = `<div class="notification-body">${escapeHtml(notification.description)}</div>`;
+            }
+
+            const markReadButton = notification.isRead
+                ? '<button class="btn-mark-read" disabled><i class="fas fa-check-double"></i> خوانده شده</button>'
+             : `<button class="btn-mark-read" data-action="markAsRead" data-id="${notification.id}"><i class="fas fa-check"></i> علامت به عنوان خوانده شده</button>`;
+
+           let $notification =  `
+                <div class="notification-card ${readClass}" data-id="${notification.id}">
+                    <div class="notification-header">
+                        <h5 class="notification-title">${escapeHtml(notification.title)}</h5>
+                        <span class="notification-badge ${badgeClass}">${badgeText}</span>
+                    </div>
+                    ${contentHtml}
+                    <div class="notification-footer">
+                        <span class="notification-date">
+                            <i class="far fa-clock"></i>
+                            ${notification.createdOnShamsiDateTime || 'نامشخص'}
+                        </span>
+                        ${markReadButton}
+                    </div>
+                </div>
+            `;
+
+
+           return $notification
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function markAsRead(notificationId) {
+            $$.post( '/System/Notify/MarkAsRead' ,notificationId ,
+            function(r) {
+                    if (!r.isSuccess) return error2(r.message);
+                    debugger  
+                        const card = $$(`.notification-card[data-id="${notificationId}"]`);
+                        card.removeClass('unread').addClass('read');
+                        card.find('.notification-badge').removeClass('').addClass('read-badge').text('خوانده شده');
+                        card.find('.btn-mark-read').prop('disabled', true).html('<i class="fas fa-check-double"></i> خوانده شده');
+
+                        success2('اعلان به عنوان خوانده شده علامت‌گذاری شد');
+                        window.CalculationCountUnreadNotifications();
+                   
+                },);
+        }
+
+     
+
+        // Infinite scroll
+        $$('#notificationsContainer').on('scroll', function () {
+             debugger
+            if ($(this).scrollTop() + $(this).innerHeight() >= $(this)[0].scrollHeight - 100) {
+                loadNotifications();
+            }
+        });
+
+        // Filter change handlers
+        $$('#filterUnread, #filterRead').on('change', function () {
+            loadNotifications(true);
+        });
+
+        // Initial load
+        loadNotifications();
+    </script>
+ 

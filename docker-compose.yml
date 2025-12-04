@@ -1,0 +1,51 @@
+version: '3.9'
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  webapp:
+    build:
+      context: .
+      dockerfile: WebApp/Dockerfile
+    depends_on:
+      - rabbitmq
+      - redis
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "8080:8080"
+
+  appreal:
+    build:
+      context: .
+      dockerfile: App.Real/Dockerfile
+    depends_on:
+      - rabbitmq
+      - redis
+    environment:
+      ASPNETCORE_URLS: http://+:8090
+    ports:
+      - "8090:8090"
+
+volumes:
+  rabbitmq-data:
+  redis-data:
+
+
+

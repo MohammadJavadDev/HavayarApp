@@ -1,0 +1,448 @@
+﻿@inject IUnitOfWork _unitOfWork;
+@using Common.Utilities
+@using Data.Contracts
+@using Microsoft.EntityFrameworkCore
+@using ReportBuilder.Entities
+@model ReportBuilder.Entities.ReportBuilderReport;
+@{
+    Layout = "/Views/Panel/Shared/_PanelLayout.cshtml";
+
+    var objects = await _unitOfWork.Repository<ReportBuilderTable>()
+        .TableNoTracking
+        .Select(c=> new {c.Id, c.ObjectType , c.Title, c.ObjectName, c.ObjectSchema}).ToListAsync()
+        ;
+}
+
+<div class="card">
+    <div class="card-header">
+        <div class='col-md-12 align-content-center  text-center  fa-2x justify-content-center'>
+            <span>ایجاد گزارش</span>
+        </div>
+        
+    </div>
+    <div class="card-body">
+
+        <div class="row mb-10">
+            <div class="col-md-4">
+                <label class="required">نام گزارش</label>
+                <input class="form-control" data-bind="reportTitle" value="@Model?.Title"  />
+                <input class="form-control" type="hidden" data-bind="id" value="@Model?.Id"  />
+            </div> 
+            <div class="col-md-4">
+                <label class="required">نوع گزارش</label>
+                <select class="form-select" data-bind="type" asp-for="Type" >
+                    <option value="0">جدول</option>
+                    <option value="1">طراحی</option>
+                </select>
+ 
+            </div>
+            <div class="col-md-4">
+                <label class="required">نام </label>
+                <input class="form-control" disabled data-bind="reportName" value="@Model?.Name" />
+            </div>
+        </div>
+        
+
+        <nav>
+            <div class="nav nav-pills flex-column flex-sm-row" id="nav-tab" role="tablist">
+                <button class="flex-sm-fill text-sm-center nav-link active" id="nav-reportItem-tab" data-bs-toggle="tab" data-bs-target="#nav-reportItem" type="button" role="tab" aria-controls="nav-reportItem" aria-selected="true" disabled="disabled">آیتم گزارش</button>
+                <button class="flex-sm-fill text-sm-center nav-link" id="nav-filters-tab" data-bs-toggle="tab" data-bs-target="#nav-filters" type="button" role="tab" aria-controls="nav-filters" aria-selected="false" disabled="disabled">فیلتر ها</button>
+                <button class="flex-sm-fill text-sm-center nav-link" id="nav-selectItems-tab" data-bs-toggle="tab" data-bs-target="#nav-selectItems" type="button" role="tab" aria-controls="nav-selectItems" aria-selected="false" disabled="disabled">انتخاب ستون ها/طراحی</button>
+            </div>
+        </nav>
+        <div class="tab-content" id="nav-tabContent">
+            <div class="tab-pane fade show active p-5" id="nav-reportItem" role="tabpanel" aria-labelledby="nav-reportItem-tab">
+               @if (Model?.Name?.HasValue(true) ?? false)
+               {
+                    @foreach (var r in objects.Where(c => c.ObjectSchema + "." + c.ObjectName == Model?.Name))
+	               {
+		               var objName = r.ObjectSchema +"."+r.ObjectName;
+
+		               <div class="col-md-6 mt-3" data-sectionItem="">
+			               <div class="input-group mb-5">
+				               <span class="input-group-text">
+
+					               <input type="radio" class=" mx-3" id="@r.Id" name="reportItems" data-objectName="@objName" data-objectType="@r.ObjectType" checked="checked" disabled="disabled" />
+					               <label for="@r.Id">@r.Title </label>
+				               </span>
+			               </div>
+		               </div>
+	               }
+               }
+               else
+               {
+                    <div class="separator separator-content my-15 border-success">
+                        <span class=" text-success">
+
+                            VIEWS
+                        </span>
+                    </div>
+                    @foreach (var r in objects.Where(c => c.ObjectType == "VIEW"))
+                    {
+                        var objName = r.ObjectSchema + "." + r.ObjectName;
+
+                        <div class="col-md-6 mt-3" data-sectionItem="">
+                            <div class="input-group mb-5">
+                                <span class="input-group-text">
+
+                                    <input type="radio" class=" mx-3" id="@r.Id" name="reportItems" data-objectName="@objName" data-objectType="@r.ObjectType" />
+                                    <label for="@r.Id">@r.Title </label>
+                                </span>
+                            </div>
+                        </div>
+                    }
+
+
+                    <div class="separator separator-content my-15 border-info">
+
+
+                        <span class=" text-info">
+                            BASE_TABLES
+                        </span>
+
+                    </div>
+                    @foreach (var r in objects.Where(c => c.ObjectType == "BASE TABLE"))
+                    {
+                        var objName = r.ObjectSchema + "." + r.ObjectName;
+
+                        <div class="col-md-6 mt-3" data-sectionItem="">
+                            <div class="input-group mb-5">
+                                <span class="input-group-text">
+
+                                    <input type="radio" class=" mx-3" id="@r.Id" name="reportItems" data-objectName="@objName" data-objectType="@r.ObjectType" />
+                                    <label for="@r.Id">@r.Title </label>
+                                </span>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="separator separator-content my-15 border-warning">
+
+                        <span class=" text-warning">
+                            Store_Procedures
+                        </span>
+
+                    </div>
+
+                    @foreach (var r in objects.Where(c => c.ObjectType == "Store_Procedures"))
+                    {
+                        var objName = r.ObjectSchema + "." + r.ObjectName;
+
+                        <div class="col-md-6 mt-3" data-sectionItem="">
+                            <div class="input-group mb-5">
+                                <span class="input-group-text">
+
+                                    <input type="radio" class=" mx-3" id="@r.Id" name="reportItems" data-objectName="@objName" data-objectType="@r.ObjectType" />
+                                    <label for="@r.Id">@r.Title </label>
+                                </span>
+                            </div>
+                        </div>
+                    }
+
+               }
+              
+                <div class="row justify-content-end">
+                    <div class="col-md-3">
+                        <button class="btn btn-info" style="width:100%" id="selectTable">بعدی</button>
+                    </div>
+                </div>
+            </div>
+          
+            <div class="tab-pane fade" id="nav-filters" role="tabpanel" aria-labelledby="nav-filters-tab">
+                <div class="row p-5">
+                    <div class="col-md-3">
+                        <button class="btn btn-outline btn-outline-success" id="selectAllFilters" style="width: 100%">انتخاب همه</button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline btn-outline-danger" id="deleteAllFilters" style="width: 100%">حذف همه</button>
+                    </div>
+                </div>
+                <div class="row border border-3 mt-2" id="filtersPlace">
+                </div>
+                <div class="justify-content-between mt-5 row">
+                    <div class="col-md-3">
+                        <button class="btn btn-info" style="width:100%" id="filterPrevious">قبلی</button>
+                    </div>
+
+                    <div class="col-md-3">
+                        <button class="btn btn-info" style="width: 100%" id="filterNext">بعدی</button>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="tab-pane fade" id="nav-selectItems" role="tabpanel" aria-labelledby="nav-selectItems-tab">
+                <div id="tableViewDesigne" class="d-none">
+                    <div class="row p-5"> 
+                        <div class="col-md-3">
+                            <button class="btn btn-outline btn-outline-success" id="selectAllItems" style="width: 100%">انتخاب همه</button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-outline btn-outline-danger" id="deleteAllItems" style="width: 100%">حذف همه</button>
+                        </div>
+                    </div>
+                    <div class="row border border-3 mt-2" id="itemPlace">
+
+           
+                    </div>
+                </div>
+                <div id="StimulsoftViewDesigne" class="d-none">
+            
+                </div>
+           
+                <div class="row justify-content-end">
+                    <div class="col-md-3">
+                        <button class="btn btn-info" style="width:100%" id="selectItemsPrevious">قبلی</button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-info" style="width: 100%" id="saveReport">ذخیره</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        
+        
+      
+    </div>
+</div>
+
+
+
+@section Scripts{
+
+		
+
+
+    <script>
+        let items = [];
+        let reportType;
+        let itemId;
+        let dataSets;
+        let designer;
+        let itemData;
+
+        if($("[data-bind=id]").val().length != 0)
+        {
+            $("[data-bind=type]").prop("disabled",true);
+        }
+
+        $("#selectTable")
+            .click(function() {
+                if ($("input:checked").length === 0) {
+                    return toastr.error(`هیچ آیتمی انتخاب نشده است`, 'خطا');
+                }
+
+
+                $("[data-bind='reportName']")
+                    .val($("#nav-reportItem input:checked").attr("data-objectName"));
+
+                let dataObjectType = $("#nav-reportItem input:checked").attr("data-objectType");
+
+                reportType = $("[data-bind='type']").val();
+
+                if (reportType === '0' && dataObjectType === "Store_Procedures") {
+                    return toastr.error(`امکان ایجاد گزارش از نوع جدول برای Store_Procedures نمیباشد .`, 'خطا');
+                }
+
+                $("[data-bind='type']").prop("disabled", true);
+
+                itemId = $("#nav-reportItem input:checked").attr("id");
+
+                get("/System/ReportBuilder/GetItems?id=" + itemId,
+                    function(r) {
+                        if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+                        $('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
+                        $("#filtersPlace").html("");
+
+
+                        if (dataObjectType === "Store_Procedures") {
+
+                            r.data.filters.forEach(c => {
+                                let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
+                                        <div class="input-group mb-5">
+                                            <span class="input-group-text">
+                                               <input type="checkbox" class=" mx-3" id="${c.id}" data-type="${c.dataType}" disabled="disabled" checked  />
+                                                   <label for="${c.id}">${c.title} - ${c.columnName} </label>
+                                            </span>
+                                        </div>
+                                    </div>`);
+
+                                $tpl.find("input")
+                                    .change(function() {
+                                         
+                                        if (this.checked == true) {
+                                            items.push({ title: c.title, columnName: c.columnName, dataType: c.dataType })
+                                        } else {
+                                            items.remove(z => z.columnName == c.columnName);
+                                        }
+                                    });
+
+                                $("#filtersPlace").append($tpl);
+                            });
+                        } else {
+                            r.data.items[0].reportBuilderReportItems.forEach(c => {
+                                let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
+                                        <div class="input-group mb-5">
+                                            <span class="input-group-text">
+                                                                       <input type="checkbox" class=" mx-3" id="${c.columnName}f" data-columnName="${c.columnName}" data-type="${c.dataType}"  data-title="${c.title}"   />
+                                                           <label for="${c.columnName}f">${c.title} - ${c.columnName} </label>
+                                            </span>
+                                        </div>
+                                    </div>`);
+
+                              
+
+                                $("#filtersPlace").append($tpl);
+                               
+                            });
+                            r.data.items[0].reportBuilderReportItems.forEach(c => {
+                                let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
+                                                <div class="input-group mb-5">
+                                                    <span class="input-group-text">
+                                                                               <input type="checkbox" class=" mx-3" id="${c.columnName}s" data-columnName="${c.columnName}" data-type="${c.dataType}"  data-title="${c.title}"   />
+                                                                   <label for="${c.columnName}s">${c.title} - ${c.columnName} </label>
+                                                    </span>
+                                                </div>
+                                            </div>`);
+
+                                
+
+                                $("#itemPlace").append($tpl);
+
+                            });
+                        }
+
+                        dataSets = r.data.items;
+                        itemData = r.data;
+
+                    });
+
+
+            });
+
+        $("#filterPrevious").click(function() {
+            $("[data-bind='type']").prop("disabled", false);
+            $('#nav-tab button[data-bs-target="#nav-reportItem"]').tab('show');
+            $("#filtersPlace").html("");
+            $("#itemPlace").html("");
+        });
+
+        $("#filterNext").click(function() {
+
+            if (reportType === "1") {
+                $("#tableViewDesigne").addClass("d-none");
+                $("#StimulsoftViewDesigne").removeClass("d-none");
+
+                // designer = LoadStimulsoft(itemId, dataSets, reportContent);
+                var id = $("[data-bind=id]").val();
+                $("#StimulsoftViewDesigne").append(`<iframe src="/system/ReportBuilder/StimulSoftReport?itemId=${itemId}&reportId=${id}" style="width: 100%;min-height: 1200px;"></iframe>`);
+
+            } else {
+                $("#tableViewDesigne").removeClass("d-none");
+                $("#StimulsoftViewDesigne").addClass("d-none");
+            }
+
+
+            $('#nav-tab button[data-bs-target="#nav-selectItems"]').tab('show');
+
+
+        });
+
+
+        $("#selectItemsPrevious")
+            .click(function() {
+
+                $('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
+                $("#StimulsoftViewDesigne").html("");
+
+            });
+
+    
+
+
+        $("#saveReport").click(function() {
+
+            debugger
+            var model = {};
+            model.title = $("[data-bind='reportTitle']").val();
+            model.name = $("[data-bind=reportName]").val();
+            model.id = $("[data-bind=id]").val();
+            model.type = $("[data-bind='type']").val();
+            model.objectType = $("#nav-reportItem input:checked").attr("data-objectType");
+
+           
+
+            if (!model.title || model.title.lenght < 3) {
+                return toastr.error(`نام گزارش وارد نشده است.`, 'خطا');
+            }
+
+            if (model.type === "1" && model.objectType === "Store_Procedures") {
+                model.reportBuilderReportFilters = itemData.filters;
+            }
+            else {
+                model.reportBuilderReportFilters =   $("#filtersPlace").find("input[type=checkbox]:checked ").map((i, c) => {
+                    var columnName = $(c).attr("data-columnName")
+                    var dataType = $(c).attr("data-type")
+                    var title = $(c).attr("data-title")
+                    return { columnName, dataType, title }
+                }).get();
+            }
+
+          
+
+            if (model.type === "0" && model.objectType !== "Store_Procedures") {
+
+                for (let index = 0; index < itemData.items[0].reportBuilderReportItems.length; index++) {
+                 let colName = itemData.items[0].reportBuilderReportItems[index].columnName;
+                 if(!$("#itemPlace").find(`[data-columnName='${colName}']`)[0].checked)
+                 {
+                     itemData.items[0].reportBuilderReportItems.remove(c=>c.columnName === colName);
+                 }
+	                }
+
+            }
+
+
+            model.reportBuilderReportSelects = itemData.items;
+            
+
+            let $btn = $(this).block();
+            post('/System/ReportBuilder/SaveReportBuilderTable',
+                model,
+                function(r) {
+                    $btn.block(false);
+                    if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+                    toastr.success('ذخیره سازی با موفقیت انجام شد .');
+
+                });
+        });
+
+        $("#selectAllItems").click(function() {
+            $("#itemPlace").find("input[type=checkbox]").each((i, c) => {
+                $(c).prop("checked", true).change();
+            })
+        });
+
+        $("#deleteAllItems").click(function() {
+            $("#itemPlace").find("input[type=checkbox]").each((i, c) => {
+                $(c).prop("checked", false).change();
+            })
+        });
+
+        $("#selectAllFilters").click(function() {
+            $("#filtersPlace").find("input[type=checkbox]").each((i, c) => {
+                $(c).prop("checked", true).change();
+            })
+        });
+
+        $("#deleteAllFilters").click(function() {
+            $("#filtersPlace").find("input[type=checkbox]").each((i, c) => {
+                $(c).prop("checked", false).change();
+            })
+        });
+
+    </script>
+}

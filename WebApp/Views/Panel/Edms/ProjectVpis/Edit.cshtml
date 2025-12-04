@@ -1,0 +1,166 @@
+@using Entities.App.Edms;
+@using Entities.Auth
+@model ProjectVpis
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProjectVpis)"></form-action-buttons></div>
+	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-md-3">
+			<entityselector value-id="@Model?.ProjectName?.Id" value-title="@Model?.ProjectName?.Title" bind="ProjectNameId" entity-type="typeof(Project)" label="پروژه"></entityselector>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>کد</label>
+			<input class='form-control' data-bind='code'  asp-for='Code' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>عنوان</label>
+			<input class='form-control' data-bind='title'  asp-for='Title' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>وزن</label>
+			<input class='form-control'  data-bind='weight'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Weight' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>نوع</label>
+			<select class='form-control' data-bind='type'  asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisDocTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>کلاس مدرک</label>
+			<select class='form-control' data-bind='classDocument'  asp-for='ClassDocument' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisClassDocumentEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>دیسپلین</label>
+			<select class='form-control' data-bind='displaying'  asp-for='Displaying' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisDisplayingEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>سایز صفحه</label>
+			<select class='form-control' data-bind='pageSize'  asp-for='PageSize' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisPageSizeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ مبنای اولین مدرک (میلادی)</label>
+			<input class='form-control'  data-bind='firstDegreeDocumentMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.FirstDegreeDocumentMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ مبنای اولین مدرک (شمسی)</label>
+			<input class='form-control'  data-bind='firstDegreeDocumentShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.FirstDegreeDocumentShamsiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ برنامه جایگزین</label>
+			<input class='form-control'  data-bind='replaceMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ReplaceMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ برنامه جایگزین شمسی</label>
+			<input class='form-control'  data-bind='replaceShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ReplaceShamsiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت برای ریویژن 0</label>
+			<input class='form-control'  data-bind='personHourRevisionZero'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionZero' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت برای ریویژن 1</label>
+			<input class='form-control'  data-bind='personHourRevisionOne'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionOne' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت برای ریویژن 2</label>
+			<input class='form-control'  data-bind='personHourRevisionTwo'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionTwo' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت برای ریویژن 3</label>
+			<input class='form-control'  data-bind='personHourRevisionThree'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionThree' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.Reviewer?.Id" value-title="@Model?.Reviewer?.Name" bind="ReviewerId" entity-type="typeof(User)" label="بررسی کننده"></entityselector>
+		</div>
+
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.Approver?.Id" value-title="@Model?.Approver?.Name" bind="ApproverId" entity-type="typeof(User)" label="تایید کننده"></entityselector>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='description'  asp-for='Description' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>ویژگی جدید</label>
+			<input class='form-control' data-bind='newProperty'  asp-for='NewProperty' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) { return; }
+		var model = $$('.card').dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				$$('.card').dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

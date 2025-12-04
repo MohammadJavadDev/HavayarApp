@@ -1,0 +1,100 @@
+@using Entities.App.Edms;
+@model Transmital
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Transmital)"></form-action-buttons></div>
+	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.Project?.Id" value-title="@Model?.Project?.Title" bind="ProjectId" entity-type="typeof(Project)" label="پروژه"></entityselector>
+		</div>
+
+		<div class="col-md-6">
+			<entityselector value-id="@Model?.Document?.Id" value-title="@Model?.Document?.DocumentVpis?.Title" bind="DocumentId" entity-type="typeof(Document)" label="مدرک"></entityselector>
+		</div>
+
+		<div class='col-md-6'>
+			<label class='required'>شماره</label>
+			<input class='form-control' data-bind='number' required asp-for='Number' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شماره تعریف شده توسط کاربر</label>
+			<input class='form-control' data-bind='definedByUserNumber'  asp-for='DefinedByUserNumber' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='comments'  asp-for='Comments' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='employerRelated' class="form-check-input" type="checkbox"   />
+				<label class="form-check-label" asp-for='EmployerRelated'>
+					مربوط به کارفرما
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ ارسال به کارفرما</label>
+			<input class='form-control'  data-bind='deliveryDateToEmployer' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.DeliveryDateToEmployer' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+		</div>
+		<div class='col-md-6'>
+			<fileuploader bind="attachmentId" accepted-file-types=".rar,.zip,.pdf,.excel,.word"
+				file-id="@Model?.AttachmentId"
+				file-entity="@Model?.Attachment"
+				entity-prop-name="AttachmentId"
+				entity-type="Transmital"
+				max-file-size="10"
+				label="پیوست"></fileuploader>
+		</div>
+
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) { return; }
+		var model = $$('.card').dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				$$('.card').dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

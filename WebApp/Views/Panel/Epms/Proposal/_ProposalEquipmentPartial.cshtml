@@ -1,0 +1,51 @@
+@using Entities.App.Epms
+@model ProposalEquipment
+<div class="entity-item">
+
+	<input class='form-control' type="hidden" data-bind='ProposalEquipments.id' value='@Model?.Id' />
+
+	<div class='col-md-3'>
+		<label class=''>نام تجهیز</label>
+		<input class='form-control' data-bind='ProposalEquipments.name' value='@Model?.Name' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>مدل تجهیز</label>
+		<input class='form-control' data-bind='ProposalEquipments.model' value='@Model?.Model' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>نام تامین کننده</label>
+		<input class='form-control' data-bind='ProposalEquipments.supplierName' value='@Model?.SupplierName' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>استاندارد</label>
+		<input class='form-control' data-bind='ProposalEquipments.standard' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.Standard' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>تعداد</label>
+		<input class='form-control' data-bind='ProposalEquipments.mount' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.Mount' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>مشخصات فنی</label>
+		<input class='form-control' data-bind='ProposalEquipments.technicalSpecifications' value='@Model?.TechnicalSpecifications' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>کامنت</label>
+		<input class='form-control' data-bind='ProposalEquipments.comment' value='@Model?.Comment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	 
+
+</div>

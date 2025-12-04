@@ -1,0 +1,175 @@
+﻿ 
+using Common.Utilities;
+ 
+using Entities.Auth;
+using Entities.Base;
+ 
+using Microsoft.EntityFrameworkCore;
+ 
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System.Text.Json;
+using System.Text.Encodings.Web;
+using System.Linq.Expressions;
+
+
+namespace Data;
+
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options ) : DbContext(options)
+{
+	private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+	{
+		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+	};
+
+	// helper برای serialize
+	private static string SerializeList(List<string> list)
+	{
+		// JsonSerializer.Serialize هیچ پارامتر اختیاری‌ای استفاده نمی‌کند وقتی گزینه‌ها رو صریح بدهیم
+		return JsonSerializer.Serialize(list, _jsonOptions);
+	}
+
+	// helper برای deserialize (ایمن در برابر null/empty)
+	private static List<string> DeserializeList(string json)
+	{
+		if (string.IsNullOrEmpty(json))
+			return new List<string>();
+
+		// اگر Deserialize null برگرداند، جایگزینش کن
+		return JsonSerializer.Deserialize<List<string>>(json, _jsonOptions) ?? new List<string>();
+	}
+
+	protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+
+        modelBuilder.Entity<User>()
+            .ToTable("User", schema: "system")
+            .HasKey(x => x.Id);
+
+          modelBuilder.Entity<Role>()
+               .ToTable("Role", schema: "system")
+               .HasKey(x => x.Id);
+
+		modelBuilder.Entity<RoleAccess>()
+		    .ToTable("RoleAccess", schema: "system")
+		    .HasKey(x => x.Id);
+
+
+		var entitiesAssembly = typeof(BaseEntity).Assembly;
+        //var reportBuilderAssembly = typeof(ReportBuilderReport).Assembly;
+        //reportBuilderAssembly
+
+        modelBuilder.RegisterAllEntities<BaseEntity>(entitiesAssembly);
+        modelBuilder.AddSequentialGuidForIdConvention();
+        modelBuilder.RegisterEntityTypeConfiguration();
+
+		var listStringConverter = new ValueConverter<List<string>, string>(
+			 v => SerializeList(v),
+			 v => DeserializeList(v)
+		  );
+
+		foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+		{
+			var props = entityType.ClrType
+			    .GetProperties()
+			    .Where(p => p.PropertyType == typeof(List<string>));
+
+			foreach (var prop in props)
+			{
+				modelBuilder
+				    .Entity(entityType.ClrType)   // بهتر از استفاده از نام رشته‌ای
+				    .Property(prop.Name)
+				    .HasConversion(listStringConverter);
+			}
+		}
+
+
+	}
+
+    public override int SaveChanges()
+    {
+        try
+        {
+
+            return base.SaveChanges();
+
+        }
+        catch (DbUpdateException ex)
+        {
+            throw TranslateDbUpdateException(ex);
+        }
+    }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            throw TranslateDbUpdateException(ex);
+        }
+    }
+    private Exception TranslateDbUpdateException(DbUpdateException ex)
+    {
+        string persianMessage = "خطایی در عملیات پایگاه داده رخ داده است.";
+
+        if (ex.InnerException != null)
+        {
+            var message = ex.InnerException.Message;
+
+            if (message.Contains("REFERENCE constraint"))
+            {
+
+
+                var columnStartIndex = message.IndexOf("column '") + "column '".Length;
+                var columnEndIndex = message.IndexOf("'", columnStartIndex);
+                var columnName = message.Substring(columnStartIndex, columnEndIndex - columnStartIndex);
+
+
+                persianMessage = $"امکان حذف این رکورد  وجود ندارد زیرا به رکوردهایی در جدول مرتبط وابسته است.:ستون مربوطه: '{columnName}'.";
+
+            }
+
+            else if (message.Contains("UNIQUE constraint") || message.Contains("PRIMARY KEY"))
+            {
+                var constraintStartIndex = message.IndexOf("constraint \"") + "constraint \"".Length;
+                var constraintEndIndex = message.IndexOf("\"", constraintStartIndex);
+                var constraintName = message.Substring(constraintStartIndex, constraintEndIndex - constraintStartIndex);
+
+                persianMessage = $"مقادیر تکراری در فیلدهایی که باید یکتا باشند وجود دارد. نام محدودیت: '{constraintName}'.";
+            }
+
+
+            else if (message.Contains("String or binary data would be truncated"))
+            {
+                persianMessage = "طول داده وارد شده بیش از حد مجاز است. لطفاً اطلاعات خود را بررسی کنید.";
+            }
+
+
+            else if (message.Contains("timeout") || message.Contains("could not open connection"))
+            {
+                persianMessage = "ارتباط با پایگاه داده امکان‌پذیر نیست یا زمان انجام عملیات به پایان رسیده است. لطفاً دوباره تلاش کنید.";
+            }
+
+
+            else
+            {
+                persianMessage = "خطایی در اجرای عملیات پایگاه داده رخ داده است. لطفاً جزئیات بیشتر را بررسی کنید.";
+            }
+        }
+
+
+        return new Exception(persianMessage);
+    }
+
+
+
+    public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<AuditLogDetail> AuditLogDetails { get; set; }
+    public virtual DbSet<User> Users { get; set; }
+	public virtual DbSet<Role> Roles { get; set; }
+	public virtual DbSet<RoleAccess> RoleAccesses { get; set; }
+
+
+}

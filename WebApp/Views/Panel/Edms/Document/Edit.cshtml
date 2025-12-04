@@ -1,0 +1,284 @@
+@using Entities.App.Edms;
+@using Entities.Auth
+@model Document
+<div class="card">
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(Document)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-note"
+				action-name="addComment" title="افزودن کامنت"></form-action-button>
+		</form-action-buttons>
+	</div>
+	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-md-6">
+			<label class="form-label required">پروژه</label>
+			@(Html.EntitySelector<Project>
+						(
+						"ProjectSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Title = c.Title,
+
+						},
+						c => new { c.Id, c.Title },
+						"{Title}",
+						"projectId",
+						null,
+						Model?.ProjectId.ToString(),
+						true
+						))
+
+		</div>
+
+		<div class="col-md-6">
+			<label class="form-label">سند</label>
+			@(Html.EntitySelector<ProjectVpis>
+						(
+						"ProjectVpisSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Title = c.Title,
+
+						},
+						c => new { c.Id, c.Title },
+						"{Title}",
+						"documentVpisId",
+						null,
+						Model?.DocumentVpisId.ToString(),
+						required: true
+						))
+
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>هدف از تولید مدرک</label>
+			<select class='form-control' data-bind='goalOfProduction' asp-for='GoalOfProduction'
+				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentGoalOfProductionEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت</label>
+			<input class='form-control' data-bind='hourPrePerson' data-invalidMessage='فقط عداد'
+				data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HourPrePerson' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>
+				تاریخ انتشار/ارسال
+			</label>
+			<input class='form-control' data-bind='publicationShamsiDate' data-persionDatePicker="true"
+				persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value='@Model?.PublicationShamsiDate' />
+		</div>
+
+		<div class="col-md-6">
+			<label class="form-label">بررسی کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"ReviewerSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"reviewerId",
+						null,
+						Model?.ReviewerId.ToString()
+						))
+		</div>
+
+		<div class="col-md-6">
+			<label class="form-label">تایید کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"ApproverSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"approverId",
+						null,
+						Model?.ApproverId.ToString()
+						))
+		</div>
+		<div class='col-md-6'>
+			<label class=''>بازنگری</label>
+			<input class='form-control' data-bind='revision' data-invalidMessage='فقط عداد'
+				data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' disabled />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>توضیحات</label>
+			<textarea class='form-control' data-bind='comment' asp-for='Comment'>@Model?.Comment</textarea>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+
+
+		<div class='col-md-6'>
+			<fileuploader bindid="mainFile" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
+				Label="فایل اصلی" entity-type="Document" entity-prop-name="MainFile" bind="MainFile" max-file-size="10"
+				accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+		</div>
+
+
+		<div class='col-md-6'>
+			<fileuploader bindid="motherFile" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
+				Label="فایل مادر" entity-type="Document" entity-prop-name="MotherFile" bind="MotherFile"
+				max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+		</div>
+
+
+		<div class='col-md-6'>
+			<fileuploader bindid="secondaryFile" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
+				Label="فایل ثانوی" entity-type="Document" entity-prop-name="SecondaryFile" bind="SecondaryFile"
+				max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+		</div>
+
+
+		<div class='col-md-6'>
+			<fileuploader bindid="replySheet" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
+				Label="فایل ReplySheet" entity-type="Document" entity-prop-name="ReplySheet" bind="ReplySheet"
+				max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+		</div>
+
+
+		<div class='col-md-6'>
+			<label class=''>وضعیت مدرک</label>
+			<select class='form-control' data-bind='status' asp-for='Status'
+				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+
+
+		<div class='col-md-12'>
+			<div data-tab-item-manager="documentItems" data-item-selector=".entity-item">
+				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5"
+					role="tablist">
+					<li class="nav-item" role="presentation">
+						<a class="nav-link active" data-bs-toggle="tab" href="#commentsTab" role="tab"
+							aria-selected="true">
+							<span class="svg-icon svg-icon-2 me-2"></span>
+							کامنتها
+						</a>
+					</li>
+				</ul>
+				<div class="tab-content">
+					<div class="tab-pane fade show active" id="commentsTab" role="tabpanel"
+						data-add-url="/Panel/Document/DocumentCommentPartial">
+						<div id='CommentsContainer' class="entity-item-container">
+							@if (Model?.Comments != null)
+							{
+								@foreach (var item in Model.Comments)
+								{
+									<div data-item-id="@(item.Id ?? 0)">
+										@await Html.PartialAsync("_DocumentCommentPartial.cshtml", item)
+									</div>
+								}
+							}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+
+
+<script>
+
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) { return; }
+		var model = $$('.card').dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				$$('.card').dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+	self.FormActionButtons.addComment.onclick(function () {
+
+		page.getPartialView("/Panel/Document/DocumentCommentPartial", function (v) {
+
+			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
+			$.confirm({
+				title: 'افزودن کامنت',
+				content: $content,
+				type: 'green',
+				columnClass: "col-md-12",
+				typeAnimated: true,
+				buttons: {
+					acc: {
+						text: 'افزودن کامنت',
+						btnClass: 'btn  btn-success',
+						action: function () {
+						}
+					},
+					close:
+					{
+						text: 'بستن',
+						btnClass: 'btn  btn-danger',
+						action: function () {
+						}
+					}
+				}
+			});
+
+			initFileUploaders($content)
+		});
+
+
+	})
+
+</script>
