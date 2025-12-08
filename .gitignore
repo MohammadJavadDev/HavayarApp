@@ -61,3 +61,5 @@
 /REDIS_QUICK_REFERENCE.md
 /TROUBLESHOOTING_CORS_RABBITMQ.md
 /WebApp/wwwroot/account.dat
+/.continue
+/.cursor/worktrees.json
