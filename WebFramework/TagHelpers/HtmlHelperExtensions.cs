@@ -1,4 +1,4 @@
-﻿
+
 using Common.Entities;
 using Common.Utilities;
 using Data;
@@ -31,7 +31,7 @@ namespace WebFramework.TagHelpers
 			string displayTemplate,
 			string bindProperty = null,
 			string bindNameProperty = null,
-			string selectedId = null,
+			string? selectedId = null,
 			bool required = false,
 			bool multiSelect = false,
 			string placeholder = "جستجو...",
@@ -113,6 +113,9 @@ namespace WebFramework.TagHelpers
 			hidden.Attributes.Add("name", id);
 			hidden.AddCssClass("entity-selector-value");
 			hidden.Attributes.Add("value", selectedId);
+			hidden.Attributes.Add("data-entity-selector", "true");
+			if (required)
+				hidden.Attributes.Add("required", "required");
 			if (!string.IsNullOrEmpty(bindProperty)) hidden.Attributes.Add("data-bind", bindProperty);
 
 			if (!string.IsNullOrEmpty(bindNameProperty))
@@ -122,8 +125,7 @@ namespace WebFramework.TagHelpers
 				hName.AddCssClass("entity-selector-text");
 				hName.Attributes.Add("data-bind", bindNameProperty);
 				hName.Attributes.Add("value", initialNamesJoined);
-				if(required)
-					hName.Attributes.Add("required", "required");
+			
 				container.InnerHtml.AppendHtml(hName);
 			}
 			container.InnerHtml.AppendHtml(hidden);
@@ -195,9 +197,14 @@ namespace WebFramework.TagHelpers
 			Expression body = null;
 			var containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
 			var tokenExpr = Expression.Constant(token);
-			foreach (var propName in ParseProperties(searchCols))
+			foreach (var propPath in GetPropertyPaths(searchCols))
 			{
-				var prop = Expression.Property(param, propName);
+				Expression prop = param;
+				foreach (var member in propPath.Split('.'))
+				{
+					prop = Expression.Property(prop, member);
+				}
+
 				if (prop.Type == typeof(string))
 				{
 					var call = Expression.Call(prop, containsMethod, tokenExpr);
@@ -206,6 +213,33 @@ namespace WebFramework.TagHelpers
 			}
 			return body == null ? null : Expression.Lambda<Func<T, bool>>(body, param);
 		}
+
+		private static IEnumerable<string> GetPropertyPaths(Expression expr)
+		{
+			if (expr is LambdaExpression lambda) expr = lambda.Body;
+			if (expr is UnaryExpression unary) expr = unary.Operand;
+			if (expr is NewExpression newExpr)
+			{
+				return newExpr.Arguments.Select(GetFullPropertyName);
+			}
+			if (expr is MemberExpression memberExpr)
+			{
+				return new[] { GetFullPropertyName(memberExpr) };
+			}
+			return Array.Empty<string>();
+		}
+
+		private static string GetFullPropertyName(Expression expr)
+		{
+			if (expr is UnaryExpression unary) expr = unary.Operand;
+			if (expr is MemberExpression memberExpr)
+			{
+				var parent = GetFullPropertyName(memberExpr.Expression);
+				return string.IsNullOrEmpty(parent) ? memberExpr.Member.Name : parent + "." + memberExpr.Member.Name;
+			}
+			return "";
+		}
+
 		private static string[] ParseProperties(Expression expr)
 		{
 			if (expr is LambdaExpression lambda) expr = lambda.Body;
@@ -214,6 +248,6 @@ namespace WebFramework.TagHelpers
 			if (expr is MemberExpression memberExpr) return new[] { memberExpr.Member.Name };
 			return Array.Empty<string>();
 		}
-		private static string ParsePropertyNames(Expression expr) => string.Join(",", ParseProperties(expr));
+		private static string ParsePropertyNames(Expression expr) => string.Join(",", GetPropertyPaths(expr));
 	}
 }

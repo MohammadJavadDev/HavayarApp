@@ -36,17 +36,9 @@ public class AuthService(IConfiguration _configuration) : IAuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private static void GenerateClaims(User user ,   List<Claim> claims)
-    {
-			 
+    private static void GenerateClaims(User user , List<Claim> claims)
+    {	 
         claims.Add(new Claim(ClaimTypes.Name, user.Name));
-
-        claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
-        claims.Add(new Claim("Username", user.Username));
-
-        claims.Add(new Claim("ProfileImage", user?.ProfileUrl ?? "/media/account/avatar.png"));
-
-        claims.Add(new Claim(ClaimTypes.Role, string.Join(",", (user?.Roles ?? []))));
-			 
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));			 
     }
 }

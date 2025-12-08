@@ -59,7 +59,25 @@
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ProjectManager?.Id" value-title="@Model?.ProjectManager?.Name" bind="ProjectManagerId" entity-type="typeof(User)" label="مدیر پروژه"></entityselector>
+			<label class="form-label">مدیر پروژه</label>
+			@(Html.EntitySelector<User>
+						(
+						"ProjectManagerIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"proposalId",
+						null,
+						Model?.ProjectManagerId?.ToString(),
+						false
+						))
+			 
 		</div>
 
 		<div class='col-md-3'>
@@ -70,68 +88,348 @@
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ProjectManagerPSL?.Id" value-title="@Model?.ProjectManagerPSL?.Name" bind="ProjectManagerPSLId" entity-type="typeof(User)" label="مهندس مسئول psl"></entityselector>
+			<label class="form-label">مهندس مسئول psl</label>
+			@(Html.EntitySelector<User>
+						(
+						"ProjectManagerPSLIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"projectManagerPSLId",
+						null,
+						Model?.ProjectManagerId?.ToString(),
+						false
+						))
+ 		</div>
+
+		<div class="col-md-3">
+			<label class="form-label">هماهنگ کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"CoordinatorIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"coordinatorId",
+						null,
+						Model?.CoordinatorId?.ToString(),
+						false
+						))
+ 		</div>
+
+		<div class="col-md-3">
+			<label class="form-label">واحد ذینفع</label>
+			@(Html.EntitySelector<OrgUnit>
+						(
+						"SubjectUnitIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Title = c.Title,
+
+						},
+						c => new {c.Title },
+						"{Title}",
+						"SubjectUnitId",
+						null,
+						Model?.SubjectUnitId?.ToString(),
+						false
+						))
+ 		</div>
+
+		<div class="col-md-3">
+			<label class="form-label">کارشناس فروش</label>
+			@(Html.EntitySelector<User>
+						(
+						"salesExpertIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"salesExpertId",
+						null,
+						Model?.SalesExpertId?.ToString(),
+						false
+						))
+			 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.Coordinator?.Id" value-title="@Model?.Coordinator?.Name" bind="CoordinatorId" entity-type="typeof(User)" label="هماهنگ کننده"></entityselector>
+			<label class="form-label">dcc</label>
+			@(Html.EntitySelector<User>
+						(
+						"DccIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"dccIdId",
+						null,
+						Model?.DccId?.ToString(),
+						false
+						))
+			 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.SubjectUnit?.Id" value-title="@Model?.SubjectUnit?.Title" bind="SubjectUnitId" entity-type="typeof(OrgUnit)" label="واحد ذینفع"></entityselector>
+			<label class="form-label">کارشناس فرآیند</label>
+			@(Html.EntitySelector<User>
+						(
+						"ProcessEngineerIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"processEngineerId",
+						null,
+						Model?.ProcessEngineerId?.ToString(),
+						false
+						))
+ 		</div>
+
+		<div class="col-md-3">
+
+			<label class="form-label">کارشناس مکانیک</label>
+			@(Html.EntitySelector<User>
+						(
+						"MechanicExpertIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"MechanicExpertId",
+						null,
+						Model?.MechanicExpertId?.ToString(),
+						false
+						))
+		 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.SalesExpert?.Id" value-title="@Model?.SalesExpert?.Name" bind="SalesExpertId" entity-type="typeof(User)" label="کارشناس فروش"></entityselector>
+			<label class="form-label">کارشناس کنترل</label>
+			@(Html.EntitySelector<User>
+						(
+						"ControlEngineerIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"ControlEngineerId",
+						null,
+						Model?.ControlEngineerId?.ToString(),
+						false
+						))
+			 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.Dcc?.Id" value-title="@Model?.Dcc?.Name" bind="DccId" entity-type="typeof(User)" label="dcc"></entityselector>
+			<label class="form-label">کارشناس ابزاردقیق</label>
+			@(Html.EntitySelector<User>
+						(
+						"ToolExpertIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"ToolExpertId",
+						null,
+						Model?.ToolExpertId.ToString(),
+						false
+						))
+ 		</div>
+
+		<div class="col-md-3">
+			<label class="form-label">کارشناس برق</label>
+			@(Html.EntitySelector<User>
+						(
+						"ElectricEngineerIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"ElectricEngineerId",
+						null,
+						Model?.ElectricEngineerId?.ToString(),
+						false
+						))
+		 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ProcessEngineer?.Id" value-title="@Model?.ProcessEngineer?.Name" bind="ProcessEngineerId" entity-type="typeof(User)" label="کارشناس فرآیند"></entityselector>
+			<label class="form-label">کارشناس پایپینگ</label>
+			@(Html.EntitySelector<User>
+						(
+						"PipingExpertIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"PipingExpertId",
+						null,
+						Model?.PipingExpertId?.ToString(),
+						false
+						))
+		 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.MechanicExpert?.Id" value-title="@Model?.MechanicExpert?.Name" bind="MechanicExpertId" entity-type="typeof(User)" label="کارشناس مکانیک"></entityselector>
+			<label class="form-label">بازرس پروژه</label>
+			@(Html.EntitySelector<User>
+						(
+						"ProjectReviewerIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"ProjectReviewerId",
+						null,
+						Model?.ProjectReviewerId?.ToString(),
+						false
+						))
+			 
 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ControlEngineer?.Id" value-title="@Model?.ControlEngineer?.Name" bind="ControlEngineerId" entity-type="typeof(User)" label="کارشناس کنترل"></entityselector>
-		</div>
+			<label class="form-label">مسئول تدارکات برق/ابزار دقیق</label>
+			@(Html.EntitySelector<User>
+						(
+						"PowerAndPrecisionPrepManagerSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"PowerAndPrecisionPrepManager",
+						null,
+						Model?.PowerAndPrecisionPrepManager?.ToString(),
+						false
+						))
+ 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ToolExpert?.Id" value-title="@Model?.ToolExpert?.Name" bind="ToolExpertId" entity-type="typeof(User)" label="کارشناس ابزاردقیق"></entityselector>
-		</div>
+			<label class="form-label">مسئول تدارکات مکانیک</label>
+			@(Html.EntitySelector<User>
+						(
+						"MechanicalPreparationsResponsibleIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"MechanicalPreparationsResponsibleId",
+						null,
+						Model?.MechanicalPreparationsResponsibleId?.ToString(),
+						false
+						))
+ 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ElectricEngineer?.Id" value-title="@Model?.ElectricEngineer?.Name" bind="ElectricEngineerId" entity-type="typeof(User)" label="کارشناس برق"></entityselector>
-		</div>
+			<label class="form-label">مسئول تدارکات خارجی</label>
+			@(Html.EntitySelector<User>
+						(
+						"ForeignPreparationsAgentIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"ForeignPreparationsAgentId",
+						null,
+						Model?.ForeignPreparationsAgentId?.ToString(),
+						false
+						))
+ 		</div>
 
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.PipingExpert?.Id" value-title="@Model?.PipingExpert?.Name" bind="PipingExpertId" entity-type="typeof(User)" label="کارشناس پایپینگ"></entityselector>
-		</div>
+			<label class="form-label">دارای دسترسی به آرشیو و اسناد ورودی (غیر مهندسی)</label>
+			@(Html.EntitySelector<User>
+						(
+						"HasAccessToArchiveAndInputDocumentsIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
 
-		<div class="col-md-3">
-			<entityselector value-id="@Model?.ProjectReviewer?.Id" value-title="@Model?.ProjectReviewer?.Name" bind="ProjectReviewerId" entity-type="typeof(User)" label="	بازرس پروژه"></entityselector>
-		</div>
-
-		<div class="col-md-3">
-			<entityselector value-id="@Model?.PowerAndPrecisionPrepManager?.Id" value-title="@Model?.PowerAndPrecisionPrepManager?.Name" bind="PowerAndPrecisionPrepManagerId" entity-type="typeof(User)" label="مسئول تدارکات برق/ابزار دقیق"></entityselector>
-		</div>
-
-		<div class="col-md-3">
-			<entityselector value-id="@Model?.MechanicalPreparationsResponsible?.Id" value-title="@Model?.MechanicalPreparationsResponsible?.Name" bind="MechanicalPreparationsResponsibleId" entity-type="typeof(User)" label="مسئول تدارکات مکانیک"></entityselector>
-		</div>
-
-		<div class="col-md-3">
-			<entityselector value-id="@Model?.ForeignPreparationsAgent?.Id" value-title="@Model?.ForeignPreparationsAgent?.Name" bind="ForeignPreparationsAgentId" entity-type="typeof(User)" label="مسئول تدارکات خارجی"></entityselector>
-		</div>
-
-		<div class="col-md-3">
-			<entityselector value-id="@Model?.HasAccessToArchiveAndInputDocuments?.Id" value-title="@Model?.HasAccessToArchiveAndInputDocuments?.Name" bind="HasAccessToArchiveAndInputDocumentsId" entity-type="typeof(User)" label="دارای دسترسی به آرشیو و اسناد ورودی (غیر مهندسی)"></entityselector>
-		</div>
+						},
+						c => new { c.Username, c.Name },
+						"{Name}",
+						"HasAccessToArchiveAndInputDocumentsId",
+						null,
+						Model?.HasAccessToArchiveAndInputDocumentsId?.ToString(),
+						false
+						))
+ 		</div>
 
 		<div class='col-md-6 align-content-center'>
 			<div class="form-check">

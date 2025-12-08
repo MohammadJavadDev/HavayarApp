@@ -5,11 +5,46 @@
 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.Project?.Id" value-title="@Model?.Project?.Title" bind="ProjectId" entity-type="typeof(Project)" label="پروژه"></entityselector>
-		</div>
+			<label class="form-label">پروژه</label>
+			@(Html.EntitySelector<Project>
+						(
+						"ProjectIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ProjectId",
+						null,
+						Model?.ProjectId.ToString(),
+						true
+						))
+ 		</div>
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.Document?.Id" value-title="@Model?.Document?.DocumentVpis?.Title" bind="DocumentId" entity-type="typeof(Document)" label="مدرک"></entityselector>
+			<label class="form-label">مدرک</label>
+			@(Html.EntitySelector<Document>
+						(
+						"DocumentIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Title = c.DocumentVpis.Title,
+
+						},
+						c => new { c.DocumentVpis.Title },
+						"{Title}",
+						"DocumentId",
+						null,
+						Model?.DocumentId.ToString(),
+						true
+						))
+			 
 		</div>
 
 		<div class='col-md-6'>

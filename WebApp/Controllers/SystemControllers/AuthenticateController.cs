@@ -29,7 +29,7 @@ namespace WebApp.Controllers.SystemControllers
 		 }
 
 
-		[AllowAnonymous]
+	   [AllowAnonymous]
         [HttpPost("Login")]
         public async Task<IActionResult> Login(AuthenticateRequest model)
         {
@@ -50,7 +50,8 @@ namespace WebApp.Controllers.SystemControllers
             {
 
                 SameSite = SameSiteMode.Strict,
-                Expires = DateTime.UtcNow.AddDays(150)
+                Expires = DateTime.UtcNow.AddDays(150),
+                HttpOnly = true
             };
 
             Response.Cookies.Append("JwtToken", response.Token, cookieOptions);

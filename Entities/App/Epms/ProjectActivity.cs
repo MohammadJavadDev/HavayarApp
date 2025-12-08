@@ -60,6 +60,10 @@ namespace Entities.App.Epms
 		[DisplayInfo(null, true, type: SystemType.Long)]
 		public long Duration { get; set; }
 
+		[DisplayName("وضعیت")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public ProposalActivityStatusEnum Status { get; set; }
+
 		[DisplayName("کامنت فعالیت های پروپوزال")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity )]
 		public List<ProposalActivityComment> ProposalActivityComments { get; set; } = new();

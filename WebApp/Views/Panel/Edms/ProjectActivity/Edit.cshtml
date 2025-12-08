@@ -6,8 +6,25 @@
 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.Project?.Id" value-title="@Model?.Project?.Title" bind="ProjectId" entity-type="typeof(Project)" label="پروژه"></entityselector>
-		</div>
+			<label class="form-label">پروژه</label>
+			@(Html.EntitySelector<Project>
+						(
+						"ProjectIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new {c.Name },
+						"{Name}",
+						"ProjectId",
+						null,
+						Model?.ProjectId.ToString(),
+						true
+						))
+ 		</div>
 
 		<div class='col-md-6'>
 			<label class=''>نام پروژه</label>
@@ -16,8 +33,25 @@
 		</div>
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.BeneficiaryUnit?.Id" value-title="@Model?.BeneficiaryUnit?.Title" bind="BeneficiaryUnitId" entity-type="typeof(OrgUnit)" label="واحد ذینفع"></entityselector>
-		</div>
+			<label class="form-label">واحد ذینفع</label>
+			@(Html.EntitySelector<OrgUnit>
+						(
+						"BeneficiaryUnitIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Title = c.Title,
+
+						},
+						c => new { c.Title },
+						"{Title}",
+						"BeneficiaryUnitId",
+						null,
+						Model?.BeneficiaryUnitId.ToString(),
+						true
+						))
+ 		</div>
 
 		<div class='col-md-6'>
 			<label class=''>شناسه واحد ذینفع</label>

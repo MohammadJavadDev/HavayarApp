@@ -12,7 +12,7 @@ namespace Entities.App.Bom
 	{
 		[DisplayName("نام")]
 		[DisplayInfo(null, false, type: SystemType.String)]
-		public string? FirstName { get; set; }
+		public string?  Name { get; set; }
 
 
 	}

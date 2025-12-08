@@ -1893,7 +1893,7 @@ body[class*=jconfirm-no-scroll-] {
      }
 
 .form-action-buttons {
-     border-bottom: 1px solid var(--bs-card-border-color);
+ 
      margin-bottom: 5px;
      padding:5px
 }
@@ -1909,13 +1909,13 @@ body[class*=jconfirm-no-scroll-] {
      flex-wrap: wrap;
      align-items: center;
      gap: 4px;
-     padding: 0.45rem 1rem;
+     padding: 0.20rem 0.20rem;
      cursor: text;
      background-color: var(--bs-card-bg);
-     border: 1px solid var(--bs-border-color);
+     border: 2px solid var(--bs-border-color);
      border-radius: var(--bs-border-radius);
      transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
-     min-height: 38px; /* Standard Bootstrap height */
+     min-height: 30px; /* Standard Bootstrap height */
 }
 
      /* State: Focus (Mimic Bootstrap Blue Glow) */
@@ -1973,6 +1973,7 @@ body[class*=jconfirm-no-scroll-] {
  
 .entity-selector-multi-container {
      padding-left: 25px;  
+     padding-right:10px;
 }
 
  
@@ -2017,4 +2018,9 @@ body[class*=jconfirm-no-scroll-] {
     padding-left: 8px;
     padding-right: 25px;
 }
- 
+
+
+.entity-selector-input {
+     border-top-left-radius: 0.475rem !important;
+     border-bottom-left-radius:0.475rem !important;
+}

@@ -1,145 +1,170 @@
 @using Entities.App.Epms;
 @using Entities.App.Hrm
 @model ProposalActivity
+@{
+	var disabelStatus = (Model?.Id == null || Model.Id == 0) ? true : false;
+}
 <div class="card">
-     <div>
-          <div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProposalActivity)"></form-action-buttons></div>
-    <div class="card-body row">
-       <input class='form-control' data-bind='id'  value='@Model?.Id' type='hidden'/>
-                                                 <div class="col-md-6">
-                    <entityselector value-id="@Model?.Proposal?.Id" value-title="@Model?.Proposal?.Title" bind="ProposalId" entity-type="typeof(Proposal)" label="پروپوزال" Required="true"></entityselector>
+	<div>
+		<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProposalActivity)"></form-action-buttons></div>
+		<div class="card-body row">
+			<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+			<div class="col-md-6">
 
-                                        </div>
- 
+				<label class="form-label required">پروپوزال</label>
+				@(Html.EntitySelector<Proposal>
+								(
+								"ProjectIdSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id,
+									Title = c.Title,
 
-                                        <div class='col-md-6'>
-                                                                <label class=''>نام پروژه</label>
-                                                                <input class='form-control'  data-bind='projectName'   asp-for='ProjectName'/>
-                                                                <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger' ></span> </div>
-                                                            </div>
+								},
+								c => new { c.Title },
+								"{Title}",
+								"ProposalId",
+								null,
+								Model?.ProposalId.ToString(),
+								true
+								))
 
-                                                 <div class="col-md-6">
-                    <entityselector value-id="@Model?.BeneficiaryUnit?.Id" value-title="@Model?.BeneficiaryUnit?.Title" bind="BeneficiaryUnitId" entity-type="typeof(OrgUnit)" label="واحد ذینفع" Required="true"></entityselector>
 
-                                        </div>
+			</div>
 
-                                        
 
-                                                    <div class='col-md-6'>
-                                                    <label class='required'>نوع فعالیت</label>
-                                                    <select class='form-control' data-bind='type' required asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalActivityActivityTypeEnum))">
-                                          
-                                                    </select>
-                                                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger' ></span> </div>
-                                                </div>
+			<div class='col-md-6'>
+				<label class=''>نام پروژه</label>
+				<input class='form-control' data-bind='projectName' asp-for='ProjectName' />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
 
-                               
+			<div class="col-md-6">
 
-                                 
-                                         <div class='col-md-6'>
-                                                                <label class=''>
-                                                                  تاریخ شمسی فعالیت</label>
-                                                                <input class='form-control' data-bind='shamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"observer": true}' value='@Model?.ShamsiDate' />
-                                                            </div>
+				<label class="form-label">واحد ذینفع</label>
+				@(Html.EntitySelector<OrgUnit>
+								(
+								"BeneficiaryUnitIdSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id,
+									Title = c.Title,
 
-                                             <div class='col-md-12'>
-                                                  <label class=''>کامنت</label>
-                                                         <textarea class='form-control' data-bind='comment' asp-for='Comment' />@Model.Comment</textarea>
-                                                  <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-                                             </div>
+								},
+								c => new { c.Title },
+								"{Title}",
+								"BeneficiaryUnitId",
+								null,
+								Model?.BeneficiaryUnitId.ToString(),
+								true
+								))
 
-                                        <div class='col-md-6'>
-                                                                <label class=''>طول/مدت (دقیقه)</label>
-                                                                <input class='form-control' data-bind='duration'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Duration' />
-                                                                   <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger' ></span> </div>
-                                                            </div>
+		 
 
-                                                   <div class='col-md-12'>
-                                                    <h4>کامنت فعالیت های پروپوزال</h4>
-                                                    <div id='ProposalActivityCommentsContainer' class="entity-item-container">
-                                                       
-                                                         @if(Model?.ProposalActivityComments != null)
-                                                           {
-                                                            @foreach(var item in Model.ProposalActivityComments)
-                                                                {
-                                                                   @await  Html.PartialAsync("_ProposalActivityCommentPartial.cshtml", item)
-                                                                }
-                                                            }
-                                                      
-                                                    </div>
-                                                    <button type='button' class='btn btn-primary' id='addProposalActivityComment'>افزودن آیتم جدید</button>
-                                                </div>
+			</div>
 
 
 
+			<div class='col-md-6'>
+				<label class='required'>نوع فعالیت</label>
+				<select class='form-control' data-bind='type' required asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalActivityActivityTypeEnum))">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
 
 
 
 
+			<div class='col-md-6'>
+				<label class=''>
+					تاریخ شمسی فعالیت
+				</label>
+				<input class='form-control' data-bind='shamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"observer": true}' value='@Model?.ShamsiDate' />
+			</div>
+
+			<div class='col-md-6'>
+				<label class=''>طول/مدت (دقیقه)</label>
+				<input class='form-control' data-bind='duration' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Duration' />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+			 
+
+			<div class='col-md-6'>
+				<label class=''>وضعیت</label>
+				<select class='form-control'
+					   data-bind='status'
+					   asp-for='Status'
+					   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalActivityStatusEnum))"
+					    disabled="@disabelStatus">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-12'>
+				<label class=''>کامنت</label>
+				<textarea class='form-control' data-bind='comment' asp-for='Comment' />@Model.Comment</textarea>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+			 
+		</div>
+		<div class='card-footer row'>
+			<div class='col-md-3'>
+				<span>ایجاد کننده :</span>
+				<span data-bind="createdByName">@Model?.CreatedByName</span>
+			</div>
+
+			<div class='col-md-3'>
+				<span>تاریخ ایجاد :</span>
+				<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+			</div>
+
+			<div class='col-md-3'>
+				<span>ویرایش کننده :</span>
+				<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+			</div>
+
+			<div class='col-md-3'>
+				<span>تاریخ ویرایش :</span>
+				<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+			</div>
+		</div>
+	</div>
 
 
+	<script>
 
 
-    </div>
-               <div class='card-footer row'>
-                        <div class='col-md-3'>
-                            <span>ایجاد کننده :</span>
-                            <span data-bind="createdByName">@Model?.CreatedByName</span>
-                        </div>
-
-                        <div class='col-md-3'>
-                            <span>تاریخ ایجاد :</span>
-                            <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
-                        </div>
-
-                            <div class='col-md-3'>
-                            <span>ویرایش کننده :</span>
-                            <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
-                        </div>
-
-                        <div class='col-md-3'>
-                            <span>تاریخ ویرایش :</span>
-                            <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
-                        </div>
-                </div>
-</div>
+		  function savefn($btnAction) {
 
 
-                    <script>
-                  
+			
 
-                                            self.FormActionButtons.saveandclose.onclick(function() {
-                                                  
+		    if(validateError($$('.card')))
+			   { return; }
 
-                                                 let $btnAction = this;
+		    var model = $$('.card').dataBind();
+			let $btn = $(this.element).block();
+				    $$.post('save',
+					   model,
+					   function(r) {
+						  $btn.block(false);
+						  if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
-                                                if(validateError($$('.card')))
-                                                    { return; }
+						  toastr.success('ذخیره سازی با موفقیت انجام شد .');
 
-                                                var model = $$('.card').dataBind();
- 
-                                                      const $btn = $(this.element).block();
-                                                          $$.post('save',
-                                                              model,
-                                                              function(r) {
-                                                                  $btn.block(false);
-                                                                  if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+						    $btnAction.baseaction();
 
-                                                                  toastr.success('ذخیره سازی با موفقیت انجام شد .');
+					   })
+				}
 
-                                                                    $btnAction.baseaction();
 
-                                                              })
-                                                      })
-                                            
-                                                
-                                                             $$('#addProposalActivityComment').click(function() {
-                                                              
-                                                                $$.get('/Panel/ProposalActivity/ProposalActivityCommentPartial', function(data) {
-                                                                  let $tpl =  $$('#ProposalActivityCommentsContainer').append(data);
-                                                                    initItemsForms($tpl);
-                                                                });
-                                                               });   
+	 	self.FormActionButtons.save.onclick(function () { savefn(this) })
+		self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 
-                                        </script>
-                     
+	 
+
+	</script>
+

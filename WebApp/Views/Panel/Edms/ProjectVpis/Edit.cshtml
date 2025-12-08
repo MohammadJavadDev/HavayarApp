@@ -6,8 +6,25 @@
 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 		<div class="col-md-3">
-			<entityselector value-id="@Model?.ProjectName?.Id" value-title="@Model?.ProjectName?.Title" bind="ProjectNameId" entity-type="typeof(Project)" label="پروژه"></entityselector>
-		</div>
+			<label class="form-label">پروژه</label>
+			@(Html.EntitySelector<Project>
+						(
+						"ProjectNameIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ProjectNameId",
+						null,
+						Model?.ProjectNameId.ToString(),
+						true
+						))
+ 		</div>
 
 		<div class='col-md-3'>
 			<label class=''>کد</label>
@@ -104,12 +121,46 @@
 		</div>
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.Reviewer?.Id" value-title="@Model?.Reviewer?.Name" bind="ReviewerId" entity-type="typeof(User)" label="بررسی کننده"></entityselector>
-		</div>
+			<label class="form-label">بررسی کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"BeneficiaryUnitIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ReviewerId",
+						null,
+						Model?.ReviewerId.ToString(),
+						true
+						))
+ 		</div>
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.Approver?.Id" value-title="@Model?.Approver?.Name" bind="ApproverId" entity-type="typeof(User)" label="تایید کننده"></entityselector>
-		</div>
+			<label class="form-label">تایید کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"ApproverIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ApproverId",
+						null,
+						Model?.ApproverId.ToString(),
+						true
+						))
+ 		</div>
 
 		<div class='col-md-12'>
 			<label class=''>توضیحات</label>

@@ -22,7 +22,7 @@
 
 
 		<div class="col-md-3">
-			<label class=''>واحد درخواست دهنده</label>
+			<label class='required'>واحد درخواست دهنده</label>
 			@(Html.EntitySelector<OrgUnit>
 						(
 							"OrgUnitId",
@@ -37,37 +37,12 @@
 						"{Title}",
 						"requestedOrgUnitId",
 						null,
-						Model?.RequestedOrgUnitId.ToString()
+						Model?.RequestedOrgUnitId.ToString(),
+						true
 						))
 		 
 
 		</div>
-
-		<div class="col-md-6">
-			<label class=''>کارشناسان فروش</label>
-			@(Html.EntitySelector<User>
-						(
-						"SalesExperts",
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-						c => new
-						{
-							Id = c.Id,
-							Name = c.Name,
-
-						},
-						c => new { c.Id, c.Name },
-						"{Name}",
-						"SalesExpertIds",
-						"SalesExperts",
-						string.Join(',', Model?.SalesExpertIds),
-						true
-						))
-
-
-		</div>
-
-
-
 		<div class="col-md-3">
 			<label class=''>صنعت</label>
 			@(Html.EntitySelector<PartyIndustry>
@@ -86,23 +61,49 @@
 						null,
 						Model?.PartyIndustryId?.ToString()
 						)
-			)
-		 
+						)
+
 
 		</div>
 
+		<div class="col-md-12">
+			<label class='required'>کارشناسان فروش</label>
+			@(Html.EntitySelector<User>
+						(
+						"SalesExperts",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Id, c.Name },
+						"{Name}",
+						"SalesExpertIds",
+						"SalesExperts",
+						string.Join(',', Model?.SalesExpertIds),
+						true,
+						true
+						))
+
+
+		</div>
+		 
 		<div class='col-md-3'>
-			<label class=''>نوع پروپوزال درخواستی</label>
+			<label class='required'>نوع پروپوزال درخواستی</label>
 			<select class='form-control' data-bind='proposalRequest' asp-for='ProposalRequest'
-				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalRequestEnum))">
+				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalRequestEnum))"
+				   required>
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-3'>
-			<label class=''>وضعیت</label>
+			<label class='required'>وضعیت</label>
 			<select class='form-control' data-bind='status' asp-for='Status'
-				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalStatusEnum))">
+				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalStatusEnum))"
+				   required>
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
@@ -144,23 +145,25 @@
 
 
 		<div class='col-md-3'>
-			<label class=''>
+			<label class='required'>
 				تاریخ شروع شمسی
 			</label>
 			<input class='form-control' data-bind='startShamsiDate' data-persionDatePicker="true"
 				  persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}'
-				value='@Model?.StartMiladiDate' />
+				value='@Model?.StartMiladiDate'
+				  required />
 		</div>
 
 
 
 		<div class='col-md-3'>
-			<label class=''>
+			<label class='required'>
 				تاریخ مناقصه شمسی
 			</label>
 			<input class='form-control' data-bind='tenderShamsiDate' data-persionDatePicker="true"
 				persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}'
-				value='@Model?.TenderMiladiDate' />
+				value='@Model?.TenderMiladiDate'
+				  required />
 		</div>
 
 
@@ -220,7 +223,8 @@
 		<div class='col-md-3'>
 			<label class=''>بازنگری</label>
 			<input class='form-control' data-bind='revision' data-invalidMessage='فقط عداد'
-				data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' />
+				data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision'
+				disabled/>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -263,10 +267,7 @@
 				</ul>
 
 				<div class="tab-content">
-
-				 
-
-
+					 
 					<div class="tab-pane fade show active" id="proposalAttachmentsTab" role="tabpanel"
 						data-add-url="/Panel/Proposal/ProposalAttachmentPartial">
 						<div id='ProposalAttachmentContainer' class="entity-item-container">

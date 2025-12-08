@@ -6,7 +6,26 @@
 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.Proposal?.Id" value-title="@Model?.Proposal?.Title" bind="ProposalId" entity-type="typeof(Proposal)" label="پروپوزال"></entityselector>
+
+			<label class="form-label">پروپوزال</label>
+			@(Html.EntitySelector<Proposal>
+						(
+						"ProposalIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Title = c.Title,
+
+						},
+						c => new { c.Title },
+						"{Title}",
+						"ProposalId",
+						null,
+						Model?.ProposalId.ToString(),
+						true
+						))
+ 
 
 		</div>
 
@@ -42,20 +61,74 @@
 
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.MainResponsible?.Id" value-title="@Model?.MainResponsible?.Name" bind="MainResponsibleId" entity-type="typeof(User)" label="مسئول اصلی"></entityselector>
+
+			<label class="form-label">مسئول اصلی</label>
+			@(Html.EntitySelector<User>
+						(
+						"MainResponsibleIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Name },
+						"{Name}",
+						"MainResponsibleId",
+						null,
+						Model?.MainResponsibleId.ToString(),
+						false
+						))
+
+		 
 
 		</div>
 
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.ControlResponsible?.Id" value-title="@Model?.ControlResponsible?.Name" bind="ControlResponsibleId" entity-type="typeof(User)" label="مسئول کنترل"></entityselector>
+			<label class="form-label">مسئول کنترل</label>
+			@(Html.EntitySelector<User>
+						(
+						"ControlResponsibleIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
 
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ControlResponsibleId",
+						null,
+						Model?.ControlResponsibleId.ToString(),
+						false
+						))
+ 
 		</div>
 
 
 		<div class="col-md-6">
-			<entityselector value-id="@Model?.ApprovedUser?.Id" value-title="@Model?.ApprovedUser?.Name" bind="ApprovedUserId" entity-type="typeof(User)" label="تایید کننده"></entityselector>
+			<label class="form-label">تایید کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"ApprovedUserIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
 
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ApprovedUserId",
+						null,
+						Model?.ApprovedUserId.ToString(),
+						false
+						))
+ 
 		</div>
 
 		<div class='col-md-6'>

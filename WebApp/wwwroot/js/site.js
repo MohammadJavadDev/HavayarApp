@@ -7759,7 +7759,7 @@ class AppController {
 					// Default: fetch partial and append to this tab's container
 					if (addUrl) {
 						$.get(addUrl, function (data) {
-							debugger
+							 
 							// Partial views already have entity-item wrapper
 							let $item = $(data);
 							const itemId = KTUtil.getUniqueId("item");
@@ -8721,30 +8721,43 @@ function renderHistoryTmpl(histories) {
 }
  
 function validateError($el) {
-	debugger
+	 
 	$el = $el || $("body");
 	let haveError = false;
 
 	$el.find("[required]").each((i, c) => {
 		let value;
-
+		let $input = $(c);
 		if ($(c).attr("data-uploadFile")) {
 			var databindName = $(c).attr("data-uploadFileName");
 			value = $(c).find(`[data-bind='${databindName}']`).val();
+		}
+		else if ($(c).attr("data-entity-selector"))
+		{
+			$input = $(c).parent().data("entitySelector").$input;
+
+			if ($(c).val() == '0') {
+				value = null;
+			}
+			else {
+				value = $(c).val();
+			}
 		}
 		else {
 
 			value = $(c).val();
 		}
 
+	 
+
 		if (!value || value.length === 0) {
-			$(c).addClass("border-danger");
-			$(c).removeClass("border-success");
+			$input.addClass("border-danger");
+			$input.removeClass("border-success");
 			haveError = true;
 		}
 		else {
-			$(c).removeClass("border-danger");
-			$(c).addClass("border-success");
+			$input.removeClass("border-danger");
+			$input.addClass("border-success");
 		}
 
 
@@ -10046,7 +10059,7 @@ if (typeof initItemsForms === 'function') {
 (function ($) {
 	class EntitySelector {
 		constructor(element, options) {
-			debugger
+			 
 			this.$container = $(element);
 			if (this.$container.data('entitySelectorInstance')) return;
 			this.$container.data('entitySelectorInstance', this);

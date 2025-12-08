@@ -1,26 +1,20 @@
 @using Entities.App.Bom;
 @using Entities.App.Inv
-@using WebFramework.TagHelpers;
-@model ProductFormul
+@model FormulChangeRequest
+
+<div class="card  ">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(FormulChangeRequest)"></form-action-buttons></div>
+</div>
 <div class="card">
-	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductFormul)"></form-action-buttons></div>
 	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class="col-md-6">
-			<label class='required'>محصول</label>
-			@(Html.EntitySelector<Part>(
-				"ProductSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Code = c.Code, Name = c.Name
-				},
-				c => new { c.Code, c.Name },
-				"{Code} {Name}",
-				"ProductId",
-				"ProductName",
-				Model?.ProductId.ToString()
-			))
+		<div class='col-md-6'>
+			<label class=''>نوع عملیات</label>
+			<select class='form-control' data-bind='operationType'  asp-for='OperationType' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Bom.Enums.FormulChangeRequestOperationTypeEnum))">
+			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -37,70 +31,85 @@
 				"{Code} {Name}",
 				"PartId",
 				"PartName",
-				Model?.PartId?.ToString()
+				Model?.PartId?.ToString(),
+				true
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-
+		
 		<div class="col-md-6">
 			<label class=''>گروه محصول</label>
 			@(Html.EntitySelector<ProductGroup>(
-				"ProductNameGroupSelector",
+				"ProductGroupSelector",
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
 				c => new
 				{
-					Id = c.Id, Name = c.Name
+					Id = c.Id,  Name = c.Name
 				},
-				c => new { c.Name },
-				"{Name}",
-				"ProductNameGroupId",
-				"ProductNameGroupName",
-				Model?.ProductNameGroupId?.ToString()
+				c => new {   c.Name },
+				" {Name}",
+				"ProductGroupId",
+				 null,
+				Model?.ProductGroupId.ToString(),
+				true
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		
+
+		<div class="col-md-6">
+			<label class=''>قطعه جایگزین</label>
+			@(Html.EntitySelector<Part>(
+				"ReplacementPartSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Code = c.Code, Name = c.Name
+				},
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"ReplacementPartId",
+				"ReplacementPartName",
+				Model?.ReplacementPartId?.ToString()
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-6'>
-			<label class=''>ضریب مصرفی</label>
-			<input class='form-control'  data-bind='usingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='UsingRate' />
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='description'  asp-for='Description' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-6'>
-			<label class='required'>توضیحات</label>
-			<input class='form-control' data-bind='comment' required asp-for='Comment' />
+			<fileuploader
+				bind="attachmentId" 
+				accepted-file-types=".rar,.zip,.pdf,.excel,.word"
+				file-id="@Model?.AttachmentId"
+				file-entity="@Model?.Attachment"
+				entity-prop-name="Attachment"
+				entity-type="FormulChangeRequest"
+				max-file-size="10"
+				label="پیوست"></fileuploader>
+		</div>
+		 
+
+		<div class='col-md-6'>
+			<label class=''>وضعیت</label>
+			<select class='form-control' data-bind='status'  asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Bom.Enums.FormulChangeRequestStatusEnum))">
+			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-12'>
-			<div data-tab-item-manager="productFormulItems" data-item-selector=".entity-item">
-				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
-					<li class="nav-item" role="presentation">
-						<a class="nav-link active" data-bs-toggle="tab" href="#moviesTab" role="tab" aria-selected="true">
-							<span class="svg-icon svg-icon-2 me-2"></span>
-							افلام
-						</a>
-					</li>
-				</ul>
-				<div class="tab-content">
-					<div class="tab-pane fade show active" id="ItemsTab" role="tabpanel" data-add-url="/Panel/ProductFormul/ProductFormulItemPartial">
-						<div id='ItemsContainer' class="entity-item-container">
-							@if (Model?.Items != null)
-							{
-								@foreach (var item in Model.Items)
-								{
-									<div data-item-id="@(item.Id ?? 0)">
-										@await Html.PartialAsync("_ProductFormulItemPartial.cshtml", item)
-									</div>
-								}
-							}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
 	</div>
-	<div class='card-footer row'>
+</div>
+
+ 
+
+<div class="card">
+	 
+	<div class='card-body row'>
 		<div class='col-md-3'>
 			<span>ایجاد کننده :</span>
 			<span data-bind="createdByName">@Model?.CreatedByName</span>
@@ -122,8 +131,8 @@
 
 <script>
 	function savefn($btnAction) {
-		if (validateError($$('.card'))) { return; }
-		var model = $$('.card').dataBind();
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
 		const $btn = $(this.element).block();
 		$$.post('save',
 			model,
@@ -131,7 +140,7 @@
 				$btn.block(false);
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				$$('.card').dataBind(r.data);
+				page.$pageEl.dataBind(r.data);
 				$btnAction.baseaction();
 			})
 	}

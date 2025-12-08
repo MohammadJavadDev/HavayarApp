@@ -215,7 +215,7 @@ namespace WebApp.Controllers.SystemControllers
                     Order = "",
                     ShowTitle = "شناسه",
                     Title = "شناسه",
-                    Visible = false
+                    Visible = true
                 });
             }
 

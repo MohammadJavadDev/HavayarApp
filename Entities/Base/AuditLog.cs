@@ -14,7 +14,8 @@ namespace Entities.Base
         public string TableName { get; set; }
         public string? KeyValues { get; set; }
         public long EntityId { get; set; }
-        public DateTime CreatedOnMiladiDateTime { get; set; }
+	   public long? ParentId { get; set; }
+	   public DateTime CreatedOnMiladiDateTime { get; set; }
         public string CreatedOnShamsiDateTime { get; set; }
         public long? CreatedById { get; set; }
         public string? CreatedByName { get; set; }

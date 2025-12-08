@@ -267,7 +267,7 @@ void InitializeApplication(WebApplication app)
         initializeProgram.InitializeMenu();
         initializeProgram.InitializeRoles();
         initializeProgram.InitializeAccessControllers();
-       initializeProgram.InitializeEntityMetadataCache();
+        initializeProgram.InitializeEntityMetadataCache();
 
         // Initialize notification rules cache
         var notificationService = scope.ServiceProvider.GetRequiredService<INotifitactionBuilderService>();

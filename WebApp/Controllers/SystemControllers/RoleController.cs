@@ -18,20 +18,20 @@ using WebFramework.Page;
 
 namespace WebApp.Controllers.SystemControllers
 {
-    [ApiController]
-    [ApiResultFilter]
-    [Route("[controller]")]
-	[ControllerInfoAttribute("نقش" , typeof(Role))]
+	[ApiController]
+	[ApiResultFilter]
+	[Route("[controller]")]
+	[ControllerInfoAttribute("نقش", typeof(Role))]
 	[Authorize("AuthenticatedUser")]
-    public class RoleController(
-	    IRoleMemoryStorage roleMemoryStorage,
-	    IUnitOfWork unitOfWork,
-	    IAccessMemoryStorage _accessMemoryStorage) : BaseController
+	public class RoleController(
+		IRoleMemoryStorage roleMemoryStorage,
+		IUnitOfWork unitOfWork,
+		IAccessMemoryStorage _accessMemoryStorage) : BaseController
 	{
 
 
 		[HttpGet("/panel/{action}")]
-		[ActionDisplayName("لیست نقش ها", ActionAccessType.View , ActionAccessItemType.List)]
+		[ActionDisplayName("لیست نقش ها", ActionAccessType.View, ActionAccessItemType.List)]
 		public IActionResult ListRole()
 		{
 			return View("Views/Panel/System/Role/List.cshtml");
@@ -46,7 +46,7 @@ namespace WebApp.Controllers.SystemControllers
 			if (id != null)
 			{
 				var role = await unitOfWork.Repository<Role>().TableNoTracking
-					.Include(c=>c.RoleAccesses)
+					.Include(c => c.RoleAccesses)
 					.FirstOrDefaultAsync(t => t.Id == id, cn);
 
 				return View("Views/Panel/System/Role/Edit.cshtml", role);
@@ -60,18 +60,18 @@ namespace WebApp.Controllers.SystemControllers
 		{
 
 			ViewBag.ListEndPoints = _accessMemoryStorage.GetAllAccessControllers();
-			 
+
 			return View("Views/Panel/System/Role/Edit.cshtml");
 		}
 
 		[HttpPost("/panel/{action}")]
-		[ActionDisplayName("ذخیره نقش ها", ActionAccessType.Api , ActionAccessItemType.Save)]
+		[ActionDisplayName("ذخیره نقش ها", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> SaveRole(Role role, CancellationToken cn)
 		{
 
 			foreach (var item in role.RoleAccesses)
 			{
-				if(item.ActionAccessType == ActionAccessType.DataProfile && item.ActionAccessItemType == ActionAccessItemType.DataProfile)
+				if (item.ActionAccessType == ActionAccessType.DataProfile && item.ActionAccessItemType == ActionAccessItemType.DataProfile)
 				{
 					item.RowId = item.Path.ToInt();
 				}
@@ -93,7 +93,8 @@ namespace WebApp.Controllers.SystemControllers
 			return Ok(res);
 		}
 	}
- 
+
 }
+
 
 

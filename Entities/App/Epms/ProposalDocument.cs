@@ -39,6 +39,10 @@ namespace Entities.App.Epms
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProposalDocumentStatusEnum LastCommentStatus { get; set; } = ProposalDocumentStatusEnum.Submit;
 
+		[DisplayName("کامنت")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		public string Comment { get; set; }
+
 		[DisplayName("کامنت ها")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<ProposalDocumentComment> ProposalDocumentComments { get; set; } = new();

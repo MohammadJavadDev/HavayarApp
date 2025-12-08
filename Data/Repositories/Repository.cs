@@ -740,7 +740,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 
     public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = false, bool saveNow = true)
     {
-        
+
           Assert.NotNull(entity, nameof(entity));
 
         var oldEntity = await TableNoTracking.FirstOrDefaultAsync(c => c.Id == entity.Id, cancellationToken);
