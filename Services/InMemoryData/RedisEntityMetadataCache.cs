@@ -23,10 +23,10 @@ public sealed class RedisEntityMetadataCache : IEntityMetadataCache
         WriteIndented = false
     };
 
-    public RedisEntityMetadataCache(IDistributedCache redis)
+    public RedisEntityMetadataCache(IDistributedCache redis , EntityMetadataCache entityMetadataCache)
     {
         _redis = redis;
-        _fallback = new EntityMetadataCache(); // برای build اولیه
+        _fallback = entityMetadataCache; // برای build اولیه
     }
 
     public EntityMetadata? Get(string entityName)
@@ -75,32 +75,32 @@ public sealed class RedisEntityMetadataCache : IEntityMetadataCache
         return all;
     }
 
-    public void Refresh()
-    {
-        // پاک کردن تمام keys
-        _redis.Remove(_allEntitiesKey);
+	public void Refresh()
+	{
+		// refresh fallback
+		_fallback.Refresh();
 
-        // reload از assembly
-        _fallback.Refresh();
+		// write AllEntities
+		var all = _fallback.GetAll();
+		var allJson = JsonSerializer.Serialize(all, JsonOptions);
 
-        // ذخیره دوباره در Redis
-        var all = _fallback.GetAll();
-        var allJson = JsonSerializer.Serialize(all, JsonOptions);
-        _redis.SetString(_allEntitiesKey, allJson, new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = _expiration
-        });
+		_redis.SetString(_allEntitiesKey, allJson, new DistributedCacheEntryOptions
+		{
+			AbsoluteExpirationRelativeToNow = _expiration
+		});
 
-        // ذخیره هر entity جداگانه
-        foreach (var metadata in all)
-        {
-            var key = $"{_keyPrefix}{metadata.EntityName.ToLower()}";
-            var json = JsonSerializer.Serialize(metadata, JsonOptions);
-            _redis.SetString(key, json, new DistributedCacheEntryOptions
-            {
-                AbsoluteExpirationRelativeToNow = _expiration
-            });
-        }
-    }
+		// write individual entities (no Remove!)
+		foreach (var metadata in all)
+		{
+              
+			var key = $"{_keyPrefix}{metadata.EntityName.ToLower()}";
+			var json = JsonSerializer.Serialize(metadata, JsonOptions);
+
+			_redis.SetString(key, json, new DistributedCacheEntryOptions
+			{
+				AbsoluteExpirationRelativeToNow = _expiration
+			});
+		}
+	}
 }
 

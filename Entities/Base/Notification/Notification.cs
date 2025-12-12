@@ -36,7 +36,7 @@ namespace Entities.Base.Notification
 		[DisplayName("آدرس صفحه")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 
-		public Guid? ViewPath { get; set; }
+		public string? ViewPath { get; set; }
 		public bool IsRead { get; set; } = false;
 	
 		public long OwnerId { get; set; }

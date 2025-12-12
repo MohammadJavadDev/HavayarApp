@@ -1,25 +1,27 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using Common.Attributes;
+﻿using Common.Attributes;
 using Common.Auth.Enums;
+using Common.Utilities;
+using Data.SystemAuth;
 using Entities.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using Services.AccessServices;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace WebFramework.Middlewares
 {
     public class CustomAuthorizationMiddleware(RequestDelegate next, IMemoryCache _cache  
-       , IRoleMemoryStorage _roleMemoryStorage ,IAccessMemoryStorage _accessMemoryStorage)
+       , IRoleMemoryStorage _roleMemoryStorage ,IAccessMemoryStorage _accessMemoryStorage,
+         IOnlineUserService onlineUserService)
     {
         private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(1);
         public async Task InvokeAsync(HttpContext context)
         {
-
-      
+                
                 if (!IsAllowAnonymous(context))
                 {
                     var endpoint = context.GetEndpoint();
@@ -87,8 +89,7 @@ namespace WebFramework.Middlewares
             if (string.IsNullOrEmpty(authorization))
             {
                 authorization = context.Request.Headers.Authorization;
-
-
+                     
             }
 
             if (string.IsNullOrEmpty(authorization))
@@ -105,44 +106,20 @@ namespace WebFramework.Middlewares
 
             try
             {
-                var tokenHandler = new JwtSecurityTokenHandler();
-
-                var key = Encoding.ASCII.GetBytes(AppSettings.PrivateKey);
-
-                var credentials = new SymmetricSecurityKey(key);
-
-
-                ClaimsPrincipal principal = tokenHandler.ValidateToken(authorization, new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    ValidateAudience = true,
-                    ValidateLifetime = true,
-                    IssuerSigningKey = credentials,
-                    ValidIssuer = AppSettings.Issuer,
-                    ValidAudience = AppSettings.Audience,
-                    ClockSkew = TimeSpan.Zero
-                }, out SecurityToken validatedToken);
-
-                var jwtToken = (JwtSecurityToken)validatedToken;
-
-                var roleNames = jwtToken.Claims.First(c => c.Type == ClaimTypes.Role).Value.Split(",");
-
-
-                context.User = principal;
+                 
+		     var roleNames = onlineUserService.GetUserRole(context.User.Identity.GetUserId());
+                     
 
                 if (roleNames.Any(c => c == "admin"))
                 {
                     return true;
                 }
-
-  
-
+                 
                 if (!_accessMemoryStorage.ExistPath(requestPath))
                 {
                     return true;
                 }
-                 
-
+                  
                 var cacheKey = $"{string.Join(",", roleNames)}:{requestPath}";
 
                 if (_cache.TryGetValue(cacheKey, out bool hasAccess))
@@ -161,21 +138,11 @@ namespace WebFramework.Middlewares
                 hasAccess = roleNames.Any(roleName =>
                 {
                     var role = _roleMemoryStorage.GetRoleByName(roleName);
-                    return role?.RoleAccesses.Any(c=>c.Path.Contains(requestPath)) == true;
-                });
+                     return role.RoleAccesses.Any(c => c.Path.Equals(requestPath, StringComparison.OrdinalIgnoreCase));
+			 });
 
                 _cache.Set(cacheKey, hasAccess, _cacheDuration);
-
-                //foreach (var roleName in roleNames)
-                //{
-                //    // Fetch the role from memory
-                //    var role = _roleMemoryStorage.GetRoleByName(roleName);
-                //    if (role != null && role.AccessPath != null && role.AccessPath.Contains(requestPath))
-                //    {
-                //        hasAccess = true;
-                //        break;
-                //    }
-                //}
+                     
 
                 if (type == ActionAccessType.Api && hasAccess == false)
                     ForbiddenException(requestPath);

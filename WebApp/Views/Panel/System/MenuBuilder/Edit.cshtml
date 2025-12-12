@@ -11,53 +11,75 @@
 @inject IAccessMemoryStorage ams;
 @inject IReportBuilderService reportBuilderService
 @{
- 
-     // var reports = reportBuilderService.GetListReports();
 
-     var systemRoles = serviceRole.TableNoTracking.Select(c => new { c.Id, c.Name, c.Title }).ToArray();
+    // var reports = reportBuilderService.GetListReports();
 
-     var accessControllers = ams.GetAllAccessControllers();
+    var systemRoles = serviceRole.TableNoTracking.Select(c => new { c.Id, c.Name, c.Title }).ToArray();
 
-     if (Model == null)
-     {
-          
-     }
-    
+    var accessControllers = ams.GetAllAccessControllers();
+
+    var defaultFolderIconClass = "ki-solid ki-folder text-success";
+    var defaultFileIconClass = "ki-solid ki-file text-success";
+    var defaultIconColorHex = "#3f4254";
+
+    if (Model == null)
+    {
+
+    }
+
 
 
     // if (accessControllers.Any(c => c.Id == 564000))
     // {
-    //     accessControllers.FirstOrDefault(c => c.Id == 564000).Actions = reports.Select(c => new AccessAction()
-    //             {
-    //                 Title = c.Title,
-    //                 Name = "Rep" + c.Title,
-    //                 Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
-    //                 ActionAccessType = ActionAccessType.View
-    //             }).ToList();
+    // accessControllers.FirstOrDefault(c => c.Id == 564000).Actions = reports.Select(c => new AccessAction()
+    // {
+    // Title = c.Title,
+    // Name = "Rep" + c.Title,
+    // Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
+    // ActionAccessType = ActionAccessType.View
+    // }).ToList();
     // }
     // else
     // {
-    //     var newAccessController = new AccessController()
-    //             {
-    //                 Title = "گزارشات",
-    //                 Name = "Reports",
-    //                 Id = 564000,
-    //                 Actions = reports.Select(c => new AccessAction()
-    //                 {
-    //                     Title = c.Title,
-    //                     Name = "Rep" + c.Title,
-    //                     Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
-    //                     ActionAccessType = ActionAccessType.View
-    //                 }).ToList()
+    // var newAccessController = new AccessController()
+    // {
+    // Title = "گزارشات",
+    // Name = "Reports",
+    // Id = 564000,
+    // Actions = reports.Select(c => new AccessAction()
+    // {
+    // Title = c.Title,
+    // Name = "Rep" + c.Title,
+    // Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
+    // ActionAccessType = ActionAccessType.View
+    // }).ToList()
 
-    //             };
-    //     accessControllers.Add(newAccessController);
+    // };
+    // accessControllers.Add(newAccessController);
     // }
 
 }
 @section Style {
     <link href="~/panelLib/plugins/custom/jstree/jstree.bundle.rtl.css" rel="stylesheet" type="text/css" />
- }
+    <style>
+        #pageMenuBuilder .icon-preview {
+            min-height: 48px;
+        }
+
+        #pageMenuBuilder .icon-grid-item {
+            border: 1px solid #f1f1f1;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+        }
+
+        #pageMenuBuilder .icon-grid-item:hover {
+            border-color: #d1d1d1;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+        }
+    </style>
+}
 
 <div class="card" id="pageMenuBuilder">
     <div class="card-header">
@@ -66,200 +88,464 @@
         </div>
     </div>
     <div class="card-body">
-        <div class="row">
-            <div class="col-md-4 border border-3">
-                <div id="tree"></div>
-            </div>
-            <div class="col-md-4 align-content-center">
-                <div class="mb-3">
-                    <label>عنوان</label>
-                    <input id="title" class="form-control" />
+        <div class="row g-4">
+            <div class="col-lg-4">
+                 <button class="btn btn-danger w-100" id="deleteAllNodes">حذف همه گره ها</button>
+                <div class="border border-3 rounded p-3 h-100">
+                    <div id="tree"></div>
                 </div>
-                <div class="mb-3">
-                    <label>آیکن</label>
-                    <textarea id="icon" class="form-control" style="direction: ltr;"></textarea>
-                </div >
-                <div class="mb-4">
-                    <label>آدرس</label>
-                    <select id="url" class="form-control">
-                        @foreach (var i in accessControllers)
-                        {
-                            foreach (var action in i.Actions.Where(c=>c.ActionAccessType == ActionAccessType.View))
-                            {
+            </div>
+            <div class="col-lg-5">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="mb-4">ویرایش گره منو</h5>
+                        <div class="mb-3">
+                            <label class="form-label">عنوان</label>
+                            <input id="title" class="form-control" />
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-8">
+                                <label class="form-label">آیکن</label>
+                                <div class="input-group">
+                                    <textarea id="icon" class="form-control" rows="1"
+                                        style="direction: ltr;"></textarea>
+                                    <button type="button" class="btn btn-outline-secondary"
+                                        id="openIconPicker">انتخاب</button>
+                                </div>
+                                <small class="text-muted">کلاس کامل آیکن را وارد کنید یا از لیست انتخاب کنید.</small>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label d-flex justify-content-between align-items-center">
+                                    <span>رنگ آیکن</span>
+                                    <span class="text-muted fs-8" id="iconColorHex"></span>
+                                </label>
+                                <input type="color" id="iconColor" class="form-control form-control-color"
+                                    value="#3f4254">
+                                <div class="mt-3 icon-preview border rounded py-2 text-center" id="iconPreview"></div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">آدرس</label>
+                            <select id="url" class="form-control">
+                                @foreach (var i in accessControllers)
+                                {
+                                    foreach (var action in i.Actions.Where(c => c.ActionAccessType ==
+                                    ActionAccessType.View))
+                                    {
                                         <option value="@action.Path">@i.DisplayName - @action.DisplayName</option>
-                            }
-                        }
-                         
-                    </select>
+                                    }
+                                }
+
+                            </select>
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            <button class="btn btn-primary" id="editMenu">به‌روزرسانی گره</button>
+                            <button class="btn btn-info" id="addMenu">افزودن زیرمنو</button>
+                            <button class="btn btn-danger" id="removeMenu">حذف گره</button>
+                        </div>
+                    </div>
                 </div>
-                <div class="mb-4">
-                    <button class="btn btn-warning" id="editMenu" style="width: 100%"> ویرایش منو</button>
+            </div>
+
+            <div class="col-lg-3">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="mb-4">مشخصات منو</h5>
+                        <div class="mb-3">
+                            <label class="form-label">عنوان منو</label>
+                            <input id="menuTitle" class="form-control" asp-for="@Model.Title" />
+                            <input id="id" type="hidden" class="form-control" asp-for="@Model.Id" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">نام منو</label>
+                            <input id="menuName" class="form-control" asp-for="@Model.Name" />
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label">نقش</label>
+                            <select class="form-control" multiple="multiple" data-bind="accessRoles">
+                                @foreach (var r in systemRoles)
+                                {
+                                    if (Model?.AccessRoles?.Contains(r.Name) ?? false)
+                                    {
+                                        <option value="@r.Name:@r.Id" selected>@r.Title</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@r.Name:@r.Id">@r.Title</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <button class="btn btn-success w-100" id="save">ذخیره</button>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="iconPickerModal" tabindex="-1" aria-labelledby="iconPickerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="iconPickerModalLabel">انتخاب آیکن</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
                 <div class="mb-3">
-                    <button class="btn btn-danger" id="removeMenu" style="width: 100%"> حذف منو</button>
+                    <input type="text" id="iconSearch" class="form-control" placeholder="جستجوی نام آیکن...">
                 </div>
-                <div class="mb-3">
-                    <button class="btn btn-info" id="addMenu" style="width: 100%"> افزودن منو</button>
-                </div>
-            </div>
-
-            <div class="col-md-4 align-content-center">
-                <div>
-                    <label>عنوان منو</label>
-                    <input id="menuTitle" class="form-control" asp-for="@Model.Title" />
-                    <input id="id" type="hidden" class="form-control" asp-for="@Model.Id" />
-                </div>
-                <div>
-                    <label>نام منو</label>
-                    <input id="menuName" class="form-control" asp-for="@Model.Name" />
-                </div>
-                <button class="btn btn-success" id="save" style="width: 100%"> ذخیره</button>
-             </div>
-            <div class="col-md-4 align-content-center">
-                <div class="form-group">
-                    <label>نقش</label>
-
-                    <select class="form-control" multiple="multiple" data-bind="accessRoles">
-
-                        @foreach (var r in systemRoles)
-                        {
-                            if (Model?.AccessRoles?.Contains(r.Name) ?? false)
-                            {
-                                <option value="@r.Name" selected>@r.Title</option>
-                            }
-                            else
-                            {
-                                <option value="@r.Name">@r.Title</option>
-                            }
-
-                        }
-
-                    </select>
+                <div class="row g-2" id="iconGrid">
+                    <div class="col-12 text-center text-muted py-4" id="iconGridPlaceholder">
+                        در حال بارگذاری آیکن‌ها...
+                    </div>
                 </div>
             </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <small class="text-muted" id="iconStatus"></small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
             </div>
+        </div>
     </div>
 </div>
 <script src="~/panelLib/plugins/custom/jstree/jstree.bundle.js"></script>
 <script>
-      $$('select[multiple]').select2({
-          tags: true,
-          tokenSeparators: [',']
-      });
+    (function () {
+        const defaultIconColor = '@defaultIconColorHex';
+        const defaultFolderIcon = '@defaultFolderIconClass';
+        const defaultFileIcon = '@defaultFileIconClass';
 
-      $$('#url').select2();
+        $$('select[multiple]').select2({
+            tags: true,
+            tokenSeparators: [',']
+        });
 
-      let dataz = [];
+        $$('#url').select2();
 
-      @if (Model?.Content == null || !Model.Content.HasValue(true))
-      {
+        const $tree = $$('#tree');
+        const $title = $$('#title');
+        const $icon = $$('#icon');
+        const $iconColor = $$('#iconColor');
+        const $iconColorHex = $$('#iconColorHex');
+        const $iconPreview = $$('#iconPreview');
+        const $url = $$('#url');
+
+        const $iconSearch = $$('#iconSearch');
+        const $iconGrid = $$('#iconGrid');
+        const $iconGridPlaceholder = $$('#iconGridPlaceholder');
+        const $iconStatus = $$('#iconStatus');
+        const iconPickerModalElement = document.getElementById('iconPickerModal');
+        const iconPickerModal = iconPickerModalElement ? new bootstrap.Modal(iconPickerModalElement) : null;
+
+        let treeInstance = null;
+        let selectedNode = null;
+        let iconCatalog = [];
+        let isLoadingIcons = false;
+
+        let dataz = [];
+
+        @if (Model?.Content == null || !Model.Content.HasValue(true))
+            {
                     @Html.Raw("dataz = [")
-           ;
-               @foreach (var i in ams.GetAllAccessControllers())
-               {
-                                  var actions = i.Actions.Where(c => c.ActionAccessType == ActionAccessType.View).Select(c => $"{{\"text\" : \"{c.DisplayName}\" ,\"url\" : \"{c.Path}\" , \"a_attr\":{{\"href\":\"{c.Path}\"}}}}").ToList();
-                        var strActions = string.Join(",", actions);
-                                  @Html.Raw($"{{\"text\": \"{i.DisplayName} \",\"children\": [{strActions}]}}, ")
-               }
+                ;
+                    foreach (var i in ams.GetAllAccessControllers())
+                {
+                    var actions = i.Actions
+                                                                    .Where(c => c.ActionAccessType == ActionAccessType.View)
+                                                                    .Select(c => $"{{\"text\":\"{c.DisplayName}\",\"icon\":\"{defaultFileIconClass}\",\"a_attr\":{{\"href\":\"{c.Path}\"}},\"data\":{{\"iconColor\":\"{defaultIconColorHex}\",\"path\":\"{c.Path}\"}},\"children\":[]}}")
+                    .ToList();
+                    var strActions = string.Join(",", actions);
+                    @Html.Raw($"{{\"text\":\"{i.DisplayName}\",\"icon\":\"{defaultFolderIconClass}\",\"a_attr\":{{\"href\":\"\"}},\"data\":{{\"iconColor\":\"{defaultIconColorHex}\",\"path\":\"\"}},\"children\":[{strActions}]}},")
+                    ;
+                }
+                @Html.Raw("];")
+                        ;
+            }
+            else
+            {
+                    @Html.Raw($"dataz = {Model.Content};")
+                ;
+            }
 
-               @Html.Raw("]")
-      }
-      else
-      {
-               @Html.Raw($"data = {Model.Content}")
-               ;
-      }
+            dataz = normalizeTreeData(dataz);
 
+        initTree();
+        bindEvents();
+        updateIconPreview($icon.val(), $iconColor.val());
 
+        function normalizeTreeData(items) {
+            if (!Array.isArray(items)) return [];
+            return items.map(normalizeNode);
+        }
 
-      $$("#tree").jstree({
-          "core": {
-              "themes": {
-                  "responsive": false,
-              },
-              // so that create works
-              "check_callback": true,
-              'data':  dataz
-          },
-          "types": {
-              "default": {
-                  "icon": "ki-solid ki-folder text-success"
-              },
-              "file": {
-                  "icon": "ki-solid ki-file  text-success"
-              }
-          },
-          "state": { "key": "demo2" },
-          "plugins": ["dnd", "state", "types"]
-      });
-      let selecetdNode = null;
-      let sn = {};
-     $$('#tree').on('select_node.jstree',
-          function(e, data) {
-                 
-              selecetdNode = data.node;
-              sn = data;
-              $$("#title").val(data.node.text)
-              $$("#icon").val(data.node.icon)
-              $$("#url").val(data.node.original?.a_attr.href).change()
-          });
+        function normalizeNode(node) {
+            const path = node.path || node.a_attr?.href || '';
+            const iconColor = node.iconColor || node.data?.iconColor || defaultIconColor;
+            const icon = node.icon || (node.children && node.children.length ? defaultFolderIcon : defaultFileIcon);
 
-     $$("#addMenu").click(function() {
+            return {
+                text: node.text || '',
+                icon: icon,
+                a_attr: { href: path },
+                data: {
+                    iconColor: iconColor,
+                    path: path
+                },
+                children: normalizeTreeData(node.children || [])
+            };
+        }
 
-          $$("#tree").jstree('create_node', selecetdNode, { "text": "منو جدید" }, "last", false, false);
+        function initTree() {
+            $tree.jstree({
+                core: {
+                    themes: { responsive: false },
+                    check_callback: true,
+                    data: dataz
+                },
+                types: {
+                    default: { icon: defaultFolderIcon },
+                    file: { icon: defaultFileIcon }
+                },
+                state: { key: 'menuBuilderTree' },
+                plugins: ['dnd', 'state', 'types']
+            });
 
-      });
+            treeInstance = $tree.jstree(true);
 
-      $$("#removeMenu").click(function () {
+            $tree.on('ready.jstree', function () {
+                applyIconColors();
+            });
 
-          $$("#tree").jstree("delete_node", selecetdNode);
-          selecetdNode = null;
+            $tree.on('select_node.jstree', function (e, data) {
+                selectedNode = data.node;
+                syncFormWithNode(data.node);
+            });
+        }
 
-      });
+        function bindEvents() {
+            $$('#addMenu').on('click', function () {
+                const parent = selectedNode ? selectedNode : '#';
+                const newNodeId = treeInstance.create_node(parent, {
+                    text: 'منو جدید',
+                    icon: defaultFileIcon,
+                    a_attr: { href: '' },
+                    data: { iconColor: $iconColor.val() || defaultIconColor, path: '' },
+                    children: []
+                }, 'last');
 
-      $$("#editMenu").click(function () {
-           debugger
+                if (newNodeId) {
+                    treeInstance.deselect_all();
+                    treeInstance.select_node(newNodeId);
+                    applyIconColors();
+                }
+            });
 
-          selecetdNode.text = $("#title").val();
-          selecetdNode.icon = $("#icon").val();
-          selecetdNode.a_attr.href = $("#url").val();
+            $$('#removeMenu').on('click', function () {
+                if (!selectedNode) {
+                    toastr.warning('ابتدا یک گره را انتخاب کنید.');
+                    return;
+                }
+                treeInstance.delete_node(selectedNode);
+                selectedNode = null;
+            });
 
+            $$('#editMenu').on('click', function () {
+                if (!selectedNode) {
+                    toastr.warning('ابتدا یک گره را انتخاب کنید.');
+                    return;
+                }
 
-          $$('#tree').jstree(true).set_icon(selecetdNode, selecetdNode.icon);
-          $$('#tree').jstree(true).set_text(selecetdNode, selecetdNode.text)
+                const color = $iconColor.val() || defaultIconColor;
+                const href = $url.val() || '';
+                selectedNode.text = $title.val();
+                selectedNode.icon = $icon.val();
+                selectedNode.data.iconColor = color;
+                selectedNode.data.path = href;
+                selectedNode.a_attr.href = href;
 
+                treeInstance.set_icon(selectedNode, selectedNode.icon);
+                treeInstance.rename_node(selectedNode, selectedNode.text);
+                applyIconColor(selectedNode, color);
+            });
 
-      });
+            $$('#save').on('click', function () {
+                const model = {};
+                model.title = $$('#menuTitle').val();
+                model.name = $$('#menuName').val();
+                model.content = JSON.stringify(menuItemConverter(treeInstance.get_json('#', { flat: false })));
+                
+                let roleNames = [];
+                let roleIds = [];
+                const accessRoles = $$('[data-bind=accessRoles]').val();
+                
+                if (accessRoles && accessRoles.length) {
+                    accessRoles.forEach((c) => {
+                        let roleName = c.split(":")[0];
+                        let roleId = c.split(":")[1];
+                        roleNames.push(roleName);
+                        roleIds.push(roleId);
+                    });
+                }
+                
+                model.accessRoles = roleNames;
+                model.accessRoleIds = roleIds;
+                model.id = $$('#id').val();
 
-      $$("#save").click(function() {
-          debugger
+                $$.post('/System/MenuBuilder/Save', model, function (r) {
+                    if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+                    toastr.success('ذخیره سازی با موفقیت انجام شد .');
+                });
+            });
 
-          var model = {};
+            $icon.on('input', function () {
+                updateIconPreview($icon.val(), $iconColor.val());
+            });
 
-          model.title = $$("#menuTitle").val();
-          model.name = $$("#menuName").val();
-          model.content = JSON.stringify(menuItemConverter($$("#tree").jstree(true).get_json()));
-          model.accessRoles = $$("[data-bind=accessRoles]").val();
-          model.id = $$("#id").val();
+            $iconColor.on('input', function () {
+                updateIconColorLabel(this.value);
+                updateIconPreview($icon.val(), this.value);
+                if (selectedNode) {
+                    selectedNode.data.iconColor = this.value;
+                    applyIconColor(selectedNode, this.value);
+                }
+            });
 
-          $$.post("/System/MenuBuilder/Save", model, function (r) {
-              if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+            if (iconPickerModal) {
+                $$('#openIconPicker').on('click', function () {
+                    iconPickerModal.show();
+                    loadIconsIfNeeded();
+                });
+            } else {
+                $$('#openIconPicker').prop('disabled', true).attr('title', 'Bootstrap modal در دسترس نیست');
+            }
 
-              toastr.success("ذخیره سازی با موفقیت انجام شد .");
-          })
+            $iconSearch.on('input', function () {
+                renderIconGrid(iconCatalog, this.value);
+            });
 
-      });
+            $iconGrid.on('click', '.icon-grid-item', function () {
+                const cls = $$(this).data('class');
+                $icon.val(cls).trigger('input');
+                if (selectedNode) {
+                    selectedNode.icon = cls;
+                    treeInstance.set_icon(selectedNode, cls);
+                    applyIconColor(selectedNode, $iconColor.val());
+                }
+                if (iconPickerModal) {
+                    iconPickerModal.hide();
+                }
+            });
+        }
 
-      function menuItemConverter(p) {
-          let array = [];
+        function syncFormWithNode(node) {
+            $title.val(node.text || '');
+            $icon.val(node.icon || '');
+            const color = node.data?.iconColor || defaultIconColor;
+            $iconColor.val(color);
+            updateIconColorLabel(color);
+            updateIconPreview(node.icon || '', color);
+            $url.val(node.data?.path || node.a_attr?.href || '').trigger('change');
+            applyIconColor(node, color);
+        }
 
-          array = p.map(c => {
-              return {
-                  text: c.text, icon: c.icon, path: c.a_attr.href, a_attr: { href: c.a_attr.href }, children: menuItemConverter(c.children)
-              }
-          });
-          return array;
-      }
+        function applyIconColors() {
+            const flat = treeInstance.get_json('#', { flat: true });
+            flat.forEach(n => {
+                const node = treeInstance.get_node(n.id);
+                const color = n.data?.iconColor || defaultIconColor;
+                applyIconColor(node, color);
+            });
+        }
 
+        function applyIconColor(node, color) {
+            const targetColor = color || node?.data?.iconColor || defaultIconColor;
+            const $el = treeInstance.get_node(node, true).find('.jstree-themeicon');
+            if ($el && $el.length) {
+                $el.css('color', targetColor);
+            }
+        }
 
+        function updateIconPreview(className, color) {
+            const sanitizedClass = className || '';
+            const sanitizedColor = color || defaultIconColor;
+            $iconPreview.html(sanitizedClass
+                ? `<i class="${sanitizedClass}" style="color:${sanitizedColor}; font-size:24px;"></i>`
+                : '<span class="text-muted">آیکنی انتخاب نشده است</span>');
+            updateIconColorLabel(sanitizedColor);
+        }
+
+        function updateIconColorLabel(color) {
+            $iconColorHex.text(color || '');
+        }
+
+        function menuItemConverter(nodes) {
+            if (!nodes) return [];
+            return nodes.map(c => {
+                const color = c.data?.iconColor || defaultIconColor;
+                const href = (c.a_attr && c.a_attr.href) || c.data?.path || '';
+                return {
+                    text: c.text,
+                    icon: c.icon,
+                    iconColor: color,
+                    path: href,
+                    a_attr: { href: href },
+                    data: { iconColor: color, path: href },
+                    children: menuItemConverter(c.children)
+                };
+            });
+        }
+
+        async function loadIconsIfNeeded() {
+            if (iconCatalog.length || isLoadingIcons) return;
+            isLoadingIcons = true;
+            $iconGridPlaceholder.text('در حال بارگذاری آیکن‌ها...');
+            try {
+                if (typeof collectProjectIcons !== 'function') {
+                    throw new Error('collectProjectIcons در دسترس نیست.');
+                }
+                iconCatalog = await collectProjectIcons({ size: 28, color: defaultIconColor });
+                renderIconGrid(iconCatalog, $iconSearch.val());
+                $iconGridPlaceholder.remove();
+                $iconStatus.text(`${iconCatalog.length} آیکن یافت شد.`);
+            } catch (err) {
+                console.error(err);
+                $iconGridPlaceholder.text('خطا در بارگذاری آیکن‌ها');
+                $iconStatus.text('خطا در دریافت لیست آیکن');
+            } finally {
+                isLoadingIcons = false;
+            }
+        }
+
+         $$("#deleteAllNodes").click(function(){
+         
+              debugger;
+               var d =treeInstance;
+         })
+
+        function renderIconGrid(list, term) {
+            if (!list || !list.length) {
+                $iconGrid.html('<div class="col-12 text-center text-muted py-4">آیکنی موجود نیست.</div>');
+                return;
+            }
+
+            const normalizedTerm = (term || '').toString().trim().toLowerCase();
+            const filtered = !normalizedTerm
+                ? list
+                : list.filter(i => (i.className || '').toLowerCase().includes(normalizedTerm));
+
+            if (!filtered.length) {
+                $iconGrid.html('<div class="col-12 text-center text-muted py-4">نتیجه‌ای یافت نشد.</div>');
+                return;
+            }
+
+            const html = filtered.map(i => `
+                <div class="col-4 col-sm-3 col-md-2">
+                    <div class="icon-grid-item text-center" data-class="${i.className}">
+                         <i   alt="${i.className}" class="img-fluid mb-2 ${i.className} fs-4hx" ></i>
+                        <div class="small text-truncate" title="${i.className}">${i.className}</div>
+                    </div>
+                </div>`).join('');
+
+            $iconGrid.html(html);
+        }
+    })();
 </script>

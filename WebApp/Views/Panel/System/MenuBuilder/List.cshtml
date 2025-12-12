@@ -1,60 +1,36 @@
 ﻿ 
-<div class="card">
-    <div class="card-body">
-        <a href="/System/MenuBuilder/Edit" class="btn btn-success">جدید</a>
-        <table id="itemsTable" class="table table-row-bordered nowrap table-bordered table-striped table-hover">
-
-
-            <tfoot>
-                <tr>
-                    <th> <button id="serachTabel" class="btn btn-primary">جستجو</button></th>
-                    <th>نام آیتم</th>
-                    <th>عنوان منو</th>
-                    <th>نام ایجاد کننده</th>
-                    <th>تاریخ ایجاد</th>
-                    <th>ایجاد کننده</th>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-</div>
-
-
-
-
+@using Data.Contracts
+@using Entities.Base.Menu
  
-    <script>
-        InitDataTabel($$('#itemsTable'), [
-            {
-                "data": "id",
-                type: "button",
-                "sortable": false,
-                "render": function (data, type, row) {
-                    return `<a href='/System/MenuBuilder/Edit?id=${row.id}' class=" btn btn-icon btn-bg-light btn-active-color-primary btn-sm me-1">
-                                                                                                    <i class="ki-duotone ki-pencil fs-2">
-                                                                                                        <span class="path1"></span>
-                                                                                                        <span class="path2"></span>
-                                                                                                    </i>
-                                                                                                </a>
-                                              <a   data-url="/Panel/Warehouse/Delete?id=${row.id}" data-action="remove" class="btn btn-icon btn-bg-light btn-active-color-danger btn-sm">
-                                                            <i class="ki-duotone ki-trash fs-2">
-                                                                <span class="path1"></span>
-                                                                <span class="path2"></span>
-                                                                <span class="path3"></span>
-                                                                <span class="path4"></span>
-                                                                <span class="path5"></span>
-                                                            </i>
-                                                        </a>
-                                                                                                `;
+@inject IUnitOfWork _unitOfWork;
+@{
+ var list =	_unitOfWork.Repository<SystemMenu>().TableNoTracking.ToArray();
+}
 
-                }
-            },
-            { 'data': 'name', 'type': 'string', 'name': 'name', title: 'نام', showInRelationData: true, options: [], tableName: '' },
-            { 'data': 'title', 'type': 'string', 'name': 'title', title: 'عنوان منو', showInRelationData: false, options: [], tableName: '' },
-            { 'data': 'createdByName', 'type': 'string', 'name': 'createdByName', title: 'نام ایجاد کننده', showInRelationData: false, options: [], tableName: '' },
-            { 'data': 'createdOnShamsiDateTime', 'type': 'datetime', 'name': 'createdOnMiladiDateTime', title: 'تاریخ شمسی ایجاد', showInRelationData: false, options: [], tableName: '' },
-            { 'data': 'isActive', 'type': 'select', 'name': 'isActive', title: 'وضعیت فعال بودن', showInRelationData: false, options: [{ value: '0', name: 'غیر فعال' }, { value: '1', name: 'فعال' }], tableName: '' }
 
-        ], "SystemMenu", "/System/MenuBuilder/FetchData")
-    </script>
- 
+ <table class="table table-bordered">
+	 <thead>
+		 <tr>
+			 <th>نام</th>
+			 <th>عنوان</th>
+			<th>#</th>
+		 </tr>
+	 </thead>
+	<thead>
+		@foreach(var l in list)
+		{
+			<tr>
+				<td>
+					@l.Name
+				</td>
+				<td>
+					@l.Title
+				</td>
+				<td>
+					<a href="/system/menubuilder/edit?id=@l.Id">ویرایش</a>
+				</td>
+			</tr>
+		}
+		
+	</thead>
+ </table>

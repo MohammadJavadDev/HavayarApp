@@ -11,6 +11,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Text;
+using System.Linq;
+using System.Security.Cryptography;
 
 public class ProcessedViewResult : ViewResult
 {
@@ -117,15 +120,46 @@ public class ProcessedViewResult : ViewResult
 			var viewName = context.HttpContext.Request.Path.Value;
 			var action = _accessMemoryStorage?.GetAccessAction(viewName);
 			response.ContentType = "application/json; charset=utf-8";
+			var viewTitle = (action?.AccessController?.DisplayName + " - " + action?.DisplayName) ?? "تب جدید";
+			if (viewName == "/Authenticate/Forbidden")
+			{
+				viewTitle = "عدم دسترسی";
+			}
+
+			// Obfuscate payload to avoid obvious wire format inspection (not security).
+			var salt = new byte[] { 13, 71, 99, 201, 54, 11, 222, 39 };
+			byte keyByte;
+			using (var rng = RandomNumberGenerator.Create())
+			{
+				var keyBuf = new byte[1];
+				rng.GetBytes(keyBuf);
+				keyByte = keyBuf[0];
+			}
+
+			var payloadObj = new
+			{
+				h = contentHtml ?? string.Empty,                 // html
+				s = scripts ?? new List<string>(),               // scripts
+				p = new { t = viewTitle }                        // page info
+			};
+
+			var payloadJson = payloadObj.JsonSerialize();
+			var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
+
+			for (int i = 0; i < payloadBytes.Length; i++)
+			{
+				payloadBytes[i] = (byte)((payloadBytes[i] ^ keyByte) ^ salt[i % salt.Length]);
+			}
+
+			var blob = Convert.ToBase64String(payloadBytes);
+
 			var json = new
 			{
-				html = contentHtml,
-				scripts = scripts,
-				pageInfo = new
-				{
-					title =(action?.AccessController?.DisplayName + " - " + action?.DisplayName) ?? "تب جدید"
-				}
+				v = 1,
+				p = blob,
+				q = (byte)(keyByte ^ 0xA5)
 			};
+
 			await response.WriteAsync(json.JsonSerialize());
 		}
 		else

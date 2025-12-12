@@ -329,6 +329,49 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		}
 	}
 
+
+	/// <summary>
+	/// به‌روزرسانی RoleAccess های یک کاربر
+	/// </summary>
+	public void RefreshUserRoleAccesses(long userId)
+	{
+		try
+		{
+			var userKey = GetUserKey(userId);
+			var userJson =  _redis.GetString(userKey);
+
+			if (string.IsNullOrEmpty(userJson))
+				return; // کاربر آنلاین نیست
+
+			var userDto = JsonSerializer.Deserialize<OnlineUserDto>(userJson, JsonOptions);
+			if (userDto == null)
+				return;
+
+			// بارگذاری مجدد RoleAccess ها از دیتابیس
+			var updatedUserDto =  LoadUserFromDatabase(userId);
+			if (updatedUserDto == null)
+				return;
+
+			// حفظ ConnectionIds و timestamps
+			updatedUserDto.ConnectionIds = userDto.ConnectionIds;
+			updatedUserDto.ConnectedAt = userDto.ConnectedAt;
+			updatedUserDto.LastActivity = DateTime.UtcNow;
+
+			// ذخیره مجدد
+			var updatedJson = JsonSerializer.Serialize(updatedUserDto, JsonOptions);
+			 _redis.SetString(userKey, updatedJson, new DistributedCacheEntryOptions
+			{
+				AbsoluteExpirationRelativeToNow = _userExpiration
+			});
+
+			// لیست کلی خودکار به‌روزرسانی می‌شود
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error refreshing user role accesses {userId}: {ex.Message}");
+		}
+	}
+
 	/// <summary>
 	/// بارگذاری اطلاعات کاربر از دیتابیس
 	/// </summary>
@@ -337,12 +380,13 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		using var scope = _scopeFactory.CreateAsyncScope();
 
  
-		var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+	 
 		var _db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
 		// دریافت کاربر
 		var user = await _db.Users.AsNoTracking()
-			.FirstOrDefaultAsync(u => u.Id == userId && u.IsActive == IsActiveEnum.Active, ct);
+			.FirstOrDefaultAsync(u => u.Id == userId 
+			&& u.IsActive == IsActiveEnum.Active, ct);
 
 		if (user == null)
 			return null;
@@ -353,8 +397,8 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		if (user.Roles != null && user.Roles.Length > 0)
 		{
 		// دریافت Role ها با RoleAccesses
-		var roles = await unitOfWork.Repository<Role>().Table
-			.Where(r => user.Roles.Contains(r.Name))
+		var roles = await _db.Roles.AsNoTracking()
+			.Where(r => user.RoleIds.Contains((long)r.Id))
 			.Include(r => r.RoleAccesses)
 			.AsNoTracking()
 			.ToListAsync(ct);
@@ -388,6 +432,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			FullName = user.Name,
 			ProfileImage = user.ProfileUrl,
 			Roles = user.Roles ?? Array.Empty<string>(),
+			RoleIds = user.RoleIds ?? [],
 			RoleAccesses = roleAccesses,
 			ConnectionIds = new List<string>(),
 			ConnectedAt = DateTime.UtcNow,
@@ -453,6 +498,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			Username = user.Username,
 			FullName = user.Name,
 			ProfileImage = user.ProfileUrl,
+			RoleIds = user.RoleIds,
 			Roles = user.Roles ?? Array.Empty<string>(),
 			RoleAccesses = roleAccesses,
 			ConnectionIds = new List<string>(),

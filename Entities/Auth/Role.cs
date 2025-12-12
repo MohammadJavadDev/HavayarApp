@@ -19,6 +19,7 @@ public class Role:BaseEntity
     [DisplayName("عنوان")]
     public string Title { get; set; }
  
+ 
     public List<RoleAccess> RoleAccesses { get; set; } = new();
 }
 

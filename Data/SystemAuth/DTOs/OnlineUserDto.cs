@@ -12,6 +12,7 @@ public sealed class OnlineUserDto
 	public string FullName { get; set; } = string.Empty;
 	public string? ProfileImage { get; set; }
 	public string[] Roles { get; set; } = Array.Empty<string>();
+	public List<long> RoleIds { get; set; } = [];
 	public List<RoleAccessDto> RoleAccesses { get; set; } = new();
 	public List<string> ConnectionIds { get; set; } = new();
 	public DateTime ConnectedAt { get; set; }

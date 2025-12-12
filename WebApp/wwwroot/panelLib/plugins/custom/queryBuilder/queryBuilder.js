@@ -25,35 +25,39 @@
      QueryBuilder.DEFAULTS = {
           fields: [],
           conditions: {},
-          operators: {
-               string: ['=', '!=', 'contains', 'starts', 'ends', 'null', '!null'],
-               number: ['=', '!=', '>', '<', '>=', '<=', 'between', '!between'],
-               date: ['=', '!=', '>', '<', 'between', '!between'],
-               datetime: ['=', '!=', '>', '<', 'between', '!between'],
-               datetimeshamsi: ['=', '!=', '>', '<', 'between', '!between'],
-               dateshamsi: ['=', '!=', '>', '<', 'between', '!between'],
-               select: ['=', '!=', 'null', '!null'],
-               entity: ['=', '!=', 'null', '!null'],
-               listentity: ['any', 'all'],
-               boolean: ['=', '!=']
-          },
-          operatorLabels: {
-               '=': 'برابر',
-               '!=': 'نابرابر',
-               '>': 'بزرگتر از',
-               '<': 'کوچکتر از',
-               '>=': 'بزرگتر مساوی',
-               '<=': 'کوچکتر مساوی',
-               'contains': 'شامل',
-               'starts': 'شروع با',
-               'ends': 'پایان با',
-               'between': 'بین',
-               '!between': 'خارج از',
-               'null': 'خالی',
-               '!null': 'پر',
-               'any': 'یکی از',
-               'all': 'همه ی'
-          },
+         operators: {
+              string: ['=', '!=', 'contains', 'starts', 'ends', 'null', '!null'],
+              number: ['=', '!=', '>', '<', '>=', '<=', 'between', '!between'],
+              date: ['=', '!=', '>', '<', 'between', '!between'],
+              datetime: ['=', '!=', '>', '<', 'between', '!between'],
+              datetimeshamsi: ['=', '!=', '>', '<', 'between', '!between'],
+              dateshamsi: ['=', '!=', '>', '<', 'between', '!between'],
+              select: ['=', '!=', 'null', '!null'],
+              entity: ['=', '!=', 'null', '!null'],
+              listentity: ['any', 'all'],
+              boolean: ['=', '!='],
+              listlong: ['contains', 'containsany', 'containsall', 'null', '!null'],
+              liststring: ['contains', 'containsany', 'containsall', 'null', '!null']
+         },
+         operatorLabels: {
+              '=': 'برابر',
+              '!=': 'نابرابر',
+              '>': 'بزرگتر از',
+              '<': 'کوچکتر از',
+              '>=': 'بزرگتر مساوی',
+              '<=': 'کوچکتر مساوی',
+              'contains': 'شامل',
+              'starts': 'شروع با',
+              'ends': 'پایان با',
+              'between': 'بین',
+              '!between': 'خارج از',
+              'null': 'خالی',
+              '!null': 'پر',
+              'any': 'یکی از',
+              'all': 'همه ی',
+              'containsany': 'شامل یکی از',
+              'containsall': 'شامل همه ی'
+         },
           logic: ['AND', 'OR'],
           logicLabels: { 'AND': 'و', 'OR': 'یا' },
           lang: {
@@ -91,16 +95,18 @@
      };
 
      QueryBuilder.prototype = {
-         normalizeType: function (type) {
-              const t = (type || '').toString().toLowerCase();
-              if (t === 'bool' || t === 'boolean' || t === 'bit') return 'boolean';
-              if (t === 'int' || t === 'integer' || t === 'long' || t === 'float' || t === 'double' || t === 'decimal' || t === 'number' || t === 'tinyint' || t === 'smallint' || t === 'bigint') return 'number';
-              if (t === 'datetime2' || t === 'smalldatetime') return 'datetime';
-               if (t === 'date' || t === 'datetime' || t === 'dateshamsi' || t === 'datetimeshamsi') return t;
-              if (t === 'select' || t === 'entity' || t === 'listentity' || t === 'string') return t;
-              if (t === 'varchar' || t === 'nvarchar' || t === 'text' || t === 'ntext' || t === 'char' || t === 'nchar') return 'string';
-              return 'string';
-         },
+        normalizeType: function (type) {
+             const t = (type || '').toString().toLowerCase();
+             if (t === 'bool' || t === 'boolean' || t === 'bit') return 'boolean';
+             if (t === 'int' || t === 'integer' || t === 'long' || t === 'float' || t === 'double' || t === 'decimal' || t === 'number' || t === 'tinyint' || t === 'smallint' || t === 'bigint') return 'number';
+             if (t === 'datetime2' || t === 'smalldatetime') return 'datetime';
+             if (t === 'date' || t === 'datetime' || t === 'dateshamsi' || t === 'datetimeshamsi') return t;
+             if (t === 'select' || t === 'entity' || t === 'listentity' || t === 'string') return t;
+             if (t === 'listlong' || t === 'list<long>' || t === 'long[]' || t === 'int64[]' || t === 'list<int64>') return 'listlong';
+             if (t === 'liststring' || t === 'list<string>' || t === 'string[]') return 'liststring';
+             if (t === 'varchar' || t === 'nvarchar' || t === 'text' || t === 'ntext' || t === 'char' || t === 'nchar') return 'string';
+             return 'string';
+        },
           init: function () {
                this.element.addClass('query-builder');
                this.buildInitialGroup();
@@ -439,6 +445,38 @@
                 color: white;
             }
 
+            /* Multi-value input (listlong, liststring) */
+            .qb-multi-value-wrapper .qb-tags-container {
+                cursor: text;
+            }
+
+            .qb-multi-value-wrapper .qb-tags-container:focus-within {
+                box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+            }
+
+            .qb-tag {
+                animation: tagSlide 0.2s ease;
+            }
+
+            @keyframes tagSlide {
+                from { opacity: 0; transform: scale(0.8); }
+                to { opacity: 1; transform: scale(1); }
+            }
+
+            [data-bs-theme="dark"] .qb-multi-value-wrapper .qb-tags-container {
+                background: #212529;
+                border-color: #0d6efd;
+            }
+
+            [data-bs-theme="dark"] .qb-multi-value-wrapper .qb-tag-input {
+                background: transparent;
+                color: #f8f9fa;
+            }
+
+            [data-bs-theme="dark"] .qb-multi-value-wrapper .qb-tag {
+                background: #0a58ca;
+            }
+
             .qb-loading {
                 position: relative;
                 pointer-events: none;
@@ -684,80 +722,194 @@
               return $select;
          },
 
-          // ======================== VALUE INPUT ========================
-          createValueInput: function (fieldName, operator, subFieldName = null, value = null) {
-               const $container = $('<div>', { style: 'display:flex;gap:8px;flex:1;' });
-               if (!fieldName || !operator || operator === 'null' || operator === '!null') return $container;
-               const field = this.settings.fields.find(f => f.name === fieldName);
-               if (!field) return $container;
+         // ======================== VALUE INPUT ========================
+         createValueInput: function (fieldName, operator, subFieldName = null, value = null) {
+              const $container = $('<div>', { style: 'display:flex;gap:8px;flex:1;' });
+              if (!fieldName || !operator || operator === 'null' || operator === '!null') return $container;
+              const field = this.settings.fields.find(f => f.name === fieldName);
+              if (!field) return $container;
 
-               if ((field.type === 'entity' || field.type === 'listentity') && !subFieldName) return $container;
+              if ((field.type === 'entity' || field.type === 'listentity') && !subFieldName) return $container;
 
-               // Resolve type and options by path using cache across levels
-               const actualType = this.resolveTypeForPath(field, subFieldName);
-               const inputMeta = { type: actualType };
-               if (!subFieldName) {
-                    if (field.type === 'select' && Array.isArray(field.options)) {
-                         inputMeta.options = field.options;
-                    }
-               } else {
-                    // Try to fetch options from subfield meta if available
-                    const parts = String(subFieldName).split('.');
-                    let lastMeta = null;
-                    for (let i = 0; i < parts.length; i++) {
-                         lastMeta = this.getSubFieldMetaByLevel(field, parts, i);
-                         if (!lastMeta) break;
-                    }
-                    if (lastMeta && lastMeta.type === 'select' && Array.isArray(lastMeta.options)) {
-                         inputMeta.options = lastMeta.options;
-                    }
-               }
+              // Resolve type and options by path using cache across levels
+              const actualType = this.resolveTypeForPath(field, subFieldName);
+              const inputMeta = { type: actualType };
+              if (!subFieldName) {
+                   if (field.type === 'select' && Array.isArray(field.options)) {
+                        inputMeta.options = field.options;
+                   }
+              } else {
+                   // Try to fetch options from subfield meta if available
+                   const parts = String(subFieldName).split('.');
+                   let lastMeta = null;
+                   for (let i = 0; i < parts.length; i++) {
+                        lastMeta = this.getSubFieldMetaByLevel(field, parts, i);
+                        if (!lastMeta) break;
+                   }
+                   if (lastMeta && lastMeta.type === 'select' && Array.isArray(lastMeta.options)) {
+                        inputMeta.options = lastMeta.options;
+                   }
+              }
 
-               if (operator === 'between' || operator === '!between') {
-                    const values = Array.isArray(value) ? value : [null, null];
-                    const $input1 = this.createBasicInput(inputMeta, values[0]);
-                    const $input2 = this.createBasicInput(inputMeta, values[1]);
-                    $container.append($input1, $input2);
-               } else {
-                    const $input = this.createBasicInput(inputMeta, Array.isArray(value) ? value[0] : value);
-                    $container.append($input);
-               }
-               return $container;
-          },
+              if (operator === 'between' || operator === '!between') {
+                   const values = Array.isArray(value) ? value : [null, null];
+                   const $input1 = this.createBasicInput(inputMeta, values[0]);
+                   const $input2 = this.createBasicInput(inputMeta, values[1]);
+                   $container.append($input1, $input2);
+              } else if (operator === 'containsany' || operator === 'containsall') {
+                   // Multi-value input for list types
+                   const $input = this.createMultiValueInput(inputMeta, Array.isArray(value) ? value : (value ? [value] : []));
+                   $container.append($input);
+              } else {
+                   const $input = this.createBasicInput(inputMeta, Array.isArray(value) ? value[0] : value);
+                   $container.append($input);
+              }
+              return $container;
+         },
 
-          createBasicInput: function (field, value = null) {
-               debugger
-               let $input;
-               if (field.type === 'boolean') {
-                    $input = $('<select>', { class: this.settings.classes.value + ' ' + this.settings.classes.select });
-                    $input.append($('<option>', { value: 'true', text: 'درست', selected: value === 'true' }));
-                    $input.append($('<option>', { value: 'false', text: 'غلط', selected: value === 'false' }));
-               } else if (field.type === 'select' && field.options) {
-                    $input = $('<select>', { class: this.settings.classes.value + ' ' + this.settings.classes.select });
-                    const options = Array.isArray(field.options) ? field.options : [];
-                    options.forEach(opt => {
-                         let val; let label;
-                         if (typeof opt === 'object') {
-                              val = opt.value ?? opt.id ?? opt.key ?? opt.code ?? opt.name ?? opt;
-                              label = opt.label ?? opt.text ?? opt.title ?? opt.name ?? String(val);
-                         } else {
-                              val = opt;
-                              label = String(opt);
-                         }
-                         $input.append($('<option>', { value: val, text: label, selected: (val == value) }));
-                    });
-               } else {
-                    const inputType = (field.type === 'number' ? 'number' : field.type === "date" ? "date" : field.type === "datetime" ? "date" : 'text');
-                    $input = $('<input>', { type: inputType, class: this.settings.classes.value + ' ' + this.settings.classes.input, value: value || '' });
-                    if (field.type == "datetimeshamsi") {
-                         $input.persianDatepicker(persionDatePickerOptionsDateTime)
-                    }
-                    if (field.type == "dateshamsi") {
-                         $input.persianDatepicker(persionDatePickerOptionsDate)
-                    }
-               }
-               return $input;
-          },
+         createBasicInput: function (field, value = null) {
+              let $input;
+              if (field.type === 'boolean') {
+                   $input = $('<select>', { class: this.settings.classes.value + ' ' + this.settings.classes.select });
+                   $input.append($('<option>', { value: 'true', text: 'درست', selected: value === 'true' }));
+                   $input.append($('<option>', { value: 'false', text: 'غلط', selected: value === 'false' }));
+              } else if (field.type === 'select' && field.options) {
+                   $input = $('<select>', { class: this.settings.classes.value + ' ' + this.settings.classes.select });
+                   const options = Array.isArray(field.options) ? field.options : [];
+                   options.forEach(opt => {
+                        let val; let label;
+                        if (typeof opt === 'object') {
+                             val = opt.value ?? opt.id ?? opt.key ?? opt.code ?? opt.name ?? opt;
+                             label = opt.label ?? opt.text ?? opt.title ?? opt.name ?? String(val);
+                        } else {
+                             val = opt;
+                             label = String(opt);
+                        }
+                        $input.append($('<option>', { value: val, text: label, selected: (val == value) }));
+                   });
+              } else {
+                   const inputType = (field.type === 'number' || field.type === 'listlong' ? 'number' : field.type === "date" ? "date" : field.type === "datetime" ? "date" : 'text');
+                   $input = $('<input>', { type: inputType, class: this.settings.classes.value + ' ' + this.settings.classes.input, value: value || '' });
+                   if (field.type == "datetimeshamsi") {
+                        $input.persianDatepicker(persionDatePickerOptionsDateTime)
+                   }
+                   if (field.type == "dateshamsi") {
+                        $input.persianDatepicker(persionDatePickerOptionsDate)
+                   }
+              }
+              return $input;
+         },
+
+         createMultiValueInput: function (field, values = []) {
+              const self = this;
+              const isNumeric = field.type === 'listlong';
+              
+              const $wrapper = $('<div>', { 
+                   class: 'qb-multi-value-wrapper',
+                   style: 'display:flex;flex-direction:column;gap:4px;flex:1;min-width:200px;'
+              });
+              
+              const $tagsContainer = $('<div>', {
+                   class: 'qb-tags-container',
+                   style: 'display:flex;flex-wrap:wrap;gap:4px;padding:6px;border:1px solid #0d6efd;border-radius:6px;background:#fff;min-height:38px;'
+              });
+              
+              const $hiddenInput = $('<input>', {
+                   type: 'hidden',
+                   class: this.settings.classes.value,
+                   value: JSON.stringify(values || [])
+              });
+              
+              const $input = $('<input>', {
+                   type: isNumeric ? 'number' : 'text',
+                   class: 'qb-tag-input',
+                   placeholder: 'مقدار را وارد کنید و Enter بزنید',
+                   style: 'border:none;outline:none;flex:1;min-width:100px;padding:4px;'
+              });
+
+              // Render existing tags
+              const renderTags = function() {
+                   $tagsContainer.find('.qb-tag').remove();
+                   let currentValues = [];
+                   try {
+                        currentValues = JSON.parse($hiddenInput.val() || '[]');
+                   } catch(e) { currentValues = []; }
+                   
+                   currentValues.forEach((val, idx) => {
+                        const $tag = $('<span>', {
+                             class: 'qb-tag',
+                             style: 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#0d6efd;color:#fff;border-radius:4px;font-size:12px;'
+                        });
+                        $tag.append($('<span>', { text: val }));
+                        const $removeBtn = $('<span>', {
+                             html: '×',
+                             style: 'cursor:pointer;font-weight:bold;margin-right:2px;',
+                             'data-index': idx
+                        });
+                        $removeBtn.on('click', function() {
+                             currentValues.splice(idx, 1);
+                             $hiddenInput.val(JSON.stringify(currentValues)).trigger('change');
+                             renderTags();
+                        });
+                        $tag.append($removeBtn);
+                        $tagsContainer.prepend($tag);
+                   });
+              };
+
+              // Add value on Enter or comma
+              $input.on('keydown', function(e) {
+                   if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        let val = $(this).val().trim();
+                        if (val) {
+                             if (isNumeric) {
+                                  val = parseFloat(val);
+                                  if (isNaN(val)) return;
+                             }
+                             let currentValues = [];
+                             try {
+                                  currentValues = JSON.parse($hiddenInput.val() || '[]');
+                             } catch(e) { currentValues = []; }
+                             
+                             if (!currentValues.includes(val)) {
+                                  currentValues.push(val);
+                                  $hiddenInput.val(JSON.stringify(currentValues)).trigger('change');
+                                  renderTags();
+                             }
+                             $(this).val('');
+                        }
+                   }
+              });
+
+              // Also add on blur if there's a value
+              $input.on('blur', function() {
+                   let val = $(this).val().trim();
+                   if (val) {
+                        if (isNumeric) {
+                             val = parseFloat(val);
+                             if (isNaN(val)) return;
+                        }
+                        let currentValues = [];
+                        try {
+                             currentValues = JSON.parse($hiddenInput.val() || '[]');
+                        } catch(e) { currentValues = []; }
+                        
+                        if (!currentValues.includes(val)) {
+                             currentValues.push(val);
+                             $hiddenInput.val(JSON.stringify(currentValues)).trigger('change');
+                             renderTags();
+                        }
+                        $(this).val('');
+                   }
+              });
+
+              $tagsContainer.append($input);
+              $wrapper.append($tagsContainer, $hiddenInput);
+              
+              renderTags();
+              
+              return $wrapper;
+         },
 
           // ======================== ENTITY ========================
           loadEntityFields: function (parentField, $select, selected = null) {
@@ -829,7 +981,6 @@
                     if (remaining.length && sub && (sub.type === 'entity' || sub.type === 'listentity')) {
                          const nextLevel = ($select.data('level') || 1) + 1;
                          if (nextLevel <= 3) {
-                              debugger
                               const nextSelected = remaining.shift();
                               // chain: keep both display path and entity full name for API
                               const parentChain = ((parentField.path || (parentField.fullName || parentField)) + '.' + initSelected);
@@ -906,7 +1057,6 @@
         },
 
         updateConditionTree: function ($condition) {
-          debugger
              const fieldName = $condition.find('.' + this.settings.classes.field).val();
              const fieldObj = this.settings.fields.find(f => f.name === fieldName) || {};
              const parts = this.getSubPathParts($condition);
@@ -978,8 +1128,7 @@
                });
 
               // Field change
-              this.element.on('change', '.' + this.settings.classes.field, function () {
-               debugger
+             this.element.on('change', '.' + this.settings.classes.field, function () {
                    const $condition = $(this).closest('.' + self.settings.classes.condition);
                    const fieldName = $(this).val();
                    const $oldOperator = $condition.find('.' + self.settings.classes.operator);
@@ -1142,16 +1291,35 @@
                                    const v = $(this).val();
                                    if (v && l > subLevel) { subOp = v; subLevel = l; }
                               });
-                              const sub = self.composeSubPath($ch) || null;
-                              const vals = $ch.find('.' + self.settings.classes.value).map(function () {
-                                   return $(this).val();
-                              }).get();
+                             const sub = self.composeSubPath($ch) || null;
+                             const effectiveOp = sub ? subOp : op;
+                             
+                             // Parse values - handle JSON arrays for multi-value inputs
+                             let vals = [];
+                             $ch.find('.' + self.settings.classes.value).each(function () {
+                                  const rawVal = $(this).val();
+                                  // Check if it's a JSON array (from multi-value input)
+                                  if (rawVal && rawVal.startsWith('[')) {
+                                       try {
+                                            const parsed = JSON.parse(rawVal);
+                                            if (Array.isArray(parsed)) {
+                                                 vals = vals.concat(parsed);
+                                            } else {
+                                                 vals.push(rawVal);
+                                            }
+                                       } catch(e) {
+                                            vals.push(rawVal);
+                                       }
+                                  } else {
+                                       vals.push(rawVal);
+                                  }
+                             });
 
-                              // If subfield present, require sub-operator; otherwise require main operator
-                              if (!field || (sub ? !subOp : !op)) return;
+                             // If subfield present, require sub-operator; otherwise require main operator
+                             if (!field || (sub ? !subOp : !op)) return;
 
-                              const fieldObj = self.settings.fields.find(f => f.name === field);
-                              const fieldType = self.resolveTypeForPath(fieldObj || {}, sub || null);
+                             const fieldObj = self.settings.fields.find(f => f.name === field);
+                             const fieldType = self.resolveTypeForPath(fieldObj || {}, sub || null);
 
                               // Build nested subField tree for entity/listentity when a sub path exists
                               if ((fieldObj?.type === 'entity' || fieldObj?.type === 'listentity') && sub) {
@@ -1252,18 +1420,29 @@
                                    return $(this).val();
                               }).get();
 
-                              // Value requirements
-                              if (op && op !== 'null' && op !== '!null') {
-                                   if (op === 'between' || op === '!between') {
-                                        if (vals.length < 2 || isEmpty(vals[0]) || isEmpty(vals[1])) {
-                                             errors.push({ id: conditionId, type: 'value', message: 'محدوده مقدار کامل نیست.' });
-                                        }
-                                   } else {
-                                        if (vals.length < 1 || isEmpty(vals[0])) {
-                                             errors.push({ id: conditionId, type: 'value', message: 'مقدار وارد نشده است.' });
-                                        }
-                                   }
-                              }
+                             // Value requirements
+                             if (op && op !== 'null' && op !== '!null') {
+                                  if (op === 'between' || op === '!between') {
+                                       if (vals.length < 2 || isEmpty(vals[0]) || isEmpty(vals[1])) {
+                                            errors.push({ id: conditionId, type: 'value', message: 'محدوده مقدار کامل نیست.' });
+                                       }
+                                  } else if (op === 'containsany' || op === 'containsall') {
+                                       // For multi-value: check JSON array has at least one value
+                                       let parsedVals = [];
+                                       try {
+                                            if (vals.length > 0 && vals[0].startsWith('[')) {
+                                                 parsedVals = JSON.parse(vals[0]);
+                                            }
+                                       } catch(e) {}
+                                       if (!parsedVals.length) {
+                                            errors.push({ id: conditionId, type: 'value', message: 'حداقل یک مقدار باید وارد شود.' });
+                                       }
+                                  } else {
+                                       if (vals.length < 1 || isEmpty(vals[0])) {
+                                            errors.push({ id: conditionId, type: 'value', message: 'مقدار وارد نشده است.' });
+                                       }
+                                  }
+                             }
                          } else if ($ch.hasClass(self.settings.classes.group)) {
                               walk($ch);
                          }
@@ -1293,13 +1472,28 @@
 
                     const val = c.value || [];
                     switch (op) {
-                         case 'contains': return `${field} LIKE ${map(type, '%' + val[0] + '%')}`;
+                         // String operators
+                         case 'contains': 
+                              // For listlong/liststring: check if list contains value
+                              if (type === 'listlong' || type === 'liststring') {
+                                   return `${field}.Contains(${map(type === 'listlong' ? 'number' : 'string', val[0])})`;
+                              }
+                              return `${field} LIKE ${map(type, '%' + val[0] + '%')}`;
                          case 'starts': return `${field} LIKE ${map(type, val[0] + '%')}`;
                          case 'ends': return `${field} LIKE ${map(type, '%' + val[0])}`;
                          case 'between': return `${field} BETWEEN ${map(type, val[0])} AND ${map(type, val[1])}`;
                          case '!between': return `NOT (${field} BETWEEN ${map(type, val[0])} AND ${map(type, val[1])})`;
                          case 'any': return `${field} IN (${val.map(v => map(type, v)).join(',')})`;
                          case 'all': return val.map(v => `${field} = ${map(type, v)}`).join(' AND ');
+                         // List operators (listlong, liststring)
+                         case 'containsany': 
+                              // List contains any of the provided values
+                              const anyVals = val.map(v => map(type === 'listlong' ? 'number' : 'string', v)).join(',');
+                              return `${field}.Any(x => [${anyVals}].Contains(x))`;
+                         case 'containsall':
+                              // List contains all of the provided values
+                              const allVals = val.map(v => map(type === 'listlong' ? 'number' : 'string', v)).join(',');
+                              return `[${allVals}].All(x => ${field}.Contains(x))`;
                          default: return `${field} ${op} ${map(type, val[0])}`;
                     }
                }

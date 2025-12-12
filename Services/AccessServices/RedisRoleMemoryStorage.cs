@@ -54,19 +54,19 @@ public sealed class RedisRoleMemoryStorage : IRoleMemoryStorage
         {
             Id = dto.Id,
             Name = dto.Name,
-		   Title = dto.DisplayName,
-             IsActive = dto.IsActive,
-             
-		   RoleAccesses = dto.RoleAccesses.Select(a => new RoleAccess
-		   {
+            Title = dto.DisplayName,
+            IsActive = dto.IsActive,
+
+            RoleAccesses = dto.RoleAccesses.Select(a => new RoleAccess
+            {
                 Id = a.Id,
                 Path = a.Path,
                 DisplayName = a.DisplayName,
                 ActionAccessItemType = a.ActionAccessItemType,
                 EntityName = a.EntityName,
-                RoleId=a.RowId,
+                RoleId = a.RowId,
                 ActionAccessType = a.ActionAccessType,
-                
+
             }).ToList()
         }).ToList();
     }
@@ -81,19 +81,29 @@ public sealed class RedisRoleMemoryStorage : IRoleMemoryStorage
             ?.RoleAccesses?.Any(c => c.Path == path) ?? false;
     }
 
-    public Role GetRoleByName(string roleName)
+	public bool HaveAccessByRole(string path, long roleId)
+	{
+		if (roleId == 1)
+			return true;
+
+		var roles = GetRoles();
+		return roles?.FirstOrDefault(c => c.Id == roleId)
+		    ?.RoleAccesses?.Any(c => c.Path == path) ?? false;
+	}
+
+	public Role GetRoleByName(string roleName)
     {
         var roles = GetRoles();
         return roles.FirstOrDefault(r => r.Name == roleName);
     }
 
-	public Role? GetRoleBy(Func<Role, bool> predicate)
-	{
-		var roles = GetRoles();
-		return roles.FirstOrDefault(predicate);
-	}
+    public Role? GetRoleBy(Func<Role, bool> predicate)
+    {
+        var roles = GetRoles();
+        return roles.FirstOrDefault(predicate);
+    }
 
-	public Role GetRoleById(long roleId)
+    public Role GetRoleById(long roleId)
     {
         var roles = GetRoles();
         return roles.FirstOrDefault(r => r.Id == roleId);
@@ -114,7 +124,28 @@ public sealed class RedisRoleMemoryStorage : IRoleMemoryStorage
 
     public void UpdateRoleAccessPaths(long roleId, List<string> accessPaths)
     {
-        throw new NotImplementedException();
+        var roles = GetRoles();
+        var role = roles.FirstOrDefault(r => r.Id == roleId);
+
+        if (role == null)
+            return;
+
+        // لیست مسیرها را نرمال و یکتا می‌کنیم
+        var normalizedPaths = accessPaths?
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? new List<string>();
+
+        // حفظ اطلاعات دسترسی‌های قبلی در صورت وجود مسیر تکراری
+        var currentAccesses = role.RoleAccesses ?? new List<RoleAccess>();
+        role.RoleAccesses = normalizedPaths
+            .Select(path =>
+                currentAccesses.FirstOrDefault(a => a.Path?.Equals(path, StringComparison.OrdinalIgnoreCase) == true)
+                ?? new RoleAccess { Path = path, RoleId = roleId })
+            .ToList();
+
+        SetRoles(roles);
     }
 }
 

@@ -64,6 +64,11 @@ namespace Services.AccessServices
 		{
 			throw new NotImplementedException();
 		}
+
+		public bool HaveAccessByRole(string path, long roleId)
+		{
+			throw new NotImplementedException();
+		}
 	}
 
 }

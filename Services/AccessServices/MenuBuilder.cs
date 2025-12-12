@@ -11,40 +11,58 @@ using System.Text;
 using System.Threading.Tasks;
 using Common.Attributes;
 using Common.Auth.Enums;
+using Data.SystemAuth;
 
 namespace Services.AccessServices
 {
-    public class MenuBuilderService(IRoleMemoryStorage roleMemoryStorage , IAccessMemoryStorage accessMemoryStorage) : IMenuBuilderService
+    public class MenuBuilderService(IRoleMemoryStorage roleMemoryStorage 
+         , IAccessMemoryStorage accessMemoryStorage) : IMenuBuilderService
     {
-        private List<SystemMenu> _systemMenus = new();
+        private readonly List<SystemMenu> _systemMenus = new();
+        private readonly Dictionary<long, SystemMenu> _systemMenusById = new();
+        private readonly object _lockObj = new();
 
-        public List<SystemMenuItem> GetMenuItems(long? id , string[] roles)
+        public List<SystemMenuItem> GetMenuItems(long? id ,ISdk sdk)
         {
-            SystemMenu menu;
 
-			if (id is null)
-            {
-                  menu = _systemMenus.FirstOrDefault();
+               var roles = sdk.CurrentUser.RoleIds;
 
-			}
-            else
-            {
-				menu = _systemMenus.FirstOrDefault(c => c.Id == id);
-			}
-
-            if(menu == null && roles.All(c=>c != "admin"))
-            {
-                return new List<SystemMenuItem>();
-            }
-            else if (roles.Any(c => c == "admin"))
+		  if (sdk.CurrentUser.IsAdministrator && !id.HasValue)
             {
                 return CreateMenuItemFromSystemPaths();
             }
-          
 
-            var items =  menu?.Content.JsonDeserialize<List<SystemMenuItem>>();
-            var re = AccessedItems(items, roles);
-            return re;
+            SystemMenu menu = null;
+            
+            if (id.HasValue)
+            {
+               
+                lock (_lockObj)
+                {
+                    if (!_systemMenusById.TryGetValue(id.Value, out menu))
+                    {
+                        menu = _systemMenus.FirstOrDefault(c => c.Id == id);
+                        if (menu != null)
+                        {
+                            _systemMenusById[id.Value] = menu;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                menu = _systemMenus.FirstOrDefault();
+            }
+
+    
+            if (menu == null)
+            {
+                return new List<SystemMenuItem>();
+            }
+
+            // Deserialize and filter items by access
+            var items = menu.Content.JsonDeserialize<List<SystemMenuItem>>();
+            return AccessedItems(items, roles.ToArray());
         }
 
         private List<SystemMenuItem> CreateMenuItemFromSystemPaths()
@@ -84,7 +102,7 @@ namespace Services.AccessServices
             return r;
              
         }
-        private List<SystemMenuItem> AccessedItems(List<SystemMenuItem> items , string[] roles)
+        private List<SystemMenuItem> AccessedItems(List<SystemMenuItem> items , long[] roles)
         {
             var returnList = new List<SystemMenuItem>();
             foreach(var i in items)
@@ -117,51 +135,76 @@ namespace Services.AccessServices
                  
             }
             return returnList;
-			
+        }
 
-		}
-
-        public List<SystemMenu> GetMenuByRole(string[] roles)
+        public List<SystemMenu> GetMenuByRole( ISdk sdk)
         {
-            var accessMenu = new  List<SystemMenu>();
+               var roles = sdk.CurrentUser.RoleIds;
+			// Early exit for admin role (role ID 1)
+			if (sdk.CurrentUser.IsAdministrator)
+			{
+				return _systemMenus;
+			}
 
-                if(roles.Any(c=>c == "admin"))
-                {
-                    return _systemMenus;
-                }
+			// Use HashSet for O(1) lookups when checking for duplicates
+			var accessMenu = new List<SystemMenu>();
+            var addedMenuIds = new HashSet<long>();
 
-                foreach (var r in roles)
+               
+            if (roles != null)
+            {
+                foreach (var roleId in roles)
                 {
-                   var am = _systemMenus.FirstOrDefault(c => c.AccessRoles.Contains(r));
-                    if(am != null && accessMenu.All(z => z.Id != am.Id))
+                    // Find menus that have this role ID in their AccessRoleIds
+                    var menusWithRole = _systemMenus.Where(c => c.AccessRoleIds != null && c.AccessRoleIds.Contains(roleId));
+                    
+                    foreach (var menu in menusWithRole)
                     {
-                       accessMenu.Add(am);
-					}
-				}
-                return accessMenu;
+                        if (menu.Id.HasValue && addedMenuIds.Add(menu.Id.Value))
+                        {
+                            accessMenu.Add(menu);
+                        }
+                    }
+                }
+            }
+
+            return accessMenu;
 		}
         public void UpdateSystemMenu(SystemMenu systemMenu)
         {
-            var menu = _systemMenus.FirstOrDefault(c=>c.Id == systemMenu.Id);
-            if(menu != null)
+            lock (_lockObj)
             {
-                menu.Title = systemMenu.Title;
-                menu.Content = systemMenu.Content;
-                menu.Name = systemMenu.Name;
-                menu.AccessRoles = systemMenu.AccessRoles;
-            }
-            else
-            {
-                _systemMenus.Add(systemMenu);
+                var menu = _systemMenus.FirstOrDefault(c => c.Id == systemMenu.Id);
+                if (menu != null)
+                {
+                    // Update existing menu
+                    menu.Title = systemMenu.Title;
+                    menu.Content = systemMenu.Content;
+                    menu.Name = systemMenu.Name;
+                    menu.AccessRoles = systemMenu.AccessRoles;
+                    menu.AccessRoleIds = systemMenu.AccessRoleIds;
+                    
+                    // Update cache
+                    _systemMenusById[systemMenu.Id.Value] = menu;
+                }
+                else
+                {
+                    // Add new menu
+                    _systemMenus.Add(systemMenu);
+                    if (systemMenu.Id.HasValue)
+                    {
+                        _systemMenusById[systemMenu.Id.Value] = systemMenu;
+                    }
+                }
             }
         }
 
-        public string GetHtmlItems(List<SystemMenuItem> items ,string url)
+        public string GetHtmlItems(List<SystemMenuItem> items ,string? url)
         {
             return RenderMenuItems(items, url);
         }
 
-        public bool MenuIsActive(List<SystemMenuItem> items , string url)
+        public bool MenuIsActive(List<SystemMenuItem> items , string? url)
         {
             var active = false;
            foreach(var i in items)
@@ -182,7 +225,7 @@ namespace Services.AccessServices
            return active;
         }
 
-        public string RenderMenuItems(List<SystemMenuItem> items, string url)
+        public string RenderMenuItems(List<SystemMenuItem> items, string? url)
         {
             var html = new StringBuilder();
             MenuIsActive(items, url);
@@ -198,13 +241,25 @@ namespace Services.AccessServices
 	                 {
 		                 show = "show here";
 	                 }
+
+                         var icon = c.Icon;
+                         if(icon != null && !icon.Contains("<i"))
+                         {
+                              var styleColor = "";
+                              if(c.iconColor.HasValue())
+                              {
+                                   styleColor = $"style='color:{c.iconColor}'";
+
+						}
+                              icon = $"<i class='{c.Icon}' {styleColor}></i>";
+                         }
 	                 html.Append(
 		                 $"""
 		                     <div data-kt-menu-trigger="click" class="menu-item menu-accordion {show}">
 		                  
 		                                      <span class="menu-link">
 		                                          <span class="menu-icon">
-		                                             {c.Icon}
+		                                             {icon}
 		                                          </span>
 		                                          <span class="menu-title">{c.Text}</span>
 		                                          <span class="menu-arrow"></span>
@@ -224,12 +279,25 @@ namespace Services.AccessServices
                  {
 	                 var iconString = "";
 	                 var isActive = "";
-	                 if (c.Icon.HasValue(true))
+
+					var icon = c.Icon;
+					if (icon != null && !icon.Contains("<i"))
+					{
+						var styleColor = "";
+						if (c.iconColor.HasValue())
+						{
+							styleColor = $"style='color:{c.iconColor}'";
+
+						}
+						icon = $"<i class='{c.Icon}' {styleColor}></i>";
+					}
+
+					if (c.Icon.HasValue(true))
 	                 {
 		                 iconString = $"""
 		                               
 		                                                                    <span class="menu-icon">
-		                                                                        {c.Icon}
+		                                                                        {icon}
 		                                                                    </span>
 		                               """;
 	                 }
@@ -270,7 +338,25 @@ namespace Services.AccessServices
 
         public void SetSystemMenu(List<SystemMenu> systemMenus)
         {
-            _systemMenus = systemMenus;
+            lock (_lockObj)
+            {
+                _systemMenus.Clear();
+                _systemMenusById.Clear();
+                
+                if (systemMenus != null)
+                {
+                    _systemMenus.AddRange(systemMenus);
+                    
+                    // Populate the dictionary cache for O(1) lookups
+                    foreach (var menu in systemMenus)
+                    {
+                        if (menu.Id.HasValue)
+                        {
+                            _systemMenusById[menu.Id.Value] = menu;
+                        }
+                    }
+                }
+            }
         }
         public List<SystemMenu> GetSystemMenu()
         {
@@ -280,13 +366,12 @@ namespace Services.AccessServices
 
     public interface IMenuBuilderService
     {
-        public List<SystemMenuItem> GetMenuItems(long? id, string[] roles);
+        public List<SystemMenuItem> GetMenuItems(long? id, ISdk sdk);
         public void SetSystemMenu(List<SystemMenu> systemMenus);
-
-        public List<SystemMenu> GetMenuByRole(string[] roles);
+        public List<SystemMenu> GetMenuByRole(ISdk sdk);
         public List<SystemMenu> GetSystemMenu();
         public void UpdateSystemMenu(SystemMenu systemMenu);
-        public string GetHtmlItems(List<SystemMenuItem> items ,string url);
+        public string GetHtmlItems(List<SystemMenuItem> items ,string? url);
     }
 
 }

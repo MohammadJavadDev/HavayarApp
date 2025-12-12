@@ -5,14 +5,11 @@ using Data.Repositories;
 using Data.Services;
 using Data.SystemAuth;
 using Entities.Auth;
-using Entities.Base.Notification;
 using Infrastructure.CrudEventInterceptors;
 using Infrastructure.Messaging;
 using Infrastructure.NotificationServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -24,13 +21,13 @@ using Services.InMemoryData;
 using Services.NotificationServices;
 using Services.NotifitactionBuilderServices;
 using Shared.Realtime.Options;
-using StackExchange.Redis;
 using System.Text;
 using WebApp.Framework.File;
-using WebApp.Hubs;
+using WebApp.Services;
 using WebApp.Services.Realtime;
 using WebFramework.Initializes;
 using WebFramework.Middlewares;
+ 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,13 +86,14 @@ builder.Services.AddSingleton<IAccessMemoryStorage, AccessMemoryStorage>();
 builder.Services.AddSingleton<IRoleMemoryStorage, RedisRoleMemoryStorage>();
 
 builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
+builder.Services.AddSingleton<EntityMetadataCache>();
 builder.Services.AddSingleton<IMenuBuilderService, MenuBuilderService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFileService, FileService>();
-builder.Services.AddTransient<ISdk, Sdk>();
-builder.Services.AddScoped<WebApp.Services.IFormBuilderCodeGenerator, WebApp.Services.FormBuilderCodeGenerator>();
+builder.Services.AddScoped<ISdk, Sdk>();
+builder.Services.AddScoped<IFormBuilderCodeGenerator,FormBuilderCodeGenerator>();
 builder.Services.AddHttpClient();
 // Redis Distributed Cache
 var redisConnection = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>()?.ConnectionString ?? "localhost:6379";
@@ -124,10 +122,10 @@ builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
 builder.Services.AddSingleton<INotificationEventPublisher, NotificationEventPublisher>();
 builder.Services.AddSingleton<ICrudEventPublisher, CrudEventPublisher>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
+
 // DbContext already registered above with CrudEventInterceptor
-
-
-
 
 
 

@@ -19,6 +19,7 @@ using Shared.Realtime.Options;
 using System.Security.Claims;
 using System.Text;
 using WebFramework.Initializes;
+ 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -128,20 +129,22 @@ builder.Services.AddSingleton<INotificationRuleCache, NotificationRuleCache>();
 builder.Services.AddSingleton<IRoleMemoryStorage, RedisRoleMemoryStorage>();
 builder.Services.AddSingleton<IAccessMemoryStorage, AccessMemoryStorage>();
 builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
+builder.Services.AddSingleton<EntityMetadataCache>();
 builder.Services.AddSingleton<IMenuBuilderService, MenuBuilderService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
-
+ 
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddTransient<ISdk, Sdk>();
+builder.Services.AddScoped<ISdk, Sdk>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddAuthorization();
+ 
 
 builder.Services.AddSingleton<IUserIdProvider, NameIdentifierUserIdProvider>();
 builder.Services.AddSingleton<IEntityChangeNotificationHandler, EntityChangeNotificationHandler>();
 builder.Services.AddSingleton<IOnlineUserService, RedisOnlineUserService>();
 builder.Services.AddHostedService<RabbitMqSubscriberHostedService>();
-
+builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
 builder.Services.AddHealthChecks();
 
 

@@ -4,7 +4,7 @@
 @{
     if (sdk.Authenticated)
     {
-		Layout = "/Views/Panel/Shared/_PanelLayout.cshtml";
+		Layout = null;
     }
     else
     {
@@ -21,7 +21,7 @@
  
 .container {
   text-align: center;
-  margin: 1rem 0.5rem 0;
+          margin: 10rem 0.5rem 0;
 }
 .container h1 {
  
@@ -54,7 +54,7 @@ svg.key {
 .ghost {
  
   position: absolute;
-  top: 500px;
+  top: 45%;
   left: calc(50% - 100px);
   width: 200px;
   height: 200px;
@@ -99,8 +99,7 @@ svg.key {
 }
 
 
-/* alter the text changing the value of the custom property, weary of changing its value when the pseudo element is hidden and changing its value in the last keyframe (as the animation gives this value as per the "forwards" value of the fill-mode property)  */
-@@keyframes showText {
+ @@keyframes showText {
   2% {
     opacity: 1;
     visibility: visible;
@@ -183,77 +182,71 @@ svg.key {
 	</svg>
 </div>
 
-<a href="/Authenticate/Login" class="btn btn-primary">
-    صفحه ورود به سیستم
-</a>
  
-@section Scripts{
-    
 
-    <script>
-
-   
-        const key = document.querySelector(".key");
-        const keyhole = document.querySelector(".keyhole");
-        const ghost = document.querySelector(".ghost");
-
-        const heading = document.querySelector("h1");
-        const paragraph = document.querySelector("p");
+<script>
 
 
-     
-        const root = document.querySelector(":root");
-        const rootStyles = getComputedStyle(root);
-     
-         const animationDuration = parseInt(rootStyles.getPropertyValue("--animation-duration")) * 1000;
-        let keyTimer = animationDuration * 9 / 8;
+     const key = document.querySelector(".key");
+     const keyhole = document.querySelector(".keyhole");
+     const ghost = document.querySelector(".ghost");
+
+     const heading = document.querySelector("h1");
+     const paragraph = document.querySelector("p");
 
 
-         const keyBox = key.getBoundingClientRect();
-     
 
- 
-        const timeoutID = setTimeout(() => {
- 
-            key.parentElement.parentElement.style.cursor = "grab";
+     const root = document.querySelector(":root");
+     const rootStyles = getComputedStyle(root);
 
-             key.style.animationPlayState = "running";
-            keyhole.style.animationPlayState = "running";
-
-              key.style.pointerEvents = "none";
-
-             window.addEventListener("mousemove", updateKeyPosition);
-
-             keyhole.addEventListener("mouseover", grantAccess);
-
-            clearTimeout(timeoutID);
-        }, keyTimer);
+      const animationDuration = parseInt(rootStyles.getPropertyValue("--animation-duration")) * 1000;
+     let keyTimer = animationDuration * 9 / 8;
 
 
-         const updateKeyPosition = (e) => {
-            let x = e.clientX;
-            let y = e.clientY;
-            key.style.left = x - keyBox.width / 1.5;
-            key.style.top = y - keyBox.height / 2;
-        };
+      const keyBox = key.getBoundingClientRect();
 
- 
-        const grantAccess = () => {
-    
-            key.parentElement.parentElement.style.cursor = "default";
 
- 
-            heading.textContent = '🎉 هورااا 🎉';
-            paragraph.textContent = 'بازم دسترسی نداری :|';
 
-   
-            keyhole.style.display = "none";
-            key.style.display = "none";
+     const timeoutID = setTimeout(() => {
 
- 
-            window.removeEventListener("mousemove", updateKeyPosition);
-            keyhole.removeEventListener("mouseover", grantAccess);
-        };
+         key.parentElement.parentElement.style.cursor = "grab";
 
-    </script>
-}
+          key.style.animationPlayState = "running";
+         keyhole.style.animationPlayState = "running";
+
+           key.style.pointerEvents = "none";
+
+          window.addEventListener("mousemove", updateKeyPosition);
+
+          keyhole.addEventListener("mouseover", grantAccess);
+
+         clearTimeout(timeoutID);
+     }, keyTimer);
+
+
+      const updateKeyPosition = (e) => {
+         let x = e.clientX;
+         let y = e.clientY;
+         key.style.left = x - keyBox.width / 1.5;
+         key.style.top = y - keyBox.height / 2;
+     };
+
+
+     const grantAccess = () => {
+
+         key.parentElement.parentElement.style.cursor = "default";
+
+
+         heading.textContent = '🎉 هورااا 🎉';
+         paragraph.textContent = 'بازم دسترسی نداری :|';
+
+
+         keyhole.style.display = "none";
+         key.style.display = "none";
+
+
+         window.removeEventListener("mousemove", updateKeyPosition);
+         keyhole.removeEventListener("mouseover", grantAccess);
+     };
+
+</script>

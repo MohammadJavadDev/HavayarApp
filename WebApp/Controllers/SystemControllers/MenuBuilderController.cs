@@ -1,6 +1,7 @@
 ﻿using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
+using Data.SystemAuth;
 using Entities.Base.DataTable;
 using Entities.Base.Menu;
 using Microsoft.AspNetCore.Authorization;
@@ -11,13 +12,14 @@ using WebFramework.Page;
 
 namespace WebApp.Controllers.SystemControllers
 {
-    [Authorize("admin")]
+ 
     [ControllerInfoAttribute("منو ساز")]
     [ApiController]
     [ApiResultFilter]
     [Route("System/[controller]")]
      
-    public class MenuBuilderController(IUnitOfWork unitOfWork , IMenuBuilderService menuBuilderService ) : BaseController
+    public class MenuBuilderController(IUnitOfWork unitOfWork ,
+         IMenuBuilderService menuBuilderService) : BaseController
     {
         [HttpGet("{action}")]
         [ActionDisplayName("لیست", ActionAccessType.View)]
@@ -64,8 +66,19 @@ namespace WebApp.Controllers.SystemControllers
             return Ok(entity);
         }
 
+		[HttpPost("{action}")]
+		[ActionDisplayName("دریافت منو با شناسه", ActionAccessType.Api)]
+		public IActionResult GetMenuById(long? Id)
+		{
+		 
+			var menus = menuBuilderService.GetMenuItems(Id, sdk);
+               var menuHtml = menuBuilderService.GetHtmlItems(menus,null);
 
-        [HttpPost("[action]")]
+			return Ok(menuHtml);
+		}
+
+
+		[HttpPost("[action]")]
         [ActionDisplayName("دریافت اطلاعات", ActionAccessType.Api)]
         public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
         {

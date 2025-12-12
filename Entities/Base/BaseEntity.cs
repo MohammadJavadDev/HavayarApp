@@ -1,4 +1,5 @@
 ﻿using Common.Attributes;
+using Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.ComponentModel;
@@ -6,8 +7,6 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Entities.Base;
-
-
  
 
 public abstract class BaseEntity 
@@ -26,12 +25,23 @@ public abstract class BaseEntity
     [DisplayInfo(null, false, SystemType.Long, systemProprty: true)]
     public long? ModifiedById { get; set; }
 
-    [DisplayName("نام ایجاد کننده")]
+	[DisplayName("ویرایش کننده")]
+	[DisplayInfo(null, true, SystemType.Entity, systemProprty: true)]
+ 
+	[NotMapped]
+	public User? ModifiedBy { get; set; }
+
+	[DisplayName("نام ایجاد کننده")]
     [DisplayInfo(null, true, SystemType.String,systemProprty: true)]
     [MaxLength(150)]
     public string? CreatedByName { get; set; }
 
-    [DisplayName("نام ویرایش کننده")]
+	[DisplayName("ایجاد کننده")]
+	[DisplayInfo(null, true, SystemType.Entity, systemProprty: true)]
+	[NotMapped]
+	public User? CreatedBy { get; set; }
+
+	[DisplayName("نام ویرایش کننده")]
     [DisplayInfo(null, false, SystemType.String, systemProprty: true)]
     [MaxLength(150)]
 

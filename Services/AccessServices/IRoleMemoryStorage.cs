@@ -12,5 +12,6 @@ public interface IRoleMemoryStorage
     void AddRole(Role role);
     void UpdateRoleAccessPaths(long roleId, List<string> accessPaths);
     public bool HaveAccessByRole(string path, string roleName);
-    public Role GetRoleById(long roleId);
+    public bool HaveAccessByRole(string path, long roleId);
+	public Role GetRoleById(long roleId);
 }

@@ -32,7 +32,7 @@ namespace WebApp.Controllers.SystemControllers
 		{
 
 			var data = _entityMetadataCache.Get(fullName);
-
+	
 			return Ok(data);
 		}
 

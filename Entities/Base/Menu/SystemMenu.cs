@@ -17,8 +17,9 @@ namespace Entities.Base.Menu
         public string Name { get; set; }
         public string Content { get; set; }
 
-        public List<string> AccessRoles { get; set; }
-        [NotMapped] 
+        public List<string> AccessRoles { get; set; } = [];
+		public List<long> AccessRoleIds { get; set; } = [];
+		[NotMapped] 
         public List<SystemMenuItem>? SystemMenuItems { get; set; }
     }
 	[Table(name: "SystemMenuItem", Schema = "system")]
@@ -27,6 +28,7 @@ namespace Entities.Base.Menu
     {
         public string Text { get; set; }
         public string Icon { get; set; }
+        public string? iconColor { get; set; }
         public string Path { get; set; }
         public List<SystemMenuItem> Children { get; set; }
         [NotMapped] public bool show { get; set; } = false;

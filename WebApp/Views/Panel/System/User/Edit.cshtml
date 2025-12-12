@@ -1,5 +1,6 @@
 ﻿@using Data.Contracts
 @using Entities.Auth
+@using Entities.Base
 @using Microsoft.AspNetCore.Mvc.TagHelpers
 @model Entities.Auth.User
 @inject IRepository<Role> serviceRole;
@@ -15,11 +16,10 @@
     .image-input-placeholder {
         background-image: url('assets/media/svg/files/blank-image.svg');
     }
-
     [data-bs-theme="dark"] .image-input-placeholder {
         background-image: url('assets/media/svg/files/blank-image-dark.svg');
     }</style>
-<link rel="stylesheet" href="~/css/Select2.css" asp-append-version="true" />
+ 
 
 <div class="card">
     <div class="card-body">
@@ -82,6 +82,13 @@
                     
                     </div>
                 </div>
+               <div class='col-md-6'>
+                    <label class=''>نوع تعریف کاربر</label>
+                    <select class='form-select' data-bind='authorizationType' asp-for='AuthorizationType'
+                            asp-items="Html.GetEnumSelectList(typeof(AuthorizationTypeEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
                 <div class="col-md-6 ">
                     <div class="form-group">
                         <label class="form-label">رمز عبور </label>
@@ -89,21 +96,29 @@
 
                     </div>
                 </div>
+               <div class='col-md-6'>
+                    <label class=''>وضعیت </label>
+                    <select class='form-select' data-bind='IsActive' asp-for='IsActive'
+                            asp-items="Html.GetEnumSelectList(typeof(IsActiveEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+              
  
                 <div class="form-group">
-                    <label >نقش</label>
+                    <label >نقشها</label>
 
                 <select class="form-control" multiple="multiple" data-bind="Roles">
 
                         @foreach (var r in systemRoles)
                         {
-                            if ( Model?.Roles?.Contains(r.Name) ?? false)
+                            if (Model?.RoleIds?.Contains((long)r.Id) ?? false)
                             {
-                                <option value="@r.Name" selected>@r.Title</option>
+                                   <option value="@r.Name:@r.Id" selected>@r.Title</option>
                             }
                             else
                             {
-                                <option value="@r.Name">@r.Title</option>
+                                <option value="@r.Name:@r.Id">@r.Title</option>
                             }
 
                         }
@@ -121,8 +136,7 @@
 </div>
 
 
-
-<script src="~/js/Select2.js"></script>
+ 
 <script>
 
      $$('select[multiple]').select2({
@@ -150,8 +164,25 @@
 
      $$("#saveUser").click(function () {
          var model = $(".card").dataBind();
+
+         
+
+          let roleNames =[];
+          let roleIds = []
+          model.Roles.forEach((c)=>{
+             let roleName = c.split(":")[0];
+              let roleId = c.split(":")[1];
+
+              roleNames.push(roleName);
+              roleIds.push(roleId);
+          });
+
+          model.Roles = roleNames;
+          model.RoleIds  =roleIds;
+          debugger
+       
  
-         post("/panel/SaveUser", model, function (r) {
+         $$.post("/panel/SaveUser", model, function (r) {
 
              if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
              $('.card').dataBind(r.data);

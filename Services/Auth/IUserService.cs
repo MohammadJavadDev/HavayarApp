@@ -18,6 +18,7 @@ public interface IUserService
     User CreateUser(CreateUserViewModel userObj);
     Task<User?> CreateUserAsync(CreateUserViewModel userObj, CancellationToken cn);
     Task<User?> UpdateUser(CreateUserViewModel userObj, CancellationToken cn);
-    public User GetUserInfo(long? userId);
-   public Task<IEnumerable<User>> SearchByName(string name);
+ 
+     Task<IEnumerable<User>> SearchByName(string name);
+   
 }

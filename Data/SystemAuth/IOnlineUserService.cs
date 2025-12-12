@@ -81,5 +81,6 @@ public interface IOnlineUserService
 	/// به‌روزرسانی RoleAccess های یک کاربر (مثلاً بعد از تغییر نقش)
 	/// </summary>
 	Task RefreshUserRoleAccessesAsync(long userId, CancellationToken ct = default);
+	void RefreshUserRoleAccesses(long userId);
 }
 

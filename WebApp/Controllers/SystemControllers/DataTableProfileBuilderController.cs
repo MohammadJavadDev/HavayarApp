@@ -165,6 +165,29 @@ namespace WebApp.Controllers.SystemControllers
             return Ok(new { columns = listCols, title = entityTitle });
         }
 
+        /// <summary>
+        /// Returns entity properties in the format expected by QueryBuilder
+        /// </summary>
+        [HttpGet("[action]")]
+        public IActionResult GetEntityPropForQueryBuilder(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException("Entity name cannot be null or empty.", nameof(name));
+            }
+
+            var entityType = entityMetadataCache.Get(name);
+
+            if (entityType == null)
+            {
+                throw new ArgumentException($"Invalid Entity name: {name}", nameof(name));
+            }
+
+            
+
+            return Ok(entityType);
+        }
+
 
         [HttpPost("[action]")]
         public IActionResult Save(SaveSystemDataTableProfileViewModel model, CancellationToken cancellationToken)
@@ -210,7 +233,7 @@ namespace WebApp.Controllers.SystemControllers
             {
                 model.Columns.Insert(0, new SaveSystemDataTableProfileColsViewModel
                 {
-                    Type = "guid",
+                    Type = "long",
                     Name = "Id",
                     Order = "",
                     ShowTitle = "شناسه",
@@ -294,84 +317,25 @@ namespace WebApp.Controllers.SystemControllers
                     .Where(c => !string.IsNullOrWhiteSpace(c.Alliance))
                     .Select(z => $"[{z.Label}].[{z.PropName}] {z.Alliance}"));
 
-            // Process filters
-            if (model.Filters != null && model.Filters.Any())
+            // Process filters from QueryBuilder format
+            var filterViewModels = new List<SystemDataTableProfileSelectViewModel>();
+            string defaultFilter = string.Empty;
+
+            if (model.Filters != null && model.Filters.Criteria != null && model.Filters.Criteria.Any())
             {
-                foreach (var col in model.Filters)
-                {
-                    if (col == null || string.IsNullOrWhiteSpace(col.Name))
-                    {
-                        continue;
-                    }
+                // Extract filter fields and build joins
+                ExtractFilterFields(
+                    model.Filters,
+                    properties,
+                    tableName,
+                    tableSchema,
+                    ref listSelectViewModels,
+                    ref filterViewModels,
+                    ref joinCounter,
+                    ref existingJoins);
 
-                    var filter = new SystemDataTableProfileSelectViewModel();
-                    var existData = listSelectViewModels.FirstOrDefault(c => c.Name == col.Name);
-
-                    if (existData != null)
-                    {
-                        // Reuse existing column definition
-                        filter.Label = existData.Label;
-                        filter.Alliance = existData.Alliance;
-                        filter.Name = existData.Name;
-                        filter.Title = existData.Title;
-                        filter.Level = existData.Level;
-                        filter.PropName = existData.Name.Split(".", StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? existData.PropName;
-                        filter.Type = existData.Type;
-                    }
-                    else
-                    {
-                        // Create new filter definition
-                        var splitName = col.Name.Split(".", StringSplitOptions.RemoveEmptyEntries);
-                        if (splitName.Length == 0)
-                        {
-                            continue;
-                        }
-
-                        var propName = splitName[0];
-                        var prop = properties.FirstOrDefault(c => c.Name == propName);
-
-                        if (prop == null)
-                        {
-                            continue;
-                        }
-
-                        var propType = prop.DataType ?? "string";
-
-                        if (propType == "entity" && splitName.Length > 1)
-                        {
-                            filter = CreateJoinString(
-                                prop,
-                                col.Name,
-                                0,
-                                "m0",
-                                ref listSelectViewModels,
-                                ref joinCounter,
-                                ref existingJoins,
-                                tableSchema);
-                            filter.showTitle = col.ShowTitle;
-                        }
-                        else
-                        {
-                            filter.PropName = propName;
-                            filter.Type = propType;
-                            filter.Label = "m0";
-                            filter.TableName = tableName;
-                            filter.Name = col.Name;
-                            filter.showTitle = col.ShowTitle;
-                        }
-                    }
-
-                    filter.Criteria = col.Criteria;
-                    filter.Filter = true;
-                    filter.Value = col.Value ?? new List<string>();
-                    listSelectViewModels.Add(filter);
-                }
-            }
-
-            // Build filter strings (with SQL injection protection)
-            foreach (var part in listSelectViewModels.Where(c => c.Filter))
-            {
-                part.FilterString = BuildFilterString(part);
+                // Build SQL filter string from QueryBuilder rules
+                defaultFilter = BuildQueryBuilderFilterString(model.Filters, filterViewModels);
             }
 
             // Build FROM query with joins
@@ -387,20 +351,13 @@ namespace WebApp.Controllers.SystemControllers
                 fromQuery += "\n" + string.Join("\n", joinStrings);
             }
 
-            // Build default filter query
-            var defaultFilter = string.Join(" AND ",
-                listSelectViewModels
-                    .Where(c => c.Filter && !string.IsNullOrWhiteSpace(c.FilterString))
-                    .Select(c => c.FilterString));
-
             // Prepare entity data
             var columnsJson = listSelectViewModels
                 .Where(c => !string.IsNullOrWhiteSpace(c.Alliance))
                 .JsonSerialize() ?? "[]";
 
-            var filtersJson = listSelectViewModels
-                .Where(c => c.Filter)
-                .JsonSerialize() ?? "[]";
+            // Store QueryBuilder filter structure as JSON
+            var filtersJson = model.Filters?.JsonSerialize() ?? "null";
 
             var entity = new SystemDataTableProfile
             {
@@ -628,6 +585,11 @@ namespace WebApp.Controllers.SystemControllers
                         return string.Empty;
                     }
                     var containsValue = sanitizeValue(part.Value[0]);
+                    // Handle list types (listlong, liststring) - check if JSON array contains value
+                    if (part.Type == "listlong" || part.Type == "liststring")
+                    {
+                        return $"EXISTS (SELECT value FROM OPENJSON([{label}].[{propName}]) WHERE value = N'{containsValue}')";
+                    }
                     return $"[{label}].[{propName}] LIKE N'%{containsValue}%'";
 
                 case "!contains":
@@ -713,13 +675,250 @@ namespace WebApp.Controllers.SystemControllers
                 case "currentUser.Id":
                     return $"[{label}].[{propName}] = N'{{currentUser.Id}}'";
 
+                // List operators (for listlong, liststring field types)
+                // Note: These generate SQL for JSON arrays stored in database
+                case "containsany":
+                    if (part.Value == null || !part.Value.Any())
+                    {
+                        return string.Empty;
+                    }
+                    // For SQL Server JSON array: check if any value exists
+                    var anyValues = string.Join(",", part.Value.Select(v => $"N'{sanitizeValue(v)}'"));
+                    return $"EXISTS (SELECT value FROM OPENJSON([{label}].[{propName}]) WHERE value IN ({anyValues}))";
+
+                case "containsall":
+                    if (part.Value == null || !part.Value.Any())
+                    {
+                        return string.Empty;
+                    }
+                    // For SQL Server JSON array: check if all values exist
+                    var allConditions = part.Value.Select(v => 
+                        $"EXISTS (SELECT value FROM OPENJSON([{label}].[{propName}]) WHERE value = N'{sanitizeValue(v)}')"
+                    );
+                    return $"({string.Join(" AND ", allConditions)})";
+
                 default:
                     throw new ArgumentException($"Unsupported operator: {part.Criteria}");
             }
         }
 
+        /// <summary>
+        /// Extracts filter fields from QueryBuilder structure and creates necessary joins
+        /// </summary>
+        private void ExtractFilterFields(
+            QueryBuilderFilterGroup group,
+            List<PropertyMetadata> properties,
+            string tableName,
+            string tableSchema,
+            ref List<SystemDataTableProfileSelectViewModel> listSelectViewModels,
+            ref List<SystemDataTableProfileSelectViewModel> filterViewModels,
+            ref int joinCounter,
+            ref Dictionary<string, SystemDataTableProfileSelectViewModel> existingJoins)
+        {
+            if (group?.Criteria == null) return;
 
+            foreach (var item in group.Criteria)
+            {
+                if (item.IsGroup)
+                {
+                    // Recursively process nested group
+                    var nestedGroup = new QueryBuilderFilterGroup
+                    {
+                        Logic = item.Logic ?? "AND",
+                        Criteria = item.Criteria
+                    };
+                    ExtractFilterFields(nestedGroup, properties, tableName, tableSchema,
+                        ref listSelectViewModels, ref filterViewModels, ref joinCounter, ref existingJoins);
+                }
+                else if (!string.IsNullOrWhiteSpace(item.Data))
+                {
+                    // Process filter condition
+                    var fieldName = item.Data;
+                    
+                    // Handle subField for entity types
+                    var fullPath = fieldName;
+                    if (item.SubField != null)
+                    {
+                        fullPath = BuildSubFieldPath(fieldName, item.SubField);
+                    }
 
+                    var filter = CreateFilterViewModel(
+                        fullPath,
+                        properties,
+                        tableName,
+                        tableSchema,
+                        ref listSelectViewModels,
+                        ref joinCounter,
+                        ref existingJoins);
+
+                    if (filter != null)
+                    {
+                        filter.Criteria = item.Condition;
+                        filter.Filter = true;
+                        filter.Value = item.Value ?? new List<string>();
+                        filter.Type = item.FieldType ?? filter.Type ?? "string";
+                        filterViewModels.Add(filter);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Builds the full field path from subField structure
+        /// </summary>
+        private string BuildSubFieldPath(string basePath, object subField)
+        {
+            if (subField == null) return basePath;
+
+            // subField can be a string or an object with nested data
+            if (subField is string subFieldStr)
+            {
+                return $"{basePath}.{subFieldStr}";
+            }
+
+            if (subField is System.Text.Json.JsonElement jsonElement)
+            {
+                if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    return $"{basePath}.{jsonElement.GetString()}";
+                }
+                else if (jsonElement.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    if (jsonElement.TryGetProperty("data", out var dataElement))
+                    {
+                        var subPath = dataElement.GetString();
+                        basePath = $"{basePath}.{subPath}";
+                        
+                        if (jsonElement.TryGetProperty("subField", out var nestedSubField))
+                        {
+                            return BuildSubFieldPath(basePath, nestedSubField);
+                        }
+                    }
+                }
+            }
+
+            return basePath;
+        }
+
+        /// <summary>
+        /// Creates a filter view model for a field path
+        /// </summary>
+        private SystemDataTableProfileSelectViewModel? CreateFilterViewModel(
+            string fullPath,
+            List<PropertyMetadata> properties,
+            string tableName,
+            string tableSchema,
+            ref List<SystemDataTableProfileSelectViewModel> listSelectViewModels,
+            ref int joinCounter,
+            ref Dictionary<string, SystemDataTableProfileSelectViewModel> existingJoins)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath)) return null;
+
+            var splitName = fullPath.Split(".", StringSplitOptions.RemoveEmptyEntries);
+            if (splitName.Length == 0) return null;
+
+            var propName = splitName[0];
+            var prop = properties.FirstOrDefault(c => c.Name == propName);
+
+            if (prop == null) return null;
+
+            // Check if filter already exists in select list
+            var existData = listSelectViewModels.FirstOrDefault(c => c.Name == fullPath);
+
+            if (existData != null)
+            {
+                return new SystemDataTableProfileSelectViewModel
+                {
+                    Label = existData.Label,
+                    Alliance = existData.Alliance,
+                    Name = existData.Name,
+                    Title = existData.Title,
+                    Level = existData.Level,
+                    PropName = splitName.LastOrDefault() ?? existData.PropName,
+                    Type = existData.Type
+                };
+            }
+
+            var propType = prop.DataType ?? "string";
+
+            if (propType == "entity" && splitName.Length > 1)
+            {
+                var filter = CreateJoinString(
+                    prop,
+                    fullPath,
+                    0,
+                    "m0",
+                    ref listSelectViewModels,
+                    ref joinCounter,
+                    ref existingJoins,
+                    tableSchema);
+                filter.Name = fullPath;
+                return filter;
+            }
+
+            return new SystemDataTableProfileSelectViewModel
+            {
+                PropName = propName,
+                Type = propType,
+                Label = "m0",
+                TableName = tableName,
+                Name = fullPath
+            };
+        }
+
+        /// <summary>
+        /// Builds SQL filter string from QueryBuilder rules with proper grouping
+        /// </summary>
+        private string BuildQueryBuilderFilterString(QueryBuilderFilterGroup group, List<SystemDataTableProfileSelectViewModel> filterViewModels)
+        {
+            if (group?.Criteria == null || !group.Criteria.Any()) return string.Empty;
+
+            var filterIndex = 0;
+            return BuildFilterGroupString(group, filterViewModels, ref filterIndex);
+        }
+
+        private string BuildFilterGroupString(QueryBuilderFilterGroup group, List<SystemDataTableProfileSelectViewModel> filterViewModels, ref int filterIndex)
+        {
+            if (group?.Criteria == null || !group.Criteria.Any()) return string.Empty;
+
+            var parts = new List<string>();
+            var logic = group.Logic?.ToUpper() == "OR" ? " OR " : " AND ";
+
+            foreach (var item in group.Criteria)
+            {
+                if (item.IsGroup)
+                {
+                    var nestedGroup = new QueryBuilderFilterGroup
+                    {
+                        Logic = item.Logic ?? "AND",
+                        Criteria = item.Criteria
+                    };
+                    var nestedFilter = BuildFilterGroupString(nestedGroup, filterViewModels, ref filterIndex);
+                    if (!string.IsNullOrWhiteSpace(nestedFilter))
+                    {
+                        parts.Add($"({nestedFilter})");
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(item.Data) && !string.IsNullOrWhiteSpace(item.Condition))
+                {
+                    if (filterIndex < filterViewModels.Count)
+                    {
+                        var viewModel = filterViewModels[filterIndex];
+                        viewModel.Criteria = item.Condition;
+                        viewModel.Value = item.Value ?? new List<string>();
+                        
+                        var filterStr = BuildFilterString(viewModel);
+                        if (!string.IsNullOrWhiteSpace(filterStr))
+                        {
+                            parts.Add(filterStr);
+                        }
+                    }
+                    filterIndex++;
+                }
+            }
+
+            return string.Join(logic, parts);
+        }
 
         public class SaveSystemDataTableProfileViewModel
         {
@@ -727,7 +926,7 @@ namespace WebApp.Controllers.SystemControllers
             public required string EntityName { get; set; }
             public required string Title { get; set; }
             public required List<SaveSystemDataTableProfileColsViewModel> Columns { get; set; }
-            public List<SaveSystemDataTableProfileFilterViewModel>? Filters { get; set; }
+            public QueryBuilderFilterGroup? Filters { get; set; }
         }
 
         public class SaveSystemDataTableProfileColsViewModel
@@ -741,13 +940,32 @@ namespace WebApp.Controllers.SystemControllers
             public bool? Visible { get; set; } = true;
         }
 
-        public class SaveSystemDataTableProfileFilterViewModel
+        /// <summary>
+        /// QueryBuilder filter group (supports nested groups with AND/OR logic)
+        /// </summary>
+        public class QueryBuilderFilterGroup
         {
-            public required string Name { get; set; }
-            public List<string> Value { get; set; } = new List<string>();
-            public required string Type { get; set; }
-            public required string Criteria { get; set; }
-            public string ShowTitle { get; set; } = string.Empty;
+            public string Logic { get; set; } = "AND";
+            public List<QueryBuilderFilterItem>? Criteria { get; set; }
+        }
+
+        /// <summary>
+        /// QueryBuilder filter item (can be a condition or a nested group)
+        /// </summary>
+        public class QueryBuilderFilterItem
+        {
+            // For condition
+            public string? Data { get; set; }
+            public string? Condition { get; set; }
+            public List<string>? Value { get; set; }
+            public string? FieldType { get; set; }
+            public object? SubField { get; set; }
+
+            // For nested group
+            public string? Logic { get; set; }
+            public List<QueryBuilderFilterItem>? Criteria { get; set; }
+
+            public bool IsGroup => !string.IsNullOrEmpty(Logic) && Criteria != null;
         }
     }
 }

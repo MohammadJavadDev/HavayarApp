@@ -1,9 +1,10 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Common.Attributes;
+﻿using Common.Attributes;
 using Common.Entities;
 using Entities.Base;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Net;
 
 namespace Entities.Auth;
 
@@ -57,7 +58,7 @@ public class User
 
     [DisplayName("وضعیت فعال بودن")]
     [DisplayInfo(null, true, systemProprty: true)]
-    public IsActiveEnum? IsActive { get; set; }
+    public IsActiveEnum IsActive { get; set; } =IsActiveEnum.Active;
 
 
     [Required(ErrorMessage = AppMessages.ReqiredMessage + "نام")]
@@ -77,11 +78,15 @@ public class User
 
     [Required(ErrorMessage = AppMessages.ReqiredMessage + "نقش ها")]
     [DisplayName("نقش ها")]
-    [DisplayInfo(null, false)]
-    public string[] Roles { get; set; }
+	[DisplayInfo(null, false, SystemType.ListString )]
+	public string[] Roles { get; set; }
+
+	[DisplayName("شناسه نقش ها")]
+	[DisplayInfo(null, false, SystemType.ListLong)]
+	public List<long> RoleIds { get; set; } = [];
 
 
-    [DisplayName("تصویر پروفایل")]
+	[DisplayName("تصویر پروفایل")]
     [DisplayInfo(null, false, type: SystemType.File, fileTypes: "image/png,image/jpg,image/jpge")]
 
     public string? ProfileUrl { get; set; }
@@ -90,7 +95,19 @@ public class User
     [DisplayInfo(null, false, SystemType.DateTime)]
     public DateTime? LastOnline { get; set; }
 
+	public AuthorizationTypeEnum AuthorizationType { get; set; }
+
 	[NotMapped]
 	public List<RoleAccess> RoleAccesses { get; set; } = new();
 
+}
+
+public enum AuthorizationTypeEnum
+{
+	[Display(Name ="سیستم")]
+	System,
+	[Display(Name = "اکتیودایرکتوری")]
+	ActiveDirectory,
+	[Display(Name = "متفرقه")]
+	Custom
 }

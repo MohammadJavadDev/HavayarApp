@@ -28,7 +28,7 @@ namespace WebFramework.Initializes
                     });
             }
 
-                var userAdmin = userService.Context.Users.FirstOrDefault(c => c.Username == "admin");
+             var userAdmin = userService.Context.Users.FirstOrDefault(c => c.Username == "admin");
             if (userAdmin == null) {
 
 
@@ -42,9 +42,14 @@ namespace WebFramework.Initializes
                     Roles = new string[1]
                     {
                         "admin"
-                    }
-                     
-                });
+                    },
+				RoleIds  = new()
+				{
+				 1
+				},
+				 AuthorizationType = AuthorizationTypeEnum.System,
+
+			 });
             }
         }
     }

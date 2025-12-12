@@ -1,8 +1,13 @@
 using App.Real.Hubs;
 using Azure;
 using Azure.Core;
+using Common.Utilities;
+using Data.Contracts;
+using Data.Repositories;
+using Entities.Base.Notification;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
+using Services.AccessServices;
 using Services.NotifitactionBuilderServices;
 using Shared.Realtime.Events;
 using System.Text.Json;
@@ -26,19 +31,22 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
     private readonly string _webAppBaseUrl;
  
 
-    public EntityChangeNotificationHandler(
+
+
+	public EntityChangeNotificationHandler(
         IHubContext<RealtimeHub> hub,
         ILogger<EntityChangeNotificationHandler> logger,
-  
         IConfiguration configuration,
 	   IServiceScopeFactory serviceScopeFactory
+  
 	  )
     {
-        _hub = hub;
-        _logger = logger;
- 
-        _webAppBaseUrl = configuration["WebAppBaseUrl"] ?? "https://localhost:7073";
+          _hub = hub;
+          _logger = logger;
+       
+		 _webAppBaseUrl = configuration["WebAppBaseUrl"] ?? "https://localhost:7073";
           _serviceScopeFactory = serviceScopeFactory;
+ 
 
 
     }
@@ -60,14 +68,30 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
                     evt.EntityName, evt.EntityId);
                 return;
             }
+			using var scope = _serviceScopeFactory.CreateScope();
 
-            _logger.LogInformation("Found {Count} recipients for {EntityName} #{EntityId} notification",
+			var _unitofWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+			_logger.LogInformation("Found {Count} recipients for {EntityName} #{EntityId} notification",
                 recipients.Count, evt.EntityName, evt.EntityId);
 
-            // ارسال notification به هر کاربر
-            foreach (var recipient in recipients)
+          
+		  // ارسال notification به هر کاربر
+		  foreach (var recipient in recipients)
             {
-                await _hub.Clients.User(recipient.UserId.ToString())
+                    var newNoti = new Notification()
+                    {
+                         Body = recipient.Body,
+                         Title = recipient.MessageTitle,
+                         IsRead = false,
+                         EntityId = evt.EntityId.ToLong(),
+                         OwnerId = recipient.UserId,
+                         ViewPath = evt.ViewPath,
+
+				};
+			 await _unitofWork.Repository<Notification>().AddAsync(newNoti,ct);
+
+			 await _hub.Clients.User(recipient.UserId.ToString())
                     .SendAsync("ReceiveNotification", new
                     {
                         Title = recipient.MessageTitle,
@@ -76,8 +100,9 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
                         CreatedOnShamsiDateTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
                         EntityName = evt.EntityName,
                         EntityId = evt.EntityId,
-                        Operation = evt.Operation
-                    }, ct);
+                        Operation = evt.Operation,
+					ViewPath = evt.ViewPath
+				}, ct);
 
                 _logger.LogDebug("Notification sent to user {UserId}: {Title}",
                     recipient.UserId, recipient.MessageTitle);

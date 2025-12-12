@@ -65,6 +65,10 @@ namespace Services.InMemoryData
 
 			foreach (var entityType in entityTypes)
 			{
+				if(entityType.FullName.Contains("User"))
+				{
+					var d = "sad";
+				}
 				var displayAttr = entityType.GetCustomAttribute<DisplayAttribute>();
 				var entityDisplayName = displayAttr?.Name ?? entityType.Name;
 				var tableAttr = entityType.GetCustomAttribute<TableAttribute>();
@@ -155,7 +159,7 @@ namespace Services.InMemoryData
 		// 🧩 Public Methods
 		public EntityMetadata? Get(string entityName)
 		{
-			BuildCache();
+ 
 			EnsureCacheBuilt();
 			_cache.TryGetValue(entityName.ToLower(), out var meta);
 			return meta;

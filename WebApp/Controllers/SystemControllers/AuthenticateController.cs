@@ -1,9 +1,12 @@
-﻿using Entities.Auth;
+﻿using Common.Attributes;
+using Common.Auth.Enums;
+using Entities.Auth;
 using Entities.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services.Auth;
 using WebFramework.Filtters;
+using WebFramework.Page;
 
 namespace WebApp.Controllers.SystemControllers
 {
@@ -12,8 +15,8 @@ namespace WebApp.Controllers.SystemControllers
     [Route("[controller]")]
     [Authorize(Roles = "admin")]
     [Authorize("AuthenticatedUser")]
-    public class AuthenticateController(IUserService _userService) : Controller
-    {
+    public class AuthenticateController(IUserService _userService) : BaseController
+	{
         [HttpGet("[action]")]
 		[AllowAnonymous]
 		public IActionResult Login()
@@ -23,8 +26,9 @@ namespace WebApp.Controllers.SystemControllers
 
         [HttpGet("[action]")]
         [AllowAnonymous]
+		[ActionDisplayName("عدم دسترسی", ActionAccessType.View, ActionAccessItemType.Custom)]
 		public IActionResult Forbidden()
-        {
+           {
             return View("Views/Forbidden.cshtml");
 		 }
 
@@ -51,8 +55,9 @@ namespace WebApp.Controllers.SystemControllers
 
                 SameSite = SameSiteMode.Strict,
                 Expires = DateTime.UtcNow.AddDays(150),
-                HttpOnly = true
-            };
+                HttpOnly = true,
+			 Secure = true,
+		  };
 
             Response.Cookies.Append("JwtToken", response.Token, cookieOptions);
 

@@ -188,7 +188,7 @@
     font-family: "IRANSansWeb";
     src: url("../fonts/IRANSansWeb.eot"); /* IE */
     src: url("../fonts/IRANSansWeb.eot?#iefix") format("embedded-opentype"), /* IE */
-    url("../fonts/IRANSansWeb.woff") format("woff"), /* Modern Browsers */
+    url("../fonts/IRANSansWeb.woff2") format("woff2"), /* Modern Browsers */
     url("../fonts/IRANSansWeb.ttf") format("truetype"); /* Safari, Android, iOS */
     font-weight: normal;
 }
@@ -48846,10 +48846,14 @@ body,
 .app-header-menu .menu .menu-item .menu-link .menu-title {
   color: var(--bs-gray-700);
 }
-.app-header-menu .menu .menu-item .menu-link .menu-icon,
-.app-header-menu .menu .menu-item .menu-link .menu-icon .svg-icon,
-.app-header-menu .menu .menu-item .menu-link .menu-icon i {
-  color: var(--bs-gray-500);
+     .app-header-menu .menu .menu-item .menu-link .menu-icon,
+     .app-header-menu .menu .menu-item .menu-link .menu-icon .svg-icon,
+     .app-header-menu .menu .menu-item .menu-link .menu-icon i {
+          color: var(--bs-gray-500);
+     }
+
+.app-sidebar-wrapper  .menu .menu-item .menu-link .menu-icon i {
+     font-size: 1.5rem;
 }
 .app-header-menu .menu .menu-item .menu-link .menu-bullet .bullet {
   background-color: var(--bs-gray-500);

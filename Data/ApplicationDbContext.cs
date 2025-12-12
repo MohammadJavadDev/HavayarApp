@@ -38,6 +38,22 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 		return JsonSerializer.Deserialize<List<string>>(json, _jsonOptions) ?? new List<string>();
 	}
 
+	// helper برای serialize List<long>
+	private static string SerializeLongList(List<long> list)
+	{
+		return JsonSerializer.Serialize(list, _jsonOptions);
+	}
+
+	// helper برای deserialize List<long> (ایمن در برابر null/empty)
+	private static List<long> DeserializeLongList(string json)
+	{
+		if (string.IsNullOrEmpty(json))
+			return new List<long>();
+
+		// اگر Deserialize null برگرداند، جایگزینش کن
+		return JsonSerializer.Deserialize<List<long>>(json, _jsonOptions) ?? new List<long>();
+	}
+
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
 
@@ -67,18 +83,35 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 			 v => DeserializeList(v)
 		  );
 
+		var listLongConverter = new ValueConverter<List<long>, string>(
+			 v => SerializeLongList(v),
+			 v => DeserializeLongList(v)
+		  );
+
 		foreach (var entityType in modelBuilder.Model.GetEntityTypes())
 		{
-			var props = entityType.ClrType
+			var stringProps = entityType.ClrType
 			    .GetProperties()
 			    .Where(p => p.PropertyType == typeof(List<string>));
 
-			foreach (var prop in props)
+			foreach (var prop in stringProps)
 			{
 				modelBuilder
 				    .Entity(entityType.ClrType)   // بهتر از استفاده از نام رشته‌ای
 				    .Property(prop.Name)
 				    .HasConversion(listStringConverter);
+			}
+
+			var longProps = entityType.ClrType
+			    .GetProperties()
+			    .Where(p => p.PropertyType == typeof(List<long>));
+
+			foreach (var prop in longProps)
+			{
+				modelBuilder
+				    .Entity(entityType.ClrType)
+				    .Property(prop.Name)
+				    .HasConversion(listLongConverter);
 			}
 		}
 
@@ -152,7 +185,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 persianMessage = "ارتباط با پایگاه داده امکان‌پذیر نیست یا زمان انجام عملیات به پایان رسیده است. لطفاً دوباره تلاش کنید.";
             }
 
-
+	 
             else
             {
                 persianMessage = "خطایی در اجرای عملیات پایگاه داده رخ داده است. لطفاً جزئیات بیشتر را بررسی کنید.";

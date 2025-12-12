@@ -6513,7 +6513,7 @@ class Page {
 	execScripts() {
 		let code = this.script;
 		let f = new Function("page", "$$", "self", code);
-
+ 
 
 		JSLoader([...this.listJsLink], () => {
 			try {
@@ -6712,17 +6712,72 @@ class AppController {
 			},
 			headers: { "X-Requested-With": "XMLHttpRequest", "X-Partial-Request": "true" },
 			success: function (r) {
-				 
-				$tab.find("span").text(r?.pageInfo?.title);
-				$page.html(r.html);
-				 
-				if (r?.pageInfo?.title === "-") {
-					r.pageInfo.title = "تب جدید"
+ 				function tryDecodeV1(resp) {
+					if (!resp || resp.v !== 1 || !resp.p || resp.q === undefined) return null;
+					try {
+						const salt = [13, 71, 99, 201, 54, 11, 222, 39];
+						const key = (resp.q ^ 0xA5) & 0xFF;
+						const raw = window.atob(resp.p);
+						const bytes = new Uint8Array(raw.length);
+						for (let i = 0; i < raw.length; i++) {
+							const ob = raw.charCodeAt(i);
+							bytes[i] = (ob ^ key) ^ salt[i % salt.length];
+						}
+						// Use TextDecoder to avoid stack overflow on large payloads
+						let utf8str;
+						if (window.TextDecoder) {
+							utf8str = new TextDecoder("utf-8").decode(bytes);
+						} else {
+							// Fallback, chunked to avoid call stack overflow
+							let tmp = "";
+							const chunkSize = 8192;
+							for (let i = 0; i < bytes.length; i += chunkSize) {
+								tmp += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+							}
+							utf8str = decodeURIComponent(escape(tmp));
+						}
+						const payload = JSON.parse(utf8str);
+						return {
+							html: payload?.h || "",
+							scripts: payload?.s || [],
+							title: payload?.p?.t || "تب جدید"
+						};
+					} catch (err) {
+						console.warn("Failed to decode obfuscated payload", err);
+						return null;
+					}
 				}
-	 
-				 page.title = r?.pageInfo?.title;
- 
-				page.script = r.scripts;
+
+			 
+				function tryDecodeLegacy(resp) {
+					const isBase64 = resp?.isBase64 === true;
+					const decodePayload = function (val) {
+						if (!isBase64 || typeof val !== "string") return val;
+						try {
+							return decodeURIComponent(escape(window.atob(val)));
+						} catch (err) {
+							try { return window.atob(val); } catch (e) { return val; }
+						}
+					};
+					return {
+						html: decodePayload(resp?.html) || resp?.html || "",
+						scripts: Array.isArray(resp?.scripts) ? resp.scripts.map(decodePayload) : (resp?.scripts || []),
+						title: resp?.pageInfo?.title || "تب جدید"
+					};
+				}
+
+				const decoded = tryDecodeV1(r) || tryDecodeLegacy(r) || { html: "", scripts: [], title: "تب جدید" };
+
+				$tab.find("span").text(decoded.title);
+				$page.html(decoded.html);
+
+				if (decoded.title === "-") {
+					page.title = "تب جدید";
+				} else {
+					page.title = decoded.title;
+				}
+
+				page.script = decoded.scripts;
 			  
 					// Initialize FormActionButtons API
 					const formActionButtonsApi = appController.initFormActionButtons($page, page);
@@ -8352,150 +8407,7 @@ function markAsReadHeader(notificationId, $element) {
 
 
 
-$(document).ready(function () {
-	 
-	// Initialize entity select profile with event delegation for dynamic elements
-	initEntitySelectProfile();
-	
-	// Set up global event delegation for entity select profile buttons
-	// This will work for both existing and dynamically added elements
-	$(document).on('click', '[data-action-profile="selectentity"]', handleEntitySelectProfileClick);
-
-	initItemsForms();
-
  
- 
-
-	if (window.Inputmask) {
-		Inputmask.extendDefaults({
-			onKeyValidation: function (key, result) {
-
-
-				if (!result) {
-					let message = $(this).attr("data-invalidMessage");
-
-					if (!message) {
-						message = 'کاراکتر وارد شده غیر مجاز میباشد.';
-					}
-
-					if ($(this).parent().find("[data-invalidmessagespan]").length === 0) {
-						$(this).after(`<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger' >${message}</span> </div>`)
-					}
-					else {
-						$(this).parent().find("[data-invalidmessagespan] span").html(message);
-					}
-				}
-				else {
-					$(this).parent().find("[data-invalidmessagespan] span").html("")
-				}
-
-			}
-		});
-
-		$("[data-inputmask]").inputmask()
-
-	}
-
-	initPersionDatePicker($("body"))
-
-
-	$("input[focus]").on({
-		keypress: function (evt) {
-
-			if (evt.keyCode === 13) {
-				let focusId = $(this).attr("focus");
-				if ($(focusId).length > 0) {
-					if ($(focusId).is("button")) {
-						$(focusId).click();
-					}
-					if ($(focusId).is("input")) {
-						$(focusId).focus();
-					}
-				}
-
-			}
-		},
-
-	});
-
-
-	window.onkeyup = function (e) {
-		var event = e.which || e.keyCode || 0; // .which with fallback
-
-		if (event == 27) { // ESC Key
-			history.back() // Navigate to URL
-		}
-	}
-
-	$("body")
-		.on("click", "[data-system-action=history]",function () {
-			var id = $(this).attr("data-system-action-id");
-			var type = $(this).attr("data-system-history-type")
-			if (!id || id.length == 0) {
-		
-				if ($(this).closest("[data-sys=system-tab]").find("[data-bind=id]").length > 0) {
-					id = $(this).closest("[data-sys=system-tab]").find("[data-bind=id]").val();
-
-					if (!id || id.length == 0)
-						return toastr.error("تاریخچه ای برای این موجود وجود ندارد", 'خطا');
-				}
-				else {
-					return toastr.error("تاریخچه ای برای این موجود وجود ندارد", 'خطا');
-				}
-	
-			}
-			if (!type || type.length == 0) {
-				return toastr.error("نوع موجودیت مشخص نشده است", 'خطا');
-			}
-			let $btn = $(this).block()
-			post("/System/GetHistory", { id, type }, function (r) {
-				$btn.block(false);
-				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-
-				renderHistoryTmpl(r.data)
-			})
-		});
-		 
-	window.appController = new AppController(
-		$("#pagesContainer"),
-		$("#tabsContainer"),
-		$("#loader"),
-		window.location.pathname + window.location.search
-	);
-	 
- 
-	$(document).on("click", "a", function (e) {
-		
-		const $a = $(this);
-		const href = $a.attr("href");
-		if (!href || href.startsWith("javascript:") || href.startsWith("#") || $a.closest("#pageMenuBuilder").length > 0) return;
-
-		if ( !isSameOrigin(href)) return;
-
-		if(href.startsWith("/File/download")) {
-		
-			return;
-		}
-
-		if ( e.ctrlKey || e.metaKey || e.shiftKey || $a.attr("target") === "_blank") return;
-
-		e.preventDefault();
-
-		appController.addPage(href);
-		 
-	});
-
-
-	$("#notificationSection").on("click", "[data-action=readNotification]", function () {
-		 
-		let  notificationId = $(this).attr("data-id");
-		let $element = $(this).closest("[data-row=notification]");
-
-		markAsReadHeader(notificationId, $element);
-	})
-
-
-});
 
 function initDataTableProflie(page) {
 	let currentTable;
@@ -9843,203 +9755,177 @@ function formatFileSize(bytes) {
 }
 
 // Add CSS styles for file uploader
-function addFileUploaderStyles() {
-    if (document.getElementById('file-uploader-styles')) return;
-    
-    const style = document.createElement('style');
-    style.id = 'file-uploader-styles';
-    style.textContent = `
-        .file-uploader-container {
-            margin-bottom: 1rem;
-		      width: 100%;
-        }
-        
-        .file-uploader-container .dropzone-area {
-            border: 1px dashed var(--bs-gray-300, #dee2e6);
-            border-radius: 8px;
  
-            text-align: center;
-            background: var(--bs-gray-100, #f8f9fa);
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .file-uploader-container .dropzone-area:hover {
-            border-color: var(--bs-primary, #0d6efd);
-            background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.05);
-        }
-        
-        .file-uploader-container .dropzone-area.dz-drag-hover {
-            border-color: var(--bs-primary, #0d6efd);
-            background: rgba(var(--bs-primary-rgb, 13, 110, 253), 0.1);
-        }
-        
-        .file-uploader-container .dz-message {
-            margin: 0;
-        }
-        
-        .file-uploader-container .dz-message p {
-            margin: 0.5rem 0;
-        }
-        
-        .file-uploader-container .dz-preview {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-       
-            border: 1px solid var(--bs-gray-300, #dee2e6);
-            border-radius: 8px;
  
-            background: var(--bs-body-bg, #fff);
-            transition: all 0.3s ease;
-        }
-        
-        .file-uploader-container .dz-preview:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        [data-bs-theme="dark"] .file-uploader-container .dz-preview:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        }
-        
-         
-        
-        .file-uploader-container .dz-icon-container {
-            flex-shrink: 0;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
- 
-            border-radius: 8px;
-        }
-        
-        .file-uploader-container .dz-details {
-            flex: 1;
-            min-width: 0;
-        }
-[data-dz-name]{
-    display: inline-block;
-			max-width: 80px;
-			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			}
-        
-        .file-uploader-container .dz-filename {
-            font-weight: 500;
-            color: var(--bs-body-color, #212529);
-            margin-bottom: 0.25rem;
-            word-break: break-word;
-			
-        }
-        
-        .file-uploader-container .dz-size {
-            font-size: 0.875rem;
-            color: var(--bs-secondary, #6c757d);
-			    margin-top: 15px;
-        }
-        
-        .file-uploader-container .dz-progress {
-            width: 60%;
-            height: 4px;
-            background: var(--bs-gray-200, #e9ecef);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 0.5rem;
-        }
-        
-        .file-uploader-container .dz-upload {
-            display: block;
-            height: 100%;
-            background: var(--bs-primary, #0d6efd);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        
-        .file-uploader-container .dz-error-message {
-            color: var(--bs-danger, #dc3545);
-            font-size: 0.875rem;
-            margin-top: 0.5rem;
-        }
-        
-        .file-uploader-container .dz-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-shrink: 0;
-        }
-        
-        .file-uploader-container .dz-remove {
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-        }
-        
-      
-        
-        .file-uploader-container .existing-file-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 3px 4px 3px 15px;
-            border: 1px solid var(--bs-gray-300, #dee2e6);
-            border-radius: 8px;
- 
-            background: var(--bs-body-bg, #fff);
-        }
-        
-        .file-uploader-container .existing-file-item .file-preview {
-            flex-shrink: 0;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bs-gray-100, #f8f9fa);
-            border-radius: 8px;
-        }
-        
-        .file-uploader-container .existing-file-item .file-info {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .file-uploader-container .existing-file-item .file-name {
-            display: block;
-            font-weight: 500;
-            color: var(--bs-body-color, #212529);
-            margin-bottom: 0.25rem;
-            word-break: break-word;
-		      overflow: hidden;
-        }
-        
-        .file-uploader-container .existing-file-item .file-size {
-            display: block;
-            font-size: 0.875rem;
-            color: var(--bs-secondary, #6c757d);
-        }
-        
-        .file-uploader-container .existing-file-item .file-actions {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-shrink: 0;
-        }
-    `;
-    document.head.appendChild(style);
-}
+$(document).ready(function () {
 
-// Initialize file uploaders on page load
-$(document).ready(function() {
-    addFileUploaderStyles();
+
+	// Initialize entity select profile with event delegation for dynamic elements
+	initEntitySelectProfile();
+
+	// Set up global event delegation for entity select profile buttons
+	// This will work for both existing and dynamically added elements
+	$(document).on('click', '[data-action-profile="selectentity"]', handleEntitySelectProfileClick);
+
+	initItemsForms();
+
+
+
+
+	if (window.Inputmask) {
+		Inputmask.extendDefaults({
+			onKeyValidation: function (key, result) {
+
+
+				if (!result) {
+					let message = $(this).attr("data-invalidMessage");
+
+					if (!message) {
+						message = 'کاراکتر وارد شده غیر مجاز میباشد.';
+					}
+
+					if ($(this).parent().find("[data-invalidmessagespan]").length === 0) {
+						$(this).after(`<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger' >${message}</span> </div>`)
+					}
+					else {
+						$(this).parent().find("[data-invalidmessagespan] span").html(message);
+					}
+				}
+				else {
+					$(this).parent().find("[data-invalidmessagespan] span").html("")
+				}
+
+			}
+		});
+
+		$("[data-inputmask]").inputmask()
+
+	}
+
+	initPersionDatePicker($("body"))
+
+
+	$("input[focus]").on({
+		keypress: function (evt) {
+
+			if (evt.keyCode === 13) {
+				let focusId = $(this).attr("focus");
+				if ($(focusId).length > 0) {
+					if ($(focusId).is("button")) {
+						$(focusId).click();
+					}
+					if ($(focusId).is("input")) {
+						$(focusId).focus();
+					}
+				}
+
+			}
+		},
+
+	});
+
+
+	window.onkeyup = function (e) {
+		var event = e.which || e.keyCode || 0; // .which with fallback
+
+		if (event == 27) { // ESC Key
+			history.back() // Navigate to URL
+		}
+	}
+
+	$("body")
+		.on("click", "[data-system-action=history]", function () {
+			var id = $(this).attr("data-system-action-id");
+			var type = $(this).attr("data-system-history-type")
+			if (!id || id.length == 0) {
+
+				if ($(this).closest("[data-sys=system-tab]").find("[data-bind=id]").length > 0) {
+					id = $(this).closest("[data-sys=system-tab]").find("[data-bind=id]").val();
+
+					if (!id || id.length == 0)
+						return toastr.error("تاریخچه ای برای این موجود وجود ندارد", 'خطا');
+				}
+				else {
+					return toastr.error("تاریخچه ای برای این موجود وجود ندارد", 'خطا');
+				}
+
+			}
+			if (!type || type.length == 0) {
+				return toastr.error("نوع موجودیت مشخص نشده است", 'خطا');
+			}
+			let $btn = $(this).block()
+			post("/System/GetHistory", { id, type }, function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+				renderHistoryTmpl(r.data)
+			})
+		});
+
+	window.appController = new AppController(
+		$("#pagesContainer"),
+		$("#tabsContainer"),
+		$("#loader"),
+		window.location.pathname + window.location.search
+	);
+
+
+	$(document).on("click", "a", function (e) {
+
+		const $a = $(this);
+		const href = $a.attr("href");
+		if (!href || href.startsWith("javascript:") || href.startsWith("#") || $a.closest("#pageMenuBuilder").length > 0) return;
+
+		if (!isSameOrigin(href)) return;
+
+		if (href.startsWith("/File/download")) {
+
+			return;
+		}
+
+		if (e.ctrlKey || e.metaKey || e.shiftKey || $a.attr("target") === "_blank") return;
+
+		e.preventDefault();
+		if (href == "/Authenticate/Logout") {
+			get(href, function (r) {
+				window.location.assign("/Authenticate/Login")
+			})
+		}
+		else {
+			appController.addPage(href);
+
+		}
+
+
+	});
+
+
+	$("#notificationSection").on("click", "[data-action=readNotification]", function () {
+
+		let notificationId = $(this).attr("data-id");
+		let $element = $(this).closest("[data-row=notification]");
+
+		markAsReadHeader(notificationId, $element);
+	})
+ 
 	initFileUploaders();
+
+	$("[data-action=changeMenu]").change(function () {
+		const id = $(this).val();
+		var path = "/System/MenuBuilder/GetMenuById?id=";
+		if (id != 'null') {
+			path += id;
+		}
+		post(path, null, function (r) {
+			if (!r.isSuccess) return error2(r.message);
+			debugger
+			$("#kt_app_sidebar_menu").html(r.data)
+		});
+	});
 
 });
 
-// Re-initialize on dynamic content load
+ 
 $(document).on('DOMNodeInserted', function(e) {
     const $target = $(e.target);
     if ($target.find('[data-file-uploader="true"]').length) {
@@ -10130,8 +10016,6 @@ if (typeof initItemsForms === 'function') {
 			this.$container.find('.input-group').hide().before(this.$multiContainer);
 			this.$input.detach().appendTo(this.$multiContainer);
 			this.$input.addClass('entity-selector-multi-input').removeClass('form-control');
-
-
 			this.$input.on('focus', () => this.$multiContainer.addClass('focused'));
 			this.$input.on('blur', () => this.$multiContainer.removeClass('focused'));
 
@@ -10565,4 +10449,258 @@ const observer = new MutationObserver(function(mutations) {
 });
 
 observer.observe(document.body, { childList: true, subtree: true });
+
+// Sidebar Menu Search Functionality
+(function() {
+    'use strict';
+
+    const SidebarMenuSearch = {
+        searchInput: null,
+        menuContainer: null,
+        menuItems: [],
+        debounceTimer: null,
+        changeMenuSelect: null,
+        menuObserver: null,
+
+        init: function() {
+            this.searchInput = document.getElementById('sidebar_menu_search');
+            this.menuContainer = document.getElementById('kt_app_sidebar_menu');
+            this.changeMenuSelect = document.querySelector('[data-action="changeMenu"]');
+
+            if (!this.searchInput || !this.menuContainer) return;
+
+            this.cacheMenuItems();
+            this.bindEvents();
+            this.observeMenuChanges();
+        },
+
+        cacheMenuItems: function() {
+            if (!this.menuContainer) return;
+            this.menuItems = Array.from(this.menuContainer.querySelectorAll('.menu-item'));
+        },
+
+        bindEvents: function() {
+            const self = this;
+
+            this.searchInput.addEventListener('input', function() {
+                clearTimeout(self.debounceTimer);
+                self.debounceTimer = setTimeout(function() {
+                    self.filterMenu(self.searchInput.value.trim().toLowerCase());
+                }, 150);
+            });
+
+            this.searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    self.searchInput.value = '';
+                    self.filterMenu('');
+                    self.searchInput.blur();
+                }
+            });
+
+            // Listen for changeMenu select changes
+            if (this.changeMenuSelect) {
+                this.changeMenuSelect.addEventListener('change', function() {
+                    // Wait for menu to update then refresh cache
+                    setTimeout(function() {
+                        self.refresh();
+                    }, 300);
+                });
+            }
+        },
+
+        observeMenuChanges: function() {
+            const self = this;
+            
+            // Observe menu container for dynamic changes
+            if (this.menuObserver) {
+                this.menuObserver.disconnect();
+            }
+
+            this.menuObserver = new MutationObserver(function(mutations) {
+                let shouldRefresh = false;
+                for (let i = 0; i < mutations.length; i++) {
+                    if (mutations[i].type === 'childList' && 
+                        (mutations[i].addedNodes.length > 0 || mutations[i].removedNodes.length > 0)) {
+                        shouldRefresh = true;
+                        break;
+                    }
+                }
+                if (shouldRefresh) {
+                    clearTimeout(self.debounceTimer);
+                    self.debounceTimer = setTimeout(function() {
+                        self.cacheMenuItems();
+                        // Re-apply filter if there's a search term
+                        if (self.searchInput && self.searchInput.value.trim()) {
+                            self.filterMenu(self.searchInput.value.trim().toLowerCase());
+                        }
+                    }, 100);
+                }
+            });
+
+            this.menuObserver.observe(this.menuContainer, { 
+                childList: true, 
+                subtree: true 
+            });
+        },
+
+        filterMenu: function(searchTerm) {
+            if (!searchTerm) {
+                this.showAllItems();
+                this.collapseAllSubmenus();
+                return;
+            }
+
+            const matchedItems = new Set();
+            const parentMatchedItems = new Set(); // Items that matched directly (not just as parents)
+            const self = this;
+
+            // First pass: find items that match the search term
+            this.menuItems.forEach(function(item) {
+                const titleElement = item.querySelector(':scope > .menu-link .menu-title, :scope > .menu-content .menu-section .menu-title');
+                if (!titleElement) return;
+
+                const title = titleElement.textContent.trim().toLowerCase();
+
+                if (title.includes(searchTerm)) {
+                    matchedItems.add(item);
+                    parentMatchedItems.add(item); // Mark as directly matched
+                    self.addParentItems(item, matchedItems);
+                    // Also add all children of matched parent
+                    self.addChildItems(item, matchedItems);
+                }
+            });
+
+            // Second pass: show/hide items
+            this.menuItems.forEach(function(item) {
+                if (matchedItems.has(item)) {
+                    item.style.display = '';
+                    
+                    // Only highlight if this item directly matched (not just a child of matched parent)
+                    if (parentMatchedItems.has(item)) {
+                        self.highlightMatch(item, searchTerm);
+                    } else {
+                        self.removeHighlight(item);
+                    }
+                    
+                    // Expand submenus for matched parents
+                    const subMenu = item.querySelector(':scope > .menu-sub');
+                    if (subMenu && parentMatchedItems.has(item)) {
+                        item.classList.add('show', 'hover');
+                        subMenu.style.display = 'flex';
+                    }
+                } else {
+                    item.style.display = 'none';
+                    self.removeHighlight(item);
+                }
+            });
+        },
+
+        addParentItems: function(item, matchedItems) {
+            let parent = item.parentElement;
+            while (parent && parent !== this.menuContainer) {
+                if (parent.classList && parent.classList.contains('menu-item')) {
+                    matchedItems.add(parent);
+                }
+                parent = parent.parentElement;
+            }
+        },
+
+        addChildItems: function(item, matchedItems) {
+            // Add all child menu items of a matched parent
+            const childItems = item.querySelectorAll('.menu-item');
+            childItems.forEach(function(child) {
+                matchedItems.add(child);
+            });
+        },
+
+        highlightMatch: function(item, searchTerm) {
+            const titleElement = item.querySelector(':scope > .menu-link .menu-title, :scope > .menu-content .menu-section .menu-title');
+            if (!titleElement) return;
+
+            const originalText = titleElement.getAttribute('data-original-text') || titleElement.textContent;
+            titleElement.setAttribute('data-original-text', originalText);
+
+            const regex = new RegExp('(' + this.escapeRegex(searchTerm) + ')', 'gi');
+            titleElement.innerHTML = originalText.replace(regex, '<mark class="bg-warning text-dark px-0">$1</mark>');
+        },
+
+        removeHighlight: function(item) {
+            const titleElement = item.querySelector(':scope > .menu-link .menu-title, :scope > .menu-content .menu-section .menu-title');
+            if (!titleElement) return;
+
+            const originalText = titleElement.getAttribute('data-original-text');
+            if (originalText) {
+                titleElement.textContent = originalText;
+                titleElement.removeAttribute('data-original-text');
+            }
+        },
+
+        showAllItems: function() {
+            const self = this;
+            this.menuItems.forEach(function(item) {
+                item.style.display = '';
+                self.removeHighlight(item);
+                
+                // Reset submenu display
+                const subMenu = item.querySelector(':scope > .menu-sub');
+                if (subMenu) {
+                    subMenu.style.display = '';
+                }
+            });
+        },
+
+        collapseAllSubmenus: function() {
+            this.menuItems.forEach(function(item) {
+                item.classList.remove('hover');
+                const subMenu = item.querySelector(':scope > .menu-sub');
+                if (subMenu && !item.classList.contains('here')) {
+                    item.classList.remove('show');
+                    subMenu.style.display = '';
+                }
+            });
+        },
+
+        escapeRegex: function(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        },
+
+        refresh: function() {
+            this.cacheMenuItems();
+            if (this.searchInput) {
+                const searchTerm = this.searchInput.value.trim().toLowerCase();
+                if (searchTerm) {
+                    this.filterMenu(searchTerm);
+                } else {
+                    this.showAllItems();
+                }
+            }
+        },
+
+        clearSearch: function() {
+            if (this.searchInput) {
+                this.searchInput.value = '';
+                this.filterMenu('');
+            }
+        },
+
+        destroy: function() {
+            if (this.menuObserver) {
+                this.menuObserver.disconnect();
+                this.menuObserver = null;
+            }
+        }
+    };
+
+    // Initialize on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            SidebarMenuSearch.init();
+        });
+    } else {
+        SidebarMenuSearch.init();
+    }
+
+    // Expose for external use
+    window.SidebarMenuSearch = SidebarMenuSearch;
+})();
 

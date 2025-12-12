@@ -1,422 +1,352 @@
 ﻿@model Entities.Base.DataTable.SystemDataTableProfile;
 
- 
-
 <div class="card">
     <div class="card-body row">
-	    <div class="col-md-6">
-            <input class="form-control" id="entityName" value="@(Model?.EntityName ?? ViewBag.entityName)" disabled="disabled" />
-	    </div>
-        
-	    <div class="col-md-6">
-		    <input type="hidden" id="idProfile" value="@Model?.Id"/>
-		    <input class="form-control" value="@Model?.Title" id="titleProfile" placeholder="عنوان نمایه داده"/>
-	    </div>
-	    <div class="col-md-6 mt-3">
-		    <button class="btn btn-success w-100" id="saveProfile" >ذخیره</button>
-	    </div>
-         
-		    <div class="row mt-3">
-			    <div class="row col-md-3 p-3 ">
-				    <div id="dataTablePlace" class=" border-radius m-3">
+        <div class="col-md-6">
+            <input class="form-control" id="entityName" value="@(Model?.EntityName ?? ViewBag.entityName)"
+                disabled="disabled" />
+        </div>
 
-				    </div>
-			    </div>
-			    <div class="col-md-9  p-3">
-				    <div class="border border-2 border-radius">
+        <div class="col-md-6">
+            <input type="hidden" id="idProfile" value="@Model?.Id" />
+            <input class="form-control" value="@Model?.Title" id="titleProfile" placeholder="عنوان نمایه داده" />
+        </div>
+        <div class="col-md-6 mt-3">
+            <button class="btn btn-success w-100" id="saveProfile">ذخیره</button>
+        </div>
 
+        <div class="row mt-3">
+            <div class="row col-md-3 p-3 ">
+                <div id="dataTablePlace" class=" border-radius m-3">
 
-					    <nav>
-						    <div class="nav nav-pills flex-column flex-sm-row" id="nav-tab" role="tablist">
-							    <button class="flex-sm-fill text-sm-center nav-link active" id="nav-columns-tab" data-bs-toggle="tab" data-bs-target="#nav-columns" type="button" role="tab" aria-controls="nav-columns" aria-selected="true">ستون ها</button>
-							    <button class="flex-sm-fill text-sm-center nav-link" id="nav-filters-tab" data-bs-toggle="tab" data-bs-target="#nav-filters" type="button" role="tab" aria-controls="nav-filters" aria-selected="false">شرط ها</button>
-						    </div>
-					    </nav>
-
-					    <div class="tab-content " id="nav-tabContent">
-						    <div class="tab-pane fade show active p-5" id="nav-columns" role="tabpanel" aria-labelledby="nav-columns-tab">
+                </div>
+            </div>
+            <div class="col-md-9  p-3">
+                <div class="border border-2 border-radius">
 
 
-						    </div>
-						    <div class="tab-pane fade" id="nav-filters" role="tabpanel" aria-labelledby="nav-filters-tab">
-						    </div>
-					    </div>
-				    </div>
-			    </div>
-		    </div>
-	    </div>
+                    <nav>
+                        <div class="nav nav-pills flex-column flex-sm-row" id="nav-tab" role="tablist">
+                            <button class="flex-sm-fill text-sm-center nav-link active" id="nav-columns-tab"
+                                data-bs-toggle="tab" data-bs-target="#nav-columns" type="button" role="tab"
+                                aria-controls="nav-columns" aria-selected="true">ستون ها</button>
+                            <button class="flex-sm-fill text-sm-center nav-link" id="nav-filters-tab"
+                                data-bs-toggle="tab" data-bs-target="#nav-filters" type="button" role="tab"
+                                aria-controls="nav-filters" aria-selected="false">شرط ها</button>
+                        </div>
+                    </nav>
+
+                    <div class="tab-content " id="nav-tabContent">
+                        <div class="tab-pane fade show active p-5" id="nav-columns" role="tabpanel"
+                            aria-labelledby="nav-columns-tab">
+
+
+                        </div>
+                        <div class="tab-pane fade p-3" id="nav-filters" role="tabpanel"
+                            aria-labelledby="nav-filters-tab">
+                            <div id="queryBuilderContainer"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 
-	<script src="~/panelLib/plugins/custom/draggable/draggable.boundle.js"></script>
-    <script>
+<script src="~/panelLib/plugins/custom/draggable/draggable.boundle.js"></script>
+<script src="~/panelLib/plugins/custom/queryBuilder/queryBuilder.js"></script>
+<script>
 
+    // Global variable to store QueryBuilder fields and instance
+    let queryBuilderFields = [];
+    let queryBuilderInstance = null;
 
-        $(document).ready(function() {
-             
-            let colData  = @Html.Raw(Model?.Columns ?? "[]");
-            let filterData = @Html.Raw(Model?.Filters ?? "[]");
+    $(document).ready(function () {
 
-            colData.forEach(c => {
-                AddColumns(c, null, null, "columns");
+        let colData = @Html.Raw(Model?.Columns ?? "[]");
+        let filterData = @Html.Raw(Model?.Filters ?? "null");
+
+        colData.forEach(c => {
+            AddColumns(c, null, null, "columns");
+        });
+
+        var tableName = $$("#entityName").val();
+        if (!tableName) {
+            return toastr.error(`نام جدول مشخص نشده است.`, 'خطا');
+        }
+
+        get("/DataTableProfileBuilder/GetEntityProp?name=" + tableName,
+            function (r) {
+                if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+                r.data.columns.forEach(z => {
+                    addColumn(z, $$("#dataTablePlace"));
+                });
+
+                // Convert columns to QueryBuilder fields format
+                queryBuilderFields = r.data.columns.map(col => ({
+                    name: col.name,
+                    label: col.title,
+                    type: col.type || 'string',
+                    fullName: col.relatedEntityTypeFullName || col.RelatedEntityTypeFullName,
+                    options: col.options ? col.options.map(o => ({ value: o.value, label: o.name })) : null
+                }));
+
+                // Initialize QueryBuilder
+                initQueryBuilder(filterData);
             });
-            filterData.forEach(c => {
-                AddColumns(c, null, null, "filters");
-            });
 
-            var tableName = $$("#entityName").val();
-            if (!tableName) {
-                return toastr.error(`نام جدول مشخص نشده است.`, 'خطا');
+        const tabelFeild = new Draggable.Sortable(
+            $$("#nav-columns")[0],
+            {
+                draggable: '.row',
+                handle: "[data-handler=true]",
+                mirror: {
+                    constrainDimensions: true,
+                },
             }
-            get("/DataTableProfileBuilder/GetEntityProp?name=" + tableName,
+        );
+
+    });
+
+    function initQueryBuilder(existingFilters) {
+        $$("#queryBuilderContainer").queryBuilder({
+            fields: queryBuilderFields,
+            entityApiUrl: '/DataTableProfileBuilder/GetEntityPropForQueryBuilder?name=',
+            onChange: function (rules) {
+                // Optional: handle changes in real-time
+            }
+        });
+
+        queryBuilderInstance = $$("#queryBuilderContainer").data('querybuilder');
+
+        // Load existing filters if available
+        if (existingFilters && typeof existingFilters === 'object' && existingFilters.logic) {
+            queryBuilderInstance.setRules(existingFilters);
+        }
+    }
+
+    function getQueryBuilderFilters() {
+        if (!queryBuilderInstance) return null;
+
+        var validation = queryBuilderInstance.validate();
+        if (!validation.valid) {
+            validation.errors.forEach(err => {
+                toastr.error(err.message, 'خطای اعتبارسنجی شرط‌ها');
+            });
+            return null;
+        }
+
+        return queryBuilderInstance.getRules();
+    }
+
+
+    function addColumn(z, $place, parentName = "", parentTitle = "") {
+
+        let $tmpl = {};
+        if (z.type == "entity") {
+            $tmpl = $(`<div class="col-md-12 p-5 cursor-pointer border border-2 border-radius my-1"><span>${z.title}</span> <span class="float-end badge badge-circle badge-dark" data-action="loadEntity" action-status="close"> <i class="fa fa-angle-double-down"></i></span>  <div class="mt-2" style="display:none" data-section="subEntity"></div> </div>`);
+
+            $tmpl.find("[data-action='loadEntity']")
+                .click(function () {
+                    let status = $(this).attr("action-status");
+
+                    if (status === "close") {
+                        let entityFullName = z.relatedEntityTypeFullName || z.RelatedEntityTypeFullName;
+                        get("/DataTableProfileBuilder/GetEntityProp?name=" + entityFullName,
+                            function (x) {
+                                if (!x.isSuccess) return toastr.error(`${x.message}`, 'خطا');
+                                x.data.columns.forEach(b => {
+
+                                    let childrenTitle = `${parentTitle}==>${z.title}`;
+
+                                    let childrenName = "";
+
+                                    if (z.type === "entity") {
+                                        childrenName = parentName + "." + z.name.split(".")[0];
+                                    } else {
+                                        childrenName = parentName + "." + z.name;
+                                    }
+
+                                    addColumn(b, $($tmpl.find("[data-section='subEntity']")[0]), childrenName, childrenTitle);
+
+                                });
+
+                                $($tmpl.find("[data-section='subEntity']")[0])
+                                    .slideDown();
+
+                            });
+                        $(this).attr("action-status", "open");
+
+                        $(this).find("i").removeClass("fa-angle-double-down");
+
+                        $(this).find("i").addClass("fa-angle-double-up");
+                        $tmpl.removeClass("bg-primary");
+
+                    } else {
+
+                        $($tmpl.find("[data-section='subEntity']")[0])
+                            .slideUp();
+                        $tmpl.find("[data-section='subEntity']").html("");
+                        $(this).attr("action-status", "close");
+
+                        $(this).find("i").removeClass("fa-angle-double-up");
+
+                        $(this).find("i").addClass("fa-angle-double-down");
+                    }
+
+                });
+
+            $$("#dataTablePlace").append($tmpl);
+
+
+        } else {
+            $tmpl = $(`<div class="col-md-12 p-5 cursor-pointer border border-2 border-radius my-1"><span>${z.title}</span> </div>`);
+
+
+        }
+        $tmpl.hover(function () {
+            if ($(this).find("[action-status='open']").length > 0) {
+                return;
+            }
+            $(this).addClass("bg-primary");
+        },
+            function () {
+                $(this).removeClass("bg-primary");
+            });
+
+        $tmpl.dblclick(function () {
+
+            if ($tmpl.find("[action-status='open']").length > 0) {
+                return;
+            }
+            // Only add to columns (filters are now handled by QueryBuilder)
+            AddColumns(z, parentTitle, parentName, "columns");
+
+        });
+
+        $place.append($tmpl);
+
+    }
+
+    function AddColumns(z, parentTitle, parentName, type) {
+
+        let showTitle = String(z?.title ?? z.showTitle)
+        let showName = String(z.name);
+
+        if (parentTitle != null) {
+            if (parentTitle.length > 0) {
+                showTitle = parentTitle.substr(3, parentTitle.length) + "==>" + showTitle;
+            }
+            if (parentName.length > 0) {
+                showName = parentName.substr(1, parentName.length) + "." + showName;
+            }
+        }
+
+        if (z.type && z.type != "button" && type === "columns") {
+            let $coltmpl = $(`<div class="row my-1 droppeble-element">
+                                        <div class="col-md-1 align-content-center">  <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i> </div>
+                            <div class="col-md-1">
+                                                  <a  data-action="remove" class="btn btn-icon btn-bg-light btn-active-color-danger btn-sm">
+                                                                <i class="ki-duotone ki-trash fs-2">
+                                                                    <span class="path1"></span>
+                                                                    <span class="path2"></span>
+                                                                    <span class="path3"></span>
+                                                                    <span class="path4"></span>
+                                                                    <span class="path5"></span>
+                                                                </i>
+                                                            </a>
+                            </div>
+                                              <div class="col-md-3"><input class="form-control" value="${z?.showTitle ?? showTitle}" disabled="disabled" data-name="${showName}" data-type="${z.type}"  /> </div>
+                                                                         <div class="col-md-3"><input class="form-control" value="${showTitle}" data-title="" /> </div>
+                                                                                         <div class="col-md-3"><select class="form-control" data-order=""><option value="">انتخاب کنید</option> <option value="ASC">کم به زیاد</option> <option value="DESC">زیاد به کم </option> </select>  </div>
+                                     <div class="col-md-1">
+                                   <div class="form-check">
+                                   <input data-bind='visible' class="form-check-input" type="checkbox"  />
+                                      <label class="form-check-label" >
+                                           نمایش  
+                                      </label>
+                                 </div>
+                                   </div>
+                           </div>`);
+
+            if (z.visible) {
+                $coltmpl.find("[data-bind='visible']")[0].checked = true;
+            } else {
+                $coltmpl.find("[data-bind='visible']")[0].checked = false;
+            }
+
+            $coltmpl.find("[data-action='remove']")
+                .click(function () {
+                    $coltmpl.remove();
+                });
+
+            $$("#nav-columns").append($coltmpl);
+        }
+    }
+
+    $$("#saveProfile")
+        .click(function () {
+
+            let model = {};
+
+            let hasError = false;
+            model.title = $$("#titleProfile").val();
+            model.id = $$("#idProfile").val();
+            model.entityName = $$("#entityName").val();
+
+            if (!model.title) {
+                return toastr.error(`عنوان نمایه داده مشخص نشده است.`, 'خطا');
+            }
+
+            model.columns = $$("#nav-columns").find(".row")
+                .map((i, c) => {
+                    let name = $(c).find("[data-name]").attr("data-name");
+
+                    if (!name) {
+                        hasError = true;
+                        $(c).addClass("border-danger");
+                    } else {
+                        $(c).removeClass("border-danger");
+                    }
+
+                    let title = $(c).find("[data-title]").val();
+
+                    if (!title) {
+                        hasError = true;
+                        $(c).find("[data-title]").addClass("border-danger");
+                    } else {
+                        $(c).find("[data-title]").removeClass("border-danger");
+                    }
+
+                    let order = $(c).find("[data-order]").val();
+                    let type = $(c).find("[data-type]").attr("data-type");
+                    let showTitle = $(c).find("[data-name]").val();
+                    let visible = $(c).find("[data-bind='visible']")[0]?.checked ?? true;
+                    return { name, title, order, type, showTitle, visible };
+                }).get();
+
+            if (hasError) {
+                return toastr.error("عنوان یکی از ستون ها مشخص نشده است.", "خطا");
+            }
+
+            // Get filters from QueryBuilder
+            let filterRules = getQueryBuilderFilters();
+
+            // filterRules can be null if validation failed (error already shown)
+            // If filterRules is empty or has no criteria, that's okay - no filters
+            model.filters = filterRules;
+
+            post("/DataTableProfileBuilder/Save",
+                model,
                 function (r) {
                     if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
-                    r.data.columns.forEach(z => {
-                        addColumn(z, $$("#dataTablePlace"));
-                    });
+                    toastr.success('ذخیره سازی با موفقیت انجام شد .');
 
                 });
-
-            const tabelFeild = new Draggable.Sortable(
-                $$("#nav-columns")[0],
-                {
-                    draggable: '.row',
-                    handle: "[data-handler=true]",
-                    mirror: {
-                        constrainDimensions: true,
-                    },
-                }
-            );
-
         });
- 
 
-        function addColumn(z, $place, parentName ="", parentTitle="") {
 
-            let $tmpl = {};
-            if (z.type == "entity") {
-                $tmpl = $(`<div class="col-md-12 p-5 cursor-pointer border border-2 border-radius my-1"><span>${z.title}</span> <span class="float-end badge badge-circle badge-dark" data-action="loadEntity" action-status="close"> <i class="fa fa-angle-double-down"></i></span>  <div class="mt-2" style="display:none" data-section="subEntity"></div> </div>`);
-
-                $tmpl.find("[data-action='loadEntity']")
-                    .click(function() {
-                        let status = $(this).attr("action-status");
-
-                        if (status === "close") {
-
-                         get("/DataTableProfileBuilder/GetEntityProp?name=" + z.relatedEntityTypeFullName,
-                                function(x) {
-                                    if (!x.isSuccess) return toastr.error(`${x.message}`, 'خطا');
-                                    x.data.columns.forEach(b => {
-                                        
-                                        let childrenTitle = `${parentTitle}==>${z.title}`;
-
-                                        let childrenName = "";
-
-                                        if (z.type === "entity") {
-                                            childrenName = parentName + "." + z.name.split(".")[0];
-                                        } else {
-                                            childrenName = parentName + "." + z.name;
-                                        }
-
-                                        addColumn(b, $($tmpl.find("[data-section='subEntity']")[0]), childrenName, childrenTitle);
-
-                                    });
-
-                                    $($tmpl.find("[data-section='subEntity']")[0])
-                                        .slideDown();
-
-                                });
-                            $(this).attr("action-status", "open");
-
-                            $(this).find("i").removeClass("fa-angle-double-down");
-
-                            $(this).find("i").addClass("fa-angle-double-up");
-                            $tmpl.removeClass("bg-primary");
-
-                        } else {
-
-                            $($tmpl.find("[data-section='subEntity']")[0])
-                                .slideUp();
-                            $tmpl.find("[data-section='subEntity']").html("");
-                            $(this).attr("action-status", "close");
-
-                            $(this).find("i").removeClass("fa-angle-double-up");
-
-                            $(this).find("i").addClass("fa-angle-double-down");
-                        }
-
-                    });
-
-                $$("#dataTablePlace").append($tmpl);
-
-
-            } else {
-                $tmpl = $(`<div class="col-md-12 p-5 cursor-pointer border border-2 border-radius my-1"><span>${z.title}</span> </div>`);
-
-
-            }
-            $tmpl.hover(function() {
-                    if ($(this).find("[action-status='open']").length > 0) {
-                        return;
-                    }
-                    $(this).addClass("bg-primary");
-                },
-                function() {
-                    $(this).removeClass("bg-primary");
-                });
-
-            $tmpl.dblclick(function() {
-                 
-                if ($tmpl.find("[action-status='open']").length > 0) {
-                    return;
-                }
-                let typeAdd = "columns";
-
-                if (!$$("#nav-columns-tab").hasClass("active")) {
-                    typeAdd ="filter"
-                }
-                AddColumns(z, parentTitle, parentName, typeAdd);
-
-            });
-
-            $place.append($tmpl);
-
-        }
-
-        function AddColumns(z, parentTitle, parentName , type) {
-
-            let showTitle = String(z?.title ?? z.showTitle)
-            let showName = String(z.name);
-
-                if (parentTitle != null) {
-                    if (parentTitle.length > 0) {
-
-                    showTitle = parentTitle.substr(3, parentTitle.length) + "==>" + showTitle;
-                }
-                if (parentName.length > 0) {
-
-                    showName = parentName.substr(1, parentName.length) + "." + showName;
-                }
-            }
-            if (z.type && z.type != "button")
-           {
-                debugger;
-                if (type === "columns") {
-                    let $coltmpl = $(`<div class="row my-1 droppeble-element">
-                                            <div class="col-md-1 align-content-center">  <i class="fa fa-arrows-alt" data-handler="true" aria-hidden="true"></i> </div>
-                                <div class="col-md-1">
-                                                      <a  data-action="remove" class="btn btn-icon btn-bg-light btn-active-color-danger btn-sm">
-                                                                    <i class="ki-duotone ki-trash fs-2">
-                                                                        <span class="path1"></span>
-                                                                        <span class="path2"></span>
-                                                                        <span class="path3"></span>
-                                                                        <span class="path4"></span>
-                                                                        <span class="path5"></span>
-                                                                    </i>
-                                                                </a>
-                                </div>
-                                                  <div class="col-md-3"><input class="form-control" value="${z?.showTitle ?? showTitle}" disabled="disabled" data-name="${showName}" data-type="${z.type}"  /> </div>
-                                                                             <div class="col-md-3"><input class="form-control" value="${showTitle}" data-title="" /> </div>
-                                                                                             <div class="col-md-3"><select class="form-control" data-order=""><option value="">انتخاب کنید</option> <option value="ASC">کم به زیاد</option> <option value="DESC">زیاد به کم </option> </select>  </div>
-                                         <div class="col-md-1">
-                                       <div class="form-check">
-                                       <input data-bind='visible' class="form-check-input" type="checkbox"  />
-                                          <label class="form-check-label" >
-                                               نمایش  
-                                          </label>
-                                     </div>
-                                       </div>
-                               </div>`);
-
-                            if(z.visible)
-                            {
-                            $coltmpl.find("[data-bind='visible']")[0].checked= true;
-                            }
-                            else
-                            {
-                             $coltmpl.find("[data-bind='visible']")[0].checked= false;
-                            }
-
-
-                    $coltmpl.find("[data-action='remove']")
-                        .click(function () {
-                            $coltmpl.remove();
-                        });
-
-                    $$("#nav-columns").append($coltmpl);
-                }
-                else {
-
-                     
-                    let stringSelect = `<select class="form-control" data-action="filter"><option value="" disabled="disabled" selected="" hidden="">شرط</option><option value="=" class="dtsb-option dtsb-notItalic">برابر</option><option value="!=" class="dtsb-option dtsb-notItalic">نباشد</option><option value="starts" class="dtsb-option dtsb-notItalic">شروع  شود با</option><option value="!starts" class="dtsb-option dtsb-notItalic">شروع نشود با</option><option value="contains" class="dtsb-option dtsb-notItalic">حاوی</option><option value="!contains" class="dtsb-option dtsb-notItalic">نباشد حاوی</option><option value="ends" class="dtsb-option dtsb-notItalic">به پایان می رسد با</option><option value="!ends" class="dtsb-option dtsb-notItalic">پایان نیابد با</option><option value="null" class="dtsb-option dtsb-notItalic">خالی</option><option value="!null" class="dtsb-option dtsb-notItalic">خالی نباشد</option></select>`
-                    let dateTimeSelect = `<select class="form-control" data-action="filter"><option value="" disabled="disabled" selected="" hidden="">شرط</option><option value="=" class="dtsb-option dtsb-notItalic">برابر</option><option value="!=" class="dtsb-option dtsb-notItalic">نباشد</option><option value="<" class="dtsb-option dtsb-notItalic">قبل از</option><option value=">" class="dtsb-option dtsb-notItalic">بعد از</option><option value="between" class="dtsb-option dtsb-notItalic">میان</option><option value="!between" class="dtsb-option dtsb-notItalic">میان نباشد</option><option value="null" class="dtsb-option dtsb-notItalic">خالی</option><option value="!null" class="dtsb-option dtsb-notItalic">خالی نباشد</option></select>`
-                    let entitySelect = `<select class="form-control" data-action="filter"><option value="" disabled="disabled" selected="" hidden="">شرط</option><option value="=" class="dtsb-option dtsb-notItalic">برابر</option><option value="!=" class="dtsb-option dtsb-notItalic">نباشد</option><option value="starts" class="dtsb-option dtsb-notItalic">شروع  شود با</option><option value="!starts" class="dtsb-option dtsb-notItalic">شروع نشود با</option><option value="contains" class="dtsb-option dtsb-notItalic">حاوی</option><option value="!contains" class="dtsb-option dtsb-notItalic">نباشد حاوی</option><option value="ends" class="dtsb-option dtsb-notItalic">به پایان می رسد با</option><option value="!ends" class="dtsb-option dtsb-notItalic">پایان نیابد با</option><option value="null" class="dtsb-option dtsb-notItalic">خالی</option><option value="!null" class="dtsb-option dtsb-notItalic">خالی نباشد</option></select>`
-
-                    let selectFilter;
-
-                    let lastDataName = z.name.split(".").last();
-                    if (lastDataName === "CreatedById" || lastDataName === "ModifiedById") {
-                        selectFilter = entitySelect;
-                        selectFilter = $(selectFilter).append("<option value='currentUser.Id'>کاربر فعلی</option>")[0].outerHTML;
-                    } else {
-
-                        if (z.type === "date" || z.type === "datetime" || z.type === "shamsidatetime" || z.type === "shamsidate") {
-                            selectFilter = dateTimeSelect;
-                        } else if (z.type === "entity") {
-                            selectFilter = entitySelect;
-                        } else {
-                            selectFilter = stringSelect;
-                        }
-                    }
-
-
-                    let $coltmpl = $(`<div class="row my-1">
-                                                 <div class="col-md-1">
-                                                      <a  data-action="remove" class="btn btn-icon btn-bg-light btn-active-color-danger btn-sm">
-                                                                    <i class="ki-duotone ki-trash fs-2">
-                                                                        <span class="path1"></span>
-                                                                        <span class="path2"></span>
-                                                                        <span class="path3"></span>
-                                                                        <span class="path4"></span>
-                                                                        <span class="path5"></span>
-                                                                    </i>
-                                                                </a>
-                                                         </div>
-                                                                <div class="col-md-4"><input class="form-control" value="${z?.showTitle ?? showTitle}" disabled="disabled" data-name="${showName}" data-type="${z.type}" /> </div>
-                                                                        <div class="col-md-3">${selectFilter} </div>
-                                                    <div class="col-md-4"><input class="form-control" value="" data-value="" /> </div>
-
-                                            </div>`);
-
-                    $coltmpl.find("[data-action='filter']")
-                        .change(function () {
-                            if ($(this).val() === "currentUser.Id") {
-                                $coltmpl.find("[data-value]").addClass("d-none");
-                            } else {
-
-                                $coltmpl.find("[data-value]").removeClass("d-none");
-                            }
-                        });
-
-
-                    $coltmpl.find("[data-action='remove']")
-                        .click(function () {
-                            $coltmpl.remove();
-                        });
-
-                    if (z.criteria) {
-                        $coltmpl.find("[data-action='filter']")
-                            .val(
-                                z.criteria
-                            ).change()
-                    }
-
-                    if (z.value) {
-                        $coltmpl.find("[data-value]")
-                            .val(
-                                z.value.join(",")
-                            ).change()
-                    }
-
-
-                    $$("#nav-filters").append($coltmpl);
-
-                }
-           }
-        }
-
-        $$("#saveProfile")
-            .click(function() {
-                 
-                let model = {};
-
-                let hasError = false;
-                model.title = $$("#titleProfile").val();
-                model.id = $$("#idProfile").val();
-                model.entityName = $$("#entityName").val();
-
-                if (!model.title) {
-                    return toastr.error(`عنوان نمایه داده مشخص نشده است.`, 'خطا');
-                }
-
-                model.columns = $$("#nav-columns").find(".row")
-                    .map((i, c) => {
-                         debugger
-                        let name = $(c).find("[data-name]").attr("data-name");
-
-                        if (!name) {
-                            hasError = true;
-                            $(c).addClass("border-danger");
-                        } else {
-                            $(c).removeClass("border-danger");
-                        }
-
-                        let title = $(c).find("[data-title]").val();
-
-                        if (!title) {
-                            hasError = true;
-                            $(c).find("[data-title]").addClass("border-danger");
-                        } else {
-                            $(c).find("[data-title]").removeClass("border-danger");
-                        }
-
-                        let order = $(c).find("[data-order]").val();
-                        let type = $$("[data-type]").attr("data-type");
-                        let showTitle = $(c).find("[data-name]").val();
-                          let  visible= $(c).find("[data-bind='visible']")[0].checked;
-                     return { name, title, order, type, showTitle , visible };
-                    }).get();
-
-                if (hasError) {
-                    return toastr.error("عنوان یکی از ستون ها مشخص نشده است.", "خطا");
-                }
-
-                hasError = false;
-
-                model.filters = $$("#nav-filters").find(".row")
-                    .map((i, c) => {
-                        let name = $(c).find("[data-name]").attr("data-name");
-                        if (!name) {
-                            hasError = true;
-                            $(c).addClass("border-danger");
-                        } else {
-                            $(c).removeClass("border-danger");
-                        }
-                        let value = $(c).find("[data-value]").map((i, c) => {
-                            return $(c).val()
-                        }).get();
-
-                        let criteria = $(c).find("[ data-action='filter']").val();
-
-                        if (!criteria) {
-                            hasError = true;
-                            $(c).find("[ data-action='filter']").addClass("border-danger");
-                        } else {
-                            $(c).find("[ data-action='filter']").removeClass("border-danger");
-                        }
-
-                        let type = $$("[data-type]").attr("data-type");
-                        let showTitle = $(c).find("[data-name]").val();
-                  let  visible= $(c).find("[data-bind='visible']")[0].checked;
-                  return { name, value, type, criteria, showTitle , visible};
-                    }).get();
-
-                if (hasError) {
-                    return toastr.error("مقدار یکی از شرط ها مشخص نشده است.", "خطا");
-                }
-
-
-                post("/DataTableProfileBuilder/Save",
-                    model,
-                    function(r) {
-                        if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-
-                        toastr.success('ذخیره سازی با موفقیت انجام شد .');
-
-                    });
-            });
-
-
-    </script>
-
+</script>

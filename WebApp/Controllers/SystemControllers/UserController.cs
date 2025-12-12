@@ -77,9 +77,10 @@ namespace WebApp.Controllers.SystemControllers
 					Name = user.Name,
 					Password = user.Password,
 					Username = user.Username,
-
 					ProfileUrl = user.ProfileUrl,
-					Roles = user.Roles
+					Roles = user.Roles,
+					AuthorizationType = user.AuthorizationType,
+					RoleIds = user.RoleIds
 				}, cn);
 			}
 			else
@@ -92,7 +93,9 @@ namespace WebApp.Controllers.SystemControllers
 					Password = user.Password,
 					Username = user.Username,
 					ProfileUrl = user.ProfileUrl,
-					Roles = user.Roles
+					Roles = user.Roles,
+					AuthorizationType = user.AuthorizationType,
+					RoleIds = user.RoleIds
 				}, cn);
 			}
 
