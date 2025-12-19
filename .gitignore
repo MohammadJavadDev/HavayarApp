@@ -63,3 +63,8 @@
 /WebApp/wwwroot/account.dat
 /.continue
 /.cursor/worktrees.json
+/Deploye.ps1
+/App.Real/bin/Release/net8.0
+/Infrastructure/bin/Release/net8.0
+/Shared/bin/Release/net8.0
+/WebApp/bin/Release/net8.0
