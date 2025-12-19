@@ -440,10 +440,14 @@ var FormBuilderApp = (function () {
 
 		// Delete property (delegated)
 		$(document).on('click', '.properties-container .btn-delete-property', function (e) {
-			debugger
+			 
 			e.stopPropagation();
 			if (confirm('آیا از حذف این ویژگی اطمینان دارید؟')) {
 				$(this).closest('.property-summary-card').fadeOut(300, function () {
+					var index = $(this).closest("[data-property-index]").data("property-index");
+					var sectionId = $(this).closest("[data-section-id]").data("section-id");
+
+					state.sections.filter(c => c.id == sectionId)[0].properties =state.sections.filter(c => c.id == sectionId)[0].properties.filter(z => z.orderIndex != index)
 					$(this).remove();
 					updatePropertyIndices();
 					// Reinitialize sortable after deleting property
@@ -619,8 +623,25 @@ var FormBuilderApp = (function () {
 			$(this).closest('.enum-option-row').remove();
 		});
 
+		// Show JSON import section
+		$('#btnImportEnumFromJson').on('click', function () {
+			$('#enumJsonImportSection').slideDown();
+			$('#editEnumJsonInput').focus();
+		});
+
+		// Cancel JSON import
+		$('#btnCancelEnumJson').on('click', function () {
+			$('#enumJsonImportSection').slideUp();
+			$('#editEnumJsonInput').val('');
+		});
+
+		// Parse JSON and import enum options
+		$('#btnParseEnumJson').on('click', function () {
+			importEnumOptionsFromJson();
+		});
+
 		// Edit nested entity button in property edit modal
-		$$('#btnEditNestedEntity').on('click', function () {
+		$('#btnEditNestedEntity').on('click', function () {
 			debugger
 			openNestedEntityModal(0); // Level 0 = from main property edit
 		});
@@ -932,13 +953,17 @@ var FormBuilderApp = (function () {
 		$$('#editEnumOptionsContainer').empty();
 		if (propData.enumOptions && propData.enumOptions.length > 0) {
 			propData.enumOptions.forEach(function (opt) {
-				addEditEnumOption(opt.value, opt.title, opt.englishName);
+				addEditEnumOption(opt.value, opt.title, opt.englishName, opt.id || null);
 			});
 		}
 
+		// Hide JSON import section
+		$('#enumJsonImportSection').hide();
+		$('#editEnumJsonInput').val('');
+
 		// Store nested properties
-		$$('#editNestedPropertiesJson').val(JSON.stringify(propData.childProperties || []));
-		$$('#nestedPropsCount').text((propData.childProperties || []).length);
+		$('#editNestedPropertiesJson').val(JSON.stringify(propData.childProperties || []));
+		$('#nestedPropsCount').text((propData.childProperties || []).length);
 
 		// Update conditional fields visibility
 		updateConditionalEditFields(propData.systemType);
@@ -1122,10 +1147,13 @@ var FormBuilderApp = (function () {
 			// Collect enum options
 			propData.enumOptions = [];
 			$$('#editEnumOptionsContainer .enum-option-row').each(function (idx) {
+				const $row = $(this);
+				const enumOptionId = $row.find('.enum-option-id').val();
 				propData.enumOptions.push({
-					value: parseInt($(this).find('.enum-option-value').val()) || 0,
-					title: $(this).find('.enum-option-title').val() || '',
-					englishName: $(this).find('.enum-option-english-name').val() || '',
+					id: enumOptionId && parseInt(enumOptionId) > 0 ? parseInt(enumOptionId) : null,
+					value: parseInt($row.find('.enum-option-value').val()) || 0,
+					title: $row.find('.enum-option-title').val() || '',
+					englishName: $row.find('.enum-option-english-name').val() || '',
 					orderIndex: idx
 				});
 			});
@@ -1170,12 +1198,13 @@ var FormBuilderApp = (function () {
 	/**
 	 * Add enum option in edit modal
 	 */
-	function addEditEnumOption(value, title, englishName) {
+	function addEditEnumOption(value, title, englishName, id) {
 		const $container = $$('#editEnumOptionsContainer');
 		const count = $container.find('.enum-option-row').length;
 
 		const $row = $(`
 			<div class="enum-option-row row g-2 mb-2 align-items-center">
+				<input type="hidden" class="enum-option-id" value="${id || ''}" />
 				<div class="col-auto" style="width: 80px;">
 					<input type="number" class="form-control form-control-sm enum-option-value" value="${value !== undefined ? value : count}" placeholder="مقدار" />
 				</div>
@@ -1238,6 +1267,124 @@ var FormBuilderApp = (function () {
 				toastr.warning('لطفا ابتدا عنوان فارسی را وارد کنید', 'هشدار');
 			}
 		});
+	}
+
+	/**
+	 * Simple function to create a valid identifier from Persian text
+	 * This is a fallback - auto-translate will still work after import
+	 */
+	function makeValidIdentifier(input) {
+		if (!input || !input.trim()) {
+			return 'Value';
+		}
+
+		// Remove invalid characters and replace spaces
+		let result = '';
+		for (let i = 0; i < input.length; i++) {
+			const c = input[i];
+			if (/[a-zA-Z0-9_]/.test(c)) {
+				result += c;
+			} else if (/\s/.test(c)) {
+				result += '_';
+			}
+		}
+
+		// Ensure it doesn't start with a digit
+		if (result.length > 0 && /[0-9]/.test(result[0])) {
+			result = '_' + result;
+		}
+
+		return result || 'Value';
+	}
+
+	/**
+	 * Import enum options from JSON
+	 */
+	function importEnumOptionsFromJson() {
+		const jsonText = $('#editEnumJsonInput').val().trim();
+		
+		if (!jsonText) {
+			toastr.warning('لطفا JSON را وارد کنید', 'هشدار');
+			return;
+		}
+
+		try {
+			const jsonData = JSON.parse(jsonText);
+			
+			if (!Array.isArray(jsonData)) {
+				toastr.error('JSON باید یک آرایه باشد', 'خطا');
+				return;
+			}
+
+			if (jsonData.length === 0) {
+				toastr.warning('آرایه JSON خالی است', 'هشدار');
+				return;
+			}
+
+			// Validate and parse each item
+			const validOptions = [];
+			for (let i = 0; i < jsonData.length; i++) {
+				const item = jsonData[i];
+				
+				if (!item || typeof item !== 'object') {
+					toastr.warning(`آیتم ${i + 1} معتبر نیست و نادیده گرفته شد`, 'هشدار');
+					continue;
+				}
+
+				const id = item.Id !== undefined ? parseInt(item.Id) : (item.id !== undefined ? parseInt(item.id) : null);
+				const text = item.Text || item.text || '';
+				
+				if (id === null || isNaN(id)) {
+					toastr.warning(`آیتم ${i + 1}: فیلد Id معتبر نیست`, 'هشدار');
+					continue;
+				}
+
+				if (!text || !text.trim()) {
+					toastr.warning(`آیتم ${i + 1}: فیلد Text خالی است`, 'هشدار');
+					continue;
+				}
+
+				validOptions.push({
+					id: id,
+					text: text.trim()
+				});
+			}
+
+			if (validOptions.length === 0) {
+				toastr.error('هیچ گزینه معتبری یافت نشد', 'خطا');
+				return;
+			}
+
+			// Ask user if they want to clear existing options
+			const existingCount = $('#editEnumOptionsContainer .enum-option-row').length;
+			let shouldClear = false;
+			if (existingCount > 0) {
+				shouldClear = confirm(`در حال حاضر ${existingCount} گزینه وجود دارد. آیا می‌خواهید گزینه‌های موجود پاک شوند و گزینه‌های جدید جایگزین شوند؟`);
+			}
+
+			if (shouldClear) {
+				$('#editEnumOptionsContainer').empty();
+			}
+
+			// Add each valid option
+			let addedCount = 0;
+			validOptions.forEach(function(option) {
+				// Generate temporary English name from Persian text (auto-translate will improve it)
+				const tempEnglishName = makeValidIdentifier(option.text);
+				// Pass id as the 4th parameter (for existing enum options), value as the 1st parameter
+				addEditEnumOption(option.id, option.text, tempEnglishName, option.id);
+				addedCount++;
+			});
+
+			// Hide JSON import section and clear input
+			$('#enumJsonImportSection').slideUp();
+			$('#editEnumJsonInput').val('');
+			
+			toastr.success(`${addedCount} گزینه با موفقیت اضافه شد. نام‌های انگلیسی به صورت خودکار بهبود می‌یابند.`, 'موفق');
+		} catch (e) {
+			toastr.error('خطا در پارس JSON: ' + e.message, 'خطا');
+			console.error('JSON Parse Error:', e);
+		}
 	}
 
 	/**
@@ -1484,7 +1631,7 @@ var FormBuilderApp = (function () {
 		$$('#nestedEditEnumOptionsContainer').empty();
 		if (propData.enumOptions && propData.enumOptions.length > 0) {
 			propData.enumOptions.forEach(function (opt) {
-				addNestedEditEnumOption(opt.value, opt.title, opt.englishName);
+				addNestedEditEnumOption(opt.value, opt.title, opt.englishName, opt.id || null);
 			});
 		}
 
@@ -1593,11 +1740,13 @@ var FormBuilderApp = (function () {
 			// Collect enum options
 			propData.enumOptions = [];
 			$$('#nestedEditEnumOptionsContainer .enum-option-row').each(function (idx) {
-				debugger
+				const $row = $(this);
+				const enumOptionId = $row.find('.enum-option-id').val();
 				propData.enumOptions.push({
-					value: parseInt($(this).find('.enum-option-value').val()) || 0,
-					title: $(this).find('.enum-option-title').val() || '',
-					englishName: $(this).find('.enum-option-english-name').val() || '',
+					id: enumOptionId && parseInt(enumOptionId) > 0 ? parseInt(enumOptionId) : null,
+					value: parseInt($row.find('.enum-option-value').val()) || 0,
+					title: $row.find('.enum-option-title').val() || '',
+					englishName: $row.find('.enum-option-english-name').val() || '',
 					orderIndex: idx
 				});
 			});
@@ -1734,12 +1883,13 @@ var FormBuilderApp = (function () {
 	/**
 	 * Add enum option in nested property edit modal
 	 */
-	function addNestedEditEnumOption(value, title, englishName) {
+	function addNestedEditEnumOption(value, title, englishName, id) {
 		const $container = $$('#nestedEditEnumOptionsContainer');
 		const count = $container.find('.enum-option-row').length;
 
 		const $row = $(`
 			<div class="enum-option-row row g-2 mb-2 align-items-center">
+				<input type="hidden" class="enum-option-id" value="${id || ''}" />
 				<div class="col-auto" style="width: 80px;">
 					<input type="number" class="form-control form-control-sm enum-option-value" value="${value !== undefined ? value : count}" placeholder="مقدار" />
 				</div>
@@ -2213,6 +2363,11 @@ var FormBuilderApp = (function () {
 	 * Populate form from FormDefinition object
 	 */
 	function populateFormFromDefinition(formDef) {
+		if (!formDef) {
+			initializeSections();
+			return;
+		}
+
 		// Populate form fields
 		$$('#formBuilderCard input[data-bind="entityName"]').val(formDef.entityName || '');
 		$$('#formBuilderCard input[data-bind="displayName"]').val(formDef.displayName || '');
@@ -2223,31 +2378,38 @@ var FormBuilderApp = (function () {
 		$$('#formBuilderCard textarea[data-bind="description"]').val(formDef.description || '');
 		$$('#formBuilderCard input[data-bind="id"]').val(formDef.id || '');
 
-		// Handle sections
+		// Set current form definition ID
+		state.currentFormDefinitionId = formDef.id || null;
+
+		// Handle sections - normalize and map all properties correctly
 		if (formDef.sections && Array.isArray(formDef.sections) && formDef.sections.length > 0) {
-			state.sections = formDef.sections.map(section => ({
-				id: section.id || 0,
-				uqniqId: section.uqniqId || section.id || 1,
-				title: section.title || 'بخش',
-				orderIndex: section.orderIndex || 0,
-				properties: (section.properties || []).map(prop => {
-					prop.systemType = normalizeSystemType(prop.systemType);
-					return prop;
-				})
-			}));
+			state.sections = formDef.sections.map((section, sectionIndex) => {
+				// Ensure unique ID for sections
+				const sectionId = section.id && section.id > 0 ? section.id : null;
+				const uqniqId = section.uqniqId || sectionId || (sectionIndex + 1);
+
+				return {
+					id: sectionId,
+					uqniqId: uqniqId,
+					title: section.title || `بخش ${sectionIndex + 1}`,
+					orderIndex: section.orderIndex ?? sectionIndex,
+					properties: (section.properties || []).map((prop, propIndex) => {
+						return normalizePropertyData(prop, propIndex);
+					})
+				};
+			});
 		} else if (formDef.properties && Array.isArray(formDef.properties) && formDef.properties.length > 0) {
 			// Legacy support: if no sections but has properties, create default section with all properties
 			state.sections = [{
-				 
+				id: null,
 				title: 'اطلاعات اصلی',
 				orderIndex: 0,
 				properties: [],
-				uqniqId :1
+				uqniqId: 1
 			}];
 
-			formDef.properties.forEach(function (prop) {
-				prop.systemType = normalizeSystemType(prop.systemType);
-				state.sections[0].properties.push(prop);
+			formDef.properties.forEach(function (prop, index) {
+				state.sections[0].properties.push(normalizePropertyData(prop, index));
 			});
 		} else {
 			// No data, initialize with empty default section
@@ -2260,6 +2422,65 @@ var FormBuilderApp = (function () {
 
 		// Reinitialize sortable after loading properties
 		initSortable();
+	}
+
+	/**
+	 * Normalize property data including enumOptions and childProperties
+	 */
+	function normalizePropertyData(prop, index) {
+		// Normalize system type
+		prop.systemType = normalizeSystemType(prop.systemType);
+
+		// Ensure ID is set correctly
+		if (!prop.id && prop.id !== null) {
+			prop.id = null;
+		}
+
+		// Normalize enumOptions
+		if (prop.enumOptions && Array.isArray(prop.enumOptions)) {
+			prop.enumOptions = prop.enumOptions.map((opt, optIndex) => ({
+				id: opt.id && opt.id > 0 ? opt.id : null,
+				value: opt.value ?? optIndex,
+				title: opt.title || '',
+				englishName: opt.englishName || '',
+				orderIndex: opt.orderIndex ?? optIndex
+			}));
+		} else {
+			prop.enumOptions = [];
+		}
+
+		// Normalize childProperties recursively
+		if (prop.childProperties && Array.isArray(prop.childProperties)) {
+			prop.childProperties = prop.childProperties.map((childProp, childIndex) => {
+				return normalizePropertyData(childProp, childIndex);
+			});
+		} else {
+			prop.childProperties = [];
+		}
+
+		// Ensure orderIndex
+		if (prop.orderIndex === undefined || prop.orderIndex === null) {
+			prop.orderIndex = index;
+		}
+
+		return prop;
+	}
+
+	 
+	function loadFormDefinitionById(id) {
+		if (!id || id === 0) {
+			initializeSections();
+			return;
+		}
+
+		get(`/Panel/FormBuilder/GetById?id=${id}`, function (response) {
+			if (response.isSuccess && response.data) {
+				populateFormFromDefinition(response.data);
+			} else {
+				toastr.error('خطا در بارگذاری اطلاعات فرم', 'خطا');
+				initializeSections();
+			}
+		});
 	}
 
 	/**
@@ -3063,6 +3284,7 @@ var FormBuilderApp = (function () {
 		addProperty: addProperty,
 		previewCode: previewCode,
 		saveFiles: saveFiles,
-		getSectionsData: getSectionsData
+		getSectionsData: getSectionsData,
+		loadFormDefinitionById: loadFormDefinitionById
 	};
 })();

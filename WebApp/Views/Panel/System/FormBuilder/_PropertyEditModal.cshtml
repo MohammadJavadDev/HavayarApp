@@ -212,11 +212,42 @@
 								<div class="col-md-12">
 									<div class="d-flex justify-content-between align-items-center mb-2">
 										<label class="fw-bold">گزینه‌های Enum</label>
-										<button type="button" class="btn btn-sm btn-light-primary"
-											id="btnAddEditEnumOption">
-											<i class="ki-duotone ki-plus fs-3"></i>
-											افزودن گزینه
-										</button>
+										<div class="d-flex gap-2">
+											<button type="button" class="btn btn-sm btn-light-success"
+												id="btnImportEnumFromJson" title="وارد کردن از JSON">
+												<i class="ki-duotone ki-file-down fs-3">
+													<span class="path1"></span>
+													<span class="path2"></span>
+												</i>
+												وارد کردن از JSON
+											</button>
+											<button type="button" class="btn btn-sm btn-light-primary"
+												id="btnAddEditEnumOption">
+												<i class="ki-duotone ki-plus fs-3"></i>
+												افزودن گزینه
+											</button>
+										</div>
+									</div>
+									<div class="mb-3" id="enumJsonImportSection" style="display: none;">
+										<label class="form-label">وارد کردن از JSON:</label>
+										<textarea class="form-control font-monospace" id="editEnumJsonInput" rows="6"
+											placeholder='مثال:&#10;[&#10;  {&#10;    "Id": 38,&#10;    "Text": "ریال"&#10;  },&#10;  {&#10;    "Id": 37,&#10;    "Text": "تومان"&#10;  }&#10;]'></textarea>
+										<small class="form-text text-muted">
+											فرمت JSON باید شامل آرایه‌ای از اشیاء با فیلدهای "Id" و "Text" باشد
+										</small>
+										<div class="mt-2">
+											<button type="button" class="btn btn-sm btn-success" id="btnParseEnumJson">
+												<i class="ki-duotone ki-check fs-3">
+													<span class="path1"></span>
+													<span class="path2"></span>
+												</i>
+												وارد کردن گزینه‌ها
+											</button>
+											<button type="button" class="btn btn-sm btn-secondary"
+												id="btnCancelEnumJson">
+												انصراف
+											</button>
+										</div>
 									</div>
 									<div id="editEnumOptionsContainer" class="enum-options-grid">
 										<!-- Enum options will be added here -->

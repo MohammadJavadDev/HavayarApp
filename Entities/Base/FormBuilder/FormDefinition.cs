@@ -44,9 +44,9 @@ namespace Entities.Base.FormBuilder
 		[MaxLength(1000)]
 		public string? Description { get; set; }
 
-	[DisplayName("ویژگی‌ها")]
-	[DisplayInfo(null, true, SystemType.ListEntity)]
-	public List<FormProperty> Properties { get; set; } = new();
+	//[DisplayName("ویژگی‌ها")]
+	//[DisplayInfo(null, true, SystemType.ListEntity)]
+	//public List<FormProperty> Properties { get; set; } = new();
 
 	[DisplayName("بخش‌ها")]
 	[DisplayInfo(null, false, SystemType.ListEntity)]

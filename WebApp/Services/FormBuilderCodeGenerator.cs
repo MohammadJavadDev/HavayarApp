@@ -61,7 +61,7 @@ namespace WebApp.Services
 		else
 		{
 			// Fallback to old Properties collection for backward compatibility
-			allProperties.AddRange(formDefinition.Properties ?? new List<FormProperty>());
+		 
 		}
 
 		// Generate partial views for ListEntity properties
@@ -114,7 +114,7 @@ namespace WebApp.Services
 		else
 		{
 			// Fallback to old Properties collection for backward compatibility
-			allProperties.AddRange(formDefinition.Properties ?? new List<FormProperty>());
+		 
 		}
 
 		// Partial views
@@ -224,8 +224,7 @@ namespace WebApp.Services
 			else
 			{
 				// Fallback to old Properties collection for backward compatibility
-				allProperties.AddRange(formDefinition.Properties?.OrderBy(p => p.OrderIndex).ToList() ?? new List<FormProperty>());
-			}
+ 			}
 
 			// Generate properties
 			foreach (var prop in allProperties)
@@ -524,8 +523,7 @@ namespace WebApp.Services
 			else
 			{
 				// Fallback to old Properties collection for backward compatibility
-				allProperties.AddRange(formDefinition.Properties ?? new List<FormProperty>());
-			}
+ 			}
 
 			// Build includes for related entities
 			var includes = allProperties
@@ -656,12 +654,7 @@ namespace WebApp.Services
 		else
 		{
 			// Backward compatibility: create a single section with all properties
-			sections.Add(new SectionsFormDefinition
-			{
-				Title = "اطلاعات",
-				Properties = formDefinition.Properties?.Where(p => p.SystemType != SystemType.ListEntity).OrderBy(p => p.OrderIndex).ToList() ?? new List<FormProperty>(),
-				ListEntityProperties = formDefinition.Properties?.Where(p => p.SystemType == SystemType.ListEntity).ToList() ?? new List<FormProperty>()
-			});
+			 
 		}
 
 		// Generate sections

@@ -642,4 +642,23 @@
 
 	// Initialize form builder and pass $$ jQuery reference
 	FormBuilderApp.init($$);
+
+	debugger
+
+	var modelId = @Model.Id
+
+	// Load form definition if editing existing form
+	if (modelId != null && modelId > 0)
+	{
+		 FormBuilderApp.loadFormDefinitionById(modelId);
+	}
+	else
+	{
+		 var modelData = @Html.Raw(Json.Serialize(Model));
+		if (modelData && modelData.sections && modelData.sections.length > 0) {
+			FormBuilderApp.populateFormFromDefinition(modelData);
+		} else if (modelData && modelData.properties && modelData.properties.length > 0) {
+			FormBuilderApp.populateFormFromDefinition(modelData);
+		}
+	}
 </script>
