@@ -7,6 +7,7 @@ using Entities.Base;
 using Entities.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using static System.Net.Mime.MediaTypeNames;
 
 
 namespace Services.Auth;
@@ -22,14 +23,63 @@ public class UserService(
      public virtual ApplicationDbContext Context => db;
      public virtual IQueryable<User> Table => db.Users;
      public virtual IQueryable<User> TableNoTracking => db.Users.AsNoTracking();
-     public async Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model)
+     public async Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model,CancellationToken ct = default)
      {
  
 		var user = await db.Users.FirstOrDefaultAsync(x => x.Username == model.Username);
 
           if(user == null)
           {
-               return null;
+
+			var activeDirectoryValidateCredentials = await activeDirectoryService.ValidateCredentialsAsync(model.Username, model.Password);
+
+               if(activeDirectoryValidateCredentials == true)
+               {
+				var userInfoFromAd = activeDirectoryService.GetUserInfo(model.Username, model.Password);
+
+                    string? folderPathImage = null;
+				if (userInfoFromAd != null  )
+				{
+
+					   if(userInfoFromAd.ProfileImage != null && userInfoFromAd.ProfileImage.Length != 0)
+                         {
+						folderPathImage = Path.Combine(
+					    Directory.GetCurrentDirectory(),
+					    "wwwroot",
+					    "UserProfileImage"
+					);
+
+						if (!Directory.Exists(folderPathImage))
+							Directory.CreateDirectory(folderPathImage);
+
+						var fileName = $"{model.Username}.jpg";
+						var filePath = Path.Combine(folderPathImage, fileName);
+
+						File.WriteAllBytes(filePath, userInfoFromAd.ProfileImage);
+
+						folderPathImage = Path.Combine("UserProfileImage", fileName);
+					}
+
+					
+
+					user = await AddUserAsync(new()
+					{
+						AuthorizationType = AuthorizationTypeEnum.ActiveDirectory,
+						ProfileUrl = folderPathImage,
+						IsActive = IsActiveEnum.Active,
+						Name = userInfoFromAd.DisplayName,
+						Username = model.Username,
+						RoleIds = new(),
+						Roles = []
+
+					}, ct);
+				}
+
+
+				 
+			}
+		     if(user == null)
+                 return null;
           }
 
 		if (user.IsActive != IsActiveEnum.Active)

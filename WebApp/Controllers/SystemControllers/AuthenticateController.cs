@@ -35,14 +35,14 @@ namespace WebApp.Controllers.SystemControllers
 
 	   [AllowAnonymous]
         [HttpPost("Login")]
-        public async Task<IActionResult> Login(AuthenticateRequest model)
+        public async Task<IActionResult> Login(AuthenticateRequest model , CancellationToken ct)
         {
 
             if (!string.IsNullOrEmpty(model.FName))
             {
                 return BadRequest(new { message = "اطلاعات وارد شده اشتباه میباشد." });
             }
-            var response = await _userService.Authenticate(model);
+            var response = await _userService.Authenticate(model , ct);
 
             if (response == null)
                 return BadRequest(new { message = "نام کاربری یا رمزعبور اشتباه میباشد ." });

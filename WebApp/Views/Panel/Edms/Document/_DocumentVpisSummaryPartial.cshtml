@@ -1,0 +1,94 @@
+@using Common.Utilities
+@using Entities.App.Edms
+@model ProjectVpis
+
+@if (Model == null)
+{
+	<div class="card card-flush mb-5">
+		<div class="card-header pt-5">
+			<div class="card-title d-flex flex-column">
+				<span class="fs-6 fw-bold">مشخصات سند (Vpis)</span>
+				<span class="text-muted fs-8">ابتدا پروژه و سند را انتخاب کنید</span>
+			</div>
+		</div>
+		<div class="card-body pt-3">
+			<div class="text-muted">اطلاعاتی برای نمایش وجود ندارد.</div>
+		</div>
+	</div>
+}
+else
+{
+	<div class="card card-flush mb-5">
+		<div class="card-header pt-5">
+			<div class="card-title d-flex flex-column">
+				<span class="fs-6 fw-bold">مشخصات سند (Vpis)</span>
+				<span class="text-muted fs-8">اطلاعات پایه برای کنترل چرخه</span>
+			</div>
+		</div>
+		<div class="card-body pt-3">
+			<div class="d-flex flex-column gap-2">
+				<div class="d-flex justify-content-between">
+					<span class="text-muted">نوع</span>
+					<span class="fw-semibold">@(Model.Type.HasValue ? Model.Type.Value.ToDisplay() : "-")</span>
+				</div>
+				<div class="d-flex justify-content-between">
+					<span class="text-muted">کلاس</span>
+					<span class="fw-semibold">@(Model.ClassDocument.HasValue ? Model.ClassDocument.Value.ToDisplay() : "-")</span>
+				</div>
+				<div class="d-flex justify-content-between">
+					<span class="text-muted">دیسپلین</span>
+					<span class="fw-semibold">@(Model.Displaying.HasValue ? Model.Displaying.Value.ToDisplay() : "-")</span>
+				</div>
+				<div class="d-flex justify-content-between">
+					<span class="text-muted">سایز صفحه</span>
+					<span class="fw-semibold">@(Model.PageSize.HasValue ? Model.PageSize.Value.ToDisplay() : "-")</span>
+				</div>
+
+				@if (Model.PersonHourRevisionZero.HasValue)
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">نفرساعت R0</span>
+						<span class="fw-semibold">@Model.PersonHourRevisionZero</span>
+					</div>
+				}
+				@if (Model.PersonHourRevisionOne.HasValue)
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">نفرساعت R1</span>
+						<span class="fw-semibold">@Model.PersonHourRevisionOne</span>
+					</div>
+				}
+				@if (Model.PersonHourRevisionTwo.HasValue)
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">نفرساعت R2</span>
+						<span class="fw-semibold">@Model.PersonHourRevisionTwo</span>
+					</div>
+				}
+				@if (Model.PersonHourRevisionThree.HasValue)
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">نفرساعت R3</span>
+						<span class="fw-semibold">@Model.PersonHourRevisionThree</span>
+					</div>
+				}
+
+				@if (!string.IsNullOrWhiteSpace(Model.FirstDegreeDocumentShamsiDate))
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">تاریخ مبنا</span>
+						<span class="fw-semibold">@Model.FirstDegreeDocumentShamsiDate</span>
+					</div>
+				}
+				@if (!string.IsNullOrWhiteSpace(Model.ReplaceShamsiDate))
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">برنامه جایگزین</span>
+						<span class="fw-semibold">@Model.ReplaceShamsiDate</span>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+}
+

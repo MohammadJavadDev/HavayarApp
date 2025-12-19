@@ -1,3 +1,4 @@
+using Entities.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
@@ -8,7 +9,7 @@ namespace Data;
 /// Design-time factory برای EF Core Migrations
 /// این کلاس فقط در زمان اجرای Add-Migration/Update-Database استفاده می‌شود
 /// </summary>
-public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
+public class ApplicationDbContextFactory() : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
@@ -36,8 +37,10 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
             sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
         });
 
-        // ایجاد DbContext بدون dependencies (ISdk null می‌شود)
-        return new ApplicationDbContext(optionsBuilder.Options);
+		var metadataCache = new EntityMetadataCache();
+
+		// ایجاد DbContext بدون dependencies (ISdk null می‌شود)
+		return new ApplicationDbContext(optionsBuilder.Options , metadataCache);
     }
 }
 

@@ -1,0 +1,194 @@
+@using Common.Utilities
+@using Entities.App.Edms;
+@using Entities.Auth
+@model Document
+
+@{
+
+	var CanEditDocument = false;
+	if (ViewData["CanEditDocument"] != null)
+	{
+		CanEditDocument = (bool)ViewData["CanEditDocument"];
+	}
+}
+<div id="DocumentRevisionEditor">
+
+
+     <div class="card shadow-sm my-1">
+		<div class="card-body row g-4">
+			<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+			<input class='form-control' data-bind='projectId' value='@Model?.ProjectId' type='hidden' />
+			<input class='form-control' data-bind='documentVpisId' value='@Model?.DocumentVpisId' type='hidden' />
+
+			<div class="col-12">
+				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+					<div class="d-flex flex-wrap align-items-center gap-2">
+						<span class="fw-bold">ریویژن</span>
+						<span class="badge badge-light-primary">@Model?.Revision</span>
+						<span class="text-muted">وضعیت:</span>
+						<span class="badge badge-light">@(Model?.Status.HasValue == true ? Model.Status.Value.ToDisplay() : "-")</span>
+					</div>
+					<div class="text-muted small">
+						آخرین ویرایش: <span class="rtl">@(Model?.ModifiedDateShamsiDateTime ?? "-")</span>
+					</div>
+				</div>
+			</div>
+
+			<div class='col-md-6'>
+				<label class='form-label'>هدف از تولید مدرک</label>
+				<select class='form-control' data-bind='goalOfProduction' asp-for='GoalOfProduction'
+						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentGoalOfProductionEnum))">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-6'>
+				<label class='form-label'>نفر ساعت</label>
+				<input class='form-control' data-bind='hourPrePerson' data-invalidMessage='فقط عدد'
+					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HourPrePerson' />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-6'>
+				<label class='form-label'>تاریخ انتشار/ارسال</label>
+				<input class='form-control' data-bind='publicationShamsiDate' data-persionDatePicker="true"
+					persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value='@Model?.PublicationShamsiDate' />
+			</div>
+
+			<div class='col-md-6'>
+				<label class='form-label'>بازنگری</label>
+				<input class='form-control' data-bind='revision' data-invalidMessage='فقط عدد'
+					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' disabled />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class="col-md-6">
+				<label class="form-label">بررسی کننده</label>
+				@(Html.EntitySelector<User>
+											(
+											"ReviewerSelector",
+											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+											c => new
+											{
+													Id = c.Id,
+													Name = c.Name,
+
+											},
+											c => new { c.Username, c.Name },
+											"{Name}",
+											"reviewerId",
+											null,
+											Model?.ReviewerId?.ToString()
+											))
+			</div>
+
+			<div class="col-md-6">
+				<label class="form-label">تایید کننده</label>
+				@(Html.EntitySelector<User>
+											(
+											"ApproverSelector",
+											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+											c => new
+											{
+													Id = c.Id,
+													Name = c.Name,
+
+											},
+											c => new { c.Username, c.Name },
+											"{Name}",
+											"approverId",
+											null,
+											Model?.ApproverId?.ToString()
+											))
+			</div>
+
+			<div class='col-md-12'>
+				<label class='form-label'>توضیحات</label>
+				<textarea class='form-control' data-bind='comment' asp-for='Comment'>@Model?.Comment</textarea>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-6'>
+				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
+							label="فایل اصلی" entity-type="Document" entity-prop-name="MainFile" bindid="mainFile"
+							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+			</div>
+
+			<div class='col-md-6'>
+				<fileuploader bind="motherFileId" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
+							label="فایل مادر" entity-type="Document" entity-prop-name="MotherFile" bindid="motherFile"
+							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+			</div>
+
+			<div class='col-md-6'>
+				<fileuploader bind="secondaryFileId" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
+							label="فایل ثانوی" entity-type="Document" entity-prop-name="SecondaryFile" bindid="secondaryFile"
+							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+			</div>
+
+			<div class='col-md-6'>
+				<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
+							label="فایل ReplySheet" entity-type="Document" entity-prop-name="ReplySheet" bindid="replySheet"
+							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+			</div>
+
+			<div class='col-md-6'>
+				<label class='form-label'>وضعیت مدرک</label>
+				<select class='form-control' data-bind='status' asp-for='Status'
+						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))"
+					   disabled="disabled">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+		
+		 
+		</div>
+ </div>
+  
+	<div class="card my-1">
+		<div class="card-header pt-5">
+			<div class="card-title d-flex flex-column">
+				<span class="fs-6 fw-bold">کامنت ها و گردش فرآیند</span>
+			
+			</div>
+		</div>
+		<div class="card-body">
+			<div class='col-md-12'>
+				<div class=" ">
+					@if (Model?.Comments != null)
+					{
+						foreach (var item in Model.Comments)
+						{
+							@await Html.PartialAsync("_DocumentCommentPartial.cshtml", item, ViewData)
+						}
+					}
+				</div>
+			</div>
+		</div>
+
+	</div>
+	<div class="card my-1">
+
+	<div class='card-body row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+</div>
+

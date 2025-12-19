@@ -3,18 +3,19 @@ using Common.Utilities;
  
 using Entities.Auth;
 using Entities.Base;
+using Entities.Services;
  
 using Microsoft.EntityFrameworkCore;
  
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using System.Text.Json;
-using System.Text.Encodings.Web;
 using System.Linq.Expressions;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 
 
 namespace Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options ) : DbContext(options)
+public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IEntityMetadataCache _entityMetadataCache) : DbContext(options)
 {
 	private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
 	{
@@ -143,62 +144,91 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             throw TranslateDbUpdateException(ex);
         }
     }
-    private Exception TranslateDbUpdateException(DbUpdateException ex)
-    {
-        string persianMessage = "خطایی در عملیات پایگاه داده رخ داده است.";
+	private Exception TranslateDbUpdateException(DbUpdateException ex)
+	{
+		string persianMessage = "خطایی در عملیات پایگاه داده رخ داده است.";
+		if (ex.InnerException != null)
+		{
+			var message = ex.InnerException.Message;
 
-        if (ex.InnerException != null)
-        {
-            var message = ex.InnerException.Message;
+			// کنترل خطای NULL
+			if (message.Contains("Cannot insert the value NULL into column"))
+			{
+				try
+				{
+					// استخراج نام ستون و جدول
+					var columnStartIndex = message.IndexOf("column '") + "column '".Length;
+					var columnEndIndex = message.IndexOf("'", columnStartIndex);
+					var columnName = message.Substring(columnStartIndex, columnEndIndex - columnStartIndex);
 
-            if (message.Contains("REFERENCE constraint"))
-            {
+					var tableStartIndex = message.IndexOf("table '") + "table '".Length;
+					var tableEndIndex = message.IndexOf("'", tableStartIndex);
+					var fullTableName = message.Substring(tableStartIndex, tableEndIndex - tableStartIndex);
+
+					// استخراج نام جدول (بدون schema)
+					var tableName = fullTableName.Split('.').LastOrDefault() ?? fullTableName;
+
+					// دریافت متادیتای entity
+					var entityMetadata = _entityMetadataCache.Get(tableName);
+
+					if (entityMetadata != null)
+					{
+						// پیدا کردن property مربوطه
+						var property = entityMetadata.Properties
+						    .FirstOrDefault(p => p.Name.Equals(columnName, StringComparison.OrdinalIgnoreCase));
+
+						if (property != null && !string.IsNullOrEmpty(property.DisplayName))
+						{
+							persianMessage = $"فیلد '{property.DisplayName}' اجباری است و نمی‌تواند خالی باشد.";
+						}
+						else
+						{
+							persianMessage = $"فیلد '{columnName}' اجباری است و نمی‌تواند خالی باشد.";
+						}
+					}
+					else
+					{
+						persianMessage = $"فیلد '{columnName}' در جدول '{tableName}' اجباری است و نمی‌تواند خالی باشد.";
+					}
+				}
+				catch
+				{
+					persianMessage = "یک یا چند فیلد اجباری خالی مانده است. لطفاً تمام فیلدهای ضروری را پر کنید.";
+				}
+			}
+			else if (message.Contains("REFERENCE constraint"))
+			{
+				var columnStartIndex = message.IndexOf("column '") + "column '".Length;
+				var columnEndIndex = message.IndexOf("'", columnStartIndex);
+				var columnName = message.Substring(columnStartIndex, columnEndIndex - columnStartIndex);
+				persianMessage = $"امکان حذف این رکورد وجود ندارد زیرا به رکوردهایی در جدول مرتبط وابسته است. ستون مربوطه: '{columnName}'.";
+			}
+			else if (message.Contains("UNIQUE constraint") || message.Contains("PRIMARY KEY"))
+			{
+				var constraintStartIndex = message.IndexOf("constraint \"") + "constraint \"".Length;
+				var constraintEndIndex = message.IndexOf("\"", constraintStartIndex);
+				var constraintName = message.Substring(constraintStartIndex, constraintEndIndex - constraintStartIndex);
+				persianMessage = $"مقادیر تکراری در فیلدهایی که باید یکتا باشند وجود دارد. نام محدودیت: '{constraintName}'.";
+			}
+			else if (message.Contains("String or binary data would be truncated"))
+			{
+				persianMessage = "طول داده وارد شده بیش از حد مجاز است. لطفاً اطلاعات خود را بررسی کنید.";
+			}
+			else if (message.Contains("timeout") || message.Contains("could not open connection"))
+			{
+				persianMessage = "ارتباط با پایگاه داده امکان‌پذیر نیست یا زمان انجام عملیات به پایان رسیده است. لطفاً دوباره تلاش کنید.";
+			}
+			else
+			{
+				persianMessage = "خطایی در اجرای عملیات پایگاه داده رخ داده است. لطفاً جزئیات بیشتر را بررسی کنید.";
+			}
+		}
+		return new Exception(persianMessage);
+	}
 
 
-                var columnStartIndex = message.IndexOf("column '") + "column '".Length;
-                var columnEndIndex = message.IndexOf("'", columnStartIndex);
-                var columnName = message.Substring(columnStartIndex, columnEndIndex - columnStartIndex);
 
-
-                persianMessage = $"امکان حذف این رکورد  وجود ندارد زیرا به رکوردهایی در جدول مرتبط وابسته است.:ستون مربوطه: '{columnName}'.";
-
-            }
-
-            else if (message.Contains("UNIQUE constraint") || message.Contains("PRIMARY KEY"))
-            {
-                var constraintStartIndex = message.IndexOf("constraint \"") + "constraint \"".Length;
-                var constraintEndIndex = message.IndexOf("\"", constraintStartIndex);
-                var constraintName = message.Substring(constraintStartIndex, constraintEndIndex - constraintStartIndex);
-
-                persianMessage = $"مقادیر تکراری در فیلدهایی که باید یکتا باشند وجود دارد. نام محدودیت: '{constraintName}'.";
-            }
-
-
-            else if (message.Contains("String or binary data would be truncated"))
-            {
-                persianMessage = "طول داده وارد شده بیش از حد مجاز است. لطفاً اطلاعات خود را بررسی کنید.";
-            }
-
-
-            else if (message.Contains("timeout") || message.Contains("could not open connection"))
-            {
-                persianMessage = "ارتباط با پایگاه داده امکان‌پذیر نیست یا زمان انجام عملیات به پایان رسیده است. لطفاً دوباره تلاش کنید.";
-            }
-
-	 
-            else
-            {
-                persianMessage = "خطایی در اجرای عملیات پایگاه داده رخ داده است. لطفاً جزئیات بیشتر را بررسی کنید.";
-            }
-        }
-
-
-        return new Exception(persianMessage);
-    }
-
-
-
-    public DbSet<AuditLog> AuditLogs { get; set; }
+	public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<AuditLogDetail> AuditLogDetails { get; set; }
     public virtual DbSet<User> Users { get; set; }
 	public virtual DbSet<Role> Roles { get; set; }

@@ -27,7 +27,7 @@
 			<div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-10 order-2 order-lg-1">
 				<div class="d-flex flex-center flex-column flex-lg-row-fluid">
 					<div class="w-lg-500px p-10">
-						<div class="form w-100" novalidate="novalidate" id="form">
+						<div class="form w-100"   id="form">
 							<div class="fv-row mb-8">
 								<input type="text" placeholder="نام کاربری" data-bind="username" autocomplete="off" class="form-control bg-transparent" />
 					 
@@ -40,7 +40,7 @@
 							</div>
 				  
 							<div class="d-grid mb-10">
-								<button type="submit" id="login" class="btn btn-primary">
+								<button   id="login" class="btn btn-primary">
  
 									<span class="indicator-label">ورود</span>
 								  
@@ -72,31 +72,11 @@
 	</div>
  
  
-	<script src="~/panelLib/plugins/global/plugins.bundle.js"></script>
+<script src="~/panelLib/plugins/global/plugins.bundle.js"></script>
 <script src="~/panelLib/js/scripts.bundle.js"></script>
 <script src="~/js/site.js"></script>
  
-<script>
-
-		$('#login').click(function () {
-
-        if (validateError($('#form'))) { return; }
-
-        var model = $('#form').dataBind();
-        const $btn = $(this).block();
-
-        post('/Authenticate/Login',
-            model,
-            function(r) {
-                $btn.block(false);
-                if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-                location.assign("/");
-
-
-            });
-        });
-
-</script>
+ 
  
 </body>
  

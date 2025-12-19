@@ -9,6 +9,7 @@ namespace Services.Auth;
 	{
 		Task<bool> ValidateCredentialsAsync(string username, string password);
 		Task<ADUserInfo?> GetUserInfoAsync(string username);
+	ADUserInfo GetUserInfo(string username, string password);
 	}
 
 	public class ADUserInfo
@@ -17,7 +18,9 @@ namespace Services.Auth;
 		public string Email { get; set; } = string.Empty;
 		public string FullName { get; set; } = string.Empty;
 		public string DisplayName { get; set; } = string.Empty;
-	}
+		public string? Phone { get; set; }
+		public byte[]? ProfileImage { get; set; }
+}
 
 	public class ActiveDirectoryService : IActiveDirectoryService
 	{
@@ -39,7 +42,9 @@ namespace Services.Auth;
 					var domain = _configuration["ActiveDirectory:Domain"];
 
 					using var context = new PrincipalContext(ContextType.Domain, domain);
-					return context.ValidateCredentials(username, password);
+					var res = context.ValidateCredentials(username, password);
+					var userInfo = GetUserInfo(username,password);
+					return res;
 				}
 				catch (Exception ex)
 				{
@@ -78,5 +83,47 @@ namespace Services.Auth;
 				}
 			});
 		}
+
+	public ADUserInfo GetUserInfo(string username, string password)
+	{
+		var domain = _configuration["ActiveDirectory:Domain"];
+		using var entry = new DirectoryEntry(
+		    $"LDAP://{domain}",
+		    $"{domain}\\{username}",
+		    password
+		);
+
+		using var searcher = new DirectorySearcher(entry);
+		searcher.Filter = $"(sAMAccountName={username})";
+
+		searcher.PropertiesToLoad.Add("displayName");
+		searcher.PropertiesToLoad.Add("mail");
+		searcher.PropertiesToLoad.Add("telephoneNumber");
+		searcher.PropertiesToLoad.Add("thumbnailPhoto");
+
+		var result = searcher.FindOne();
+		if (result == null) return null;
+
+		return new ADUserInfo
+		{
+			DisplayName = GetProp(result, "displayName"),
+			Email = GetProp(result, "mail"),
+			Phone = GetProp(result, "telephoneNumber"),
+			ProfileImage = GetPhoto(result)
+		};
 	}
- 
+	string GetProp(SearchResult result, string prop)
+	{
+		return result.Properties.Contains(prop)
+		    ? result.Properties[prop][0]?.ToString()
+		    : null;
+	}
+
+	byte[] GetPhoto(SearchResult result)
+	{
+		return result.Properties.Contains("thumbnailPhoto")
+		    ? (byte[])result.Properties["thumbnailPhoto"][0]
+		    : null;
+	}
+
+}

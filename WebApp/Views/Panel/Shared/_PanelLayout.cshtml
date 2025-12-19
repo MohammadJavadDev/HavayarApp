@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+<!DOCTYPE html>
 <html direction="rtl" dir="rtl" style="direction: rtl">
 
 <head>
@@ -60,9 +61,14 @@ data-kt-app-sidebar-push-footer="true" data-kt-app-toolbar-enabled="true" class=
 	 
 	<script src="~/panelLib/plugins/custom/xlsx/xlsx.full.min.js"></script>
 	<script src="~/lib/signalr/signalr.js"></script>
+	<script>
+		window.AppConfig = {
+			realtimeHubUrl: "@Configuration["RealtimeHub:Url"]"
+		};
+	</script>
  	<script src="~/js/site.js" asp-append-version="true"></script>
 	<script src="~/panellib/plugins/custom/querybuilder/querybuilder.js"></script>
-	 
+	<script src="~/panellib/js/panel.js"></script>
 
 	@await RenderSectionAsync("Scripts", required: false)
 </body>

@@ -2,94 +2,80 @@
 using Common.Auth.Enums;
 using Common.Utilities;
 using Data.SystemAuth;
-using Entities.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Logging;
 using Services.AccessServices;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace WebFramework.Middlewares
 {
-    public class CustomAuthorizationMiddleware(RequestDelegate next, IMemoryCache _cache  
-       , IRoleMemoryStorage _roleMemoryStorage ,IAccessMemoryStorage _accessMemoryStorage,
-         IOnlineUserService onlineUserService)
+    public class CustomAuthorizationMiddleware
     {
+        private readonly RequestDelegate _next;
+        private readonly IMemoryCache _cache;
+        private readonly IRoleMemoryStorage _roleMemoryStorage;
+        private readonly IAccessMemoryStorage _accessMemoryStorage;
+        private readonly IOnlineUserService _onlineUserService;
+        private readonly ILogger<CustomAuthorizationMiddleware> _logger;
         private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(1);
+
+       
+        private static readonly HashSet<string> AdminRoles = new(StringComparer.OrdinalIgnoreCase) { "admin" };
+
+        public CustomAuthorizationMiddleware(
+            RequestDelegate next,
+            IMemoryCache cache,
+            IRoleMemoryStorage roleMemoryStorage,
+            IAccessMemoryStorage accessMemoryStorage,
+            IOnlineUserService onlineUserService,
+            ILogger<CustomAuthorizationMiddleware> logger)
+        {
+            _next = next;
+            _cache = cache;
+            _roleMemoryStorage = roleMemoryStorage;
+            _accessMemoryStorage = accessMemoryStorage;
+            _onlineUserService = onlineUserService;
+            _logger = logger;
+        }
+
         public async Task InvokeAsync(HttpContext context)
         {
-                
-                if (!IsAllowAnonymous(context))
-                {
-                    var endpoint = context.GetEndpoint();
-                    if (endpoint == null)
-                    {
-                        await next(context);
-                        return;
-                    }
-                    if (!IsAuthorized(context))
-                    {
+    
+            var endpoint = context.GetEndpoint();
 
-                        await context.ForbidAsync();
-                     
-                    }
-                }
-            
-
-                await next(context);
-        }
-        private bool IsStaticFileRequest(HttpContext context)
-        {
-            var path = context.Request.Path.Value;
-            if (path is not null && path.EndsWith(".js"))
+            if (endpoint == null)
             {
-                return true;
+                await _next(context);
+                return;
             }
 
-            if (path is not null && path.EndsWith(".css"))
+          
+            if (IsAllowAnonymous(endpoint))
             {
-                return true;
-            }
-            if (path is not null && path.EndsWith(".svg"))
-            {
-                return true;
-            } 
-            if (path is not null && path.EndsWith(".png"))
-            {
-                return true;
-            }
-            if (path is not null && path.EndsWith(".woff"))
-            {
-                return true;
-            }  
-            if (path is not null && path.EndsWith(".ico"))
-            {
-                return true;
-            }
-            if (path is not null && path.EndsWith(".jpg"))
-            {
-                return true;
-            }
-            if (path is not null && path.EndsWith(".jpge"))
-            {
-                return true;
+                await _next(context);
+                return;
             }
 
-            return false;
+   
+            if (!IsAuthorized(context, endpoint))
+            {
+               
+                await context.ForbidAsync();
+                return;
+            }
+
+            await _next(context);
         }
 
-        private bool IsAuthorized(HttpContext context)
+        private bool IsAuthorized(HttpContext context, Endpoint endpoint)
         {
-
+       
             string? authorization = context.Request.Cookies["JwtToken"];
 
             if (string.IsNullOrEmpty(authorization))
             {
                 authorization = context.Request.Headers.Authorization;
-                     
             }
 
             if (string.IsNullOrEmpty(authorization))
@@ -97,108 +83,180 @@ namespace WebFramework.Middlewares
                 return false;
             }
 
-            var type = context.GetEndpoint()
-                           ?.Metadata?
-                           .GetMetadata<ActionDisplayNameAttribute>()?.Type ??
-                       ActionAccessType.Other;
+             if (IsAuthenticatedUserPolicy(endpoint))
+            {
+                return context.User?.Identity?.IsAuthenticated == true;
+            }
 
+            var type = endpoint.Metadata?.GetMetadata<ActionDisplayNameAttribute>()?.Type ?? ActionAccessType.Other;
             var requestPath = context.Request.Path.Value?.ToLower();
 
-            try
+            if (string.IsNullOrEmpty(requestPath))
             {
-                 
-		     var roleNames = onlineUserService.GetUserRole(context.User.Identity.GetUserId());
-                     
-
-                if (roleNames.Any(c => c == "admin"))
-                {
-                    return true;
-                }
-                 
-                if (!_accessMemoryStorage.ExistPath(requestPath))
-                {
-                    return true;
-                }
-                  
-                var cacheKey = $"{string.Join(",", roleNames)}:{requestPath}";
-
-                if (_cache.TryGetValue(cacheKey, out bool hasAccess))
-                {
-                    if (!hasAccess)
-                    {
-                        if (type == ActionAccessType.Api)
-                            ForbiddenException(requestPath);
-
-                        return false;
-                    }
- 
-                    return true;
-                }
-
-                hasAccess = roleNames.Any(roleName =>
-                {
-                    var role = _roleMemoryStorage.GetRoleByName(roleName);
-                     return role.RoleAccesses.Any(c => c.Path.Equals(requestPath, StringComparison.OrdinalIgnoreCase));
-			 });
-
-                _cache.Set(cacheKey, hasAccess, _cacheDuration);
-                     
-
-                if (type == ActionAccessType.Api && hasAccess == false)
-                    ForbiddenException(requestPath);
-
-                return hasAccess;
-
-            }
-            catch (Exception)
-            {
-                if (type == ActionAccessType.Api )
-                    ForbiddenException(requestPath);
-
                 return false;
             }
 
-
-        }
-        private void ForbiddenException(string path)
-        {
-           var action = _accessMemoryStorage.GetAccessAction(path);
-           if (action != null)
-           {
-                
-               throw new Exception("خطای عدم دسترسی \n آدرس :" + action.AccessController.DisplayName + " عملیات : " +action.DisplayName);
-           }
-           else
-           {
-               throw new Exception("خطای عدم دسترسی آدرس :" + path);
-           }
-          
-        }
-        public static string Base64UrlDecode(string input)
-        {
-            input = input.Replace('-', '+').Replace('_', '/');
-            switch (input.Length % 4)
+            try
             {
-                case 2: input += "=="; break;
-                case 3: input += "="; break;
+             
+                if (context.User?.Identity == null || !context.User.Identity.IsAuthenticated)
+                {
+                    return false;
+                }
+
+                var userId = context.User.Identity.GetUserId();
+                var roleNames = _onlineUserService.GetUserRole(userId);
+
+                if (roleNames == null || roleNames.Length == 0)
+                {
+                    _logger.LogWarning("User {UserId} has no roles assigned", userId);
+                    return false;
+                }
+
+              
+                if (roleNames.Any(r => AdminRoles.Contains(r)))
+                {
+                    return true;
+                }
+
+                  if (!_accessMemoryStorage.ExistPath(requestPath))
+                {
+                    return true;  
+                }
+
+             
+                var cacheKey = BuildCacheKey(roleNames, requestPath);
+
+                if (_cache.TryGetValue(cacheKey, out bool cachedAccess))
+                {
+                    if (!cachedAccess && type == ActionAccessType.Api)
+                    {
+                        ThrowForbiddenException(requestPath);
+                    }
+                    return cachedAccess;
+                }
+
+       
+                bool hasAccess = CheckRoleAccess(roleNames, requestPath);
+
+                _cache.Set(cacheKey, hasAccess, _cacheDuration);
+
+                if (!hasAccess && type == ActionAccessType.Api)
+                {
+                    ThrowForbiddenException(requestPath);
+                }
+
+                return hasAccess;
             }
-            var base64EncodedBytes = Convert.FromBase64String(input);
-            return Encoding.UTF8.GetString(base64EncodedBytes);
-        }
-        private bool IsAllowAnonymous(HttpContext context)
-        {
-
-            var endpoint = context.GetEndpoint();
-
-            if (endpoint?.Metadata != null)
+            catch (Exception ex)
             {
-                var allowAnonymousAttribute = endpoint.Metadata.GetMetadata<IAllowAnonymous>();
-                return allowAnonymousAttribute != null;
+                _logger.LogError(ex, "Authorization error for path: {Path}", requestPath);
+
+                if (type == ActionAccessType.Api)
+                {
+                    ThrowForbiddenException(requestPath);
+                }
+
+                return false;
+            }
+        }
+
+        private bool CheckRoleAccess(string[] roleNames, string requestPath)
+        {
+            foreach (var roleName in roleNames)
+            {
+                var role = _roleMemoryStorage.GetRoleByName(roleName);
+
+        
+                if (role?.RoleAccesses == null)
+                {
+                    continue;
+                }
+
+              
+                foreach (var access in role.RoleAccesses)
+                {
+                    if (string.Equals(access.Path, requestPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
             }
 
             return false;
         }
 
-       
+        private static string BuildCacheKey(string[] roleNames, string requestPath)
+        {
+          
+            if (roleNames.Length <= 3)
+            {
+                return $"{string.Join(",", roleNames)}:{requestPath}";
+            }
+
+           
+            var capacity = roleNames.Sum(r => r.Length) + roleNames.Length + requestPath.Length + 1;
+            return string.Create(capacity, (roleNames, requestPath), (span, state) =>
+            {
+                int pos = 0;
+                for (int i = 0; i < state.roleNames.Length; i++)
+                {
+                    if (i > 0)
+                    {
+                        span[pos++] = ',';
+                    }
+                    state.roleNames[i].AsSpan().CopyTo(span[pos..]);
+                    pos += state.roleNames[i].Length;
+                }
+                span[pos++] = ':';
+                state.requestPath.AsSpan().CopyTo(span[pos..]);
+            });
+        }
+
+        private void ThrowForbiddenException(string? path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                throw new UnauthorizedAccessException("خطای عدم دسترسی");
+            }
+
+            var action = _accessMemoryStorage.GetAccessAction(path);
+            if (action != null)
+            {
+                _logger.LogWarning("Access denied to path: {Path}, Controller: {Controller}, Action: {Action}",
+                    path, action.AccessController?.DisplayName, action.DisplayName);
+
+                throw new UnauthorizedAccessException(
+                    $"خطای عدم دسترسی - آدرس: {action.AccessController?.DisplayName} - عملیات: {action.DisplayName}");
+            }
+
+            _logger.LogWarning("Access denied to unregistered path: {Path}", path);
+            throw new UnauthorizedAccessException($"خطای عدم دسترسی - آدرس: {path}");
+        }
+
+        private static bool IsAllowAnonymous(Endpoint endpoint)
+        {
+            return endpoint.Metadata?.GetMetadata<IAllowAnonymous>() != null;
+        }
+
+        private static bool IsAuthenticatedUserPolicy(Endpoint endpoint)
+        {
+            var authorizeAttributes = endpoint.Metadata?.GetOrderedMetadata<AuthorizeAttribute>();
+
+            if (authorizeAttributes == null)
+            {
+                return false;
+            }
+
+            foreach (var attr in authorizeAttributes)
+            {
+                if (string.Equals(attr.Policy, "AuthenticatedUser", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

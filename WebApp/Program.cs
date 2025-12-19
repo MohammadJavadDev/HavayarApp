@@ -5,6 +5,7 @@ using Data.Repositories;
 using Data.Services;
 using Data.SystemAuth;
 using Entities.Auth;
+using Entities.Services;
 using Infrastructure.CrudEventInterceptors;
 using Infrastructure.Messaging;
 using Infrastructure.NotificationServices;
@@ -27,7 +28,7 @@ using WebApp.Services;
 using WebApp.Services.Realtime;
 using WebFramework.Initializes;
 using WebFramework.Middlewares;
- 
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,6 +82,7 @@ builder.Services.AddScoped<INotifitactionBuilderService, NotifitactionBuilderSer
 builder.Services.AddSingleton<INotificationRuleCache, NotificationRuleCache>();
 
 builder.Services.AddSingleton<IAccessMemoryStorage, AccessMemoryStorage>();
+ 
 
 // Redis-backed caches
 builder.Services.AddSingleton<IRoleMemoryStorage, RedisRoleMemoryStorage>();
@@ -123,10 +125,11 @@ builder.Services.AddSingleton<INotificationEventPublisher, NotificationEventPubl
 builder.Services.AddSingleton<ICrudEventPublisher, CrudEventPublisher>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 
+ 
+
 builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
 
-// DbContext already registered above with CrudEventInterceptor
-
+ 
 
 
 builder.Services

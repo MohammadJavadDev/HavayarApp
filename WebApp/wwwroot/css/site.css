@@ -2029,6 +2029,7 @@ body[class*=jconfirm-no-scroll-] {
 .file-uploader-container {
      margin-bottom: 1rem;
      width: 100%;
+     min-width: 170px;
 }
 
      .file-uploader-container .dropzone-area {
@@ -2038,6 +2039,7 @@ body[class*=jconfirm-no-scroll-] {
           background: var(--bs-gray-100, #f8f9fa);
           transition: all 0.3s ease;
           cursor: pointer;
+            font-size: 0.8rem;
      }
 
           .file-uploader-container .dropzone-area:hover {

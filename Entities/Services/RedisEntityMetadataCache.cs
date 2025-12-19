@@ -3,7 +3,7 @@ using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Services.InMemoryData;
+namespace Entities.Services;
 
 /// <summary>
 /// Redis-backed implementation برای EntityMetadataCache

@@ -236,23 +236,23 @@ namespace Entities.App.Edms
 
 		[DisplayName("کاربران محرمانه")]
 		[DisplayInfo(null, true, SystemType.String)]
-		public string SensitiveUsers { get; set; }  
+		public string? SensitiveUsers { get; set; }  
 
 		[DisplayName("شناسه کاربران محرمانه")]
 		[DisplayInfo(null, true, SystemType.String)]
-		public string SensitiveUsersIds { get; set; }  
+		public string? SensitiveUsersIds { get; set; }  
 
 		[DisplayName("پروژه تکوین است")]
 		[DisplayInfo(null, true, SystemType.Boolean)]
 		public bool IsTakvinProject { get; set; } = false;
 
-		[DisplayName("ذینفعان")]
+		[DisplayName("کاربران تکوین")]
 		[DisplayInfo(null, true, SystemType.String)]
-		public string UserBenefitTakvin { get; set; } 
+		public string? UserBenefitTakvin { get; set; } 
 
 		[DisplayName("شناسه کاربران تکوین")]
 		[DisplayInfo(null, true, SystemType.ListLong)]
-		public string UserBenefitTakvinIds { get; set; }  
+		public string? UserBenefitTakvinIds { get; set; }  
 
 		[DisplayName("روز تاخیر مجاز هوایار")]
 		[DisplayInfo(null, true, SystemType.Int, regex: @"^[\u06F0-\u06F90-9]+$", regexInvalidError: "فقط عدد")]

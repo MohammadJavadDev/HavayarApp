@@ -1,3 +1,4 @@
+using Common.Auth.Enums;
 using Entities.Auth;
 
 namespace Services.AccessServices.DTOs;
@@ -10,6 +11,8 @@ public sealed class AccessControllerDto
     public long Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+    public string? EntityTypeFullName { get; set; }
     public List<AccessActionDto> Actions { get; set; } = new();
 }
 
@@ -23,6 +26,8 @@ public sealed class AccessActionDto
     public string DisplayName { get; set; } = string.Empty;
     public string Path { get; set; } = string.Empty;
     public string HttpMethod { get; set; } = string.Empty;
+	public ActionAccessType? ActionAccessType { get; set; }
+	public ActionAccessItemType ActionAccessItemType { get; set; }
 }
 
 /// <summary>
@@ -37,6 +42,8 @@ public static class AccessControllerExtensions
             Id = entity.Id,
             Name = entity.Name,
             DisplayName = entity.DisplayName,
+            Path = entity.Path ?? string.Empty,
+            EntityTypeFullName = entity.EntityType?.FullName,
             Actions = entity.Actions?.Select(a => a.ToDto()).ToList() ?? new List<AccessActionDto>()
         };
     }
@@ -49,7 +56,10 @@ public static class AccessControllerExtensions
             Name = entity.Name,
             DisplayName = entity.DisplayName,
             Path = entity.Path,
-            HttpMethod = entity.HttpMethod
+            HttpMethod = entity.HttpMethod,
+            ActionAccessType = entity.ActionAccessType,
+            ActionAccessItemType = entity.ActionAccessItemType
+            
         };
     }
 

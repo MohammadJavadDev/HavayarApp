@@ -71,7 +71,14 @@ namespace Services.AccessServices
            var accessControllers = accessMemoryStorage.GetAllAccessControllers();
            var r = new List<SystemMenuItem>();
 
-            foreach (var ac in accessControllers)
+			var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+			if (env == "Production")
+			{
+			var fb =	accessControllers.FindIndex(c=>c.Name == "FormBuilder");
+                    accessControllers.RemoveRange(fb,1);
+			}
+
+			foreach (var ac in accessControllers)
             {
                 
                 var nit = new SystemMenuItem()

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Services.InMemoryData
+namespace Entities.Services
 {
 	using Common.Attributes;
 	using Common.Entities.EntityMetadatas;

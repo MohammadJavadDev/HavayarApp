@@ -10,88 +10,88 @@ namespace Entities.App.Edms.Enums
 	public enum DocumentStatusEnums
 	{
 		 
-		[Display(Name = "رد شده")]
+		[Display(Name = "Reject رد شده")]
 		Reject = 1,
 
-		[Display(Name = "تایید شده")]
+		[Display(Name = "Approve تایید شده")]
 		Approve = 2,
 
-		[Display(Name = "تایید با یادداشت")]
+		[Display(Name = "ApprovedAsNote تایید با یادداشت")]
 		ApprovedAsNote = 3,
 
-		[Display(Name = "نظر داده شده")]
+		[Display(Name = "Commented نظر داده شده")]
 		Commented = 4,
 
-		[Display(Name = "صادر شده")]
+		[Display(Name = "Issue صادر شده")]
 		Issue = 5,
 
-		[Display(Name = "تایید توسط DCC")]
+		[Display(Name = "ApprovedByDcc تایید توسط DCC")]
 		ApprovedByDcc = 6,
 
-		[Display(Name = "رد توسط کارفرما")]
+		[Display(Name = "RejectByEmployer رد توسط کارفرما")]
 		RejectByEmployer = 7,
 
-		[Display(Name = "تایید توسط کارفرما")]
+		[Display(Name = "ApproveByEmployer تایید توسط کارفرما")]
 		ApproveByEmployer = 8,
 
-		[Display(Name = "تایید با یادداشت توسط کارفرما")]
+		[Display(Name = "ApprovedAsNoteByEmployer تایید با یادداشت توسط کارفرما")]
 		ApprovedAsNoteByEmployer = 9,
 
-		[Display(Name = "نظر داده شده توسط کارفرما")]
+		[Display(Name = "CommentedByEmployer نظر داده شده توسط کارفرما")]
 		CommentedByEmployer = 10,
 
-		[Display(Name = "معلق")]
+		[Display(Name = "Hold معلق")]
 		Hold = 11,
 
-		[Display(Name = "خارج از انتظار")]
+		[Display(Name = "UnHold خارج از انتظار")]
 		UnHold = 12,
 
-		[Display(Name = "بررسی نشده")]
+		[Display(Name = "NotReview بررسی نشده")]
 		NotReview = 13,
 
-		[Display(Name = "خارج از انتظار توسط کارفرما")]
+		[Display(Name = "UnHoldByEmployer خارج از انتظار توسط کارفرما")]
 		UnHoldByEmployer = 14,
 
-		[Display(Name = "ارسال ایمیل به مشتری")]
+		[Display(Name = "SendEmailToClient ارسال ایمیل به مشتری")]
 		SendEmailToClient = 15,
 
-		[Display(Name = "صادر مجدد")]
+		[Display(Name = "ReIssued صادر مجدد")]
 		ReIssued = 16,
 
-		[Display(Name = "ثبت شده")]
+		[Display(Name = "Commited ثبت شده")]
 		Commited = 17,
 
-		[Display(Name = "لغو ثبت")]
+		[Display(Name = "UnCommit لغو ثبت")]
 		UnCommit = 18,
 
-		[Display(Name = "تایید توسط فروش")]
+		[Display(Name = "ApprovedBySale تایید توسط فروش")]
 		ApprovedBySale = 19,
 
-		[Display(Name = "نظر داده شده توسط فروش")]
+		[Display(Name = "CommentedBySale نظر داده شده توسط فروش")]
 		CommentedBySale = 20,
 
-		[Display(Name = "طبق ساخت")]
+		[Display(Name = "AsBuild طبق ساخت")]
 		AsBuild = 21,
 
-		[Display(Name = "برگه پاسخ")]
+		[Display(Name = "ReplaySheet برگه پاسخ")]
 		ReplaySheet = 22,
 
-		[Display(Name = "برگه پاسخ از مشتری")]
+		[Display(Name = "ReplaySheetFromClient برگه پاسخ از مشتری")]
 		ReplaySheetFromClient = 23,
 
-		[Display(Name = "صادر برای مشتری")]
+		[Display(Name = "IssueForClient صادر برای مشتری")]
 		IssueForClient = 24,
 
-		[Display(Name = "رد توسط فروش")]
+		[Display(Name = "RejectedBySale رد توسط فروش")]
 		RejectedBySale = 25,
 
-		[Display(Name = "بایگانی شده")]
+		[Display(Name = "Archived بایگانی شده")]
 		Archived = 26,
 
-		[Display(Name = "در انتظار توسط پروژه")]
+		[Display(Name = "HoldByProject در انتظار توسط پروژه")]
 		HoldByProject = 27,
 
-		[Display(Name = "تبدیل به پکیج عمومی")]
+		[Display(Name = "ConvertToGeneralPackage تبدیل به پکیج عمومی")]
 		ConvertToGeneralPackage = 29
  
 	}

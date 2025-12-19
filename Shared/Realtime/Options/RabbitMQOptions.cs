@@ -6,7 +6,7 @@ namespace Shared.Realtime.Options;
 public class RabbitMQOptions
 {
 	public const string SectionName = "RabbitMQ";
-	public string HostName { get; set; } = "localhost";
+	public string HostName { get; set; } = "127.0.0.1";
     public int Port { get; set; } = 5672;
     public string VirtualHost { get; set; } = "/";
     public string UserName { get; set; } = "guest";

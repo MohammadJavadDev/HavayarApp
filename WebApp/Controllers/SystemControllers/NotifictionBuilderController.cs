@@ -1,7 +1,7 @@
 ﻿using Data.Repositories;
 using Entities.Base.NotifitactionBuilder;
+using Entities.Services;
 using Microsoft.AspNetCore.Mvc;
-using Services.InMemoryData;
 using Services.NotifitactionBuilderServices;
 using System.Threading.Tasks;
 using WebFramework.Filtters;
@@ -22,7 +22,7 @@ namespace WebApp.Controllers.SystemControllers
 			var dataProfile = dataTableProfileService.GetDataTableProfileById(id);
 			var entityName = dataProfile.EntityName;
 			var data = _entityMetadataCache.Get(entityName);
-			var existRules =await _notifitactionBuilderService.GetExist(entityName, CurrentUserId);
+			var existRules =await _notifitactionBuilderService.GetExist(entityName, (long)CurrentUserId);
 
 			return Ok(new{entityData = data , existRules  });
 		}

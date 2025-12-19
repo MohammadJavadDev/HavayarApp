@@ -1,6 +1,7 @@
 using App.Real.Hubs;
 using Azure;
 using Azure.Core;
+using Common.Auth.Enums;
 using Common.Utilities;
 using Data.Contracts;
 using Data.Repositories;
@@ -26,19 +27,18 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
 {
     private readonly IHubContext<RealtimeHub> _hub;
     private readonly ILogger<EntityChangeNotificationHandler> _logger;
- 
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly string _webAppBaseUrl;
- 
-
-
+    private readonly IAccessMemoryStorage _accessMemoryStorage;
 
 	public EntityChangeNotificationHandler(
         IHubContext<RealtimeHub> hub,
         ILogger<EntityChangeNotificationHandler> logger,
         IConfiguration configuration,
-	   IServiceScopeFactory serviceScopeFactory
-  
+	   IServiceScopeFactory serviceScopeFactory,
+	   IAccessMemoryStorage accessMemoryStorage
+
+
 	  )
     {
           _hub = hub;
@@ -46,7 +46,7 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
        
 		 _webAppBaseUrl = configuration["WebAppBaseUrl"] ?? "https://localhost:7073";
           _serviceScopeFactory = serviceScopeFactory;
- 
+          _accessMemoryStorage = accessMemoryStorage;
 
 
     }
@@ -75,7 +75,25 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
 			_logger.LogInformation("Found {Count} recipients for {EntityName} #{EntityId} notification",
                 recipients.Count, evt.EntityName, evt.EntityId);
 
-          
+               var viewPath = "";
+               var controller = _accessMemoryStorage.GetAccessControllerByRedis(evt.EntityName);
+
+               if(controller != null)
+               {
+                    var actionEntity = controller.
+                         Actions.FirstOrDefault(
+                         c=>c.ActionAccessItemType == ActionAccessItemType.Update
+                         &&
+                         c.ActionAccessType == ActionAccessType.View
+                         );
+
+                    if (actionEntity != null)
+                    {
+                         viewPath = actionEntity.Path+"?id="+evt.EntityId;
+
+				}
+			}
+
 		  // ارسال notification به هر کاربر
 		  foreach (var recipient in recipients)
             {
@@ -86,7 +104,7 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
                          IsRead = false,
                          EntityId = evt.EntityId.ToLong(),
                          OwnerId = recipient.UserId,
-                         ViewPath = evt.ViewPath,
+                         ViewPath = viewPath,
 
 				};
 			 await _unitofWork.Repository<Notification>().AddAsync(newNoti,ct);
@@ -101,7 +119,7 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
                         EntityName = evt.EntityName,
                         EntityId = evt.EntityId,
                         Operation = evt.Operation,
-					ViewPath = evt.ViewPath
+			         ViewPath = viewPath
 				}, ct);
 
                 _logger.LogDebug("Notification sent to user {UserId}: {Title}",

@@ -1,4 +1,6 @@
-﻿using Data.Contracts;
+﻿using Data;
+using Data.Contracts;
+using Data.Repositories;
 using Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using Services.Auth;
@@ -10,12 +12,16 @@ using System.Threading.Tasks;
 
 namespace WebFramework.Initializes
 {
-    public class InitializeDataBase(IUnitOfWork unitOfWork , IUserService userService):
+    public class InitializeDataBase(IUnitOfWork unitOfWork 
+         , IUserService userService,
+         ApplicationDbContext applicationDbContext):
         IInitializeDataBase
     {
         public void InitAdminUser()
         {
-          var roleAdmin = unitOfWork.Repository<Role>().TableNoTracking
+		 applicationDbContext.Database.Migrate();
+
+	    var roleAdmin = unitOfWork.Repository<Role>().TableNoTracking
                 .FirstOrDefault(t => t.Name == "admin");
 
             if (roleAdmin == null)

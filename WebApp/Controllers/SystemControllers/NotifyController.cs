@@ -89,6 +89,7 @@ namespace WebApp.Controllers.SystemControllers
 					n.Body,
 					n.Description,
 					n.IsRead,
+					n.ViewPath,
 					n.CreatedOnShamsiDateTime,
 					n.CreatedOnMiladiDateTime
 				})
@@ -124,7 +125,31 @@ namespace WebApp.Controllers.SystemControllers
 			}
 
 			notification.IsRead = true;
-			await _unitOfWork.Repository<Notification>().UpdateAsync(notification, cancellationToken, true);
+			await _unitOfWork.Repository<Notification>().UpdateAsync(notification, cancellationToken);
+
+			return Ok();
+		}
+
+		[Authorize("AuthenticatedUser")]
+		[HttpPost("[action]")]
+		[ActionDisplayName("حذف اعلان", ActionAccessType.Api)]
+		public async Task<IActionResult> Delete([FromBody] long id, CancellationToken cancellationToken)
+		{
+			if (User?.Identity == null)
+				return Unauthorized();
+
+			var userId = User.Identity.GetUserId();
+
+			var notification = await _unitOfWork.Repository<Notification>()
+				.Table
+				.FirstOrDefaultAsync(n => n.Id == id && n.OwnerId == userId, cancellationToken);
+
+			if (notification == null)
+			{
+				return NotFound(new { message = "اعلان یافت نشد" });
+			}
+
+			await _unitOfWork.Repository<Notification>().DeleteAsync(notification, cancellationToken);
 
 			return Ok();
 		}

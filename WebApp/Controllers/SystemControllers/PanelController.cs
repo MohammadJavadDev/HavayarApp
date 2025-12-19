@@ -26,7 +26,7 @@ namespace WebApp.Controllers.SystemControllers
         public async Task<IActionResult> Index(CancellationToken ct)
 		{
                 //new ControllerGenerator().GenerateEntity(typeof(Document));
-		   await   onlineUserService.RefreshUserRoleAccessesAsync(CurrentUserId , ct );
+		   await   onlineUserService.RefreshUserRoleAccessesAsync((long)CurrentUserId , ct );
 
 		  return View("Views/Panel/Index.cshtml");
 		}
@@ -40,22 +40,6 @@ namespace WebApp.Controllers.SystemControllers
         }
 
 
-        [HttpGet("/panel/{action}")]
-        [ActionDisplayName("فرم ساز", ActionAccessType.View)]
-        public IActionResult FormBuilder()
-        {
-            HttpContext.Items["Name"] = "MohammadJavad";
-            return View("Views/Panel/System/FormBuilder/Index.cshtml");
-        }
-
-
-
-		[HttpGet("/panel/{action}")]
-		[ActionDisplayName("فرم ساز2", ActionAccessType.View)]
-		public IActionResult FormBuilder2()
-		{
-			HttpContext.Items["Name"] = "MohammadJavad";
-			return View("Views/Panel/System/FormBuilder/Edit.cshtml");
-		}
+     
 	}
 }

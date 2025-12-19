@@ -2226,7 +2226,8 @@ var FormBuilderApp = (function () {
 		// Handle sections
 		if (formDef.sections && Array.isArray(formDef.sections) && formDef.sections.length > 0) {
 			state.sections = formDef.sections.map(section => ({
-				id: section.id,
+				id: section.id || 0,
+				uqniqId: section.uqniqId || section.id || 1,
 				title: section.title || 'بخش',
 				orderIndex: section.orderIndex || 0,
 				properties: (section.properties || []).map(prop => {

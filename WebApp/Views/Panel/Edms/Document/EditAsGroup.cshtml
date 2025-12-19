@@ -1,0 +1,438 @@
+@using Common.Utilities
+@using Entities.App.Edms
+@using Entities.App.Edms.Enums
+@model WebApp.ViewModels.Edms.DocumentGroupEditViewModel
+
+@{
+	bool canEditDocument = false;
+	var currentId = Model?.Current?.Id ?? 0;
+	var groupReady = (Model?.ProjectId.HasValue == true && Model.ProjectId.Value != 0) && (Model?.DocumentVpisId.HasValue == true && Model.DocumentVpisId.Value != 0);
+	
+	if (ViewData["CanEditDocument"] != null)
+	{
+		canEditDocument =(bool) ViewData["CanEditDocument"];
+	}
+
+}
+<div class="card my-1">
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(Document)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-code-branch"
+							action-name="newRevision" title="ایجاد ریویژن جدید"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-rotate"
+							action-name="reloadRevisions" title="به‌روزرسانی لیست ریویژن‌ها"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-note"
+							action-name="addComment" title="افزودن کامنت"></form-action-button>
+		</form-action-buttons>
+	</div>
+</div>
+
+<div class="card my-1">
+	<div class="card-body border-0 pt-6 pb-4">
+		<div class="d-flex flex-column">
+			<div class="d-flex flex-wrap align-items-center gap-2">
+				<span class="fw-bold fs-4">مدیریت مدارک مهندسی </span>
+				@if (Model?.Current != null)
+				{
+					<span class="badge badge-light-primary" id="currentRevisionHeader">ریویژن @Model.Current.Revision</span>
+					<span class="badge badge-light">@(Model.Current.Status.HasValue? Model.Current.Status.Value.ToDisplay() : "")</span>
+				}
+			</div>
+			<div class="text-muted mt-1">
+				<span class="me-3">پروژه: <span class="fw-semibold" data-header-project-title>@(Model?.Project?.Title ?? "-")</span></span>
+				<span class="me-3">Vpis: <span class="fw-semibold" data-header-document-title>@(Model?.DocumentVpis?.Title ?? "-")</span></span>
+				<span class="me-3" data-header-document-code-wrapper style="@(string.IsNullOrWhiteSpace(Model?.DocumentVpis?.Code) ? "display:none;" : "")">
+					کد: <span class="fw-semibold" data-header-document-code>@(Model?.DocumentVpis?.Code ?? "")</span>
+				</span>
+			</div>
+		</div>
+	</div>
+</div>
+<div class=" ">
+	 
+
+	<div class=" ">
+		@if (!groupReady)
+		{
+			<div class="card card-flush mb-5" id="NewDocumentGroupCard">
+				<div class="card-header pt-5">
+					<div class="card-title d-flex flex-column">
+						<span class="fs-6 fw-bold">ثبت مدرک جدید</span>
+						<span class="text-muted fs-8">برای شروع، پروژه و سند (Vpis) را انتخاب کنید</span>
+					</div>
+				</div>
+				<div class="card-body row g-4">
+					<div class="col-md-6">
+						<label class="form-label required">پروژه</label>
+						@(Html.EntitySelector<Project>
+									(
+									"NewDocProjectSelector",
+									c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+									c => new { Id = c.Id, Title = c.Title },
+									c => new { c.Title },
+									"{Title}",
+									"newProjectId",
+									null,
+									null,
+									required: true
+									))
+					</div>
+
+					<div class="col-md-6">
+						<label class="form-label required">سند (Vpis)</label>
+						@(Html.EntitySelector<ProjectVpis>
+									(
+									"NewDocVpisSelector",
+									c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+									c => new { Id = c.Id, Code = c.Code, Title = c.Title },
+									c => new { c.Code, c.Title },
+									"{Code} - {Title}",
+									"newDocumentVpisId",
+									null,
+									null,
+									required: true
+									))
+					</div>
+
+					<div class="col-12 d-flex flex-wrap gap-2">
+						<button type="button" class="btn btn-primary" data-action="start-new-document">
+							شروع ثبت
+						</button>
+						<button type="button" class="btn btn-light" data-action="clear-new-document">
+							پاک کردن انتخاب‌ها
+						</button>
+					</div>
+				</div>
+			</div>
+		}
+
+		<div class="row g-5">
+			<div class="col-lg-4">
+				<div id="DocumentVpisSummaryContainer">
+					@await Html.PartialAsync("_DocumentVpisSummaryPartial.cshtml", Model?.DocumentVpis)
+				</div>
+
+				<div class="card card-flush  ">
+					<div class="card-header pt-5">
+						<div class="card-title d-flex flex-column">
+							<span class="fs-5 fw-bold">ریویژن‌ها</span>
+							<span class="text-muted fs-7" id="revisionsTotalCount">@(Model?.Revisions?.Count ?? 0) مورد</span>
+						</div>
+					</div>
+					<div class="card-body pt-3" id="RevisionsListContainer">
+						@await Html.PartialAsync(
+							"_DocumentRevisionsListPartial.cshtml",
+							Model?.Revisions ?? new List<WebApp.ViewModels.Edms.DocumentRevisionSummaryViewModel>(),
+							new ViewDataDictionary(ViewData) { ["CurrentId"] = currentId }
+						)
+					</div>
+				</div>
+			</div>
+
+			<div class="col-lg-8">
+				<div id="RevisionEditorContainer">
+					@if (!groupReady)
+					{
+						<div class="alert alert-warning m-0">
+							برای شروع ثبت یا مشاهده ریویژن‌ها، ابتدا پروژه و سند (Vpis) را انتخاب کنید.
+						</div>
+					}
+					else
+					{
+						@await Html.PartialAsync("_DocumentRevisionEditorPartial.cshtml", Model.Current, ViewData)
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	function getGroupKey() {
+		// 1) Prefer current editor values (after partial load)
+		const $editor = $$('#RevisionEditorContainer');
+		let projectId = parseInt(($editor.find('[data-bind="projectId"]').val() || '0'), 10) || 0;
+		let documentVpisId = parseInt(($editor.find('[data-bind="documentVpisId"]').val() || '0'), 10) || 0;
+
+		// 2) Fallback to new-document selectors (when page opened without id)
+		if (!projectId || !documentVpisId) {
+			const $new = $$('#NewDocumentGroupCard');
+			if ($new.length) {
+				if (!projectId) projectId = parseInt(($new.find('[data-bind="newProjectId"]').val() || '0'), 10) || 0;
+				if (!documentVpisId) documentVpisId = parseInt(($new.find('[data-bind="newDocumentVpisId"]').val() || '0'), 10) || 0;
+			}
+		}
+
+		return { projectId, documentVpisId };
+	}
+
+	function getCurrentRevisionId() {
+		const $editor = $$('#RevisionEditorContainer');
+		return parseInt(($editor.find('[data-bind="id"]').val() || '0'), 10) || 0;
+	}
+
+	function updateHeaderForNewSelection() {
+		 
+		const $new = $$('#NewDocumentGroupCard');
+		if (!$new.length) return;
+
+		const projectTitle = ($new.find('#NewDocProjectSelector .entity-selector-input').val() || '-').toString();
+		const docTitle = ($new.find('#NewDocVpisSelector .entity-selector-input').val() || '-').toString();
+
+		$$('[data-header-project-title]').text(projectTitle);
+		$$('[data-header-document-title]').text(docTitle);
+
+		// We don't have code here reliably; hide it for now (will be shown if server had it)
+		$$('[data-header-document-code-wrapper]').hide();
+	}
+
+	function startNewDocument() {
+		const $new = $$('#NewDocumentGroupCard');
+		if (!$new.length) return toastr.error('امکان ثبت مدرک جدید در این حالت وجود ندارد.', 'خطا');
+
+		if (validateError($new)) { return; }
+
+		const projectId = parseInt(($new.find('[data-bind="newProjectId"]').val() || '0'), 10) || 0;
+		const documentVpisId = parseInt(($new.find('[data-bind="newDocumentVpisId"]').val() || '0'), 10) || 0;
+		if (!projectId || !documentVpisId) return toastr.error('پروژه و سند (Vpis) الزامی است.', 'خطا');
+
+		updateHeaderForNewSelection();
+
+		// Load Vpis summary card
+		const $vpisContainer = $$('#DocumentVpisSummaryContainer');
+		if ($vpisContainer.length) {
+			page.getPartialView(`/Panel/Document/DocumentVpisSummaryPartial?documentVpisId=${documentVpisId}`, function (html) {
+				if (html) $vpisContainer.html(html);
+			});
+		}
+
+		// Create first revision editor (revision 0 for new group)
+		const $container = $$('#RevisionEditorContainer');
+		$container.block();
+
+		page.getPartialView(`/Panel/Document/NewRevisionEditorPartial?projectId=${projectId}&documentVpisId=${documentVpisId}`, function (html) {
+			$container.block(false);
+			if (!html) return toastr.error('خطا در ایجاد فرم مدرک جدید', 'خطا');
+
+			$container.html(html);
+			initItemsForms($container);
+
+			if (window.appController && typeof window.appController.initTabItemManager === 'function') {
+				self.TabItemManagers = window.appController.initTabItemManager(page.$pageEl, page);
+			}
+
+			syncHoldFields($container);
+			reloadRevisionsList(getCurrentRevisionId());
+
+			// Keep the card but collapse it to reduce clutter
+			$new.addClass('d-none');
+		});
+	}
+
+	function saveCurrentRevision($btnAction) {
+		const $editor = $$('#DocumentRevisionEditor');
+		const canEditDocument = '@canEditDocument'
+		if ($editor.length === 0) return toastr.error('فرم ریویژن یافت نشد.', 'خطا');
+
+		if (validateError($editor)) { return; }
+
+		const model = $editor.dataBind();
+		const pid = parseInt((model?.projectId || '0'), 10) || 0;
+		const vid = parseInt((model?.documentVpisId || '0'), 10) || 0;
+		if (!pid || !vid) return toastr.error('برای ذخیره، پروژه و سند (Vpis) باید مشخص باشد.', 'خطا');
+
+		const $btn = $(this.element).block();
+
+		$$.post('save/'+canEditDocument, model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+			toastr.success('ذخیره‌سازی با موفقیت انجام شد.');
+			// Sync UI with server response
+			$editor.dataBind(r.data);
+
+			// Refresh revisions list (so new revisions/status changes appear)
+			reloadRevisionsList(r.data?.id);
+
+			$btnAction.baseaction();
+		});
+	}
+
+	function reloadRevisionsList(currentRevisionId) {
+		const key = getGroupKey();
+		if (!key.projectId || !key.documentVpisId) return;
+
+		const url = `RevisionsListPartial?projectId=${key.projectId}&documentVpisId=${key.documentVpisId}&currentId=${currentRevisionId || 0}`;
+		const $container = $$('#RevisionsListContainer');
+		$container.block();
+		page.getPartialView(url, function (html) {
+			$container.block(false);
+			if (!html) return toastr.error('خطا در به‌روزرسانی لیست ریویژن‌ها', 'خطا');
+			$container.html(html);
+		});
+	}
+
+	function loadRevisionEditor(revisionId,revisionNum = 0) {
+		if (!revisionId) return;
+		 
+		const $container = $$('#RevisionEditorContainer');
+		$container.block();
+
+		page.getPartialView(`/Panel/Document/RevisionEditorPartial?id=${revisionId}&canEditDocument=@canEditDocument`, function (html) {
+			$container.block(false);
+			if (!html) return toastr.error('خطا در دریافت اطلاعات ریویژن', 'خطا');
+
+			$container.html(html);
+			initItemsForms($container);
+
+			// Re-init tab item managers (comments table, add/remove, etc.)
+			if (window.appController && typeof window.appController.initTabItemManager === 'function') {
+				self.TabItemManagers = window.appController.initTabItemManager(page.$pageEl, page);
+			}
+
+			syncHoldFields($container);
+
+			// Mark active in list
+			$$('.js-revision-item').removeClass('border-primary').addClass('border-gray-200');
+			$$(`.js-revision-item[data-revision-id="${revisionId}"]`).removeClass('border-gray-200').addClass('border-primary');
+			$$("#currentRevisionHeader").text(`ریویژن ${revisionNum}`)
+		});
+	}
+
+	function newRevision() {
+		const key = getGroupKey();
+		if (!key.projectId || !key.documentVpisId) return startNewDocument();
+
+		const $container = $$('#RevisionEditorContainer');
+		$container.block();
+
+		page.getPartialView(`/Panel/Document/NewRevisionEditorPartial?projectId=${key.projectId}&documentVpisId=${key.documentVpisId}`, function (html) {
+			$container.block(false);
+			if (!html) return toastr.error('خطا در ایجاد ریویژن جدید', 'خطا');
+
+			$container.html(html);
+			initItemsForms($container);
+
+			if (window.appController && typeof window.appController.initTabItemManager === 'function') {
+				self.TabItemManagers = window.appController.initTabItemManager(page.$pageEl, page);
+			}
+
+			syncHoldFields($container);
+		});
+	}
+
+	function isHoldStatus(statusVal) {
+		const n = parseInt(statusVal, 10);
+		// DocumentStatusEnums: Hold = 11, HoldByProject = 27
+		return n === 11 || n === 27;
+	}
+
+	function syncHoldFields($scope) {
+		if (!$scope || $scope.length === 0) return;
+
+		$scope.find('[data-document-comment-item="true"]').each(function () {
+			const $item = $(this);
+			const statusVal = $item.find('[data-comment-status="true"]').val();
+			const enable = isHoldStatus(statusVal);
+
+			$item.find('[data-hold-field]').prop('disabled', !enable);
+
+			// Disable entity selector input for Hold owner as well
+			const $holdOwnerHidden = $item.find('[data-bind="comments.holdOwnerId"], [data-bind="comments.HOLDOwnerId"]');
+			const $holdOwnerWrapper = $holdOwnerHidden.closest('.entity-selector-wrapper');
+			$holdOwnerWrapper.find('.entity-selector-input, .entity-selector-multi-input').prop('disabled', !enable);
+		});
+	}
+
+	// Wire default save buttons to save only the active revision editor
+	self.FormActionButtons.save.onclick(function () { saveCurrentRevision.call(this, this) });
+	self.FormActionButtons.saveandnew.onclick(function () { saveCurrentRevision.call(this, this) });
+	self.FormActionButtons.saveandclose.onclick(function () { saveCurrentRevision.call(this, this) });
+
+	// Custom actions
+	self.FormActionButtons.newRevision.onclick(function () { newRevision(); });
+	self.FormActionButtons.reloadRevisions.onclick(function () { reloadRevisionsList(getCurrentRevisionId()); });
+
+	// Revision list click
+	$$('#RevisionsListContainer').on('click', '.js-open-revision', function () {
+		const id = $(this).data('revision-id');
+		const num = $(this).data('revision-num');
+		loadRevisionEditor(id,num);
+	});
+
+	// Hold fields toggling (state-machine related)
+	$(document).on('change', '#RevisionEditorContainer [data-comment-status="true"]', function () {
+		syncHoldFields($(this).closest('[data-document-comment-item="true"]'));
+	});
+
+	// Initial sync
+	syncHoldFields($$('#RevisionEditorContainer'));
+
+	// New-document actions
+	$$('#NewDocumentGroupCard').on('click', '[data-action="start-new-document"]', function () {
+		startNewDocument();
+	});
+	$$('#NewDocumentGroupCard').on('click', '[data-action="clear-new-document"]', function () {
+		const $new = $$('#NewDocumentGroupCard');
+		$new.find('[data-bind="newProjectId"]').val('').change();
+		$new.find('#NewDocProjectSelector .entity-clear').trigger('click');
+		$new.find('[data-bind="newDocumentVpisId"]').val('').change();
+		$new.find('#NewDocVpisSelector .entity-clear').trigger('click');
+
+		$$('[data-header-project-title]').text('-');
+		$$('[data-header-document-title]').text('-');
+		$$('[data-header-document-code-wrapper]').hide();
+	});
+
+		self.FormActionButtons.addComment.onclick(function () {
+			const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
+
+			if(!id){
+				error2("شناسه مدرک جهت افزودن کامنت یافت نشد.");
+				return;
+			}
+
+		page.getPartialView(`DocumentCommentPartial?documentId=${id}&canEdit=true`, function (v) {
+
+			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
+		let $conf =	$.confirm({
+				title: 'افزودن کامنت',
+				content: $content,
+				type: 'green',
+				columnClass: "col-md-12",
+				typeAnimated: true,
+				buttons: {
+					acc: {
+						text: 'افزودن کامنت',
+						btnClass: 'btn  btn-success',
+						action: function () {
+
+							debugger;
+							let model =this.$content.dataBind().comments[0];
+							$$.post("AddNewComment",model,function(r){
+								if(!r.isSuccess)return error2(r.message);
+
+								 reloadRevisionsList(getCurrentRevisionId());
+								 toastr.success("کامنت جدید به مدرک اضافه شد")
+								 $conf.close();
+							})
+
+							return false;
+						}
+					},
+					close:
+					{
+						text: 'بستن',
+						btnClass: 'btn  btn-danger',
+						action: function () {
+						}
+					}
+				}
+			});
+
+			initFileUploaders($content)
+		});
+
+
+	})
+</script>

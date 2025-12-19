@@ -1,18 +1,20 @@
 ﻿using Data.Contracts;
 using Data.Repositories;
 using Entities.Auth;
- 
+
 using Entities.Base.DataTable;
 using Entities.Base.Menu;
 using Entities.Base.Menu;
+using Entities.Services;
 using Microsoft.EntityFrameworkCore;
 using Services.AccessServices;
-using Services.InMemoryData;
 
 namespace WebFramework.Initializes
 {
-    public class InitializeProgram(IUnitOfWork unitOfWork , IRoleMemoryStorage roleMemoryStorage,
-        EndpointService endpointService , IAccessMemoryStorage accessMemoryStorage,
+    public class InitializeProgram(IUnitOfWork unitOfWork
+         , IRoleMemoryStorage roleMemoryStorage,
+        EndpointService endpointService ,
+        IAccessMemoryStorage accessMemoryStorage,
         IMenuBuilderService menuBuilderService,
         IDataTableProfileService profilesService,
 	   IEntityMetadataCache entityMetadataCache) : IInitializeProgram
@@ -31,8 +33,8 @@ namespace WebFramework.Initializes
                 // Fetch all access controllers and store them in memory
                 var accessControllers = endpointService.GetAllEndpoints();
                 accessMemoryStorage.SetAccessControllers(accessControllers);
-             
-        }
+			accessMemoryStorage.SetAccessControllersRedis(accessControllers);
+		}
 
 
 

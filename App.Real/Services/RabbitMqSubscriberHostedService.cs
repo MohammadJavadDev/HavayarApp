@@ -43,7 +43,7 @@ public sealed class RabbitMqSubscriberHostedService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in RabbitMQ subscriber. Reconnecting in 5 seconds...");
+                _logger.LogError(ex, _options.HostName +"111 Error in RabbitMQ subscriber. Reconnecting in 5 seconds...");
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }
         }

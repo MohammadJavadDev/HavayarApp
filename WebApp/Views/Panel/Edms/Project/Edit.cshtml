@@ -470,7 +470,7 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6 align-content-center'>
+		<div class='col-md-12 align-content-center my-5'>
 			<div class="form-check">
 				<input data-bind='isBeneficiary' class="form-check-input" type="checkbox" asp-for='IsBeneficiary' />
 				<label class="form-check-label" asp-for='IsBeneficiary'>
@@ -479,17 +479,33 @@
 			</div>
 		</div>
 
+
 		<div class='col-md-6'>
 			<label class=''>کاربران محرمانه</label>
-			<input class='form-control' data-bind='sensitiveUsers' asp-for='SensitiveUsers' />
+
+			@(Html.EntitySelector<User>
+						(
+						"SensitiveUsersIdsSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Id, c.Name },
+						"{Name}",
+						"SensitiveUsersIds",
+						"SensitiveUsers",
+						string.Join(',', Model?.SensitiveUsersIds),
+						false,
+						true
+						))
+			 
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>شناسه کاربران محرمانه</label>
-			<input class='form-control' data-bind='sensitiveUsersIds' asp-for='SensitiveUsersIds' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
+		 
 
 		<div class='col-md-12 align-content-center my-5'>
 			<div class="form-check">
@@ -500,17 +516,31 @@
 			</div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>ذینفعان</label>
-			<input class='form-control' data-bind='userBenefitTakvin' asp-for='UserBenefitTakvin' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
+			<div class='col-md-6'>
+			<label class=''>کاربران تکوین</label>
 
-		<div class='col-md-6'>
-			<label class=''>شناسه کاربران تکوین</label>
-			<input class='form-control' data-bind='userBenefitTakvinIds' asp-for='UserBenefitTakvinIds' />
+			@(Html.EntitySelector<User>
+						(
+						"userBenefitTakvinSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Id, c.Name },
+						"{Name}",
+						"UserBenefitTakvinIds",
+						"userBenefitTakvin",
+						string.Join(',', Model?.UserBenefitTakvinIds),
+						false,
+						true
+						))
+			 
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
+		 
 
 		<div class='col-md-6'>
 			<label class=''>روز تاخیر مجاز هوایار</label>

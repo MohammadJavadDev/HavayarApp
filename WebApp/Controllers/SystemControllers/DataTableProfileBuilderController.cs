@@ -7,9 +7,9 @@ using Data.Contracts;
 using Data.Repositories;
 using Entities.Base;
 using Entities.Base.DataTable;
+using Entities.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.InMemoryData;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -37,10 +37,8 @@ namespace WebApp.Controllers.SystemControllers
             if (model != null)
             {
                 model.SystemDataTableProfileSelectViewModels =
-                    model.Columns?.JsonDeserialize<List<SystemDataTableProfileSelectViewModel>>() ?? new List<SystemDataTableProfileSelectViewModel>();
-
-                model.SystemDataTableProfileFilterViewModels =
-                    model.Filters?.JsonDeserialize<List<SystemDataTableProfileSelectViewModel>>() ?? new List<SystemDataTableProfileSelectViewModel>();
+                  model.Columns?.JsonDeserialize<List<SystemDataTableProfileSelectViewModel>>() ?? new List<SystemDataTableProfileSelectViewModel>();
+ 
             }
 
             return View("Views/Panel/System/DataTableProfileBuilder/Edit.cshtml", model);

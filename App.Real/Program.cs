@@ -6,6 +6,7 @@ using Data.Contracts;
 using Data.Repositories;
 using Data.Services;
 using Data.SystemAuth;
+using Entities.Services;
 using Infrastructure.CrudEventInterceptors;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
@@ -13,13 +14,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Services.AccessServices;
 using Services.Auth;
-using Services.InMemoryData;
 using Services.NotifitactionBuilderServices;
 using Shared.Realtime.Options;
 using System.Security.Claims;
 using System.Text;
 using WebFramework.Initializes;
- 
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -132,7 +132,7 @@ builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
 builder.Services.AddSingleton<EntityMetadataCache>();
 builder.Services.AddSingleton<IMenuBuilderService, MenuBuilderService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
- 
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<ISdk, Sdk>();
@@ -161,6 +161,15 @@ app.UseAuthorization();
 
 app.MapHub<RealtimeHub>("/hubs/realtime");
 app.MapHealthChecks("/health");
+
+// Simple status endpoint
+app.MapGet("/status", () => Results.Ok(new
+{
+    Status = "Running",
+    Service = "App.Real",
+    Timestamp = DateTime.UtcNow,
+    Environment = app.Environment.EnvironmentName
+}));
 
 app.Run();
 

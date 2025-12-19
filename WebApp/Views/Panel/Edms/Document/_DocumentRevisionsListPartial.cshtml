@@ -1,0 +1,92 @@
+@using Common.Utilities
+@using Entities.App.Edms.Enums
+@model List<WebApp.ViewModels.Edms.DocumentRevisionSummaryViewModel>
+
+@{
+	long currentId = 0;
+	var raw = ViewData["CurrentId"];
+	var totalCount = ViewData["RevisionsTotalCount"]  ?? 0;
+	if (raw is long l) currentId = l;
+	else if (raw is int i) currentId = i;
+	else if (raw is string s && long.TryParse(s, out var parsed)) currentId = parsed;
+}
+
+@if (Model == null || Model.Count == 0)
+{
+		<div class="text-muted">برای این مدرک هنوز ریویژنی ثبت نشده است.</div>
+}
+else
+{
+		<div class="d-flex flex-column gap-2">
+			@foreach (var rev in Model.OrderByDescending(r => r.Revision))
+			{
+					var isActive = rev.Id == currentId;
+					var statusText = rev.Status.HasValue ? rev.Status.Value.ToDisplay() : "-";
+					var statusClass = rev.Status switch
+					{
+							DocumentStatusEnums.Approve or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNote or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
+							DocumentStatusEnums.Reject or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+							DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
+							DocumentStatusEnums.Commented or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+							DocumentStatusEnums.Archived => "badge-light-dark",
+							_ => "badge-light"
+					};
+
+					<div class="p-3 border rounded @((isActive ? "border-primary" : "border-gray-200")) js-revision-item" data-revision-id="@rev.Id">
+						<div class="d-flex align-items-start justify-content-between">
+							<div class="d-flex flex-column">
+								<div class="d-flex flex-wrap align-items-center gap-2">
+									<span class="badge badge-light-primary">R @rev.Revision</span>
+									<span class="badge @statusClass">@statusText</span>
+									@if (rev.CommentCount > 0)
+									{
+											<span class="badge badge-light">@rev.CommentCount کامنت</span>
+									}
+								</div>
+								<div class="text-muted mt-1 d-grid">
+									@if (!string.IsNullOrWhiteSpace(rev.PublicationShamsiDate))
+									{
+											<span class="me-2">ارسال: @rev.PublicationShamsiDate</span>
+									}
+									@if (!string.IsNullOrWhiteSpace(rev.ModifiedDateShamsiDateTime))
+									{
+									<span class="me-2">ویرایش: <span class="ltr"> @rev.ModifiedDateShamsiDateTime </span></span>
+									}
+								</div>
+								<div class="d-flex align-items-center gap-2 mt-2">
+									@if (rev.MainFileId.HasValue && rev.MainFileId.Value > 0)
+									{
+										<span class="badge badge-light">Main</span>
+									}
+									@if (rev.MotherFileId.HasValue && rev.MotherFileId.Value > 0)
+									{
+										<span class="badge badge-light">Mother</span>
+									}
+									@if (rev.SecondaryFileId.HasValue && rev.SecondaryFileId.Value > 0)
+									{
+										<span class="badge badge-light">Secondary</span>
+									}
+									@if (rev.ReplySheetId.HasValue && rev.ReplySheetId.Value > 0)
+									{
+										<span class="badge badge-light">Reply</span>
+									}
+								</div>
+							</div>
+
+							<div class="d-flex flex-column align-items-end gap-2">
+						<button type="button" class="btn btn-sm btn-light-primary js-open-revision" data-revision-id="@rev.Id" data-revision-num="@rev.Revision">باز کردن</button>
+								@if (isActive)
+								{
+										<span class="text-primary fs-8">در حال مشاهده</span>
+								}
+							</div>
+						</div>
+					</div>
+			}
+		</div>
+}
+
+<script>
+	var totalCount = @totalCount;
+	 $("#revisionsTotalCount").text(`${totalCount} مورد`)
+</script>

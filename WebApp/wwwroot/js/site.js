@@ -6519,7 +6519,7 @@ class Page {
 			try {
 				f(this, this.$$, this.self);
 			} catch (err) {
-				console.error("Script error:", err);
+			 
 			}
 		});
 	}
@@ -8633,7 +8633,7 @@ function renderHistoryTmpl(histories) {
 }
  
 function validateError($el) {
-	 
+ 
 	$el = $el || $("body");
 	let haveError = false;
 
@@ -8663,13 +8663,27 @@ function validateError($el) {
 	 
 
 		if (!value || value.length === 0) {
-			$input.addClass("border-danger");
-			$input.removeClass("border-success");
-			haveError = true;
+			if ($input.hasClass("entity-selector-multi-input")) {
+				$input.parent().addClass("border-danger");
+				$input.parent().removeClass("border-success");
+				haveError = true;
+			}
+			else {
+				$input.addClass("border-danger");
+				$input.removeClass("border-success");
+				haveError = true;
+			}
+		
 		}
 		else {
-			$input.removeClass("border-danger");
-			$input.addClass("border-success");
+			if ($input.hasClass("entity-selector-multi-input")) {
+				$input.parent().removeClass("border-danger");
+				$input.parent().addClass("border-success");
+			}
+			else {
+				$input.removeClass("border-danger");
+				$input.addClass("border-success");
+			}
 		}
 
 
@@ -9042,170 +9056,6 @@ const initPersionDatePicker = function ($el) {
 }
 
 
-async function getConnectionToken() {
-    try {
-        const res = await fetch('/api/realtime/token', { method: 'POST' });
-        if (!res.ok) return null;
-        const data = await res.json();
-        return data.token;
-    } catch {
-        return null;
-    }
-}
-
-const connection = new signalR.HubConnectionBuilder()
-	.withUrl("https://localhost:62350/hubs/realtime", {
-        accessTokenFactory: () => getConnectionToken()
-    })
-    .withAutomaticReconnect()
-    .build();
-
-// simple audio beeper (inline)
-function playNotificationSound() {
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const o = ctx.createOscillator();
-        const g = ctx.createGain();
-        o.type = "sine";
-        o.frequency.value = 880; // A5
-        o.connect(g);
-        g.connect(ctx.destination);
-        g.gain.setValueAtTime(0.001, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
-        o.start();
-        o.stop(ctx.currentTime + 0.26);
-    } catch (e) {
-        // ignore if autoplay blocked
-    }
-}
-
-// دریافت پیام
-connection.on("ReceiveUnreadNotification", message => {
-	 
-      
-
-	if (Array.isArray(message)) {
-		 
-
-		message.forEach(z => {
-			$("#notificationSection")
-				.append(
-
-					`	<div class="d-flex flex-stack py-4" data-row="notification">
-				 
-						<div class="d-flex align-items-center">
-				 
-							<div class="symbol symbol-35px me-4">
-								<span class="symbol-label bg-light-danger" data-action='readNotification' data-id='${z.id}'>
-									 
-										<i class="ki-duotone ki-eye fs-2 text-danger">
-										 <span class="path1"></span>
-										 <span class="path2"></span>
-										 <span class="path3"></span>
-									</i>
-								</span>
-							</div>
-						 
-							<div class="mb-0 me-2">
-								<a href="#" class="fs-6 text-gray-800 text-hover-primary fw-bold">${z.title}</a>
-							 
-							</div>
-				 
-						</div>
-					 
-						<span class="badge badge-light fs-8">${z.createdOnShamsiDateTime}</span>
-					 
-					</div>`
-			)
-		})
-	}
-
-
-    // play short sound
-	playNotificationSound();
-
-	CalculationCountUnreadNotifications();
-
-  
-});
-
-// دریافت پیام
-connection.on("ReceiveNotification", message => {
-
-	 
-
-	$("#notificationSection")
-		.append(
-			`	<div class="d-flex flex-stack py-4">
-				 
-						<div class="d-flex align-items-center">
-				 
-							<div class="symbol symbol-35px me-4">
-								<span class="symbol-label bg-light-primary" data-action='readNotification' data-id='${message.id}'>
-									 
-									<i class="ki-duotone ki-eye fs-2 text-danger">
-										 <span class="path1"></span>
-										 <span class="path2"></span>
-										 <span class="path3"></span>
-									</i>
-								</span>
-							</div>
-						 
-							<div class="mb-0 me-2">
-								<a href="#" class="fs-6 text-gray-800 text-hover-primary fw-bold">${message.title}</a>
-							 
-							</div>
-				 
-						</div>
-					 
-						<span class="badge badge-light fs-8">${message.createdOnShamsiDateTime}</span>
-					 
-					</div>`
-		)
-
-
-	// play short sound
-	playNotificationSound();
-
-	CalculationCountUnreadNotifications();
-
-});
-
-// دریافت رویدادهای تغییر موجودیت (CRUD events)
-connection.on("EntityChanged", event => {
-	console.log("Entity changed:", event);
-	
-	// مثال: نمایش توست برای تغییرات مهم
-	if (event.entityName === "User" && event.operation === "Create") {
-		// نمایش پیام
-		toastr.info(event.message || `موجودیت ${event.entityName} با شناسه ${event.entityId} ایجاد شد`, "تغییر موجودیت");
-	}
-	
-	// TODO: می‌توانید اینجا:
-	// 1. Grid را refresh کنید اگر کاربر در همان صفحه است
-	// 2. Cache client-side را invalidate کنید
-	// 3. UI را بر اساس تغییر update کنید
-	// مثال:
-	// if (event.entityName === currentPageEntity) {
-	//     refreshCurrentGrid();
-	// }
-});
-
-// اتصال
-connection.start()
-	.then(() => console.log("Connected to SignalR"))
-	.catch(err => console.error(err));
-
-// clear highlight when user opens the menu (click on the bell)
-document.addEventListener("click", function (ev) {
-    const bellBtn = document.getElementById("kt_menu_item_notification");
-    if (!bellBtn) return;
-    if (bellBtn.contains(ev.target)) {
-        // toggle off on click; next notification will add it again
-        bellBtn.classList.remove("has-notification");
-    }
-});
 
 // ============================================
 // File Uploader TagHelper JavaScript Functions
@@ -9918,11 +9768,31 @@ $(document).ready(function () {
 		}
 		post(path, null, function (r) {
 			if (!r.isSuccess) return error2(r.message);
-			debugger
+			 
 			$("#kt_app_sidebar_menu").html(r.data)
 		});
 	});
 
+
+	if (window.location.pathname.toLocaleLowerCase() == '/authenticate/login') {
+ 
+		$('#login').click(function () {
+			 
+			if (validateError($('#form'))) { return; }
+
+			var model = $('#form').dataBind();
+			const $btn = $(this).block();
+
+			post('/Authenticate/Login',
+				model,
+				function (r) {
+					$btn.block(false);
+					if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+					location.assign("/");
+
+				});
+		});
+	}
 });
 
  
@@ -10180,7 +10050,7 @@ if (typeof initItemsForms === 'function') {
 				'top': offset.top + height + 'px',
 				'left': offset.left + 'px',
 				'width': width + 'px',
-				'z-index': 9999,
+				'z-index': 1019100000,
 				'display': 'block' // Ensure it's visible for calculations, 'show' class handles opacity/visibility usually
 			});
 		}
@@ -10703,4 +10573,6 @@ observer.observe(document.body, { childList: true, subtree: true });
     // Expose for external use
     window.SidebarMenuSearch = SidebarMenuSearch;
 })();
+
+
 
