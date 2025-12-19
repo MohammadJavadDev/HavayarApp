@@ -87,11 +87,11 @@ public enum IsActiveEnum
  
 
  
-public class BaseEntityConfiguration : IEntityTypeConfiguration<BaseEntity>
-{
-    public void Configure(EntityTypeBuilder<BaseEntity> builder)
-    {
-        builder.HasKey(c => c.Id);
+//public class BaseEntityConfiguration : IEntityTypeConfiguration<BaseEntity>
+//{
+//    public void Configure(EntityTypeBuilder<BaseEntity> builder)
+//    {
+//        builder.HasKey(c => c.Id);
 
-    }
-}
+//    }
+//}

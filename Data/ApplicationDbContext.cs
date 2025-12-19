@@ -77,7 +77,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
         modelBuilder.RegisterAllEntities<BaseEntity>(entitiesAssembly);
         modelBuilder.AddSequentialGuidForIdConvention();
-        modelBuilder.RegisterEntityTypeConfiguration();
+        modelBuilder.RegisterEntityTypeConfiguration(entitiesAssembly);
 
 		var listStringConverter = new ValueConverter<List<string>, string>(
 			 v => SerializeList(v),

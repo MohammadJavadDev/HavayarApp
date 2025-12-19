@@ -41,6 +41,7 @@ namespace WebApp.Services
 		{
 			EntityClass = GenerateEntityClass(formDefinition),
 			ControllerClass = GenerateControllerClass(formDefinition),
+ 
 			EditView = GenerateEditView(formDefinition),
 			ListView = GenerateListView(formDefinition)
 		};

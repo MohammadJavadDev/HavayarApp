@@ -93,7 +93,7 @@ public sealed class RedisEntityMetadataCache : IEntityMetadataCache
 		foreach (var metadata in all)
 		{
               
-			var key = $"{_keyPrefix}{metadata.EntityName.ToLower()}";
+			var key = $"{_keyPrefix}{metadata.EntityFullName.ToLower()}";
 			var json = JsonSerializer.Serialize(metadata, JsonOptions);
 
 			_redis.SetString(key, json, new DistributedCacheEntryOptions

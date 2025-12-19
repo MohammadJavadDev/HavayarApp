@@ -1,9 +1,16 @@
 @using Entities.App.Inv;
-@using WebFramework.TagHelpers;
 @model Part
+
 <div class="card">
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Part)"></form-action-buttons></div>
+
+</div>
+<div class="card my-3">
 	<div class="card-body row">
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="col-12 mb-4 card-custom-header">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 		<div class='col-md-6'>
 			<label class='required'>نام</label>
@@ -23,8 +30,181 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
+		<div class='col-md-6'>
+			<label class='required'>شماره</label>
+			<input class='form-control' data-bind='number' required asp-for='Number' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>Type</label>
+			<select class='form-control' data-bind='type'  asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>واحد اندازه گیری</label>
+			<select class='form-control' data-bind='unitOfMeasurement'  asp-for='UnitOfMeasurement' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartUnitOfMeasurementEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='foreign' class="form-check-input" type="checkbox" asp-for='Foreign' />
+				<label class="form-check-label" asp-for='Foreign'>
+					خارجی است
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='engineeringRoutine' class="form-check-input" type="checkbox" asp-for='EngineeringRoutine' />
+				<label class="form-check-label" asp-for='EngineeringRoutine'>
+					روتین مهندسی
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='documentsNotRequired' class="form-check-input" type="checkbox" asp-for='DocumentsNotRequired' />
+				<label class="form-check-label" asp-for='DocumentsNotRequired'>
+					نیاز به پیوست مدارک ندارد
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='preciseTool' class="form-check-input" type="checkbox" asp-for='PreciseTool' />
+				<label class="form-check-label" asp-for='PreciseTool'>
+					ابزار دقیق
+				</label>
+			</div>
+		</div>
+
 	</div>
-	<div class='card-footer row'>
+</div>
+
+<div class="card my-3">
+	<div class="card-body row">
+		<div class="col-12 mb-4 card-custom-header">
+			<h3 class="fw-bold text-dark">دیتاشیت</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='dataSheetUsage' class="form-check-input" type="checkbox" asp-for='DataSheetUsage' />
+				<label class="form-check-label" asp-for='DataSheetUsage'>
+					استفاده جهت دیتاشیت
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>دیتاشیت</label>
+			<select class='form-control' data-bind='dataSheet'  asp-for='DataSheet' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartDataSheetEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>برند در دیتاشیت</label>
+			<input class='form-control' data-bind='brandInDataSheet'  asp-for='BrandInDataSheet' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card my-3"> 
+	<div class="card-body row ">
+	 
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-12'>
+			<div data-tab-item-manager="partItems" data-item-selector=".entity-item">
+				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
+					<li class="nav-item" role="presentation">
+						<a class="nav-link active" data-bs-toggle="tab" href="#sparePartsTab" role="tab" aria-selected="true">
+							<span class="svg-icon svg-icon-2 me-2"></span>
+							قطعات یدکی
+						</a>
+					</li>
+					<li class="nav-item" role="presentation">
+						<a class="nav-link  " data-bs-toggle="tab" href="#documentsTab" role="tab" aria-selected="true">
+							<span class="svg-icon svg-icon-2 me-2"></span>
+							مدارک
+						</a>
+					</li>
+				</ul>
+				<div class="tab-content">
+					<div class="tab-pane fade show active" id="sparePartsTab" role="tabpanel" data-add-url="/Panel/Part/PartSparePartPartial">
+						<div id='SparePartsContainer' class="entity-item-container">
+							@if (Model?.SpareParts != null)
+							{
+								@foreach (var item in Model.SpareParts)
+								{
+									<div data-item-id="@(item.Id ?? 0)">
+										@await Html.PartialAsync("_PartSparePartPartial.cshtml", item)
+									</div>
+								}
+							}
+						</div>
+					</div>
+					<div class="tab-pane fade " id="documentsTab" role="tabpanel" data-add-url="/Panel/Part/PartDocumentPartial">
+						<div id='DocumentsContainer' class="entity-item-container">
+							@if (Model?.Documents != null)
+							{
+								@foreach (var item in Model.Documents)
+								{
+									<div data-item-id="@(item.Id ?? 0)">
+										@await Html.PartialAsync("_PartDocumentPartial.cshtml", item)
+									</div>
+								}
+							}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-3">
+	<div class="card-body row">
+		<div class="col-12 mb-4 card-custom-header">
+			<h3 class="fw-bold text-dark">کاتالوگ</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-6'>
+			<label class=''>برند</label>
+			<input class='form-control' data-bind='brand'  asp-for='Brand' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>ابعاد</label>
+			<input class='form-control' data-bind='dimensions'  asp-for='Dimensions' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='description'  asp-for='Description' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+ 
+
+<div class="card ">
+	 
+	<div class='card-body row'>
 		<div class='col-md-3'>
 			<span>ایجاد کننده :</span>
 			<span data-bind="createdByName">@Model?.CreatedByName</span>
@@ -46,8 +226,8 @@
 
 <script>
 	function savefn($btnAction) {
-		if (validateError($$('.card'))) { return; }
-		var model = $$('.card').dataBind();
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
 		const $btn = $(this.element).block();
 		$$.post('save',
 			model,
@@ -55,7 +235,7 @@
 				$btn.block(false);
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				$$('.card').dataBind(r.data);
+				page.$pageEl.dataBind(r.data);
 				$btnAction.baseaction();
 			})
 	}

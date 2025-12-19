@@ -1458,7 +1458,50 @@ Return ONLY the final C# property name."
 				formDefinition.Sections = new List<FormSection>();
 			}
 		}
+		[HttpPost("[action]")]
+		[ActionDisplayName("ذخیره فایل‌ها", ActionAccessType.Api)]
+		public async Task<IActionResult> SaveFiles([FromBody] SaveFilesRequest request, CancellationToken cn)
+		{
+			try
+			{
+				var formDefinition = await _unitOfWork.Repository<FormDefinition>()
+					.TableNoTracking
+					.AsSplitQuery()
+					 
+					.Include(c => c.Sections)
+						.ThenInclude(s => s.Properties)
+							.ThenInclude(p => p.EnumOptions)
+					.Include(c => c.Sections)
+						.ThenInclude(s => s.Properties)
+							.ThenInclude(p => p.ChildProperties)
+								.ThenInclude(cp => cp.EnumOptions)
+					.FirstOrDefaultAsync(c => c.Id == request.FormDefinitionId, cn);
+
+				if (formDefinition == null)
+					return NotFound("تعریف فرم یافت نشد");
+
+				var code = _codeGenerator.GenerateCode(formDefinition);
+				var success = _codeGenerator.SaveAllFiles(formDefinition, code);
+
+				if (success)
+				{
+					// Refresh entity metadata cache
+					_entityMetadataCache.Refresh();
+					return Ok(new { message = "فایل‌ها با موفقیت ذخیره شدند" });
+				}
+				else
+				{
+					return StatusCode(500, "خطا در ذخیره فایل‌ها");
+				}
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, "خطا در ذخیره فایل‌ها: " + ex.Message);
+			}
+		}
 	}
+
+	
 
 	public class TranslateRequest
 	{

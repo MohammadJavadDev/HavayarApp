@@ -24,7 +24,8 @@ namespace WebFramework.TagHelpers
         public bool ShowDelete { get; set; } = true;
         public required string EntityType { get; set; }
         public required string EntityPropName { get; set; }
-        public long? EntityId { get; set; }
+          public bool Required { get; set; } = false;
+          public long? EntityId { get; set; }
 
         // Display mode: form, form-item, table
         public string DisplayMode { get; set; } = "form"; // form, form-item, table
@@ -118,6 +119,7 @@ namespace WebFramework.TagHelpers
                          data-show-download='{ShowDownload.ToString().ToLower()}'
                          data-show-delete='{ShowDelete.ToString().ToLower()}'
                          data-entity-prop-name='{EntityPropName}'
+                         data-required={Required}
                          style='{dropzoneStyle}'>
                         <div class='dz-message'>
                             

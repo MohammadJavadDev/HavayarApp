@@ -454,16 +454,16 @@ button.toast-close-button {
     display: none; /* Hide labels in rows */
 }
 
-.entity-item-container .entity-item-cell .form-control,
-.entity-item-container .entity-item-cell select,
-.entity-item-container .entity-item-cell input {
-    width: 100%;
-    border: 1px solid var(--bs-gray-300, #dee2e6);
-    border-radius: 4px;
-    padding: 6px 12px;
-    font-size: 0.875rem;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
+     .entity-item-container .entity-item-cell .form-control,
+     .entity-item-container .entity-item-cell select,
+     .entity-item-container .entity-item-cell input:not([type="checkbox"]) {
+          width: 100%;
+          border: 1px solid var(--bs-gray-300, #dee2e6);
+          border-radius: 4px;
+          padding: 6px 12px;
+          font-size: 0.875rem;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+     }
 
 .entity-item-container .entity-item-cell .form-control:focus,
 .entity-item-container .entity-item-cell select:focus,
@@ -2202,4 +2202,7 @@ body[class*=jconfirm-no-scroll-] {
           gap: 0.5rem;
           flex-shrink: 0;
      }
-   
+
+.card-custom-header {
+     border-bottom: 1px solid var(--bs-gray-300);
+}

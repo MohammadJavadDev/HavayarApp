@@ -46,6 +46,7 @@ namespace WebApp.Controllers.Dynamic
                     document.Comments = null;
 
 			}
+               document.Status = DocumentStatusEnums.Issue;
             // Add logic here
             var entity = await unitOfWork.Repository<Document>().AddAsync(document, cn, true);
             return Ok(entity);
@@ -79,7 +80,7 @@ namespace WebApp.Controllers.Dynamic
         }
 
         [HttpGet("[action]")]
-        [ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
+        [ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Custom)]
         public IActionResult Edit(long? id)
         {
             // Get logic here
@@ -215,9 +216,11 @@ namespace WebApp.Controllers.Dynamic
         [ActionDisplayName("درج اطلاعات", ActionAccessType.View, ActionAccessItemType.Create)]
         public IActionResult New()
         {
-            var newEntity = new Document();
+            var vm = new DocumentGroupEditViewModel();
 
-            return View(@"\Views\Panel\Edms\Document\Edit.cshtml", newEntity);
+			return View(@"\Views\Panel\Edms\Document\EditAsGroup.cshtml", vm);
+
+			//return View(@"\Views\Panel\Edms\Document\Edit.cshtml", newEntity);
         }
         [HttpGet("[action]")]
         [ActionDisplayName("لیست اطلاعات", ActionAccessType.View, ActionAccessItemType.List)]
