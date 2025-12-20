@@ -261,5 +261,27 @@ namespace Entities.App.Edms
 		[DisplayName("روز تاخیر مجاز کارفرما")]
 		[DisplayInfo(null, true, SystemType.Int, regex: @"^[\u06F0-\u06F90-9]+$", regexInvalidError: "فقط عدد")]
 		public int? LegalClientDayDelay { get; set; }
+		[DisplayName("درصد پیشرفت")]
+		[DisplayInfo(null, true, type: SystemType.ListEntity)]
+		public List<ProjectProgressPercentage> ProgressPercentage { get; set; } = new();
+	}
+
+	[Display(Name = "درصد پیشرفت")]
+	[Table("ProjectProgressPercentage", Schema = "Edms")]
+	public class ProjectProgressPercentage : BaseEntity
+	{
+		public long ProjectId { get; set; }
+		public Project Project { get; set; }
+
+		[DisplayName("وضعیت")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public DocumentStatusEnums? Status { get; set; }
+
+
+		[DisplayName("درصد")]
+		[DisplayInfo(null, true, type: SystemType.Int)]
+		public int? Percentage { get; set; }
+
+
 	}
 }

@@ -4,7 +4,10 @@
 @model Project
 <div class="card">
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Project)"></form-action-buttons></div>
-	<div class="card-body row">
+
+</div>
+<div class="card">
+ 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 		<div class='col-md-3'>
 			<label class='required'>عنوان</label>
@@ -46,7 +49,7 @@
 
 		<div class='col-md-3'>
 			<label class=''>تاریخ شروع شمسی</label>
-			<input class='form-control' data-bind='startShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.StartShamsiDate' />
+			<input class='form-control' data-bind='startShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.StartMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -54,7 +57,7 @@
 
 		<div class='col-md-3'>
 			<label class=''>تاریخ پایان شمسی</label>
-			<input class='form-control' data-bind='expirationShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ExpirationShamsiDate' />
+			<input class='form-control' data-bind='expirationShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ExpirationMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -555,7 +558,46 @@
 		</div>
 
 	</div>
-	<div class='card-footer row'>
+</div>	
+ 
+
+
+	<div class="card">
+		<div class="card-body row">
+		 
+	 
+			<div class='col-md-12'>
+				<div data-tab-item-manager="projectItems" data-item-selector=".entity-item">
+					<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
+						<li class="nav-item" role="presentation">
+							<a class="nav-link active" data-bs-toggle="tab" href="#progressPercentageTab" role="tab" aria-selected="true">
+								<span class="svg-icon svg-icon-2 me-2"></span>
+								درصد پیشرفت
+							</a>
+						</li>
+					</ul>
+					<div class="tab-content">
+						<div class="tab-pane fade show active" id="progressPercentageTab" role="tabpanel" data-add-url="/Panel/Project/ProjectProgressPercentagePartial">
+							<div id='ProgressPercentageContainer' class="entity-item-container">
+								@if (Model?.ProgressPercentage != null)
+								{
+									@foreach (var item in Model.ProgressPercentage)
+									{
+										<div data-item-id="@(item.Id ?? 0)">
+											@await Html.PartialAsync("_ProjectProgressPercentagePartial.cshtml", item)
+										</div>
+									}
+								}
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="card">
+		<div class="card-body row">
+ 
 		<div class='col-md-3'>
 			<span>ایجاد کننده :</span>
 			<span data-bind="createdByName">@Model?.CreatedByName</span>
@@ -574,11 +616,11 @@
 		</div>
 	</div>
 </div>
-
 <script>
 	function savefn($btnAction) {
-		if (validateError($$('.card'))) { return; }
-		var model = $$('.card').dataBind();
+		debugger
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
 		const $btn = $(this.element).block();
 		$$.post('save',
 			model,
@@ -586,7 +628,7 @@
 				$btn.block(false);
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				$$('.card').dataBind(r.data);
+				page.$pageEl.dataBind(r.data);
 				$btnAction.baseaction();
 			})
 	}

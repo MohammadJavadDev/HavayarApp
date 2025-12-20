@@ -1,0 +1,18 @@
+﻿@using Entities.App.Edms;
+@model ProjectProgressPercentage
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='progressPercentage.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<label class=''>وضعیت</label>
+		<select class='form-control' data-bind='progressPercentage.status' asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>درصد</label>
+		<input class='form-control' data-bind='progressPercentage.percentage' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.Percentage' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

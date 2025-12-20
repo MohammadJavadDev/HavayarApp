@@ -66,6 +66,7 @@ namespace WebApp.Controllers.Dynamic
 			if (id != null && id != 0)
 			{
 				var entity = unitOfWork.Repository<Project>().TableNoTracking
+					.Include(c=>c.ProgressPercentage)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Edms\Project\Edit.cshtml", entity);
 			}
@@ -111,6 +112,12 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 		{
 			return Ok(await unitOfWork.Repository<Project>().FetchDataAsync(request, cn));
+		}
+
+		[HttpGet("[action]")]
+		public IActionResult ProjectProgressPercentagePartial()
+		{
+			return PartialView(@"\Views\Panel\Edms\Project\_ProjectProgressPercentagePartial.cshtml");
 		}
 	}
 }
