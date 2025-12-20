@@ -43,11 +43,13 @@
 		</div>
 
 		<div class='col-md-6'>
-			<fileuploader bind="pictureId" accepted-file-types=".jpg,.png"
+			<fileuploader 
+				bind="pictureId"
+				accepted-file-types=".jpg,.png"
 				file-id="@Model?.PictureId"
 				file-entity="@Model?.Picture"
-				entity-prop-name="PictureId"
-				entity-type="PartListGroup"
+				entity-prop-name="Picture"
+				entity-type="@typeof(PartListGroup).FullName"
 				max-file-size="10"
 				label="تصویر"></fileuploader>
 		</div>

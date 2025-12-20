@@ -86,8 +86,8 @@
 			<fileuploader bind="attachmentId" accepted-file-types=".rar,.zip,.pdf,.excel,.word"
 				file-id="@Model?.AttachmentId"
 				file-entity="@Model?.Attachment"
-				entity-prop-name="AttachmentId"
-				entity-type="Transmital"
+				entity-prop-name="Attachment"
+					    entity-type="@typeof(Transmital).FullName"
 				max-file-size="10"
 				label="پیوست"></fileuploader>
 		</div>

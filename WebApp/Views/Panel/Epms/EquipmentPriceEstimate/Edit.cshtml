@@ -34,21 +34,21 @@
 		</div>
 
 		<div class='col-md-6'>
-			<fileuploader bindid="priceInquiry" file-id="@Model?.PriceInquiryId" file-entity="@Model?.PriceInquiry"
+			<fileuploader bind="priceInquiryId" file-id="@Model?.PriceInquiryId" file-entity="@Model?.PriceInquiry"
 					    Label="استعلام قیمت"
-					    entity-type="EquipmentPriceEstimate"
-					    entity-prop-name="PriceInquiryId"
-					    bind="PriceInquiryId"
+					    entity-type="@typeof(EquipmentPriceEstimate).FullName"
+					    entity-prop-name="PriceInquiry"
+					    
 					    accepted-file-types=".pdf,.rar,.zip"></fileuploader>
 		</div>
 
 
 		<div class='col-md-6'>
-			<fileuploader bindid="bom" file-id="@Model?.BomId" file-entity="@Model?.Bom"
+			<fileuploader bind="bomId" file-id="@Model?.BomId" file-entity="@Model?.Bom"
 					    Label="Bom"
-					    entity-type="EquipmentPriceEstimate"
-					    entity-prop-name="BomId"
-					    bind="BomId"
+					    entity-type="@typeof(EquipmentPriceEstimate).FullName"
+					    entity-prop-name="Bom"
+					     
 					    accepted-file-types=".pdf,.rar,.zip"></fileuploader>
 		</div>
 

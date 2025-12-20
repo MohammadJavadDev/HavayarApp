@@ -644,7 +644,7 @@ namespace WebApp.Framework.Generator
 	                         <fileuploader bindid=""{nameproperty}"" file-id=""@Model?.{prop.Name}Id"" file-entity=""@Model?.{prop.Name}""
                                                   Label =""{displayName}""
 				                             entity-type=""{entityType.Name}""
-				                             entity-prop-name=""{prop.Name}Id""
+				                             entity-prop-name=""{prop.Name}""
                                                  bind=""{prop.Name}""
                                                   max-file-size=""{maxFileSize}""
 				                             accepted-file-types=""{customFileTypeFormat}""
@@ -816,7 +816,7 @@ namespace WebApp.Framework.Generator
 	                         <fileuploader bind=""{bindPath}"" file-id=""@Model?.{prop.Name}Id"" file-entity=""@Model?.{prop.Name}""
                                                   Label =""{displayName}""
 				                             entity-type=""{fileEntityTypeName}""
-				                             entity-prop-name=""{prop.Name}Id""
+				                             entity-prop-name=""{prop.Name}""
                                                   max-file-size =""{maxFileSize}""
 				                             accepted-file-types=""{customFileTypeFormat}""></fileuploader>
                              </div>");

@@ -3,7 +3,7 @@
 @inject ISdk sdk;
 @{
 	sdk.RefreshUserRole();
-	var userProfileImage = @sdk?.CurrentUser?.ProfileImage ?? "/panellib/media/blank.png";
+	var userProfileImage = "/file/profile-image/"+ @sdk?.CurrentUser?.ProfileImage ?? "/panellib/media/blank.png";
 }
 
 

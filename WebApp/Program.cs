@@ -11,6 +11,7 @@ using Infrastructure.Messaging;
 using Infrastructure.NotificationServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -49,7 +50,7 @@ builder.Services.AddControllersWithViews()
     }).AddRazorRuntimeCompilation();
 
 
-
+ 
 
 builder.Services.AddScoped<CrudEventInterceptor>();
 
@@ -234,6 +235,23 @@ app.UseStatusCodePages(context =>
     return Task.CompletedTask;
 });
 
+var storage = builder.Configuration.GetSection("Storage");
+
+var uploadsPath = ResolvePath(storage["UploadsPath"], app.Environment);
+var profilePath = ResolvePath(storage["ProfileImagesPath"], app.Environment);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+	FileProvider = new PhysicalFileProvider(uploadsPath),
+	RequestPath = "/uploads"
+});
+
+app.UseStaticFiles(new StaticFileOptions
+{
+	FileProvider = new PhysicalFileProvider(profilePath),
+	RequestPath = "/UserProfileImage"
+});
+
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -276,3 +294,13 @@ void InitializeApplication(WebApplication app)
     }
 }
 
+
+string ResolvePath(string path, IWebHostEnvironment env)
+{
+	var rpath =Path.IsPathRooted(path)
+	    ? path
+	    : Path.Combine(env.ContentRootPath, path);
+
+     Directory.CreateDirectory(rpath);
+     return rpath;
+}

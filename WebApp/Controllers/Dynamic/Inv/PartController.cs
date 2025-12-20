@@ -14,7 +14,7 @@ namespace WebApp.Controllers.Dynamic
 	[Route("Panel/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
-	[ControllerInfo("قطعه", typeof(Part))]
+	[ControllerInfo("کالا", typeof(Part))]
 	public class PartController(IUnitOfWork unitOfWork, IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController
 	{
 		[HttpPost("[action]")]

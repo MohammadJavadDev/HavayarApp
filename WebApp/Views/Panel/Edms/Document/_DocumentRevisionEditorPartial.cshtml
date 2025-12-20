@@ -111,25 +111,25 @@
 
 			<div class='col-md-6'>
 				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
-							label="فایل اصلی" entity-type="Document" entity-prop-name="MainFile" bindid="mainFile"
+						    label="فایل اصلی" entity-type="@typeof(Document).FullName" entity-prop-name="MainFile" bindid="mainFile"
 							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="motherFileId" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
-							label="فایل مادر" entity-type="Document" entity-prop-name="MotherFile" bindid="motherFile"
+						    label="فایل مادر" entity-type="@typeof(Document).FullName" entity-prop-name="MotherFile" bindid="motherFile"
 							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="secondaryFileId" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
-							label="فایل ثانوی" entity-type="Document" entity-prop-name="SecondaryFile" bindid="secondaryFile"
+						    label="فایل ثانوی" entity-type="@typeof(Document).FullName" entity-prop-name="SecondaryFile" bindid="secondaryFile"
 							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
-							label="فایل ReplySheet" entity-type="Document" entity-prop-name="ReplySheet" bindid="replySheet"
+						    label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" bindid="replySheet"
 							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 			</div>
 

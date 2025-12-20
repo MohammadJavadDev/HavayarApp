@@ -10,7 +10,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Entities.App.Inv
 {
-	[Display(Name = "قطعه")]
+	[Display(Name = "کالا")]
 	[Table("Part", Schema = "Inv")]
 	public class Part : BaseEntity
 	{

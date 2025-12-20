@@ -16,6 +16,7 @@ using System.Reflection;
 using WebApp.Models;
 using WebFramework.Filtters;
 using WebFramework.Page;
+using static Stimulsoft.Report.Func;
 
 namespace WebApp.Controllers.SystemControllers
 {
@@ -28,7 +29,9 @@ namespace WebApp.Controllers.SystemControllers
 			IUserService service,
 		IUnitOfWork unitOfWork,
 		IAccessMemoryStorage _accessMemoryStorage,
-		IActiveDirectoryService activeDirectoryService) : BaseController
+		IActiveDirectoryService activeDirectoryService,
+		IWebHostEnvironment env,
+		    IConfiguration config) : BaseController
 	{
 
 
@@ -208,7 +211,7 @@ namespace WebApp.Controllers.SystemControllers
 
 				// Check if user already exists
 				var existingUser = await service.TableNoTracking
-					.FirstOrDefaultAsync(u => u.Username == request.AdUsername, cn);
+					.FirstOrDefaultAsync(u => u.Username == request.Username, cn);
 
 				if (existingUser != null)
 				{
@@ -219,22 +222,32 @@ namespace WebApp.Controllers.SystemControllers
 				string? profileUrl = null;
 				if (adUserInfo.ProfileImage != null && adUserInfo.ProfileImage.Length > 0)
 				{
-					var fileName = $"{request.AdUsername}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
-					var folderPath = Path.Combine("wwwroot", "UserProfileImage");
+
+					var uploadsPath = config["Storage:ProfileImagesPath"]
+				  ?? throw new Exception("Storage:ProfileImagesPath not configured");
+
+					var _uploadsRoot = Path.IsPathRooted(uploadsPath)
+					    ? uploadsPath
+					    : Path.Combine(env.ContentRootPath, uploadsPath);
+
+					Directory.CreateDirectory(_uploadsRoot);
+
+					var fileName = $"{request.Username}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
+					var folderPath = _uploadsRoot;
 					if (!Directory.Exists(folderPath))
 					{
 						Directory.CreateDirectory(folderPath);
 					}
 					var filePath = Path.Combine(folderPath, fileName);
 					await System.IO.File.WriteAllBytesAsync(filePath, adUserInfo.ProfileImage, cn);
-					profileUrl = Path.Combine("UserProfileImage", fileName).Replace("\\", "/");
+					profileUrl = fileName;
 				}
 
 				// Create user
 				var user = await service.CreateUserAsync(new()
 				{
-					Name = adUserInfo.DisplayName ?? request.AdUsername,
-					Username = request.AdUsername,
+					Name = adUserInfo.DisplayName ?? request.Username,
+					Username = request.Username,
 					Password = "", // AD users don't need password stored
 					ProfileUrl = profileUrl,
 					Roles = request.Roles ?? Array.Empty<string>(),
@@ -287,15 +300,25 @@ namespace WebApp.Controllers.SystemControllers
 				string? profileUrl = existingUser.ProfileUrl;
 				if (adUserInfo.ProfileImage != null && adUserInfo.ProfileImage.Length > 0)
 				{
-					var fileName = $"{request.AdUsername}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
-					var folderPath = Path.Combine("wwwroot", "UserProfileImage");
+
+					var uploadsPath = config["Storage:ProfileImagesPath"]
+		                 ?? throw new Exception("Storage:ProfileImagesPath not configured");
+
+					var _uploadsRoot = Path.IsPathRooted(uploadsPath)
+					    ? uploadsPath
+					    : Path.Combine(env.ContentRootPath, uploadsPath);
+
+                     		Directory.CreateDirectory(_uploadsRoot);
+
+					var fileName = $"{request.Username}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
+					var folderPath = _uploadsRoot;
 					if (!Directory.Exists(folderPath))
 					{
 						Directory.CreateDirectory(folderPath);
 					}
 					var filePath = Path.Combine(folderPath, fileName);
 					await System.IO.File.WriteAllBytesAsync(filePath, adUserInfo.ProfileImage, cn);
-					profileUrl = Path.Combine("UserProfileImage", fileName).Replace("\\", "/");
+					profileUrl = fileName;
 				}
 
 				// Update user

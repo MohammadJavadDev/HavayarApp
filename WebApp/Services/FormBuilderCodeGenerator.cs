@@ -899,7 +899,7 @@ namespace WebApp.Services
 					sb.AppendLine($"\t\t\t<fileuploader bind=\"{bindName}Id\" accepted-file-types=\"{prop.FileTypes}\"");
 					sb.AppendLine($"\t\t\t\tfile-id=\"@Model?.{prop.PropertyName}Id\"");
 					sb.AppendLine($"\t\t\t\tfile-entity=\"@Model?.{prop.PropertyName}\"");
-					sb.AppendLine($"\t\t\t\tentity-prop-name=\"{prop.PropertyName}Id\"");
+					sb.AppendLine($"\t\t\t\tentity-prop-name=\"{prop.PropertyName}\"");
 					sb.AppendLine($"\t\t\t\tentity-type=\"{formDefinition.EntityName}\"");
 					sb.AppendLine($"\t\t\t\tmax-file-size=\"{prop.MaxFileSize}\"");
 					sb.AppendLine($"\t\t\t\tlabel=\"{prop.DisplayName}\"></fileuploader>");
@@ -1056,7 +1056,7 @@ namespace WebApp.Services
 					sb.AppendLine($"\t\t<fileuploader bind=\"{bindPath}Id\" accepted-file-types=\"{prop.FileTypes}\"");
 					sb.AppendLine($"\t\t\tfile-id=\"@Model?.{prop.PropertyName}Id\"");
 					sb.AppendLine($"\t\t\tfile-entity=\"@Model?.{prop.PropertyName}\"");
-					sb.AppendLine($"\t\t\tentity-prop-name=\"{prop.PropertyName}Id\"");
+					sb.AppendLine($"\t\t\tentity-prop-name=\"{prop.PropertyName}\"");
 					sb.AppendLine($"\t\t\tmax-file-size=\"{prop.MaxFileSize}\"");
 					sb.AppendLine($"\t\t\tlabel=\"{prop.DisplayName}\"></fileuploader>");
 					sb.AppendLine($"\t</div>");

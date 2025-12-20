@@ -12,21 +12,13 @@ namespace WebApp.Controllers.SystemControllers
 	[Route("[controller]")]
 	[ApiResultFilter]
 	[Authorize("AuthenticatedUser")]
-	public class FileController(IFileService _fileService, IWebHostEnvironment _webHostEnvironment,
-		IEntityMetadataCache entityMetadataCache) : ControllerBase
+	public class FileController(IFileService _fileService,
+		IWebHostEnvironment _webHostEnvironment,
+		IEntityMetadataCache entityMetadataCache,
+		IWebHostEnvironment env,
+		    IConfiguration config) : ControllerBase
 	{
-
-		[HttpPost("[action]")]
-		[AllowAnonymous]
-		public async Task<object> uploadFile(IFormFile file, string? path, CancellationToken cancellationToken)
-		{
-
-			var name = $"{Guid.NewGuid().ToString().Replace("-", "").Substring(8)}{Path.GetExtension(file.FileName)}";
-			path = await _fileService.UploadFile(file, name, path, cancellationToken);
-
-			return Ok(new { path });
-		}
-
+ 
 		[HttpPost("upload/{entityType}/{entityPropName}")]
 		public async Task<IActionResult> Upload(IFormFile file, string entityType, string entityPropName, long? entityId, CancellationToken ct)
 		{
@@ -102,29 +94,45 @@ namespace WebApp.Controllers.SystemControllers
 		}
 
 		[HttpGet("download/{id}")]
-
 		public async Task<IActionResult> DownloadFile(long id, CancellationToken ct)
 		{
-			var file = await _fileService.GetAsync(id, ct);
-			if (file == null)
-				return NotFound();
+			 
 
-			var filePath = Path.Combine(_webHostEnvironment.WebRootPath, file.PhysicalPath.TrimStart('/', '\\'));
+			var (stream, contentType, fileName) = await _fileService.DownloadAsync(id, ct);
+			return File(stream, contentType, fileName);
+		}
 
-			if (!System.IO.File.Exists(filePath))
-				return NotFound();
+		[HttpGet("profile-image/{filename}")]
+		public IActionResult GetProfileImage(string filename)
+		{
 
-			var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath, ct);
-			var contentType = file.ContentType ?? "application/octet-stream";
+			var uploadsPath = config["Storage:ProfileImagesPath"]
+					  ?? throw new Exception("Storage:ProfileImagesPath not configured");
 
-			return File(fileBytes, contentType, file.OriginalName);
+			var _uploadsRoot = Path.IsPathRooted(uploadsPath)
+				    ? uploadsPath
+				    : Path.Combine(env.ContentRootPath, uploadsPath);
+
+			var path = Path.Combine(_uploadsRoot, filename);
+			if (!System.IO.File.Exists(path)) return NotFound();
+
+			var ext = Path.GetExtension(filename);
+			var contentType = ext switch
+			{
+				".jpg" => "image/jpeg",
+				".png" => "image/png",
+				_ => "application/octet-stream"
+			};
+
+			var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+			return File(stream, contentType);
 		}
 
 		[HttpPost("AddDataToFile")]
 
 		public async Task<IActionResult> AddDataToFile(long fileId, string entityType, string entityPropName, long? entityId, CancellationToken ct)
 		{
-			await _fileService.AddDataToFile(fileId, entityId, entityType, entityPropName, ct);
+			//await _fileService.AddDataToFile(fileId, entityId, entityType, entityPropName, ct);
 			return Ok();
 		}
 	}
