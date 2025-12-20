@@ -155,6 +155,12 @@ public class UserService(
                string hashedPassword = PasswordHasher.HashPassword(userObj.Password);
                user.Password = hashedPassword;
           }
+
+          if (userObj.Email.HasValue())
+          {
+               user.Email = userObj.Email;
+          }
+
           user.CreatedById = oldUser.CreatedById;
           user.CreatedByName = oldUser.CreatedByName;
           user.CreatedOnMiladiDateTime = oldUser.CreatedOnMiladiDateTime;
@@ -186,6 +192,7 @@ public class UserService(
 
 
           }
+
 
           var entity = db.Users.Update(user);
           db.SaveChanges();
@@ -228,6 +235,7 @@ public class UserService(
           user.Username = userObj.Username;
           user.Name = userObj.Name;
           user.Roles = userObj.Roles;
+          user.Email = userObj.Email;
 
           user.ProfileUrl = userObj.ProfileUrl;
           return await AddUserAsync(user, cn);
@@ -247,6 +255,7 @@ public class UserService(
           user.Roles = userObj.Roles;
           user.AuthorizationType = userObj.AuthorizationType;
           user.RoleIds = userObj?.RoleIds ?? [];
+          user.Email = userObj.Email;   
 
 
           user.ProfileUrl = userObj.ProfileUrl;
@@ -298,7 +307,14 @@ public class UserService(
                string hashedPassword = PasswordHasher.HashPassword(userObj.Password);
                user.Password = hashedPassword;
           }
-          user.CreatedById = oldUser.CreatedById;
+
+		if (userObj.Email.HasValue())
+		{
+			user.Email = userObj.Email;
+		}
+
+
+		user.CreatedById = oldUser.CreatedById;
           user.CreatedByName = oldUser.CreatedByName;
           user.CreatedOnMiladiDateTime = oldUser.CreatedOnMiladiDateTime;
           user.CreatedOnShamsiDateTime = oldUser.CreatedOnShamsiDateTime;

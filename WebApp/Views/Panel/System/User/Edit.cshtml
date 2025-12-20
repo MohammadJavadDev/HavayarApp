@@ -36,7 +36,7 @@
 
                         <div class="image-input image-input-outline image-input-placeholder image-input-empty image-input-empty">
 
-                            <div class="image-input-wrapper w-100px h-100px" id="imageplaceholder" style="background-image: url('@Html.Raw( @Model?.ProfileUrl ?? "/media/account/avatar.png")')"></div>
+                            <div class="image-input-wrapper w-100px h-100px" id="imageplaceholder" style="background-image: url('/@Html.Raw( @Model?.ProfileUrl ?? "/media/account/avatar.png")')"></div>
 
                             <label class="btn btn-icon btn-circle btn-active-color-primary w-25px h-25px bg-body shadow">
 
@@ -82,6 +82,14 @@
                     
                     </div>
                 </div>
+
+               <div class="col-md-6 ">
+                    <div class="form-group">
+                         <label class="form-label">نام کاربری</label>
+                         <input value="@Model?.Email" class="form-control" data-bind="Email" />
+
+                    </div>
+               </div>
                <div class='col-md-6'>
                     <label class=''>نوع تعریف کاربر</label>
                     <select class='form-select' data-bind='authorizationType' asp-for='AuthorizationType'

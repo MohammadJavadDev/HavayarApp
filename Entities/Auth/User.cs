@@ -91,7 +91,13 @@ public class User
 
     public string? ProfileUrl { get; set; }
 
-    [DisplayName("آخرین آنلاینی")]
+
+	[DisplayName("ایمیل")]
+	[DisplayInfo(null, false, type: SystemType.String)]
+
+	public string? Email { get; set; }
+
+	[DisplayName("آخرین آنلاینی")]
     [DisplayInfo(null, false, SystemType.DateTime)]
     public DateTime? LastOnline { get; set; }
 

@@ -248,10 +248,9 @@
 			if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
 			toastr.success('ذخیره‌سازی با موفقیت انجام شد.');
-			// Sync UI with server response
+	 
 			$editor.dataBind(r.data);
-
-			// Refresh revisions list (so new revisions/status changes appear)
+			 
 			reloadRevisionsList(r.data?.id);
 
 			$btnAction.baseaction();
@@ -269,6 +268,8 @@
 			$container.block(false);
 			if (!html) return toastr.error('خطا در به‌روزرسانی لیست ریویژن‌ها', 'خطا');
 			$container.html(html);
+			var totalCount = $("#RevisionsListContainer div[data-revision-id]").length;
+			 $$("#revisionsTotalCount").text(`${totalCount} مورد`)
 		});
 	}
 

@@ -18,7 +18,10 @@ namespace Entities.App.Inv
 		public long ProductId { get; set; }
 
 
-	 
+		[DisplayName("Info Type")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public PartExtraInfoInfoTypeEnum? InfoType { get; set; }
+
 
 
 		[DisplayName("Design Type")]

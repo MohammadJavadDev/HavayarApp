@@ -1,6 +1,9 @@
 @using Entities.App.Inv;
 @using WebFramework.TagHelpers;
 @model PartExtraInfo
+@{
+	var InfoType = (int)(Model?.InfoType ?? 0) ;
+}
 <div class="card">
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(PartExtraInfo)"></form-action-buttons></div>
 	 
@@ -9,33 +12,33 @@
 <div class="card my-3">
 	<div class="card-body" style="display: flex;justify-content: space-evenly;">
 		<div class="form-check form-check-custom form-check-success form-check-solid">
-		    <input class="form-check-input" type="radio" value="1" name="r1"  id="flexCheckboxLg"/>
+		    <input class="form-check-input" type="radio" value="1" name="InfoType"  id="flexCheckboxLg" />
 		    <label class="form-check-label" for="flexCheckboxLg">
 			   کمپرسور اسکرو اویل اینجکت
 		    </label>
 		</div>
 		<div class="form-check form-check-custom form-check-warning form-check-solid">
-		    <input class="form-check-input" type="radio" value="2" name="r1"  id="flexRadioLg"/>
+		    <input class="form-check-input" type="radio" value="2" name="InfoType"  id="flexRadioLg"/>
 		    <label class="form-check-label" for="flexRadioLg">
 			 کمپرسور اسکرو اویل فری
 		    </label>
 		</div>
 
 		<div class="form-check form-check-custom form-check-danger form-check-solid">
-		    <input class="form-check-input" type="radio" value="3" name="r1"  id="flexCheckboxSm"  />
+		    <input class="form-check-input" type="radio" value="3" name="InfoType"  id="flexCheckboxSm"  />
 		    <label class="form-check-label" for="flexCheckboxSm">
 		درایر	
 		    </label>
 		</div>
 
 		<div class="form-check form-check-custom  form-check-solid">
-		    <input class="form-check-input" type="radio" value="4" name="r1"  id="flexRadioLg4"/>
+		    <input class="form-check-input" type="radio" value="4" name="InfoType"  id="flexRadioLg4"/>
 		    <label class="form-check-label" for="flexRadioLg4">
 			PSA
 		    </label>
 		</div>
 		<div class="form-check form-check-custom form-check-warning form-check-solid">
-		    <input class="form-check-input" type="radio" value="5" name="r1"  id="flexRadioLg5"/>
+		    <input class="form-check-input" type="radio" value="5" name="InfoType"  id="flexRadioLg5"/>
 		    <label class="form-check-label" for="flexRadioLg5">
 					ثابت
 		    </label>
@@ -423,12 +426,24 @@
 </div>
 
 <script>
+	debugger
+	var infoType = @InfoType
+	 
+	if(infoType >0){
+		$$(`[name=InfoType][value =${infoType}]`).prop("checked",true)
+	}
 	 
 	function savefn($btnAction) {
+	  
 	 
+		if(!$$("[name=InfoType]:checked").val())
+		{
+			return error2("نوع شناسنامه مشخص نشده است.");
+		}
 		 
 		if (validateError($$('.card'))) { return; }
 		var model = page.$pageEl.dataBind();
+		model.InfoType = $$("[name=InfoType]:checked").val();
 		const $btn = $(this.element).block();
 		$$.post('save',
 			model,

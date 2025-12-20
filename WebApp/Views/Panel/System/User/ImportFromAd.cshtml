@@ -1,0 +1,399 @@
+@using Data.Contracts
+@using Entities.Auth
+@using Entities.Base
+@inject IRepository<Role> serviceRole;
+
+@{
+    var systemRoles = serviceRole.TableNoTracking.Select(c => new { c.Id, c.Name, c.Title }).ToArray();
+}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">دریافت کاربران از Active Directory</h3>
+    </div>
+    <div class="card-body">
+        <div class="row mb-5">
+            <div class="col-md-4">
+                <label class="form-label">نام کاربری AD</label>
+                <input type="text" id="adUsername" class="form-control" placeholder="نام کاربری برای اتصال به AD" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">رمز عبور AD</label>
+                <input type="password" id="adPassword" class="form-control" placeholder="رمز عبور برای اتصال به AD" />
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="button" id="btnLoadAdUsers" class="btn btn-primary w-100">
+                    <i class="ki-duotone ki-search fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                    </i>
+                    دریافت لیست کاربران
+                </button>
+            </div>
+        </div>
+
+        <div id="loadingIndicator" class="text-center" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">در حال بارگذاری...</span>
+            </div>
+            <p class="mt-2">در حال دریافت کاربران از Active Directory...</p>
+        </div>
+
+        <div id="adUsersTableContainer" style="display: none;">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="ki-duotone ki-magnifier fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </span>
+                        <input type="text" id="searchInput" class="form-control" placeholder="جستجو در همه ستون‌ها..." />
+                        <button type="button" class="btn btn-light" id="btnClearSearch" style="display: none;">
+                            <i class="ki-duotone ki-cross fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-8 d-flex align-items-center">
+                    <span id="searchResultCount" class="text-muted"></span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered table-hover" id="adUsersTable">
+                    <thead>
+                        <tr>
+                            <th>نام کاربری</th>
+                            <th>نام نمایشی</th>
+                            <th>ایمیل</th>
+                            <th>موبایل</th>
+                            <th>دپارتمان</th>
+                            <th>عنوان</th>
+                            <th>وضعیت</th>
+                            <th>وضعیت در سیستم</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adUsersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Add/Update User -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle">افزودن کاربر</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="modalAdUsername" />
+                    <input type="hidden" id="modalAdPassword" />
+                    <input type="hidden" id="modalSystemUserId" />
+                    <input type="hidden" id="modalIsUpdate" value="false" />
+
+                    <div class="mb-5">
+                        <label class="form-label">نقش‌ها</label>
+                        <select class="form-control" multiple="multiple" id="modalRoles" style="width: 100%;">
+                            @foreach (var r in systemRoles)
+                            {
+                                <option value="@r.Name:@r.Id">@r.Title</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="ki-duotone ki-information-5 fs-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                            <span class="path3"></span>
+                        </i>
+                        <span id="modalInfoText">اطلاعات کاربر از Active Directory دریافت و در سیستم ثبت خواهد شد.</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-primary" id="btnSaveUser">ذخیره</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let adUsersData = [];
+    let currentAdUsername = '';
+    let currentAdPassword = '';
+    let allUsersData = []; // Store all users for filtering
+
+    // Initialize Select2 for roles
+    $(document).ready(function () {
+        $$('#modalRoles').select2({
+            tags: true,
+            tokenSeparators: [','],
+            dropdownParent: $$('#userModal')
+        });
+
+        // Search input event
+        $$('#searchInput').on('input', function () {
+            filterTable();
+        });
+
+        // Clear search button
+        $$('#btnClearSearch').click(function () {
+            $$('#searchInput').val('');
+            filterTable();
+        });
+    });
+
+    // Load AD Users
+    $$('#btnLoadAdUsers').click(function () {
+        const username = $$('#adUsername').val();
+        const password = $$('#adPassword').val();
+
+        if (!username || !password) {
+             toastr.error('لطفاً نام کاربری و رمز عبور AD را وارد کنید.', 'خطا');
+             return;
+         }
+
+         currentAdUsername = username;
+         currentAdPassword = password;
+
+
+   
+
+        $$('#loadingIndicator').show();
+        $$('#adUsersTableContainer').hide();
+
+
+
+            $$.post('/panel/User/GetAdUsers', {username,password}, function (response) {
+            $$('#loadingIndicator').hide();
+
+            if (!response.isSuccess) {
+                toastr.error(response.message || 'خطا در دریافت کاربران', 'خطا');
+                return;
+            }
+
+            adUsersData = response.data.data;
+            allUsersData = response.data.data; // Store all users
+            renderAdUsersTable(adUsersData);
+            $$('#adUsersTableContainer').show();
+            filterTable(); // Apply initial filter if any
+        });
+    });
+
+    // Filter table based on search input
+    function filterTable() {
+        const searchTerm = $$('#searchInput').val().toLowerCase().trim();
+        const tbody = $$('#adUsersTableBody');
+        
+        // Show/hide clear button
+        if (searchTerm.length > 0) {
+            $$('#btnClearSearch').show();
+        } else {
+            $$('#btnClearSearch').hide();
+        }
+
+        if (!allUsersData || allUsersData.length === 0) {
+            return;
+        }
+
+        let filteredUsers = allUsersData;
+
+        if (searchTerm.length > 0) {
+            filteredUsers = allUsersData.filter(function (user) {
+                // Search in all columns
+                const userName = (user.userName || '').toLowerCase();
+                const displayName = (user.displayName || '').toLowerCase();
+                const email = (user.email || '').toLowerCase();
+                const mobile = (user.mobile || '').toLowerCase();
+                const department = (user.department || '').toLowerCase();
+                const title = (user.title || '').toLowerCase();
+                const enabled = user.enabled ? 'فعال' : 'غیرفعال';
+                const existsInSystem = user.existsInSystem ? 'موجود' : 'جدید';
+
+                return userName.includes(searchTerm) ||
+                       displayName.includes(searchTerm) ||
+                       email.includes(searchTerm) ||
+                       mobile.includes(searchTerm) ||
+                       department.includes(searchTerm) ||
+                       title.includes(searchTerm) ||
+                       enabled.includes(searchTerm) ||
+                       existsInSystem.includes(searchTerm);
+            });
+        }
+
+        // Update result count
+        const totalCount = allUsersData.length;
+        const filteredCount = filteredUsers.length;
+        if (searchTerm.length > 0) {
+            $$('#searchResultCount').text(`نمایش ${filteredCount} از ${totalCount} کاربر`);
+        } else {
+            $$('#searchResultCount').text(`مجموع ${totalCount} کاربر`);
+        }
+
+        // Render filtered users
+        renderTableRows(filteredUsers);
+    }
+
+    // Render table rows
+    function renderTableRows(users) {
+        const tbody = $$('#adUsersTableBody');
+        tbody.empty();
+
+        if (users.length === 0) {
+            tbody.append('<tr><td colspan="9" class="text-center">هیچ کاربری یافت نشد.</td></tr>');
+            return;
+        }
+
+        users.forEach(function (user) {
+            const statusBadge = user.enabled 
+                ? '<span class="badge badge-success">فعال</span>' 
+                : '<span class="badge badge-danger">غیرفعال</span>';
+
+            const existsBadge = user.existsInSystem 
+                ? '<span class="badge badge-info">موجود</span>' 
+                : '<span class="badge badge-secondary">جدید</span>';
+
+            const actionButtons = user.existsInSystem
+                ? `<button class="btn btn-sm btn-warning btn-update-user" data-username="${user.userName}" data-userid="${user.systemUserId}">
+                     <i class="ki-duotone ki-pencil fs-5">
+                         <span class="path1"></span>
+                         <span class="path2"></span>
+                     </i>
+                     به‌روزرسانی
+                   </button>`
+                : `<button class="btn btn-sm btn-success btn-add-user" data-username="${user.userName}">
+                     <i class="ki-duotone ki-plus fs-5">
+                         <span class="path1"></span>
+                         <span class="path2"></span>
+                     </i>
+                     افزودن
+                   </button>`;
+
+            const row = `
+                <tr>
+                    <td>${user.userName || '-'}</td>
+                    <td>${user.displayName || '-'}</td>
+                    <td>${user.email || '-'}</td>
+                    <td>${user.mobile || '-'}</td>
+                    <td>${user.department || '-'}</td>
+                    <td>${user.title || '-'}</td>
+                    <td>${statusBadge}</td>
+                    <td>${existsBadge}</td>
+                    <td>${actionButtons}</td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+
+        // Bind event handlers after rendering
+        setTimeout(function() {
+            $$('.btn-add-user').off('click').on('click', function () {
+                const username = $$(this).data('username');
+                openAddUserModal(username);
+            });
+
+            $$('.btn-update-user').off('click').on('click', function () {
+                const username = $$(this).data('username');
+                const userId = $$(this).data('userid');
+                openUpdateUserModal(username, userId);
+            });
+        }, 100);
+    }
+
+    // Render AD Users Table (main function)
+    function renderAdUsersTable(users) {
+        allUsersData = users; // Store all users
+        renderTableRows(users);
+        
+        // Update result count
+        $$('#searchResultCount').text(`مجموع ${users.length} کاربر`);
+    }
+
+    // Open Add User Modal
+    function openAddUserModal(username) {
+        $$('#modalTitle').text('افزودن کاربر از Active Directory');
+        $$('#modalAdUsername').val(username);
+        $$('#modalAdPassword').val(currentAdPassword);
+        $$('#modalSystemUserId').val('');
+        $$('#modalIsUpdate').val('false');
+        $$('#modalRoles').val(null).trigger('change');
+        $$('#modalInfoText').text(`کاربر "${username}" از Active Directory دریافت و در سیستم ثبت خواهد شد.`);
+        $$('#userModal').modal('show');
+    }
+
+    // Open Update User Modal
+    function openUpdateUserModal(username, userId) {
+        $$('#modalTitle').text('به‌روزرسانی کاربر از Active Directory');
+        $$('#modalAdUsername').val(username);
+        $$('#modalAdPassword').val(currentAdPassword);
+        $$('#modalSystemUserId').val(userId);
+        $$('#modalIsUpdate').val('true');
+        $$('#modalRoles').val(null).trigger('change');
+        $$('#modalInfoText').text(`اطلاعات کاربر "${username}" از Active Directory دریافت و در سیستم به‌روزرسانی خواهد شد.`);
+        $$('#userModal').modal('show');
+    }
+
+    // Save User (Add or Update)
+    $$('#btnSaveUser').click(function () {
+         const adUsername = $$('#adUsername').val();
+         const adPassword = $$('#adPassword').val();
+           const modalAdUsername = $$('#modalAdUsername').val();
+        const systemUserId = $$('#modalSystemUserId').val();
+        const isUpdate = $$('#modalIsUpdate').val() === 'true';
+        const selectedRoles = $$('#modalRoles').val() || [];
+
+        let roleNames = [];
+        let roleIds = [];
+        selectedRoles.forEach(function (role) {
+            const parts = role.split(':');
+            if (parts.length === 2) {
+                roleNames.push(parts[0]);
+                roleIds.push(parseInt(parts[1]));
+            }
+        });
+
+        const requestData = {
+            adUsername: adUsername,
+            adPassword: adPassword,
+            roles: roleNames,
+            roleIds: roleIds,
+              username:modalAdUsername
+        };
+
+        if (isUpdate) {
+            requestData.systemUserId = parseInt(systemUserId);
+        }
+
+        const url = isUpdate ? '/panel/User/UpdateAdUser' : '/panel/User/ImportAdUser';
+        const actionText = isUpdate ? 'به‌روزرسانی' : 'افزودن';
+
+        $$('#btnSaveUser').prop('disabled', true).text('در حال ذخیره...');
+
+        $$.post(url, requestData, function (response) {
+            $$('#btnSaveUser').prop('disabled', false).text('ذخیره');
+            $$('#userModal').modal('hide');
+
+            if (!response.isSuccess) {
+                toastr.error(response.message || `خطا در ${actionText} کاربر`, 'خطا');
+                return;
+            }
+
+            toastr.success(response.message || `کاربر با موفقیت ${actionText === 'افزودن' ? 'افزوده' : 'به‌روزرسانی'} شد.`, 'موفقیت');
+            
+            // Reload AD users list
+            $$('#btnLoadAdUsers').click();
+        });
+    });
+</script>
+

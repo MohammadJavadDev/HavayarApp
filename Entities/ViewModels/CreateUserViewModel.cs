@@ -13,6 +13,7 @@ public class CreateUserViewModel
 	public List<long>? RoleIds { get; set; }
 	public string? FName { get; set; }
     public string? ProfileUrl { get; set; }
+	public string? Email { get; set; }
 	public AuthorizationTypeEnum AuthorizationType   { get; set; }
 	 
 }
