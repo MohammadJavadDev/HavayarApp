@@ -3,7 +3,11 @@
 @inject ISdk sdk;
 @{
 	sdk.RefreshUserRole();
-	var userProfileImage = "/file/profile-image/"+ @sdk?.CurrentUser?.ProfileImage ?? "/panellib/media/blank.png";
+	var userProfileImage = "";
+	if (sdk?.CurrentUser?.ProfileImage != null)
+		userProfileImage = "/file/profile-image/" + sdk?.CurrentUser?.ProfileImage;
+	else
+		userProfileImage = "/panellib/media/blank.png";
 }
 
 

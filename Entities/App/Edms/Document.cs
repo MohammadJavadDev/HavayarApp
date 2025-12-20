@@ -148,4 +148,6 @@ namespace Entities.App.Edms
 		[MaxLength(2000)]
 		public string? HoldDetails { get; set; }
 	}
+
+
 }

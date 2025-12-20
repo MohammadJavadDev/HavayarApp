@@ -355,37 +355,6 @@
 
 
 
-	// Tab Item Manager API usage example
-	if (self.TabItemManagers && self.TabItemManagers.proposalItems) {
-		const itemManager = self.TabItemManagers.proposalItems;
-		debugger
-		self.TabItemManagers.proposalItems.tabs.proposalDocumentsTab.add.onclick(function () {
-			debugger;
-			console.log("hi");
-			this.baseaction();
-		})
-
-		// قبل از اضافه شدن آیتم
-		self.TabItemManagers.proposalItems.tabs.proposalDocumentsTab.add.onbeforeadd(function (element) {
-			debugger;
-			console.log('قبل از اضافه شدن:', element);
-			this.baseaction();
-		});
-
-
-		// قبل از حذف آیتم
-		self.TabItemManagers.proposalItems.tabs.proposalDocumentsTab.delete.onbeforedelete(function (element) {
-			console.log('قبل از حذف:', element);
-			debugger;
-			return false;
-
-		});
-
-		// بعد از حذف آیتم
-		self.TabItemManagers.proposalItems.tabs.proposalDocumentsTab.delete.onafterdelete(function (deletedItems) {
-			console.log('بعد از حذف:', deletedItems);
-			debugger;
-		});
-	}
+	 
 
 </script>

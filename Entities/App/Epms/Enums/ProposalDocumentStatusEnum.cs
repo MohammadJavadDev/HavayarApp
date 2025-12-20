@@ -18,7 +18,9 @@ namespace Entities.App.Epms.Enums
 		[Display(Name = "منتظر")]
 		Hold,
 		[Display(Name = "ارسال برای مشتری")]
-		IssueForClient 
+		IssueForClient ,
+		[Display(Name = "رد شده")]
+		Reject,
 
 	}
 }

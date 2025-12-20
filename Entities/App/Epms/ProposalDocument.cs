@@ -1,6 +1,9 @@
 ﻿using Common.Attributes;
 using Entities.App.Epms.Enums;
+using Entities.App.Inv;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -47,10 +50,15 @@ namespace Entities.App.Epms
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<ProposalDocumentComment> ProposalDocumentComments { get; set; } = new();
 	}
-	[Display(Name = "مدارک پروپوزال")]
+	[Display(Name = "کامنت های مدارک پروپوزال")]
 	[Table("ProposalDocumentComment", Schema = "Epms")]
 	public class ProposalDocumentComment:BaseEntity
 	{
+		[DisplayName("مدارک پروپوزال")]
+		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
+		public ProposalDocument ProposalDocument { get; set; }
+		public long ProposalDocumentId { get; set; }
+
 		[DisplayName("کامنت")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string Comment { get; set; }
@@ -61,5 +69,20 @@ namespace Entities.App.Epms
 		[DisplayName("وضعیت")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProposalDocumentStatusEnum Status { get; set; } =ProposalDocumentStatusEnum.Submit;
+	}
+
+	public class PartSparePartConfiguration : IEntityTypeConfiguration<ProposalDocumentComment>
+	{
+		public void Configure(EntityTypeBuilder<ProposalDocumentComment> builder)
+		{
+
+
+			builder
+		    .HasOne(x => x.ProposalDocument)
+		    .WithMany(x => x.ProposalDocumentComments)
+		    .HasForeignKey(x => x.ProposalDocumentId)
+		    .OnDelete(DeleteBehavior.NoAction);
+
+		}
 	}
 }
