@@ -10,8 +10,8 @@ using Entities.App.Epms;
 
 namespace WebApp.Controllers.Dynamic.Epms
 {
-    [Route("Panel/[controller]")]
-    [ApiController]
+	[Route("Panel/Epms/[controller]")]
+	[ApiController]
     [ApiResultFilter]
     [ControllerInfo("اسناد VPIS", typeof(VpisType))]
     public class VpisTypeController(IUnitOfWork unitOfWork  , IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController

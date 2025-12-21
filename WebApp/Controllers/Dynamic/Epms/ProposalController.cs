@@ -11,7 +11,7 @@ using Entities.App.Epms;
 
 namespace WebApp.Controllers.Dynamic
 {
-	[Route("Panel/[controller]")]
+	[Route("Panel/Epms/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("پروپوزال", typeof(Proposal))]

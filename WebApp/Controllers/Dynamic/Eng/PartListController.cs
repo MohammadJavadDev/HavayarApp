@@ -11,7 +11,7 @@ using Entities.App.Eng;
 
 namespace WebApp.Controllers.Dynamic
 {
-	[Route("Panel/[controller]")]
+	[Route("Panel/Eng/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("پارت لیست", typeof(PartList))]

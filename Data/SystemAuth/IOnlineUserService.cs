@@ -82,5 +82,18 @@ public interface IOnlineUserService
 	/// </summary>
 	Task RefreshUserRoleAccessesAsync(long userId, CancellationToken ct = default);
 	void RefreshUserRoleAccesses(long userId);
+
+	Task AddOrUpdatePageAsync(
+			long userId,
+			string connectionId,
+			string path,
+			string? title,
+			CancellationToken ct = default);
+
+	Task RemovePageAsync(
+		long userId,
+		string connectionId,
+		string path,
+		CancellationToken ct = default);
 }
 

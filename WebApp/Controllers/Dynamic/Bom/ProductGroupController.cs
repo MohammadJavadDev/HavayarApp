@@ -11,7 +11,7 @@ using Entities.App.Bom;
 
 namespace WebApp.Controllers.Dynamic
 {
-	[Route("Panel/[controller]")]
+	[Route("Panel/Bom/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("گروه بندی محصولات", typeof(ProductGroup))]

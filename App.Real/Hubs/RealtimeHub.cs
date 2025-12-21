@@ -1,3 +1,4 @@
+using Common.Utilities;
 using Data.Contracts;
 using Data.Repositories;
 using Data.SystemAuth;
@@ -52,6 +53,25 @@ public sealed class RealtimeHub : Hub
 		}
 
 		await base.OnDisconnectedAsync(exception);
+	}
+
+	public async Task UpdateOpenedPage(string path, string? title)
+	{
+		var userId = Context.User.GetUserId();
+		await _onlineUserService.AddOrUpdatePageAsync(
+			userId,
+			Context.ConnectionId,
+			path,
+			title);
+	}
+
+	public async Task ClosePage(string path)
+	{
+		var userId = Context.User.GetUserId();
+		await _onlineUserService.RemovePageAsync(
+			userId,
+			Context.ConnectionId,
+			path);
 	}
 }
 

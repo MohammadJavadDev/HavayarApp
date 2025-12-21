@@ -17,6 +17,19 @@ public sealed class OnlineUserDto
 	public List<string> ConnectionIds { get; set; } = new();
 	public DateTime ConnectedAt { get; set; }
 	public DateTime LastActivity { get; set; }
+	public string? CurrentPagePath { get; set; }
+	public string? CurrentPageTitle { get; set; }
+	public Dictionary<string, List<OnlineUserPageDto>> PagesByConnection { get; set; }
+	    = new();
+}
+
+public class OnlineUserPageDto
+{
+	public string Path { get; set; } = default!;
+	public string? Title { get; set; }
+
+	public DateTime OpenedAt { get; set; }
+	public DateTime LastActive { get; set; }
 }
 
 /// <summary>

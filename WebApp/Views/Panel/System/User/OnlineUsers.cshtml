@@ -1,0 +1,430 @@
+@using Data.SystemAuth
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">کاربران آنلاین</h3>
+        <div class="card-toolbar">
+            <button type="button" id="btnRefresh" class="btn btn-sm btn-light-primary">
+                <i class="ki-duotone ki-arrows-circle fs-2">
+                    <span class="path1"></span>
+                    <span class="path2"></span>
+                </i>
+                به‌روزرسانی
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row mb-5">
+            <div class="col-md-12">
+                <div class="d-flex align-items-center justify-content-between mb-5">
+                    <div>
+                        <span class="text-muted">تعداد کاربران آنلاین: </span>
+                        <span id="onlineUsersCount" class="badge badge-primary fs-4">0</span>
+                    </div>
+                    <div class="input-group" style="max-width: 300px;">
+                        <span class="input-group-text">
+                            <i class="ki-duotone ki-magnifier fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </span>
+                        <input type="text" id="searchInput" class="form-control" placeholder="جستجو..." />
+                        <button type="button" class="btn btn-light" id="btnClearSearch" style="display: none;">
+                            <i class="ki-duotone ki-cross fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loadingIndicator" class="text-center" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">در حال بارگذاری...</span>
+            </div>
+            <p class="mt-2">در حال دریافت کاربران آنلاین...</p>
+        </div>
+
+        <div id="onlineUsersTableContainer">
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered table-hover" id="onlineUsersTable">
+                    <thead>
+                        <tr>
+                            <th>تصویر پروفایل</th>
+                            <th>نام کاربری</th>
+                            <th>نام کامل</th>
+                            <th>نقش‌ها</th>
+                            <th>تعداد اتصالات</th>
+                            <th>صفحات باز شده</th>
+                            <th>صفحه فعلی</th>
+                            <th>زمان اتصال</th>
+                            <th>آخرین فعالیت</th>
+                            <th>عملیات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="onlineUsersTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for User Pages -->
+<div class="modal fade" id="userPagesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="userPagesModalTitle">صفحات باز شده کاربر</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="userPagesModalBody">
+                <!-- Content will be populated dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">بستن</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allOnlineUsers = [];
+
+    $(document).ready(function () {
+        loadOnlineUsers();
+
+        // Refresh button
+        $$('#btnRefresh').click(function () {
+            loadOnlineUsers();
+        });
+
+        // Search input event
+        $$('#searchInput').on('input', function () {
+            filterTable();
+        });
+
+        // Clear search button
+        $$('#btnClearSearch').click(function () {
+            $$('#searchInput').val('');
+            filterTable();
+        });
+
+        // Auto refresh every 30 seconds
+        setInterval(function () {
+            loadOnlineUsers();
+        }, 30000);
+    });
+
+    function loadOnlineUsers() {
+        $$('#loadingIndicator').show();
+        $$('#onlineUsersTableContainer').hide();
+
+        $.ajax({
+            url: '/panel/User/GetOnlineUsers',
+            type: 'GET',
+            success: function (response) {
+                $$('#loadingIndicator').hide();
+                $$('#onlineUsersTableContainer').show();
+
+                if (!response.isSuccess) {
+                    toastr.error(response.message || 'خطا در دریافت کاربران آنلاین', 'خطا');
+                    return;
+                }
+
+                allOnlineUsers = response.data || [];
+                renderOnlineUsersTable(allOnlineUsers);
+                updateUsersCount(allOnlineUsers.length);
+            },
+            error: function (xhr, status, error) {
+                $$('#loadingIndicator').hide();
+                $$('#onlineUsersTableContainer').show();
+                toastr.error('خطا در ارتباط با سرور', 'خطا');
+            }
+        });
+    }
+
+    function filterTable() {
+        const searchTerm = $$('#searchInput').val().toLowerCase().trim();
+
+        // Show/hide clear button
+        if (searchTerm.length > 0) {
+            $$('#btnClearSearch').show();
+        } else {
+            $$('#btnClearSearch').hide();
+        }
+
+        if (!allOnlineUsers || allOnlineUsers.length === 0) {
+            return;
+        }
+
+        let filteredUsers = allOnlineUsers;
+
+        if (searchTerm.length > 0) {
+            filteredUsers = allOnlineUsers.filter(function (user) {
+                const username = (user.username || '').toLowerCase();
+                const fullName = (user.fullName || '').toLowerCase();
+                const roles = (user.roles || []).join(' ').toLowerCase();
+
+                return username.includes(searchTerm) ||
+                    fullName.includes(searchTerm) ||
+                    roles.includes(searchTerm);
+            });
+        }
+
+        renderTableRows(filteredUsers);
+        updateUsersCount(filteredUsers.length, allOnlineUsers.length);
+    }
+
+    function renderOnlineUsersTable(users) {
+        allOnlineUsers = users;
+        renderTableRows(users);
+        updateUsersCount(users.length);
+    }
+
+    function renderTableRows(users) {
+        const tbody = $$('#onlineUsersTableBody');
+        tbody.empty();
+
+        if (users.length === 0) {
+            tbody.append('<tr><td colspan="10" class="text-center">هیچ کاربر آنلاینی یافت نشد.</td></tr>');
+            return;
+        }
+
+        users.forEach(function (user, index) {
+
+            const profileImage = user.profileImage
+                ? `/file/profile-image/${user.profileImage}`
+                : '/panellib/media/blank.png';
+
+            const rolesBadges = (user.roles || []).map(function (role) {
+                return `<span class="badge badge-light-primary me-1">${role}</span>`;
+            }).join('') || '<span class="text-muted">-</span>';
+
+            const connectedAt = user.connectedAt
+                ? new Date(user.connectedAt).toLocaleString('fa-IR')
+                : '-';
+
+            const lastActivity = user.lastActivity
+                ? new Date(user.lastActivity).toLocaleString('fa-IR')
+                : '-';
+
+            const connectionsCount = (user.connectionIds || []).length;
+
+            // محاسبه تعداد کل صفحات باز شده
+            let totalPagesCount = 0;
+            const pagesByConnection = user.pagesByConnection || {};
+            Object.keys(pagesByConnection).forEach(function (connId) {
+                totalPagesCount += (pagesByConnection[connId] || []).length;
+            });
+
+            // نمایش صفحه فعلی
+            const currentPage = user.currentPageTitle
+                ? `<span class="badge badge-success" title="${user.currentPagePath || ''}">${user.currentPageTitle}</span>`
+                : '<span class="text-muted">-</span>';
+
+            // دکمه نمایش صفحات
+            const pagesButton = totalPagesCount > 0
+                ? `<button type="button" class="btn btn-sm btn-light-info btn-view-pages" data-user-id="${user.userId}" title="مشاهده صفحات باز شده">
+                    <i class="ki-duotone ki-eye fs-5">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                    </i>
+                    <span class="badge badge-info ms-1">${totalPagesCount}</span>
+                </button>`
+                : '<span class="text-muted">-</span>';
+
+            const row = `
+                <tr data-user-id="${user.userId}">
+                    <td class="text-center">
+                        <div class="symbol symbol-50px">
+                            <img src="${profileImage}" alt="${user.fullName || user.username}" 
+                                  />
+                        </div>
+                    </td>
+                    <td>${user.username || '-'}</td>
+                    <td>${user.fullName || '-'}</td>
+                    <td>${rolesBadges}</td>
+                    <td class="text-center">
+                        <span class="badge badge-info">${connectionsCount}</span>
+                    </td>
+                    <td class="text-center">${pagesButton}</td>
+                    <td>${currentPage}</td>
+                    <td style="direction: ltr;">${connectedAt}</td>
+                    <td style="direction: ltr;">${lastActivity}</td>
+                    <td class="text-center">
+                        <a href="/panel/User/Edit?id=${user.userId}" class="btn btn-sm btn-icon btn-light-primary" 
+                           title="ویرایش کاربر">
+                            <i class="ki-duotone ki-pencil fs-5">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </a>
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+
+        // Bind event handlers for view pages buttons
+        $$('.btn-view-pages').off('click').on('click', function () {
+            const userId = $$(this).data('user-id');
+            const user = allOnlineUsers.find(function (u) { return u.userId === userId; });
+            if (user) {
+                showUserPagesModal(user);
+            }
+        });
+    }
+
+    function updateUsersCount(filteredCount, totalCount) {
+        if (totalCount !== undefined && filteredCount !== totalCount) {
+            $$('#onlineUsersCount').text(`${filteredCount} از ${totalCount}`);
+        } else {
+            $$('#onlineUsersCount').text(filteredCount);
+        }
+    }
+
+    function showUserPagesModal(user) {
+        const modal = $$('#userPagesModal');
+        const modalTitle = $$('#userPagesModalTitle');
+        const modalBody = $$('#userPagesModalBody');
+
+        modalTitle.text(`صفحات باز شده: ${user.fullName || user.username}`);
+
+        const pagesByConnection = user.pagesByConnection || {};
+        const connectionIds = Object.keys(pagesByConnection);
+
+        if (connectionIds.length === 0) {
+            modalBody.html(`
+                <div class="text-center py-10">
+                    <i class="ki-duotone ki-information-5 fs-3x text-muted mb-5">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                    </i>
+                    <p class="text-muted fs-4">هیچ صفحه‌ای باز نشده است</p>
+                </div>
+            `);
+            modal.modal('show');
+            return;
+        }
+
+        let html = '<div class="accordion accordion-icon-toggle" id="pagesAccordion">';
+
+        connectionIds.forEach(function (connId, connIndex) {
+            const pages = pagesByConnection[connId] || [];
+            const isFirst = connIndex === 0;
+            const collapsedClass = isFirst ? '' : 'collapsed';
+            const showClass = isFirst ? 'show' : '';
+
+            html += `
+                <div class="accordion-item mb-3">
+                    <h2 class="accordion-header" id="heading${connIndex}">
+                        <button class="accordion-button ${collapsedClass}" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapse${connIndex}" aria-expanded="${isFirst}" 
+                                aria-controls="collapse${connIndex}">
+                            <div class="d-flex align-items-center w-100">
+                                <i class="ki-duotone ki-link fs-2 me-3">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">اتصال ${connIndex + 1}</div>
+                                    <small class="text-muted">${connId.substring(0, 20)}...</small>
+                                </div>
+                                 <span class="badge badge-primary ms-auto me-2">${pages.length} صفحه</span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse${connIndex}" class="accordion-collapse collapse ${showClass}" 
+                         aria-labelledby="heading${connIndex}" data-bs-parent="#pagesAccordion">
+                        <div class="accordion-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>مسیر صفحه</th>
+                                            <th>عنوان</th>
+                                            <th>زمان باز شدن</th>
+                                            <th>آخرین فعالیت</th>
+                                            <th>عملیات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+            `;
+
+            if (pages.length === 0) {
+                html += '<tr><td colspan="5" class="text-center text-muted">هیچ صفحه‌ای باز نشده است</td></tr>';
+            } else {
+                pages.forEach(function (page) {
+                    const openedAt = page.openedAt
+                        ? new Date(page.openedAt).toLocaleString('fa-IR')
+                        : '-';
+                    const lastActive = page.lastActive
+                        ? new Date(page.lastActive).toLocaleString('fa-IR')
+                        : '-';
+
+                    html += `
+                        <tr>
+                            <td>
+                                <code class="text-primary">${page.path || '-'}</code>
+                            </td>
+                            <td>
+                                <span class="fw-semibold">${page.title || '-'}</span>
+                            </td>
+                            <td style="direction: ltr;">${openedAt}</td>
+                            <td style="direction: ltr;">${lastActive}</td>
+                            <td class="text-center">
+                                <a href="${page.path || '#'}" target="_blank" class="btn btn-sm btn-icon btn-light-primary" 
+                                   title="باز کردن صفحه">
+                                        <i class="ki-duotone ki-search-list">
+                                         <span class="path1"></span>
+                                         <span class="path2"></span>
+                                         <span class="path3"></span>
+                                        </i>
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+
+        // نمایش صفحه فعلی اگر وجود داشته باشد
+        if (user.currentPagePath || user.currentPageTitle) {
+            html = `
+                <div class="alert alert-info d-flex align-items-center mb-5">
+                    <i class="ki-duotone ki-information-5 fs-2x me-3">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                    </i>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold mb-1">صفحه فعلی:</div>
+                        <div>
+                            <code class="text-primary">${user.currentPagePath || '-'}</code>
+                            ${user.currentPageTitle ? `<span class="ms-2 fw-semibold">${user.currentPageTitle}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            ` + html;
+        }
+
+        modalBody.html(html);
+        modal.modal('show');
+    }
+</script>

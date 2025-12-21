@@ -52,7 +52,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 				return;
 
 			// اضافه کردن connectionId
-			if (!connectionId.IsNullOrEmpty() && !userDto.ConnectionIds.Contains(connectionId))
+			if (connectionId.HasValue() && !userDto.ConnectionIds.Contains(connectionId))
 			{
 				userDto.ConnectionIds.Add(connectionId);
 			}
@@ -603,6 +603,100 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			Console.WriteLine($"Error removing userId from online list: {ex.Message}");
 		}
 	}
+
+	public async Task AddOrUpdatePageAsync(
+	long userId,
+	string connectionId,
+	string path,
+	string? title,
+	CancellationToken ct = default)
+	{
+		try
+		{
+			var userKey = GetUserKey(userId);
+			var json = await _redis.GetStringAsync(userKey, ct);
+			if (string.IsNullOrEmpty(json))
+				return;
+
+			var user = JsonSerializer.Deserialize<OnlineUserDto>(json, JsonOptions);
+			if (user == null)
+				return;
+
+			if (!user.PagesByConnection.ContainsKey(connectionId))
+				user.PagesByConnection[connectionId] = new();
+
+			var pages = user.PagesByConnection[connectionId];
+
+			var page = pages.FirstOrDefault(p => p.Path == path);
+			if (page == null)
+			{
+				pages.Add(new OnlineUserPageDto
+				{
+					Path = path,
+					Title = title,
+					OpenedAt = DateTime.UtcNow,
+					LastActive = DateTime.UtcNow
+				});
+			}
+			else
+			{
+				page.LastActive = DateTime.UtcNow;
+				page.Title = title;
+			}
+
+			user.LastActivity = DateTime.UtcNow;
+
+			await _redis.SetStringAsync(userKey,
+				JsonSerializer.Serialize(user, JsonOptions),
+				new DistributedCacheEntryOptions
+				{
+					AbsoluteExpirationRelativeToNow = _userExpiration
+				}, ct);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"AddOrUpdatePageAsync error: {ex.Message}");
+		}
+	}
+	public async Task RemovePageAsync(
+	long userId,
+	string connectionId,
+	string path,
+	CancellationToken ct = default)
+	{
+		try
+		{
+			var userKey = GetUserKey(userId);
+			var json = await _redis.GetStringAsync(userKey, ct);
+			if (string.IsNullOrEmpty(json))
+				return;
+
+			var user = JsonSerializer.Deserialize<OnlineUserDto>(json, JsonOptions);
+			if (user == null)
+				return;
+
+			if (!user.PagesByConnection.TryGetValue(connectionId, out var pages))
+				return;
+
+			pages.RemoveAll(p => p.Path == path);
+
+			if (pages.Count == 0)
+				user.PagesByConnection.Remove(connectionId);
+
+			await _redis.SetStringAsync(userKey,
+				JsonSerializer.Serialize(user, JsonOptions),
+				new DistributedCacheEntryOptions
+				{
+					AbsoluteExpirationRelativeToNow = _userExpiration
+				}, ct);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"RemovePageAsync error: {ex.Message}");
+		}
+	}
+
+
 
 	/// <summary>
 	/// ساخت کلید Redis برای کاربر

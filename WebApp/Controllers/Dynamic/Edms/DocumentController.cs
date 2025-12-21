@@ -13,8 +13,8 @@ using WebApp.ViewModels.Edms;
 
 namespace WebApp.Controllers.Dynamic
 {
-    [Route("Panel/[controller]")]
-    [ApiController]
+	[Route("Panel/Edms/[controller]")]
+	[ApiController]
     [ApiResultFilter]
     [ControllerInfo("مدارک مهندسی", typeof(Document))]
     public class DocumentController(IUnitOfWork unitOfWork, IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController

@@ -34,5 +34,9 @@ namespace Common.Utilities
         {
             return identity?.FindFirstValue(ClaimTypes.Name);
         }
-    }
+		public static long GetUserId(this ClaimsPrincipal user)
+		{
+			return long.Parse(user.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+		}
+	}
 }

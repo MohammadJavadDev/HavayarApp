@@ -172,14 +172,7 @@ connection.on("EntityChanged", event => {
 		toastr.info(event.message || `موجودیت ${event.entityName} با شناسه ${event.entityId} ایجاد شد`, "تغییر موجودیت");
 	}
 
-	// TODO: می‌توانید اینجا:
-	// 1. Grid را refresh کنید اگر کاربر در همان صفحه است
-	// 2. Cache client-side را invalidate کنید
-	// 3. UI را بر اساس تغییر update کنید
-	// مثال:
-	// if (event.entityName === currentPageEntity) {
-	//     refreshCurrentGrid();
-	// }
+ 
 });
 
 // اتصال
@@ -196,3 +189,21 @@ document.addEventListener("click", function (ev) {
 		bellBtn.classList.remove("has-notification");
 	}
 });
+
+
+window.UpdateCurrentPage = function (path,title) {
+
+	if (connection && connection.state === signalR.HubConnectionState.Connected) {
+		connection.invoke("UpdateOpenedPage", path, title)
+			.catch(err => console.error("UpdateOpenedPage error:", err));
+	}
+}
+
+
+
+ 
+
+window.ClosePage = function (path) {
+
+	connection.invoke("ClosePage", path).catch(() => { });
+}

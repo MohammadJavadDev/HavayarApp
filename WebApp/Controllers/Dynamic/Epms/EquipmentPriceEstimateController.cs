@@ -11,8 +11,8 @@ using Entities.App.Epms;
 
 namespace WebApp.Controllers.Dynamic
 {
-    [Route("Panel/[controller]")]
-    [ApiController]
+	[Route("Panel/Epms/[controller]")]
+	[ApiController]
     [ApiResultFilter]
     [ControllerInfo("برآورد هزینه تجهیزات", typeof(EquipmentPriceEstimate))]
     public class EquipmentPriceEstimateController(IUnitOfWork unitOfWork  , IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController

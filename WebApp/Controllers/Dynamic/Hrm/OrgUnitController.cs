@@ -12,8 +12,8 @@ using Entities.App.Hrm;
 
 namespace WebApp.Controllers.Dynamic.Hrm
 {
-    [Route("Panel/[controller]")]
-    [ApiController]
+	[Route("Panel/Hrm/[controller]")]
+	[ApiController]
     [ApiResultFilter]
     [ControllerInfo("واحد سازمانی", typeof(OrgUnit))]
     public class OrgUnitController(IUnitOfWork unitOfWork  , IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController

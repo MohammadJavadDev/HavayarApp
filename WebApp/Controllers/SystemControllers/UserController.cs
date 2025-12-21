@@ -3,6 +3,7 @@ using Common.Auth.Enums;
 using Common.Utilities;
 using Data.Contracts;
 using Data.Repositories;
+using Data.SystemAuth;
 using Entities.Auth;
 using Entities.Base;
 using Entities.Base.DataTable;
@@ -30,8 +31,9 @@ namespace WebApp.Controllers.SystemControllers
 		IUnitOfWork unitOfWork,
 		IAccessMemoryStorage _accessMemoryStorage,
 		IActiveDirectoryService activeDirectoryService,
+		IOnlineUserService onlineUserService,
 		IWebHostEnvironment env,
-		    IConfiguration config) : BaseController
+			IConfiguration config) : BaseController
 	{
 
 
@@ -159,7 +161,7 @@ namespace WebApp.Controllers.SystemControllers
 				}
 
 
-				var adUsers = activeDirectoryService.GetAllUsers(request.Username , request.Password);
+				var adUsers = activeDirectoryService.GetAllUsers(request.Username, request.Password);
 
 				// Check which users already exist in system
 				var existingUsernames = service.TableNoTracking
@@ -227,8 +229,8 @@ namespace WebApp.Controllers.SystemControllers
 				  ?? throw new Exception("Storage:ProfileImagesPath not configured");
 
 					var _uploadsRoot = Path.IsPathRooted(uploadsPath)
-					    ? uploadsPath
-					    : Path.Combine(env.ContentRootPath, uploadsPath);
+						? uploadsPath
+						: Path.Combine(env.ContentRootPath, uploadsPath);
 
 					Directory.CreateDirectory(_uploadsRoot);
 
@@ -290,7 +292,7 @@ namespace WebApp.Controllers.SystemControllers
 				}
 
 				// Get updated info from AD
-				var adUserInfo = activeDirectoryService.GetUserByAdminUserInfo(request.AdUsername, request.AdPassword ,request.Username);
+				var adUserInfo = activeDirectoryService.GetUserByAdminUserInfo(request.AdUsername, request.AdPassword, request.Username);
 				if (adUserInfo == null)
 				{
 					return BadRequest(new { isSuccess = false, message = "کاربر در Active Directory یافت نشد." });
@@ -302,13 +304,13 @@ namespace WebApp.Controllers.SystemControllers
 				{
 
 					var uploadsPath = config["Storage:ProfileImagesPath"]
-		                 ?? throw new Exception("Storage:ProfileImagesPath not configured");
+						 ?? throw new Exception("Storage:ProfileImagesPath not configured");
 
 					var _uploadsRoot = Path.IsPathRooted(uploadsPath)
-					    ? uploadsPath
-					    : Path.Combine(env.ContentRootPath, uploadsPath);
+						? uploadsPath
+						: Path.Combine(env.ContentRootPath, uploadsPath);
 
-                     		Directory.CreateDirectory(_uploadsRoot);
+					Directory.CreateDirectory(_uploadsRoot);
 
 					var fileName = $"{request.Username}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
 					var folderPath = _uploadsRoot;
@@ -340,6 +342,28 @@ namespace WebApp.Controllers.SystemControllers
 			catch (Exception ex)
 			{
 				return BadRequest(new { isSuccess = false, message = $"خطا در به‌روزرسانی کاربر: {ex.Message}" });
+			}
+		}
+
+		[HttpGet("/panel/User/OnlineUsers")]
+		[ActionDisplayName("کاربران آنلاین", ActionAccessType.View, ActionAccessItemType.List)]
+		public IActionResult OnlineUsers()
+		{
+			return View("Views/Panel/System/User/OnlineUsers.cshtml");
+		}
+
+		[HttpGet("/panel/User/GetOnlineUsers")]
+		[ActionDisplayName("دریافت لیست کاربران آنلاین", ActionAccessType.Api, ActionAccessItemType.FetchData)]
+		public async Task<IActionResult> GetOnlineUsers(CancellationToken cn)
+		{
+			try
+			{
+				var onlineUsers = await onlineUserService.GetAllOnlineUsersAsync(cn);
+				return Ok(onlineUsers);
+			}
+			catch (Exception ex)
+			{
+				return BadRequest($"خطا در دریافت کاربران آنلاین: {ex.Message}");
 			}
 		}
 	}

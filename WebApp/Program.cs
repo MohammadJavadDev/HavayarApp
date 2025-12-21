@@ -230,8 +230,25 @@ app.UseStatusCodePages(context =>
 
     if (context.HttpContext.Response.StatusCode == 404)
     {
-        context.HttpContext.Response.Redirect("/Panel/NotFounded");
-    }
+		var request = context.HttpContext.Request;
+		var path = request.Path.Value;
+
+		bool isStatic =
+		    Path.HasExtension(path) &&
+		    (
+			   path.EndsWith(".js") ||
+			   path.EndsWith(".css") ||
+			   path.EndsWith(".png") ||
+			   path.EndsWith(".jpg") ||
+			   path.EndsWith(".svg") ||
+			   path.EndsWith(".ico")
+		    );
+
+		if (!isStatic)
+		{
+			context.HttpContext.Response.Redirect("/Panel/NotFounded");
+		}
+	}
     return Task.CompletedTask;
 });
 

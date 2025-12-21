@@ -11,8 +11,8 @@ using Entities.App.Epms;
 
 namespace WebApp.Controllers.Dynamic
 {
-    [Route("Panel/[controller]")]
-    [ApiController]
+	[Route("Panel/Epms/[controller]")]
+	[ApiController]
     [ApiResultFilter]
     [ControllerInfo("پروپوزال Vpis", typeof(ProposalVpis))]
     public class ProposalVpisController(IUnitOfWork unitOfWork  , IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController

@@ -6777,6 +6777,11 @@ class AppController {
 					page.title = decoded.title;
 				}
 
+				if (window.UpdateCurrentPage) {
+
+					window.UpdateCurrentPage(page.address,page.title)
+				}
+
 				page.script = decoded.scripts;
 			  
 					// Initialize FormActionButtons API
@@ -8307,6 +8312,11 @@ class AppController {
 			this.setActivePage(this.pages[this.pages.length - 1]);
 		} else if (this.activePage === page) {
 			this.activePage = null;
+		}
+
+		if (window.UpdateCurrentPage) {
+
+			window.ClosePage(page.address)
 		}
 
 		// Remove tab and page DOM

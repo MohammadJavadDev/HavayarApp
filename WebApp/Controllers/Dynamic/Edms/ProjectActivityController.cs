@@ -11,7 +11,7 @@ using Entities.App.Edms;
 
 namespace WebApp.Controllers.Dynamic
 {
-	[Route("Panel/[controller]")]
+	[Route("Panel/Edms/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("فعالیت های پروژه", typeof(ProjectActivity))]
