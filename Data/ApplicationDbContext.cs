@@ -3,6 +3,7 @@ using Common.Utilities;
  
 using Entities.Auth;
 using Entities.Base;
+using Entities.Base.Job;
 using Entities.Services;
  
 using Microsoft.EntityFrameworkCore;
@@ -233,6 +234,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public virtual DbSet<User> Users { get; set; }
 	public virtual DbSet<Role> Roles { get; set; }
 	public virtual DbSet<RoleAccess> RoleAccesses { get; set; }
+	public virtual DbSet<JobDefinition> JobDefinitions { get; set; }
+	public virtual DbSet<JobSchedule> JobSchedules { get; set; }
+	public virtual DbSet<JobHistory> JobHistories { get; set; }
+ 
 
 
 }

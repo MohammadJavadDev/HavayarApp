@@ -1,0 +1,66 @@
+﻿using Common.Attributes;
+using Data;
+using Entities.Base.Job;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Services.Job
+{
+	public class JobDiscoveryService : IHostedService
+	{
+		private readonly IServiceProvider _serviceProvider;
+
+		public JobDiscoveryService(IServiceProvider serviceProvider)
+		{
+			_serviceProvider = serviceProvider;
+		}
+
+		public async Task StartAsync(CancellationToken cancellationToken)
+		{
+			using var scope = _serviceProvider.CreateScope();
+			var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+			// پیدا کردن تمام کلاس‌هایی که متدهای Job دارند
+			var methods = AppDomain.CurrentDomain.GetAssemblies()
+			    .SelectMany(a => a.GetTypes())
+			    .SelectMany(t => t.GetMethods())
+			    .Where(m => m.GetCustomAttributes(typeof(JobHandlerAttribute), false).Length > 0)
+			    .ToArray();
+
+			foreach (var method in methods)
+			{
+				var attr = (JobHandlerAttribute)method.GetCustomAttributes(typeof(JobHandlerAttribute), false)[0];
+				var jobId = $"{method.DeclaringType.FullName}.{method.Name}";
+
+				var existingJob = await dbContext.JobDefinitions.FirstOrDefaultAsync(c=>c.JobId == jobId);
+				if (existingJob == null)
+				{
+					dbContext.JobDefinitions.Add(new JobDefinition
+					{
+						JobId = jobId,
+						DisplayName = attr.DisplayName,
+						Description = attr.Description ?? "بدون مقدار",
+						AssemblyName = method.DeclaringType.Assembly.FullName,
+						ClassType = method.DeclaringType.FullName,
+						MethodName = method.Name
+					});
+				}
+				else
+				{
+					// آپدیت کردن نام و توضیحات در صورت تغییر در کد
+					existingJob.DisplayName = attr.DisplayName;
+					existingJob.Description = attr?.Description ?? "بدون مقدار";
+				}
+			}
+			await dbContext.SaveChangesAsync();
+		}
+
+		public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+	}
+}
