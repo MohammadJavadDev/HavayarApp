@@ -69,3 +69,5 @@
 /Shared/bin/Release/net8.0
 /WebApp/bin/Release/net8.0
 /Deploy.bat
+/App.BackgroundJob/bin/Debug/net8.0
+/App.BackgroundJob/obj
