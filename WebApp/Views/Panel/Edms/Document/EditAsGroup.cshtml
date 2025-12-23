@@ -201,7 +201,7 @@
 		// Load Vpis summary card
 		const $vpisContainer = $$('#DocumentVpisSummaryContainer');
 		if ($vpisContainer.length) {
-			page.getPartialView(`/Panel/Document/DocumentVpisSummaryPartial?documentVpisId=${documentVpisId}`, function (html) {
+			page.getPartialView(`/Panel/Edms/Document/DocumentVpisSummaryPartial?documentVpisId=${documentVpisId}`, function (html) {
 				if (html) $vpisContainer.html(html);
 			});
 		}
@@ -210,7 +210,7 @@
 		const $container = $$('#RevisionEditorContainer');
 		$container.block();
 
-		page.getPartialView(`/Panel/Document/NewRevisionEditorPartial?projectId=${projectId}&documentVpisId=${documentVpisId}`, function (html) {
+		page.getPartialView(`/Panel/Edms/Document/NewRevisionEditorPartial?projectId=${projectId}&documentVpisId=${documentVpisId}`, function (html) {
 			$container.block(false);
 			if (!html) return toastr.error('خطا در ایجاد فرم مدرک جدید', 'خطا');
 
@@ -279,7 +279,7 @@
 		const $container = $$('#RevisionEditorContainer');
 		$container.block();
 
-		page.getPartialView(`/Panel/Document/RevisionEditorPartial?id=${revisionId}&canEditDocument=@canEditDocument`, function (html) {
+		page.getPartialView(`/Panel/Edms/Document/RevisionEditorPartial?id=${revisionId}&canEditDocument=@canEditDocument`, function (html) {
 			$container.block(false);
 			if (!html) return toastr.error('خطا در دریافت اطلاعات ریویژن', 'خطا');
 
@@ -307,7 +307,7 @@
 		const $container = $$('#RevisionEditorContainer');
 		$container.block();
 
-		page.getPartialView(`/Panel/Document/NewRevisionEditorPartial?projectId=${key.projectId}&documentVpisId=${key.documentVpisId}`, function (html) {
+		page.getPartialView(`/Panel/Edms/Document/NewRevisionEditorPartial?projectId=${key.projectId}&documentVpisId=${key.documentVpisId}`, function (html) {
 			$container.block(false);
 			if (!html) return toastr.error('خطا در ایجاد ریویژن جدید', 'خطا');
 

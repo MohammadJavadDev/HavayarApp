@@ -184,7 +184,7 @@
 				</ul>
 				<div class="tab-content">
 					<div class="tab-pane fade show active" id="commentsTab" role="tabpanel"
-						data-add-url="/Panel/Document/DocumentCommentPartial">
+						data-add-url="/Panel/Edms/Document/DocumentCommentPartial">
 						<div id='CommentsContainer' class="entity-item-container">
 							@if (Model?.Comments != null)
 							{
@@ -249,7 +249,7 @@
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 	self.FormActionButtons.addComment.onclick(function () {
 
-		page.getPartialView("/Panel/Document/DocumentCommentPartial", function (v) {
+		page.getPartialView("/Panel/Edms/Document/DocumentCommentPartial", function (v) {
 
 			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
 			$.confirm({

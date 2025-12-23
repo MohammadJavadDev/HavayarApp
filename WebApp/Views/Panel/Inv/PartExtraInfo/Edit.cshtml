@@ -63,7 +63,8 @@
 				"{Code} {Name}",
 				"ProductId",
 				"ProductName",
-				Model?.ProductId.ToString()
+				Model?.ProductId.ToString(),
+				true
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
@@ -79,7 +80,7 @@
 
 		<div class='col-md-3'>
 			<label class='required'>مدل</label>
-			<input class='form-control' data-bind='model' required asp-for='Model' />
+			<input class='form-control' data-bind='model' required asp-for='Model' required />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -461,7 +462,7 @@
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 
 
-	$$("[name=r1]").change(function(){
+	$$("[name=InfoType]").change(function(){
 		var vl =$(this).val();
 		
 		if(vl=='1'){

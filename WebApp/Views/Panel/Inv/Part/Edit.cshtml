@@ -43,10 +43,21 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>واحد اندازه گیری</label>
-			<select class='form-control' data-bind='unitOfMeasurement'  asp-for='UnitOfMeasurement' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inv.Enums.PartUnitOfMeasurementEnum))">
-			</select>
+		<div class="col-md-6">
+			<label class='required'>واحد اندازه گیری</label>
+			@(Html.EntitySelector<PartUnit>(
+				"UnitSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Title = c.Title
+				},
+				c => new { c.Title },
+				"{Title}",
+				"UnitId",
+				"UnitName",
+				Model?.UnitId.ToString()
+			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -141,7 +152,7 @@
 					</li>
 				</ul>
 				<div class="tab-content">
-					<div class="tab-pane fade show active" id="sparePartsTab" role="tabpanel" data-add-url="/Panel/Part/PartSparePartPartial">
+					<div class="tab-pane fade show active" id="sparePartsTab" role="tabpanel" data-add-url="/Panel/Inv/Part/PartSparePartPartial">
 						<div id='SparePartsContainer' class="entity-item-container">
 							@if (Model?.SpareParts != null)
 							{
@@ -154,7 +165,7 @@
 							}
 						</div>
 					</div>
-					<div class="tab-pane fade " id="documentsTab" role="tabpanel" data-add-url="/Panel/Part/PartDocumentPartial">
+					<div class="tab-pane fade " id="documentsTab" role="tabpanel" data-add-url="/Panel/Inv/Part/PartDocumentPartial">
 						<div id='DocumentsContainer' class="entity-item-container">
 							@if (Model?.Documents != null)
 							{

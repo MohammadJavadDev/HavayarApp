@@ -19,6 +19,12 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 	    sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
     }) );
 
+builder.Services.AddDbContext<RahkaranDbContext>((sp, options) =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Rahkaran"), sql =>
+    {
+	    sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+    }));
+
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
@@ -30,7 +36,7 @@ builder.Services.AddSingleton<IOnlineUserService, RedisOnlineUserService>();
 
 builder.Services.AddHostedService<JobDiscoveryService>();
 builder.Services.AddHostedService<JobWorker>();
-builder.Services.AddHostedService<App.BackgroundJob.Services.TestJobSeeder>();
+ 
 builder.Services.AddScoped<ISdk, Sdk>();
 builder.Services.AddScoped<IDataTableQueryBuilder, DataTableQueryBuilder>();
 builder.Services.AddScoped<IAuditService, AuditService>();

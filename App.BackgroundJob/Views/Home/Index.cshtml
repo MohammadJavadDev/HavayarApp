@@ -1,8 +1,588 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+     ViewData["Title"] = "تولید کلاس از دیتابیس";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+@section Styles {
+     <style>
+          .tool-card {
+               transition: all 0.3s;
+               height: 100%;
+          }
+
+               .tool-card:hover {
+                    transform: translateY(-5px);
+                    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+               }
+
+          .tool-icon {
+               width: 80px;
+               height: 80px;
+               margin: 0 auto;
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+               border-radius: 50%;
+               color: white;
+               font-size: 32px;
+          }
+
+          .btn-primary {
+               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+               border: none;
+               padding: 10px 30px;
+          }
+
+               .btn-primary:hover {
+                    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+               }
+
+          * {
+               margin: 0;
+               padding: 0;
+               box-sizing: border-box;
+          }
+
+          body {
+               font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+               background-color: #f5f7fa;
+               min-height: 100vh;
+               padding: 0;
+          }
+
+          .header-section {
+               background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+               color: white;
+               padding: 30px 0;
+               box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          }
+
+               .header-section h1 {
+                    font-size: 28px;
+                    font-weight: 600;
+                    margin: 0;
+               }
+
+          .main-container {
+               max-width: 1600px;
+               margin: 0 auto;
+               padding: 30px 20px;
+          }
+
+          .card {
+               border-radius: 8px;
+               box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+               border: 1px solid #e1e8ed;
+               background: white;
+          }
+
+          .card-header {
+               background-color: #fff;
+               color: #2c3e50;
+               border-bottom: 2px solid #e1e8ed;
+               padding: 20px 24px;
+               border-radius: 8px 8px 0 0;
+          }
+
+               .card-header h5 {
+                    font-size: 18px;
+                    font-weight: 600;
+                    margin: 0;
+                    color: #2c3e50;
+               }
+
+          .card-body {
+               padding: 24px;
+          }
+
+          .search-box {
+               border: 2px solid #e1e8ed;
+               border-radius: 6px;
+               padding: 12px 16px;
+               font-size: 14px;
+               transition: all 0.3s;
+          }
+
+               .search-box:focus {
+                    border-color: #3498db;
+                    outline: none;
+                    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+               }
+
+          .section-title {
+               font-size: 13px;
+               font-weight: 600;
+               text-transform: uppercase;
+               color: #7f8c8d;
+               padding: 12px 16px;
+               background-color: #f8f9fa;
+               border-radius: 6px;
+               margin: 16px 0 8px 0;
+               letter-spacing: 0.5px;
+          }
+
+          .table-item {
+               cursor: pointer;
+               padding: 14px 16px;
+               margin: 4px 0;
+               border-radius: 6px;
+               transition: all 0.2s;
+               border: 1px solid transparent;
+               background-color: #fff;
+          }
+
+               .table-item:hover {
+                    background-color: #f8f9fa;
+                    border-color: #dee2e6;
+                    transform: translateX(-4px);
+               }
+
+               .table-item.selected {
+                    background-color: #e3f2fd;
+                    border-color: #2196f3;
+               }
+
+          .table-item-content {
+               display: flex;
+               justify-content: space-between;
+               align-items: center;
+          }
+
+          .table-item-name {
+               display: flex;
+               align-items: center;
+               gap: 10px;
+               font-size: 14px;
+               color: #2c3e50;
+               font-weight: 500;
+          }
+
+          .table-item-schema {
+               font-size: 12px;
+               color: #7f8c8d;
+               font-weight: 400;
+               margin-left: 8px;
+          }
+
+          .table-icon {
+               width: 32px;
+               height: 32px;
+               display: flex;
+               align-items: center;
+               justify-content: center;
+               border-radius: 6px;
+               font-size: 14px;
+          }
+
+               .table-icon.type-table {
+                    background-color: #e3f2fd;
+                    color: #1976d2;
+               }
+
+               .table-icon.type-view {
+                    background-color: #e8f5e9;
+                    color: #388e3c;
+               }
+
+          .badge-table {
+               background-color: #2196f3;
+               color: white;
+               padding: 4px 10px;
+               border-radius: 4px;
+               font-size: 11px;
+               font-weight: 600;
+               text-transform: uppercase;
+               letter-spacing: 0.5px;
+          }
+
+          .badge-view {
+               background-color: #4caf50;
+               color: white;
+               padding: 4px 10px;
+               border-radius: 4px;
+               font-size: 11px;
+               font-weight: 600;
+               text-transform: uppercase;
+               letter-spacing: 0.5px;
+          }
+
+          #codeOutput {
+               background-color: #1e1e1e;
+               color: #d4d4d4;
+               border-radius: 0 0 8px 8px;
+               font-family: 'Consolas', 'Courier New', monospace;
+               font-size: 13px;
+               max-height: 600px;
+               overflow-y: auto;
+               line-height: 1.6;
+          }
+
+          .code-header {
+               background-color: #2d2d30;
+               padding: 14px 20px;
+               border-radius: 8px 8px 0 0;
+               display: flex;
+               justify-content: space-between;
+               align-items: center;
+               border-bottom: 1px solid #404040;
+          }
+
+          .code-filename {
+               color: #ffffff;
+               font-size: 14px;
+               font-weight: 500;
+               display: flex;
+               align-items: center;
+               gap: 8px;
+          }
+
+          .btn-copy {
+               background-color: #0e639c;
+               color: white;
+               border: none;
+               padding: 8px 16px;
+               border-radius: 4px;
+               font-size: 13px;
+               font-weight: 500;
+               cursor: pointer;
+               transition: all 0.2s;
+          }
+
+               .btn-copy:hover {
+                    background-color: #1177bb;
+               }
+
+          .loading-spinner {
+               display: none;
+          }
+
+          .empty-state {
+               text-align: center;
+               padding: 80px 20px;
+               color: #95a5a6;
+          }
+
+               .empty-state i {
+                    font-size: 64px;
+                    margin-bottom: 24px;
+                    color: #bdc3c7;
+               }
+
+               .empty-state h4 {
+                    color: #7f8c8d;
+                    font-size: 20px;
+                    font-weight: 600;
+                    margin-bottom: 12px;
+               }
+
+               .empty-state p {
+                    color: #95a5a6;
+                    font-size: 14px;
+               }
+
+          .objects-list-container {
+               max-height: 550px;
+               overflow-y: auto;
+          }
+
+               .objects-list-container::-webkit-scrollbar {
+                    width: 8px;
+               }
+
+               .objects-list-container::-webkit-scrollbar-track {
+                    background: #f1f1f1;
+                    border-radius: 4px;
+               }
+
+               .objects-list-container::-webkit-scrollbar-thumb {
+                    background: #c1c1c1;
+                    border-radius: 4px;
+               }
+
+                    .objects-list-container::-webkit-scrollbar-thumb:hover {
+                         background: #a8a8a8;
+                    }
+
+          .stats-bar {
+               display: flex;
+               gap: 20px;
+               padding: 12px 16px;
+               background-color: #f8f9fa;
+               border-radius: 6px;
+               margin-bottom: 16px;
+          }
+
+          .stat-item {
+               display: flex;
+               align-items: center;
+               gap: 8px;
+               font-size: 13px;
+               color: #2c3e50;
+          }
+
+          .stat-number {
+               font-weight: 600;
+               color: #3498db;
+          }
+     </style>
+     </style>
+}
+
+<div class="row g-4">
+     <div class="col-lg-4">
+          <div class="card">
+               <div class="card-header">
+                    <h5>
+                         <i class="fas fa-list me-2"></i>
+                         جداول و ویوهای دیتابیس
+                    </h5>
+               </div>
+               <div class="card-body">
+                    <div class="mb-3">
+                         <input type="text" id="searchBox" class="form-control search-box"
+                                placeholder="جستجو... (مثال: inv.part)">
+                         <small class="text-muted">می‌توانید با schema جستجو کنید: schema.table</small>
+                    </div>
+                    <div class="stats-bar" id="statsBar" style="display: none;">
+                         <div class="stat-item">
+                              <i class="fas fa-table"></i>
+                              <span>جداول: <span class="stat-number" id="tableCount">0</span></span>
+                         </div>
+                         <div class="stat-item">
+                              <i class="fas fa-eye"></i>
+                              <span>ویوها: <span class="stat-number" id="viewCount">0</span></span>
+                         </div>
+                    </div>
+                    <div class="loading-spinner text-center" id="loadingSpinner">
+                         <div class="spinner-border text-primary" role="status">
+                              <span class="visually-hidden">در حال بارگذاری...</span>
+                         </div>
+                    </div>
+                    <div class="objects-list-container" id="objectsList"></div>
+               </div>
+          </div>
+     </div>
+
+     <div class="col-lg-8">
+          <div class="card">
+               <div class="card-header">
+                    <h5>
+                         <i class="fas fa-code me-2"></i>
+                         کد C# تولید شده
+                    </h5>
+               </div>
+               <div class="card-body p-0">
+                    <div id="codeContainer">
+                         <div class="empty-state">
+                              <i class="fas fa-hand-pointer"></i>
+                              <h4>یک جدول یا ویو انتخاب کنید</h4>
+                              <p>برای مشاهده کد C# مربوطه، روی یکی از جداول یا ویوها کلیک کنید</p>
+                         </div>
+                    </div>
+               </div>
+          </div>
+     </div>
 </div>
+        
+
+@section Scripts {
+     <script>
+          $(document).ready(function () {
+              let allObjects = [];
+              let tableCount = 0;
+              let viewCount = 0;
+
+              loadDatabaseObjects();
+
+              function loadDatabaseObjects() {
+                  $('#loadingSpinner').show();
+                  $('#objectsList').empty();
+                  $('#statsBar').hide();
+
+                  $.ajax({
+                      type: "GET",
+                      url: "/Home/GetDatabaseObjects",
+                      success: function (data) {
+                          allObjects = data;
+                          tableCount = data.filter(o => o.type === 'Table').length;
+                          viewCount = data.filter(o => o.type === 'View').length;
+
+                          $('#tableCount').text(tableCount);
+                          $('#viewCount').text(viewCount);
+                          $('#statsBar').show();
+
+                          displayObjects(allObjects);
+                          $('#loadingSpinner').hide();
+                      },
+                      error: function (xhr, status, error) {
+                          $('#loadingSpinner').hide();
+                          alert("خطا در دریافت اطلاعات: " + error);
+                      }
+                  });
+              }
+
+              function displayObjects(objects) {
+                  $('#objectsList').empty();
+
+                  if (objects.length === 0) {
+                      $('#objectsList').html('<div class="text-center text-muted p-3">موردی یافت نشد</div>');
+                      return;
+                  }
+
+                  // گروه بندی بر اساس نوع
+                  const tables = objects.filter(o => o.type === 'Table');
+                  const views = objects.filter(o => o.type === 'View');
+
+                  // نمایش جداول
+                  if (tables.length > 0) {
+                      $('#objectsList').append('<div class="section-title"><i class="fas fa-table me-2"></i>جداول</div>');
+
+                      // گروه بندی بر اساس Schema
+                      const tablesBySchema = groupBySchema(tables);
+
+                      Object.keys(tablesBySchema).sort().forEach(schema => {
+                          tablesBySchema[schema].forEach(obj => {
+                              appendObjectItem(obj);
+                          });
+                      });
+                  }
+
+                  // نمایش ویوها
+                  if (views.length > 0) {
+                      $('#objectsList').append('<div class="section-title"><i class="fas fa-eye me-2"></i>ویوها</div>');
+
+                      // گروه بندی بر اساس Schema
+                      const viewsBySchema = groupBySchema(views);
+
+                      Object.keys(viewsBySchema).sort().forEach(schema => {
+                          viewsBySchema[schema].forEach(obj => {
+                              appendObjectItem(obj);
+                          });
+                      });
+                  }
+              }
+
+              function groupBySchema(objects) {
+                  return objects.reduce((groups, obj) => {
+                      const schema = obj.schema || 'dbo';
+                      if (!groups[schema]) {
+                          groups[schema] = [];
+                      }
+                      groups[schema].push(obj);
+                      return groups;
+                  }, {});
+              }
+
+              function appendObjectItem(obj) {
+                  const iconClass = obj.type === 'Table' ? 'type-table' : 'type-view';
+                  const icon = obj.type === 'Table' ? 'fa-table' : 'fa-eye';
+                  const badgeClass = obj.type === 'Table' ? 'badge-table' : 'badge-view';
+                  const fullName = obj.schema ? `${obj.schema}.${obj.name}` : obj.name;
+
+                  const item = $(`
+                      <div class="table-item" data-name="${obj.name}" data-schema="${obj.schema}" data-type="${obj.type}">
+                          <div class="table-item-content">
+                              <div class="table-item-name">
+                                  <div class="table-icon ${iconClass}">
+                                      <i class="fas ${icon}"></i>
+                                  </div>
+                                  <div>
+                                      <div>${obj.name}</div>
+                                      <span class="table-item-schema">${obj.schema}</span>
+                                  </div>
+                              </div>
+                              <span class="badge-${obj.type.toLowerCase()}">${obj.type}</span>
+                          </div>
+                      </div>
+                  `);
+
+                  item.click(function () {
+                      $('.table-item').removeClass('selected');
+                      $(this).addClass('selected');
+                      generateClass(obj.name, obj.type, obj.schema);
+                  });
+
+                  $('#objectsList').append(item);
+              }
+
+              $('#searchBox').on('keyup', function () {
+                  const searchTerm = $(this).val().toLowerCase().trim();
+
+                  const filtered = allObjects.filter(obj => {
+                      const tableName = obj.name.toLowerCase();
+                      const schema = (obj.schema || '').toLowerCase();
+                      const fullName = `${schema}.${tableName}`;
+
+                      // جستجو در نام جدول، schema، یا ترکیب schema.table
+                      return tableName.includes(searchTerm) ||
+                             schema.includes(searchTerm) ||
+                             fullName.includes(searchTerm);
+                  });
+
+                  displayObjects(filtered);
+              });
+
+              function generateClass(tableName, objectType, schema) {
+                  $('#codeContainer').html('<div class="text-center p-5"><div class="spinner-border text-primary"></div></div>');
+
+                  $.ajax({
+                      type: "POST",
+                      url: "/Home/GenerateClass",
+                      contentType: "application/json",
+                      data: JSON.stringify({
+                          tableName: tableName,
+                          objectType: objectType,
+                          schema: schema
+                      }),
+                      success: function (data) {
+                          const fullName = schema ? `${schema}.${tableName}` : tableName;
+                          displayCode(data.code, fullName);
+                      },
+                      error: function (xhr, status, error) {
+                          $('#codeContainer').html('<div class="alert alert-danger m-3">خطا در تولید کلاس: ' + error + '</div>');
+                      }
+                  });
+              }
+
+              function displayCode(code, tableName) {
+                  const html = `
+                      <div class="code-header">
+                          <div class="code-filename">
+                              <i class="fas fa-file-code"></i>
+                              <span>${tableName}.cs</span>
+                          </div>
+                          <button class="btn-copy" onclick="copyCode()">
+                              <i class="fas fa-copy me-1"></i>
+                              کپی کد
+                          </button>
+                      </div>
+                      <pre id="codeOutput" class="p-3 mb-0"><code>${escapeHtml(code)}</code></pre>
+                  `;
+                  $('#codeContainer').html(html);
+              }
+
+              window.copyCode = function () {
+                  const code = $('#codeOutput').text();
+                  navigator.clipboard.writeText(code).then(function () {
+                      const btn = $('.btn-copy');
+                      const originalText = btn.html();
+                      btn.html('<i class="fas fa-check me-1"></i>کپی شد!');
+                      setTimeout(() => {
+                          btn.html(originalText);
+                      }, 2000);
+                  });
+              };
+
+              function escapeHtml(text) {
+                  return text
+                      .replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+              }
+          });
+     </script>
+}
+
+}

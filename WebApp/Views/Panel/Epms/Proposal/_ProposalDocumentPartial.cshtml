@@ -10,7 +10,8 @@
 
 		<fileuploader bind="ProposalDocuments.attachmentId" accepted-file-types=".rar,.zip"
 				    file-id="@Model?.AttachmentId"
-				    file-entity="@Model?.Attachment" entity-prop-name="AttachmentId"
+				    file-entity="@Model?.Attachment"
+				    entity-prop-name="Attachment"
 				    entity-type="@typeof(ProposalDocument).FullName"
 				    max-file-size="10"
 					></fileuploader>

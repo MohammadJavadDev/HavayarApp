@@ -166,7 +166,7 @@ namespace WebApp.Controllers.SystemControllers
 				// Check which users already exist in system
 				var existingUsernames = service.TableNoTracking
 					.Where(u => adUsers.Select(ad => ad.UserName).Where(un => un != null).Contains(u.Username))
-					.Select(u => u.Username)
+					.Select(u => u.Username.ToLower())
 					.ToList();
 
 				var result = adUsers.Select(ad => new
@@ -179,9 +179,9 @@ namespace WebApp.Controllers.SystemControllers
 					ad.Title,
 					ad.Enabled,
 					ad.DistinguishedName,
-					ExistsInSystem = !string.IsNullOrEmpty(ad.UserName) && existingUsernames.Contains(ad.UserName),
-					SystemUserId = (!string.IsNullOrEmpty(ad.UserName) && existingUsernames.Contains(ad.UserName))
-						? service.TableNoTracking.FirstOrDefault(u => u.Username == ad.UserName)?.Id
+					ExistsInSystem = !string.IsNullOrEmpty(ad.UserName) && existingUsernames.Contains(ad.UserName.ToLower()),
+					SystemUserId = (!string.IsNullOrEmpty(ad.UserName) && existingUsernames.Contains(ad.UserName.ToLower()))
+						? service.TableNoTracking.FirstOrDefault(u => u.Username.ToLower() == ad.UserName.ToLower())?.Id
 						: null
 				}).ToList();
 
@@ -213,7 +213,7 @@ namespace WebApp.Controllers.SystemControllers
 
 				// Check if user already exists
 				var existingUser = await service.TableNoTracking
-					.FirstOrDefaultAsync(u => u.Username == request.Username, cn);
+					.FirstOrDefaultAsync(u => u.Username.ToLower() == request.Username.ToLower(), cn);
 
 				if (existingUser != null)
 				{

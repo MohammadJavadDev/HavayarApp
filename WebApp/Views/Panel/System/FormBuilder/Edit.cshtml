@@ -645,7 +645,7 @@
 
 	debugger
 
-	var modelId = @Model.Id
+	var modelId = @(Model?.Id?.ToString() ?? "null")
 
 	// Load form definition if editing existing form
 	if (modelId != null && modelId > 0)

@@ -33,6 +33,22 @@ namespace Services.Job
 			    .Where(m => m.GetCustomAttributes(typeof(JobHandlerAttribute), false).Length > 0)
 			    .ToArray();
 
+			var methodsId = methods.Select(c=> $"{c.DeclaringType.FullName}.{c.Name}").ToList();
+
+			var existJobs = await dbContext.JobDefinitions.ToArrayAsync(cancellationToken);
+
+			var needDeleteJobs = existJobs.Where(c => !methodsId.Contains(c.JobId));
+
+			foreach (var job in needDeleteJobs)
+			{
+				var js = dbContext.JobSchedules.Where(c => c.JobId == job.JobId).ToList();
+
+				dbContext.JobSchedules.RemoveRange(js);
+				dbContext.JobDefinitions.Remove(job);
+
+			}
+			await dbContext.SaveChangesAsync();
+
 			foreach (var method in methods)
 			{
 				var attr = (JobHandlerAttribute)method.GetCustomAttributes(typeof(JobHandlerAttribute), false)[0];
@@ -56,6 +72,13 @@ namespace Services.Job
 					// آپدیت کردن نام و توضیحات در صورت تغییر در کد
 					existingJob.DisplayName = attr.DisplayName;
 					existingJob.Description = attr?.Description ?? "بدون مقدار";
+					var js = dbContext.JobSchedules.Where(c => c.JobId == existingJob.JobId).ToList();
+					foreach (var j in js) {
+						j.LastStatus = JobStatus.Idle;
+					}
+
+					dbContext.JobSchedules.UpdateRange(js);
+
 				}
 			}
 			await dbContext.SaveChangesAsync();

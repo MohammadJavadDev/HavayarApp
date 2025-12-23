@@ -1,16 +1,20 @@
 ﻿using Common.Attributes;
+using Data;
+using Microsoft.EntityFrameworkCore;
 using Services.Job;
 
 namespace App.BackgroundJob.Jobs.Inv
 {
 	 
-	public class PartJob
+	public class PartJob(RahkaranDbContext db)
 	{
 		[JobHandler("افزودن اطلاعات کالا از راهکاران")]
 		public async Task AddPartsFromRahkaran()
 		{
-			Console.WriteLine("Archiving orders...");
-			await Task.Delay(1000); // شبیه‌سازی کار سنگین
+			var data = await db.RahkaranParts.Take(10).ToListAsync();
+
+			var part = data[0];	
+
 		}
 	}
 }

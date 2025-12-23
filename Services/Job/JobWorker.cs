@@ -119,10 +119,67 @@ namespace Services.Job
 				history.LogOutput = logBuilder.ToString();
 
 				schedule.LastStatus = JobStatus.Idle;
-				// محاسبه زمان بعدی (مثلا ۱۰ دقیقه دیگر)
-				schedule.NextRunTime = DateTime.Now.AddSeconds(schedule.IntervalSeconds);
+				// محاسبه زمان بعدی بر اساس نوع زمان‌بندی
+				schedule.NextRunTime = CalculateNextRunTime(schedule);
 
 				await db.SaveChangesAsync();
+			}
+		}
+
+		// متد کمکی برای محاسبه زمان اجرای بعدی بر اساس نوع زمان‌بندی
+		private DateTime CalculateNextRunTime(JobSchedule schedule)
+		{
+			var now = DateTime.Now;
+
+			switch (schedule.ScheduleType)
+			{
+				case ScheduleType.Interval:
+					return now.AddSeconds(schedule.IntervalSeconds);
+
+				case ScheduleType.Daily:
+					// محاسبه زمان بعدی برای زمان‌بندی روزانه با فاصله
+					var nextDailyTime = schedule.DailyTime ?? TimeSpan.Zero;
+					var nextDate = now.Date.AddDays(schedule.DailyIntervalDays);
+					
+					// اگر زمان مشخص شده امروز گذشته است، به روز بعد برو
+					if (now.TimeOfDay >= nextDailyTime)
+					{
+						nextDate = nextDate.AddDays(schedule.DailyIntervalDays);
+					}
+					
+					return nextDate.Add(nextDailyTime);
+
+				case ScheduleType.Weekly:
+					// محاسبه زمان بعدی برای زمان‌بندی هفتگی
+					if (string.IsNullOrEmpty(schedule.WeeklyDays))
+						return now.AddDays(1); // اگر روزی انتخاب نشده، فردا اجرا کن
+					
+					var weeklyDays = schedule.WeeklyDays.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
+					var nextWeeklyDate = now.Date;
+					
+					// پیدا کردن نزدیک‌ترین روز هفته که بعد از امروز باشد
+					for (int i = 1; i <= 7; i++)
+					{
+						var testDate = nextWeeklyDate.AddDays(i);
+						var dayName = testDate.DayOfWeek.ToString();
+						
+						if (weeklyDays.Contains(dayName))
+						{
+							var dailyTime = schedule.DailyTime ?? TimeSpan.Zero;
+							return testDate.Add(dailyTime);
+						}
+					}
+					
+					// اگر هیچ روزی پیدا نشد، 7 روز بعد اجرا کن
+					return now.AddDays(7);
+
+				case ScheduleType.Hourly:
+					// محاسبه زمان بعدی برای زمان‌بندی ساعتی
+					var nextHour = now.AddHours(1);
+					return new DateTime(nextHour.Year, nextHour.Month, nextHour.Day, nextHour.Hour, schedule.HourlyMinute, 0);
+
+				default:
+					return now.AddSeconds(schedule.IntervalSeconds);
 			}
 		}
 	}

@@ -2471,6 +2471,8 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
  
 
 function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = true) {
+
+	 
 	let dataTableRequest = {};
 	let fetchUrl =  "/System/FetchDataProfile";
 	let deleteUrl = "/System/Remove";
@@ -6526,7 +6528,7 @@ class Page {
 
 	/**
 	 * دریافت partial view از API
-	 * @param {string} apiUrl - آدرس API partial view (مثال: '/Panel/Document/DocumentCommentPartial')
+	 * @param {string} apiUrl - آدرس API partial view (مثال: '/Panel/Edms/Document/DocumentCommentPartial')
 	 * @param {function} callback - تابع callback که HTML partial view به آن پاس داده می‌شود
 	 * @param {object} data - داده‌های اختیاری برای ارسال به سرور (برای POST)
 	 * @param {string} method - نوع درخواست: 'GET' یا 'POST' (پیش‌فرض: 'GET')
@@ -8422,13 +8424,20 @@ function markAsReadHeader(notificationId, $element) {
 function initDataTableProflie(page) {
 	let currentTable;
 	 
- 
+	 
 	if (page) {
 		page.find("[data-action='dataProfile']")
 			.change(function () {
+				debugger
 
 				if (currentTable) {
-					$(currentTable.containers()[0]).parent().append(`<table id="itemsTable" class="table table-row-bordered nowrap table-hover" style="width: 100%"></table>`)
+					$(currentTable.context[0].nTableWrapper).parent().append(`<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%"></table>`)
+					currentTable.destroy(true);
+					currentTable = undefined;
+				}
+				else {
+					currentTable = page.find('#itemsTable').DataTable();
+					$(currentTable.context[0].nTableWrapper).parent().append(`<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%"></table>`)
 					currentTable.destroy(true);
 					currentTable = undefined;
 				}
@@ -8454,6 +8463,7 @@ function initDataTableProflie(page) {
 
 							}
 						})
+						debugger
 						currentTable = InitDataTabelProfile(
 							page.find('#itemsTable'),
 							r.data,
@@ -9419,7 +9429,8 @@ function initFileDeleteButtons($container) {
             cancelButtonText: 'لغو',
             confirmButtonColor: '#d33'
         }).then((result) => {
-            if (result.isConfirmed) {
+		   if (result.isConfirmed) {
+			  debugger
                 deleteFile(fileId, function() {
                     // Remove existing file item
                     $existingFileItem.remove();
@@ -9569,10 +9580,10 @@ function getFileIconClass(ext) {
 	    'zip': 'fas fa-file-archive text-info',
 	    'rar': 'fas fa-file-archive fs-2x text-info',
 	    '7z': 'fas fa-file-archive fs-2x text-info',
-        'jpg': 'ki-duotone ki-picture fs-2x text-primary',
-        'jpeg': 'ki-duotone ki-picture fs-2x text-primary',
-        'png': 'ki-duotone ki-picture fs-2x text-primary',
-        'gif': 'ki-duotone ki-picture fs-2x text-primary',
+	    'jpg': 'ki-outline ki-picture fs-2x text-primary',
+	    'jpeg': 'ki-outline ki-picture fs-2x text-primary',
+	    'png': 'ki-outline ki-picture fs-2x text-primary',
+	    'gif': 'ki-outline ki-picture fs-2x text-primary',
 	    'txt': 'fas fa-file fs-2x text-muted',
 	    'csv': 'fas fa-file-csv fs-2x text-info',
 	    'xml': 'fas fa-file fs-2x text-info',
@@ -9582,7 +9593,7 @@ function getFileIconClass(ext) {
 	    'avi': 'fas fa-file fs-2x text-primary'
     };
     
-    return iconMap[ext] || 'ki-duotone ki-file fs-2x text-primary';
+	return iconMap[ext] || 'ki-outline ki-file fs-2x text-primary';
 }
 
 /**

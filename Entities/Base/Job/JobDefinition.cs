@@ -29,6 +29,21 @@ namespace Entities.Base.Job
 		public DateTime? LastRunTime { get; set; }
 
 		public JobStatus LastStatus { get; set; } // Running, Idle, Failed
+
+		// تنظیمات جدید برای زمان‌بندی پیشرفته
+		public ScheduleType ScheduleType { get; set; } = ScheduleType.Interval;
+		public int DailyIntervalDays { get; set; } = 1; // برای زمان‌بندی روزانه با فاصله (مثلا هر 2 روز یکبار)
+		public string WeeklyDays { get; set; } = ""; // برای زمان‌بندی هفتگی - روزهای هفته به صورت CSV (مثلا "Saturday,Sunday")
+		public TimeSpan? DailyTime { get; set; } // زمان اجرا برای زمان‌بندی روزانه
+		public int HourlyMinute { get; set; } = 0; // دقیقه برای زمان‌بندی ساعتی
+	}
+
+	public enum ScheduleType
+	{
+		Interval,    // زمان‌بندی بر اساس فاصله زمانی ساده
+		Daily,       // زمان‌بندی روزانه با فاصله قابل تنظیم
+		Weekly,      // زمان‌بندی هفتگی با انتخاب روزهای هفته
+		Hourly       // زمان‌بندی ساعتی
 	}
 	public class JobHistory
 	{

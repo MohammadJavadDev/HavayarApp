@@ -104,9 +104,10 @@
                                    
                                    <div class="schedule-type-selector mb-2">
                                         <select class="form-select form-select-sm schedule-type" data-id="@job.ScheduleId">
-                                             <option value="interval" selected="@(job.IntervalSeconds > 0 && job.IntervalSeconds != 86400 && job.IntervalSeconds != 3600)">فاصله زمانی</option>
-                                             <option value="daily" selected="@(job.IntervalSeconds == 86400)">روزانه</option>
-                                             <option value="hourly" selected="@(job.IntervalSeconds == 3600)">ساعتی</option>
+                                             <option value="interval" selected="@(job.ScheduleType == ScheduleType.Interval)">فاصله زمانی</option>
+                                             <option value="daily" selected="@(job.ScheduleType == ScheduleType.Daily)">روزانه با فاصله</option>
+                                             <option value="weekly" selected="@(job.ScheduleType == ScheduleType.Weekly)">هفتگی</option>
+                                             <option value="hourly" selected="@(job.ScheduleType == ScheduleType.Hourly)">ساعتی</option>
                                              <option value="custom" selected="@(job.IntervalSeconds <= 0)">سایر</option>
                                         </select>
                                    </div>
@@ -128,11 +129,69 @@
                                              </div>
                                         </div>
                                         
-                                        <div class="hourly-config" style="@(job.IntervalSeconds == 3600 ? "" : "display:none")">
+                                        <div class="hourly-config" style="@(job.ScheduleType == ScheduleType.Hourly ? "" : "display:none")">
                                              <div class="input-group input-group-sm">
                                                   <input type="number" class="form-control job-hourly-minute"
-                                                         value="@(job.NextRunTime?.Minute ?? 0)" min="0" max="59" />
+                                                         value="@job.HourlyMinute" min="0" max="59" />
                                                   <span class="input-group-text">دقیقه پس از هر ساعت</span>
+                                             </div>
+                                        </div>
+                                         
+                                        <div class="daily-config" style="@(job.ScheduleType == ScheduleType.Daily ? "" : "display:none")">
+                                             <div class="input-group input-group-sm mb-2">
+                                                  <input type="number" class="form-control job-daily-interval"
+                                                         value="@job.DailyIntervalDays" min="1" max="30" />
+                                                  <span class="input-group-text">هر چند روز یکبار</span>
+                                             </div>
+                                             <div class="input-group input-group-sm">
+                                                  <input type="time" class="form-control job-daily-time"
+                                                         value="@(job.DailyTime?.ToString(@"hh\:mm\:ss") ?? "00:00")" />
+                                                  <span class="input-group-text">زمان اجرا</span>
+                                             </div>
+                                        </div>
+                                         
+                                        <div class="weekly-config" style="@(job.ScheduleType == ScheduleType.Weekly ? "" : "display:none")">
+                                             <div class="mb-2">
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Saturday" 
+                                                              @(job.WeeklyDays?.Contains("Saturday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">شنبه</label>
+                                                  </div>
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Sunday"
+                                                              @(job.WeeklyDays?.Contains("Sunday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">یکشنبه</label>
+                                                  </div>
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Monday"
+                                                              @(job.WeeklyDays?.Contains("Monday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">دوشنبه</label>
+                                                  </div>
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Tuesday"
+                                                              @(job.WeeklyDays?.Contains("Tuesday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">سه‌شنبه</label>
+                                                  </div>
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Wednesday"
+                                                              @(job.WeeklyDays?.Contains("Wednesday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">چهارشنبه</label>
+                                                  </div>
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Thursday"
+                                                              @(job.WeeklyDays?.Contains("Thursday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">پنجشنبه</label>
+                                                  </div>
+                                                  <div class="form-check form-check-inline">
+                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Friday"
+                                                              @(job.WeeklyDays?.Contains("Friday") == true ? "checked" : "") />
+                                                       <label class="form-check-label">جمعه</label>
+                                                  </div>
+                                             </div>
+                                             <div class="input-group input-group-sm">
+                                                  <input type="time" class="form-control job-weekly-time"
+                                                         value="@(job.DailyTime?.ToString(@"hh\:mm\:ss") ?? "00:00")" />
+                                                  <span class="input-group-text">زمان اجرا</span>
                                              </div>
                                         </div>
                                         
@@ -202,7 +261,8 @@
                          <label class="form-label">نوع زمان‌بندی</label>
                          <select class="form-select" id="newScheduleType">
                               <option value="interval">فاصله زمانی (ثانیه)</option>
-                              <option value="daily">روزانه</option>
+                              <option value="daily">روزانه با فاصله</option>
+                              <option value="weekly">هفتگی</option>
                               <option value="hourly">ساعتی</option>
                          </select>
                     </div>
@@ -220,6 +280,49 @@
                     <div class="mb-3 d-none" id="hourlyConfig">
                          <label class="form-label">دقیقه پس از هر ساعت</label>
                          <input type="number" class="form-control" id="newScheduleHourlyMinute" value="0" min="0" max="59" />
+                    </div>
+                    
+                    <div class="mb-3 d-none" id="dailyConfig">
+                         <label class="form-label">هر چند روز یکبار</label>
+                         <input type="number" class="form-control" id="newScheduleDailyInterval" value="1" min="1" max="30" />
+                         <label class="form-label mt-2">زمان اجرا</label>
+                         <input type="time" class="form-control" id="newScheduleDailyTime" value="00:00" />
+                    </div>
+                    
+                    <div class="mb-3 d-none" id="weeklyConfig">
+                         <label class="form-label">روزهای هفته</label>
+                         <div class="mb-2">
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklySaturday" value="Saturday" />
+                                   <label class="form-check-label">شنبه</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklySunday" value="Sunday" />
+                                   <label class="form-check-label">یکشنبه</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyMonday" value="Monday" />
+                                   <label class="form-check-label">دوشنبه</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyTuesday" value="Tuesday" />
+                                   <label class="form-check-label">سه‌شنبه</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyWednesday" value="Wednesday" />
+                                   <label class="form-check-label">چهارشنبه</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyThursday" value="Thursday" />
+                                   <label class="form-check-label">پنجشنبه</label>
+                              </div>
+                              <div class="form-check form-check-inline">
+                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyFriday" value="Friday" />
+                                   <label class="form-check-label">جمعه</label>
+                              </div>
+                         </div>
+                         <label class="form-label">زمان اجرا</label>
+                         <input type="time" class="form-control" id="newScheduleWeeklyTime" value="00:00" />
                     </div>
                     
                     <div class="mb-3 form-check form-switch">
@@ -284,6 +387,9 @@
                       case 'daily':
                           configContainer.find('.daily-config').show();
                           break;
+                      case 'weekly':
+                          configContainer.find('.weekly-config').show();
+                          break;
                       case 'hourly':
                           configContainer.find('.hourly-config').show();
                           break;
@@ -303,7 +409,7 @@
                   var scheduleType = $(this).val();
                   
                   // مخفی کردن همه تنظیمات
-                  $('#intervalConfig, #dailyConfig, #hourlyConfig').addClass('d-none');
+                  $('#intervalConfig, #dailyConfig, #weeklyConfig, #hourlyConfig').addClass('d-none');
                   
                   // نمایش تنظیمات مربوطه
                   switch(scheduleType) {
@@ -312,6 +418,9 @@
                           break;
                       case 'daily':
                           $('#dailyConfig').removeClass('d-none');
+                          break;
+                      case 'weekly':
+                          $('#weeklyConfig').removeClass('d-none');
                           break;
                       case 'hourly':
                           $('#hourlyConfig').removeClass('d-none');
@@ -332,17 +441,34 @@
                   var scheduleType = $('#newScheduleType').val();
                   var isActive = $('#newScheduleIsActive').is(':checked');
                   var intervalSeconds = 0;
+                  var dailyIntervalDays = 1;
+                  var weeklyDays = "";
+                  var dailyTime = "00:00:00";
+                  var hourlyMinute = 0;
 
-                  // محاسبه فاصله زمانی بر اساس نوع زمان‌بندی
+                  // محاسبه پارامترهای زمان‌بندی بر اساس نوع زمان‌بندی
                   switch(scheduleType) {
                       case 'interval':
                           intervalSeconds = parseInt($('#newScheduleInterval').val()) || 60;
                           break;
                       case 'daily':
-                          intervalSeconds = 86400; // 24 hours
+                          dailyIntervalDays = parseInt($('#newScheduleDailyInterval').val()) || 1;
+                          dailyTime = convertTimeToTimeSpan($('#newScheduleDailyTime').val());
+                          intervalSeconds = dailyIntervalDays * 86400; // برای سازگاری با سیستم قدیمی
+                          break;
+                      case 'weekly':
+                          // جمع‌آوری روزهای هفته انتخاب شده
+                          var selectedDays = [];
+                          $('input[name="weeklyDay"]:checked').each(function() {
+                              selectedDays.push($(this).val());
+                          });
+                          weeklyDays = selectedDays.join(',');
+                          dailyTime = convertTimeToTimeSpan($('#newScheduleWeeklyTime').val());
+                          intervalSeconds = 604800; // 7 روز برای سازگاری با سیستم قدیمی
                           break;
                       case 'hourly':
-                          intervalSeconds = 3600; // 1 hour
+                          hourlyMinute = parseInt($('#newScheduleHourlyMinute').val()) || 0;
+                          intervalSeconds = 3600; // 1 ساعت برای سازگاری با سیستم قدیمی
                           break;
                   }
 
@@ -350,7 +476,12 @@
                   $.post('/Jobs/CreateSchedule', { 
                       jobId: jobId, 
                       isActive: isActive, 
-                      interval: intervalSeconds
+                      interval: intervalSeconds,
+                      scheduleType: scheduleType,
+                      dailyIntervalDays: dailyIntervalDays,
+                      weeklyDays: weeklyDays,
+                      dailyTime: dailyTime,
+                      hourlyMinute: hourlyMinute
                   })
                   .done(function (response) {
                       $('#createScheduleModal').modal('hide');
@@ -375,19 +506,36 @@
                   var isActive = row.find('.job-active').is(':checked');
                   var scheduleType = row.find('.schedule-type').val();
                   var intervalSeconds = 0;
+                  var dailyIntervalDays = 1;
+                  var weeklyDays = "";
+                  var dailyTime = null;
+                  var hourlyMinute = 0;
 
-                  // محاسبه فاصله زمانی بر اساس نوع زمان‌بندی
+                  // محاسبه پارامترهای زمان‌بندی بر اساس نوع زمان‌بندی
                   switch(scheduleType) {
                       case 'interval':
                           intervalSeconds = parseInt(row.find('.job-interval').val()) || 0;
                           break;
                       case 'daily':
-                          // برای زمان‌بندی روزانه، از 24 ساعت (86400 ثانیه) استفاده می‌کنیم
-                          intervalSeconds = 86400;
+                          dailyIntervalDays = parseInt(row.find('.job-daily-interval').val()) || 1;
+                          var dailyTimeValue = row.find('.job-daily-time').val();
+                          dailyTime = dailyTimeValue ? convertTimeToTimeSpan(dailyTimeValue) : "00:00:00";
+                          intervalSeconds = dailyIntervalDays * 86400; // برای سازگاری با سیستم قدیمی
+                          break;
+                      case 'weekly':
+                          // جمع‌آوری روزهای هفته انتخاب شده
+                          var selectedDays = [];
+                          row.find('.job-weekly-day:checked').each(function() {
+                              selectedDays.push($(this).val());
+                          });
+                          weeklyDays = selectedDays.join(',');
+                          var weeklyTimeValue = row.find('.job-weekly-time').val();
+                          dailyTime = weeklyTimeValue ? convertTimeToTimeSpan(weeklyTimeValue) : "00:00:00";
+                          intervalSeconds = 604800; // 7 روز برای سازگاری با سیستم قدیمی
                           break;
                       case 'hourly':
-                          // برای زمان‌بندی ساعتی، از 1 ساعت (3600 ثانیه) استفاده می‌کنیم
-                          intervalSeconds = 3600;
+                          hourlyMinute = parseInt(row.find('.job-hourly-minute').val()) || 0;
+                          intervalSeconds = 3600; // 1 ساعت برای سازگاری با سیستم قدیمی
                           break;
                       case 'custom':
                           var customInterval = parseInt(row.find('.job-custom-interval').val()) || 0;
@@ -424,7 +572,12 @@
                   $.post('/Jobs/UpdateSettings', { 
                       scheduleId: id, 
                       isActive: isActive, 
-                      interval: intervalSeconds
+                      interval: intervalSeconds,
+                      scheduleType: scheduleType,
+                      dailyIntervalDays: dailyIntervalDays,
+                      weeklyDays: weeklyDays,
+                      dailyTime: dailyTime,
+                      hourlyMinute: hourlyMinute
                   })
                       .done(function (response) {
                           alert(response.message);
@@ -438,6 +591,15 @@
                           btn.text(originalText).prop('disabled', false);
                       });
               });
+
+              // متد کمکی برای تبدیل زمان به فرمت TimeSpan برای ارسال به سرور
+              function convertTimeToTimeSpan(timeString) {
+                  // فرمت: HH:mm
+                  var parts = timeString.split(':');
+                  var hours = parseInt(parts[0]) || 0;
+                  var minutes = parseInt(parts[1]) || 0;
+                  return hours + ':' + minutes + ':00';
+              }
 
               // 3. اجرا فوری سرویس
               $('.btn-run-now').click(function () {

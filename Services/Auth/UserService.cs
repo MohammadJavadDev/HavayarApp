@@ -1,4 +1,5 @@
-﻿using Common.System;
+﻿using Azure.Core;
+using Common.System;
 using Common.Utilities;
 using Data;
 using Data.SystemAuth;
@@ -7,6 +8,7 @@ using Entities.Base;
 using Entities.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using static System.Net.Mime.MediaTypeNames;
 
 
@@ -17,7 +19,8 @@ public class UserService(
      ApplicationDbContext db,
      ISdk? sdk,
 	IActiveDirectoryService activeDirectoryService,
-     IOnlineUserService onlineUserService) : IUserService
+     IOnlineUserService onlineUserService,
+		 IConfiguration config) : IUserService
 {
 
      public virtual ApplicationDbContext Context => db;
@@ -26,7 +29,7 @@ public class UserService(
      public async Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model,CancellationToken ct = default)
      {
  
-		var user = await db.Users.FirstOrDefaultAsync(x => x.Username == model.Username);
+		var user = await db.Users.FirstOrDefaultAsync(x => x.Username.Equals(model.Username, StringComparison.OrdinalIgnoreCase) );
 
           if(user == null)
           {
@@ -43,21 +46,32 @@ public class UserService(
 
 					   if(userInfoFromAd.ProfileImage != null && userInfoFromAd.ProfileImage.Length != 0)
                          {
-						folderPathImage = Path.Combine(
-					    Directory.GetCurrentDirectory(),
-					    "wwwroot",
-					    "UserProfileImage"
-					);
 
-						if (!Directory.Exists(folderPathImage))
-							Directory.CreateDirectory(folderPathImage);
+						var uploadsPath = config["Storage:ProfileImagesPath"]
+						 ?? throw new Exception("Storage:ProfileImagesPath not configured");
 
-						var fileName = $"{model.Username}.jpg";
-						var filePath = Path.Combine(folderPathImage, fileName);
+					     var baseDiretc = Path.Combine(Directory.GetCurrentDirectory(),
+					              "wwwroot",
+					              "UserProfileImage"
+					          );
 
-						File.WriteAllBytes(filePath, userInfoFromAd.ProfileImage);
+						     var _uploadsRoot = Path.IsPathRooted(uploadsPath)
+							     ? uploadsPath
+							     : Path.Combine(baseDiretc, uploadsPath);
 
-						folderPathImage = Path.Combine("UserProfileImage", fileName);
+						     Directory.CreateDirectory(_uploadsRoot);
+
+						     var fileName = $"{model.Username}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
+						     var folderPath = _uploadsRoot;
+						     if (!Directory.Exists(folderPath))
+						     {
+							     Directory.CreateDirectory(folderPath);
+						     }
+						     var filePath = Path.Combine(folderPath, fileName);
+						     await  File.WriteAllBytesAsync(filePath, userInfoFromAd.ProfileImage, ct);
+						folderPathImage = fileName;
+
+					 
 					}
 
 					

@@ -20,6 +20,13 @@ namespace Entities.Base.Job
 		public DateTime? LastRunTime { get; set; }
 		public DateTime? NextRunTime { get; set; }
 		public bool HasSchedule { get; set; }
+
+		// تنظیمات جدید برای زمان‌بندی پیشرفته
+		public ScheduleType ScheduleType { get; set; } = ScheduleType.Interval;
+		public int DailyIntervalDays { get; set; } = 1;
+		public string WeeklyDays { get; set; } = "";
+		public TimeSpan? DailyTime { get; set; }
+		public int HourlyMinute { get; set; } = 0;
 	}
 
 	public class JobHistoryViewModel

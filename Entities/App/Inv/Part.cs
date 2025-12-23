@@ -40,8 +40,13 @@ namespace Entities.App.Inv
 
 
 		[DisplayName("واحد اندازه گیری")]
-		[DisplayInfo(null, true, type: SystemType.Select)]
-		public PartUnitOfMeasurementEnum? UnitOfMeasurement { get; set; }
+ 
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public PartUnit? Unit { get; set; }
+
+		public long? UnitId { get; set; }
+
+ 
 
 
 		[DisplayName("خارجی است")]
