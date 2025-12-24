@@ -71,3 +71,7 @@
 /Deploy.bat
 /App.BackgroundJob/bin/Debug/net8.0
 /App.BackgroundJob/obj
+/App.Real/bin/Debug/net10.0
+/Infrastructure/bin/Debug/net10.0
+/Shared/bin/Debug/net10.0
+/WebApp/bin/Debug/net10.0
