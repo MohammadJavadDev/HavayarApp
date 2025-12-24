@@ -1,5 +1,7 @@
 ﻿using Data;
+using Data.Contracts;
 using Entities.Base.Job;
+using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -15,12 +17,14 @@ namespace Services.Job
 	public class JobWorker : BackgroundService
 	{
 		private readonly IServiceProvider _services;
+	 
 		private readonly ILogger<JobWorker> _logger;
 
-		public JobWorker(IServiceProvider services, ILogger<JobWorker> logger)
+		public JobWorker(IServiceProvider services, ILogger<JobWorker> logger  )
 		{
 			_services = services;
 			_logger = logger;
+	 
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -29,7 +33,7 @@ namespace Services.Job
 			{
 				try
 				{
-					await ProcessDueJobs();
+					await ProcessDueJobs(stoppingToken);
 				}
 				catch (Exception ex)
 				{
@@ -41,14 +45,16 @@ namespace Services.Job
 			}
 		}
 
-		private async Task ProcessDueJobs()
+		private async Task ProcessDueJobs(CancellationToken stoppingToken)
 		{
 			using var scope = _services.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
 			// 1. پیدا کردن جاب‌هایی که زمان اجرایشان رسیده است
 			var dueJobs = db.JobSchedules
-			    .Where(s => s.IsActive && s.NextRunTime <= DateTime.Now && s.LastStatus != JobStatus.Running)
+			    .Where(s => s.IsActive && s.NextRunTime <= DateTime.Now
+			    && 
+			    s.LastStatus != JobStatus.Running && s.LastStatus != JobStatus.Error)
 			    .ToList();
 
 			foreach (var schedule in dueJobs)
@@ -67,18 +73,19 @@ namespace Services.Job
 				db.JobHistories.Add(history);
 				await db.SaveChangesAsync();
 
-				// اجرای واقعی جاب در یک Thread جداگانه تا Loop اصلی مسدود نشود
+			 
 				_ = Task.Run(async () =>
 				{
-					await ExecuteJobAsync(schedule.Id, history.Id);
+					await ExecuteJobAsync(schedule.Id, history.Id , stoppingToken);
 				});
 			}
 		}
 
-		private async Task ExecuteJobAsync(int scheduleId, long historyId)
+		private async Task ExecuteJobAsync(int scheduleId, long historyId,CancellationToken stoppingToken)
 		{
 			using var scope = _services.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+			var _unitOfWork  = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 			var schedule = await db.JobSchedules.FindAsync(scheduleId);
 			var history = await db.JobHistories.FindAsync(historyId);
 			var jobDef = await db.JobDefinitions.FirstOrDefaultAsync(c=>c.JobId== schedule.JobId);
@@ -97,7 +104,7 @@ namespace Services.Job
 				// 3. پیدا کردن و اجرای متد
 				var method = type.GetMethod(jobDef.MethodName);
 
-				var result = method.Invoke(instance, null);
+				var result = method.Invoke(instance, new object[] { stoppingToken });
 				if (result is Task task)
 				{
 					await task;
@@ -105,12 +112,26 @@ namespace Services.Job
 
 				history.IsSuccess = true;
 				logBuilder.AppendLine("Job executed successfully.");
+				schedule.LastStatus = JobStatus.Idle;
 			}
 			catch (Exception ex)
 			{
 				history.IsSuccess = false;
 				history.ErrorMessage = ex.Message ?? "خطای نا مشخص";
 				logBuilder.AppendLine($"Error: {ex}");
+
+				schedule.LastStatus= JobStatus.Error;
+
+				await _unitOfWork.Repository<Notification>()
+					    .AddAsync(new()
+					    {
+						    Body = $"خطا در اجرای سرویس : {jobDef.DisplayName} {jobDef.MethodName} <br/> {ex.Message}",
+						    Title = "خطا در سرویس های درحال اجرا",
+						    OwnerId = 1,
+						    IsRead = false
+					    }
+					     ,
+						    stoppingToken);
 			}
 			finally
 			{
@@ -118,7 +139,7 @@ namespace Services.Job
 				history.EndTime = DateTime.Now;
 				history.LogOutput = logBuilder.ToString();
 
-				schedule.LastStatus = JobStatus.Idle;
+			
 				// محاسبه زمان بعدی بر اساس نوع زمان‌بندی
 				schedule.NextRunTime = CalculateNextRunTime(schedule);
 

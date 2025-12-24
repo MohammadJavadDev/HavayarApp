@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.Rahkaran
+namespace Entities.Rahkaran.LGS3
 {
 	[Table(name: "Part", Schema = "LGS3")]
 	public class RahkaranPart
@@ -90,4 +90,7 @@ namespace Entities.Rahkaran
 		public string? TaxTitle { get; set; }
 
 	}
+
+ 
+
 }

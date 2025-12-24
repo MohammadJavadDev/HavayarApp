@@ -67,40 +67,50 @@ namespace WebApp.Controllers.SystemControllers
             foreach (var dat in cols.Where(c => c.Type == "select").ToList())
             {
 
-                var tableName = dat.TableName;
-                var entityType = _entityMetadataCache.Get(data.EntityName);
+				var tableName = dat.TableName;
+				var entityType = _entityMetadataCache.Get(data.EntityName);
 
-                if (entityType == null)
+				if (entityType == null)
                     throw new Exception("Invalid table name.");
 
                 var prop = entityType.Properties.FirstOrDefault(c => c.Name == dat.PropName);
+				dat.options = new();
+				if (prop != null)
+                    {
+                        
+					foreach (var value in prop.Options)
+					{
+
+						dat.options.Add(
+						    new OptionViewModel()
+						    {
+							    Value = value.Value.ToString(),
+							    Name = value.Text
+						    });
+					}
+				}
 
 
+             
 
-                dat.options = new();
-                foreach (var value in prop.Options)
-                {
-
-                    dat.options.Add(
-                        new OptionViewModel()
-                        {
-                            Value = value.Value.ToString(),
-                            Name = value.Text
-                        });
-                }
+              
             }
-            var dataTableColumns = cols.Select(c => new
+            var dataTableColumns = cols.Select(c =>
             {
-                name = c.Alliance,
-                data = c.Alliance,
-                type = c?.Type ?? "string",
-                title = c.Title,
-                render = c?.Render ?? "",
-                c?.options,
-                showInRelationData = c.Name == request.ShowInRelationData,
-                c.Visible
+                 return new
+                 {
+                      name = c.Alliance,
+                      data = c.Alliance,
+                      type = c?.Type ?? "string",
+                      title = c.Title,
+                      render = c?.Render ?? "",
+                      c?.options,
+                      showInRelationData = c.Name == request.ShowInRelationData,
+                      c.Visible
 
-            }).ToList();
+                 };
+
+		  }).ToList();
 
             return Ok(dataTableColumns);
 

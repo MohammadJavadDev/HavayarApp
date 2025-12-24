@@ -55,5 +55,5 @@ namespace Entities.Base.Job
 		public string LogOutput { get; set; } // ذخیره لاگ‌های متنی
 		public string ErrorMessage { get; set; } = "";
 	}
-	public enum JobStatus { Idle, Running, Waiting }
+	public enum JobStatus { Idle, Running, Waiting , Error }
 }

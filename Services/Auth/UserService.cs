@@ -29,7 +29,7 @@ public class UserService(
      public async Task<AuthenticateResponse?> Authenticate(AuthenticateRequest model,CancellationToken ct = default)
      {
  
-		var user = await db.Users.FirstOrDefaultAsync(x => x.Username.Equals(model.Username, StringComparison.OrdinalIgnoreCase) );
+		var user = await db.Users.FirstOrDefaultAsync(x => x.Username.ToLower() == model.Username.ToLower());
 
           if(user == null)
           {

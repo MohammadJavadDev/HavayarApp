@@ -5,14 +5,14 @@ namespace Entities.App.Inv.Enums
 	public enum PartTypeEnum
 	{
 		[Display(Name = "محصول")]
-		Product = 8,
+		Product = 2,
 		[Display(Name = "نیمه ساخته")]
-		HalfBuilt = 9,
+		HalfBuilt = 3,
 		[Display(Name = "مواد")]
-		Materials = 10,
+		Materials = 1,
 		[Display(Name = "دارایی ثابت")]
-		FixedAsset = 11,
+		FixedAsset = 4,
 		[Display(Name = "سایر")]
-		Other = 12,
+		Other =5,
 	}
 }

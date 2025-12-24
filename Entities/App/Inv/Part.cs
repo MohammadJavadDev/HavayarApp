@@ -31,10 +31,10 @@ namespace Entities.App.Inv
 
 		[DisplayName("شماره")]
 		[DisplayInfo(null, true, type: SystemType.String, required: true)]
-		public string Number { get; set; }
+		public string? Number { get; set; }
 
 
-		[DisplayName("Type")]
+		[DisplayName("نوع")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public PartTypeEnum? Type { get; set; }
 
@@ -105,6 +105,7 @@ namespace Entities.App.Inv
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? Description { get; set; }
 
+		public long? HamkaranId { get; set; }
 
 		[DisplayName("مدارک")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
@@ -135,6 +136,8 @@ namespace Entities.App.Inv
 		[DisplayName("توضیحات")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? Description { get; set; }
+
+	
 
 
 	}

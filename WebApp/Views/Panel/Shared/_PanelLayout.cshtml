@@ -49,10 +49,10 @@ data-kt-app-sidebar-push-footer="true" data-kt-app-toolbar-enabled="true" class=
 
 
 
-	<script src="~/panelLib/plugins/global/plugins.bundle.js"></script>
+	<script src="~/js/site.js" asp-append-version="true"></script>
 	<script src="~/panelLib/js/scripts.bundle.js"></script>
      <script src="~/panelLib/plugins/custom/datatables/datatables.bundle.js"></script>
-
+     <script src="~/panellib/plugins/custom/dropzone/dropzone.js"></script>
 	<script src="~/panelLib/plugins/custom/persion-datepicker/persian-date.js"></script>
 	<script src="~/panelLib/plugins/custom/persion-datepicker/persion-datepicker.js"></script>
  
@@ -66,9 +66,9 @@ data-kt-app-sidebar-push-footer="true" data-kt-app-toolbar-enabled="true" class=
 			realtimeHubUrl: "@Configuration["RealtimeHub:Url"]"
 		};
 	</script>
-	<script src="~/js/site.js" asp-append-version="true"></script>
-	<script src="~/panellib/plugins/custom/querybuilder/querybuilder.js"></script>
-	<script src="~/panellib/js/panel.js"></script>
+
+	<script src="~/panellib/plugins/custom/querybuilder/querybuilder.js" asp-append-version="true"></script>
+	<script src="~/panellib/js/panel.js" asp-append-version="true"></script>
 
 	@await RenderSectionAsync("Scripts", required: false)
 </body>

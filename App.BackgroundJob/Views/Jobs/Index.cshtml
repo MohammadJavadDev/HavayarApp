@@ -79,8 +79,13 @@
                               }
                               else if (job.LastStatus == "Running")
                               {
-                                   <span class="badge bg-warning text-dark">در حال اجرا...</span>
-                              }
+                                        <span class="badge bg-warning text-dark">در حال اجرا...</span>
+                                   }
+                                   else if (job.LastStatus == "Error")
+                                   {
+                                            <span class="badge bg-danger">خطا</span>
+                                   }
+
                               else if (job.LastStatus == "Failed")
                               {
                                    <span class="badge bg-danger">خطا</span>

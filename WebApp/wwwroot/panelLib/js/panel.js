@@ -191,7 +191,7 @@ document.addEventListener("click", function (ev) {
 });
 
 
-window.UpdateCurrentPage = function (path,title) {
+window.UpdateCurrentPage = async function (path,title) {
 
 	if (connection && connection.state === signalR.HubConnectionState.Connected) {
 		connection.invoke("UpdateOpenedPage", path, title)
@@ -203,7 +203,7 @@ window.UpdateCurrentPage = function (path,title) {
 
  
 
-window.ClosePage = function (path) {
+window.ClosePage = async function (path) {
 
 	connection.invoke("ClosePage", path).catch(() => { });
 }

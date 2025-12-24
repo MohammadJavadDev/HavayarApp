@@ -1,20 +1,136 @@
 ﻿using Common.Attributes;
 using Data;
+using Data.Contracts;
+using Data.Repositories;
+using Entities.App.Inv;
+using Entities.App.Inv.Enums;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
 
 namespace App.BackgroundJob.Jobs.Inv
 {
 	 
-	public class PartJob(RahkaranDbContext db)
+	public class PartJob(RahkaranDbContext Rdb , IUnitOfWork unitOfWork)
 	{
 		[JobHandler("افزودن اطلاعات کالا از راهکاران")]
-		public async Task AddPartsFromRahkaran()
+		public async Task AddPartsFromRahkaran(CancellationToken cn  =default)
 		{
-			var data = await db.RahkaranParts.Take(10).ToListAsync();
 
-			var part = data[0];	
+			var unitData = await Rdb.RahkaranUnits.ToListAsync(cn);
+			var existUnitData = await unitOfWork.Repository<PartUnit>().Table.ToListAsync(cn);
 
+			var existUnitDict = existUnitData.ToDictionary(x => x.HamkaranId);
+
+			var newUnits = new List<PartUnit>();
+
+			foreach (var unit in unitData)
+			{
+				if (existUnitDict.TryGetValue(unit.UnitID, out var eunit))
+				{
+					eunit.Title = unit.Name;
+				}
+				else
+				{
+					newUnits.Add(new PartUnit
+					{
+						Title = unit.Name,
+						HamkaranId = unit.UnitID
+					});
+				}
+			}
+
+			if (newUnits.Any())
+			{
+				await unitOfWork.Repository<PartUnit>().AddRangeAsync(newUnits, cn,false); // اگر متد دارید
+			}
+
+			await unitOfWork.SaveChangesAsync(cn);
+
+			var rahkaranParts = await Rdb.RahkaranParts.ToListAsync(cn);
+			var appParts = await unitOfWork.Repository<Part>().Table.ToListAsync(cn);
+
+			// Dictionary برای جستجوی سریع
+			var appPartsDict = appParts.ToDictionary(x => x.HamkaranId);
+
+			var newParts = new List<Part>();
+
+			foreach (var part in rahkaranParts)
+			{
+				if (!appPartsDict.TryGetValue(part.PartID, out var existPart))
+				{
+					// Insert
+					newParts.Add(new Part
+					{
+						HamkaranId = part.PartID,
+						Code = part.Code,
+						Name = part.Name,
+						LatinTitle = part.LatinName,
+						Type = (PartTypeEnum)part?.PartType,
+						Description = part.PropertiesComment,
+						Number = part.TechnicalSpecification,
+						UnitId = existUnitDict.ContainsKey(part.MajorUnitRef) ? existUnitDict[part.MajorUnitRef].Id : (long?)null
+					});
+				}
+				else
+				{
+			 
+					bool isModified = false;
+
+					if (existPart.Code != part.Code)
+					{
+						existPart.Code = part.Code;
+						isModified = true;
+					}
+
+					if (existPart.Name != part.Name)
+					{
+						existPart.Name = part.Name;
+						isModified = true;
+					}
+
+					if (existPart.LatinTitle != part.LatinName)
+					{
+						existPart.LatinTitle = part.LatinName;
+						isModified = true;
+					}
+
+					if (existPart.Type != (PartTypeEnum)part?.PartType)
+					{
+						existPart.Type = (PartTypeEnum)part.PartType;
+						isModified = true;
+					}
+
+					if (existPart.Description != part.PropertiesComment)
+					{
+						existPart.Description = part.PropertiesComment;
+						isModified = true;
+					}
+
+					if (existPart.Number != part.TechnicalSpecification)
+					{
+						existPart.Number = part.TechnicalSpecification;
+						isModified = true;
+					}
+
+					var newUnitId = existUnitDict.ContainsKey(part.MajorUnitRef) ? existUnitDict[part.MajorUnitRef].Id : (long?)null;
+					if (existPart.UnitId != newUnitId)
+					{
+						existPart.UnitId = newUnitId;
+						isModified = true;
+					}
+
+	 
+				}
+			} 
+			if (newParts.Any())
+			{
+				await unitOfWork.Repository<Part>().AddRangeAsync(newParts, cn, false);
+			}
+
+	 
+			await unitOfWork.SaveChangesAsync(cn);
+
+			 
 		}
 	}
 }
