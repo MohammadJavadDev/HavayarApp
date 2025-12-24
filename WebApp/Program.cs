@@ -29,6 +29,7 @@ using WebApp.Services;
 using WebApp.Services.Realtime;
 using WebFramework.Initializes;
 using WebFramework.Middlewares;
+using WebFramework.TagHelpers;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -109,6 +110,13 @@ builder.Services.AddStackExchangeRedisCache(options =>
 builder.Services.Configure<RedisOptions>(builder.Configuration.GetSection(RedisOptions.SectionName));
 builder.Services.ConfigureProfilesModule();
 
+
+ 
+builder.Services.AddTransient<DataTableProfileTagHelper>();
+builder.Services.AddTransient<FormActionButtons>();
+builder.Services.AddTransient<FormActionButton>();
+ 
+builder.Services.AddTransient<FileUploaderTagHelper>();
 
 builder.Services.AddScoped<IEntitySelectorService, EntitySelectorService>();
 builder.Services.AddDataProtection();

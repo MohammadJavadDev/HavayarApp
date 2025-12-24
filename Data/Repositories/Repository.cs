@@ -201,32 +201,33 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 	/// <summary>
 	/// آپدیت یک فیلد برای چند رکورد (Bulk Update Field) - بسیار بهینه
 	/// </summary>
-public virtual async Task<int> BulkUpdateFieldAsync<TProperty>(
-    Expression<Func<TEntity, bool>> predicate,
-    Func<TEntity, TProperty> propertySelector,
-    TProperty value,
-    CancellationToken cancellationToken = default)
-{
-    return await Entities
-        .Where(predicate)
-        .ExecuteUpdateAsync(
-            setters => setters.SetProperty(
-                propertySelector,
-                value
-            ),
-            cancellationToken
-        );
-}
+	public virtual async Task<int> BulkUpdateFieldAsync<TProperty>(
+	    Expression<Func<TEntity, bool>> predicate,
+	  
+	    Expression<Func<TEntity, TProperty>> propertySelector,
+	    TProperty value,
+	    CancellationToken cancellationToken = default)
+	{
+		return await Entities
+		    .Where(predicate)
+		    .ExecuteUpdateAsync(
+			   setters => setters.SetProperty(
+				  propertySelector,
+				  value
+			   ),
+			   cancellationToken
+		    );
+	}
 
 
 	/// <summary>
 	/// آپدیت یک فیلد برای چند رکورد با استفاده از Expression برای مقدار جدید
 	/// </summary>
 	public virtual async Task<int> BulkUpdateFieldAsync<TProperty>(
-	    Expression<Func<TEntity, bool>> predicate,
-	    Func<TEntity, TProperty> propertySelector,
-	    Func<TEntity, TProperty> valueSelector,
-	    CancellationToken cancellationToken = default)
+    Expression<Func<TEntity, bool>> predicate,
+    Expression<Func<TEntity, TProperty>> propertySelector,
+    Expression<Func<TEntity, TProperty>> valueSelector,
+    CancellationToken cancellationToken = default)
 	{
 		return await Entities
 		    .Where(predicate)

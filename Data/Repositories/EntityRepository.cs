@@ -34,47 +34,58 @@ namespace Data.Repositories
                             command.Parameters.AddWithValue($"@{prop.Name}", prop.GetValue(parameters));
                         }
                     }
+                         try
+                         {
+						using (var reader = command.ExecuteReader())
+						{
+							while (reader.Read())
+							{
+								var entity = new Dictionary<string, object>();
 
-                    using (var reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            var entity = new Dictionary<string, object>();
+								for (var i = 0; i < reader.FieldCount; i++)
+								{
+									var propertyName = reader.GetName(i);
 
-                            for (var i = 0; i < reader.FieldCount; i++)
-                            {
-                                var propertyName = reader.GetName(i);
-
-                                var col = currentRequest?.columns?.FirstOrDefault(c => c.data == propertyName);
+									var col = currentRequest?.columns?.FirstOrDefault(c => c.data == propertyName);
 
 
-                                if (!reader.IsDBNull(i))
-                                {
-                                    var value = reader.GetValue(i);
-                                    if (col != null)
-                                    {
-                                        if (col.type == "datetime")
-                                        {
-                                            value = DateTime.Parse(value.ToString()).ToShamsiDateTime();
+									if (!reader.IsDBNull(i))
+									{
+										var value = reader.GetValue(i);
+										if (col != null)
+										{
+											if (col.type == "datetime")
+											{
+												value = DateTime.Parse(value.ToString()).ToShamsiDateTime();
 
-                                        }
-                                        else if (col.type == "date")
-                                        {
-                                            value = DateTime.Parse(value.ToString()).ToShamsiDate();
-                                        }
-                                    }
+											}
+											else if (col.type == "date")
+											{
+												value = DateTime.Parse(value.ToString()).ToShamsiDate();
+											}
+										}
 
-                                    entity.Add(propertyName, value);
-                                }
-                                else
-                                {
-                                    entity.Add(propertyName, null);
-                                }
-                            }
+										entity.Add(propertyName, value);
+									}
+									else
+									{
+										entity.Add(propertyName, null);
+									}
+								}
 
-                            results.Add(entity);
-                        }
-                    }
+								results.Add(entity);
+							}
+						}
+					}
+                         catch(Exception e)
+                         {
+                               if(e.Message.Contains("Microsoft.Data.SqlClient.SqlException: 'Invalid column name "))
+                              {
+                                   throw new Exception("خطا سمت پایگاه داده یکی از ستون ها حذف شده است .");
+                              }
+                         }
+
+                 
                 }
             }
 

@@ -34,9 +34,9 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// آپدیت یک فیلد برای چند رکورد (Bulk Update Field) - بسیار بهینه
 	/// </summary>
-      Task<int> BulkUpdateFieldAsync<TProperty>(
+	 Task<int> BulkUpdateFieldAsync<TProperty>(
 	    Expression<Func<TEntity, bool>> predicate,
-	    Func<TEntity, TProperty> propertySelector,
+	    Expression<Func<TEntity, TProperty>> propertySelector,
 	    TProperty value,
 	    CancellationToken cancellationToken = default);
 
@@ -44,10 +44,10 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// آپدیت یک فیلد برای چند رکورد با استفاده از Expression برای مقدار جدید
 	/// </summary>
 	Task<int> BulkUpdateFieldAsync<TProperty>(
-		    Expression<Func<TEntity, bool>> predicate,
-		    Func<TEntity, TProperty> propertySelector,
-		    Func<TEntity, TProperty> valueSelector,
-		    CancellationToken cancellationToken = default);
+    Expression<Func<TEntity, bool>> predicate,
+    Expression<Func<TEntity, TProperty>> propertySelector,
+    Expression<Func<TEntity, TProperty>> valueSelector,
+    CancellationToken cancellationToken = default);
 
 	/// <summary>
 	/// آپدیت با Raw SQL - برای آپدیت های بسیار سریع
