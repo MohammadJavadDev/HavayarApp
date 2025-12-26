@@ -10,6 +10,47 @@
 //# sourceMappingURL=bootstrap.bundle.min.js.map
 
 
+$.fn.block = function (block = true, withText = false) {
+
+	if (block === false) {
+		return this.each(function () {
+			$(this).children('.block-overlay').remove();
+		});
+	}
+
+	return this.each(function () {
+		var $element = $(this);
+
+		// جلوگیری از اضافه شدن overlay تکراری
+		if ($element.children('.block-overlay').length)
+			return;
+
+		var $overlay = withText
+			? $('<div class="block-overlay"><span>لطفا منتظر بمانید... <span class="spinner-border spinner-border-sm text-primary"></span></span></div>')
+			: $('<div class="block-overlay"><span class="spinner-border spinner-border-sm text-primary"></span></div>');
+
+		$overlay.css({
+			position: 'absolute',
+			inset: 0,
+			backgroundColor: 'rgba(0, 0, 0, 0.6)',
+			color: '#fff',
+			display: 'flex',
+			justifyContent: 'center',
+			alignItems: 'center',
+			zIndex: 1000,
+			pointerEvents: 'auto', // 👈 بلاک واقعی کلیک
+			borderRadius: $element.css("border-radius"),
+			fontSize: '1rem'
+		});
+
+		if ($element.css('position') === 'static') {
+			$element.css('position', 'relative');
+		}
+
+		$element.append($overlay);
+	});
+};
+
 
 
 /**
@@ -10759,46 +10800,7 @@ function entityTableTmpl(model) {
 
 }
 
-$.fn.block = function (block = true, withText = false) {
 
-	if (block === false) {
-		return this.each(function () {
-			$(this).find('.block-overlay').remove();
-			$(this).css('pointer-events', 'auto');
-		});
-	}
-	return this.each(function () {
-		var $element = $(this);
-		var $overlay;
-		if (withText)
-			$overlay=	$('<div class="block-overlay"><span>لطفا منتظر بمانید... <span style="width:1rem;height:1rem;" class="spinner-border text-primary"></span></span></div>');
-		else
-			$overlay=	$('<div class="block-overlay"> <span style="width:1rem;height:1rem;" class="spinner-border text-primary"></span></div>');
-
-		// Calculate font size based on the element's size
-		var fontSize = Math.min($element.width(), $element.height()) * 0.6; // Adjust the multiplier as needed
-
-		$overlay.css({
-			position: 'absolute',
-			top: 0,
-			left: 0,
-			width: '100%',
-			height: '100%',
-			backgroundColor: 'rgba(0, 0, 0, 0.6)',
-			color: '#fff',
-			display: 'flex',
-			justifyContent: 'center',
-			alignItems: 'center',
-			zIndex: 1000,
-			pointerEvents: 'none', // Prevents clicks on the overlay itself
-			fontSize: fontSize + 'px', // Set the calculated font size
-			"border-radius": $element.css("border-radius")
-		});
-
-		$element.css('position', 'relative').append($overlay);
-		$element.css('pointer-events', 'none'); // Prevents clicks on the element
-	});
-};
 
 function initItemsForms($el) {
  

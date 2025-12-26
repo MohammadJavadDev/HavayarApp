@@ -1,0 +1,189 @@
+@using Entities.App.Gnr;
+@model Party
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-3'>
+			<label class=''>نام</label>
+			<input class='form-control' data-bind='firstName'  asp-for='FirstName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>نام خانوادگی</label>
+			<input class='form-control' data-bind='lastName'  asp-for='LastName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نام کامل</label>
+			<input class='form-control' data-bind='fullName'  asp-for='FullName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>صفت</label>
+			<input class='form-control' data-bind='alias'  asp-for='Alias' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>شناسه ملی</label>
+			<input class='form-control' data-bind='nationalID'  asp-for='NationalID' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>جنسیت</label>
+			<select class='form-control' data-bind='gender'  asp-for='Gender' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Gnr.Enums.PartyGenderEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>ملیت</label>
+			<input class='form-control' data-bind='nationality'  asp-for='Nationality' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>موبایل</label>
+			<input class='form-control' data-bind='mobile'  asp-for='Mobile' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>ایمیل</label>
+			<input class='form-control' data-bind='email'  asp-for='Email' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شماره شناسنامه</label>
+			<input class='form-control' data-bind='iDNumber'  asp-for='IDNumber' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>سریال شناسنامه</label>
+			<input class='form-control' data-bind='iDSerial'  asp-for='IDSerial' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نام پدر</label>
+			<input class='form-control' data-bind='fatherName'  asp-for='FatherName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ تولد</label>
+			<input class='form-control'  data-bind='birthDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.BirthDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>کد اقتصادی</label>
+			<input class='form-control' data-bind='economicCode'  asp-for='EconomicCode' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-4'>
+			<label class=''>نام شرکت</label>
+			<input class='form-control' data-bind='companyName'  asp-for='CompanyName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-4'>
+			<label class=''>کد</label>
+			<input class='form-control' data-bind='number'  asp-for='Number' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-4'>
+			<label class='required'>نوع</label>
+			<select class='form-control' data-bind='type' required asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Gnr.Enums.PartyTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>اسم به انگیلیسی</label>
+			<input class='form-control' data-bind='firstNameInEnglish'  asp-for='FirstNameInEnglish' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نام خانوادگی به انگلیسی</label>
+			<input class='form-control' data-bind='lastNameInEnglish'  asp-for='LastNameInEnglish' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نام شرکت به انگلیسی</label>
+			<input class='form-control' data-bind='companyNameInEnglish'  asp-for='CompanyNameInEnglish' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تلفن</label>
+			<input class='form-control' data-bind='phone'  asp-for='Phone' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نام کامل به انگیسی</label>
+			<input class='form-control' data-bind='fullNameInEnglish'  asp-for='FullNameInEnglish' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Party)"></form-action-buttons></div>
+	<div class="card-body">
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

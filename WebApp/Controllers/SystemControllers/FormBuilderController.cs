@@ -20,25 +20,28 @@ namespace WebApp.Controllers.SystemControllers
 	[ControllerInfo("فرم ساز", typeof(FormDefinition))]
 	public class FormBuilderController : BaseController
 	{
-		private readonly IUnitOfWork _unitOfWork;
-		private readonly IFormBuilderCodeGenerator _codeGenerator;
-		private readonly IEntityMetadataCache _entityMetadataCache;
-		private readonly IWebHostEnvironment _webHostEnvironment;
-		private readonly Data.ApplicationDbContext _dbContext;
+	private readonly IUnitOfWork _unitOfWork;
+	private readonly IFormBuilderCodeGenerator _codeGenerator;
+	private readonly IEntityMetadataCache _entityMetadataCache;
+	private readonly IWebHostEnvironment _webHostEnvironment;
+	private readonly Data.ApplicationDbContext _dbContext;
+	private readonly IDatabaseSchemaService _databaseSchemaService;
 
-		public FormBuilderController(
-			IUnitOfWork unitOfWork,
-			IFormBuilderCodeGenerator codeGenerator,
-			IEntityMetadataCache entityMetadataCache,
-			IWebHostEnvironment webHostEnvironment,
-			Data.ApplicationDbContext dbContext)
-		{
-			_unitOfWork = unitOfWork;
-			_codeGenerator = codeGenerator;
-			_entityMetadataCache = entityMetadataCache;
-			_webHostEnvironment = webHostEnvironment;
-			_dbContext = dbContext;
-		}
+	public FormBuilderController(
+		IUnitOfWork unitOfWork,
+		IFormBuilderCodeGenerator codeGenerator,
+		IEntityMetadataCache entityMetadataCache,
+		IWebHostEnvironment webHostEnvironment,
+		Data.ApplicationDbContext dbContext,
+		IDatabaseSchemaService databaseSchemaService)
+	{
+		_unitOfWork = unitOfWork;
+		_codeGenerator = codeGenerator;
+		_entityMetadataCache = entityMetadataCache;
+		_webHostEnvironment = webHostEnvironment;
+		_dbContext = dbContext;
+		_databaseSchemaService = databaseSchemaService;
+	}
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -1494,12 +1497,283 @@ Return ONLY the final C# property name."
 					return StatusCode(500, "خطا در ذخیره فایل‌ها");
 				}
 			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, "خطا در ذخیره فایل‌ها: " + ex.Message);
-			}
+		catch (Exception ex)
+		{
+			return StatusCode(500, "خطا در ذخیره فایل‌ها: " + ex.Message);
 		}
 	}
+
+	#region Database Import Endpoints
+
+	/// <summary>
+	/// دریافت لیست Connection String های موجود
+	/// </summary>
+	[HttpGet("[action]")]
+	[ActionDisplayName("دریافت Connection String ها", ActionAccessType.Api)]
+	public async Task<IActionResult> GetConnectionStrings()
+	{
+		try
+		{
+			var connectionStrings = await _databaseSchemaService.GetConnectionStringsAsync();
+			return Ok(connectionStrings);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, new { message = "خطا در دریافت Connection String ها", error = ex.Message });
+		}
+	}
+
+	/// <summary>
+	/// تست اتصال به دیتابیس
+	/// </summary>
+	[HttpPost("[action]")]
+	[ActionDisplayName("تست اتصال به دیتابیس", ActionAccessType.Api)]
+	public async Task<IActionResult> TestConnection([FromBody] TestConnectionRequest request)
+	{
+		try
+		{
+			if (string.IsNullOrWhiteSpace(request?.ConnectionString))
+			{
+				return BadRequest(new { message = "Connection String نمی‌تواند خالی باشد" });
+			}
+
+			var result = await _databaseSchemaService.TestConnectionAsync(request.ConnectionString);
+			return Ok(result);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, new { message = "خطا در تست اتصال", error = ex.Message });
+		}
+	}
+
+	/// <summary>
+	/// دریافت لیست جداول دیتابیس
+	/// </summary>
+	[HttpPost("[action]")]
+	[ActionDisplayName("دریافت لیست جداول", ActionAccessType.Api)]
+	public async Task<IActionResult> GetDatabaseTables([FromBody] GetTablesRequest request)
+	{
+		try
+		{
+			if (string.IsNullOrWhiteSpace(request?.ConnectionString))
+			{
+				return BadRequest(new { message = "Connection String نمی‌تواند خالی باشد" });
+			}
+
+			var tables = await _databaseSchemaService.GetTablesAsync(request.ConnectionString);
+			return Ok(tables);
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, new { message = "خطا در دریافت لیست جداول", error = ex.Message });
+		}
+	}
+
+	/// <summary>
+	/// دریافت ستون‌های یک جدول
+	/// </summary>
+	[HttpPost("[action]")]
+	[ActionDisplayName("دریافت ستون‌های جدول", ActionAccessType.Api)]
+	public async Task<IActionResult> GetTableColumns([FromBody] GetTableColumnsRequest request)
+	{
+		try
+		{
+			if (string.IsNullOrWhiteSpace(request?.ConnectionString))
+			{
+				return BadRequest(new { message = "Connection String نمی‌تواند خالی باشد" });
+			}
+
+			if (string.IsNullOrWhiteSpace(request?.Schema) || string.IsNullOrWhiteSpace(request?.TableName))
+			{
+				return BadRequest(new { message = "نام Schema و جدول الزامی است" });
+			}
+
+			var columns = await _databaseSchemaService.GetTableColumnsAsync(
+				request.ConnectionString,
+				request.Schema,
+				request.TableName);
+
+			return Ok(new { columns });
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, new { message = "خطا در دریافت ستون‌های جدول", error = ex.Message });
+		}
+	}
+
+	/// <summary>
+	/// ایجاد فرم از روی جدول دیتابیس
+	/// </summary>
+	[HttpPost("[action]")]
+	[ActionDisplayName("ایجاد فرم از جدول", ActionAccessType.Api)]
+	public async Task<IActionResult> GenerateFormFromTable([FromBody] ViewModels.FormBuilder.GenerateFormFromTableRequest request)
+	{
+		try
+		{
+			// Validation
+			if (string.IsNullOrWhiteSpace(request?.ConnectionString))
+			{
+				return BadRequest(new { message = "Connection String نمی‌تواند خالی باشد" });
+			}
+
+			if (string.IsNullOrWhiteSpace(request?.Schema) || string.IsNullOrWhiteSpace(request?.TableName))
+			{
+				return BadRequest(new { message = "نام Schema و جدول الزامی است" });
+			}
+
+			if (string.IsNullOrWhiteSpace(request?.ModuleName))
+			{
+				return BadRequest(new { message = "نام ماژول الزامی است" });
+			}
+
+			// دریافت ستون‌های جدول اگر ارسال نشده
+			var columns = request.SelectedColumns;
+			if (columns == null || !columns.Any())
+			{
+				columns = await _databaseSchemaService.GetTableColumnsAsync(
+					request.ConnectionString,
+					request.Schema,
+					request.TableName);
+			}
+
+			if (!columns.Any())
+			{
+				return BadRequest(new { message = "جدول انتخاب شده هیچ ستونی ندارد" });
+			}
+
+			// ایجاد FormProperties از ستون‌ها
+			var properties = new List<FormProperty>();
+			int orderIndex = 0;
+
+			foreach (var column in columns)
+			{
+				var property = new FormProperty
+				{
+					PropertyName = column.ColumnName,
+					DisplayName = column.SuggestedDisplayName,
+					SystemType = column.MappedSystemType,
+					Required = !column.IsNullable && !column.IsPrimaryKey, // Primary Key را اجباری نمی‌کنیم چون سیستم خودش مقداردهی می‌کند
+					AddToTable = column.IsPrimaryKey || !column.IsNullable || column.DataType.Contains("varchar"),
+					SystemProperty = column.IsPrimaryKey,
+					ShowInRelationData = column.IsPrimaryKey,
+					MaxLength = column.MaxLength,
+					OrderIndex = orderIndex++,
+					ColSize = "col-md-6"
+				};
+
+				// تنظیمات ویژه برای Foreign Key
+				if (column.IsForeignKey && !string.IsNullOrEmpty(column.ForeignKeyTable))
+				{
+					property.SystemType = Common.Attributes.SystemType.Entity;
+					property.RelatedEntityName = column.ForeignKeyTable;
+					property.DisplayName = column.SuggestedDisplayName.Replace("شناسه ", "");
+					property.ColSize = "col-md-6";
+				}
+
+				// تنظیمات ویژه برای AutoNumber (شناسه خودکار)
+				if (column.IsPrimaryKey && column.DataType == "bigint")
+				{
+					property.SystemType = Common.Attributes.SystemType.AutoNumber;
+					property.AutoNumberStart = 1;
+					property.AutoNumberStep = 1;
+				}
+
+				properties.Add(property);
+			}
+
+			// ایجاد یا بروزرسانی FormDefinition
+			FormDefinition formDefinition;
+
+			if (request.ImportMode == "append" && request.ExistingFormDefinitionId.HasValue)
+			{
+				// حالت Append: اضافه کردن به فرم موجود
+				formDefinition = await _unitOfWork.Repository<FormDefinition>()
+					.Table
+					.Include(f => f.Sections)
+						.ThenInclude(s => s.Properties)
+					.FirstOrDefaultAsync(f => f.Id == request.ExistingFormDefinitionId.Value);
+
+				if (formDefinition == null)
+				{
+					return NotFound(new { message = "فرم مورد نظر یافت نشد" });
+				}
+
+				// ایجاد بخش جدید یا اضافه به بخش موجود
+				var sectionName = request.SectionName ?? $"اطلاعات {request.TableName}";
+				var section = formDefinition.Sections.FirstOrDefault(s => s.Title == sectionName);
+
+				if (section == null)
+				{
+					section = new FormSection
+					{
+						Title = sectionName,
+						OrderIndex = formDefinition.Sections.Count,
+						Properties = properties
+					};
+					formDefinition.Sections.Add(section);
+				}
+				else
+				{
+					// اضافه کردن به بخش موجود
+					var maxOrder = section.Properties.Any() ? section.Properties.Max(p => p.OrderIndex) : -1;
+					foreach (var prop in properties)
+					{
+						prop.OrderIndex = ++maxOrder;
+						section.Properties.Add(prop);
+					}
+				}
+			}
+			else
+			{
+				// حالت Replace: ایجاد فرم جدید
+				formDefinition = new FormDefinition
+				{
+					EntityName = request.TableName,
+					DisplayName = request.TableName,
+					Module = request.ModuleName,
+					Schema = request.Schema,
+					BaseEntityType = "BaseEntity",
+					Description = $"فرم ایجاد شده از جدول {request.Schema}.{request.TableName}",
+					IsFromExistingEntity = false
+				};
+
+				var section = new FormSection
+				{
+					Title = request.SectionName ?? "اطلاعات اصلی",
+					OrderIndex = 0,
+					Properties = properties
+				};
+
+				formDefinition.Sections.Add(section);
+			}
+
+			// Normalize و ذخیره
+			NormalizeFormDefinitionGraph(formDefinition);
+
+			FormDefinition savedForm;
+			if (formDefinition.Id.HasValue && formDefinition.Id > 0)
+			{
+				savedForm = await _unitOfWork.Repository<FormDefinition>().UpdateAsync(formDefinition, CancellationToken.None, true);
+			}
+			else
+			{
+				savedForm = await _unitOfWork.Repository<FormDefinition>().SaveAsync(formDefinition, CancellationToken.None, true);
+			}
+
+			return Ok(new
+			{
+				message = "فرم با موفقیت ایجاد شد",
+				formDefinition = savedForm
+			});
+		}
+		catch (Exception ex)
+		{
+			return StatusCode(500, new { message = "خطا در ایجاد فرم از جدول", error = ex.Message });
+		}
+	}
+
+	#endregion
+}
 
 	
 
@@ -1514,9 +1788,26 @@ Return ONLY the final C# property name."
 		public bool OverwriteExisting { get; set; }
 	}
 
-	public class LoadFromEntityRequest
-	{
-		public string EntityFullName { get; set; }
-	}
+public class LoadFromEntityRequest
+{
+	public string EntityFullName { get; set; }
+}
+
+public class TestConnectionRequest
+{
+	public string ConnectionString { get; set; }
+}
+
+public class GetTablesRequest
+{
+	public string ConnectionString { get; set; }
+}
+
+public class GetTableColumnsRequest
+{
+	public string ConnectionString { get; set; }
+	public string Schema { get; set; }
+	public string TableName { get; set; }
+}
 }
 

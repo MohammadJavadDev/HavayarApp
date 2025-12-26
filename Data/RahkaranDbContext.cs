@@ -16,6 +16,7 @@ namespace Data
 
 		public DbSet<RahkaranPart> RahkaranParts { get; set; }
 		public DbSet<RahkaranUnit> RahkaranUnits { get; set; }
+		public DbSet<RahkaranParty> RahkaranParties { get; set; }
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{

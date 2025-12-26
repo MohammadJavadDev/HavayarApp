@@ -1,6 +1,7 @@
 ﻿using Entities.Base;
+using Microsoft.AspNetCore.Http;
 
-namespace WebApp.Framework.File;
+namespace Services.FileServices;
  
  
 public interface IFileService
@@ -12,6 +13,15 @@ public interface IFileService
 	    string? entityPropName,
 	    long? entityId,
 	    CancellationToken ct);
+
+	Task<FileEntity> UploadAsync(
+    byte[] file,
+    string fileName,
+    string? contentType,         
+    string? entityType,
+    string? entityPropName,
+    long? entityId,
+    CancellationToken ct);
 
 	// Replace existing file
 	Task<FileEntity> ReplaceAsync(

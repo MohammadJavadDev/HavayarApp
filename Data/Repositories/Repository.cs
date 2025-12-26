@@ -35,7 +35,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		this.sdk = sdk;
 		_dataTableQuery = dataTableQuery;
 		_auditService = auditService;
-		ConnectionString = dbContext.Database.GetDbConnection().ConnectionString;
+		ConnectionString = dbContext.Database.GetConnectionString();
 
 		InitializeLicense();
 	}

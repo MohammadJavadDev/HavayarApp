@@ -4588,7 +4588,7 @@ var KTStepper = function (element, options) {
     var _init = function () {
         the.options = KTUtil.deepExtend({}, defaultOptions, options);
         the.uid = KTUtil.getUniqueId('stepper');
-
+          
         the.element = element;
 
         // Set initialized
@@ -4712,7 +4712,7 @@ var KTStepper = function (element, options) {
 
         // Step Items
         var elements = KTUtil.findAll(the.element, '[data-kt-stepper-element="nav"], [data-kt-stepper-element="content"], [data-kt-stepper-element="info"]');
-
+        
         if (elements && elements.length > 0) {
             for (var i = 0, len = elements.length; i < len; i++) {
                 var element = elements[i];

@@ -160,12 +160,15 @@ namespace Entities.App.Inv
 		public PartDocumentTypeEnum? Type { get; set; }
 
 
-		[DisplayName("واحد سازمانی")]
-		[DisplayInfo(null, true, type: SystemType.Entity)]
-		public OrgUnit? OrganizationUnit { get; set; }
+		[DisplayName("واحدهای سازمانی")]
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? OrganizationUnits { get; set; }
 
-		public long? OrganizationUnitId { get; set; }
+		[DisplayName("شناسه واحدهای سازمانی")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? OrganizationUnitIds { get; set; }
 
+  
 
 		[DisplayName("کامنت")]
 		[DisplayInfo(null, true, type: SystemType.String)]

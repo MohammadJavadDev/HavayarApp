@@ -1,9 +1,10 @@
 ﻿using Data.Contracts;
 using Entities.Base;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-namespace WebApp.Framework.File;
+namespace Services.FileServices;
 
 public class FileService : IFileService
 {
@@ -11,7 +12,7 @@ public class FileService : IFileService
 	private readonly IUnitOfWork _unitOfWork;
 
 	public FileService(
-	    IWebHostEnvironment env,
+	    
 	    IConfiguration config,
 	    IUnitOfWork unitOfWork)
 	{
@@ -22,7 +23,7 @@ public class FileService : IFileService
 
 		_uploadsRoot = Path.IsPathRooted(uploadsPath)
 		    ? uploadsPath
-		    : Path.Combine(env.ContentRootPath, uploadsPath);
+		    : Path.Combine(uploadsPath);
 
 		Directory.CreateDirectory(_uploadsRoot);
 	}
@@ -159,5 +160,86 @@ public class FileService : IFileService
 
 		return (stream, file.ContentType, file.OriginalName);
 	}
+
+	public async Task<FileEntity> UploadAsync(
+    byte[] file,
+    string fileName,
+    string? contentType,          // اختیاری
+    string? entityType,
+    string? entityPropName,
+    long? entityId,
+    CancellationToken ct)
+	{
+		if (file == null || file.Length == 0)
+			throw new ArgumentException("File is empty");
+
+		var datePart = DateTime.UtcNow.ToString("yyyyMMdd");
+		var targetDir = Path.Combine(_uploadsRoot, datePart);
+		Directory.CreateDirectory(targetDir);
+
+		var uniqueName = $"{Guid.NewGuid():N}{Path.GetExtension(fileName)}";
+		var physicalPath = Path.Combine(targetDir, uniqueName);
+
+		await using (var fs = new FileStream(physicalPath, FileMode.Create))
+		{
+			await fs.WriteAsync(file, 0, file.Length, ct);
+		}
+
+		// حدس زدن contentType بر اساس پسوند فایل
+		if (string.IsNullOrWhiteSpace(contentType))
+		{
+			var mimeTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+	   {
+		  { ".txt", "text/plain" },
+		  { ".csv", "text/csv" },
+		  { ".json", "application/json" },
+		  { ".xml", "application/xml" },
+		  { ".html", "text/html" },
+		  { ".htm", "text/html" },
+		  { ".jpg", "image/jpeg" },
+		  { ".jpeg", "image/jpeg" },
+		  { ".png", "image/png" },
+		  { ".gif", "image/gif" },
+		  { ".bmp", "image/bmp" },
+		  { ".pdf", "application/pdf" },
+		  { ".doc", "application/msword" },
+		  { ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+		  { ".xls", "application/vnd.ms-excel" },
+		  { ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+		  { ".ppt", "application/vnd.ms-powerpoint" },
+		  { ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+		  { ".zip", "application/zip" },
+		  { ".rar", "application/x-rar-compressed" },
+	   };
+
+			var ext = Path.GetExtension(fileName);
+			if (!string.IsNullOrEmpty(ext) && mimeTypes.TryGetValue(ext, out var detectedType))
+			{
+				contentType = detectedType;
+			}
+			else
+			{
+				contentType = "application/octet-stream"; // پیش‌فرض
+			}
+		}
+
+		var entity = new FileEntity
+		{
+			PhysicalPath = Path.Combine(datePart, uniqueName).Replace("\\", "/"),
+			OriginalName = fileName,
+			ContentType = contentType,
+			Size = file.Length,
+			EntityType = entityType,
+			EntityPropName = entityPropName,
+			EntityId = entityId,
+			IsActive = IsActiveEnum.Active
+		};
+
+		await _unitOfWork.Repository<FileEntity>().AddAsync(entity, ct);
+		await _unitOfWork.SaveChangesAsync(ct);
+
+		return entity;
+	}
+
 
 }

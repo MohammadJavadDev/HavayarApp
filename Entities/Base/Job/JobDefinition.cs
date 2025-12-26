@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Entities.Base.Job
 {
+	[Table("JobDefinition", Schema = "system")]
 	public class JobDefinition:BaseEntity
 	{
 		public long Id { get; set; }
@@ -17,6 +19,7 @@ namespace Entities.Base.Job
 		public string ClassType { get; set; }  
 		public string MethodName { get; set; }
 	}
+	[Table("JobSchedule",Schema ="system")]
 	public class JobSchedule
 	{
 		public int Id { get; set; }
@@ -28,12 +31,12 @@ namespace Entities.Base.Job
 		public DateTime? NextRunTime { get; set; }
 		public DateTime? LastRunTime { get; set; }
 
-		public JobStatus LastStatus { get; set; } // Running, Idle, Failed
+		public JobStatus LastStatus { get; set; } // Running, Idle, Error
 
 		// تنظیمات جدید برای زمان‌بندی پیشرفته
 		public ScheduleType ScheduleType { get; set; } = ScheduleType.Interval;
 		public int DailyIntervalDays { get; set; } = 1; // برای زمان‌بندی روزانه با فاصله (مثلا هر 2 روز یکبار)
-		public string WeeklyDays { get; set; } = ""; // برای زمان‌بندی هفتگی - روزهای هفته به صورت CSV (مثلا "Saturday,Sunday")
+		public string? WeeklyDays { get; set; } = ""; // برای زمان‌بندی هفتگی - روزهای هفته به صورت CSV (مثلا "Saturday,Sunday")
 		public TimeSpan? DailyTime { get; set; } // زمان اجرا برای زمان‌بندی روزانه
 		public int HourlyMinute { get; set; } = 0; // دقیقه برای زمان‌بندی ساعتی
 	}
@@ -45,6 +48,7 @@ namespace Entities.Base.Job
 		Weekly,      // زمان‌بندی هفتگی با انتخاب روزهای هفته
 		Hourly       // زمان‌بندی ساعتی
 	}
+	[Table("JobHistory", Schema = "system")]
 	public class JobHistory
 	{
 		public long Id { get; set; }

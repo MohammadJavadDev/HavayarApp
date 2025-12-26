@@ -31,9 +31,11 @@
 			},
 			c => new { c.Title },
 			"{Title}",
-			"documents.organizationUnitId",
-			"documents.organizationUnitName",
-			Model?.OrganizationUnitId?.ToString()
+				"documents.OrganizationUnitIds",
+				"documents.OrganizationUnits",
+			Model?.OrganizationUnitIds?.ToString(),
+			false,
+			true
 		))
 		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 	</div>

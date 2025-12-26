@@ -5,7 +5,8 @@ using Data.Services;
 using Data.SystemAuth;
 using Entities.Services;
 using Infrastructure.CrudEventInterceptors;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
+using Services.FileServices;
 using Services.Job;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +26,12 @@ builder.Services.AddDbContext<RahkaranDbContext>((sp, options) =>
 	    sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
     }));
 
+builder.Services.AddDbContext<HtsDbContext>((sp, options) =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Hts"), sql =>
+    {
+	    sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
+    }));
+
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
@@ -36,7 +43,9 @@ builder.Services.AddSingleton<IOnlineUserService, RedisOnlineUserService>();
 
 builder.Services.AddHostedService<JobDiscoveryService>();
 builder.Services.AddHostedService<JobWorker>();
- 
+
+builder.Services.AddScoped<IFileService, FileService>();
+
 builder.Services.AddScoped<ISdk, Sdk>();
 builder.Services.AddScoped<IDataTableQueryBuilder, DataTableQueryBuilder>();
 builder.Services.AddScoped<IAuditService, AuditService>();

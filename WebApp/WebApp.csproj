@@ -26,6 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Framework\File\" />
     <Folder Include="wwwroot\lib\persian-datepicker-element\" />
     <Folder Include="wwwroot\scripts\" />
     <Folder Include="wwwroot\panelLib\plugins\custom\xlsx\" />

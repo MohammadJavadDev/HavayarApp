@@ -42138,3 +42138,11 @@ body {
   font-size: 1rem;
   color: var(--bs-text-muted);
 }
+
+.hide{
+     display:none;
+}
+
+.current {
+     display:block !important;
+}

@@ -1,5 +1,7 @@
-﻿using Data;
+﻿using Common.Utilities;
+using Data;
 using Data.Contracts;
+using Data.Migrations;
 using Entities.Base.Job;
 using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
@@ -122,16 +124,36 @@ namespace Services.Job
 
 				schedule.LastStatus= JobStatus.Error;
 
-				await _unitOfWork.Repository<Notification>()
-					    .AddAsync(new()
-					    {
-						    Body = $"خطا در اجرای سرویس : {jobDef.DisplayName} {jobDef.MethodName} <br/> {ex.Message}",
-						    Title = "خطا در سرویس های درحال اجرا",
-						    OwnerId = 1,
-						    IsRead = false
-					    }
-					     ,
-						    stoppingToken);
+				var query = @"INSERT INTO [system].[Notification]
+(Title, Body, IsRead, OwnerId,ModifiedDateShamsiDateTime,ModifiedDateMiladiDateTime,CreatedOnShamsiDateTime,CreatedOnMiladiDateTime,IsActive)
+VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDateMiladiDateTime,@CreatedOnShamsiDateTime,@CreatedOnMiladiDateTime,@IsActive);";
+
+				var paramsSql = new
+				{
+					Body = $"خطا در اجرای سرویس : {jobDef.DisplayName} {jobDef.MethodName} <br/> {ex.Message}",
+					Title = "خطا در سرویس های درحال اجرا",
+					OwnerId = 1,
+					IsRead = false,
+					ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+					ModifiedDateMiladiDateTime = DateTime.Now,
+					CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+					CreatedOnMiladiDateTime = DateTime.Now,
+					IsActive = 1
+
+
+				};
+		  	await _unitOfWork.Repository<Notification>()
+					.ExecuteCommandAsync(query, paramsSql , stoppingToken);
+
+				var queryJobSchedule = @"update [system].[JobSchedule] set LastStatus = 3 where Id = @Id";
+
+				var paramsJobScheduleSql = new
+				{
+					Id = schedule.Id
+				};
+
+					await _unitOfWork.Repository<Notification>()
+			   .ExecuteCommandAsync(queryJobSchedule, paramsJobScheduleSql, stoppingToken);
 			}
 			finally
 			{

@@ -53,5 +53,7 @@ namespace Entities.App.Inv.Enums
 		Wiring_Diagram = 271,
 		[Display(Name = "WPS-PQR")]
 		WPSPQR = 276,
+		[Display(Name = "None")]
+		None = 1,
 	}
 }

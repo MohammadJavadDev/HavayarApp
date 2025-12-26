@@ -2,7 +2,7 @@
 @using Entities.Base.FormBuilder;
 @model FormDefinition
 <link rel="stylesheet" href="~/css/formBuilder.css" />
-
+<link href="~/panellib/plugins/custom/select2/select2.css" rel="stylesheet" />
 <div class="card" id="formBuilderCard">
 	<div class="form-action-buttons">
 		<form-action-buttons entity-type="typeof(FormDefinition)"></form-action-buttons>
@@ -83,12 +83,16 @@
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
-			<div class='col-md-12 mt-3'>
-				<button type="button" class="btn btn-light-primary" id="btnLoadFromEntity">
-					<i class="ki-duotone ki-file-up fs-2"><span class="path1"></span><span class="path2"></span></i>
-					بارگذاری از موجودیت موجود
-				</button>
-			</div>
+		<div class='col-md-12 mt-3'>
+			<button type="button" class="btn btn-light-primary" id="btnLoadFromEntity">
+				<i class="ki-duotone ki-file-up fs-2"><span class="path1"></span><span class="path2"></span></i>
+				بارگذاری از موجودیت موجود
+			</button>
+			<button type="button" class="btn btn-light-success" id="btnLoadFromDatabase">
+				<i class="ki-duotone ki-data fs-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+				بارگذاری از دیتابیس
+			</button>
+		</div>
 		</div>
 
 		<!-- Section B: Properties Builder -->
@@ -602,11 +606,247 @@
 	</div>
 </div>
 
-<!-- SortableJS for drag and drop (fallback if jQuery UI sortable not available) -->
-<script src="~/panelLib/plugins/custom/sortable/Sortable.min.js"></script>
+<!-- Database Import Modal -->
+<div class="modal fade" id="loadFromDatabaseModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+	<div class="modal-dialog modal-xl modal-dialog-scrollable">
+		<div class="modal-content">
+			<div class="modal-header">
+				<div class="flex-grow-1">
+					<h3 class="modal-title">بارگذاری از دیتابیس</h3>
+					<div class="mt-3">
+						<div class="stepper stepper-pills" id="db_import_stepper">
+							<div class="stepper-nav flex-center flex-wrap mb-5">
+								<div class="stepper-item mx-2 my-2 current" data-kt-stepper-element="nav" data-kt-stepper-item="#stepper_1">
+									<div class="stepper-wrapper d-flex align-items-center">
+										<div class="stepper-icon w-40px h-40px">
+											<i class="stepper-check fas fa-check"></i>
+											<span class="stepper-number">1</span>
+										</div>
+										<div class="stepper-label">
+											<h3 class="stepper-title">انتخاب دیتابیس</h3>
+										</div>
+									</div>
+								</div>
+								<div class="stepper-item mx-2 my-2" data-kt-stepper-element="nav" data-kt-stepper-item="#stepper_2">
+									<div class="stepper-wrapper d-flex align-items-center">
+										<div class="stepper-icon w-40px h-40px">
+											<i class="stepper-check fas fa-check"></i>
+											<span class="stepper-number">2</span>
+										</div>
+										<div class="stepper-label">
+											<h3 class="stepper-title">انتخاب جدول</h3>
+										</div>
+									</div>
+								</div>
+								<div class="stepper-item mx-2 my-2" data-kt-stepper-element="nav" data-kt-stepper-item="#stepper_3">
+									<div class="stepper-wrapper d-flex align-items-center">
+										<div class="stepper-icon w-40px h-40px">
+											<i class="stepper-check fas fa-check"></i>
+											<span class="stepper-number">3</span>
+										</div>
+										<div class="stepper-label">
+											<h3 class="stepper-title">پیش‌نمایش ستون‌ها</h3>
+										</div>
+									</div>
+								</div>
+								<div class="stepper-item mx-2 my-2" data-kt-stepper-element="nav" data-kt-stepper-item="#stepper_4">
+									<div class="stepper-wrapper d-flex align-items-center">
+										<div class="stepper-icon w-40px h-40px">
+											<i class="stepper-check fas fa-check"></i>
+											<span class="stepper-number">4</span>
+										</div>
+										<div class="stepper-label">
+											<h3 class="stepper-title">تنظیمات نهایی</h3>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div id="db_import_form" class="mx-auto w-100">
+					<!-- Step 1: Connection String -->
+					<div class="hide  current" data-kt-stepper-element="content" id="stepper_1">
+						<div class="w-100">
+							<h4 class="mb-5">انتخاب Connection String</h4>
+							<div class="row g-3">
+								<div class="col-md-12">
+									<div class="form-check form-check-custom form-check-solid mb-3">
+										<input class="form-check-input" type="radio" value="existing" id="connectionSourceExisting" name="connectionSource" checked />
+										<label class="form-check-label" for="connectionSourceExisting">
+											انتخاب از لیست موجود
+										</label>
+									</div>
+									<select class="form-select" id="existingConnectionStrings" data-control="select2" data-placeholder="انتخاب کنید...">
+										<option value="">در حال بارگذاری...</option>
+									</select>
+								</div>
+								<div class="col-md-12 mt-5">
+									<div class="form-check form-check-custom form-check-solid mb-3">
+										<input class="form-check-input" type="radio" value="custom" id="connectionSourceCustom" name="connectionSource" />
+										<label class="form-check-label" for="connectionSourceCustom">
+											وارد کردن دستی
+										</label>
+									</div>
+									<textarea class="form-control" id="customConnectionString" rows="3" placeholder="Data Source=...;Initial Catalog=...;..." disabled></textarea>
+								</div>
+								<div class="col-md-12 mt-5">
+									<button type="button" class="btn btn-primary" id="btnTestConnection">
+										<i class="ki-duotone ki-check-circle fs-2"><span class="path1"></span><span class="path2"></span></i>
+										تست اتصال
+									</button>
+									<div id="connectionStatus" class="mt-3" style="display: none;">
+										<div class="alert" role="alert"></div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 
+					<!-- Step 2: Select Table -->
+					<div class=" hide " data-kt-stepper-element="content" id="stepper_2">
+						<div class="w-100">
+							<h4 class="mb-5">انتخاب جدول</h4>
+							<div class="row g-3">
+								<div class="col-md-12">
+									<label class="form-label">جدول را انتخاب کنید:</label>
+									<select class="form-select" id="databaseTables" data-control="select2" data-placeholder="ابتدا جداول را بارگذاری کنید...">
+										<option value="">در حال بارگذاری...</option>
+									</select>
+									<small class="form-text text-muted mt-2">
+										<i class="ki-duotone ki-information fs-5"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+										جدول مورد نظر خود را برای ایجاد فرم انتخاب کنید
+									</small>
+								</div>
+								<div class="col-md-12 mt-3" id="tableInfoSection" style="display: none;">
+									<div class="card bg-light-info">
+										<div class="card-body">
+											<div class="row">
+												<div class="col-md-4">
+													<strong>Schema:</strong> <span id="selectedSchema"></span>
+												</div>
+												<div class="col-md-4">
+													<strong>نام جدول:</strong> <span id="selectedTableName"></span>
+												</div>
+												<div class="col-md-4">
+													<strong>تعداد رکورد:</strong> <span id="selectedRowCount"></span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Step 3: Preview Columns -->
+					<div class="hide " data-kt-stepper-element="content" id="stepper_3">
+						<div class="w-100">
+							<h4 class="mb-5">پیش‌نمایش و ویرایش ستون‌ها</h4>
+							<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+								<table class="table table-row-bordered table-row-gray-300 align-middle gs-0 gy-3" id="columnsPreviewTable">
+									<thead class="sticky-top bg-light">
+										<tr class="fw-bold text-muted">
+											<th class="w-25px">
+												<div class="form-check form-check-sm form-check-custom form-check-solid">
+													<input class="form-check-input" type="checkbox" id="selectAllColumns" checked />
+												</div>
+											</th>
+											<th>نام ستون</th>
+											<th>نوع داده SQL</th>
+											<th>نوع سیستم</th>
+											<th>نام نمایشی</th>
+											<th>الزامی</th>
+											<th>نمایش در جدول</th>
+											<th>ویژگی‌ها</th>
+										</tr>
+									</thead>
+									<tbody id="columnsPreviewBody">
+										<tr>
+											<td colspan="8" class="text-center text-muted py-5">
+												<i class="ki-duotone ki-information fs-2x"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+												<div class="mt-2">ستون‌ها در اینجا نمایش داده می‌شوند</div>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+
+					<!-- Step 4: Final Settings -->
+					<div class=" hide " data-kt-stepper-element="content" id="stepper_4">
+						<div class="w-100">
+							<h4 class="mb-5">تنظیمات نهایی</h4>
+							<div class="row g-3">
+								<div class="col-md-12">
+									<label class="form-label fw-bold">حالت Import:</label>
+									<div class="form-check form-check-custom form-check-solid mb-3">
+										<input class="form-check-input" type="radio" value="replace" id="importModeReplace" name="importMode" checked />
+										<label class="form-check-label" for="importModeReplace">
+											<strong>جایگزینی کامل</strong>
+											<div class="text-muted fs-7">تمام فیلدهای فعلی حذف شده و فیلدهای جدید جایگزین می‌شوند</div>
+										</label>
+									</div>
+									<div class="form-check form-check-custom form-check-solid">
+										<input class="form-check-input" type="radio" value="append" id="importModeAppend" name="importMode" />
+										<label class="form-check-label" for="importModeAppend">
+											<strong>افزودن به فیلدهای موجود</strong>
+											<div class="text-muted fs-7">فیلدهای جدید به فیلدهای موجود اضافه می‌شوند</div>
+										</label>
+									</div>
+								</div>
+								<div class="col-md-6 mt-5">
+									<label class="form-label required">نام بخش (Section):</label>
+									<input type="text" class="form-control" id="sectionNameInput" placeholder="مثال: اطلاعات اصلی" value="اطلاعات اصلی" />
+								</div>
+								<div class="col-md-6 mt-5">
+									<label class="form-label required">نام ماژول:</label>
+									<input type="text" class="form-control" id="moduleNameInput" placeholder="مثال: Products" />
+								</div>
+								<div class="col-md-12 mt-5">
+									<div class="alert alert-info d-flex align-items-center">
+										<i class="ki-duotone ki-information-5 fs-2x me-3"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
+										<div class="d-flex flex-column">
+											<h5 class="mb-1">خلاصه عملیات</h5>
+											<span id="importSummary">در حال آماده‌سازی...</span>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-light" data-bs-dismiss="modal">انصراف</button>
+				<button type="button" class="btn btn-light-primary" id="btnPreviousStep">
+					<i class="ki-duotone ki-arrow-right fs-2"><span class="path1"></span><span class="path2"></span></i>
+					قبلی
+				</button>
+				<button type="button" class="btn btn-primary" id="btnNextStep">
+					بعدی
+					<i class="ki-duotone ki-arrow-left fs-2"><span class="path1"></span><span class="path2"></span></i>
+				</button>
+				<button type="button" class="btn btn-success" id="btnConfirmImport" style="display: none;">
+					<i class="ki-duotone ki-check fs-2"><span class="path1"></span><span class="path2"></span></i>
+					تایید و ایجاد فرم
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- SortableJS for drag and drop (fallback if jQuery UI sortable not available) -->
+ 
+<script src="~/panelLib/plugins/custom/sortable/Sortable.min.js"></script>
+<script src="~/panellib/plugins/custom/select2/select2.js"></script>
 <script src="~/js/formBuilderModalHelper.js"></script>
 <script src="~/js/formBuilder.js"></script>
+<script src="~/js/formBuilderDatabaseImporter.js"></script>
 
 <script>
 	function savefn($btnAction) {
@@ -623,7 +863,7 @@
 			sectionsData = FormBuilderApp.getSectionsData();
 		}
 		model.Sections = sectionsData || [];
-		const $btn = $(this.element).block();
+		const $btn = $($btnAction.element).block();
 
 		$$.post('save',
 			model,
@@ -643,7 +883,7 @@
 	// Initialize form builder and pass $$ jQuery reference
 	FormBuilderApp.init($$);
 
-	debugger
+	 
 
 	var modelId = @(Model?.Id?.ToString() ?? "null")
 
