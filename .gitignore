@@ -78,3 +78,8 @@
 /App.BackgroundJob/bin/Debug/net10.0
 /ReportBuilder.Appliction/bin/Debug/net10.0
 /App.BackgroundJob/wwwroot/Uploads/20251226
+/App.BackgroundJob/bin/Release/net10.0
+/App.Real/bin/Release/net10.0
+/Infrastructure/bin/Release/net10.0
+/Shared/bin/Release/net10.0
+/WebApp/bin/Release/net10.0
