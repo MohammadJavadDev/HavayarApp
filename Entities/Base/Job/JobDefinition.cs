@@ -9,8 +9,9 @@ using System.Threading.Tasks;
 namespace Entities.Base.Job
 {
 	[Table("JobDefinition", Schema = "system")]
-	public class JobDefinition:BaseEntity
+	public class JobDefinition
 	{
+		[Key]
 		public long Id { get; set; }
 		public string JobId { get; set; }  
 		public string DisplayName { get; set; }
@@ -23,7 +24,7 @@ namespace Entities.Base.Job
 	public class JobSchedule
 	{
 		public int Id { get; set; }
-		public string JobId { get; set; } // FK به JobDefinition
+		public long JobId { get; set; } // FK به JobDefinition
 		public bool IsActive { get; set; }
 
 		// تنظیمات زمان‌بندی (مثلاً اینتروال ساده یا کرون)
@@ -39,6 +40,9 @@ namespace Entities.Base.Job
 		public string? WeeklyDays { get; set; } = ""; // برای زمان‌بندی هفتگی - روزهای هفته به صورت CSV (مثلا "Saturday,Sunday")
 		public TimeSpan? DailyTime { get; set; } // زمان اجرا برای زمان‌بندی روزانه
 		public int HourlyMinute { get; set; } = 0; // دقیقه برای زمان‌بندی ساعتی
+
+		[ForeignKey("JobId")]
+		public virtual JobDefinition JobDefinition { get; set; }
 	}
 
 	public enum ScheduleType
@@ -58,6 +62,26 @@ namespace Entities.Base.Job
 		public bool IsSuccess { get; set; }
 		public string LogOutput { get; set; } // ذخیره لاگ‌های متنی
 		public string ErrorMessage { get; set; } = "";
+
+		[ForeignKey("ScheduleId")]
+		public virtual JobSchedule JobSchedule { get; set; }
 	}
+	
+	[Table("JobLog", Schema = "system")]
+	public class JobLog
+	{
+		public long Id { get; set; }
+		public long JobHistoryId { get; set; }
+		public DateTime Timestamp { get; set; }
+		public string? LogLevel { get; set; } // Info, Warning, Error, Debug
+		public required string Message { get; set; }
+		public string? Details { get; set; } // Additional details or JSON data
+		public string? ExceptionType { get; set; } // Exception type if applicable
+		public string? StackTrace { get; set; } // Stack trace if applicable
+		
+		[ForeignKey("JobHistoryId")]
+		public virtual JobHistory JobHistory { get; set; }
+	}
+	
 	public enum JobStatus { Idle, Running, Waiting , Error }
 }

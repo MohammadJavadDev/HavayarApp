@@ -1,0 +1,181 @@
+@using Services.Job
+@model IEnumerable<JobLog>
+@{
+    ViewData["Title"] = "Job Log Details";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var jobHistory = ViewBag.JobHistory as Entities.Base.Job.JobHistory;
+}
+
+<h2>Job Log Details</h2>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h4>Job Information</h4>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">Job Name:</dt>
+                    <dd class="col-sm-8">@(jobHistory?.JobSchedule?.JobDefinition?.DisplayName ?? (jobHistory?.JobSchedule != null ? "Job " + jobHistory.JobSchedule.Id : "Unknown Job"))</dd>
+
+                    <dt class="col-sm-4">Schedule ID:</dt>
+                    <dd class="col-sm-8">@jobHistory?.ScheduleId</dd>
+
+                    <dt class="col-sm-4">History ID:</dt>
+                    <dd class="col-sm-8">@jobHistory?.Id</dd>
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl class="row">
+                    <dt class="col-sm-4">Start Time:</dt>
+                    <dd class="col-sm-8">@jobHistory?.StartTime.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                    <dt class="col-sm-4">End Time:</dt>
+                    <dd class="col-sm-8">@(jobHistory?.EndTime.HasValue == true ? jobHistory.EndTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</dd>
+
+                    <dt class="col-sm-4">Duration:</dt>
+                    <dd class="col-sm-8">
+                        @if (jobHistory?.EndTime.HasValue == true)
+                        {
+                            @((jobHistory.EndTime.Value - jobHistory.StartTime).TotalSeconds.ToString("0.00"))  <span>seconds</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Running...</span>
+                        }
+                    </dd>
+                </dl>
+            </div>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-12">
+                <dl class="row">
+                    <dt class="col-sm-2">Status:</dt>
+                    <dd class="col-sm-10">
+                        @if (jobHistory?.IsSuccess == true)
+                        {
+                            <span class="badge badge-success">Success</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-danger">Failed</span>
+                        }
+                    </dd>
+
+                    @if (!string.IsNullOrEmpty(jobHistory?.ErrorMessage))
+                    {
+                        <dt class="col-sm-2">Error Message:</dt>
+                        <dd class="col-sm-10 text-danger">@jobHistory.ErrorMessage</dd>
+                    }
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h4>Detailed Logs</h4>
+    </div>
+    <div class="card-body">
+        <div class="log-container" style="max-height: 600px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f8f9fa;">
+            @if (Model.Any())
+            {
+                @foreach (var log in Model)
+                {
+                    <div class="log-entry mb-3 p-3 @GetLogLevelClass(log.LogLevel)" style="border-left: 4px solid @GetLogLevelColor(log.LogLevel); background-color: white; border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <span class="badge @GetLogLevelBadgeClass(log.LogLevel)">@log.LogLevel</span>
+                                <strong class="ml-2">@log.Message</strong>
+                            </div>
+                            <small class="text-muted">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")</small>
+                        </div>
+                        
+                        @if (!string.IsNullOrEmpty(log.Details))
+                        {
+                            <div class="mt-2 text-muted small">
+                                <pre style="background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto;">@log.Details</pre>
+                            </div>
+                        }
+                        
+                        @if (!string.IsNullOrEmpty(log.ExceptionType) || !string.IsNullOrEmpty(log.StackTrace))
+                        {
+                            <div class="mt-2 text-danger small">
+                                <strong>@log.ExceptionType</strong>
+                                <pre style="background-color: #fff5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">@log.StackTrace</pre>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-info-circle fa-3x mb-3"></i>
+                    <p>No detailed logs found for this job execution.</p>
+                </div>
+            }
+        </div>
+    </div>
+    <div class="card-footer text-right">
+        <a href="@Url.Action("Index", "JobLogs", new { scheduleId = jobHistory?.ScheduleId })" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to History
+        </a>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Filter logs by level
+        function filterLogs(level) {
+            $('.log-entry').each(function() {
+                var logLevel = $(this).find('.badge').text();
+                if (level === 'all' || logLevel === level) {
+                    $(this).show();
+                } else {
+                    $(this).hide();
+                }
+            });
+        }
+    </script>
+}
+
+@functions {
+    private string GetLogLevelClass(string logLevel)
+    {
+        switch (logLevel.ToLower())
+        {
+            case "error": return "log-error";
+            case "warning": return "log-warning";
+            case "info": return "log-info";
+            case "debug": return "log-debug";
+            default: return "log-info";
+        }
+    }
+
+    private string GetLogLevelColor(string logLevel)
+    {
+        switch (logLevel.ToLower())
+        {
+            case "error": return "#dc3545";
+            case "warning": return "#ffc107";
+            case "info": return "#17a2b8";
+            case "debug": return "#6c757d";
+            default: return "#17a2b8";
+        }
+    }
+
+    private string GetLogLevelBadgeClass(string logLevel)
+    {
+        switch (logLevel.ToLower())
+        {
+            case "error": return "badge-danger";
+            case "warning": return "badge-warning";
+            case "info": return "badge-info";
+            case "debug": return "badge-secondary";
+            default: return "badge-info";
+        }
+    }
+}

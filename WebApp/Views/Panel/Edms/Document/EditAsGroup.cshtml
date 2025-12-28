@@ -297,6 +297,15 @@
 			$$('.js-revision-item').removeClass('border-primary').addClass('border-gray-200');
 			$$(`.js-revision-item[data-revision-id="${revisionId}"]`).removeClass('border-gray-200').addClass('border-primary');
 			$$("#currentRevisionHeader").text(`ریویژن ${revisionNum}`)
+				$$(`[data-watch]`).each((c,i)=>{
+				    if($(i).data("watch") == revisionId){
+					  $(i) .find("span").removeClass("d-none")
+				    }
+				    else
+				    {
+						$(i) .find("span").addClass("d-none")
+				    }
+				})
 		});
 	}
 

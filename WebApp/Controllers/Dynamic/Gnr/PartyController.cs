@@ -11,7 +11,7 @@ using Entities.App.Gnr;
 
 namespace WebApp.Controllers.Dynamic
 {
-	[Route("Panel/[controller]")]
+	[Route("Panel/Inv/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("شخص و شرکت", typeof(Party))]

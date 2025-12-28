@@ -1,32 +1,25 @@
-﻿using Common.Utilities;
+using Common.Utilities;
 using Data;
 using Data.Contracts;
-using Data.Migrations;
 using Entities.Base.Job;
 using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+ 
 
 namespace Services.Job
 {
-	public class JobWorker : BackgroundService
+	public class JobWorkerWithLogging : BackgroundService
 	{
 		private readonly IServiceProvider _services;
-	 
-		private readonly ILogger<JobWorker> _logger;
+		private readonly ILogger<JobWorkerWithLogging> _logger;
 
-		public JobWorker(IServiceProvider services, ILogger<JobWorker> logger  )
+		public JobWorkerWithLogging(IServiceProvider services, ILogger<JobWorkerWithLogging> logger)
 		{
 			_services = services;
 			_logger = logger;
-	 
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -39,7 +32,7 @@ namespace Services.Job
 				}
 				catch (Exception ex)
 				{
-					_logger.LogError(ex, "Error in JobWorker loop");
+					_logger.LogError(ex, "Error in JobWorkerWithLogging loop");
 				}
 
 				// فاصله زمانی بین هر چک (مثلا ۵ ثانیه)
@@ -55,7 +48,7 @@ namespace Services.Job
 			// 1. پیدا کردن جاب‌هایی که زمان اجرایشان رسیده است
 			var dueJobs = db.JobSchedules
 			    .Where(s => s.IsActive && s.NextRunTime <= DateTime.Now
-			    && 
+			    &&
 			    s.LastStatus != JobStatus.Running && s.LastStatus != JobStatus.Error)
 			    .ToList();
 
@@ -70,32 +63,37 @@ namespace Services.Job
 				{
 					ScheduleId = schedule.Id,
 					StartTime = DateTime.Now,
-					LogOutput = "logOutPut"
+					LogOutput = "Job started"
 				};
 				db.JobHistories.Add(history);
 				await db.SaveChangesAsync();
 
-			 
 				_ = Task.Run(async () =>
 				{
-					await ExecuteJobAsync(schedule.Id, history.Id , stoppingToken);
+					await ExecuteJobAsync(schedule.Id, history.Id, stoppingToken);
 				});
 			}
 		}
 
-		private async Task ExecuteJobAsync(int scheduleId, long historyId,CancellationToken stoppingToken)
+		private async Task ExecuteJobAsync(int scheduleId, long historyId, CancellationToken stoppingToken)
 		{
 			using var scope = _services.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-			var _unitOfWork  = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+			var _unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+			var _jobLogger = scope.ServiceProvider.GetRequiredService<IJobLogger>();
+			
 			var schedule = await db.JobSchedules.FindAsync(scheduleId);
 			var history = await db.JobHistories.FindAsync(historyId);
-			var jobDef = await db.JobDefinitions.FirstOrDefaultAsync(c=>c.Id== schedule.JobId);
-
-			var logBuilder = new System.Text.StringBuilder();
+			var jobDef = await db.JobDefinitions.FirstOrDefaultAsync(c => c.Id == schedule.JobId);
 
 			try
 			{
+				// Set current history ID for job logging context
+				_jobLogger.SetCurrentHistoryId(historyId);
+
+				// Log job start
+				await _jobLogger.LogInfoAsync($"Job '{jobDef.DisplayName}' started execution", historyId, stoppingToken);
+
 				// 1. لود کردن تایپ کلاس
 				Type type = Type.GetType($"{jobDef.ClassType}, {jobDef.AssemblyName}");
 
@@ -106,23 +104,39 @@ namespace Services.Job
 				// 3. پیدا کردن و اجرای متد
 				var method = type.GetMethod(jobDef.MethodName);
 
-				var result = method.Invoke(instance, new object[] { stoppingToken });
+				// Check if the method accepts IJobLogger parameter
+				var parameters = method.GetParameters();
+				bool hasLoggerParameter = parameters.Any(p => p.ParameterType == typeof(IJobLogger));
+
+				object result;
+				
+				if (hasLoggerParameter)
+				{
+					// If method accepts logger, pass it (it will automatically use the current history ID)
+					result = method.Invoke(instance, new object[] { _jobLogger, stoppingToken });
+				}
+				else
+				{
+					// Original behavior for methods without logger parameter
+					result = method.Invoke(instance, new object[] { stoppingToken });
+				}
+
 				if (result is Task task)
 				{
 					await task;
 				}
 
 				history.IsSuccess = true;
-				logBuilder.AppendLine("Job executed successfully.");
+				await _jobLogger.LogInfoAsync($"Job '{jobDef.DisplayName}' completed successfully", historyId, stoppingToken);
 				schedule.LastStatus = JobStatus.Idle;
 			}
 			catch (Exception ex)
 			{
 				history.IsSuccess = false;
 				history.ErrorMessage = ex.Message ?? "خطای نا مشخص";
-				logBuilder.AppendLine($"Error: {ex}");
+				await _jobLogger.LogExceptionAsync(ex, historyId, stoppingToken);
 
-				schedule.LastStatus= JobStatus.Error;
+				schedule.LastStatus = JobStatus.Error;
 
 				var query = @"INSERT INTO [system].[Notification]
 (Title, Body, IsRead, OwnerId,ModifiedDateShamsiDateTime,ModifiedDateMiladiDateTime,CreatedOnShamsiDateTime,CreatedOnMiladiDateTime,IsActive)
@@ -139,11 +153,10 @@ VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDa
 					CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
 					CreatedOnMiladiDateTime = DateTime.Now,
 					IsActive = 1
-
-
 				};
-		  	await _unitOfWork.Repository<Notification>()
-					.ExecuteCommandAsync(query, paramsSql , stoppingToken);
+
+				await _unitOfWork.Repository<Notification>()
+					.ExecuteCommandAsync(query, paramsSql, stoppingToken);
 
 				var queryJobSchedule = @"update [system].[JobSchedule] set LastStatus = 3 where Id = @Id";
 
@@ -152,16 +165,14 @@ VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDa
 					Id = schedule.Id
 				};
 
-					await _unitOfWork.Repository<Notification>()
-			   .ExecuteCommandAsync(queryJobSchedule, paramsJobScheduleSql, stoppingToken);
+				await _unitOfWork.Repository<Notification>()
+				.ExecuteCommandAsync(queryJobSchedule, paramsJobScheduleSql, stoppingToken);
 			}
 			finally
 			{
 				// 4. پایان کار و محاسبه زمان بعدی
 				history.EndTime = DateTime.Now;
-				history.LogOutput = logBuilder.ToString();
-
-			
+				
 				// محاسبه زمان بعدی بر اساس نوع زمان‌بندی
 				schedule.NextRunTime = CalculateNextRunTime(schedule);
 

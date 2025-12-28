@@ -16,8 +16,8 @@ namespace Entities.Base.NotifitactionBuilder
 		public string Operation { get; set; } = string.Empty;
 		public SystemOpertions SystemOpertion { get; set; }
 		public string? ConditionsJson { get; set; }
-		public string MessageTemplate { get; set; } = string.Empty;
-		public string MessageTitle { get; set; } = string.Empty;
+		public string? MessageTemplate { get; set; } = string.Empty;
+		public string? MessageTitle { get; set; } = string.Empty;
 		public long UserId { get; set; }
 		 
 		public User? User { get; set; } 

@@ -4,6 +4,7 @@ using Data.Contracts;
 using Entities.App.Gnr;
 using Entities.App.Gnr.Enums;
 using Microsoft.EntityFrameworkCore;
+using Services.Job;
 using System.Linq;
 
 namespace App.BackgroundJob.Jobs.Gnr
@@ -12,7 +13,7 @@ namespace App.BackgroundJob.Jobs.Gnr
     {
 
         [JobHandler("افزودن اشخاص و شرکت از راهکاران")]
-        public async Task AddPartsFromRahkaran(CancellationToken cn = default)
+        public async Task AddPartsFromRahkaran(IJobLogger jobLogger = null, CancellationToken cn = default)
         {
             var rahakarnParties = await Rdb.RahkaranParties.AsNoTracking()
                 .ToListAsync(cn);
@@ -181,3 +182,4 @@ namespace App.BackgroundJob.Jobs.Gnr
         }
     }
 }
+

@@ -1,4 +1,4 @@
-﻿ 
+﻿
 /*! DataTables 2.1.8
  * © SpryMedia Ltd - datatables.net/license
  */
@@ -2103,6 +2103,7 @@
 	 *  @memberof DataTable#oApi
 	 */
 	function _fnAdjustColumnSizing(settings) {
+		 
 		_fnCalculateColumnWidths(settings);
 		_fnColumnSizes(settings);
 
@@ -7228,20 +7229,20 @@
 	 *
 	 * @return {integer} Current page index (zero based)
 	 *//**
-	* Set the current page.
-	*
-	* Note that if you attempt to show a page which does not exist, DataTables will
-	* not throw an error, but rather reset the paging.
-	*
-	* @param {integer|string} action The paging action to take. This can be one of:
-	*  * `integer` - The page index to jump to
-	*  * `string` - An action to take:
-	*    * `first` - Jump to first page.
-	*    * `next` - Jump to the next page
-	*    * `previous` - Jump to previous page
-	*    * `last` - Jump to the last page.
-	* @returns {DataTables.Api} this
-	*/
+    * Set the current page.
+    *
+    * Note that if you attempt to show a page which does not exist, DataTables will
+    * not throw an error, but rather reset the paging.
+    *
+    * @param {integer|string} action The paging action to take. This can be one of:
+    *  * `integer` - The page index to jump to
+    *  * `string` - An action to take:
+    *    * `first` - Jump to first page.
+    *    * `next` - Jump to the next page
+    *    * `previous` - Jump to previous page
+    *    * `last` - Jump to the last page.
+    * @returns {DataTables.Api} this
+    */
 	_api_register('page()', function (action) {
 		if (action === undefined) {
 			return this.page.info().page; // not an expensive call
@@ -7303,11 +7304,11 @@
 	 * @return {integer} Current page length. Note `-1` indicates that all records
 	 *   are to be shown.
 	 *//**
-	* Set the current page length.
-	*
-	* @param {integer} Page length to set. Use `-1` to show all records.
-	* @returns {DataTables.Api} this
-	*/
+    * Set the current page length.
+    *
+    * @param {integer} Page length to set. Use `-1` to show all records.
+    * @returns {DataTables.Api} this
+    */
 	_api_register('page.len()', function (len) {
 		// Note that we can't call this function 'length()' because `length`
 		// is a Javascript property of functions which defines how many arguments
@@ -7419,12 +7420,12 @@
 	 *
 	 * @return {string} Current Ajax source URL
 	 *//**
-	* Set the Ajax URL. Note that this will set the URL for all tables in the
-	* current context.
-	*
-	* @param {string} url URL to set.
-	* @returns {DataTables.Api} this
-	*/
+    * Set the Ajax URL. Note that this will set the URL for all tables in the
+    * current context.
+    *
+    * @param {string} url URL to set.
+    * @returns {DataTables.Api} this
+    */
 	_api_register('ajax.url()', function (url) {
 		var ctx = this.context;
 
@@ -8913,12 +8914,12 @@
 	 *   direction of the sort (`desc` or `asc`) and, optionally, the third is the
 	 *   index of the sorting order from the `column.sorting` initialisation array.
 	 *//**
-	* Set the ordering for the table.
-	*
-	* @param {integer} order Column index to sort upon.
-	* @param {string} direction Direction of the sort to be applied (`asc` or `desc`)
-	* @returns {DataTables.Api} this
-	*//**
+    * Set the ordering for the table.
+    *
+    * @param {integer} order Column index to sort upon.
+    * @param {string} direction Direction of the sort to be applied (`asc` or `desc`)
+    * @returns {DataTables.Api} this
+    *//**
 	* Set the ordering for the table.
 	*
 	* @param {array} order 1D array of sorting information to be applied.
@@ -13626,7 +13627,7 @@
 
 	(function () {
 		'use strict';
-		 
+
 		var $$3;
 		var dataTable$2;
 		/** Get a moment object. Attempt to get from DataTables for module loading first. */
@@ -13657,7 +13658,7 @@
 		 */
 		var Criteria = /** @class */ (function () {
 			function Criteria(table, opts, topGroup, index, depth, serverData, liveSearch) {
-				 
+
 				if (index === void 0) { index = 0; }
 				if (depth === void 0) { depth = 1; }
 				if (serverData === void 0) { serverData = undefined; }
@@ -13905,7 +13906,7 @@
 			 * Gets the details required to rebuild the criteria
 			 */
 			Criteria.prototype.getDetails = function (deFormatDates) {
-				 
+
 				if (deFormatDates === void 0) { deFormatDates = false; }
 				var i;
 				var settings = this.s.dt.settings()[0];
@@ -13927,11 +13928,11 @@
 					}
 				}
 				else if (this.s.type !== null && deFormatDates) {
-					 
+
 					if (this.s.type.includes('date') ||
 						this.s.type.includes('time')) {
 						for (i = 0; i < this.s.value.length; i++) {
-							 
+
 						}
 					}
 					else if (this.s.type.includes('moment')) {
@@ -14491,7 +14492,7 @@
 				var prevFilled = this.s.filled;
 				var i;
 				this.s.filled = false;
-				 
+
 				// Remove any previous value elements
 				// Timeout is annoying but because of IOS
 				setTimeout(function () {
@@ -14612,7 +14613,7 @@
 			 * Default initialisation function for select conditions
 			 */
 			Criteria.initSelect = function (that, fn, preDefined, array) {
-				 
+
 				if (preDefined === void 0) { preDefined = null; }
 				if (array === void 0) { array = false; }
 				var column = that.dom.data.children('option:selected').val();
@@ -14652,7 +14653,7 @@
 
 					options.push(opt);
 				});
-			 
+
 				//for (var _i = 0, indexArray_1 = indexArray; _i < indexArray_1.length; _i++) {
 
 				//	var index = indexArray_1[_i];
@@ -14833,7 +14834,7 @@
 			 * Default initialisation function for input conditions
 			 */
 			Criteria.initInput = function (that, fn, preDefined) {
-				 
+
 				if (preDefined === void 0) { preDefined = null; }
 				// Declare the input element
 				var searchDelay = that.s.dt.settings()[0].searchDelay;
@@ -15068,7 +15069,7 @@
 			 * Default function for getting input conditions
 			 */
 			Criteria.inputValueInput = function (el) {
-				 
+
 				var values = [];
 				// Go through the input elements and push each value to the return array
 				for (var _i = 0, el_4 = el; _i < el_4.length; _i++) {
@@ -15280,7 +15281,7 @@
 						return value !== comparison[0];
 					}
 				},
-				'starts':  null,
+				'starts': null,
 				'!starts': null,
 				'contains': null,
 				'!contains': null,
@@ -16423,7 +16424,7 @@
 			 * @param crit Instance of Criteria to be added to the group
 			 */
 			Group.prototype.addCriteria = function (crit) {
-				
+
 				if (crit === void 0) { crit = null; }
 				var index = crit === null ? this.s.criteria.length : crit.s.index;
 				var criteria = new Criteria(this.s.dt, this.s.opts, this.s.topGroup, index, this.s.depth, this.s.serverData, this.c.liveSearch);
@@ -16473,7 +16474,7 @@
 			 * Checks the group to see if it has any filled criteria
 			 */
 			Group.prototype.checkFilled = function () {
-				
+
 				for (var _i = 0, _a = this.s.criteria; _i < _a.length; _i++) {
 					var crit = _a[_i];
 					if (crit.criteria instanceof Criteria && crit.criteria.s.filled ||
@@ -16638,7 +16639,7 @@
 			 * @param criteria The criteria for the listeners to be set on
 			 */
 			Group.prototype._setCriteriaListeners = function (criteria) {
-				
+
 				var _this = this;
 				criteria.dom["delete"]
 					.unbind('click')
@@ -16694,7 +16695,7 @@
 			 * Set's the listeners for the group clear button
 			 */
 			Group.prototype._setClearListener = function () {
-				
+
 				var _this = this;
 				this.dom.clear
 					.unbind('click')
@@ -16714,7 +16715,7 @@
 			 * @param group The sub group that the listeners are to be set on
 			 */
 			Group.prototype._setGroupListeners = function (group) {
-				
+
 				var _this = this;
 				// Set listeners for the new group
 				group.dom.add
@@ -17088,7 +17089,7 @@
 				this._build();
 				this.s.dt.on('preXhr.dtsb', function (e, settings, data) {
 					if (_this.s.dt.page.info().serverSide) {
-						 
+
 						if (typeof data === 'string' || data instanceof String) {
 							data = JSON.parse(data);
 						}
@@ -17650,7 +17651,7 @@
 			{
 				prototype: {
 					setupLogic: function () {
-						 
+
 						// Remove logic button
 						this.dom.logicContainer.remove();
 						this.dom.clear.remove();
@@ -17681,7 +17682,7 @@
 						}
 
 						// Set width, take 2 for the border
-						var height = this.dom.container.outerHeight() ;
+						var height = this.dom.container.outerHeight();
 
 						this.dom.logicContainer.width(height);
 
@@ -17712,7 +17713,7 @@
 
 						this.dom.logicContainer.offset({ top: newTop });
 
-						
+
 						// Set clear listner event
 						this._setClearListener();
 					},
@@ -17880,11 +17881,11 @@
 		 * @param  {int|string} Button index
 		 * @return {function}
 		 */ /**
-		* Set the action of a button
-		* @param  {node} node Button element
-		* @param  {function} action Function to set
-		* @return {Buttons} Self for chaining
-		*/
+	    * Set the action of a button
+	    * @param  {node} node Button element
+	    * @param  {function} action Function to set
+	    * @return {Buttons} Self for chaining
+	    */
 		action: function (node, action) {
 			var button = this._nodeToButton(node);
 
@@ -18207,11 +18208,11 @@
 		 * @param  {int|string} node Button index
 		 * @return {string} Button text
 		 */ /**
-		* Set the text for a button
-		* @param  {int|string|function} node Button index
-		* @param  {string} label Text
-		* @return {Buttons} Self for chaining
-		*/
+	    * Set the text for a button
+	    * @param  {int|string|function} node Button index
+	    * @param  {string} label Text
+	    * @return {Buttons} Self for chaining
+	    */
 		text: function (node, label) {
 			var button = this._nodeToButton(node);
 			var textNode = button.textNode;
@@ -20602,3 +20603,5 @@
 
 	return DataTable;
 }));
+
+ 

@@ -42,7 +42,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IOnlineUserService, RedisOnlineUserService>();
 
 builder.Services.AddHostedService<JobDiscoveryService>();
-builder.Services.AddHostedService<JobWorker>();
+builder.Services.AddHostedService<JobWorkerWithLogging>();
 
 builder.Services.AddScoped<IFileService, FileService>();
 
@@ -51,6 +51,9 @@ builder.Services.AddScoped<IDataTableQueryBuilder, DataTableQueryBuilder>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 builder.Services.AddJobServices();
+
+// Register JobLogger service
+builder.Services.AddScoped<IJobLogger, JobLogger>();
 
 var app = builder.Build();
 

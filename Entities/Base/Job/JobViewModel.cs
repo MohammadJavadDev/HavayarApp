@@ -10,6 +10,7 @@ namespace Entities.Base.Job
 	// Models/JobViewModel.cs
 	public class JobViewModel
 	{
+		public long Id { get; set; }
 		public int ScheduleId { get; set; }
 		public string JobId { get; set; }
 		public string DisplayName { get; set; }

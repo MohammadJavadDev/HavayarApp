@@ -13,11 +13,11 @@
 						c => new
 						{
 							Id = c.Id,
-							Name = c.Name,
+							Title = c.Title,
 
 						},
-						c => new { c.Name },
-						"{Name}",
+						c => new { c.Title },
+						"{Title}",
 						"ProjectId",
 						null,
 						Model?.ProjectId.ToString(),

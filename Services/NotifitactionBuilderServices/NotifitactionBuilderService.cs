@@ -55,7 +55,7 @@ namespace Services.NotifitactionBuilderServices
 						MessageTemplate = "",
 						IsActive = IsActiveEnum.Active
 
-					}, tn, false, false);
+					}, tn, false, true);
 				}
 				else
 				{
@@ -96,7 +96,7 @@ namespace Services.NotifitactionBuilderServices
 						MessageTemplate = "",
 						IsActive = IsActiveEnum.Active
 
-					}, tn, false, false);
+					}, tn, false, true);
 				}
 				else
 				{
@@ -136,7 +136,7 @@ namespace Services.NotifitactionBuilderServices
 						MessageTemplate = "",
 						IsActive = IsActiveEnum.Active
 
-					}, tn, false, false);
+					}, tn, false, true);
 				}
 				else
 				{

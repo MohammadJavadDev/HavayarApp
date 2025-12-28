@@ -75,7 +75,7 @@
 						},
 						c => new { c.Username, c.Name },
 						"{Name}",
-						"proposalId",
+						"projectManagerId",
 						null,
 						Model?.ProjectManagerId?.ToString(),
 						false
@@ -106,7 +106,7 @@
 						"{Name}",
 						"projectManagerPSLId",
 						null,
-						Model?.ProjectManagerId?.ToString(),
+						Model?.ProjectManagerPSLId?.ToString(),
 						false
 						))
  		</div>
@@ -189,7 +189,7 @@
 						},
 						c => new { c.Username, c.Name },
 						"{Name}",
-						"dccIdId",
+						"dccId",
 						null,
 						Model?.DccId?.ToString(),
 						false

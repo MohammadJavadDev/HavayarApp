@@ -115,9 +115,7 @@ namespace Entities.App.Edms
 		public string? Description { get; set; }
 
 
-		[DisplayName("ویژگی جدید")]
-		[DisplayInfo(null, false, type: SystemType.String)]
-		public string? NewProperty { get; set; }
+	 
 
 
 	}

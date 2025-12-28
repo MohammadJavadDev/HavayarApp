@@ -25,10 +25,11 @@ public class JobsController : Controller
 		// ایجاد لیست کامل جاب‌ها (حتی آنهایی که زمان‌بندی ندارند)
 		var jobs = allDefinitions.Select(def => 
 		{
-			var schedule = allSchedules.FirstOrDefault(s => s.JobId == def.JobId);
+			var schedule = allSchedules.FirstOrDefault(s => s.JobId == def.Id);
 			
 			return new JobViewModel
 			{
+				Id = def.Id ,
 				ScheduleId = schedule?.Id ?? 0,
 				JobId = def.JobId,
 				DisplayName = def.DisplayName,
@@ -55,10 +56,10 @@ public class JobsController : Controller
 
 	// متد ایجاد زمان‌بندی برای جاب‌های بدون زمان‌بندی
 	[HttpPost]
-	public async Task<IActionResult> CreateSchedule(string jobId, bool isActive, int interval, ScheduleType scheduleType = ScheduleType.Interval, int dailyIntervalDays = 1, string weeklyDays = "", TimeSpan? dailyTime = null, int hourlyMinute = 0)
+	public async Task<IActionResult> CreateSchedule(long jobId, bool isActive, int interval, ScheduleType scheduleType = ScheduleType.Interval, int dailyIntervalDays = 1, string weeklyDays = "", TimeSpan? dailyTime = null, int hourlyMinute = 0)
 	{
 		// بررسی وجود جاب تعریف
-		var jobDefinition = await _db.JobDefinitions.FirstOrDefaultAsync(j => j.JobId == jobId);
+		var jobDefinition = await _db.JobDefinitions.FirstOrDefaultAsync(j => j.Id == jobId);
 		if (jobDefinition == null) return NotFound("Job definition not found");
 
 		// بررسی وجود زمان‌بندی

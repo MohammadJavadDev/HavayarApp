@@ -71,6 +71,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 		    .ToTable("RoleAccess", schema: "system")
 		    .HasKey(x => x.Id);
 
+	 
+
 
 		var entitiesAssembly = typeof(BaseEntity).Assembly;
         //var reportBuilderAssembly = typeof(ReportBuilderReport).Assembly;
@@ -231,6 +233,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
 	public DbSet<AuditLog> AuditLogs { get; set; }
     public DbSet<AuditLogDetail> AuditLogDetails { get; set; }
+    public DbSet<JobLog> JobLogs { get; set; }
     public virtual DbSet<User> Users { get; set; }
 	public virtual DbSet<Role> Roles { get; set; }
 	public virtual DbSet<RoleAccess> RoleAccesses { get; set; }

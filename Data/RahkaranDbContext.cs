@@ -1,5 +1,6 @@
 ﻿using Entities.Auth;
 using Entities.Rahkaran.GNR3;
+using Entities.Rahkaran.HCM3;
 using Entities.Rahkaran.LGS3;
 using Entities.Services;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ namespace Data
 		public DbSet<RahkaranPart> RahkaranParts { get; set; }
 		public DbSet<RahkaranUnit> RahkaranUnits { get; set; }
 		public DbSet<RahkaranParty> RahkaranParties { get; set; }
+		public DbSet<RahkaranDepartment> RahkaranDepartments { get; set; }
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{

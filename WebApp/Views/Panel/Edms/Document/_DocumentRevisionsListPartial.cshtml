@@ -73,13 +73,17 @@ else
 								</div>
 							</div>
 
-							<div class="d-flex flex-column align-items-end gap-2">
+					<div class="d-flex flex-column align-items-end gap-2" data-watch="@rev.Id">
 						<button type="button" class="btn btn-sm btn-light-primary js-open-revision" data-revision-id="@rev.Id" data-revision-num="@rev.Revision">باز کردن</button>
 								@if (isActive)
 								{
-										<span class="text-primary fs-8">در حال مشاهده</span>
-								}
-							</div>
+							      <span class="text-primary fs-8">در حال مشاهده</span>
+						}
+						else
+						{
+							<span class="text-primary fs-8 d-none">در حال مشاهده</span>
+						}
+					</div>
 						</div>
 					</div>
 			}

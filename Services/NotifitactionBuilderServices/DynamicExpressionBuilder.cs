@@ -729,22 +729,58 @@ namespace Services.NotifitactionBuilderServices
                         convertedValue = value.ToMiladiDate();
                         break;
 
+                    case SystemType.Decimal:
+                        convertedValue = decimal.Parse(value.Fa2En());
+                        break;
+
                     case SystemType.Select:
-                        // Try to parse as int for select values
+                        // Try to parse as int for select values (often used for enums)
                         if (int.TryParse(value.Fa2En(), out int selectValue))
                             convertedValue = selectValue;
                         else
                             convertedValue = value;
                         break;
 
-                    case SystemType.Entity:
-                        // Entity IDs are typically long or int
+                    case SystemType.AutoNumber:
+                        // AutoNumber is typically long or int
                         if (targetType == typeof(long) || targetType == typeof(long?))
                             convertedValue = long.Parse(value.Fa2En());
-                        else if (targetType == typeof(int) || targetType == typeof(int?))
-                            convertedValue = int.Parse(value.Fa2En());
                         else
+                            convertedValue = int.Parse(value.Fa2En());
+                        break;
+
+                    case SystemType.File:
+                        // File is typically stored as string (path) or byte array
+                        // For expression building, we'll treat it as string
+                        convertedValue = value;
+                        break;
+
+                    case SystemType.Entity:
+                        // Entity IDs are typically long or int, but could be enum
+                        var entityUnderlyingType = targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>)
+                            ? Nullable.GetUnderlyingType(targetType)
+                            : targetType;
+
+                        if (entityUnderlyingType != null && entityUnderlyingType.IsEnum)
+                        {
+                            // If target is enum, parse as int first, will be converted to enum later
+                            if (int.TryParse(value.Fa2En(), out int enumIntValue))
+                                convertedValue = enumIntValue;
+                            else
+                                convertedValue = value; // Try as enum name string
+                        }
+                        else if (targetType == typeof(long) || targetType == typeof(long?))
+                        {
+                            convertedValue = long.Parse(value.Fa2En());
+                        }
+                        else if (targetType == typeof(int) || targetType == typeof(int?))
+                        {
+                            convertedValue = int.Parse(value.Fa2En());
+                        }
+                        else
+                        {
                             convertedValue = value;
+                        }
                         break;
 
                     default:
@@ -758,12 +794,74 @@ namespace Services.NotifitactionBuilderServices
                 {
                     var underlyingType = Nullable.GetUnderlyingType(targetType);
                     if (underlyingType != null && convertedValue != null && convertedValue.GetType() != underlyingType)
-                        convertedValue = Convert.ChangeType(convertedValue, underlyingType);
+                    {
+                        // Handle enum conversion for nullable types
+                        if (underlyingType.IsEnum)
+                        {
+                            if (convertedValue is string enumString)
+                            {
+                                // Try parsing as enum name, if fails try as numeric value
+                                if (Enum.TryParse(underlyingType, enumString, true, out var parsedEnum))
+                                    convertedValue = parsedEnum;
+                                else if (int.TryParse(enumString.Fa2En(), out int numericValue))
+                                    convertedValue = Enum.ToObject(underlyingType, numericValue);
+                                else
+                                    convertedValue = Convert.ChangeType(convertedValue, underlyingType);
+                            }
+                            else if (IsNumericType(convertedValue.GetType()))
+                            {
+                                convertedValue = Enum.ToObject(underlyingType, convertedValue);
+                            }
+                            else if (convertedValue.GetType() != underlyingType)
+                            {
+                                // Try to convert to underlying type
+                                convertedValue = Convert.ChangeType(convertedValue, underlyingType);
+                            }
+                            // else: already the correct enum type, no conversion needed
+                            {
+                                convertedValue = Convert.ChangeType(convertedValue, underlyingType);
+                            }
+                        }
+                        else
+                        {
+                            convertedValue = Convert.ChangeType(convertedValue, underlyingType);
+                        }
+                    }
                 }
                 else if (convertedValue != null && convertedValue.GetType() != targetType)
                 {
-                    // Try to convert to target type
-                    convertedValue = Convert.ChangeType(convertedValue, targetType);
+                    // Handle enum conversion for non-nullable types
+                    if (targetType.IsEnum)
+                    {
+                        if (convertedValue is string enumString)
+                        {
+                            // Try parsing as enum name, if fails try as numeric value
+                            if (Enum.TryParse(targetType, enumString, true, out var parsedEnum))
+                                convertedValue = parsedEnum;
+                            else if (int.TryParse(enumString.Fa2En(), out int numericValue))
+                                convertedValue = Enum.ToObject(targetType, numericValue);
+                            else
+                                convertedValue = Convert.ChangeType(convertedValue, targetType);
+                        }
+                        else if (IsNumericType(convertedValue.GetType()))
+                        {
+                            convertedValue = Enum.ToObject(targetType, convertedValue);
+                        }
+                        else if (convertedValue.GetType() != targetType)
+                        {
+                            // Try to convert to target type
+                            convertedValue = Convert.ChangeType(convertedValue, targetType);
+                        }
+                        // else: already the correct enum type, no conversion needed
+                        {
+                            convertedValue = Convert.ChangeType(convertedValue, targetType);
+                        }
+                    }
+                    else
+                    {
+                        // Try to convert to target type
+                        convertedValue = Convert.ChangeType(convertedValue, targetType);
+                    }
                 }
 
                 return Expression.Constant(convertedValue, targetType);
@@ -850,6 +948,24 @@ namespace Services.NotifitactionBuilderServices
                 .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
             return enumerableInterface?.GetGenericArguments()[0];
+        }
+
+        /// <summary>
+        /// Checks if a type is a numeric type (int, long, short, byte, etc.)
+        /// </summary>
+        private static bool IsNumericType(Type type)
+        {
+            return type == typeof(int) || type == typeof(int?) ||
+                   type == typeof(long) || type == typeof(long?) ||
+                   type == typeof(short) || type == typeof(short?) ||
+                   type == typeof(byte) || type == typeof(byte?) ||
+                   type == typeof(uint) || type == typeof(uint?) ||
+                   type == typeof(ulong) || type == typeof(ulong?) ||
+                   type == typeof(ushort) || type == typeof(ushort?) ||
+                   type == typeof(sbyte) || type == typeof(sbyte?) ||
+                   type == typeof(decimal) || type == typeof(decimal?) ||
+                   type == typeof(double) || type == typeof(double?) ||
+                   type == typeof(float) || type == typeof(float?);
         }
 
         #endregion

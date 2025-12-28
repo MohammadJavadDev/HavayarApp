@@ -41,7 +41,7 @@ namespace Services.Job
 
 			foreach (var job in needDeleteJobs)
 			{
-				var js = dbContext.JobSchedules.Where(c => c.JobId == job.JobId).ToList();
+				var js = dbContext.JobSchedules.Where(c => c.JobId == job.Id).ToList();
 
 				dbContext.JobSchedules.RemoveRange(js);
 				dbContext.JobDefinitions.Remove(job);
@@ -72,7 +72,7 @@ namespace Services.Job
 					// آپدیت کردن نام و توضیحات در صورت تغییر در کد
 					existingJob.DisplayName = attr.DisplayName;
 					existingJob.Description = attr?.Description ?? "بدون مقدار";
-					var js = dbContext.JobSchedules.Where(c => c.JobId == existingJob.JobId).ToList();
+					var js = dbContext.JobSchedules.Where(c => c.JobId == existingJob.Id).ToList();
 					foreach (var j in js) {
 						j.LastStatus = JobStatus.Idle;
 					}

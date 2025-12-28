@@ -159,7 +159,7 @@ namespace WebFramework.TagHelpers
 			 
 				</div>
                   <div class='table-responsive'>
-		            <table id=""itemsTable"" class=""table table-rounded table-striped border table-bordered nowrap table-hover"" style=""width: 100%""  >
+		            <table id=""itemsTable"" class=""table table-rounded table-striped border table-bordered nowrap table-hover"" style=""width: 100%;direction: rtl;""  >
                         
 		            </table>
 				</div>

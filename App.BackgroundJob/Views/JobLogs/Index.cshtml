@@ -1,0 +1,157 @@
+@model IEnumerable<Entities.Base.Job.JobHistory>
+@{
+    ViewData["Title"] = "Job Logs History";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h2>Job Logs History</h2>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="get" class="form-inline">
+            <div class="form-group mr-2">
+                <label for="scheduleId" class="mr-2">Select Job:</label>
+                <select name="scheduleId" id="scheduleId" class="form-control" onchange="this.form.submit()">
+                    @foreach (var schedule in ViewBag.Schedules as IEnumerable<Entities.Base.Job.JobSchedule>)
+                    {
+                        <option value="@schedule.Id" selected="@(schedule.Id == ViewBag.SelectedScheduleId)">
+                            @(schedule.JobDefinition?.DisplayName ?? "Unknown Job") (@schedule.Id)
+                        </option>
+                    }
+                </select>
+            </div>
+        </form>
+    </div>
+    <div class="col-md-6 text-right">
+        <a href="@Url.Action("Search", "JobLogs")" class="btn btn-info">
+            <i class="fas fa-search"></i> Advanced Search
+        </a>
+    </div>
+</div>
+
+<table class="table table-striped table-bordered">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Start Time</th>
+            <th>End Time</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model.Any())
+        {
+            @foreach (var history in Model)
+            {
+                <tr>
+                    <td>@history.Id</td>
+                    <td>@history.StartTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@(history.EndTime.HasValue ? history.EndTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</td>
+                    <td>
+                        @if (history.EndTime.HasValue)
+                        {
+                            <text>@((history.EndTime.Value - history.StartTime).TotalSeconds.ToString("0.00")) seconds</text>
+                        }
+                        else
+                        {
+                            <span class="text-muted">Running...</span>
+                        }
+                    </td>
+                    <td>
+                        @if (history.IsSuccess)
+                        {
+                            <span class="badge badge-success">Success</span>
+                        }
+                        else
+                        {
+                            <span class="badge badge-danger">Failed</span>
+                        }
+                    </td>
+                    <td>
+                        <a href="@Url.Action("Details", "JobLogs", new { id = history.Id })" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye"></i> View Details
+                        </a>
+                        <button class="btn btn-sm btn-info" onclick="loadDetailedLogs(@history.Id)">
+                            <i class="fas fa-list"></i> Quick View
+                        </button>
+                    </td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr>
+                <td colspan="6" class="text-center">No job history found</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<!-- Modal for quick view -->
+<div class="modal fade" id="logModal" tabindex="-1" role="dialog" aria-labelledby="logModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logModalLabel">Job Log Details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="logModalContent">
+                    <!-- Content will be loaded via AJAX -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function loadDetailedLogs(historyId) {
+            $.ajax({
+                url: '@Url.Action("GetDetailedLogs", "JobLogs")',
+                type: 'GET',
+                data: { historyId: historyId },
+                success: function(data) {
+                    var content = '<div class="log-container" style="max-height: 400px; overflow-y: auto;">';
+                    
+                    if (data.length > 0) {
+                        $.each(data, function(index, log) {
+                            var levelClass = 'text-' + log.logLevel.toLowerCase();
+                            content += '<div class="log-entry mb-2 p-2 border-bottom">';
+                            content += '<small class="text-muted">' + new Date(log.timestamp).toLocaleString() + '</small><br>';
+                            content += '<strong class="' + levelClass + '">[' + log.logLevel + '] </strong>';
+                            content += '<span>' + log.message + '</span>';
+                            
+                            if (log.details) {
+                                content += '<div class="mt-1 text-muted small">' + log.details + '</div>';
+                            }
+                            
+                            if (log.exceptionType) {
+                                content += '<div class="mt-1 text-danger small">' + log.exceptionType + ': ' + log.stackTrace + '</div>';
+                            }
+                            
+                            content += '</div>';
+                        });
+                    } else {
+                        content += '<p class="text-center text-muted">No detailed logs found</p>';
+                    }
+                    
+                    content += '</div>';
+                    $('#logModalContent').html(content);
+                    $('#logModal').modal('show');
+                },
+                error: function() {
+                    $('#logModalContent').html('<p class="text-danger">Failed to load logs</p>');
+                    $('#logModal').modal('show');
+                }
+            });
+        }
+    </script>
+}
