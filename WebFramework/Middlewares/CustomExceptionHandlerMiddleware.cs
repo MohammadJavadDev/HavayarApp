@@ -2,13 +2,16 @@
 using Common;
 using Common.Exceptions;
 using Common.Utilities;
+using Data.SystemAuth;
+using Entities.Auth;
 using Microsoft.AspNetCore.Builder;
  
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
  
 using System.Net;
-using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
 using WebFramework.Api;
 
 namespace WebFramework.Middlewares;
@@ -26,14 +29,17 @@ public class CustomExceptionHandlerMiddleware
     private readonly RequestDelegate _next;
     
     private readonly ILogger<CustomExceptionHandlerMiddleware> _logger;
+   
 
-    public CustomExceptionHandlerMiddleware(RequestDelegate next, ILogger<CustomExceptionHandlerMiddleware> logger)
+    public CustomExceptionHandlerMiddleware(RequestDelegate next, ILogger<CustomExceptionHandlerMiddleware> logger )
     {
             _next = next;
  
             _logger = logger;
-            
-        }
+       
+
+
+	   }
 
     public async Task Invoke(HttpContext context)
     {
@@ -41,8 +47,15 @@ public class CustomExceptionHandlerMiddleware
             object errors = null;
             HttpStatusCode httpStatusCode = HttpStatusCode.InternalServerError;
             ApiResultStatusCode apiStatusCode = ApiResultStatusCode.ServerError;
+              var userIdentity = context.User?.Identity;
+           var userName = userIdentity?.Name ?? "نامشخص";
+           var userId = userIdentity?.FindFirstValue(ClaimTypes.NameIdentifier) ?? "نامشخص";
+           var ip = context.Connection.RemoteIpAddress?.ToString() ?? "نامشخص";
+              
+          var userInfo = " UserName:" + userName + " UserId: " + userId + " UserIp: " + ip;
 
-            try
+
+		  try
             {
                 await _next(context);
             }
@@ -54,7 +67,7 @@ public class CustomExceptionHandlerMiddleware
 
      
 
-                _logger.LogError(exception, exception.Message);
+                _logger.LogError(exception, exception.Message + userInfo);
                 httpStatusCode = exception.HttpStatusCode;
                 apiStatusCode = exception.ApiStatusCode;
 
@@ -83,23 +96,23 @@ public class CustomExceptionHandlerMiddleware
             }
             catch (SecurityTokenExpiredException exception)
             {
-                _logger.LogError(exception, exception.Message);
-                SetUnAuthorizeResponse(exception);
+                _logger.LogError(exception, exception.Message + userInfo);
+			SetUnAuthorizeResponse(exception);
                 await WriteToResponseAsync();
             }
             catch (UnauthorizedAccessException exception)
             {
-                _logger.LogError(exception, exception.Message);
-                SetUnAuthorizeResponse(exception);
+                _logger.LogError(exception, exception.Message + userInfo);
+			SetUnAuthorizeResponse(exception);
                 await WriteToResponseAsync();
             }
             catch (Exception exception)
             {
-                _logger.LogError(exception, exception.Message);
+                _logger.LogError(exception, exception.Message + userInfo);
 
-                //if (_env.IsDevelopment())
-                //{
-                    var dic = new Dictionary<string, string>
+			//if (_env.IsDevelopment())
+			//{
+			var dic = new Dictionary<string, string>
                     {
                         ["Exception"] = exception.Message,
                         ["StackTrace"] = exception.StackTrace,

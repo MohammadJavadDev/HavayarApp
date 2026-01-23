@@ -6,13 +6,16 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+	<PropertyGroup>
+		<NuGetAudit>false</NuGetAudit>
+	</PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="App\Crm\" />
-    <Folder Include="App\Gnr\Enums\" />
   </ItemGroup>
 
 </Project>

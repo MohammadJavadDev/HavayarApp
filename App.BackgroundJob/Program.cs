@@ -4,7 +4,6 @@ using Data.Repositories;
 using Data.Services;
 using Data.SystemAuth;
 using Entities.Services;
-using Infrastructure.CrudEventInterceptors;
 using Microsoft.EntityFrameworkCore;
 using Services.FileServices;
 using Services.Job;
@@ -35,6 +34,7 @@ builder.Services.AddDbContext<HtsDbContext>((sp, options) =>
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
+
 
 builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
 builder.Services.AddSingleton<EntityMetadataCache>();

@@ -1,13 +1,13 @@
 ﻿@using Entities.Base.Job
+@using Common.Utilities
 @model List<JobViewModel>
 
 @{
      ViewData["Title"] = "مدیریت سرویس‌های پس‌زمینه";
 }
 
-<div class="container mt-4">
-     <h2>مدیریت سرویس‌ها (Background Jobs)</h2>
-     <hr />
+<div class="container mt-4 card ">
+ 
      
      <!-- Debug Info - Remove in production -->
      @if (ViewBag.DebugInfo != null)
@@ -27,10 +27,7 @@
          .input-group-sm {
              font-size: 0.875rem;
          }
-         .form-select-sm {
-             padding: 0.25rem 0.5rem;
-             font-size: 0.875rem;
-         }
+         
          .btn-run-now {
              margin-top: 5px;
          }
@@ -47,16 +44,17 @@
          <div class="alert alert-success">
              <i class="bi bi-check-circle"></i> @Model.Count سرویس پس‌زمینه پیدا شد. می‌توانید تنظیمات زمان‌بندی هر سرویس را به دلخواه تغییر دهید.
          </div>
-         
-         <table class="table table-bordered table-hover align-middle">
+          <div class="card-body ">
+
+               <table class="table table-bordered table-hover align-middle w-100" style="table-layout: fixed;">
           <thead class="table-dark">
                <tr>
-                    <th>نام سرویس</th>
-                    <th>وضعیت</th>
-                    <th>تنظیمات زمان‌بندی</th>
-                    <th>آخرین اجرا</th>
-                    <th>اجرای بعدی</th>
-                    <th>عملیات</th>
+                     <th style="width:20%">نام سرویس</th>
+                    <th style="width:10%">وضعیت</th>
+                    <th style="width:30%">تنظیمات زمان‌بندی</th>
+                    <th style="width:10%">آخرین اجرا</th>
+                    <th style="width:10%">اجرای بعدی</th>
+                    <th style="width:20%">عملیات</th>
                </tr>
           </thead>
           <tbody>
@@ -66,7 +64,7 @@
                          <td>
                               <strong>@job.DisplayName</strong>
                               <p class="text-muted small mb-0">@job.Description</p>
-                              <small class="text-secondary">ID: @job.JobId</small>
+                              
                               @if (!job.HasSchedule)
                               {
                                    <span class="badge bg-warning text-dark ms-2">بدون زمان‌بندی</span>
@@ -222,8 +220,8 @@
                                    </div>
                               }
                          </td>
-                         <td dir="ltr">@job.LastRunTime?.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                         <td dir="ltr">@job.NextRunTime?.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                              <td dir="ltr">@job.LastRunTime?.ToShamsiDateTime()</td>
+                              <td dir="ltr">@job.NextRunTime?.ToShamsiDateTime()</td>
                          <td>
                               @if (job.HasSchedule)
                               {
@@ -248,6 +246,7 @@
                }
           </tbody>
      </table>
+          </div>
      }
 </div>
 
@@ -351,7 +350,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                </div>
                <div class="modal-body">
-                    <table class="table table-sm table-striped">
+                    <table class="table table-sm table-striped text-center">
                          <thead>
                               <tr>
                                    <th>زمان شروع</th>
@@ -642,6 +641,7 @@
 
                   $.get('/Jobs/GetHistory', { scheduleId: id })
                       .done(function (data) {
+             
                           loader.hide();
                           if (data.length === 0) {
                               tbody.append('<tr><td colspan="4" class="text-center">هیچ لاگی یافت نشد.</td></tr>');
@@ -649,13 +649,24 @@
                           }
 
                           $.each(data, function (i, item) {
-                              var statusBadge = item.isSuccess
-                                  ? '<span class="badge bg-success">موفق</span>'
-                                  : '<span class="badge bg-danger">شکست</span>';
+                              var statusBadge = '<span class="badge bg-warning">تکمیل نشده</span>';
+
+                              if(item.isSuccess)
+                              {
+                                    statusBadge ='<span class="badge bg-success">موفق</span>';
+                              }
+                              else if(!item.isSuccess && item.endTime)
+                              {
+                                statusBadge=   '<span class="badge bg-danger">شکست</span>'
+                              }
+                  
+                              
+                                 var startTime = moment(new Date(item.startTime)).format("jYYYY/jMM/jDD  HH:mm:ss");
+                                 var endTime =item.endTime ? moment(new Date(item.endTime)).format("jYYYY/jMM/jDD  HH:mm:ss") : '-';
 
                               var row = `<tr>
-                                  <td dir="ltr">${new Date(item.startTime).toLocaleString()}</td>
-                                  <td dir="ltr">${item.endTime ? new Date(item.endTime).toLocaleString() : '-'}</td>
+                                  <td dir="ltr">${startTime}</td>
+                                  <td dir="ltr">${endTime}</td>
                                   <td>${statusBadge}</td>
                                   <td class="text-wrap" style="max-width: 300px;">${item.message}</td>
                               </tr>`;

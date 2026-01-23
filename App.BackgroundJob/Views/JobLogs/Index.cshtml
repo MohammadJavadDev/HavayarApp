@@ -1,10 +1,11 @@
+@using Common.Utilities
 @model IEnumerable<Entities.Base.Job.JobHistory>
 @{
     ViewData["Title"] = "Job Logs History";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
-<h2>Job Logs History</h2>
+ 
 
 <div class="row mb-3">
     <div class="col-md-6">
@@ -29,7 +30,7 @@
     </div>
 </div>
 
-<table class="table table-striped table-bordered">
+<table class="table table-striped table-bordered text-center">
     <thead>
         <tr>
             <th>ID</th>
@@ -47,8 +48,8 @@
             {
                 <tr>
                     <td>@history.Id</td>
-                    <td>@history.StartTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                    <td>@(history.EndTime.HasValue ? history.EndTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</td>
+                         <td dir="ltr">@history.StartTime.ToShamsiDateTime()</td>
+                         <td dir="ltr">@(history.EndTime.HasValue? history.EndTime.Value.ToShamsiDateTime() : "N/A")</td>
                     <td>
                         @if (history.EndTime.HasValue)
                         {
@@ -62,11 +63,11 @@
                     <td>
                         @if (history.IsSuccess)
                         {
-                            <span class="badge badge-success">Success</span>
+                            <span class="badge bg-success">Success</span>
                         }
                         else
                         {
-                            <span class="badge badge-danger">Failed</span>
+                            <span class="badge bg-danger">Failed</span>
                         }
                     </td>
                     <td>

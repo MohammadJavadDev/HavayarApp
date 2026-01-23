@@ -158,8 +158,8 @@
                             function (x) {
                                 if (!x.isSuccess) return toastr.error(`${x.message}`, 'خطا');
                                 x.data.columns.forEach(b => {
-
-                                    let childrenTitle = `${parentTitle}==>${z.title}`;
+                                     debugger
+                                     let childrenTitle = `${z.title} ${parentTitle} `;
 
                                     let childrenName = "";
 
@@ -236,8 +236,9 @@
         let showName = String(z.name);
 
         if (parentTitle != null) {
+             debugger
             if (parentTitle.length > 0) {
-                showTitle = parentTitle.substr(3, parentTitle.length) + "==>" + showTitle;
+                 showTitle = showTitle + " " + parentTitle    ;
             }
             if (parentName.length > 0) {
                 showName = parentName.substr(1, parentName.length) + "." + showName;

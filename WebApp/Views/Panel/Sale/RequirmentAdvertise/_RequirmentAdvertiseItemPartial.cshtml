@@ -1,0 +1,30 @@
+@using Entities.App.Inv
+@using Entities.App.Sale;
+@model RequirmentAdvertiseItem
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='items.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<label class=''>کالا</label>
+		@(Html.EntitySelector<Part>(
+			"itemsProductSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id, Code = c.Code, Name = c.Name
+			},
+			c => new { c.Code, c.Name },
+			"{Code} {Name}",
+			"items.productId",
+			"items.productName",
+			Model?.ProductId?.ToString()
+		))
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>تعداد</label>
+		<input class='form-control' data-bind='items.quantity'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.Quantity' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

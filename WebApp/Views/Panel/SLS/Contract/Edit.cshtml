@@ -1,0 +1,162 @@
+@using Entities.App.FIN
+@using Entities.App.SLS;
+@model Contract
+<div class="card">
+		<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Contract)"></form-action-buttons></div>
+
+</div>
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-3'>
+			<label class=''>تاریخ شمسی</label>
+			<input class='form-control'  data-bind='dateShamsi' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.DateShamsi' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شماره</label>
+			<input class='form-control' data-bind='number'  asp-for='Number' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-3'>
+			<label class=''>تاریخ</label>
+			<input class='form-control'  data-bind='dateMiladi' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.DateMiladi' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ شمسی</label>
+			<input class='form-control'  data-bind='dateShamsi' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.DateShamsi' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>مشتری</label>
+			@(Html.EntitySelector<Customer>(
+				"CustomerSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code
+				},
+				c => new { c.Party, c.Code },
+				"{Party.FullName} {Code}",
+				"CustomerId",
+				"CustomerName",
+				Model?.CustomerId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>تفصیل</label>
+			@(Html.EntitySelector<DL>(
+				"DetailSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Title = c.Title
+				},
+				c => new { c.Title },
+				"{Title}",
+				"DetailId",
+				"DetailName",
+				Model?.DetailId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>وضعیت</label>
+			<select class='form-control' data-bind='status'  asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.SLS.Enums.ContractStatusEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>عنوان</label>
+			<input class='form-control' data-bind='title'  asp-for='Title' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شماره قرارداد</label>
+			<input class='form-control' data-bind='contractNumber'  asp-for='ContractNumber' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نحوه فروش</label>
+			<select class='form-control' data-bind='salesType'  asp-for='SalesType' asp-items="Html.GetEnumSelectList(typeof(Entities.App.SLS.Enums.ContractSalesTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>قیمت خالص</label>
+			<input class='form-control'  data-bind='netPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='NetPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='description'  asp-for='Description' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شناسه راهکاران</label>
+			<input class='form-control'  data-bind='hamkaranId'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HamkaranId' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card">
+	 
+	<div class='card-body row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

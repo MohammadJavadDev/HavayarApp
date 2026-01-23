@@ -82,6 +82,11 @@ table.dataTable thead > tr > td:active {
      outline: none;
 }
 
+
+table.dataTable thead th {
+     overflow:hidden
+}
+
 table.dataTable thead > tr > th.dt-orderable-asc span.dt-column-order:before, table.dataTable thead > tr > th.dt-ordering-asc span.dt-column-order:before,
 table.dataTable thead > tr > td.dt-orderable-asc span.dt-column-order:before,
 table.dataTable thead > tr > td.dt-ordering-asc span.dt-column-order:before {
@@ -141,8 +146,13 @@ table.dataTable thead > tr > td.dt-ordering-desc {
 table.dataTable thead > tr > th.dt-orderable-asc, table.dataTable thead > tr > th.dt-orderable-desc,
 table.dataTable thead > tr > td.dt-orderable-asc,
 table.dataTable thead > tr > td.dt-orderable-desc {
-     cursor: pointer;
+     cursor: grab;
 }
+
+     .dt-column-order{
+          cursor:pointer;
+     }
+
 
      table.dataTable thead > tr > th.dt-orderable-asc:hover, table.dataTable thead > tr > th.dt-orderable-desc:hover,
      table.dataTable thead > tr > td.dt-orderable-asc:hover,
@@ -1884,6 +1894,5 @@ html.dark div.dt-button-collection {
 }
 table.dataTable {
      table-layout: fixed;  
-     width: auto !important;  
-     min-width: 100% !important; 
+     width: auto ;  
 }

@@ -16,15 +16,24 @@
 					<!-- Basic Info -->
 					<div class="col-md-6">
 						<label class="required">نام نمایشی (فارسی)</label>
-						<input type="text" class="form-control" id="editPropertyDisplayName"
-							placeholder="مثال: عنوان" />
+						<div class="input-group">
+							<input type="text" class="form-control" id="editPropertyDisplayName"
+								placeholder="مثال: عنوان" />
+							<button type="button" class="btn btn-light-success" id="btnTranslateToFarsi"
+								title="ترجمه نام انگلیسی به فارسی">
+								<i class="ki-duotone ki-abstract-26 fs-2">
+									<span class="path1"></span>
+									<span class="path2"></span>
+								</i>
+							</button>
+						</div>
 						<small class="form-text text-muted">
 							<i class="ki-duotone ki-information fs-5">
 								<span class="path1"></span>
 								<span class="path2"></span>
 								<span class="path3"></span>
 							</i>
-							نام انگلیسی به صورت خودکار تولید می‌شود
+							نام انگلیسی به صورت خودکار تولید می‌شود | کلیک روی دکمه ترجمه برای دریافت نام فارسی
 						</small>
 					</div>
 
@@ -63,9 +72,9 @@
 					<div class="col-md-6">
 						<label>سایز Column</label>
 						<select class="form-select" id="editPropertyColSize">
-							<option value="col-md-3">col-md-3 (25%)</option>
+							<option value="col-md-3" selected>col-md-3 (25%)</option>
 							<option value="col-md-4">col-md-4 (33%)</option>
-							<option value="col-md-6" selected>col-md-6 (50%)</option>
+							<option value="col-md-6" >col-md-6 (50%)</option>
 							<option value="col-md-8">col-md-8 (66%)</option>
 							<option value="col-md-12">col-md-12 (100%)</option>
 						</select>

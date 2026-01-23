@@ -532,6 +532,12 @@ var DatabaseImporter = (function () {
 		
 		// Bind events for inline editing
 		bindColumnRowEvents();
+		
+		// بارگذاری Entity ها برای ستون‌های FK
+		var hasForeignKeys = columns.some(function (col) { return col.isForeignKey; });
+		if (hasForeignKeys) {
+			loadEntitiesForAllSelectors();
+		}
 	}
 
 	/**
@@ -549,15 +555,51 @@ var DatabaseImporter = (function () {
 			badges += '<span class="badge badge-light-warning me-1">NOT NULL</span>';
 		}
 		
-		var row = $('<tr data-column-index="' + index + '">');
+		var row = $('<tr data-column-index="' + index + '" data-original-column-name="' + column.columnName + '">');
 		
+		// ستون انتخاب
 		row.append('<td><div class="form-check form-check-sm form-check-custom form-check-solid"><input class="form-check-input column-checkbox" type="checkbox" checked /></div></td>');
-		row.append('<td><strong>' + column.columnName + '</strong></td>');
+		
+		// نام ستون - قابل ویرایش
+		row.append('<td><input type="text" class="form-control form-control-sm column-name" value="' + column.columnName + '" /></td>');
+		
+		// نوع داده SQL
 		row.append('<td><code>' + column.dataType + (column.maxLength ? '(' + column.maxLength + ')' : '') + '</code></td>');
-		row.append('<td><span class="badge badge-light-success">' + column.mappedSystemType + '</span></td>');
-		row.append('<td><input type="text" class="form-control form-control-sm column-display-name" value="' + column.suggestedDisplayName + '" /></td>');
+		
+		// نوع سیستم - با dropdown برای FK
+		var systemTypeCell = '<td>';
+		if (column.isForeignKey) {
+			systemTypeCell += '<select class="form-select form-select-sm column-system-type">';
+			systemTypeCell += '<option value="Long"' + (column.mappedSystemType === 'Long' ? ' selected' : '') + '>Long</option>';
+			systemTypeCell += '<option value="Entity"' + (column.mappedSystemType === 'Entity' ? ' selected' : '') + '>Entity</option>';
+			systemTypeCell += '</select>';
+			systemTypeCell += '<select class="form-select form-select-sm column-entity-selector mt-1" style="' + (column.mappedSystemType === 'Entity' ? '' : 'display:none;') + '">';
+			systemTypeCell += '<option value="">انتخاب Entity...</option>';
+			// Entity ها بعداً بارگذاری می‌شوند
+			systemTypeCell += '</select>';
+			if (column.foreignKeyTable) {
+				systemTypeCell += '<small class="text-muted d-block mt-1">FK: ' + column.foreignKeyTable + '</small>';
+			}
+		} else {
+			systemTypeCell += '<span class="badge badge-light-success">' + column.mappedSystemType + '</span>';
+		}
+		systemTypeCell += '</td>';
+		row.append(systemTypeCell);
+		
+		// نام نمایشی - با دکمه ترجمه
+		var displayNameCell = '<td><div class="input-group input-group-sm">';
+		displayNameCell += '<input type="text" class="form-control form-control-sm column-display-name" value="' + column.suggestedDisplayName + '" />';
+		displayNameCell += '<button type="button" class="btn btn-light-primary btn-sm btn-translate-to-farsi" title="ترجمه به فارسی"><i class="ki-duotone ki-abstract-26 fs-6"><span class="path1"></span><span class="path2"></span></i></button>';
+		displayNameCell += '</div></td>';
+		row.append(displayNameCell);
+		
+		// الزامی
 		row.append('<td><div class="form-check form-check-sm form-check-custom form-check-solid"><input class="form-check-input column-required" type="checkbox" ' + (!column.isNullable && !column.isPrimaryKey ? 'checked' : '') + ' /></div></td>');
-		row.append('<td><div class="form-check form-check-sm form-check-custom form-check-solid"><input class="form-check-input column-add-to-table" type="checkbox" ' + (column.isPrimaryKey || !column.isNullable ? 'checked' : '') + ' /></div></td>');
+		
+		// نمایش در جدول - پیش‌فرض تیک خورده
+		row.append('<td><div class="form-check form-check-sm form-check-custom form-check-solid"><input class="form-check-input column-add-to-table" type="checkbox" checked /></div></td>');
+		
+		// ویژگی‌ها
 		row.append('<td>' + badges + '</td>');
 		
 		return row;
@@ -570,6 +612,156 @@ var DatabaseImporter = (function () {
 		// Individual checkbox change
 		$('.column-checkbox').on('change', function () {
 			updateSelectAllCheckbox();
+		});
+		
+		// تغییر نوع سیستم برای FK
+		$('.column-system-type').on('change', function () {
+			var $row = $(this).closest('tr');
+			var $entitySelector = $row.find('.column-entity-selector');
+			
+			if ($(this).val() === 'Entity') {
+				// نمایش selector و container آن
+				$entitySelector.show();
+				$entitySelector.next('.select2-container').show();
+				
+				// بارگذاری Entity ها اگر خالی است
+				if ($entitySelector.find('option').length <= 1) {
+					loadEntitiesForSelector($entitySelector);
+				}
+			} else {
+				// مخفی کردن selector و container آن
+				$entitySelector.hide();
+				$entitySelector.next('.select2-container').hide();
+			}
+		});
+		
+		// دکمه ترجمه به فارسی
+		$('.btn-translate-to-farsi').on('click', function () {
+			var $btn = $(this);
+			var $row = $btn.closest('tr');
+			var columnName = $row.find('.column-name').val();
+			var $displayNameInput = $row.find('.column-display-name');
+			
+			if (!columnName) {
+				toastr.warning('نام ستون خالی است');
+				return;
+			}
+			
+			// نمایش لودینگ
+			$btn.prop('disabled', true);
+			$btn.html('<span class="spinner-border spinner-border-sm"></span>');
+			
+			// فراخوانی API ترجمه
+			if (typeof FormBuilderApp !== 'undefined' && typeof FormBuilderApp.translateToFarsi === 'function') {
+				FormBuilderApp.translateToFarsi(columnName, function (persianName) {
+					$displayNameInput.val(persianName);
+					$btn.prop('disabled', false);
+					$btn.html('<i class="ki-duotone ki-abstract-26 fs-6"><span class="path1"></span><span class="path2"></span></i>');
+				});
+			} else {
+				// Fallback - استفاده مستقیم از API
+				$.ajax({
+					url: '/Panel/FormBuilder/TranslateToFarsi',
+					method: 'POST',
+					contentType: 'application/json',
+					data: JSON.stringify({ text: columnName }),
+					success: function (response) {
+						if (response.isSuccess && response.data) {
+							$displayNameInput.val(response.data.trim());
+						}
+					},
+					complete: function () {
+						$btn.prop('disabled', false);
+						$btn.html('<i class="ki-duotone ki-abstract-26 fs-6"><span class="path1"></span><span class="path2"></span></i>');
+					}
+				});
+			}
+		});
+	}
+	
+	/**
+	 * بارگذاری Entity ها برای selector
+	 */
+	function loadEntitiesForSelector($selector) {
+		$.ajax({
+			url: '/Panel/FormBuilder/GetAvailableEntities',
+			method: 'GET',
+			success: function (response) {
+				if (response.isSuccess && response.data) {
+					// اگر قبلاً Select2 بود، حذف کن
+					if ($selector.hasClass('select2-hidden-accessible')) {
+						$selector.select2('destroy');
+					}
+					
+					$selector.empty();
+					$selector.append('<option value="">انتخاب Entity...</option>');
+					response.data.forEach(function (entity) {
+						$selector.append('<option value="' + entity.fullName + '">' + entity.displayName + ' (' + entity.name + ')</option>');
+					});
+					
+					// فعال‌سازی Select2 با قابلیت جستجو
+					$selector.select2({
+						placeholder: 'جستجو و انتخاب Entity...',
+						allowClear: true,
+						width: '100%',
+						dropdownParent: $(elements.modal),
+						dir: 'rtl',
+						language: {
+							noResults: function() {
+								return 'نتیجه‌ای یافت نشد';
+							},
+							searching: function() {
+								return 'در حال جستجو...';
+							}
+						}
+					});
+				}
+			}
+		});
+	}
+	
+	/**
+	 * بارگذاری Entity ها برای همه selector های FK
+	 */
+	function loadEntitiesForAllSelectors() {
+		$.ajax({
+			url: '/Panel/FormBuilder/GetAvailableEntities',
+			method: 'GET',
+			success: function (response) {
+				if (response.isSuccess && response.data) {
+					$('.column-entity-selector').each(function () {
+						var $selector = $(this);
+						
+						// اگر قبلاً Select2 بود، حذف کن
+						if ($selector.hasClass('select2-hidden-accessible')) {
+							$selector.select2('destroy');
+						}
+						
+						$selector.empty();
+						$selector.append('<option value="">انتخاب Entity...</option>');
+						response.data.forEach(function (entity) {
+							$selector.append('<option value="' + entity.fullName + '">' + entity.displayName + ' (' + entity.name + ')</option>');
+						});
+						
+						// فعال‌سازی Select2 با قابلیت جستجو
+						$selector.select2({
+							placeholder: 'جستجو و انتخاب Entity...',
+							allowClear: true,
+							width: '100%',
+							dropdownParent: $(elements.modal),
+							dir: 'rtl',
+							language: {
+								noResults: function() {
+									return 'نتیجه‌ای یافت نشد';
+								},
+								searching: function() {
+									return 'در حال جستجو...';
+								}
+							}
+						});
+					});
+				}
+			}
 		});
 	}
 
@@ -605,7 +797,31 @@ var DatabaseImporter = (function () {
 			
 			if ($checkbox.is(':checked')) {
 				var column = $.extend(true, {}, state.columns[index]);
+				
+				// نام ستون ویرایش شده
+				column.columnName = $row.find('.column-name').val() || column.columnName;
+				
+				// نام نمایشی
 				column.suggestedDisplayName = $row.find('.column-display-name').val();
+				
+				// نوع سیستم (برای FK ها)
+				var $systemType = $row.find('.column-system-type');
+				if ($systemType.length > 0) {
+					column.mappedSystemType = $systemType.val();
+				}
+				
+				// Entity انتخاب شده (برای FK ها)
+				var $entitySelector = $row.find('.column-entity-selector');
+				if ($entitySelector.length > 0 && $entitySelector.val()) {
+					column.relatedEntityFullName = $entitySelector.val();
+					// استخراج نام Entity از fullName
+					var fullName = $entitySelector.val();
+					if (fullName) {
+						var parts = fullName.split('.');
+						column.relatedEntityName = parts[parts.length - 1];
+					}
+				}
+				
 				column.required = $row.find('.column-required').is(':checked');
 				column.addToTable = $row.find('.column-add-to-table').is(':checked');
 				selected.push(column);
@@ -766,6 +982,15 @@ var DatabaseImporter = (function () {
 $(document).ready(function () {
 	DatabaseImporter.init();
 });
+
+
+
+
+
+
+
+
+
 
 
 

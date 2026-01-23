@@ -110,36 +110,8 @@ namespace WebApp.Controllers.SystemControllers
 			return Ok(user);
 		}
 
-		[HttpGet("/panel/User/Search")]
-
-		public async Task<IActionResult> SearchUsers(string term, int page = 1, CancellationToken cn = default)
-		{
-			var query = service.TableNoTracking.AsQueryable();
-
-			if (!string.IsNullOrWhiteSpace(term))
-			{
-				query = query.Where(u => u.Name.Contains(term) || u.Username.Contains(term));
-			}
-
-			var pageSize = 20;
-			var totalCount = await query.CountAsync(cn);
-			var skip = (page - 1) * pageSize;
-
-			var users = await query
-				.OrderBy(u => u.Name)
-				.Skip(skip)
-				.Take(pageSize)
-				.Select(u => new { id = u.Id, text = u.Name })
-				.ToListAsync(cn);
-
-			var hasMore = (skip + users.Count) < totalCount;
-
-			return Ok(new
-			{
-				results = users,
-				pagination = new { more = hasMore }
-			});
-		}
+		 
+		 
 
 		[HttpGet("/panel/User/ImportFromAd")]
 		[ActionDisplayName("دریافت کاربران از Active Directory", ActionAccessType.View, ActionAccessItemType.List)]

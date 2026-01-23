@@ -40067,7 +40067,7 @@ span.flatpickr-weekday {
 }
 
 table.dataTable {
-  width: 100% !important;
+  width: 100% ;
   margin: 0 !important;
 }
 table.dataTable th {

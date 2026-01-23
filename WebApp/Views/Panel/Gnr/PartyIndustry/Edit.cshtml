@@ -1,0 +1,94 @@
+@using Entities.App.Gnr;
+@model PartyIndustry
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-6'>
+			<label class='required'>عنوان</label>
+			<input class='form-control' data-bind='title' required asp-for='Title' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>کد</label>
+			<input class='form-control'  data-bind='code'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Code' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<div data-tab-item-manager="partyIndustryItems" data-item-selector=".entity-item">
+				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
+					<li class="nav-item" role="presentation">
+						<a class="nav-link active" data-bs-toggle="tab" href="#partyIndustryItemTab" role="tab" aria-selected="true">
+							<span class="svg-icon svg-icon-2 me-2"></span>
+							زیر صنعت شخص/شرکت
+						</a>
+					</li>
+				</ul>
+				<div class="tab-content">
+					<div class="tab-pane fade show active" id="partyIndustryItemTab" role="tabpanel" data-add-url="/Panel/PartyIndustry/PartyIndustryItemPartial">
+						<div id='PartyIndustryItemContainer' class="entity-item-container">
+							@if (Model?.PartyIndustryItem != null)
+							{
+								@foreach (var item in Model.PartyIndustryItem)
+								{
+									<div data-item-id="@(item.Id ?? 0)">
+										@await Html.PartialAsync("_PartyIndustryItemPartial.cshtml", item)
+									</div>
+								}
+							}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(PartyIndustry)"></form-action-buttons></div>
+	<div class="card-body">
+	</div>
+	<div class='card-footer row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

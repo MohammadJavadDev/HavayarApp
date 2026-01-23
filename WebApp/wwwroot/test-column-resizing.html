@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataTables Column Resizing Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        /* Add some basic styling for the resize handle */
+        .dt-resize-handle {
+            position: absolute;
+            height: 100%;
+            width: 5px;
+            background-color: #007bff;
+            cursor: col-resize;
+            opacity: 0.5;
+            display: none;
+            z-index: 100;
+        }
+
+        /* Style for table during resizing */
+        .dt-resizing {
+            cursor: col-resize;
+        }
+
+        /* Ensure table has some basic styling */
+        .dataTable {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .dataTable th,
+        .dataTable td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .dataTable th {
+            background-color: #f2f2f2;
+            position: relative;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>DataTables Column Resizing Test</h1>
+    <p>Hover over column headers to see resize handles, then click and drag to resize columns.</p>
+
+    <table id="example" class="display">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Office</th>
+                <th>Age</th>
+                <th>Start Date</th>
+                <th>Salary</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>Tiger Nixon</td>
+                <td>System Architect</td>
+                <td>Edinburgh</td>
+                <td>61</td>
+                <td>2011/04/25</td>
+                <td>$320,800</td>
+            </tr>
+            <tr>
+                <td>2</td>
+                <td>Garrett Winters</td>
+                <td>Accountant</td>
+                <td>Tokyo</td>
+                <td>63</td>
+                <td>2011/07/25</td>
+                <td>$170,750</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>Ashton Cox</td>
+                <td>Junior Technical Author</td>
+                <td>San Francisco</td>
+                <td>66</td>
+                <td>2009/01/12</td>
+                <td>$86,000</td>
+            </tr>
+            <tr>
+                <td>4</td>
+                <td>Cedric Kelly</td>
+                <td>Senior Javascript Developer</td>
+                <td>Edinburgh</td>
+                <td>22</td>
+                <td>2012/03/29</td>
+                <td>$433,060</td>
+            </tr>
+            <tr>
+                <td>5</td>
+                <td>Airi Satou</td>
+                <td>Accountant</td>
+                <td>Tokyo</td>
+                <td>33</td>
+                <td>2008/11/28</td>
+                <td>$162,700</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="panelLib/plugins/custom/datatables/datatables.bundle.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#example').DataTable({
+                colResize: true, // Enable resizing (default is true)
+                paging: true,
+                searching: true,
+                ordering: true,
+                info: true
+            });
+        });
+    </script>
+
+    <div style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>Hover your mouse over any column header to activate resize detection</li>
+            <li>Move your mouse to the far right edge of the header (within 10px of the right border)</li>
+            <li>You should see the cursor change to a col-resize cursor and a blue resize handle appear</li>
+            <li>Click and drag the handle to resize the column</li>
+            <li>The column should resize smoothly and the table should adjust accordingly</li>
+            <li>Try resizing multiple columns to ensure they all work</li>
+            <li>Try sorting and paging to ensure the resize functionality doesn't interfere</li>
+            <li>Move your mouse away from the header or edge to hide the resize handle</li>
+        </ol>
+    </div>
+
+    <div style="margin-top: 20px; padding: 15px; background-color: #e8f5e9; border-radius: 5px;">
+        <h3>Expected Behavior:</h3>
+        <ul>
+            <li>Resize handles should only appear when mouse is near the right edge of visible, sortable columns</li>
+            <li>Cursor should change to col-resize when near the edge</li>
+            <li>Columns should have a minimum width of 20px</li>
+            <li>The table should maintain proper layout during and after resizing</li>
+            <li>Other DataTables features (sorting, paging, etc.) should continue to work normally</li>
+            <li>No JavaScript errors should occur in the console</li>
+            <li>Resize handle should disappear when mouse moves away from the edge</li>
+        </ul>
+    </div>
+</body>
+
+</html>

@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+	<PropertyGroup>
+		<NuGetAudit>false</NuGetAudit>
+	</PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="RabbitMQ.Client" Version="7.2.0" />
   </ItemGroup>

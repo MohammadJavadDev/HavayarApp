@@ -1,0 +1,70 @@
+@using Entities.App.Sale
+@model List<ProductionOrderItemComment>
+
+<div class="row">
+	<div class="col-md-12">
+		@if (Model != null && Model.Any())
+		{
+			<div class="timeline">
+				@foreach (var comment in Model.OrderByDescending(c => c.CreatedOnMiladiDateTime))
+				{
+					<div class="timeline-item mb-4">
+						<div class="card" style="width: 100%;">
+							<div class="card-body">
+								<div class="d-flex justify-content-between align-items-start mb-2">
+									<div>
+										<span class="badge badge-primary">@comment.ProductionStatus</span>
+										@if (!string.IsNullOrWhiteSpace(comment.FailureTypeNames))
+										{
+											<span class="badge badge-danger ms-2">@comment.FailureTypeNames</span>
+										}
+									</div>
+									<small class="text-muted">@comment.CreatedOnShamsiDateTime</small>
+								</div>
+
+								@if (!string.IsNullOrWhiteSpace(comment.StartShamsiDate) ||
+														!string.IsNullOrWhiteSpace(comment.EndShamsiDate))
+								{
+									<div class="mb-2">
+										@if (!string.IsNullOrWhiteSpace(comment.StartShamsiDate))
+										{
+											<span class="text-muted">شروع: </span>
+											<span class="fw-semibold">@comment.StartShamsiDate</span>
+										}
+										@if (!string.IsNullOrWhiteSpace(comment.EndShamsiDate))
+										{
+											<span class="text-muted ms-3">پایان: </span>
+											<span class="fw-semibold">@comment.EndShamsiDate</span>
+										}
+									</div>
+								}
+
+								<p class="mb-2">@comment.Comment</p>
+
+								@if (!string.IsNullOrWhiteSpace(comment.CcReciversNames))
+								{
+									<div class="mt-2">
+										<small class="text-muted">دریافت‌کنندگان: </small>
+										<small class="text-primary">@comment.CcReciversNames</small>
+									</div>
+								}
+
+								<div class="mt-2 border-top pt-2">
+									<small class="text-muted">
+										<i class="fa fa-user"></i> @comment.CreatedByName
+									</small>
+								</div>
+							</div>
+						</div>
+					</div>
+				}
+			</div>
+		}
+		else
+		{
+			<div class="alert alert-info">
+				<i class="fa fa-info-circle"></i> هیچ کامنتی ثبت نشده است
+			</div>
+		}
+	</div>
+</div>

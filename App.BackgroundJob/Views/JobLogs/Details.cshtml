@@ -1,3 +1,4 @@
+@using Common.Utilities
 @using Services.Job
 @model IEnumerable<JobLog>
 @{
@@ -9,9 +10,7 @@
 <h2>Job Log Details</h2>
 
 <div class="card mb-4">
-    <div class="card-header">
-        <h4>Job Information</h4>
-    </div>
+   
     <div class="card-body">
         <div class="row">
             <div class="col-md-6">
@@ -29,13 +28,13 @@
             <div class="col-md-6">
                 <dl class="row">
                     <dt class="col-sm-4">Start Time:</dt>
-                    <dd class="col-sm-8">@jobHistory?.StartTime.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                    <dd class="col-sm-8" dir="ltr">@jobHistory?.StartTime.ToShamsiDateTime()</dd>
 
                     <dt class="col-sm-4">End Time:</dt>
-                    <dd class="col-sm-8">@(jobHistory?.EndTime.HasValue == true ? jobHistory.EndTime.Value.ToString("yyyy-MM-dd HH:mm:ss") : "N/A")</dd>
+                    <dd class="col-sm-8" dir="ltr">@(jobHistory?.EndTime.HasValue == true ? jobHistory.EndTime.Value.ToShamsiDateTime() : "N/A")</dd>
 
                     <dt class="col-sm-4">Duration:</dt>
-                    <dd class="col-sm-8">
+                    <dd class="col-sm-8" dir="ltr">
                         @if (jobHistory?.EndTime.HasValue == true)
                         {
                             @((jobHistory.EndTime.Value - jobHistory.StartTime).TotalSeconds.ToString("0.00"))  <span>seconds</span>
@@ -90,7 +89,7 @@
                                 <span class="badge @GetLogLevelBadgeClass(log.LogLevel)">@log.LogLevel</span>
                                 <strong class="ml-2">@log.Message</strong>
                             </div>
-                            <small class="text-muted">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")</small>
+                            <small class="text-muted" dir="ltr">@log.Timestamp.ToShamsiDateTime()</small>
                         </div>
                         
                         @if (!string.IsNullOrEmpty(log.Details))

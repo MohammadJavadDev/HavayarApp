@@ -2,11 +2,22 @@ html {
   font-size: 14px;
 }
 
+@font-face {
+	font-family: "IRANSansWeb";
+	src: url("../fonts/IRANSansWeb.eot"); /* IE */
+	src: url("../fonts/IRANSansWeb.eot?#iefix") format("embedded-opentype"), /* IE */
+	url("../fonts/IRANSansWeb.woff2") format("woff2"), /* Modern Browsers */
+	url("../fonts/IRANSansWeb.ttf") format("truetype"); /* Safari, Android, iOS */
+	font-weight: normal;
+}
+
 @media (min-width: 768px) {
   html {
     font-size: 16px;
   }
 }
+
+
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
@@ -18,5 +29,6 @@ html {
 }
 
 body {
-  margin-bottom: 60px;
+	margin-bottom: 60px;
+	font-family: IRANSansWeb,Inter, Helvetica, "sans-serif";
 }

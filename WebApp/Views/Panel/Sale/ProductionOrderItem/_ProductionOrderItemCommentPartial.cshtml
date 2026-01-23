@@ -1,0 +1,87 @@
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.Auth
+@model ProductionOrderItemComment
+
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
+
+	<div class="col-md-6">
+		<label class="required">وضعیت تولید</label>
+		<select class="form-control" data-bind="productionStatus" asp-for="ProductionStatus"
+			asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemProductionStatusEnum))">
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>تاریخ شروع</label>
+		<input class="form-control" data-bind="startShamsiDate" data-persionDatePicker="true"
+			  persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
+			value="@Model?.StartMiladiDateTime" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>تاریخ پایان</label>
+		<input class="form-control" data-bind="endShamsiDate" data-persionDatePicker="true"
+			  persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
+			value="@Model?.EndMiladiDateTime" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>علت های خرابی</label>
+
+		@(Html.EntitySelector<User>
+				(
+				"CcReciversIds",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					Name = c.Name,
+
+				},
+				c => new { c.Id, c.Name },
+				"{Name}",
+				"FailureTypeIds",
+				"FailureTypeNames",
+				Model?.CcReciversIds.ToString(),
+				true
+				))
+		<input class="form-control" data-bind="failureTypeNames" asp-for="FailureTypeNames" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-12">
+		<label class="required">کامنت</label>
+		<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="4"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-12">
+		<label>دریافت کنندگان</label>
+		@(Html.EntitySelector<User>
+				(
+				"CcReciversIds",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					Name = c.Name,
+
+				},
+				c => new { c.Id, c.Name },
+				"{Name}",
+				"CcReciversIds",
+				"CcReciversNames",
+				Model?.CcReciversIds.ToString(),
+				true
+				))
+
+ 
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

@@ -29,7 +29,7 @@ public sealed class RedisRoleMemoryStorage : IRoleMemoryStorage
 
     public void SetRoles(List<Role> roles)
     {
-        // تبدیل entities به DTOs
+     
         var roleDtos = roles.ToDtoList();
         var json = JsonSerializer.Serialize(roleDtos, JsonOptions);
         _redis.SetString(_key, json, new DistributedCacheEntryOptions

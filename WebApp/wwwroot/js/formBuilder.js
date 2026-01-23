@@ -447,7 +447,11 @@ var FormBuilderApp = (function () {
 					var index = $(this).closest("[data-property-index]").data("property-index");
 					var sectionId = $(this).closest("[data-section-id]").data("section-id");
 
-					state.sections.filter(c => c.id == sectionId)[0].properties =state.sections.filter(c => c.id == sectionId)[0].properties.filter(z => z.orderIndex != index)
+					const section = state.sections.find(c => c.uqniqId == sectionId);
+					if (section && section.properties) {
+						section.properties = section.properties.filter(z => z.orderIndex != index);
+					}
+					
 					$(this).remove();
 					updatePropertyIndices();
 					// Reinitialize sortable after deleting property
@@ -761,6 +765,24 @@ var FormBuilderApp = (function () {
 			}
 		});
 
+		// دکمه ترجمه نام انگلیسی به فارسی
+		$$('#btnTranslateToFarsi').on('click', function () {
+			const propertyName = $$('#editPropertyName').val();
+			if (propertyName && propertyName.trim()) {
+				const $btn = $$(this);
+				$btn.prop('disabled', true);
+				$btn.html('<span class="spinner-border spinner-border-sm"></span>');
+				
+				translateToFarsi(propertyName, function(persianName) {
+					$$('#editPropertyDisplayName').val(persianName);
+					$btn.prop('disabled', false);
+					$btn.html('<i class="ki-duotone ki-abstract-26 fs-2"><span class="path1"></span><span class="path2"></span></i>');
+				});
+			} else {
+				toastr.warning('لطفا ابتدا نام ویژگی (Property Name) را وارد کنید', 'هشدار');
+			}
+		});
+
 		// Regenerate nested property name button
 		$$('#btnRegenerateNestedPropertyName').on('click', function () {
 			const displayName = $$('#nestedEditPropertyDisplayName').val();
@@ -1018,7 +1040,7 @@ var FormBuilderApp = (function () {
 		for (const section of state.sections) {
 			for (let i = 0; i < section.properties.length; i++) {
 				const prop = section.properties[i];
-				const globalIndex = getGlobalPropertyIndex(section.id, i);
+				const globalIndex = getGlobalPropertyIndex(section.uqniqId, i);
 
 				// Skip the property currently being edited
 				if (excludeIndex !== undefined && excludeIndex !== null && excludeIndex !== '' && globalIndex == excludeIndex) {
@@ -1043,7 +1065,7 @@ var FormBuilderApp = (function () {
 		let globalIndex = 0;
 
 		for (const section of state.sections) {
-			if (section.id === sectionId) {
+			if (section.uqniqId === sectionId) {
 				return globalIndex + localIndex;
 			}
 			globalIndex += section.properties.length;
@@ -2105,7 +2127,7 @@ var FormBuilderApp = (function () {
 	function getSectionsData() {
 		return state.sections.map((section, sectionIndex) => {
 			const sectionData = {
-				id: section.id > 0 ? section.id : null,
+				id: (section.id && section.id > 0) ? section.id : null,
 				title: section.title || `بخش ${sectionIndex + 1}`,
 				orderIndex: sectionIndex,
 				properties: []
@@ -2114,7 +2136,7 @@ var FormBuilderApp = (function () {
 			(section.properties || []).forEach((prop, propIndex) => {
 				const propClone = JSON.parse(JSON.stringify(prop));
 				propClone.orderIndex = propClone.orderIndex ?? propIndex;
-				propClone.sectionId = section.id > 0 ? section.id : null;
+				propClone.formSectionId = (section.id && section.id > 0) ? section.id : null;
 				sectionData.properties.push(propClone);
 			});
 
@@ -3264,6 +3286,32 @@ var FormBuilderApp = (function () {
 	}
 
 	/**
+	 * Translate English property name to Persian display name using AI
+	 */
+	function translateToFarsi(englishName, callback) {
+		if (!englishName) {
+			if (callback) callback('');
+			return;
+		}
+
+		post('/Panel/FormBuilder/TranslateToFarsi', { text: englishName }, function (response) {
+			if (response.isSuccess && response.data) {
+				const persianName = response.data.trim();
+				// Clean up the result (remove quotes, extra spaces, etc.)
+				const cleanName = persianName.replace(/['"]/g, '').trim();
+				
+				if (cleanName) {
+					if (callback) callback(cleanName);
+				} else {
+					if (callback) callback(englishName);
+				}
+			} else {
+				if (callback) callback(englishName);
+			}
+		});
+	}
+
+	/**
 	 * Escape HTML
 	 */
 	function escapeHtml(text) {
@@ -3285,6 +3333,8 @@ var FormBuilderApp = (function () {
 		previewCode: previewCode,
 		saveFiles: saveFiles,
 		getSectionsData: getSectionsData,
-		loadFormDefinitionById: loadFormDefinitionById
+		loadFormDefinitionById: loadFormDefinitionById,
+		translateToFarsi: translateToFarsi,
+		translatePropertyName: translatePropertyName
 	};
 })();

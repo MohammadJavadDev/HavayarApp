@@ -34,6 +34,8 @@ namespace WebFramework.TagHelpers
 			string? selectedId = null,
 			bool required = false,
 			bool multiSelect = false,
+			bool disabled = false,
+			bool _readonly = false,
 			string placeholder = "جستجو...",
 			int pageSize = 20) where T : class
 		{
@@ -102,6 +104,7 @@ namespace WebFramework.TagHelpers
 			container.Attributes.Add("data-page-size", pageSize.ToString());
 			container.Attributes.Add("data-api-url", "/api/entity-selector");
 			if (multiSelect) container.Attributes.Add("data-multi-select", "true");
+			if (_readonly) container.Attributes.Add("data-readonly", "true");
 
 			// دیتای اولیه برای JS
 			var jsInitData = initialItems.Select(x => new { id = x.Id, display = x.Display }).ToList();
@@ -125,59 +128,87 @@ namespace WebFramework.TagHelpers
 				hName.AddCssClass("entity-selector-text");
 				hName.Attributes.Add("data-bind", bindNameProperty);
 				hName.Attributes.Add("value", initialNamesJoined);
-			
+
 				container.InnerHtml.AppendHtml(hName);
 			}
 			container.InnerHtml.AppendHtml(hidden);
 
 			// UI Elements
-			var inputGroup = new TagBuilder("div");
-			var input = new TagBuilder("input");
-			input.Attributes.Add("type", "text");
-			input.Attributes.Add("placeholder", placeholder);
-			input.Attributes.Add("autocomplete", "off");
-
-			if (multiSelect)
+			if (_readonly)
 			{
-				// Multi-Select UI (Chips Rendered by Server)
-				var multiContainer = new TagBuilder("div");
-				multiContainer.AddCssClass("entity-selector-multi-container");
-				foreach (var item in initialItems)
+				// Readonly Mode: Display as span
+				var readonlySpan = new TagBuilder("span");
+				readonlySpan.AddCssClass("form-control-plaintext");
+				if (multiSelect && initialItems.Any())
 				{
-					var chip = new TagBuilder("span");
-					chip.AddCssClass("entity-chip badge bg-primary");
-					chip.InnerHtml.AppendHtml($"{item.Display} <span class='remove-chip' title='حذف'>&times;</span>");
-					multiContainer.InnerHtml.AppendHtml(chip);
+					readonlySpan.InnerHtml.AppendHtml(string.Join(" , ", initialItems.Select(x => x.Display)));
 				}
-				input.AddCssClass("entity-selector-multi-input");
-				multiContainer.InnerHtml.AppendHtml(input);
-				multiContainer.InnerHtml.AppendHtml(BuildIcons());
-
-				container.InnerHtml.AppendHtml(multiContainer);
-
-				inputGroup.AddCssClass("input-group");
-				inputGroup.Attributes.Add("style", "display:none");
-				inputGroup.InnerHtml.AppendHtml(new TagBuilder("input"));
-				container.InnerHtml.AppendHtml(inputGroup);
+				else if (!multiSelect && initialItems.Any())
+				{
+					readonlySpan.InnerHtml.AppendHtml(initialItems[0].Display);
+				}
+				else
+				{
+					readonlySpan.InnerHtml.AppendHtml("-");
+				}
+				container.InnerHtml.AppendHtml(readonlySpan);
 			}
 			else
 			{
-				// Single-Select UI
-				input.AddCssClass("form-control entity-selector-input");
-				if (initialItems.Any()) input.Attributes.Add("value", initialItems[0].Display);
+				// Normal or Disabled Mode
+				var inputGroup = new TagBuilder("div");
+				var input = new TagBuilder("input");
+				input.Attributes.Add("type", "text");
+				input.Attributes.Add("placeholder", placeholder);
+				input.Attributes.Add("autocomplete", "off");
 
-				inputGroup.AddCssClass("input-group");
-				inputGroup.InnerHtml.AppendHtml(input);
-				inputGroup.InnerHtml.AppendHtml(BuildIcons());
-				container.InnerHtml.AppendHtml(inputGroup);
+				if (disabled)
+				{
+					input.Attributes.Add("disabled", "disabled");
+				}
+
+				if (multiSelect)
+				{
+					// Multi-Select UI (Chips Rendered by Server)
+					var multiContainer = new TagBuilder("div");
+					multiContainer.AddCssClass("entity-selector-multi-container");
+					foreach (var item in initialItems)
+					{
+						var chip = new TagBuilder("span");
+						chip.AddCssClass("entity-chip badge bg-primary");
+						chip.InnerHtml.AppendHtml($"{item.Display} <span class='remove-chip' title='حذف'>&times;</span>");
+						multiContainer.InnerHtml.AppendHtml(chip);
+					}
+					input.AddCssClass("entity-selector-multi-input");
+					multiContainer.InnerHtml.AppendHtml(input);
+					multiContainer.InnerHtml.AppendHtml(BuildIcons());
+
+					container.InnerHtml.AppendHtml(multiContainer);
+
+					inputGroup.AddCssClass("input-group");
+					inputGroup.Attributes.Add("style", "display:none");
+					inputGroup.InnerHtml.AppendHtml(new TagBuilder("input"));
+					container.InnerHtml.AppendHtml(inputGroup);
+				}
+				else
+				{
+					// Single-Select UI
+					input.AddCssClass("form-control entity-selector-input");
+					if (initialItems.Any()) input.Attributes.Add("value", initialItems[0].Display);
+
+					inputGroup.AddCssClass("input-group");
+					inputGroup.InnerHtml.AppendHtml(input);
+					inputGroup.InnerHtml.AppendHtml(BuildIcons());
+					container.InnerHtml.AppendHtml(inputGroup);
+				}
+
+				var dropdown = new TagBuilder("div");
+				dropdown.AddCssClass("dropdown-menu   entity-selector-results");
+				dropdown.Attributes.Add("style", "max-height: 300px; overflow-y: auto;");
+
+				container.InnerHtml.AppendHtml(dropdown);
 			}
 
-			var dropdown = new TagBuilder("div");
-			dropdown.AddCssClass("dropdown-menu   entity-selector-results");
-			dropdown.Attributes.Add("style", "max-height: 300px; overflow-y: auto;");
-			 
-			container.InnerHtml.AppendHtml(dropdown);
-		 
 
 			return container;
 		}

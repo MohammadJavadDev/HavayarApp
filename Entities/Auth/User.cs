@@ -43,7 +43,7 @@ public class User
 
     [DisplayName("تاریخ شمسی ویرایش")]
     [MaxLength(30)]
-    [DisplayInfo("ModifiedDateMiladiDateTime", true, SystemType.DateTime, systemProprty: true)]
+    [DisplayInfo("ModifiedDateMiladiDateTime", true, SystemType.DateTimeShamsi, systemProprty: true)]
     public string? ModifiedDateShamsiDateTime { get; set; } = null;
 
     [DisplayName("تاریخ میلادی ایجاد")]
@@ -53,23 +53,23 @@ public class User
 
     [DisplayName("تاریخ شمسی ایجاد")]
     [MaxLength(30)]
-    [DisplayInfo("CreatedOnMiladiDateTime", false, SystemType.DateTime, systemProprty: true)]
+    [DisplayInfo("CreatedOnMiladiDateTime", false, SystemType.DateTimeShamsi, systemProprty: true)]
     public string? CreatedOnShamsiDateTime { get; set; } = null;
 
     [DisplayName("وضعیت فعال بودن")]
-    [DisplayInfo(null, true, systemProprty: true)]
+    [DisplayInfo(null, true, systemProprty: true,type:SystemType.Select)]
     public IsActiveEnum IsActive { get; set; } =IsActiveEnum.Active;
 
 
     [Required(ErrorMessage = AppMessages.ReqiredMessage + "نام")]
     [DisplayName("نام")]
-    [DisplayInfo(null, false, required: true, showInRelationData: true)]
+    [DisplayInfo(null, false, required: true, showInRelationData: true, type: SystemType.String)]
 
     public string Name { get; set; }
     [Required(ErrorMessage = AppMessages.ReqiredMessage + "نام کاربری")]
 
     [DisplayName("نام کاربری")]
-    [DisplayInfo(null, false, required: true)]
+    [DisplayInfo(null, false, required: true, type: SystemType.String)]
     public string Username { get; set; }
 
     [DisplayName("رمزعبور")]
@@ -101,7 +101,12 @@ public class User
     [DisplayInfo(null, false, SystemType.DateTime)]
     public DateTime? LastOnline { get; set; }
 
+	[DisplayName("نوع احراز")]
+	[DisplayInfo(null, false, SystemType.Select)]
+
 	public AuthorizationTypeEnum AuthorizationType { get; set; }
+
+	public long? HamkaranId { get; set; }
 
 	[NotMapped]
 	public List<RoleAccess> RoleAccesses { get; set; } = new();

@@ -30,16 +30,16 @@ namespace WebFramework.TagHelpers
                                       <i class=""fs-2 fa-jelly fa-light fa-circle-plus"" style=""padding-right: 2px;padding-top: 2px;""></i>
                                  </button>
 
-                                 <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-primary "" data-action=""save"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیر"">
+                                 <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-primary "" data-action=""save"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره"">
                                       <i class=""fs-2 fa-light fa-floppy-disk"" style="" padding-top: 2px;   padding-right: 2px;""></i>
 
                                  </button>
-                                 <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-success p-2"" data-action=""saveandnew"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیر و جدید"">
+                                 <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-success p-2"" data-action=""saveandnew"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره و جدید"">
                                       <i class=""fs-2 fa-light fa-floppy-disk-circle-arrow-right""></i>
 
                                  </button>
 
-                                 <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-danger"" data-action=""saveandclose"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیر و  بستن"">
+                                 <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-danger"" data-action=""saveandclose"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره و  بستن"">
                                       <i class=""fs-2 fa-light fa-floppy-disk-circle-xmark"" style=""padding-right: 2px;padding-top: 2px;""></i>
 
                                  </button>

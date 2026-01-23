@@ -10,7 +10,9 @@ using Infrastructure.CrudEventInterceptors;
 using Infrastructure.Messaging;
 using Infrastructure.NotificationServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -24,11 +26,14 @@ using Services.InMemoryData;
 using Services.NotificationServices;
 using Services.NotifitactionBuilderServices;
 using Shared.Realtime.Options;
+using System.IO.Compression;
 using System.Text;
 using WebApp.Services;
 using WebApp.Services.Realtime;
+using WebFramework.Abstractions;
 using WebFramework.Initializes;
 using WebFramework.Middlewares;
+using WebFramework.Services;
 using WebFramework.TagHelpers;
 
 
@@ -48,7 +53,9 @@ builder.Services.AddControllersWithViews()
     }).AddMvcOptions(o =>
     {
         o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
-    }).AddRazorRuntimeCompilation();
+    }).AddRazorRuntimeCompilation()
+    .AddApplicationPart(typeof(WebFramework.Controllers.DataTableProfileBuilderController).Assembly)
+    .AddControllersAsServices();
 
 
  
@@ -61,6 +68,7 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
         sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
     }).AddInterceptors(sp.GetRequiredService<CrudEventInterceptor>()));
 
+builder.Services.AddSingleton<IEnvironmentService, EnvironmentService>();
 
 
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
@@ -164,6 +172,18 @@ builder.Services
         };
     });
 
+builder.Services.AddResponseCompression(options =>
+{
+	options.EnableForHttps = true;
+	options.Providers.Add<BrotliCompressionProvider>();
+	options.Providers.Add<GzipCompressionProvider>();
+});
+
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+	options.Level = CompressionLevel.Optimal;
+});
+
 
 builder.Services.AddAuthorization(options =>
 {
@@ -208,7 +228,19 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 app.UseCustomExceptionHandler();
-app.UseStaticFiles();
+
+app.UseResponseCompression();
+app.UseStaticFiles(new StaticFileOptions
+{
+	OnPrepareResponse = ctx =>
+	{
+		var file = ctx.File;
+		var headers = ctx.Context.Response.Headers;
+           
+		headers.CacheControl = "public,max-age=31536000";
+	}
+});
+
 app.UseHttpsRedirection();
 
 

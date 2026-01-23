@@ -1,0 +1,17 @@
+@using Entities.App.Gnr;
+@model PartyIndustryItem
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='partyIndustryItem.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<label class='required'>عنوان</label>
+		<input class='form-control' data-bind='partyIndustryItem.title' required value='@Model?.Title' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>کد</label>
+		<input class='form-control' data-bind='partyIndustryItem.code'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.Code' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

@@ -6,7 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>72a79d42-ecea-44a6-a8cc-b3811942e9b0</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+ 
   </PropertyGroup>
+
+	<PropertyGroup>
+		<NuGetAudit>false</NuGetAudit>
+	</PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.1" />
@@ -18,6 +23,85 @@
     <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.1" />
   </ItemGroup>
+
+	<ItemGroup>
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\inputmask\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\jstree\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\persion-datepicker\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\queryBuilder\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\select2\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\sortable\**" />
+
+		 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\tinymce\**" />
+
+		 
+		<Content Remove="wwwroot\lib\**\*" />
+		<Content Remove="wwwroot\panelLib\**\*" />
+ 
+	 
+		<Content Remove="wwwroot\**\*.tmp" />
+		<Content Remove="wwwroot\**\*.bak" />
+		<Content Remove="wwwroot\**\*~" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\inputmask\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\jstree\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\persion-datepicker\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\queryBuilder\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\select2\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\sortable\**" />
+		<Content Remove="wwwroot\panelLib\plugins\custom\tinymce\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\inputmask\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\jstree\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\persion-datepicker\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\queryBuilder\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\select2\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\sortable\**" />
+		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\tinymce\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\inputmask\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\jstree\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\persion-datepicker\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\queryBuilder\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\select2\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\sortable\**" />
+		<None Remove="wwwroot\panelLib\plugins\custom\tinymce\**" />
+
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(Configuration)' == 'Release'">
+		<Content Update="wwwroot\lib\**\*">
+			<CopyToPublishDirectory>Never</CopyToPublishDirectory>
+		</Content>
+	</ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ReportBuilder.WebApp\RB.WebApp.csproj" />

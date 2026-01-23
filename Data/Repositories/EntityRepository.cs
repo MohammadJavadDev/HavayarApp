@@ -14,84 +14,110 @@ using Data.SystemAuth;
 
 namespace Data.Repositories
 {
-    public class EntityRepository(ApplicationDbContext dbContext, ISdk sdk   , IDataTableProfileService _dataTableProfileService  , IDataTableQueryBuilder _dataTableQuery) : IEntityRepository
+    public class EntityRepository(ApplicationDbContext dbContext, ISdk sdk   
+         , IDataTableProfileService _dataTableProfileService  
+         , IDataTableQueryBuilder _dataTableQuery) : IEntityRepository
     {
         private DataTableRequest currentRequest { get; set; }
         private string? ConnectionString { get; } = dbContext.Database.GetDbConnection().ConnectionString;
-        public IEnumerable<Dictionary<string, object>> ExecuteQuery(string query, object? parameters = null)
-        {
+		public IEnumerable<Dictionary<string, object>> ExecuteQuery(
+		   string query,
+		   object? parameters = null)
+		{
+			var results = new List<Dictionary<string, object>>();
+			var columnTypeMap = currentRequest?.columns?
+                          .ToDictionary(c => c.data, c => c.type);
 
-            var results = new List<Dictionary<string, object>>();
-            using (var connection = new SqlConnection(ConnectionString))
-            {
-                using (var command = new SqlCommand(query, connection))
-                {
-                    connection.Open();
-                    if (parameters != null)
-                    {
-                        foreach (var prop in parameters.GetType().GetProperties())
-                        {
-                            command.Parameters.AddWithValue($"@{prop.Name}", prop.GetValue(parameters));
-                        }
-                    }
-                         try
-                         {
-						using (var reader = command.ExecuteReader())
+
+			try
+			{
+				using var connection = new SqlConnection(ConnectionString);
+				using var command = new SqlCommand(query, connection);
+
+				if (parameters != null)
+				{
+					foreach (var prop in parameters.GetType().GetProperties())
+					{
+						var value = prop.GetValue(parameters) ?? DBNull.Value;
+						command.Parameters.Add(
+						    new SqlParameter($"@{prop.Name}", value));
+					}
+				}
+
+				connection.Open();
+
+				using var reader = command.ExecuteReader();
+
+				while (reader.Read())
+				{
+					var entity = new Dictionary<string, object>(reader.FieldCount);
+
+					for (int i = 0; i < reader.FieldCount; i++)
+					{
+						var name = reader.GetName(i);
+
+						if (reader.IsDBNull(i))
 						{
-							while (reader.Read())
-							{
-								var entity = new Dictionary<string, object>();
+							entity[name] = null;
+							continue;
+						}
 
-								for (var i = 0; i < reader.FieldCount; i++)
+						if (columnTypeMap == null || !columnTypeMap.TryGetValue(name, out var type))
+						{
+							entity[name] = reader.GetValue(i);
+							continue;
+						}
+
+						object value;
+
+						switch (type)
+						{
+							case "date":
+								value = reader.GetDateTime(i).ToString("yyyy-MM-dd");
+								break;
+
+							case "datetime":
+								value = reader.GetDateTime(i).ToString("yyyy-MM-dd HH:mm:ss");
+								break;
+
+							case "datetimeShamsi":
 								{
-									var propertyName = reader.GetName(i);
-
-									var col = currentRequest?.columns?.FirstOrDefault(c => c.data == propertyName);
-
-
-									if (!reader.IsDBNull(i))
-									{
-										var value = reader.GetValue(i);
-										if (col != null)
-										{
-											if (col.type == "datetime")
-											{
-												value = DateTime.Parse(value.ToString()).ToShamsiDateTime();
-
-											}
-											else if (col.type == "date")
-											{
-												value = DateTime.Parse(value.ToString()).ToShamsiDate();
-											}
-										}
-
-										entity.Add(propertyName, value);
-									}
-									else
-									{
-										entity.Add(propertyName, null);
-									}
+									var fieldType = reader.GetFieldType(i);
+									value = fieldType == typeof(DateTime)
+									    ? reader.GetDateTime(i).ToShamsiDateTime()
+									    : reader.GetValue(i);
+									break;
 								}
 
-								results.Add(entity);
-							}
+							case "dateShamsi":
+								{
+									var fieldType = reader.GetFieldType(i);
+									value = fieldType == typeof(DateTime)
+									    ? reader.GetDateTime(i).ToShamsiDate()
+									    : reader.GetValue(i);
+									break;
+								}
+
+							default:
+								value = reader.GetValue(i);
+								break;
 						}
+
+						entity[name] = value;
 					}
-                         catch(Exception e)
-                         {
-                               if(e.Message.Contains("Microsoft.Data.SqlClient.SqlException: 'Invalid column name "))
-                              {
-                                   throw new Exception("خطا سمت پایگاه داده یکی از ستون ها حذف شده است .");
-                              }
-                         }
 
-                 
-                }
-            }
+					results.Add(entity);
+				}
+			}
+			catch (SqlException ex) when (ex.Message.Contains("Invalid column name"))
+			{
+				throw new Exception("خطا سمت پایگاه داده: یکی از ستون‌ها حذف یا تغییر نام داده شده است.");
+			}
 
-            return results;
-        }
-        public async Task<DataTableResponse> FetchData(DataTableRequest request)
+			return results;
+		}
+
+		public async Task<DataTableResponse> FetchData(DataTableRequest request)
         {
 
             throw new Exception("MustBeChange");

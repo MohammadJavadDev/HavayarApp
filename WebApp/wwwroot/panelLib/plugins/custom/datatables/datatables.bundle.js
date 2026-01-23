@@ -5530,12 +5530,70 @@
 
 	function _fnSortAttachListener(settings, node, selector, column, callback) {
 		_fnBindAction(node, selector, function (e) {
+			// Only allow sorting when clicking on text or icon, not on empty header area
+			var target = e.target;
+			
+			// Handle text nodes - get the parent element if target is a text node
+			if (target.nodeType === 3) {
+				target = target.parentNode;
+			}
+			
+			var $target = $(target);
+			
+			// Check if clicking on elements that should not trigger sort
+			// (like filter icons, buttons, etc.)
+			if ($target.closest('.filter-icon, [data-bs-toggle="popover"], button, .dt-colmanager-handle').length) {
+				return;
+			}
+			
+			// Find the header cell (th or td) that contains the clicked element
+			var $headerCell = $target.closest('th, td');
+			if (!$headerCell.length) {
+				return;
+			}
+			
+			// If clicking directly on the header cell itself (not a child element), prevent sort
+			// This prevents sorting when clicking on empty padding/margin areas of the header
+			if (target === $headerCell[0]) {
+				return;
+			}
+			
 			var run = false;
 			var columns = column === undefined
 				? _fnColumnsFromHeader(e.target)
 				: [column];
 
+			// Fix column index when ColManager is active and columns have been reordered
+			// After reordering, aoColumns array is rearranged, so visual position = aoColumns index
+			// but data-dt-column attribute still points to the original index
+			// We need to use the visual position (current position in DOM) as the column index
+			if (columns.length && typeof DataTable.ColManager !== 'undefined') {
+				// Get the visual position from the DOM
+				var $headerRow = $headerCell.closest('tr');
+				var visualIndex = $headerRow.children('th, td').index($headerCell);
+				
+				// After reordering, aoColumns[visualIndex] is the column at visual position visualIndex
+				// So we should use visualIndex directly as the column index for sorting
+				if (visualIndex >= 0 && visualIndex < settings.aoColumns.length) {
+					// Check if column order has been changed by ColManager
+					var hasReordering = false;
+					for (var c = 0; c < settings.aoColumns.length; c++) {
+						if (settings.aoColumns[c]._ColMgr_InitIdx !== undefined && 
+							settings.aoColumns[c]._ColMgr_InitIdx !== c) {
+							hasReordering = true;
+							break;
+						}
+					}
+					
+					// If reordering is active, use visual index instead of data-dt-column
+					if (hasReordering) {
+						columns = [visualIndex];
+					}
+				}
+			}
+
 			if (columns.length) {
+				 
 				for (var i = 0, ien = columns.length; i < ien; i++) {
 					var ret = _fnSortAdd(settings, columns[i], i, e.shiftKey);
 
@@ -5840,6 +5898,8 @@
 	 *  @memberof DataTable#oApi
 	 */
 	function _fnSortAdd(settings, colIdx, addIndex, shift) {
+	  
+ 
 		var col = settings.aoColumns[colIdx];
 		var sorting = settings.aaSorting;
 		var asSorting = col.asSorting;
@@ -12664,7 +12724,7 @@
 					if (indexes[0] == firstVis) {
 						var firstSort = sorting[0];
 						var sortOrder = col.asSorting;
-
+							 
 						cell.attr('aria-sort', firstSort.dir === 'asc' ? 'ascending' : 'descending');
 
 						// Determine if the next click will remove sorting or change the sort
@@ -20603,5 +20663,722 @@
 
 	return DataTable;
 }));
-
  
+ /*! DataTables ColManager v2.0.0
+ * Column Resize & Reorder Manager for DataTables 2.x
+ * Supports RTL, Multiple Tables, Hidden Columns
+ */
+(function ($, window, document) {
+    'use strict';
+
+    var ColManager = function (settings, opts) {
+        if (!$.fn.dataTable.versionCheck || !$.fn.dataTable.versionCheck('2.0.0')) {
+            throw 'ColManager requires DataTables 2.0.0 or newer';
+        }
+
+        this.settings = settings;
+        this.opts = $.extend(true, {}, ColManager.defaults, opts);
+        
+        // ایجاد شناسه یکتا برای هر instance
+        this.instanceId = 'dt_colmgr_' + Math.random().toString(36).substr(2, 9);
+        settings._colManagerId = this.instanceId;
+
+        this.state = {
+            widths: {},
+            order: []
+        };
+        this.storage = null;
+
+        if (this.opts.dataProfileId && typeof SettingsManager !== 'undefined') {
+            var storageKey = 'DT_Manager_V9_' + this.opts.dataProfileId;
+            this.storage = new SettingsManager(storageKey);
+        }
+
+        this._init();
+    };
+
+    ColManager.defaults = {
+        resize: true,
+        reorder: true,
+        minWidth: 100,
+        defaultWidth: 100,
+        handleWidth: 10,
+	    hoverColor: 'var(--bs-primary)',
+        rtl: null,
+        dataProfileId: null
+    };
+
+    $.extend(ColManager.prototype, {
+        _init: function () {
+            var that = this;
+            var dt = this.settings;
+
+            // 0. اختصاص شناسه ثابت به ستون‌ها (شامل visible و hidden)
+            $.each(dt.aoColumns, function(i, col) {
+                if (col._ColMgr_InitIdx === undefined) {
+                    col._ColMgr_InitIdx = i;
+                }
+            });
+
+            // 1. بارگذاری و اعمال ترتیب
+            if (this.storage) {
+                var loadedState = this.storage.get('tableState');
+                if (loadedState) {
+                    this.state = $.extend(true, {}, this.state, loadedState);
+                    if (this.state.order && this.state.order.length > 0) {
+                        this._applySavedOrder(this.state.order);
+                    }
+                }
+            }
+
+            this._injectStyles();
+            $(dt.nTable).addClass('dt-colmanager-table');
+
+            // نصب event handlerها فقط برای این جدول
+            this._setupInstanceEvents();
+
+            // 2. اجرای اولیه
+		    $(dt.nTable).on('draw.dt.colManager', function () {
+			  debugger
+                that._restoreWidths();
+                that._ensureHandles();
+            });
+
+            setTimeout(function() {
+                that._restoreWidths();
+                that._ensureHandles();
+                if(dt.oFeatures.bAutoWidth !== false) {
+                    dt.oFeatures.bAutoWidth = false;
+                    new DataTable.Api(dt).columns.adjust();
+                }
+            }, 50);
+        },
+
+        _isRtl: function () {
+            if (this.opts.rtl !== null) return this.opts.rtl;
+            var dt = this.settings;
+            return $(dt.nTable).css('direction') === 'rtl' || 
+                   $(dt.nTable).parents('[dir="rtl"]').length > 0 || 
+                   $('body').css('direction') === 'rtl';
+        },
+
+        _injectStyles: function () {
+            if ($('#dt-colmanager-style').length) return;
+            
+            var css = `
+                table.dataTable.dt-colmanager-table {
+                    table-layout: fixed !important;
+                   
+                    border-collapse: collapse !important;
+                }
+                table.dataTable.dt-colmanager-table th, 
+                table.dataTable.dt-colmanager-table td {
+                    overflow: hidden;
+                    white-space: nowrap;
+                    text-overflow: ellipsis;
+                    box-sizing: border-box !important;
+                }
+                .dt-colmanager-handle {
+                    position: absolute;
+                    top: 0; bottom: 0;
+                    width: ${this.opts.handleWidth}px;
+                    cursor: col-resize;
+                    z-index: 1000;
+                    touch-action: none;
+                }
+                .dt-colmanager-handle:not(.dt-handle-rtl) { right: 0; transform: translateX(50%); }
+                .dt-colmanager-handle.dt-handle-rtl { left: 0; right: auto; transform: translateX(-50%); }
+                .dt-colmanager-handle:hover, .dt-colmanager-active { background-color: ${this.opts.hoverColor}; }
+                
+                .dt-col-placeholder {
+                    background-color: #f2f2f2 !important;
+                    border: 2px dashed #aaa !important;
+                    color: transparent !important;
+                }
+                .dt-reorder-helper {
+                    position: absolute;
+                    z-index: 10001;
+                    opacity: 0.9;
+                    cursor: move;
+                    pointer-events: none;
+                    box-shadow: 4px 4px 15px rgba(0,0,0,0.4);
+                    border: 1px solid #777;
+                    background: #fff;
+                    white-space: nowrap;
+                    display: flex; align-items: center; padding: 0 5px;
+                }
+                body.dt-no-select { user-select: none !important; cursor: col-resize !important; }
+                body.dt-move-cursor { user-select: none !important; cursor: move !important; }
+            `;
+            $('<style id="dt-colmanager-style">' + css + '</style>').appendTo('head');
+        },
+
+        // Event handling مخصوص این instance
+        _setupInstanceEvents: function() {
+            var that = this;
+            var dt = this.settings;
+            var $table = $(dt.nTable);
+            var $wrapper = $(dt.nTableWrapper);
+
+            // جلوگیری از سورت روی handle
+            $wrapper.on('click.colManager_' + this.instanceId, '.dt-colmanager-handle', function(e) {
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                e.stopImmediatePropagation();
+                return false;
+            });
+
+            // ریسایز - فقط روی handleهای این جدول
+            $wrapper.on('mousedown.colManager_' + this.instanceId, '.dt-colmanager-handle', function(e) {
+                if(e.which !== 1) return;
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                var th = $(this).parent();
+                var visualIndex = th.index(); // اندیس بصری (فقط ستون‌های visible)
+                var isRtl = that._isRtl();
+                
+                that._startResize(e, th, visualIndex, isRtl);
+            });
+
+            // درگ و جابجایی - فقط روی headerهای این جدول
+            $wrapper.on('mousedown.colManager_' + this.instanceId, 'thead th', function(e) {
+                if(e.which !== 1) return;
+                if ($(e.target).hasClass('dt-colmanager-handle')) return;
+                
+                var th = $(this);
+                var startX = e.pageX;
+                
+                var mouseMoveDetect = function(moveE) {
+                    if (Math.abs(moveE.pageX - startX) > 5) { 
+                        $(document).off('mousemove.detect_' + that.instanceId);
+                        
+                        var isRtl = that._isRtl();
+                        var visualIdx = th.index();
+                        that._startReorder(e, th, visualIdx, isRtl);
+                    }
+                };
+
+                var mouseUpDetect = function() {
+                    $(document).off('mousemove.detect_' + that.instanceId);
+                    $(document).off('mouseup.detect_' + that.instanceId);
+                };
+
+                $(document).on('mousemove.detect_' + that.instanceId, mouseMoveDetect);
+                $(document).on('mouseup.detect_' + that.instanceId, mouseUpDetect);
+            });
+        },
+
+        _ensureHandles: function() {
+            var that = this;
+            var dt = this.settings;
+            var isRtl = this._isRtl();
+            var headerContainer = dt.nScrollHead ? $(dt.nScrollHead).find('thead') : $(dt.nTHead);
+
+            $(headerContainer).find('tr').last().find('th, td').each(function () {
+                var th = $(this);
+                if (th.find('.dt-colmanager-handle').length === 0 && that.opts.resize) {
+                    var handle = $('<div class="dt-colmanager-handle"></div>');
+                    if (isRtl) handle.addClass('dt-handle-rtl');
+                    handle.appendTo(th);
+                }
+            });
+        },
+
+        // تبدیل اندیس بصری به اندیس واقعی (با احتساب hidden columns)
+        _visualToActualIndex: function(visualIndex) {
+            var dt = this.settings;
+            var actualIndex = 0;
+            var visibleCount = -1;
+            
+            for (var i = 0; i < dt.aoColumns.length; i++) {
+                if (dt.aoColumns[i].bVisible !== false) {
+                    visibleCount++;
+                    if (visibleCount === visualIndex) {
+                        actualIndex = i;
+                        break;
+                    }
+                }
+            }
+            return actualIndex;
+        },
+
+        // تبدیل اندیس واقعی به اندیس بصری
+        _actualToVisualIndex: function(actualIndex) {
+            var dt = this.settings;
+            var visualIndex = 0;
+            
+            for (var i = 0; i < actualIndex; i++) {
+                if (dt.aoColumns[i].bVisible !== false) {
+                    visualIndex++;
+                }
+            }
+            return visualIndex;
+        },
+
+        _startResize: function (e, th, visualIndex, isRtl) {
+            var that = this;
+            var dt = this.settings;
+            var startX = e.pageX;
+            var startWidth = th[0].getBoundingClientRect().width;
+            var handle = $(e.target);
+            var animationFrameId;
+            
+            // پیدا کردن اندیس واقعی ستون
+            var actualIndex = this._visualToActualIndex(visualIndex);
+            
+            var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+            var $bodyTable = dt.nScrollBody ? $(dt.nScrollBody).find('table') : $(dt.nTable);
+            var $headerCol = $headerTable.find('colgroup col').eq(visualIndex);
+            var $bodyCol = $bodyTable.find('colgroup col').eq(visualIndex);
+            var startTableWidth = $headerTable.outerWidth();
+
+            handle.addClass('dt-colmanager-active');
+            $('body').addClass('dt-no-select');
+
+            var moveHandler = function (moveEvent) {
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                animationFrameId = requestAnimationFrame(function() {
+                    var diff = moveEvent.pageX - startX;
+                    if (isRtl) diff = -diff;
+                    
+                    var newWidth = Math.max(that.opts.minWidth, startWidth + diff);
+                    newWidth = Math.round(newWidth);
+                    var widthStyle = newWidth + 'px';
+
+                    th.css({ 'width': widthStyle, 'min-width': widthStyle });
+                    if ($headerCol.length) $headerCol.css('width', widthStyle);
+                    if ($bodyCol.length) $bodyCol.css('width', widthStyle);
+                    
+                    var newTableWidth = Math.max(startTableWidth + diff, 100);
+                    $headerTable.css('width', newTableWidth + 'px');
+                    if(dt.nScrollBody) $bodyTable.css('width', newTableWidth + 'px');
+                });
+            };
+
+            var upHandler = function (upEvent) {
+                $(document).off('mousemove.colResize_' + that.instanceId, moveHandler);
+                $(document).off('mouseup.colResize_' + that.instanceId, upHandler);
+                $('body').removeClass('dt-no-select');
+                handle.removeClass('dt-colmanager-active');
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+                var finalDiff = upEvent.pageX - startX;
+                if (isRtl) finalDiff = -finalDiff;
+                var finalWidth = Math.max(that.opts.minWidth, startWidth + finalDiff);
+                finalWidth = Math.round(finalWidth);
+                
+                var api = new DataTable.Api(dt);
+                dt.oFeatures.bAutoWidth = false;
+
+                var colObj = dt.aoColumns[actualIndex];
+                
+                if (colObj) {
+                    var storageId = colObj._ColMgr_InitIdx;
+                    that.state.widths[storageId] = finalWidth;
+                    that._saveState();
+
+                    colObj.sWidth = finalWidth + 'px';
+                    colObj.width = finalWidth + 'px';
+                    
+                    that._restoreWidths();
+                }
+            };
+
+            $(document).on('mousemove.colResize_' + this.instanceId, moveHandler);
+            $(document).on('mouseup.colResize_' + this.instanceId, upHandler);
+        },
+
+        _startReorder: function (e, th, visualFromIndex, isRtl) {
+            var that = this;
+            var dt = this.settings;
+            var headerContainer = $(th).parent();
+            
+            e.preventDefault(); 
+            e.stopPropagation();
+            $('body').addClass('dt-move-cursor');
+
+            var helper = th.clone();
+            helper.find('.dt-colmanager-handle').remove();
+            var computed = window.getComputedStyle(th[0]);
+            helper.css({
+                width: th.outerWidth(),
+                height: th.outerHeight(),
+                backgroundColor: computed.backgroundColor,
+                color: computed.color,
+                font: computed.font,
+                position: 'absolute',
+                top: e.pageY - 15, 
+                left: e.pageX - 15
+            });
+            helper.addClass('dt-reorder-helper').appendTo('body');
+            th.addClass('dt-col-placeholder');
+
+            var animationFrameId;
+            var headers = [];
+            
+            function updateHeadersCache() {
+                headers = [];
+                headerContainer.children('th, td').each(function(idx, el) {
+                    var rect = el.getBoundingClientRect();
+                    headers.push({ index: idx, el: el, left: rect.left, right: rect.right });
+                });
+            }
+            updateHeadersCache();
+
+            var moveHandler = function (moveE) {
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                animationFrameId = requestAnimationFrame(function() {
+                    helper.css({ top: moveE.pageY - 15, left: moveE.pageX - 15 });
+                    var mouseX = moveE.clientX;
+                    var currentIndex = th.index();
+                    
+                    for (var i = 0; i < headers.length; i++) {
+                        var h = headers[i];
+                        if (mouseX >= h.left && mouseX <= h.right) {
+                            if (h.index !== currentIndex) {
+                                if (h.index > currentIndex) { 
+                                    $(h.el).after(th); 
+                                } else { 
+                                    $(h.el).before(th); 
+                                }
+                                updateHeadersCache();
+                            }
+                            break;
+                        }
+                    }
+                });
+            };
+
+            var upHandler = function (upE) {
+                $(document).off('mousemove.colReorder_' + that.instanceId, moveHandler);
+                $(document).off('mouseup.colReorder_' + that.instanceId, upHandler);
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+                $('body').removeClass('dt-move-cursor');
+                helper.remove();
+                th.removeClass('dt-col-placeholder');
+
+                var visualToIndex = th.index();
+                if (visualFromIndex !== visualToIndex) {
+                    // تبدیل اندیس‌های بصری به واقعی
+                    var actualFromIndex = that._visualToActualIndex(visualFromIndex);
+                    var actualToIndex = that._visualToActualIndex(visualToIndex);
+                    
+                    that._performReorder(actualFromIndex, actualToIndex);
+                }
+            };
+
+            $(document).on('mousemove.colReorder_' + this.instanceId, moveHandler);
+            $(document).on('mouseup.colReorder_' + this.instanceId, upHandler);
+        },
+
+        _performReorder: function (from, to) {
+            var dt = this.settings;
+            var api = new DataTable.Api(dt);
+            
+            // 1. جابجایی در aoColumns
+            var col = dt.aoColumns.splice(from, 1)[0];
+            dt.aoColumns.splice(to, 0, col);
+            for (var i = 0; i < dt.aoColumns.length; i++) {
+                dt.aoColumns[i].idx = i;
+            }
+
+            // 2. جابجایی سلول‌ها در aoData
+            for (var i = 0; i < dt.aoData.length; i++) {
+                var rowData = dt.aoData[i];
+                if (rowData.anCells) {
+                    var cell = rowData.anCells.splice(from, 1)[0];
+                    rowData.anCells.splice(to, 0, cell);
+                    
+                    var tr = rowData.nTr;
+                    if (tr) {
+                        var cells = $(tr).children('td, th').toArray();
+                        var cellToMove = cells[from];
+                        
+                        // حذف سلول از موقعیت فعلی
+                        $(cellToMove).detach();
+                        
+                        // اضافه کردن به موقعیت جدید
+                        if (to >= cells.length - 1) {
+                            $(tr).append(cellToMove);
+                        } else if (to === 0) {
+                            $(tr).prepend(cellToMove);
+                        } else {
+                            var targetCell = cells[to > from ? to : to];
+                            $(targetCell).before(cellToMove);
+                        }
+                    }
+                }
+            }
+
+            // 3. جابجایی در aoHeader
+            $.each(dt.aoHeader, function (i, row) {
+                var cell = row.splice(from, 1)[0];
+                row.splice(to, 0, cell);
+            });
+
+            // 4. آپدیت اندیس‌های مرتب‌سازی
+            this._updateDataSortIndexes(dt);
+
+            // 5. ذخیره ترتیب جدید
+            var newOrder = [];
+            for(var i = 0; i < dt.aoColumns.length; i++) {
+                newOrder.push(dt.aoColumns[i]._ColMgr_InitIdx);
+            }
+            
+            this.state.order = newOrder;
+            this._saveState();
+
+            this._ensureHandles();
+            this._restoreWidths();
+            api.rows().invalidate('dom');
+
+            // 6. آپدیت آیکون‌های مرتب‌سازی
+            dt.sortDetails = this._getSortDetails(dt);
+            $(dt.nTable).trigger('order.dt', [dt]);
+        },
+
+        _updateDataSortIndexes: function (dt) {
+            var initIdxToCurrentIdx = {};
+            for (var i = 0; i < dt.aoColumns.length; i++) {
+                var col = dt.aoColumns[i];
+                if (col._ColMgr_InitIdx !== undefined) {
+                    initIdxToCurrentIdx[col._ColMgr_InitIdx] = i;
+                }
+            }
+            
+            for (var i = 0; i < dt.aoColumns.length; i++) {
+                var col = dt.aoColumns[i];
+                if (col.aDataSort && col.aDataSort.length > 0) {
+                    var newDataSort = [];
+                    for (var j = 0; j < col.aDataSort.length; j++) {
+                        var oldIdx = col.aDataSort[j];
+                        var newIdx = oldIdx;
+                        for (var k = 0; k < dt.aoColumns.length; k++) {
+                            if (dt.aoColumns[k]._ColMgr_InitIdx === oldIdx) {
+                                newIdx = k;
+                                break;
+                            }
+                        }
+                        newDataSort.push(newIdx);
+                    }
+                    col.aDataSort = newDataSort;
+                }
+            }
+
+            this._updateHeaderColumnAttributes(dt);
+        },
+
+        _updateHeaderColumnAttributes: function (dt) {
+            var headerContainer = dt.nScrollHead ? $(dt.nScrollHead).find('thead') : $(dt.nTHead);
+            var headerRows = headerContainer.find('tr');
+            
+            headerRows.each(function() {
+                var cells = $(this).children('th, td');
+                cells.each(function(index) {
+                    $(this).attr('data-dt-column', index);
+                });
+            });
+        },
+
+        _getSortDetails: function (dt) {
+            if (!dt.aaSorting || dt.aaSorting.length === 0) {
+                return null;
+            }
+
+            var aSort = [];
+            var DataTable = $.fn.dataTable;
+            var extSort = DataTable.ext.type.order;
+
+            for (var i = 0; i < dt.aaSorting.length; i++) {
+                var sortItem = dt.aaSorting[i];
+                var colIdx = sortItem[0];
+                var dir = sortItem[1];
+                var col = dt.aoColumns[colIdx];
+
+                if (col) {
+                    aSort.push({
+                        src: colIdx,
+                        col: colIdx,
+                        dir: dir,
+                        index: sortItem._idx || 0,
+                        type: col.sType || 'string',
+                        formatter: extSort[(col.sType || 'string') + "-pre"],
+                        sorter: extSort[(col.sType || 'string') + "-" + dir]
+                    });
+                }
+            }
+
+            return aSort.length > 0 ? aSort : null;
+        },
+
+        _applySavedOrder: function (orderArr) {
+            var dt = this.settings;
+            if(orderArr.length !== dt.aoColumns.length) return;
+
+            var i;
+            var cols = [];
+            var origCols = dt.aoColumns.slice();
+
+            // 1. بازسازی aoColumns
+            for(i = 0; i < orderArr.length; i++) {
+                var originalIdx = orderArr[i];
+                var colDef = origCols[originalIdx];
+                colDef.idx = i;
+                cols.push(colDef);
+            }
+            dt.aoColumns = cols;
+
+            // 2. بازسازی DOM Header
+            var thead = $(dt.nTHead);
+            var headerRow = thead.find('tr').first();
+            var headerCells = headerRow.children('th, td').toArray();
+            if(headerCells.length === orderArr.length) {
+                headerRow.empty();
+                for(i = 0; i < orderArr.length; i++) {
+                    headerRow.append(headerCells[orderArr[i]]);
+                }
+            }
+            
+            // 3. بازسازی aoHeader Cache
+            $.each(dt.aoHeader, function (k, row) {
+                var rowCopy = row.slice();
+                for(i = 0; i < orderArr.length; i++) {
+                    row[i] = rowCopy[orderArr[i]];
+                }
+            });
+
+            // 4. بازسازی DOM Body
+            if (dt.aoData.length > 0) {
+                for (var r = 0; r < dt.aoData.length; r++) {
+                    var rowData = dt.aoData[r];
+                    if (rowData.nTr) {
+                        var cells = $(rowData.nTr).children('td, th').toArray();
+                        if (cells.length === orderArr.length) {
+                            $(rowData.nTr).empty();
+                            for (var j = 0; j < orderArr.length; j++) {
+                                var originalIdx = orderArr[j];
+                                $(rowData.nTr).append(cells[originalIdx]);
+                            }
+                            
+                            if (rowData.anCells) {
+                                var newAnCells = [];
+                                for (var j = 0; j < orderArr.length; j++) {
+                                    newAnCells.push(rowData.anCells[orderArr[j]]);
+                                }
+                                rowData.anCells = newAnCells;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 5. آپدیت اندیس‌های مرتب‌سازی
+            this._updateDataSortIndexes(dt);
+
+            // 6. آپدیت آیکون‌های مرتب‌سازی
+            dt.sortDetails = this._getSortDetails(dt);
+            $(dt.nTable).trigger('order.dt', [dt]);
+        },
+
+	    _restoreWidths: function () {
+		   debugger
+            var that = this;
+            var dt = this.settings;
+            var api = new DataTable.Api(dt);
+            
+            var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+            var $bodyTable = dt.nScrollBody ? $(dt.nScrollBody).find('table') : $(dt.nTable);
+
+            $headerTable.find('colgroup').remove();
+            $bodyTable.find('colgroup').remove();
+
+            var colgroupHtml = '<colgroup>';
+            var totalWidth = 0;
+
+            api.columns().every(function(actualIdx) {
+                var colDef = dt.aoColumns[actualIdx];
+                
+                // فقط ستون‌های visible
+                if(colDef.bVisible !== false) {
+                    var initIdx = colDef._ColMgr_InitIdx;
+                    var w = that.state.widths[initIdx];
+                    
+                    if (!w) w = that.opts.defaultWidth;
+                    
+                    colgroupHtml += '<col style="width:' + w + 'px">';
+                    totalWidth += parseInt(w);
+                    
+                    var th = $(this.header());
+                    if (th.length) {
+                        th.css({ 
+                            'width': w + 'px', 
+                            'min-width': w + 'px', 
+                            'max-width': w + 'px', 
+                            'box-sizing': 'border-box' 
+                        });
+                    }
+                }
+            });
+            colgroupHtml += '</colgroup>';
+
+            $headerTable.prepend(colgroupHtml);
+            if(dt.nScrollBody) $bodyTable.prepend(colgroupHtml);
+            
+            $headerTable.css('width', totalWidth + 'px');
+            if(dt.nScrollBody) $bodyTable.css('width', totalWidth + 'px');
+        },
+        
+        _saveState: function () {
+            if (this.storage) {
+                this.storage.set('tableState', this.state);
+            }
+        },
+
+        // متد destroy برای پاکسازی
+        destroy: function() {
+            var dt = this.settings;
+            var $wrapper = $(dt.nTableWrapper);
+            
+            // حذف event handlerها
+            $wrapper.off('.colManager_' + this.instanceId);
+            $(document).off('.colResize_' + this.instanceId);
+            $(document).off('.colReorder_' + this.instanceId);
+            $(document).off('.detect_' + this.instanceId);
+            
+            // حذف handleها
+            $(dt.nTable).find('.dt-colmanager-handle').remove();
+            
+            // حذف classها
+            $(dt.nTable).removeClass('dt-colmanager-table');
+            
+            delete dt._colManagerId;
+        }
+    });
+
+    // ثبت feature در DataTables
+    DataTable.ext.feature.push({
+        fnInit: function (settings) {
+            var init = settings.oInit.colManager || settings.oInit.colResize;
+            if (init) {
+                new DataTable.ColManager(settings, typeof init === 'object' ? init : {});
+            }
+            return null;
+        },
+        cFeature: "J", 
+        sFeature: "ColManager"
+    });
+
+    $(document).on('init.dt.colManager', function (e, settings) {
+        if (e.namespace !== 'dt') return;
+        var init = settings.oInit.colManager || settings.oInit.colResize;
+        if (init && !settings._colManager) {
+            new ColManager(settings, typeof init === 'object' ? init : {});
+        }
+    });
+
+    DataTable.ColManager = ColManager;
+
+}(jQuery, window, document));

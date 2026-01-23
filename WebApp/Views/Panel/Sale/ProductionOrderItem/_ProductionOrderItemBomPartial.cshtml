@@ -1,0 +1,100 @@
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.App.Inv
+@model ProductionOrderItemBom
+
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
+
+	<div class="col-md-6">
+		<label class="required">کالا</label>
+		@(Html.EntitySelector<Part>(
+			"PartSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,
+				Name = c.Name,
+				Code = c.Code
+			},
+			c => new { c.Name, c.Code },
+			"{Name} {Code}",
+			"PartId",
+			"PartName",
+			Model?.PartId.ToString()
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label class="required">تعداد/مقدار</label>
+		<input class="form-control" data-bind="amount" asp-for="Amount" 
+			data-invalidMessage="فقط عدد" 
+			data-inputmask="'regex':'^[\u06F0-\u06F90-9.]+$' , 'placeholder' : ''" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>نسخه</label>
+		<input class="form-control" data-bind="revision" asp-for="Revision" 
+			data-invalidMessage="فقط عدد" 
+			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>تعداد تامین شده</label>
+		<input class="form-control" data-bind="numberSupplied" asp-for="NumberSupplied" 
+			data-invalidMessage="فقط عدد" 
+			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>مرحله ساخت</label>
+		<select class="form-control" data-bind="productionStep" asp-for="ProductionStep"
+			asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemBomProductionStepEnum))">
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>وضعیت</label>
+		<select class="form-control" data-bind="status" asp-for="Status"
+			asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemBomEnum))">
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6 align-content-center">
+		<div class="form-check">
+			<input data-bind="isLatest" class="form-check-input" type="checkbox" asp-for="IsLatest" />
+			<label class="form-check-label" asp-for="IsLatest">
+				آخرین نسخه
+			</label>
+		</div>
+	</div>
+
+	<div class="col-md-6 align-content-center">
+		<div class="form-check">
+			<input data-bind="needsAVL" class="form-check-input" type="checkbox" asp-for="NeedsAVL" />
+			<label class="form-check-label" asp-for="NeedsAVL">
+				نیاز به AVL دارد
+			</label>
+		</div>
+	</div>
+
+	<div class="col-md-12">
+		<label>توضیحات</label>
+		<textarea class="form-control" data-bind="description" asp-for="Description" rows="3"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-12">
+		<label>توضیحات واحد فروش</label>
+		<textarea class="form-control" data-bind="saleUnitDetails" asp-for="SaleUnitDetails" rows="3"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+</div>
