@@ -1,0 +1,123 @@
+@using Entities.App.Prd
+@using Entities.App.Prd.Enums
+@using Entities.App.Hrm
+@using Entities.Auth
+@model StopRequst
+
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
+	<input type="hidden" data-bind="stopReasonIds" value="@Model?.StopReasonIds" />
+	<input type="hidden" data-bind="stopReasonTitles" value="@Model?.StopReasonTitles" />
+
+	<div class="col-md-6">
+		<label class="required">تاریخ شروع توقف</label>
+		<input class="form-control" data-bind="stopStartDate" data-persionDatePicker="true"
+			persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
+			value="@Model?.StopStartMiladiDateTime" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label class="required">محل مشاهده</label>
+		<select class="form-control" data-bind="observationLocation" asp-for="ObservationLocation"
+			asp-items="Html.GetEnumSelectList(typeof(StopRequstObservationLocationEnum))">
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label class="required">وضعیت تولید</label>
+		<select class="form-control" data-bind="productionStatus" asp-for="ProductionStatus"
+			asp-items="Html.GetEnumSelectList(typeof(StopRequstProductionStatusEnum))">
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>ساعت کارکرد دستگاه</label>
+		<input class="form-control" data-bind="operatingHours" asp-for="OperatingHours"
+			data-invalidMessage="فقط عدد"
+			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-12">
+		<label>علت توقف</label>
+		<select class="form-control stopReasonSelect" id="stopReasonSelectModal" multiple
+			asp-items="Html.GetEnumSelectList(typeof(StopRequstStopReasonEnum))">
+			@if (!string.IsNullOrWhiteSpace(Model?.StopReasonIds))
+			{
+				var reasons = Model.StopReasonIds.Split(',');
+				foreach (var reason in reasons)
+				{
+					<option value="@reason" selected>@reason</option>
+				}
+			}
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-12">
+		<label>واحد های مسئول توقف</label>
+		@(Html.EntitySelector<OrgUnit>(
+			"ResponsibleUnitIdsSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,
+				Title = c.Title
+			},
+			c => new { c.Title },
+			"{Title}",
+			"ResponsibleUnitIds",
+			"ResponsibleUnitTitles",
+			Model?.ResponsibleUnitIds?.ToString(),
+			false,
+			true
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>مسئول های توقف</label>
+		@(Html.EntitySelector<User>(
+			"ResponsibleUserIdsSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,
+				Name = c.Name
+			},
+			c => new { c.Name },
+			"{Name}",
+			"ResponsibleUserIds",
+			"ResponsibleUserNames",
+			Model?.ResponsibleUserIds?.ToString(),
+			false,
+			true
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-6">
+		<label>ذینفعان</label>
+		@(Html.EntitySelector<User>(
+			"BeneficiarieUserIdsSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,
+				Name = c.Name
+			},
+			c => new { c.Name },
+			"{Name}",
+			"BeneficiarieUserIds",
+			"BeneficiarieUserNames",
+			Model?.BeneficiarieUserIds?.ToString(),
+			false,
+			true
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

@@ -260,7 +260,23 @@ namespace WebApp.Controllers.Dynamic
 	{
 		if (comment.Id == null || comment.Id == 0)
 		{
+				var productionOrderItem = await unitOfWork.Repository<ProductionOrderItem>()
+						.TableNoTracking
+						.Select(c=>new {c.Id , c.ProductionStatus})
+						.FirstOrDefaultAsync(c => c.Id == comment.ProductionOrderItemId);
+
+				if(comment.ProductionStatus == productionOrderItem.ProductionStatus)
+				{
+					throw new Exception("وضعیت جدید نمیتواند با وضعیت فعلی یکی باشد.");
+				}
+
 			var entity = await unitOfWork.Repository<ProductionOrderItemComment>().SaveAsync(comment, cn, true);
+
+				 unitOfWork.Repository<ProductionOrderItem>()
+					.UpdateFields(productionOrderItem.Id,
+					c => c.ProductionStatus,
+					comment.ProductionStatus);
+
 			return Ok(entity);
 		}
 		else
@@ -280,6 +296,49 @@ namespace WebApp.Controllers.Dynamic
 			.ToList();
 
 		return PartialView(@"\Views\Panel\Sale\ProductionOrderItem\_ProductionOrderItemCommentListPartial.cshtml", comments);
+	}
+
+	[HttpGet("[action]")]
+	public IActionResult StopRequestPartial(long? id, long productionOrderItemId)
+	{
+		if (id != null && id > 0)
+		{
+			var stopRequest = unitOfWork.Repository<Entities.App.Prd.StopRequst>()
+				.TableNoTracking
+				.FirstOrDefault(c => c.Id == id);
+			return PartialView(@"\Views\Panel\Sale\ProductionOrderItem\_StopRequestPartial.cshtml", stopRequest);
+		}
+
+		var newStopRequest = new Entities.App.Prd.StopRequst { ProductionOrderItemId = productionOrderItemId };
+		return PartialView(@"\Views\Panel\Sale\ProductionOrderItem\_StopRequestPartial.cshtml", newStopRequest);
+	}
+
+	[HttpPost("[action]")]
+	[ActionDisplayName("ذخیره توقف", ActionAccessType.Api)]
+	public async Task<IActionResult> SaveStopRequest(Entities.App.Prd.StopRequst stopRequest, CancellationToken cn)
+	{
+		if (stopRequest.Id == null || stopRequest.Id == 0)
+		{
+			var entity = await unitOfWork.Repository<Entities.App.Prd.StopRequst>().SaveAsync(stopRequest, cn, true);
+			return Ok(entity);
+		}
+		else
+		{
+			var entity = await unitOfWork.Repository<Entities.App.Prd.StopRequst>().UpdateAsync(stopRequest, cn, true);
+			return Ok(entity);
+		}
+	}
+
+	[HttpGet("[action]")]
+	public IActionResult StopRequestListPartial(long productionOrderItemId)
+	{
+		var stopRequests = unitOfWork.Repository<Entities.App.Prd.StopRequst>()
+			.TableNoTracking
+			.Where(c => c.ProductionOrderItemId == productionOrderItemId)
+			.OrderByDescending(c => c.StopStartMiladiDateTime)
+			.ToList();
+
+		return PartialView(@"\Views\Panel\Sale\ProductionOrderItem\_StopRequestListPartial.cshtml", stopRequests);
 	}
 }
 

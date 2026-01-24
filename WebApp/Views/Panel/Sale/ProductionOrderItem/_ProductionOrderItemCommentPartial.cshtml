@@ -1,3 +1,4 @@
+@using Entities.App.Qc
 @using Entities.App.Sale
 @using Entities.App.Sale.Enums
 @using Entities.Auth
@@ -34,24 +35,25 @@
 	<div class="col-md-6">
 		<label>علت های خرابی</label>
 
-		@(Html.EntitySelector<User>
+		@(Html.EntitySelector<FailureType>
 				(
-				"CcReciversIds",
+				"FailureTypes",
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
 				c => new
 				{
 					Id = c.Id,
-					Name = c.Name,
+					Title = c.Title,
 
 				},
-				c => new { c.Id, c.Name },
-				"{Name}",
+				c => new { c.Id, c.Title },
+				"{Title}",
 				"FailureTypeIds",
 				"FailureTypeNames",
-				Model?.CcReciversIds.ToString(),
+				Model?.FailureTypeIds?.ToString(),
+				false,
 				true
 				))
-		<input class="form-control" data-bind="failureTypeNames" asp-for="FailureTypeNames" />
+ 
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
@@ -77,7 +79,8 @@
 				"{Name}",
 				"CcReciversIds",
 				"CcReciversNames",
-				Model?.CcReciversIds.ToString(),
+				Model?.CcReciversIds?.ToString(),
+				false,
 				true
 				))
 

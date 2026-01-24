@@ -7,7 +7,7 @@
 	<input type="hidden" data-bind="id" value="@Model?.Id" />
 	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
 
-	<div class="col-md-6">
+	<div class="col-md-12">
 		<label class="required">کالا</label>
 		@(Html.EntitySelector<Part>(
 			"PartSelector",
@@ -50,6 +50,9 @@
 			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" />
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
+
+	<div class="col-md-6">
+		</div>
 
 	<div class="col-md-6">
 		<label>مرحله ساخت</label>

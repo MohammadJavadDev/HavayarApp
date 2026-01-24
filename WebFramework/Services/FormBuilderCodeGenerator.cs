@@ -438,7 +438,7 @@ namespace WebFramework.Services
 			var displayName = formDefinition.DisplayName;
 			var module = formDefinition.Module;
 			var namespacePrefix = formDefinition.Namespace ?? $"Entities.App.{module}";
-			var prefixPath = "Panel";
+			var prefixPath = "Panel"+"/"+ formDefinition.Module;
 
 			var viewFolder = Path.Combine("Panel", module, entityName);
 			var listPath = $"\\Views\\{viewFolder}\\List.cshtml";

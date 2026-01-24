@@ -42,11 +42,41 @@ namespace Entities.App.Prd
 		[DisplayName("ساعت کارکرد دستگاه")]
 		[DisplayInfo(null, true, type: SystemType.Long)]
 		public long? OperatingHours { get; set; }
+		 
 
+		[DisplayName("شناسه های علت توقف")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? StopReasonIds { get; set; }
 
 		[DisplayName("علت توقف")]
-		[DisplayInfo(null, true, type: SystemType.String)]
-		public string? StoppingReason { get; set; }
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? StopReasonTitles { get; set; }
+
+		[DisplayName("شناسه های واحد های عامل توقف")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? ResponsibleUnitIds { get; set; }
+
+		[DisplayName("واحد های عامل توقف")]
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? ResponsibleUnitTitles { get; set; }
+
+
+		[DisplayName("شناسه های مسئولان های عامل توقف")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? ResponsibleUserIds { get; set; }
+
+		[DisplayName("مسئولان های عامل توقف")]
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? ResponsibleUserNames { get; set; }
+
+
+		[DisplayName("شناسه ذینفعان")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? BeneficiarieUserIds { get; set; }
+
+		[DisplayName("ذینفعان")]
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? BeneficiarieUserNames { get; set; }
 
 
 	}

@@ -9552,17 +9552,21 @@ if (typeof initItemsForms === 'function') {
 		}
 
 		updateIcons() {
-			 
-			const hasText = this.$input.val().length > 0;
-			const hasSelection = this.selectedItems.length > 0;
- 
-			if (hasText || hasSelection) {
-				this.$arrow.hide();
-				this.$clearBtn.show();
-			} else {
-				this.$arrow.show();
-				this.$clearBtn.hide();
+
+			if (this.$input.val() || this.selectedItems) {
+
+				const hasText = this.$input.val().length > 0;
+				const hasSelection = this.selectedItems.length > 0;
+
+				if (hasText || hasSelection) {
+					this.$arrow.hide();
+					this.$clearBtn.show();
+				} else {
+					this.$arrow.show();
+					this.$clearBtn.hide();
+				}
 			}
+			
 		}
 
 		onInput() {

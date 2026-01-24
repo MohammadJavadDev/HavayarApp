@@ -1,6 +1,8 @@
+@using Entities.App.Hrm
 @using Entities.App.Prd;
 @using Entities.App.Prd.Enums
 @using Entities.App.Sale;
+@using Entities.Auth
 @model StopRequst
 
 <div class="card">
@@ -8,6 +10,7 @@
 
 </div>
 <div class="card">
+
 	<div class="card-body row">
 		<div class="col-12 mb-4">
 			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
@@ -20,7 +23,8 @@
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
 				c => new
 				{
-					Id = c.Id, ProductionOrder_ProductionOrderNumber = c.ProductionOrder.ProductionOrderNumber
+					Id = c.Id,
+					ProductionOrder_ProductionOrderNumber = c.ProductionOrder.ProductionOrderNumber
 				},
 				c => new { c.ProductionOrder },
 				"{ProductionOrder.ProductionOrderNumber}",
@@ -33,7 +37,7 @@
 
 		<div class='col-md-6'>
 			<label class=''>تاریخ شروع توقف</label>
-			<input class='form-control'  data-bind='stopStartDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.StopStartMiladiDateTime' />
+			<input class='form-control'  data-bind='stopStartDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}' value='@Model?.StopStartMiladiDateTime' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -50,20 +54,83 @@
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-
-	 
-
+		 
 		<div class='col-md-6'>
 			<label class=''>ساعت کارکرد دستگاه</label>
 			<input class='form-control'  data-bind='operatingHours'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='OperatingHours' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-
-		<div class='col-md-6'>
+		<div class="col-md-6">
 			<label class=''>علت توقف</label>
-			<input class='form-control' data-bind='stoppingReason'  asp-for='StoppingReason' />
+			<select class='form-control' id="stopReasonSelect" multiple asp-items="Html.GetEnumSelectList(typeof(StopRequstStopReasonEnum))">
+
+			 </select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
+
+		<div class="col-md-6">
+			<label>واحد های مسئول توقف</label>
+			@(Html.EntitySelector<OrgUnit>(
+				 "ResponsibleUnitIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+				    Title = c.Title
+				},
+					 c => new { c.Title },
+				 "{Title}",
+				 "ResponsibleUnitIds",
+				"ResponsibleUnitTitles",
+						Model?.ResponsibleUnitIds?.ToString(),
+				false,
+				true
+			))
+			 
+		 </div>
+
+		 		<div class="col-md-6">
+			<label> مسئول های توقف</label>
+			@(Html.EntitySelector<User>(
+				 "ResponsibleUnitIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+							Name = c.Name
+				},
+						c => new { c.Name },
+				"{Name}",
+				"ResponsibleUserIds",
+				"ResponsibleUserNames",
+						Model?.ResponsibleUserIds?.ToString(),
+				false,
+				true
+			))
+			 
+		 </div>
+
+		 
+		 		<div class="col-md-6">
+			<label> ذینفعان</label>
+			@(Html.EntitySelector<User>(
+						"BeneficiarieUserIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+							Name = c.Name
+				},
+						c => new { c.Name },
+				"{Name}",
+						"BeneficiarieUserIds",
+						"BeneficiarieUserNames",
+						Model?.BeneficiarieUserIds?.ToString(),
+				false,
+				true
+			))
+			 
+		 </div>
 
 	</div>
 </div>
@@ -91,10 +158,15 @@
 </div>
 
 <script>
+
+	$$("#stopReasonSelect").select2();
+
 	function savefn($btnAction) {
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
 		const $btn = $(this.element).block();
+
+
 		$$.post('save',
 			model,
 			function (r) {

@@ -9,9 +9,13 @@
 	<div class="form-action-buttons">
 		<form-action-buttons entity-type="typeof(ProductionOrderItem)">
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-comment"
-				action-name="addComment" title="افزودن کامنت"></form-action-button>
+				action-name="addComment" title="تغییر وضعیت"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-list"
-				action-name="viewComments" title="لیست کامنت‌ها"></form-action-button>
+							action-name="viewComments" title="تاریخچه تغییر وضعیت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-stop-circle"
+				action-name="addStopRequest" title="ثبت توقف"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-clock"
+				action-name="viewStopRequests" title="لیست توقفات"></form-action-button>
 		</form-action-buttons>
 	</div>
 
@@ -20,13 +24,11 @@
 
 
 <div class="row my-3">
-	<div class="col-md-6">
-		<div class="card h-100">
+	<div class="col-md-12">
+		<div class="card ">
 			<div class="card-body row">
 
-
-			
-				<div class="col-md-3">
+				<div class="col-md-2">
 					<label class=''>سفارش ساخت</label>
 
 					@(Html.EntitySelector<ProductionOrder>(
@@ -52,9 +54,9 @@
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
-				<hr />
+				
 
-				<div class="col-md-12">
+				<div class="col-md-4">
 					<label class=''>کالا</label>
 
 					@(Html.EntitySelector<Part>(
@@ -79,9 +81,9 @@
 
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
-				<hr />
+				
 
-				<div class='col-md-4'>
+				<div class='col-md-2'>
 					<div class="d-flex align-items-center py-2">
 						<span class='text-muted me-2'>ساخت داخل:</span>
 						@if (Model?.IsBuildInside == true)
@@ -95,43 +97,43 @@
 					</div>
 				</div>
 
-				<div class='col-md-4'>
+				<div class='col-md-2'>
 					<div class="mb-3">
 						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع دستگاه</label>
 						<span class='fw-semibold fs-6' data-bind='deviceType'>@(Model?.DeviceType?.ToString() ?? "-")</span>
 					</div>
 				</div>
 
-				<div class='col-md-4'>
+				<div class='col-md-2'>
 					<div class="mb-3">
 						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع تجهیز</label>
 						<span class='fw-semibold fs-6' data-bind='equipmentType'>@(Model?.EquipmentType?.ToString() ?? "-")</span>
 					</div>
 				</div>
-				<hr />
+			 
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تعداد / مقدار</label>
 					<span class='fw-semibold fs-6' data-bind='amount'>@(Model?.Amount?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تاریخ تحویل توافقی</label>
 					<span class='fw-semibold fs-6' data-bind='agreedDeliverDate'>@(Model?.AgreedDeliverDate?.ToString("yyyy/MM/dd") ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نسخه</label>
 					<span class='fw-semibold fs-6' data-bind='revision'>@(Model?.Revision?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-				<div class='col-md-3'>
+				<div class='col-md-2'>
 					<div class="d-flex align-items-center py-2">
 						<span class='text-muted me-2'>آخرین نسخه:</span>
 						@if (Model?.IsLatestVersion == true)
@@ -145,14 +147,14 @@
 					</div>
 				</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">وضعیت بررسی</label>
 					<span class='fw-semibold fs-6' data-bind='checkStatus'>@(Model?.CheckStatus?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">ورژن</label>
 					<span class='fw-semibold fs-6' data-bind='version'>@(string.IsNullOrWhiteSpace(Model?.Version) ? "-" : Model?.Version)</span>
@@ -160,91 +162,91 @@
 			</div>
 
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">مدل</label>
 					<span class='fw-semibold fs-6' data-bind='partModel'>@(string.IsNullOrWhiteSpace(Model?.PartModel) ? "-" : Model?.PartModel)</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">ایرند / طبقه</label>
 					<span class='fw-semibold fs-6' data-bind='airendOrCategory'>@(string.IsNullOrWhiteSpace(Model?.AirendOrCategory) ? "-" : Model?.AirendOrCategory)</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">فشار ورودی</label>
 					<span class='fw-semibold fs-6' data-bind='inputPressureBar'>@(Model?.InputPressureBar?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">فشار خروجی</label>
 					<span class='fw-semibold fs-6' data-bind='outputPressureBar'>@(Model?.OutputPressureBar?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">ظرفیت</label>
 					<span class='fw-semibold fs-6' data-bind='capacity'>@(string.IsNullOrWhiteSpace(Model?.Capacity) ? "-" : Model?.Capacity)</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">مقیاس</label>
 					<span class='fw-semibold fs-6' data-bind='scale'>@(string.IsNullOrWhiteSpace(Model?.Scale) ? "-" : Model?.Scale)</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع گاز</label>
 					<span class='fw-semibold fs-6' data-bind='gasType'>@(string.IsNullOrWhiteSpace(Model?.GasType) ? "-" : Model?.GasType)</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">دمای بیشینه</label>
 					<span class='fw-semibold fs-6' data-bind='maximumTemperature'>@(Model?.MaximumTemperature?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">درصد خلوص</label>
 					<span class='fw-semibold fs-6' data-bind='purityPercentage'>@(Model?.PurityPercentage?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">رطوبت نسبی</label>
 					<span class='fw-semibold fs-6' data-bind='relativeHumidity'>@(Model?.RelativeHumidity?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">فشار بارومتریک</label>
 					<span class='fw-semibold fs-6' data-bind='barometricPressure'>@(Model?.BarometricPressure?.ToString() ?? "-")</span>
 				</div>
 			</div>
 
-			<div class='col-md-3'>
+			<div class='col-md-2'>
 				<div class="mb-3">
 					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع محرک</label>
 					<span class='fw-semibold fs-6' data-bind='movingType'>@(string.IsNullOrWhiteSpace(Model?.MovingType) ? "-" : Model?.MovingType)</span>
 				</div>
 			</div>
 
-				<div class='col-md-3'>
+				<div class='col-md-2'>
 					<div class="d-flex align-items-center py-2">
 						<span class='text-muted me-2'>بازرسی حین ساخت:</span>
 						@if (Model?.HasInspection == true)
@@ -265,11 +267,11 @@
 
 	</div>
 
-	<div class="col-md-6  " id="changeDataSection">
+	<div class="col-md-12  " id="changeDataSection">
 		<div class="card h-100">
 			<div class="card-body row">
 				<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>مرحله ساخت</label>
 					<select class='form-control' data-bind='productionStep' asp-for='ProductionStep'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemProductionStepEnum))">
@@ -277,7 +279,7 @@
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>شماره برنامه ریزی</label>
 					<input class='form-control' data-bind='planningNumber' data-invalidMessage='فقط عداد'
 						data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
@@ -285,7 +287,7 @@
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>سریال</label>
 					<input class='form-control' data-bind='serial' asp-for='Serial' />
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -295,7 +297,7 @@
 
 
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>تاریخ شروع تولید</label>
 					<input class='form-control' data-bind='productionStartShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -305,7 +307,7 @@
 
 
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>تاریخ شمسی پایان تولید</label>
 					<input class='form-control' data-bind='productionEndShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -315,7 +317,7 @@
 
 
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>تاریخ پایان تست</label>
 					<input class='form-control' data-bind='testingEndShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -325,7 +327,7 @@
 
 
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>تاریخ آماده سازی</label>
 					<input class='form-control' data-bind='preparationShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -335,7 +337,7 @@
 
 
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>تاریخ تحویل</label>
 					<input class='form-control' data-bind='deliveryShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -343,7 +345,7 @@
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>وضعیت</label>
 					<select class='form-control' data-bind='status' asp-for='Status'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemStatusEnum))">
@@ -351,7 +353,7 @@
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
-				<div class='col-md-4'>
+				<div class='col-md-3'>
 					<label class=''>وضعیت تولید</label>
 					<select class='form-control' data-bind='productionStatus' asp-for='ProductionStatus'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemProductionStatusEnum))">
@@ -574,12 +576,25 @@
 						btnClass: 'btn-secondary'
 					}
 				},
-				  onContentReady: function () {
-					  var self = this;
-				    setTimeout(function () {
-					    debugger
-						initPersionDatePicker(self)
-				    }, 100);
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						// Fix select2 dropdowns in modal (EntitySelectors)
+						self.$body.find('select.select2-hidden-accessible').each(function() {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
 				},
 			});
 
@@ -663,15 +678,162 @@
 		openBomModal(bomId);
 	});
 
-	// دکمه افزودن کامنت
+	// دکمه افزودن تغییر وضعیت
 	self.FormActionButtons.addComment.onclick(function () {
 		openCommentModal();
 	});
 
-	// دکمه نمایش لیست کامنت‌ها
+	// دکمه نمایش لیست تاریخچه تغییر وضعیت
 	self.FormActionButtons.viewComments.onclick(function () {
 		viewCommentsList();
 	});
+
+	// دکمه ثبت توقف
+	self.FormActionButtons.addStopRequest.onclick(function () {
+		openStopRequestModal();
+	});
+
+	// دکمه نمایش لیست توقفات
+	self.FormActionButtons.viewStopRequests.onclick(function () {
+		viewStopRequestsList();
+	});
+
+	// Stop Request Functions
+	function openStopRequestModal(stopRequestId = null) {
+		const productionOrderItemId = $$('#changeDataSection [data-bind="id"]').val();
+		if (!productionOrderItemId || productionOrderItemId == '0') {
+			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		const url = stopRequestId 
+			? `/Panel/ProductionOrderItem/StopRequestPartial?id=${stopRequestId}&productionOrderItemId=${productionOrderItemId}`
+			: `/Panel/ProductionOrderItem/StopRequestPartial?productionOrderItemId=${productionOrderItemId}`;
+		
+		$$.get(url, function(result) {
+			let bodyCn = `<div style="overflow-x: hidden;overflow-y: auto; max-height: 70vh;">${result}</div>`;
+			$.confirm({
+				title: stopRequestId ? 'ویرایش درخواست توقف' : 'ثبت درخواست توقف',
+				columnClass: 'col-md-10',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function() {
+							const $content = this.$content;
+							
+							if (validateError($content)) {
+								return false;
+							}
+							
+							// جمع‌آوری مقادیر select2 برای علت توقف
+							const $stopReasonSelect = $content.find('#stopReasonSelectModal');
+							if ($stopReasonSelect.length > 0) {
+								const selectedReasons = $stopReasonSelect.val();
+								if (selectedReasons && selectedReasons.length > 0) {
+									const selectedTexts = [];
+									$stopReasonSelect.find('option:selected').each(function() {
+										selectedTexts.push($$(this).text());
+									});
+									// ساخت hidden inputs برای ارسال
+									if ($content.find('[data-bind="stopReasonIds"]').length === 0) {
+										$content.append(`<input type="hidden" data-bind="stopReasonIds" value="${selectedReasons.join(',')}" />`);
+										$content.append(`<input type="hidden" data-bind="stopReasonTitles" value="${selectedTexts.join(',')}" />`);
+									} else {
+										$content.find('[data-bind="stopReasonIds"]').val(selectedReasons.join(','));
+										$content.find('[data-bind="stopReasonTitles"]').val(selectedTexts.join(','));
+									}
+								}
+							}
+							
+							const model = $content.dataBind();
+							const self = this;
+							
+							$$.post('/Panel/ProductionOrderItem/SaveStopRequest', model, function(r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+								
+								toastr.success('درخواست توقف با موفقیت ذخیره شد');
+								self.close();
+							});
+							
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						// Initialize select2 for multi-select stop reasons
+						self.$body.find('#stopReasonSelectModal').select2({
+							placeholder: 'انتخاب کنید',
+							allowClear: true,
+							width: '100%',
+							dropdownParent: self.$body
+						});
+						// Fix other select2 dropdowns (EntitySelectors) in modal
+						self.$body.find('select.select2-hidden-accessible').not('#stopReasonSelectModal').each(function() {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	function viewStopRequestsList() {
+		const productionOrderItemId = $$('#changeDataSection [data-bind="id"]').val();
+		if (!productionOrderItemId || productionOrderItemId == '0') {
+			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		const url = `/Panel/ProductionOrderItem/StopRequestListPartial?productionOrderItemId=${productionOrderItemId}`;
+		
+		$$.get(url, function(result) {
+			let bodyCn = `<div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">${result}</div>`;
+			$.confirm({
+				title: 'لیست درخواست‌های توقف',
+				columnClass: 'col-md-12',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					addNew: {
+						text: 'ثبت توقف جدید',
+						btnClass: 'btn-primary',
+						action: function() {
+							this.close();
+							openStopRequestModal();
+							return false;
+						}
+					},
+					close: {
+						text: 'بستن',
+						btnClass: 'btn-secondary'
+					}
+				}
+			});
+		});
+	}
 
 	// Comment Modal Functions
 	function openCommentModal(commentId = null) {
@@ -686,9 +848,47 @@
 			: `/Panel/ProductionOrderItem/ProductionOrderItemCommentPartial?productionOrderItemId=${productionOrderItemId}`;
 		
 		$$.get(url, function(result) {
-			let bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
+			let bodyCn = `<div style="overflow-x: hidden;overflow-y: hidden;">${result}</div>`;
+
+			$(bodyCn).find("[data-bind=productionStatus]").change(function(){
+				var status = $(this).val();
+
+				var $startShamsiDateEl = $(bodyCn).find("[data-bind=startShamsiDate]").closest("col-md-6").addClass("d-none");
+				var $endShamsiDateEl = $(bodyCn).find("[data-bind=endShamsiDate]").closest("col-md-6").addClass("d-none");
+				var $FailureTypeIdsEl= $(bodyCn).find("[data-bind=FailureTypeIds]").closest("col-md-6").addClass("d-none");
+
+				switch(status){
+					case "1795":
+					case "1790":
+					case "2209":
+					 $startShamsiDateEl.removeClass("d-none");
+
+					break;
+					 
+					 case "1843":
+					 case "1844":
+					 case "1842":
+					 case "2210":
+					 case "2227":
+					 case "1789":
+					case "1791":
+					 $endShamsiDateEl.removeClass("d-none");
+					 break;
+
+					case "1796":
+					case "2226":
+					$startShamsiDateEl.removeClass("d-none");
+					$FailureTypeIdsEl.removeClass("d-none");
+					break;
+					
+					default:
+					break;
+				}
+
+			})
+
 			$.confirm({
-				title: commentId ? 'ویرایش کامنت' : 'افزودن کامنت',
+				title: commentId ? 'تغییر وضعیت جدید' : 'تغییر وضعیت جدید',
 				columnClass: 'col-md-8',
 				content: bodyCn,
 				rtl: true,
@@ -706,13 +906,17 @@
 							const model = $content.dataBind();
 							const self = this;
 							
-							$$.post('/Panel/ProductionOrderItem/SaveComment', model, function(r) {
+							$$.post('SaveComment', model, function(r) {
 								if (!r.isSuccess) {
 									toastr.error(`${r.message}`, 'خطا');
 									return false;
 								}
+
+								$$("[data-bind=productionStatus]")
+								.val(model.productionStatus)
+								.change()
 								
-								toastr.success('کامنت با موفقیت ذخیره شد');
+								toastr.success('تغییر وضعیت با موفقیت انجام شد');
 								self.close();
 							});
 							
@@ -724,11 +928,25 @@
 						btnClass: 'btn-secondary'
 					}
 				},
-				 onContentReady: function () {
-					  var self = this;
-				    setTimeout(function () {
-						initPersionDatePicker(self.$body)
-				    }, 100);
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						// Fix select2 dropdowns in modal (EntitySelectors)
+						self.$body.find('select.select2-hidden-accessible').each(function() {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
 				},
 			});
 		});
@@ -746,20 +964,11 @@
 		$$.get(url, function(result) {
 			let bodyCn = `<div style="overflow-x: hidden; max-height: 500px; overflow-y: auto;">${result}</div>`;
 			$.confirm({
-				title: 'لیست کامنت‌ها',
+				title: 'تاریخچه تغییر وضعیت',
 				columnClass: 'col-md-10',
 				content: bodyCn,
 				rtl: true,
 				buttons: {
-					addNew: {
-						text: 'افزودن کامنت جدید',
-						btnClass: 'btn-primary',
-						action: function() {
-							this.close();
-							openCommentModal();
-							return false;
-						}
-					},
 					close: {
 						text: 'بستن',
 						btnClass: 'btn-secondary'
