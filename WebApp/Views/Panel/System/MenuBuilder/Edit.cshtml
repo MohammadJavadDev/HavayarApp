@@ -517,8 +517,9 @@
 
          $$("#deleteAllNodes").click(function(){
          
-              debugger;
-               var d =treeInstance;
+              
+                   treeInstance.settings.core.data = [];
+                   treeInstance.refresh();
          })
 
         function renderIconGrid(list, term) {

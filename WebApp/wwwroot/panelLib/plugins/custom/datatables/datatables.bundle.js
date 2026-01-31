@@ -20739,7 +20739,7 @@
 
             // 2. اجرای اولیه
 		    $(dt.nTable).on('draw.dt.colManager', function () {
-			  debugger
+			   
                 that._restoreWidths();
                 that._ensureHandles();
             });
@@ -21284,7 +21284,7 @@
         },
 
 	    _restoreWidths: function () {
-		   debugger
+		    
             var that = this;
             var dt = this.settings;
             var api = new DataTable.Api(dt);

@@ -1,0 +1,187 @@
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ورود - Background Job</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h2 {
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 12px 15px;
+            font-size: 14px;
+        }
+
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .spinner-border {
+            width: 20px;
+            height: 20px;
+            border-width: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h2>ورود به سیستم</h2>
+            <p>لطفاً اطلاعات خود را وارد کنید</p>
+        </div>
+
+        <div id="errorAlert" class="alert alert-danger" style="display: none;" role="alert">
+            <span id="errorMessage"></span>
+        </div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">نام کاربری</label>
+                <input type="text" class="form-control" id="username" name="username" required autocomplete="username" />
+            </div>
+
+            <div class="form-group">
+                <label for="password">رمز عبور</label>
+                <input type="password" class="form-control" id="password" name="password" required autocomplete="current-password" />
+            </div>
+
+            <button type="submit" class="btn btn-login" id="loginBtn">
+                <span id="loginText">ورود</span>
+                <span id="loginSpinner" class="spinner-border spinner-border-sm" style="display: none;" role="status" aria-hidden="true"></span>
+            </button>
+        </form>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#loginForm').on('submit', function(e) {
+
+                e.preventDefault();
+
+                var username = $('#username').val();
+                var password = $('#password').val();
+
+                if (!username || !password) {
+                    showError('لطفاً نام کاربری و رمز عبور را وارد کنید');
+                    return;
+                }
+
+                // Show loading state
+                $('#loginBtn').prop('disabled', true);
+                $('#loginText').text('در حال ورود...');
+                $('#loginSpinner').show();
+                $('#errorAlert').hide();
+                  var model  = {
+                          Username: username,
+                          Password: password
+                      }
+
+                     
+
+                // Send login request
+                $.ajax({
+                    url: '/Authenticate/Login',
+                    type: "POST",
+                    data: JSON.stringify(model),
+                    contentType: 'application/json',
+                    dataType: 'json',
+                    success: function(response) {
+                        // Redirect to home page
+                        window.location.href = '/';
+                    },
+                    error: function(xhr) {
+                        var errorMessage = 'خطا در ورود به سیستم';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+                        showError(errorMessage);
+                        $('#loginBtn').prop('disabled', false);
+                        $('#loginText').text('ورود');
+                        $('#loginSpinner').hide();
+                    }
+                });
+            });
+        });
+
+        function showError(message) {
+            $('#errorMessage').text(message);
+            $('#errorAlert').show();
+        }
+    </script>
+</body>
+</html>

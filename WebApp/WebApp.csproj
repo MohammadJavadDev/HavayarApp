@@ -26,9 +26,8 @@
 
 	<ItemGroup>
 
-		 
-		<Compile Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
 
+		<Compile Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
 		 
 		<Compile Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
 
@@ -58,12 +57,13 @@
 
 		 
 		<Content Remove="wwwroot\lib\**\*" />
-		<Content Remove="wwwroot\panelLib\**\*" />
+		 
  
 	 
 		<Content Remove="wwwroot\**\*.tmp" />
 		<Content Remove="wwwroot\**\*.bak" />
 		<Content Remove="wwwroot\**\*~" />
+
 		<Content Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
 		<Content Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
 		<Content Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />
@@ -74,6 +74,7 @@
 		<Content Remove="wwwroot\panelLib\plugins\custom\select2\**" />
 		<Content Remove="wwwroot\panelLib\plugins\custom\sortable\**" />
 		<Content Remove="wwwroot\panelLib\plugins\custom\tinymce\**" />
+
 		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
 		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
 		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />
@@ -84,6 +85,7 @@
 		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\select2\**" />
 		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\sortable\**" />
 		<EmbeddedResource Remove="wwwroot\panelLib\plugins\custom\tinymce\**" />
+
 		<None Remove="wwwroot\panelLib\plugins\custom\datatables\**" />
 		<None Remove="wwwroot\panelLib\plugins\custom\draggable\**" />
 		<None Remove="wwwroot\panelLib\plugins\custom\Dropzone\**" />

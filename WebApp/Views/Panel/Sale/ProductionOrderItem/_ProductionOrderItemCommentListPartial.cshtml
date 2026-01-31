@@ -2,63 +2,77 @@
 @using Entities.App.Sale
 @model List<ProductionOrderItemComment>
 
+@{
+	DateTime? lastChangeDate = null;
+}
+
 <div class="row">
 	<div class="col-md-12">
 		@if (Model != null && Model.Any())
 		{
-			<div class="timeline">
-				@foreach (var comment in Model.OrderByDescending(c => c.CreatedOnMiladiDateTime))
-				{
-					<div class="timeline-item mb-4">
-						<div class="card" style="width: 100%;">
-							<div class="card-body">
-								<div class="d-flex justify-content-between align-items-start mb-2">
-									<div>
-										<span class="badge badge-primary">@comment.ProductionStatus.ToDisplay()</span>
-										@if (!string.IsNullOrWhiteSpace(comment.FailureTypeNames))
-										{
-											<span class="badge badge-danger ms-2">@comment.FailureTypeNames</span>
-										}
-									</div>
-									<small class="text-muted">@comment.CreatedOnShamsiDateTime</small>
-								</div>
+			<div class="table-responsive">
+				<table class="table table-striped table-bordered table-hover">
+					<thead>
+						<tr>
+							<th>وضعیت</th>
+							<th>توضیحات</th>
+							<th>انواع خرابی</th>
+							<th>کاربر ثبت‌کننده</th>
+							<th>تاریخ ثبت</th>
+							<th>بازه زمانی</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var comment in Model.OrderBy(c => c.CreatedOnMiladiDateTime))
+						{
+							string TimePeriod = "0";
+							if (lastChangeDate == null)
+							{
+								lastChangeDate = comment.CreatedOnMiladiDateTime;
+							}
+							else
+							{
+								var difference = comment.CreatedOnMiladiDateTime - lastChangeDate;
+								TimePeriod = $"{(int)difference.Value.TotalHours}:{difference.Value.Minutes:D2}";
+							}
 
-								@if (!string.IsNullOrWhiteSpace(comment.StartShamsiDate) ||
-														!string.IsNullOrWhiteSpace(comment.EndShamsiDate))
-								{
-									<div class="mb-2">
-										@if (!string.IsNullOrWhiteSpace(comment.StartShamsiDate))
-										{
-											<span class="text-muted">شروع: </span>
-											<span class="fw-semibold">@comment.StartShamsiDate</span>
-										}
-										@if (!string.IsNullOrWhiteSpace(comment.EndShamsiDate))
-										{
-											<span class="text-muted ms-3">پایان: </span>
-											<span class="fw-semibold">@comment.EndShamsiDate</span>
-										}
-									</div>
-								}
+							<tr>
 
-								<p class="mb-2">@comment.Comment</p>
+								<td>
+									<span class="badge badge-primary">@comment.ProductionStatus.ToDisplay()</span>
+									
+								</td>
 
-								@if (!string.IsNullOrWhiteSpace(comment.CcReciversNames))
-								{
-									<div class="mt-2">
-										<small class="text-muted">دریافت‌کنندگان: </small>
-										<small class="text-primary">@comment.CcReciversNames</small>
-									</div>
-								}
+								<td>@comment.Comment</td>
+								<td>
+									@if (!string.IsNullOrWhiteSpace(comment.FailureTypeNames))
+									{
+										<div class="mt-1">
+											<span class="badge badge-danger">@comment.FailureTypeNames</span>
+										</div>
+									}
+								</td>
 
-								<div class="mt-2 border-top pt-2">
-									<small class="text-muted">
-										<i class="fa fa-user"></i> @comment.CreatedByName
-									</small>
-								</div>
-							</div>
-						</div>
-					</div>
-				}
+								<td style="white-space: nowrap;">
+									<i class="fa fa-user"></i> @comment.CreatedByName
+								</td>
+							
+								<td style="direction: ltr; text-align: right;">@comment.CreatedOnShamsiDateTime</td>
+
+
+							
+								<td>
+									@TimePeriod 
+									 
+								</td>
+							
+							 
+							
+								
+							</tr>
+						}
+					</tbody>
+				</table>
 			</div>
 		}
 		else

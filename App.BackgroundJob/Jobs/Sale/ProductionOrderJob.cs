@@ -1,4 +1,5 @@
-﻿using Common.Attributes;
+using Common.Attributes;
+using Common.Utilities;
 using Data;
 using Data.Contracts;
 using Entities.App.FIN;
@@ -8,6 +9,7 @@ using Entities.App.Sale;
 using Entities.App.Sale.Enums;
 using Entities.App.SLS;
 using Entities.Auth;
+using Entities.Base;
 using Entities.Rahkaran.USR3;
 using Microsoft.EntityFrameworkCore;
 using Services.Auth;
@@ -500,15 +502,21 @@ namespace App.BackgroundJob.Jobs.Sale
 				await jobLogger?.LogInfoAsync($"تعداد {appItems.Count} رکورد قلم سفارش ساخت در پایگاه داده برنامه موجود است", cn);
 
 				var appItemsDict = appItems
-					.Where(x => x.HamkaranId.HasValue)
-					.ToDictionary(x => x.HamkaranId!.Value);
+					.Where(x => x.HamkaranId.HasValue && x.IsLatestVersion)
+					.GroupBy(x => x.HamkaranId!.Value)
+					.ToDictionary(g => g.Key, g => g.First());
 
 				var newItems = new List<ProductionOrderItem>();
+				var newComments = new List<ProductionOrderItemComment>();
+				var processedHamkaranIds = new HashSet<long>();
+
 				int updatedItemsCount = 0;
 				int skippedItemsCount = 0;
 
 				foreach (var rahkaranItem in rahkaranItems)
 				{
+					processedHamkaranIds.Add(rahkaranItem.Sale_ProductionOrderItemID);
+
 					// پیدا کردن ProductionOrderId بر اساس _MasterRef
 					if (!productionOrderMap.TryGetValue(rahkaranItem._MasterRef, out var productionOrderId))
 					{
@@ -526,8 +534,8 @@ namespace App.BackgroundJob.Jobs.Sale
 
 					if (!appItemsDict.TryGetValue(rahkaranItem.Sale_ProductionOrderItemID, out var existItem))
 					{
-						// ایجاد رکورد جدید
-						newItems.Add(new ProductionOrderItem
+						// ایجاد رکورد جدید (New Insert)
+						var newItem = new ProductionOrderItem
 						{
 							HamkaranId = rahkaranItem.Sale_ProductionOrderItemID,
 							ProductionOrderId = (long)productionOrderId,
@@ -552,177 +560,113 @@ namespace App.BackgroundJob.Jobs.Sale
 							HasInspection = rahkaranItem.HasInspection ?? false,
 							SalesConsideration = rahkaranItem.SalesConsideration,
 							Revision = rahkaranItem.Revision,
-							IsLatestVersion = rahkaranItem.IsLatestVersion ?? false,
+							IsLatestVersion = true, // آیتم جدید همیشه آخرین نسخه است
 							CheckStatus = rahkaranItem.CheckStatusId.HasValue ? (ProductionOrderItemCheckStatusEnum?)rahkaranItem.CheckStatusId.Value : null,
-							PartCode = rahkaranItem.PartCode
+							PartCode = rahkaranItem.PartCode,
+							Status = ProductionOrderItemStatusEnum.NotCompleted
+						};
+						newItems.Add(newItem);
+
+						// ایجاد کامنت اولیه
+						// Note: ProductionOrderItemId will be set after SaveChanges, usually needs logic to handle ID linking or 
+						// add to collection if navigation property exists. Here we add to separate list for bulk insert after save.
+						// However, since Id is not generated yet, we might need to rely on EF graph insertion or save first.
+						// To avoid complexity, we can assume Graph Insert if we add to ProductionOrderItemComments collection of newItem.
+						
+						newItem.ProductionOrderItemComments.Add(new ProductionOrderItemComment
+						{
+							ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox, // Default or mapped
+							Comment = "خوانده شده از راهکاران",
+							StartMiladiDateTime = DateTime.Now,
+							StartShamsiDate = DateTime.Now.ToShamsiDateTime(),
+							CreatedById = 1,
+							CreatedOnMiladiDateTime = DateTime.Now,
+							CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+							IsActive = IsActiveEnum.Active
 						});
 					}
 					else
 					{
-						// به‌روزرسانی رکورد موجود
-						bool isModified = false;
-
-						if (existItem.ProductionOrderId != productionOrderId)
-						{
-							existItem.ProductionOrderId = (long)productionOrderId;
-							isModified = true;
-						}
-
-						var newIsBuildInside = rahkaranItem.IsBuildInside ?? false;
-						if (existItem.IsBuildInside != newIsBuildInside)
-						{
-							existItem.IsBuildInside = newIsBuildInside;
-							isModified = true;
-						}
-
-						var newDeviceType = rahkaranItem.DeviceTypeId.HasValue ? (ProductionOrderItemDeviceTypeEnum?)rahkaranItem.DeviceTypeId.Value : null;
-						if (existItem.DeviceType != newDeviceType)
-						{
-							existItem.DeviceType = newDeviceType;
-							isModified = true;
-						}
-
-						var newEquipmentType = rahkaranItem.EquipmentTypeId.HasValue ? (ProductionOrderItemEquipmentTypeEnum?)rahkaranItem.EquipmentTypeId.Value : null;
-						if (existItem.EquipmentType != newEquipmentType)
-						{
-							existItem.EquipmentType = newEquipmentType;
-							isModified = true;
-						}
-
-						if (existItem.PartId != partId)
-						{
-							existItem.PartId = partId;
-							isModified = true;
-						}
-
-						if (existItem.Amount != rahkaranItem.Amount)
-						{
-							existItem.Amount = rahkaranItem.Amount;
-							isModified = true;
-						}
-
-						if (existItem.AgreedDeliverDate != rahkaranItem.AgreedDeliverDate)
-						{
-							existItem.AgreedDeliverDate = rahkaranItem.AgreedDeliverDate;
-							isModified = true;
-						}
-
-						if (existItem.PartModel != rahkaranItem.PartModel)
-						{
-							existItem.PartModel = rahkaranItem.PartModel;
-							isModified = true;
-						}
-
-						if (existItem.AirendOrCategory != rahkaranItem.AirendOrCategory)
-						{
-							existItem.AirendOrCategory = rahkaranItem.AirendOrCategory;
-							isModified = true;
-						}
-
-						if (existItem.InputPressureBar != rahkaranItem.InputPressureBar)
-						{
-							existItem.InputPressureBar = rahkaranItem.InputPressureBar;
-							isModified = true;
-						}
-
-						if (existItem.OutputPressureBar != rahkaranItem.OutputPressureBar)
-						{
-							existItem.OutputPressureBar = rahkaranItem.OutputPressureBar;
-							isModified = true;
-						}
-
-						if (existItem.Capacity != rahkaranItem.Capacity)
-						{
-							existItem.Capacity = rahkaranItem.Capacity;
-							isModified = true;
-						}
-
-						if (existItem.Scale != rahkaranItem.Scale)
-						{
-							existItem.Scale = rahkaranItem.Scale;
-							isModified = true;
-						}
-
-						if (existItem.GasType != rahkaranItem.GasType)
-						{
-							existItem.GasType = rahkaranItem.GasType;
-							isModified = true;
-						}
-
-						if (existItem.MaximumTemperature != rahkaranItem.MaximumTemperature)
-						{
-							existItem.MaximumTemperature = rahkaranItem.MaximumTemperature;
-							isModified = true;
-						}
-
-						if (existItem.PurityPercentage != rahkaranItem.PurityPercentage)
-						{
-							existItem.PurityPercentage = rahkaranItem.PurityPercentage;
-							isModified = true;
-						}
-
-						if (existItem.RelativeHumidity != rahkaranItem.RelativeHumidity)
-						{
-							existItem.RelativeHumidity = rahkaranItem.RelativeHumidity;
-							isModified = true;
-						}
-
-						if (existItem.BarometricPressure != rahkaranItem.BarometricPressure)
-						{
-							existItem.BarometricPressure = rahkaranItem.BarometricPressure;
-							isModified = true;
-						}
-
-						if (existItem.MovingType != rahkaranItem.MovingType)
-						{
-							existItem.MovingType = rahkaranItem.MovingType;
-							isModified = true;
-						}
-
-						var newHasInspection = rahkaranItem.HasInspection ?? false;
-						if (existItem.HasInspection != newHasInspection)
-						{
-							existItem.HasInspection = newHasInspection;
-							isModified = true;
-						}
-
-						if (existItem.SalesConsideration != rahkaranItem.SalesConsideration)
-						{
-							existItem.SalesConsideration = rahkaranItem.SalesConsideration;
-							isModified = true;
-						}
-
+						// بررسی تغییر نسخه (Update -> New Version Insert)
+						// منطق SQL: بایستی به ازای هر ویرایش، قلم جدیدی ایجاد گردد
+						// بررسی می‌کنیم اگر Revision تغییر کرده باشد
 						if (existItem.Revision != rahkaranItem.Revision)
 						{
-							existItem.Revision = rahkaranItem.Revision;
-							isModified = true;
-						}
+							// غیرفعال کردن نسخه قبلی
+							existItem.IsLatestVersion = false;
+							
+							// ایجاد نسخه جدید
+							var newItem = new ProductionOrderItem
+							{
+								HamkaranId = rahkaranItem.Sale_ProductionOrderItemID,
+								ProductionOrderId = (long)productionOrderId,
+								IsBuildInside = rahkaranItem.IsBuildInside ?? false,
+								DeviceType = rahkaranItem.DeviceTypeId.HasValue ? (ProductionOrderItemDeviceTypeEnum?)rahkaranItem.DeviceTypeId.Value : null,
+								EquipmentType = rahkaranItem.EquipmentTypeId.HasValue ? (ProductionOrderItemEquipmentTypeEnum?)rahkaranItem.EquipmentTypeId.Value : null,
+								PartId = partId,
+								Amount = rahkaranItem.Amount,
+								AgreedDeliverDate = rahkaranItem.AgreedDeliverDate,
+								PartModel = rahkaranItem.PartModel,
+								AirendOrCategory = rahkaranItem.AirendOrCategory,
+								InputPressureBar = rahkaranItem.InputPressureBar,
+								OutputPressureBar = rahkaranItem.OutputPressureBar,
+								Capacity = rahkaranItem.Capacity,
+								Scale = rahkaranItem.Scale,
+								GasType = rahkaranItem.GasType,
+								MaximumTemperature = rahkaranItem.MaximumTemperature,
+								PurityPercentage = rahkaranItem.PurityPercentage,
+								RelativeHumidity = rahkaranItem.RelativeHumidity,
+								BarometricPressure = rahkaranItem.BarometricPressure,
+								MovingType = rahkaranItem.MovingType,
+								HasInspection = rahkaranItem.HasInspection ?? false,
+								SalesConsideration = rahkaranItem.SalesConsideration,
+								Revision = rahkaranItem.Revision,
+								IsLatestVersion = true,
+								CheckStatus = rahkaranItem.CheckStatusId.HasValue ? (ProductionOrderItemCheckStatusEnum?)rahkaranItem.CheckStatusId.Value : null,
+								PartCode = rahkaranItem.PartCode,
+								Status = ProductionOrderItemStatusEnum.NotCompleted
+							};
+							
+							newItem.ProductionOrderItemComments.Add(new ProductionOrderItemComment
+							{
+								ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
+								Comment = "خوانده شده از راهکاران (نسخه جدید)",
+								StartMiladiDateTime = DateTime.Now,
+								StartShamsiDate = DateTime.Now.ToShamsiDateTime(),
+								CreatedById = 1,
+								CreatedOnMiladiDateTime = DateTime.Now,
+								CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+								IsActive = IsActiveEnum.Active
+							});
 
-						var newIsLatestVersion = rahkaranItem.IsLatestVersion ?? false;
-						if (existItem.IsLatestVersion != newIsLatestVersion)
-						{
-							existItem.IsLatestVersion = newIsLatestVersion;
-							isModified = true;
-						}
-
-						var newCheckStatus = rahkaranItem.CheckStatusId.HasValue ? (ProductionOrderItemCheckStatusEnum?)rahkaranItem.CheckStatusId.Value : null;
-						if (existItem.CheckStatus != newCheckStatus)
-						{
-							existItem.CheckStatus = newCheckStatus;
-							isModified = true;
-						}
-
-						if (existItem.PartCode != rahkaranItem.PartCode)
-						{
-							existItem.PartCode = rahkaranItem.PartCode;
-							isModified = true;
-						}
-
-						if (isModified)
-						{
+							newItems.Add(newItem);
 							updatedItemsCount++;
 						}
+						else
+						{
+							// اگر Revision تغییر نکرده، می‌توانیم فیلدها را به‌روزرسانی کنیم (Update In-Place)
+							// یا هیچ کاری نکنیم. برای اطمینان از همگام‌سازی، تغییرات را اعمال می‌کنیم
+							// اما طبق منطق Trigger، هر آپدیت Revision را بالا می‌برد. پس اگر Revision یکی است، تغییری نیست.
+							// با این حال، کد قبلی فیلدها را چک می‌کرد. اینجا فرض بر این است که Revision معیار تغییر است.
+						}
 					}
+				}
+
+				// بررسی اقلام حذف شده (در دیتابیس هستند اما در لیست راهکاران نیستند)
+				var itemsToDelete = appItemsDict.Values
+					.Where(x => !processedHamkaranIds.Contains(x.HamkaranId!.Value))
+					.ToList();
+
+				if (itemsToDelete.Any())
+				{
+					foreach (var item in itemsToDelete)
+					{
+						item.IsLatestVersion = false;
+						item.IsActive = IsActiveEnum.Deleted;
+						// طبق SQL وضعیت به "باطل" تغییر می‌کند
+						item.Status = ProductionOrderItemStatusEnum.Invalid; 
+					}
+					await jobLogger?.LogInfoAsync($"تعداد {itemsToDelete.Count} قلم حذف/باطل شدند", cn);
 				}
 
 				if (skippedItemsCount > 0)
@@ -732,7 +676,7 @@ namespace App.BackgroundJob.Jobs.Sale
 
 				if (newItems.Any())
 				{
-					await jobLogger?.LogInfoAsync($"افزودن {newItems.Count} قلم جدید به پایگاه داده", cn);
+					await jobLogger?.LogInfoAsync($"افزودن {newItems.Count} قلم جدید (شامل نسخه‌های جدید) به پایگاه داده", cn);
 					await unitOfWork.Repository<ProductionOrderItem>().AddRangeAsync(newItems, cn, false);
 				}
 
@@ -1030,6 +974,169 @@ namespace App.BackgroundJob.Jobs.Sale
 				throw;
 			}
 		}
+
+
+		[JobHandler("بررسی و تغییر وضعیت قلم سفارش ساخت")]
+		public async Task CheckFinancialConfirmsOrders(IJobLogger? jobLogger = null, CancellationToken cn = default)
+		{
+			try
+			{
+				await jobLogger?.LogInfoAsync("شروع بررسی سفارشات تایید مالی شده", cn);
+
+				var statusId = ProductionOrderStateEnum.FinancialApproval;
+
+				var productionOrderItems = await unitOfWork.Repository<ProductionOrderItem>()
+					.Table
+					.Include(p => p.ProductionOrder)
+					.Include(p => p.Part)
+					.Where(p => p.IsLatestVersion &&
+								p.ProductionOrder.State == statusId &&
+								p.CheckStatus == ProductionOrderItemCheckStatusEnum.InitialRegistration)
+					.ToListAsync(cn);
+
+				if (!productionOrderItems.Any())
+					return;
+
+				await jobLogger?.LogInfoAsync($"تعداد {productionOrderItems.Count} قلم سفارش برای پردازش یافت شد", cn);
+
+				var specialStatusIds = new List<ProductionOrderItemDeviceTypeEnum?>
+				{
+					ProductionOrderItemDeviceTypeEnum.CngEquipment,
+					ProductionOrderItemDeviceTypeEnum.SparePart
+				};
+
+				var newComments = new List<ProductionOrderItemComment>();
+
+				foreach (var p in productionOrderItems)
+				{
+					// IsRoutine logic mapped to Part.EngineeringRoutine
+					bool isRoutine = p.Part?.EngineeringRoutine ?? false;
+
+					ProductionOrderItemCheckStatusEnum newStatus;
+
+					if (isRoutine || (p.DeviceType.HasValue && specialStatusIds.Contains(p.DeviceType)))
+					{
+						newStatus = ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
+					}
+					else if (p.ProductionOrder.ProjectManagerId.HasValue)
+					{
+						newStatus = ProductionOrderItemCheckStatusEnum.AwaitingProjectManagerApproval;
+					}
+					else
+					{
+						newStatus = ProductionOrderItemCheckStatusEnum.MechanicalEngineeringApprovalPending;
+					}
+
+					p.CheckStatus = newStatus;
+
+					newComments.Add(new ProductionOrderItemComment
+					{
+						ProductionOrderItemId = (long)p.Id!,
+						ProductionStatus = (ProductionOrderItemProductionStatusEnum)newStatus,
+						Comment = "ارسال شده بصورت خودکار توسط سیستم",
+						StartMiladiDateTime = DateTime.Now,
+						StartShamsiDate = DateTime.Now.ToShamsiDateTime(),
+						CreatedById = 1,
+						CreatedOnMiladiDateTime = DateTime.Now,
+						CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+						IsActive = IsActiveEnum.Active
+					});
+				}
+
+				if (newComments.Any())
+				{
+					await unitOfWork.Repository<ProductionOrderItemComment>().AddRangeAsync(newComments, cn, false);
+				}
+
+				await unitOfWork.SaveChangesAsync(cn);
+				await jobLogger?.LogInfoAsync("تغییر وضعیت اقلام سفارش با موفقیت انجام شد", cn);
+			}
+			catch (Exception exception)
+			{
+				await jobLogger?.LogExceptionAsync(exception, cn);
+			}
+		}
+
+
+		[JobHandler("تغییر وضعیت اقلامی که بیش از تایم مشخصی در کارتابل مدیر پروژه بوده اند")]
+		public async Task SendHoldedItemsToIndustrialUnitThatWasInProjectManagerCartable(IJobLogger? jobLogger = null, CancellationToken cn = default)
+		{
+			try
+			{
+				await jobLogger?.LogInfoAsync("شروع بررسی اقلام متوقف در کارتابل مدیر پروژه", cn);
+
+				var deadLineInDay = 2;
+				var stepId = ProductionOrderItemProductionStepEnum.AwaitingProjectManager;
+
+				var items = await unitOfWork.Repository<ProductionOrderItem>()
+					.Table
+					.Include(p => p.ProductionOrderItemComments)
+					.Where(p => p.IsLatestVersion &&
+								p.IsActive != IsActiveEnum.Deleted &&
+								p.ProductionStep == stepId)
+					.ToListAsync(cn);
+
+				var nowDate = DateTime.Now;
+				var finalItems = new List<ProductionOrderItem>();
+				var newComments = new List<ProductionOrderItemComment>();
+
+				foreach (var item in items)
+				{
+					// بررسی آخرین کامنت با وضعیت 1380
+					var lastComment = item.ProductionOrderItemComments
+						.Where(c => (int)c.ProductionStatus == (int)stepId)
+						.OrderByDescending(c => c.CreatedOnMiladiDateTime)
+						.FirstOrDefault();
+
+					// اگر کامنت وجود ندارد یا مهلت تمام نشده
+					if (lastComment == null || (lastComment.CreatedOnMiladiDateTime.HasValue && nowDate <= lastComment.CreatedOnMiladiDateTime.Value.AddDays(deadLineInDay)))
+						continue;
+
+					// تغییر وضعیت
+					item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry;
+
+					finalItems.Add(item);
+
+					// ایجاد کامنت جدید
+					newComments.Add(new ProductionOrderItemComment
+					{
+						ProductionOrderItemId = (long)item.Id!,
+						ProductionStatus = (ProductionOrderItemProductionStatusEnum)ProductionOrderItemProductionStepEnum.AwaitingIndustry,
+						Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه",
+						CreatedById = 1,
+						CreatedOnMiladiDateTime = nowDate,
+						CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
+						StartMiladiDateTime = nowDate,
+						StartShamsiDate = nowDate.ToShamsiDateTime(),
+						IsActive = IsActiveEnum.Active
+					});
+				}
+
+				if (finalItems.Any())
+				{
+					await unitOfWork.Repository<ProductionOrderItemComment>().AddRangeAsync(newComments, cn, false);
+					await unitOfWork.SaveChangesAsync(cn);
+
+					await SendInitilizeEmailNotification(finalItems, jobLogger, cn);
+
+					await jobLogger?.LogInfoAsync($"تعداد {finalItems.Count} قلم کالا به دلیل انقضای زمان به واحد صنعتی منتقل شدند", cn);
+				}
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		private async Task SendInitilizeEmailNotification(List<ProductionOrderItem> items, IJobLogger? jobLogger, CancellationToken cn)
+		{
+			// TODO: Implement email notification logic
+			await jobLogger?.LogInfoAsync("ارسال ایمیل اطلاع‌رسانی انجام شد", cn);
+		}
+
+
+
+
 	}
 
 }

@@ -1724,7 +1724,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 	
 
 				});
-				debugger
+				
 			api.columns.adjust();
 		 
 		},
@@ -7887,13 +7887,13 @@ class AppController {
 		 
  
 	}
-
 	createBootstrapTooltip(el, options) {
 		if (el.getAttribute("data-kt-initialized") === "1") {
 			return;
 		}
 
 		var delay = {};
+		var tp;
 
 		// Handle delay options
 		if (el.hasAttribute('data-bs-delay-hide')) {
@@ -7904,23 +7904,66 @@ class AppController {
 			delay['show'] = el.getAttribute('data-bs-delay-show');
 		}
 
-		if (delay) {
+		if (delay && Object.keys(delay).length > 0) {
 			options['delay'] = delay;
 		}
 
 		// Check dismiss options
-		if (el.hasAttribute('data-bs-dismiss') && el.getAttribute('data-bs-dismiss') == 'click') {
-			options['dismiss'] = 'click';
+		var dismissOption = null;
+		if (el.hasAttribute('data-bs-dismiss')) {
+			dismissOption = el.getAttribute('data-bs-dismiss');
 		}
 
-		// Initialize popover
-		var tp = new bootstrap.Tooltip(el, options);
+		// Initialize tooltip
+		tp = new bootstrap.Tooltip(el, options);
 
-		// Handle dismiss
-		if (options['dismiss'] && options['dismiss'] === 'click') {
-			// Hide popover on element click
+		// Handle dismiss on click
+		if (dismissOption && dismissOption === 'click') {
+			// متغیر برای ردیابی وضعیت tooltip
+			let isTooltipVisible = false;
+
+			// ردیابی رویدادهای show/hide
+			el.addEventListener('shown.bs.tooltip', function () {
+				isTooltipVisible = true;
+			});
+
+			el.addEventListener('hidden.bs.tooltip', function () {
+				isTooltipVisible = false;
+			});
+
+			// Hide tooltip when clicking on the element itself
 			el.addEventListener("click", function (e) {
-				tp.hide();
+				e.stopPropagation();
+				if (isTooltipVisible) {
+					tp.hide();
+				}
+			});
+
+			// اضافه کردن event listener برای کلیک روی document
+			const documentClickListener = function (e) {
+				// اگر کلیک روی خود المان tooltip نبوده و tooltip باز است
+				if (!el.contains(e.target) && isTooltipVisible) {
+					const tooltipElement = document.querySelector('.tooltip');
+					// اگر tooltip وجود دارد و کلیک روی آن نبوده
+					if (!tooltipElement || !tooltipElement.contains(e.target)) {
+						tp.hide();
+					}
+				}
+			};
+
+			document.addEventListener('click', documentClickListener);
+
+			// ذخیره handler برای cleanup
+			el._tooltipClickListener = documentClickListener;
+
+			// جلوگیری از بسته شدن tooltip وقتی روی آن کلیک می‌شود
+			el.addEventListener('shown.bs.tooltip', function () {
+				const tooltipElement = document.querySelector('.tooltip');
+				if (tooltipElement) {
+					tooltipElement.addEventListener('click', function (e) {
+						e.stopPropagation();
+					});
+				}
 			});
 		}
 

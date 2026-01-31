@@ -1,11 +1,10 @@
 @using Common.Utilities
+@using Entities.Base.Job
 @model IEnumerable<Entities.Base.Job.JobHistory>
 @{
     ViewData["Title"] = "Job Logs History";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
-
- 
 
 <div class="row mb-3">
     <div class="col-md-6">
@@ -30,10 +29,77 @@
     </div>
 </div>
 
-<table class="table table-striped table-bordered text-center">
+<!-- فیلترها و جستجو -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-filter me-2"></i>فیلتر و جستجو</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <!-- جستجوی عمومی -->
+            <div class="col-md-12 mb-3">
+                <label for="generalSearch" class="form-label">جستجو در همه ستون‌ها:</label>
+                <input type="text" id="generalSearch" class="form-control" placeholder="جستجو در تمام فیلدها...">
+            </div>
+            
+            <!-- فیلتر نام جاب -->
+            <div class="col-md-4 mb-3">
+                <label for="jobNameFilter" class="form-label">نام جاب:</label>
+                <select id="jobNameFilter" class="form-control">
+                    <option value="">همه</option>
+                    @{
+                        var uniqueJobNames = Model
+                            .Where(h => h.JobSchedule?.JobDefinition != null)
+                            .Select(h => h.JobSchedule.JobDefinition.DisplayName)
+                            .Distinct()
+                            .OrderBy(n => n)
+                            .ToList();
+                    }
+                    @foreach (var jobName in uniqueJobNames)
+                    {
+                        <option value="@jobName">@jobName</option>
+                    }
+                </select>
+            </div>
+            
+            <!-- فیلتر وضعیت فعال بودن -->
+            <div class="col-md-4 mb-3">
+                <label for="isActiveFilter" class="form-label">وضعیت فعال بودن:</label>
+                <select id="isActiveFilter" class="form-control">
+                    <option value="">همه</option>
+                    <option value="true">فعال</option>
+                    <option value="false">غیرفعال</option>
+                </select>
+            </div>
+            
+            <!-- فیلتر نوع اجرا -->
+            <div class="col-md-4 mb-3">
+                <label for="scheduleTypeFilter" class="form-label">نوع اجرا:</label>
+                <select id="scheduleTypeFilter" class="form-control">
+                    <option value="">همه</option>
+                    <option value="@ScheduleType.Interval">فاصله زمانی</option>
+                    <option value="@ScheduleType.Daily">روزانه</option>
+                    <option value="@ScheduleType.Weekly">هفتگی</option>
+                    <option value="@ScheduleType.Hourly">ساعتی</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12">
+                <button type="button" id="clearFilters" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i>پاک کردن فیلترها
+                </button>
+                <span id="resultCount" class="ms-3 text-muted"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<table class="table table-striped table-bordered text-center" id="jobLogsTable">
     <thead>
         <tr>
             <th>ID</th>
+            <th>نام جاب</th>
             <th>Start Time</th>
             <th>End Time</th>
             <th>Duration</th>
@@ -46,10 +112,26 @@
         {
             @foreach (var history in Model)
             {
-                <tr>
+                var jobName = history.JobSchedule?.JobDefinition?.DisplayName ?? "Unknown";
+                var isActive = history.JobSchedule?.IsActive ?? false;
+                var scheduleType = history.JobSchedule?.ScheduleType ?? ScheduleType.Interval;
+                var scheduleTypeText = scheduleType switch
+                {
+                    ScheduleType.Interval => "فاصله زمانی",
+                    ScheduleType.Daily => "روزانه",
+                    ScheduleType.Weekly => "هفتگی",
+                    ScheduleType.Hourly => "ساعتی",
+                    _ => "نامشخص"
+                };
+                
+                <tr data-job-name="@jobName" 
+                    data-is-active="@isActive.ToString().ToLower()" 
+                    data-schedule-type="@scheduleType"
+                    data-schedule-type-text="@scheduleTypeText">
                     <td>@history.Id</td>
-                         <td dir="ltr">@history.StartTime.ToShamsiDateTime()</td>
-                         <td dir="ltr">@(history.EndTime.HasValue? history.EndTime.Value.ToShamsiDateTime() : "N/A")</td>
+                    <td>@jobName</td>
+                    <td dir="ltr">@history.StartTime.ToShamsiDateTime()</td>
+                    <td dir="ltr">@(history.EndTime.HasValue? history.EndTime.Value.ToShamsiDateTime() : "N/A")</td>
                     <td>
                         @if (history.EndTime.HasValue)
                         {
@@ -84,7 +166,7 @@
         else
         {
             <tr>
-                <td colspan="6" class="text-center">No job history found</td>
+                <td colspan="7" class="text-center">No job history found</td>
             </tr>
         }
     </tbody>
@@ -119,40 +201,130 @@
                 url: '@Url.Action("GetDetailedLogs", "JobLogs")',
                 type: 'GET',
                 data: { historyId: historyId },
-                success: function(data) {
+                success: function (data) {
                     var content = '<div class="log-container" style="max-height: 400px; overflow-y: auto;">';
-                    
+
                     if (data.length > 0) {
-                        $.each(data, function(index, log) {
+                        $.each(data, function (index, log) {
                             var levelClass = 'text-' + log.logLevel.toLowerCase();
                             content += '<div class="log-entry mb-2 p-2 border-bottom">';
                             content += '<small class="text-muted">' + new Date(log.timestamp).toLocaleString() + '</small><br>';
                             content += '<strong class="' + levelClass + '">[' + log.logLevel + '] </strong>';
                             content += '<span>' + log.message + '</span>';
-                            
+
                             if (log.details) {
                                 content += '<div class="mt-1 text-muted small">' + log.details + '</div>';
                             }
-                            
+
                             if (log.exceptionType) {
                                 content += '<div class="mt-1 text-danger small">' + log.exceptionType + ': ' + log.stackTrace + '</div>';
                             }
-                            
+
                             content += '</div>';
                         });
                     } else {
                         content += '<p class="text-center text-muted">No detailed logs found</p>';
                     }
-                    
+
                     content += '</div>';
                     $('#logModalContent').html(content);
                     $('#logModal').modal('show');
                 },
-                error: function() {
+                error: function () {
                     $('#logModalContent').html('<p class="text-danger">Failed to load logs</p>');
                     $('#logModal').modal('show');
                 }
             });
         }
+
+        // فیلتر و جستجو
+        $(document).ready(function() {
+            var $table = $('#jobLogsTable');
+            var $generalSearch = $('#generalSearch');
+            var $jobNameFilter = $('#jobNameFilter');
+            var $isActiveFilter = $('#isActiveFilter');
+            var $scheduleTypeFilter = $('#scheduleTypeFilter');
+            var $clearFilters = $('#clearFilters');
+            var $resultCount = $('#resultCount');
+
+            function getDataRows() {
+                return $table.find('tbody tr').filter(function() {
+                    return $(this).data('job-name') !== undefined;
+                });
+            }
+
+            function updateResultCount(visibleCount, totalCount) {
+                $resultCount.text('نمایش ' + visibleCount + ' از ' + totalCount + ' رکورد');
+            }
+
+            function filterTable() {
+                var generalSearchTerm = $generalSearch.val().toLowerCase().trim();
+                var jobNameValue = $jobNameFilter.val();
+                var isActiveValue = $isActiveFilter.val();
+                var scheduleTypeValue = $scheduleTypeFilter.val();
+
+                var $rows = getDataRows();
+                var visibleCount = 0;
+                var totalCount = $rows.length;
+
+                // حذف ردیف "نتیجه‌ای یافت نشد" قبلی
+                $table.find('tbody tr.no-results').remove();
+
+                $rows.each(function() {
+                    var $row = $(this);
+                    var rowText = $row.text().toLowerCase();
+                    var jobName = $row.data('job-name') || '';
+                    var isActive = $row.data('is-active') || '';
+                    var scheduleType = $row.data('schedule-type') || '';
+
+                    // بررسی جستجوی عمومی
+                    var matchesGeneralSearch = generalSearchTerm === '' || rowText.indexOf(generalSearchTerm) !== -1;
+
+                    // بررسی فیلتر نام جاب
+                    var matchesJobName = jobNameValue === '' || jobName === jobNameValue;
+
+                    // بررسی فیلتر وضعیت فعال بودن
+                    var matchesIsActive = isActiveValue === '' || isActive === isActiveValue.toLowerCase();
+
+                    // بررسی فیلتر نوع اجرا
+                    var matchesScheduleType = scheduleTypeValue === '' || scheduleType.toString() === scheduleTypeValue.toString();
+
+                    // نمایش یا مخفی کردن ردیف
+                    if (matchesGeneralSearch && matchesJobName && matchesIsActive && matchesScheduleType) {
+                        $row.show();
+                        visibleCount++;
+                    } else {
+                        $row.hide();
+                    }
+                });
+
+                // نمایش پیام در صورت نبودن نتیجه
+                if (visibleCount === 0 && totalCount > 0) {
+                    var $noResultsRow = $('<tr class="no-results"><td colspan="7" class="text-center text-muted">نتیجه‌ای یافت نشد</td></tr>');
+                    $table.find('tbody').append($noResultsRow);
+                }
+
+                updateResultCount(visibleCount, totalCount);
+            }
+
+            // رویدادهای فیلتر
+            $generalSearch.on('keyup', filterTable);
+            $jobNameFilter.on('change', filterTable);
+            $isActiveFilter.on('change', filterTable);
+            $scheduleTypeFilter.on('change', filterTable);
+
+            // پاک کردن فیلترها
+            $clearFilters.on('click', function() {
+                $generalSearch.val('');
+                $jobNameFilter.val('');
+                $isActiveFilter.val('');
+                $scheduleTypeFilter.val('');
+                filterTable();
+            });
+
+            // نمایش تعداد اولیه
+            var initialRows = getDataRows();
+            updateResultCount(initialRows.length, initialRows.length);
+        });
     </script>
 }

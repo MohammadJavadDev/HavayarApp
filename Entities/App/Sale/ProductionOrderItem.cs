@@ -170,7 +170,7 @@ namespace Entities.App.Sale
 		public string? Serial { get; set; }
 
 
-		[DisplayName("مرحله ساخت")]
+		[DisplayName("نوع سریال")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProductionOrderItemSerialTypeEnum SerialType { get; set; }
 

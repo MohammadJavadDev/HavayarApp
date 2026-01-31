@@ -20,7 +20,7 @@ public class UserService(
      ISdk? sdk,
 	IActiveDirectoryService activeDirectoryService,
      IOnlineUserService onlineUserService,
-		 IConfiguration config) : IUserService
+	IConfiguration config) : IUserService
 {
 
      public virtual ApplicationDbContext Context => db;

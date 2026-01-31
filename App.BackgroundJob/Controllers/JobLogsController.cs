@@ -8,8 +8,11 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace App.BackgroundJob.Controllers
 {
+    [Authorize(Roles = "admin")]
     public class JobLogsController : Controller
     {
         private readonly ApplicationDbContext _db;
@@ -40,6 +43,8 @@ namespace App.BackgroundJob.Controllers
                 if (selectedSchedule != null)
                 {
                     var histories = await _db.JobHistories
+                        .Include(h => h.JobSchedule)
+                            .ThenInclude(s => s.JobDefinition)
                         .Where(h => h.ScheduleId == selectedSchedule.Id)
                         .OrderByDescending(h => h.StartTime)
                         .ToListAsync();
@@ -47,7 +52,14 @@ namespace App.BackgroundJob.Controllers
                     return View(histories);
                 }
 
-                return View(new List<JobHistory>());
+                // Load all histories with related data for filtering
+                var allHistories = await _db.JobHistories
+                    .Include(h => h.JobSchedule)
+                        .ThenInclude(s => s.JobDefinition)
+                    .OrderByDescending(h => h.StartTime)
+                    .ToListAsync();
+
+                return View(allHistories);
             }
             catch (Exception ex)
             {

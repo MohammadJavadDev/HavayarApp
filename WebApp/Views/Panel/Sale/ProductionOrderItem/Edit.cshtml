@@ -8,7 +8,7 @@
 <div class="card">
 	<div class="form-action-buttons">
 		<form-action-buttons entity-type="typeof(ProductionOrderItem)">
-			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-comment"
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-exchange"
 				action-name="addComment" title="تغییر وضعیت"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-list"
 							action-name="viewComments" title="تاریخچه تغییر وضعیت"></form-action-button>
@@ -383,7 +383,7 @@
 				<i class="fa fa-plus"></i> افزودن BOM
 			</button>
 		</div>
-		<table id="bomTable" class="table table-striped table-bordered" style="width:2000px">
+		<table id="bomTable" class="table table-striped table-bordered" >
 			<thead>
 				<tr>
 					<th class="min-w-50px">#</th>
@@ -850,43 +850,7 @@
 		$$.get(url, function(result) {
 			let bodyCn = `<div style="overflow-x: hidden;overflow-y: hidden;">${result}</div>`;
 
-			$(bodyCn).find("[data-bind=productionStatus]").change(function(){
-				var status = $(this).val();
-
-				var $startShamsiDateEl = $(bodyCn).find("[data-bind=startShamsiDate]").closest("col-md-6").addClass("d-none");
-				var $endShamsiDateEl = $(bodyCn).find("[data-bind=endShamsiDate]").closest("col-md-6").addClass("d-none");
-				var $FailureTypeIdsEl= $(bodyCn).find("[data-bind=FailureTypeIds]").closest("col-md-6").addClass("d-none");
-
-				switch(status){
-					case "1795":
-					case "1790":
-					case "2209":
-					 $startShamsiDateEl.removeClass("d-none");
-
-					break;
-					 
-					 case "1843":
-					 case "1844":
-					 case "1842":
-					 case "2210":
-					 case "2227":
-					 case "1789":
-					case "1791":
-					 $endShamsiDateEl.removeClass("d-none");
-					 break;
-
-					case "1796":
-					case "2226":
-					$startShamsiDateEl.removeClass("d-none");
-					$FailureTypeIdsEl.removeClass("d-none");
-					break;
-					
-					default:
-					break;
-				}
-
-			})
-
+			  
 			$.confirm({
 				title: commentId ? 'تغییر وضعیت جدید' : 'تغییر وضعیت جدید',
 				columnClass: 'col-md-8',
@@ -946,6 +910,46 @@
 								$select.val($select.val()).trigger('change');
 							}
 						});
+						 
+						// self.$body.find("[data-bind=productionStatus]").change(function(){
+						// 	var status = $(this).val();
+
+
+
+						// 	var $startShamsiDateEl = self.$body.find("[data-bind=startShamsiDate]").closest(".col-md-6").addClass("d-none");
+						// 	var $endShamsiDateEl = self.$body.find("[data-bind=endShamsiDate]").closest(".col-md-6").addClass("d-none");
+						// 	var $FailureTypeIdsEl= self.$body.find("[data-bind=FailureTypeIds]").closest(".col-md-6").addClass("d-none");
+
+						// 	switch(status){
+						// 		case "1795":
+						// 		case "1790":
+						// 		case "2209":
+						// 		 $startShamsiDateEl.removeClass("d-none");
+
+						// 		break;
+
+						// 		 case "1843":
+						// 		 case "1844":
+						// 		 case "1842":
+						// 		 case "2210":
+						// 		 case "2227":
+						// 		 case "1789":
+						// 		case "1791":
+						// 		 $endShamsiDateEl.removeClass("d-none");
+						// 		 break;
+
+						// 		case "1796":
+						// 		case "2226":
+						// 		$startShamsiDateEl.removeClass("d-none");
+						// 		$FailureTypeIdsEl.removeClass("d-none");
+						// 		break;
+
+						// 		default:
+						// 		break;
+						// 	}
+
+						// })
+
 					}, 100);
 				},
 			});

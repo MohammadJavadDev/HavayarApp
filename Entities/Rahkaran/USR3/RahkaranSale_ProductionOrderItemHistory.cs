@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -6,13 +6,15 @@ using System.Text;
 
 namespace Entities.Rahkaran.USR3
 {
-	[Table(name: "Sale_ProductionOrderItem", Schema = "USR3")]
-	public class RahkaranSale_ProductionOrderItem
+	[Table(name: "Sale_ProductionOrderItemHistory", Schema = "USR3")]
+	public class RahkaranSale_ProductionOrderItemHistory
 	{
 		[Key]
+		public long Id { get; set; }
+
 		public long Sale_ProductionOrderItemID { get; set; }
 
-		public long _MasterRef { get; set; }
+		public long ProductionOrderId { get; set; }
 
 		public bool? IsBuildInside { get; set; }
 
@@ -27,23 +29,23 @@ namespace Entities.Rahkaran.USR3
 		public DateTime? AgreedDeliverDate { get; set; }
 
 		[MaxLength(128)]
-		public string? PartModel { get; set; }
+		public string PartModel { get; set; }
 
 		[MaxLength(128)]
-		public string? AirendOrCategory { get; set; }
+		public string AirendOrCategory { get; set; }
 
 		public decimal? InputPressureBar { get; set; }
 
 		public decimal? OutputPressureBar { get; set; }
 
 		[MaxLength(50)]
-		public string? Capacity { get; set; }
+		public string Capacity { get; set; }
 
 		[MaxLength(50)]
-		public string? Scale { get; set; }
+		public string Scale { get; set; }
 
 		[MaxLength(50)]
-		public string? GasType { get; set; }
+		public string GasType { get; set; }
 
 		public decimal? MaximumTemperature { get; set; }
 
@@ -54,12 +56,12 @@ namespace Entities.Rahkaran.USR3
 		public decimal? BarometricPressure { get; set; }
 
 		[MaxLength(128)]
-		public string? MovingType { get; set; }
+		public string MovingType { get; set; }
 
 		public bool? HasInspection { get; set; }
 
 		[MaxLength(2048)]
-		public string? SalesConsideration { get; set; }
+		public string SalesConsideration { get; set; }
 
 		public decimal? Revision { get; set; }
 
@@ -75,10 +77,9 @@ namespace Entities.Rahkaran.USR3
 
 		public DateTime LastModificationDate { get; set; }
 
-		public byte[]? Version { get; set; }
+		public byte Status { get; set; }
 
-		[MaxLength(20)]
-		public string? PartCode { get; set; }
+		public long? Version { get; set; }
 
 	}
 }

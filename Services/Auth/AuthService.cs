@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Entities.Auth;
@@ -39,6 +39,16 @@ public class AuthService(IConfiguration _configuration) : IAuthService
     private static void GenerateClaims(User user , List<Claim> claims)
     {	 
         claims.Add(new Claim(ClaimTypes.Name, user.Name));
-        claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));			 
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
+        claims.Add(new Claim("id", user.Id.ToString()));
+        
+        // Add role claims for authorization
+        if (user.Roles != null && user.Roles.Length > 0)
+        {
+            foreach (var role in user.Roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role, role));
+            }
+        }
     }
 }

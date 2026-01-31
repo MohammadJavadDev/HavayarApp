@@ -36,22 +36,10 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		_dataTableQuery = dataTableQuery;
 		_auditService = auditService;
 		ConnectionString = dbContext.Database.GetConnectionString();
-
-		InitializeLicense();
+		 
 	}
 
-	private void InitializeLicense()
-	{
-		string licenseName = "134;100-DOWNLOADDEVTOOLS.COM";
-		string licenseKey = "1519351-28861E0-148651C-25E14B3-9428";
-
-		LicenseManager.AddLicense(licenseName, licenseKey);
-
-		if (!LicenseManager.ValidateLicense(out string licenseErrorMessage))
-		{
-			throw new Exception(licenseErrorMessage);
-		}
-	}
+	
 
 	#region Helper Methods
 	private void SetEntityDates(TEntity entity, bool isNew)

@@ -30,6 +30,7 @@ namespace Data
 		public DbSet<Sale_RequirmentAdvertiseItem> Sale_RequirmentAdvertiseItem { get; set; }
 		public DbSet<RahkaranSale_ProductionOrder> RahkaranSale_ProductionOrder { get; set; }
 		public DbSet<RahkaranSale_ProductionOrderItem> RahkaranSale_ProductionOrderItem { get; set; }
+		public DbSet<RahkaranSale_ProductionOrderItemHistory> RahkaranSale_ProductionOrderItemHistory { get; set; }
 		public DbSet<RahkaranDLType> RahkaranDLType { get; set; }
 		public DbSet<RahkaranDL> RahkaranDL { get; set; }
 		public DbSet<RahkaranContract> RahkaranContract { get; set; }

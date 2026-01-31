@@ -1,12 +1,15 @@
-﻿using App.BackgroundJob.Models;
+using App.BackgroundJob.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Configuration;
 using System.Diagnostics;
 using System.Text;
 
+using Microsoft.AspNetCore.Authorization;
+
 namespace App.BackgroundJob.Controllers
 {
+	[Authorize(Roles = "admin")]
 	public class HomeController : Controller
 	{
 		private readonly ILogger<HomeController> _logger;
