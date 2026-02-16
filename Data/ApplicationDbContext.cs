@@ -9,6 +9,7 @@ using Entities.Services;
 using Microsoft.EntityFrameworkCore;
  
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using ReportBuilder.Entities;
 using System.Linq.Expressions;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -87,8 +88,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
 
 		var entitiesAssembly = typeof(BaseEntity).Assembly;
-        //var reportBuilderAssembly = typeof(ReportBuilderReport).Assembly;
-        //reportBuilderAssembly
+
+		//reportBuilderAssembly
+		var reportBuilderAssembly = typeof(ReportBuilderReport).Assembly;
+     
 
         modelBuilder.RegisterAllEntities<BaseEntity>(entitiesAssembly);
         modelBuilder.AddSequentialGuidForIdConvention();

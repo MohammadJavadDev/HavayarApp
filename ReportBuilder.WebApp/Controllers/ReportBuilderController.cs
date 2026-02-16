@@ -1,5 +1,4 @@
-﻿using System.Data;
-using Common.Attributes;
+﻿using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
 using Data.Contracts;
@@ -10,11 +9,14 @@ using Microsoft.EntityFrameworkCore;
 using ReportBuilder.Entities;
 using ReportBuilder.Services;
 using ReportBuilder.Services.Contracts;
+using Services.QueryBuilderServices;
 using Stimulsoft.Base;
 using Stimulsoft.Report;
 using Stimulsoft.Report.Dictionary;
 using Stimulsoft.Report.Mvc;
+using System.Data;
 using WebFramework.Filtters;
+using WebFramework.Page;
 
 namespace ReportBuilder.WebApp.Controllers
 {
@@ -24,7 +26,10 @@ namespace ReportBuilder.WebApp.Controllers
  
     [Authorize("AuthenticatedUser")]
     [ControllerInfo("گزارش ساز")]
-    public class ReportBuilderController(IReportBuilderService reportBuilderService , IUnitOfWork unitOfWork  ) : Controller
+    public class ReportBuilderController(IReportBuilderService reportBuilderService ,
+         IUnitOfWork unitOfWork,
+	   IQueryService _queryService) 
+          : BaseController
     {
         
         public static string reportJsonData = "";
@@ -54,10 +59,13 @@ namespace ReportBuilder.WebApp.Controllers
 
         [HttpGet("{action}")]
         [ActionDisplayName("لیست آیتم ها", ActionAccessType.View)]
-        public IActionResult List()
+        public async Task<IActionResult> List()
         {
-      
-              return View("Views/GenerateItem/List.cshtml");
+
+			var reports = await _queryService.GetAllReportsAsync();
+
+		 
+			return View("Views/GenerateItem/List.cshtml", reports);
         }
 
         [HttpGet("[action]/{objectName}/{type}")]

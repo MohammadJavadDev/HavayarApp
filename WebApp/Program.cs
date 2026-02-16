@@ -18,6 +18,8 @@ using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using ReportBuilder.WebApp;
+using ReportBuilder.WebApp;
+using ReportBuilder.WebApp.Controllers;
 using Services;
 using Services.AccessServices;
 using Services.Auth;
@@ -58,6 +60,7 @@ builder.Services.AddControllersWithViews()
         o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
     }).AddRazorRuntimeCompilation()
     .AddApplicationPart(typeof(WebFramework.Controllers.DataTableProfileBuilderController).Assembly)
+	 .AddApplicationPart(typeof(ReportBuilderController).Assembly)
     .AddControllersAsServices();
 
 
@@ -171,6 +174,8 @@ builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
 builder.Services.AddSingleton<SqlQueryValidator>();
 
 builder.Services.AddDistributedMemoryCache();
+
+builder.Services.ConfigureProfilesModule();
 
 
 

@@ -5,7 +5,7 @@
 @using ReportBuilder.Entities
 @model ReportBuilder.Entities.ReportBuilderReport;
 @{
-    Layout = "/Views/Panel/Shared/_PanelLayout.cshtml";
+ 
 
     var objects = await _unitOfWork.Repository<ReportBuilderTable>()
         .TableNoTracking

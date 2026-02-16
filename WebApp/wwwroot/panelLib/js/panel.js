@@ -204,6 +204,7 @@ class QueryDesigner {
           this.builtInParams = [];
           this.zoom = 1;
           this.editMode = false;
+          this.reportType = 0;
           this.reportId = null;
           this.selectedConnection = null;
           this.firstClickedEndpoint = null;
@@ -215,6 +216,8 @@ class QueryDesigner {
      }
 
      async init() {
+          this.reportType = window.__reportType;
+          if (!this.reportType) this.reportType = 0;
           this.checkEditMode();
           this.initMode();
           this.initJsPlumb();
@@ -1906,7 +1909,9 @@ class QueryDesigner {
                     name: name,
                     title: title,
                     queryDesign: { tables: [], relations: [], filters: [], customQuery: query, parameters: this.parameters },
-                    columns: columns
+                    columns: columns,
+                    type:this.reportType
+
                };
                const url = this.editMode && this.reportId
                     ? `UpdateReport?id=${this.reportId}`
