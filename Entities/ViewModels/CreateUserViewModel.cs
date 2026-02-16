@@ -9,7 +9,7 @@ public class CreateUserViewModel
     public string Name { get; set; }
     public string Username { get; set; }
     public string? Password { get; set; }
-    public string[]? Roles { get; set; }
+    public List<string>? Roles { get; set; }
 	public List<long>? RoleIds { get; set; }
 	public string? FName { get; set; }
     public string? ProfileUrl { get; set; }

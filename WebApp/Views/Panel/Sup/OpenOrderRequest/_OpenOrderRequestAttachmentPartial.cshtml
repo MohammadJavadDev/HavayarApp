@@ -1,0 +1,28 @@
+@using Entities.App.Sup;
+@using Entities.App.Sup.Enums;
+@model OpenOrderRequestAttachment
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='attachments.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<fileuploader bind="attachments.attachmentId" accepted-file-types=".rar,.zip,.pdf,"
+			file-id="@Model?.AttachmentId"
+			file-entity="@Model?.Attachment"
+			entity-prop-name="Attachment"
+			max-file-size="10"
+			label="Attachment"></fileuploader>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات</label>
+		<input class='form-control' data-bind='attachments.comment'  value='@Model?.Comment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>نوع فایل</label>
+		<select class='form-control' data-bind='attachments.fileType'  asp-for='FileType' asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestAttachmentFileTypeEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

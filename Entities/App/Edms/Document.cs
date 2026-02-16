@@ -46,6 +46,17 @@ namespace Entities.App.Edms
 		public DateTime? PublicationMiladiDate { get; set; }
 
 
+		[DisplayName("تاریخ تایید شمسی")]
+		[DisplayInfo(null, false, type: SystemType.DateShamsi)]
+		public string? ApprovedShamsiDate { get; set; }
+
+
+		[DisplayName("تاریخ تایید میلادی")]
+		[DisplayInfo(null, false, type: SystemType.Date)]
+		public DateTime? ApprovedMiladiDate { get; set; }
+		
+
+
 		[DisplayName("بررسی کننده")]
 		[DisplayInfo(null, false, type: SystemType.Entity)]
 		public User? Reviewer { get; set; }

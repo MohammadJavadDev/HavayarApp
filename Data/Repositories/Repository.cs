@@ -286,7 +286,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return await Entities.FindAsync(ids, cancellationToken);
 	}
 
-	public virtual async Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = false, bool saveNow = true)
+	public virtual async Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true)
 	{
 		var isNew = entity.Id == 0 || entity.Id == null || !await TableNoTracking.AnyAsync(c => c.Id == entity.Id, cancellationToken);
 
@@ -295,7 +295,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			: await UpdateAsync(entity, cancellationToken, saveAudit, saveNow);
 	}
 
-	public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = false, bool saveNow = true)
+	public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
@@ -333,7 +333,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return entities;
 	}
 
-	public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = false, bool saveNow = true)
+	public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
@@ -545,7 +545,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return Entities.Find(ids);
 	}
 
-	public virtual TEntity Save(TEntity entity, bool saveAudit = false, bool saveNow = true)
+	public virtual TEntity Save(TEntity entity, bool saveAudit = true, bool saveNow = true)
 	{
 		var isNew = entity.Id == 0 || entity.Id == null || !TableNoTracking.Any(c => c.Id == entity.Id);
 
@@ -554,7 +554,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			: Update(entity, saveAudit, saveNow);
 	}
 
-	public virtual TEntity Add(TEntity entity, bool saveAudit = false, bool saveNow = true)
+	public virtual TEntity Add(TEntity entity, bool saveAudit = true, bool saveNow = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
@@ -592,7 +592,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return entities;
 	}
 
-	public virtual TEntity Update(TEntity entity, bool saveAudit = false, bool saveNow = true)
+	public virtual TEntity Update(TEntity entity, bool saveAudit = true, bool saveNow = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 

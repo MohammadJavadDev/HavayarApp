@@ -1,0 +1,439 @@
+﻿@model IEnumerable<Entities.Base.SavedQuery>
+@{
+     ViewData["Title"] = "لیست گزارش‌ها";
+ 
+}
+
+<style>
+     .reports-header {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 2rem 0;
+          margin-bottom: 2rem;
+          border-radius: 0 0 15px 15px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+     }
+
+     .stats-card {
+          background: white;
+          border-radius: 10px;
+          padding: 1.5rem;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+     }
+
+          .stats-card:hover {
+               transform: translateY(-5px);
+               box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          }
+
+     .stats-icon {
+          font-size: 2.5rem;
+          opacity: 0.8;
+     }
+
+     .action-buttons .btn {
+          margin: 0 2px;
+          padding: 0.25rem 0.5rem;
+          font-size: 0.875rem;
+     }
+
+     .report-name {
+          font-weight: 600;
+          color: #495057;
+     }
+
+     .report-title {
+          color: #6c757d;
+          font-size: 0.9rem;
+     }
+
+     .badge-custom {
+          padding: 0.35rem 0.75rem;
+          font-size: 0.85rem;
+          font-weight: 500;
+     }
+
+     .table-hover tbody tr:hover {
+          background-color: #f8f9fa;
+          cursor: pointer;
+     }
+
+     #reportsTable_wrapper .dataTables_filter input {
+          border-radius: 20px;
+          padding: 0.5rem 1rem;
+     }
+
+     #reportsTable_wrapper .dataTables_length select {
+          border-radius: 5px;
+          padding: 0.25rem 0.5rem;
+     }
+
+     .empty-state {
+          text-align: center;
+          padding: 4rem 2rem;
+     }
+
+          .empty-state i {
+               font-size: 5rem;
+               color: #dee2e6;
+               margin-bottom: 1rem;
+          }
+
+     .loading-skeleton {
+          animation: pulse 1.5s ease-in-out infinite;
+     }
+
+     @@keyframes pulse {
+          0%, 100% {
+               opacity: 1;
+          }
+
+          50% {
+               opacity: 0.5;
+          }
+     }
+</style>
+
+<!-- Header -->
+<div class="reports-header">
+     <div class="container">
+          <div class="row align-items-center">
+               <div class="col-md-8">
+                    <h2 class="mb-2">
+                         <i class="bi bi-file-earmark-text"></i>
+                         مدیریت گزارش‌ها
+                    </h2>
+                    <p class="mb-0 opacity-75">
+                         مشاهده، ویرایش و مدیریت گزارش‌های ذخیره شده
+                    </p>
+               </div>
+               <div class="col-md-4 text-start">
+                    <a href="/QueryDesigner/Index" class="btn btn-light btn-lg">
+                         <i class="bi bi-plus-circle"></i>
+                         گزارش جدید
+                    </a>
+               </div>
+          </div>
+     </div>
+</div>
+
+<div class="container">
+     <!-- Stats Cards -->
+     @if (Model != null && Model.Any())
+     {
+          <div class="row mb-4">
+               <div class="col-md-4 mb-3">
+                    <div class="stats-card">
+                         <div class="d-flex justify-content-between align-items-center">
+                              <div>
+                                   <h6 class="text-muted mb-2">کل گزارش‌ها</h6>
+                                   <h2 class="mb-0">@Model.Count()</h2>
+                              </div>
+                              <i class="bi bi-file-earmark-bar-graph stats-icon text-primary"></i>
+                         </div>
+                    </div>
+               </div>
+               <div class="col-md-4 mb-3">
+                    <div class="stats-card">
+                         <div class="d-flex justify-content-between align-items-center">
+                              <div>
+                                   <h6 class="text-muted mb-2">گزارش‌های امروز</h6>
+                                   <h2 class="mb-0">@Model.Count(r => r.CreatedOnMiladiDateTime.Value.Date == DateTime.Today)</h2>
+                              </div>
+                              <i class="bi bi-calendar-check stats-icon text-success"></i>
+                         </div>
+                    </div>
+               </div>
+               <div class="col-md-4 mb-3">
+                    <div class="stats-card">
+                         <div class="d-flex justify-content-between align-items-center">
+                              <div>
+                                   <h6 class="text-muted mb-2">آخرین بروزرسانی</h6>
+                                   <h2 class="mb-0" style="font-size: 1.2rem;">
+                                        @(Model.OrderByDescending(r => r.ModifiedDateMiladiDateTime ?? r.CreatedOnMiladiDateTime).FirstOrDefault()?.ModifiedDateMiladiDateTime?.ToString("yyyy/MM/dd") ?? Model.OrderByDescending(r => r.CreatedOnMiladiDateTime).FirstOrDefault()?.CreatedOnMiladiDateTime.Value.ToString("yyyy/MM/dd") ?? "-")
+                                   </h2>
+                              </div>
+                              <i class="bi bi-clock-history stats-icon text-info"></i>
+                         </div>
+                    </div>
+               </div>
+          </div>
+     }
+
+     <!-- Reports Table -->
+     <div class="card shadow-sm">
+          <div class="card-header bg-white py-3">
+               <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                         <i class="bi bi-list"></i>
+                         لیست گزارش‌ها
+                    </h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                         <button type="button" class="btn btn-outline-primary" onclick="location.reload();">
+                              <i class="bi bi-arrow-clockwise"></i>
+                              بروزرسانی
+                         </button>
+                    </div>
+               </div>
+          </div>
+          <div class="card-body">
+               @if (Model == null || !Model.Any())
+               {
+                    <div class="empty-state">
+                         <i class="bi bi-inbox"></i>
+                         <h4 class="text-muted">گزارشی یافت نشد</h4>
+                         <p class="text-muted mb-4">هنوز گزارشی ایجاد نشده است</p>
+                         <a href="/QueryDesigner/Index" class="btn btn-primary btn-lg">
+                              <i class="bi bi-plus-circle"></i>
+                              ایجاد اولین گزارش
+                         </a>
+                    </div>
+               }
+               else
+               {
+                    <div class="table-responsive">
+                         <table id="reportsTable" class="table table-hover" style="width:100%">
+                              <thead class="table-light">
+                                   <tr>
+                                        <th>نام</th>
+                                        <th>عنوان</th>
+                                        <th>ایجاد کننده</th>
+                                        <th>تاریخ ایجاد</th>
+                                        <th>آخرین ویرایش</th>
+                                        <th style="width: 200px;">عملیات</th>
+                                   </tr>
+                              </thead>
+                              <tbody>
+                                   @foreach (var report in Model)
+                                   {
+                                        <tr>
+                                             <td>
+                                                  <span class="report-name">@report.Name</span>
+                                             </td>
+                                             <td>
+                                                  <span class="report-title">@report.Title</span>
+                                             </td>
+                                             <td>
+                                                  <span class="badge badge-custom bg-secondary">
+                                                       <i class="bi bi-person"></i>
+                                                       @report.CreatedBy
+                                                  </span>
+                                             </td>
+                                             <td>
+                                                  <small class="text-muted">
+                                                       <i class="bi bi-calendar3"></i>
+                                                       @report.CreatedOnMiladiDateTime.Value.ToString("yyyy/MM/dd HH:mm")
+                                                  </small>
+                                             </td>
+                                             <td>
+                                                  @if (report.ModifiedDateMiladiDateTime.HasValue)
+                                                  {
+                                                       <small class="text-muted">
+                                                            <i class="bi bi-pencil"></i>
+                                                            @report.ModifiedDateMiladiDateTime.Value.ToString("yyyy/MM/dd HH:mm")
+                                                       </small>
+                                                  }
+                                                  else
+                                                  {
+                                                       <span class="text-muted">-</span>
+                                                  }
+                                             </td>
+                                             <td class="action-buttons">
+                                                  <button type="button"
+                                                          class="btn btn-sm btn-outline-info"
+                                                          onclick="executeReport(@report.Id)"
+                                                          title="اجرا و نمایش">
+                                                       <i class="bi bi-play-circle"></i>
+                                                  </button>
+                                                  <a href="/QueryDesigner/Edit/@report.Id"
+                                                     class="btn btn-sm btn-outline-primary"
+                                                     title="ویرایش">
+                                                       <i class="bi bi-pencil"></i>
+                                                  </a>
+                                                  <button type="button"
+                                                          class="btn btn-sm btn-outline-success"
+                                                          onclick="exportToExcel(@report.Id)"
+                                                          title="دانلود Excel">
+                                                       <i class="bi bi-file-earmark-excel"></i>
+                                                  </button>
+                                                  <button type="button"
+                                                          class="btn btn-sm btn-outline-secondary"
+                                                          onclick="downloadSql(@report.Id)"
+                                                          title="دانلود SQL">
+                                                       <i class="bi bi-file-earmark-code"></i>
+                                                  </button>
+                                                  <button type="button"
+                                                          class="btn btn-sm btn-outline-danger"
+                                                          onclick="deleteReport(@report.Id, '@report.Name')"
+                                                          title="حذف">
+                                                       <i class="bi bi-trash"></i>
+                                                  </button>
+                                             </td>
+                                        </tr>
+                                   }
+                              </tbody>
+                         </table>
+                    </div>
+               }
+          </div>
+     </div>
+</div>
+
+<!-- Modal: Execute Report Results -->
+<div class="modal fade" id="executeModal" tabindex="-1">
+     <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+               <div class="modal-header">
+                    <h5 class="modal-title">
+                         <i class="bi bi-play-circle"></i>
+                         نتایج گزارش
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+               </div>
+               <div class="modal-body">
+                    <div id="executeContent">
+                         <div class="text-center p-4">
+                              <div class="spinner-border text-primary" role="status">
+                                   <span class="visually-hidden">در حال اجرا...</span>
+                              </div>
+                              <p class="text-muted mt-3">در حال اجرای گزارش...</p>
+                         </div>
+                    </div>
+               </div>
+               <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
+               </div>
+          </div>
+     </div>
+</div>
+
+ 
+
+<script>
+     $(document).ready(function() {
+         // مقداردهی DataTables
+         @if (Model != null && Model.Any())
+         {
+                       <text>
+                       $('#reportsTable').DataTable({
+                           responsive: true,
+                            
+                           order: [[3, 'desc']], // مرتب‌سازی بر اساس تاریخ ایجاد
+                           pageLength: 25,
+                           lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'همه']],
+                           columnDefs: [
+                               { orderable: false, targets: 5 } // غیرفعال کردن مرتب‌سازی برای ستون عملیات
+                           ]
+                       });
+                       </text>
+         }
+     });
+
+     // اجرای گزارش
+     async function executeReport(id) {
+         try {
+             const modal = new bootstrap.Modal(document.getElementById('executeModal'));
+             modal.show();
+
+             const response = await $.get('/QueryDesigner/ExecuteReport', { id: id });
+
+             if (response.success) {
+                 const result = response.data;
+                 let html = `
+                     <div class="mb-3">
+                         <strong>تعداد رکوردها:</strong> ${result.TotalRows}
+                     </div>
+                     <div class="table-responsive">
+                         <table class="table table-sm table-bordered table-striped">
+                             <thead class="table-dark">
+                                 <tr>`;
+
+                 // هدرها
+                 result.ColumnNames.forEach(col => {
+                     html += `<th>${col}</th>`;
+                 });
+                 html += '</tr></thead><tbody>';
+
+                 // داده‌ها
+                 result.Rows.forEach(row => {
+                     html += '<tr>';
+                     result.ColumnNames.forEach(col => {
+                         const value = row[col];
+                         html += `<td>${value !== null && value !== undefined ? value : '<span class="text-muted">NULL</span>'}</td>`;
+                     });
+                     html += '</tr>';
+                 });
+
+                 html += '</tbody></table></div>';
+                 $('#executeContent').html(html);
+             } else {
+                 $('#executeContent').html(`
+                     <div class="alert alert-danger">
+                         <i class="bi bi-exclamation-triangle"></i>
+                         ${response.message || 'خطا در اجرای گزارش'}
+                     </div>
+                 `);
+             }
+         } catch (error) {
+             console.error(error);
+             $('#executeContent').html(`
+                 <div class="alert alert-danger">
+                     <i class="bi bi-exclamation-triangle"></i>
+                     خطا در ارتباط با سرور
+                 </div>
+             `);
+         }
+     }
+
+     // Export به Excel
+     function exportToExcel(id) {
+         showAlert('در حال دانلود فایل Excel...', 'info');
+         window.location.href = '/QueryDesigner/ExportToExcel?id=' + id;
+     }
+
+     // دانلود SQL
+     function downloadSql(id) {
+         showAlert('در حال دانلود فایل SQL...', 'info');
+         window.location.href = '/QueryDesigner/DownloadSql?id=' + id;
+     }
+
+     // حذف گزارش
+     async function deleteReport(id, name) {
+         const confirmed = confirm(`آیا از حذف گزارش "${name}" اطمینان دارید؟\n\nاین عملیات غیرقابل بازگشت است.`);
+
+         if (!confirmed) return;
+
+         try {
+             const response = await $.post('/QueryDesigner/DeleteReport', { id: id });
+
+             if (response.success) {
+                 showAlert('گزارش با موفقیت حذف شد', 'success');
+                 setTimeout(() => {
+                     location.reload();
+                 }, 1500);
+             } else {
+                 showAlert('خطا در حذف گزارش', 'danger');
+             }
+         } catch (error) {
+             console.error(error);
+             showAlert('خطا در ارتباط با سرور', 'danger');
+         }
+     }
+
+     // نمایش پیام
+     function showAlert(message, type) {
+         const alertHtml = `
+             <div class="alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3"
+                  style="z-index: 9999; min-width: 300px;" role="alert">
+                 ${message}
+                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+             </div>
+         `;
+         $('body').append(alertHtml);
+
+         setTimeout(() => {
+             $('.alert').alert('close');
+         }, 5000);
+     }
+</script>

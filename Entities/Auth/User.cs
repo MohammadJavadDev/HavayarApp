@@ -1,10 +1,16 @@
 ﻿using Common.Attributes;
 using Common.Entities;
+using Entities.App.Epms;
+using Entities.App.Gnr;
+using Entities.App.Hrm;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Net;
+using System.Reflection.Emit;
 
 namespace Entities.Auth;
 
@@ -77,9 +83,9 @@ public class User
     public string? Password { get; set; }
 
     [Required(ErrorMessage = AppMessages.ReqiredMessage + "نقش ها")]
-    [DisplayName("نقش ها")]
-	[DisplayInfo(null, false, SystemType.ListString )]
-	public string[] Roles { get; set; }
+	[DisplayName("نقش ها")]
+	[DisplayInfo(null, false, SystemType.ListString)]
+	public List<string> Roles { get; set; } = [];
 
 	[DisplayName("شناسه نقش ها")]
 	[DisplayInfo(null, false, SystemType.ListLong)]
@@ -106,11 +112,48 @@ public class User
 
 	public AuthorizationTypeEnum AuthorizationType { get; set; }
 
+
+	[DisplayName("نام به فارسی")]
+	[DisplayInfo(null, false , type: SystemType.String)]
+	public string? NameFa { get; set; }
+
+
+	[DisplayName("شخص")]
+	[DisplayInfo(null, true, type: SystemType.Entity)]
+	public Party? Party { get; set; }
+
+	public long? PartyId { get; set; }
+
+	[DisplayName("واحد سازمانی")]
+	[DisplayInfo(null, true, type: SystemType.Entity)]
+	public OrgUnit? OrgUnit { get; set; }
+
+	public long? OrgUnitId { get; set; }
+
 	public long? HamkaranId { get; set; }
 
 	[NotMapped]
 	public List<RoleAccess> RoleAccesses { get; set; } = new();
 
+}
+
+public class UserConfiguration : IEntityTypeConfiguration<User>
+{
+	public void Configure(EntityTypeBuilder<User> builder)
+	{
+
+
+		builder.HasOne(u => u.OrgUnit)
+		.WithMany()  
+		.HasForeignKey(u => u.OrgUnitId)
+		.OnDelete(DeleteBehavior.SetNull);
+
+		builder.HasOne(u => u.Party)
+		.WithMany()
+		.HasForeignKey(u => u.PartyId)
+		.OnDelete(DeleteBehavior.SetNull);
+
+	}
 }
 
 public enum AuthorizationTypeEnum

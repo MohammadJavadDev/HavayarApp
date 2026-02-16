@@ -1,0 +1,19 @@
+@using Entities.App.Sup
+@model dynamic
+
+<div class="row">
+	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
+
+	<div class='col-md-6'>
+		<label class='required'>تاریخ کامنت</label>
+		<input class='form-control' data-bind='commentShamsiDate' data-persionDatePicker="true"
+			persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' required />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-12'>
+		<label class='required'>توضیحات</label>
+		<textarea class='form-control' data-bind='commentValue' rows="4" required></textarea>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+</div>

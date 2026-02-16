@@ -115,7 +115,7 @@ public sealed class EntityChangeNotificationHandler : IEntityChangeNotificationH
                         Title = recipient.MessageTitle,
                         Body = recipient.Body,
                         IsRead = false,
-                        CreatedOnShamsiDateTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss"),
+                        CreatedOnShamsiDateTime = newNoti.CreatedOnShamsiDateTime,
                         EntityName = evt.EntityName,
                         EntityId = evt.EntityId,
                         Operation = evt.Operation,

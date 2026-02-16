@@ -1,0 +1,263 @@
+@using Common.Utilities
+@using Entities.App.Sup
+@using Entities.App.Sup.Enums
+@using Entities.Auth
+@model OpenOrderRequest
+
+<div class="row">
+	<input type="hidden" data-bind="openOrderRequestId" value="@Model?.Id" />
+	<input type="hidden" data-bind="currentStopStatus" value="@((int?)Model?.StopStatus)" />
+
+	<div class="col-md-12">
+		<div class="alert alert-info">
+			<strong>وضعیت فعلی توقف:</strong> @(Model?.StopStatus?.ToDisplay() ?? "هیچ")
+		</div>
+	</div>
+
+	@* Section 1: Initial Stop Request (StopStatus == null or 0 or 2815) *@
+	<div id="stopSection1" class="col-md-12" style="display:none;">
+		<div class="  mb-3">
+
+			<div class="  row">
+				<div class='col-md-4'>
+					<label class='required'>نوع توقف</label>
+					<select class='form-control' data-bind='StopTypeEnum' id="StopTypeEnum" required
+						asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestStopTypeEnum))">
+						<option value="">انتخاب کنید</option>
+
+					</select>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-4'>
+					<label class='required'>عامل توقف</label>
+					@(Html.EntitySelector<User>(
+										"StopOperatorSelector",
+										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+										c => new { Id = c.Id, Name = c.Name },
+										c => new { c.Name },
+										"{Name}",
+										"stopOperatorId",
+										"stopOperatorName",
+										null
+										))
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-12'>
+					<label class='required'>ذینفعان</label>
+
+					@(Html.EntitySelector<User>(
+										"BeneficiariesNamesSelector",
+										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+										c => new { Id = c.Id, Name = c.Name },
+										c => new { c.Name },
+										"{Name}",
+										"BeneficiariesIds",
+										"BeneficiariesNames",
+										null,
+										false,
+										true
+										))
+
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-12'>
+					<label class='required'>علت توقف</label>
+					<textarea class='form-control' data-bind='commentValue' rows="3" required></textarea>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-6'>
+
+					<fileuploader bind="attachmentId" accepted-file-types=".pdf,.zip,.rar" max-file-size="10"
+						label="پیوست توقف" entity-type="@typeof(OpenOrderRequestComment).FullName"
+						entity-prop-name="AlternativeAttachment"></fileuploader>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	@* Section 2: Stop Operator Review (StopStatus == 2807, 2813, 2816) *@
+	<div id="stopSection2" class="col-md-12" style="display:none;">
+		<div class="card mb-3">
+			<div class="card-header bg-warning text-dark p-3">
+				<h5 class="mb-0">بررسی عامل توقف</h5>
+			</div>
+			<div class="card-body row">
+				<div class='col-md-6'>
+					<label class='required'>نتیجه بررسی</label>
+					<select class='form-control' data-bind='stopCheckingResult' id="stopCheckingResultSelect"
+						asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestCommentStopCheckingResultEnum))">
+					</select>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-6'>
+					<label class='required'>توضیحات بررسی</label>
+					<textarea class='form-control' data-bind='stopCheckingComment' rows="2"></textarea>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-12'>
+					<label class=''>دلیل تأخیر</label>
+					<textarea class='form-control' data-bind='stopCheckingDelayReasonText' rows="2"></textarea>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-4 align-content-center' id="needToUpdateBomRow" style="display:none;">
+					<div class="form-check">
+						<input data-bind='isNeedToUpdateBom' class="form-check-input" type="checkbox" />
+						<label class="form-check-label">نیاز به بروزرسانی BOM</label>
+					</div>
+				</div>
+
+				<div class='col-md-4 align-content-center' id="needToDeleteBomRow" style="display:none;">
+					<div class="form-check">
+						<input data-bind='isNeedToDeleteBom' class="form-check-input" type="checkbox" />
+						<label class="form-check-label">نیاز به حذف BOM</label>
+					</div>
+				</div>
+
+				<div class='col-md-6' id="projectManagerDateRow" style="display:none;">
+					<label class=''>تاریخ تقریبی اعمال نظر مدیر پروژه</label>
+					<input class='form-control' data-bind='projectManagerApproximateCommentShamsiDate'
+						data-persionDatePicker="true"
+						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}' />
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-6'>
+	 
+					<fileuploader bind="alternativeAttachmentId" accepted-file-types=".pdf,.zip,.rar" max-file-size="5"
+						entity-type="@typeof(OpenOrderRequestComment).FullName" entity-prop-name="AlternativeAttachment"
+						label="پیوست بررسی"></fileuploader>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	@* Section 3: Requester Decision (StopStatus == 2808-2812, 2821) *@
+	<div id="stopSection3" class="col-md-12" style="display:none;">
+		<div class="card mb-3">
+			<div class="card-header bg-primary text-white p-3">
+				<h5 class="mb-0">تصمیم درخواست‌کننده توقف</h5>
+			</div>
+			<div class="card-body row">
+				<div class='col-md-6'>
+					<label class='required'>وضعیت بررسی</label>
+					<select class='form-control' data-bind='stopCheckingStatus' id="stopCheckingStatusSelect"
+						asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestStopCheckingStatusEnum))">
+					</select>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-6'>
+					<label class='required'>توضیحات</label>
+					<textarea class='form-control' data-bind='stopCheckingStatusComment' rows="2"></textarea>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				@* If choosing "ثبت توقف مجدد" - show Section1 fields again *@
+				<div id="StopFieldsContainer" class="col-md-12" style="display:none;">
+					<hr />
+					<div class="row">
+						<div class='col-md-4'>
+							<label class='required'>نوع توقف</label>
+							<select class='form-control' data-bind='StopTypeEnum' id="StopTypeEnum"
+								asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestStopTypeEnum))">
+								<option value="">انتخاب کنید</option>
+
+							</select>
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-4'>
+							<label class='required'>عامل توقف مجدد</label>
+							@(Html.EntitySelector<User>(
+														"ReStopOperatorSelector",
+														c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+														c => new { Id = c.Id, Name = c.Name },
+														c => new { c.Name },
+														"{Name}",
+														"reStopOperatorId",
+														"reStopOperatorName",
+														null
+														))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-12'>
+							<label class='required'>علت توقف مجدد</label>
+							<textarea class='form-control' data-bind='StopCommentValue' rows="2"></textarea>
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	// Dynamic field visibility based on StopStatus
+	(function () {
+		const currentStopStatus = @((int?)Model?.StopStatus ?? 0);
+
+		// Hide all sections initially
+		$('#stopSection1, #stopSection2, #stopSection3').hide();
+
+		if (currentStopStatus === 0 || currentStopStatus === 2815) {
+			// Show Section 1: Initial Stop
+			$('#stopSection1').show();
+			$('#stopSection2, #stopSection3').remove();
+		}
+		else if (currentStopStatus === 2807 || currentStopStatus === 2813 || currentStopStatus === 2816) {
+			// Show Section 2: Operator Review
+			$('#stopSection2').show();
+			$('#stopSection1, #stopSection3').remove();
+			$('#stopCheckingResultSelect').prop('required', true);
+		}
+		else if (currentStopStatus >= 2808 && currentStopStatus <= 2812 || currentStopStatus === 2821) {
+			// Show Section 3: Requester Decision
+			$('#stopSection3').show();
+			$('#stopSection2, #stopSection3').remove();
+			$('#stopCheckingResultSelect').prop('required', true);
+		}
+
+		// StopCheckingResult change handler
+		$('#stopCheckingResultSelect').on('change', function () {
+			debugger
+			const value = parseInt($(this).val());
+			$('#needToUpdateBomRow, #needToDeleteBomRow, #projectManagerDateRow').hide();
+
+			// Remove required attributes
+			$('#needToUpdateBomRow input, #needToDeleteBomRow input').prop('required', false);
+			$('#projectManagerDateRow input').prop('required', false);
+
+			if (value === 2800) { // NeedsBOMCorrection
+				$('#needToUpdateBomRow, #needToDeleteBomRow').show();
+				// At least one must be checked - will be validated on submit
+			}
+			else if (value === 2803) { // AwaitingProjectManagerOrEmployer
+				$('#projectManagerDateRow').show();
+				$('#projectManagerDateRow input').prop('required', true);
+			}
+		});
+
+		// StopCheckingStatus change handler
+		$('#stopCheckingStatusSelect').on('change', function () {
+			const value = parseInt($(this).val());
+			$('#StopFieldsContainer').hide();
+			$('#StopFieldsContainer input, #StopFieldsContainer select, #StopFieldsContainer textarea').prop('required', false);
+
+			if (value === 2805) { // ReRegisterStop
+				$('#StopFieldsContainer').show();
+				$('#StopFieldsContainer input[data-bind="StopTypeEnum"], #StopFieldsContainer textarea[data-bind="StopCommentValue"]').prop('required', true);
+			}
+		});
+
+
+	})();
+</script>

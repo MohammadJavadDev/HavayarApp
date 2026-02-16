@@ -78,6 +78,10 @@ namespace WebApp.Controllers.SystemControllers
 			// تعداد کل
 			var total = await query.CountAsync(cancellationToken);
 
+			var dt = _unitOfWork.Repository<Notification>()
+				.TableNoTracking
+				.Where(n => n.OwnerId == userId).ToList();
+
 			// صفحه‌بندی
 			var notifications = await query
 				.Skip((page - 1) * pageSize)
@@ -87,7 +91,6 @@ namespace WebApp.Controllers.SystemControllers
 					n.Id,
 					n.Title,
 					n.Body,
-					n.Description,
 					n.IsRead,
 					n.ViewPath,
 					n.CreatedOnShamsiDateTime,
@@ -172,7 +175,6 @@ namespace WebApp.Controllers.SystemControllers
 			{
 				Body = model.Body,
 				Title = model.Title,
-				Description = model.Description
 			};
 			if (model.SaveNotification)
 			{

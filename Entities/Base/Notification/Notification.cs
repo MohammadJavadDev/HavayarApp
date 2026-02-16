@@ -1,5 +1,6 @@
 ﻿using Common.Attributes;
 using Entities.Auth;
+using Entities.Base.Enums;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -23,11 +24,6 @@ namespace Entities.Base.Notification
 
 		public string? Body { get; set; }
 
-		[DisplayName("توضیحات")]
-		[DisplayInfo(null, true, type: SystemType.String, required: false, showInRelationData: false)]
-
-		public string? Description { get; set; }
-
 		[DisplayName("موجودیت مربوطه")]
 		[DisplayInfo(null, true, type: SystemType.Long)]
 
@@ -43,5 +39,12 @@ namespace Entities.Base.Notification
  
 		public User Owner {  get; set; }
 
+		public NotificationType Type { get; set; } = NotificationType.Appliaction;
+		public bool IsSend { get; set; } = false;
+		public DateTime? SendDateTime { get; set; }
+		public List<string>? ToEmails { get; set; }
+		public List<string>? CcEmails { get; set; }
+
 	}
+
 }

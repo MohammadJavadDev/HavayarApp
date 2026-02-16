@@ -5,7 +5,9 @@ namespace Shared.Realtime.Events;
 /// </summary>
 public sealed class NotificationEvent
 {
-    public required string Title { get; init; }
+	public long? Id { get; set; }
+	public string? ViewPath { get; set; }
+	public required string Title { get; init; }
     public required string Body { get; init; }
     public long[]? UserIds { get; init; }
 

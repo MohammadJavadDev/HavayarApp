@@ -4,6 +4,7 @@ using Data;
 using Data.Contracts;
 using Entities.App.FIN;
 using Entities.App.Gnr;
+using Entities.App.Hcm;
 using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sale.Enums;
@@ -62,14 +63,33 @@ namespace App.BackgroundJob.Jobs.Sale
 					.ToListAsync(cn);
 				var regionMap = appRegions.ToDictionary(x => x.RahkaranId!.Value, x => x.Id);
 
-				// بارگذاری User ها با HamkaranId
+				// بارگذاری Personel ها برای نگاشت Employee → User
+				var appPersonels = await unitOfWork.Repository<Personel>()
+					.TableNoTracking
+					.Where(x => x.HamkaranId.HasValue && x.PartyId.HasValue)
+					.ToListAsync(cn);
+
+				// بارگذاری User ها با PartyId و Id
 				var appUsers = await appContext.Users
 					.AsNoTracking()
-					.Where(x => x.HamkaranId.HasValue)
+					.Where(x => x.PartyId.HasValue && x.Id.HasValue)
 					.ToListAsync(cn);
-				var userMap = appUsers.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
 
-				await jobLogger?.LogInfoAsync($"Entity های مرتبط بارگذاری شدند: {contractMap.Count} قرارداد، {dlMap.Count} حساب تفصیلی، {customerMap.Count} مشتری، {regionMap.Count} منطقه، {userMap.Count} کاربر", cn);
+				// ایجاد نگاشت از PartyId به UserId
+				var partyToUserMap = appUsers.ToDictionary(x => x.PartyId!.Value, x => x.Id!.Value);
+
+				// ایجاد نگاشت نهایی از HamkaranId (EmployeeId) به UserId
+				var employeeToUserMap = new Dictionary<long, long>();
+				foreach (var personel in appPersonels)
+				{
+					if (personel.HamkaranId.HasValue && personel.PartyId.HasValue &&
+						partyToUserMap.TryGetValue(personel.PartyId.Value, out var userId))
+					{
+						employeeToUserMap[personel.HamkaranId.Value] = userId;
+					}
+				}
+
+				await jobLogger?.LogInfoAsync($"Entity های مرتبط بارگذاری شدند: {contractMap.Count} قرارداد، {dlMap.Count} حساب تفصیلی، {customerMap.Count} مشتری، {regionMap.Count} منطقه، {employeeToUserMap.Count} نگاشت کارمند به کاربر", cn);
 
 				// بارگذاری ProductionOrder های موجود
 				var appProductionOrders = await unitOfWork.Repository<ProductionOrder>()
@@ -151,28 +171,29 @@ namespace App.BackgroundJob.Jobs.Sale
 							newPO.InstallationCityId = installationCityId;
 						}
 
-						// نگاشت User ها - اگر پیدا نشد null می‌گذاریم
-						if (rahkaranPO.SalesManagerUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.SalesManagerUserIdRef.Value, out var salesManagerId))
+						// نگاشت User ها از طریق Employee → Personel → User
+						// استفاده از SalesManagerIdRef (Employee) به جای SalesManagerUserIdRef
+						if (rahkaranPO.SalesManagerIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.SalesManagerIdRef.Value, out var salesManagerId))
 						{
 							newPO.SalesManagerId = salesManagerId;
 						}
 
-						if (rahkaranPO.ProjectManagerUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.ProjectManagerUserIdRef.Value, out var projectManagerId))
+						if (rahkaranPO.ProjectManagerIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.ProjectManagerIdRef.Value, out var projectManagerId))
 						{
 							newPO.ProjectManagerId = projectManagerId;
 						}
 
-						if (rahkaranPO.AlternativeExpertUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.AlternativeExpertUserIdRef.Value, out var alternativeExpertId))
+						if (rahkaranPO.AlternativeExpertIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.AlternativeExpertIdRef.Value, out var alternativeExpertId))
 						{
 							newPO.AlternativeExpertId = alternativeExpertId;
 						}
 
-						if (rahkaranPO.SalesExpertUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.SalesExpertUserIdRef.Value, out var salesExpertId))
+						if (rahkaranPO.SalesExpertIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.SalesExpertIdRef.Value, out var salesExpertId))
 						{
 							newPO.SalesExpertId = salesExpertId;
 						}
 
-						if (rahkaranPO.IntroducerExpertRef.HasValue && userMap.TryGetValue(rahkaranPO.IntroducerExpertRef.Value, out var introducerExpertId))
+						if (rahkaranPO.IntroducerExpertRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.IntroducerExpertRef.Value, out var introducerExpertId))
 						{
 							newPO.IntroducerExpertId = introducerExpertId;
 						}
@@ -395,9 +416,9 @@ namespace App.BackgroundJob.Jobs.Sale
 							}
 						}
 
-						// به‌روزرسانی User ها
+						// به‌روزرسانی User ها از طریق Employee → Personel → User
 						long? newSalesManagerId = null;
-						if (rahkaranPO.SalesManagerUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.SalesManagerUserIdRef.Value, out var salesManagerId))
+						if (rahkaranPO.SalesManagerIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.SalesManagerIdRef.Value, out var salesManagerId))
 						{
 							newSalesManagerId = salesManagerId;
 						}
@@ -408,7 +429,7 @@ namespace App.BackgroundJob.Jobs.Sale
 						}
 
 						long? newProjectManagerId = null;
-						if (rahkaranPO.ProjectManagerUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.ProjectManagerUserIdRef.Value, out var projectManagerId))
+						if (rahkaranPO.ProjectManagerIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.ProjectManagerIdRef.Value, out var projectManagerId))
 						{
 							newProjectManagerId = projectManagerId;
 						}
@@ -419,7 +440,7 @@ namespace App.BackgroundJob.Jobs.Sale
 						}
 
 						long? newAlternativeExpertId = null;
-						if (rahkaranPO.AlternativeExpertUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.AlternativeExpertUserIdRef.Value, out var alternativeExpertId))
+						if (rahkaranPO.AlternativeExpertIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.AlternativeExpertIdRef.Value, out var alternativeExpertId))
 						{
 							newAlternativeExpertId = alternativeExpertId;
 						}
@@ -430,7 +451,7 @@ namespace App.BackgroundJob.Jobs.Sale
 						}
 
 						long? newSalesExpertId = null;
-						if (rahkaranPO.SalesExpertUserIdRef.HasValue && userMap.TryGetValue(rahkaranPO.SalesExpertUserIdRef.Value, out var salesExpertId))
+						if (rahkaranPO.SalesExpertIdRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.SalesExpertIdRef.Value, out var salesExpertId))
 						{
 							newSalesExpertId = salesExpertId;
 						}
@@ -441,7 +462,7 @@ namespace App.BackgroundJob.Jobs.Sale
 						}
 
 						long? newIntroducerExpertId = null;
-						if (rahkaranPO.IntroducerExpertRef.HasValue && userMap.TryGetValue(rahkaranPO.IntroducerExpertRef.Value, out var introducerExpertId))
+						if (rahkaranPO.IntroducerExpertRef.HasValue && employeeToUserMap.TryGetValue(rahkaranPO.IntroducerExpertRef.Value, out var introducerExpertId))
 						{
 							newIntroducerExpertId = introducerExpertId;
 						}

@@ -1,0 +1,19 @@
+@using Entities.App.Sup
+@model dynamic
+
+<div class="row">
+	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
+
+	<div class="col-md-12">
+		<div class="alert alert-warning">
+			<i class="fa fa-exclamation-triangle"></i>
+			با تایید این بخش، درخواست به واحد تدارکات ارسال خواهد شد
+		</div>
+	</div>
+
+	<div class='col-md-12'>
+		<label class='required'>توضیحات تایید</label>
+		<textarea class='form-control' data-bind='salesUnitConfirmationComment' rows="4" required></textarea>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+</div>

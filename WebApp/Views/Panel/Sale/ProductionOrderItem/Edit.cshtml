@@ -3,7 +3,10 @@
 @using Entities.App.Sale.Enums;
 @using WebApp.Controllers.Dynamic
 @model ProductionOrderItem
+@{
 
+	var newMode = Model.Id == null;
+}
 
 <div class="card">
 	<div class="form-action-buttons">
@@ -31,25 +34,49 @@
 				<div class="col-md-2">
 					<label class=''>سفارش ساخت</label>
 
-					@(Html.EntitySelector<ProductionOrder>(
-										"ProductionOrderSelector",
-										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-										c => new
-										{
-											Id = c.Id,
-											Number = (int)c.ProductionOrderNumber
-										},
-										c => new { c.ProductionOrderNumber },
-										"{Number} ",
-										"ProductionOrderId",
-										"ProductionOrderName",
-										Model?.ProductionOrderId.ToString(),
-										false,
-										false,
-										false,
-										true
+					@if (newMode)
+					{
+						@(Html.EntitySelector<ProductionOrder>(
+											"ProductionOrderSelector",
+											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+											c => new
+											{
+												Id = c.Id,
+												ProductionOrderNumber = (int)c.ProductionOrderNumber,
+												NumberSerach = c.ProductionOrderNumber
+											},
+											c => new { c.ProductionOrderNumber },
+											"{ProductionOrderNumber}",
+											"ProductionOrderId",
+											"ProductionOrderName",
+											Model?.ProductionOrderId.ToString(),
+											true
+											))
+					}
+					else
+					{
+						@(Html.EntitySelector<ProductionOrder>(
+											"ProductionOrderSelector",
+											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+											c => new
+											{
+												Id = c.Id,
+												Number = (int)c.ProductionOrderNumber
+											},
+											c => new { c.ProductionOrderNumber },
+											"{Number}",
+											"ProductionOrderId",
+											"ProductionOrderName",
+											Model?.ProductionOrderId.ToString(),
+											false,
+											false,
+											false,
+											true
 
-										))
+											))
+					}
+
+				
 
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
@@ -59,7 +86,28 @@
 				<div class="col-md-4">
 					<label class=''>کالا</label>
 
-					@(Html.EntitySelector<Part>(
+					@if (newMode)
+					{
+								@(Html.EntitySelector<Part>(
+										"PartSelector",
+										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+										c => new
+										{
+											Id = c.Id,
+											Name = c.Name,
+											Code = c.Code
+										},
+										c => new { c.Name, c.Code },
+										"{Name} {Code}",
+										"PartId",
+										"PartName",
+										Model?.PartId?.ToString(),
+										true
+										))
+										}
+					else
+					{
+								@(Html.EntitySelector<Part>(
 										"PartSelector",
 										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
 										c => new
@@ -78,10 +126,34 @@
 										false,
 										true
 										))
+					}
+			
 
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 				
+				@if (newMode)
+				{
+					<div class='col-md-3'>
+						<label class=''>وضعیت تولید</label>
+						<select class='form-control' data-bind='deviceType' asp-for='DeviceType'
+							   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemDeviceTypeEnum))">
+						</select>
+						<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+					</div>
+
+								}
+				else
+				{
+						<div class='col-md-2'>
+					<div class="mb-3">
+						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع دستگاه</label>
+						<span class='fw-semibold fs-6' data-bind='deviceType'>@(Model?.DeviceType?.ToString() ?? "-")</span>
+					</div>
+				</div>
+				}
+			
+
 
 				<div class='col-md-2'>
 					<div class="d-flex align-items-center py-2">
@@ -97,12 +169,7 @@
 					</div>
 				</div>
 
-				<div class='col-md-2'>
-					<div class="mb-3">
-						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع دستگاه</label>
-						<span class='fw-semibold fs-6' data-bind='deviceType'>@(Model?.DeviceType?.ToString() ?? "-")</span>
-					</div>
-				</div>
+			
 
 				<div class='col-md-2'>
 					<div class="mb-3">

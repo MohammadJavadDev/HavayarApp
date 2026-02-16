@@ -1,0 +1,171 @@
+@using Entities.App.Sup;
+@using Entities.App.Sup.Enums;
+@using Entities.Auth;
+@model OpenOrderRequestComment
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='comments.id' value='@Model?.Id' />
+
+
+	<div class='col-md-3 align-content-center'>
+		<div class="form-check">
+			<input data-bind='comments.isStop' class="form-check-input" type="checkbox" value='@Model?.IsStop' />
+			<label class="form-check-label">
+				متوقف شده
+			</label>
+		</div>
+	</div>
+
+	<div class='col-md-3 align-content-center'>
+		<div class="form-check">
+			<input data-bind='comments.isLaunched' class="form-check-input" type="checkbox" value='@Model?.IsLaunched' />
+			<label class="form-check-label">
+				راه اندازی شده
+			</label>
+		</div>
+	</div>
+
+	<div class='col-md-3 align-content-center'>
+		<div class="form-check">
+			<input data-bind='comments.hasSalesUnitConfirmation' class="form-check-input" type="checkbox" value='@Model?.HasSalesUnitConfirmation' />
+			<label class="form-check-label">
+				دارای تایید واحد فروش
+			</label>
+		</div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>کامنت تایید واحد فروش</label>
+		<input class='form-control' data-bind='comments.salesUnitConfirmationComment'  value='@Model?.SalesUnitConfirmationComment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات</label>
+		<input class='form-control' data-bind='comments.commentValue'  value='@Model?.CommentValue' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>نوع توقف</label>
+		<select class='form-control' data-bind='comments.stopType' asp-for='StopType' asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestStopCheckingStatusEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>عامل توقف</label>
+		@(Html.EntitySelector<User>(
+			"commentsStopOperatorSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id, Name = c.Name
+			},
+			c => new { c.Name },
+			"{Name}",
+			"comments.stopOperatorId",
+			"comments.stopOperatorName",
+			Model?.StopOperatorId?.ToString()
+		))
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>شناسه کاربران ذینفع</label>
+		<input class='form-control' data-bind='comments.beneficiariesIds'  value='@Model?.BeneficiariesIds' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>نام کاربران ذینفع</label>
+		<input class='form-control' data-bind='comments.beneficiariesNames'  value='@Model?.BeneficiariesNames' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+
+
+	<div class='col-md-3'>
+		<label class=''>کامنت عامل توقف</label>
+		<input class='form-control' data-bind='comments.stopOperatorComment'  value='@Model?.StopOperatorComment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<fileuploader bind="comments.attachmentId" accepted-file-types=".pdf,.zip,.rar"
+			file-id="@Model?.AttachmentId"
+			file-entity="@Model?.Attachment"
+			entity-prop-name="Attachment"
+			max-file-size="10"
+			label="پیوست"></fileuploader>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>نتیجه بررسی توقف</label>
+		<select class='form-control' data-bind='comments.stopCheckingResult' asp-for='StopCheckingResult' asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestCommentStopCheckingResultEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات بررسی توقف</label>
+		<input class='form-control' data-bind='comments.stopCheckingComment'  value='@Model?.StopCheckingComment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<fileuploader bind="comments. AlternativeAttachmentId" accepted-file-types=".pdf,.rar,.zip"
+			file-id="@Model?. AlternativeAttachmentId"
+			file-entity="@Model?. AlternativeAttachment"
+			entity-prop-name=" AlternativeAttachment"
+			max-file-size="10"
+			label="پیوست جایگزین"></fileuploader>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>متن دلیل توقف بررسی تأخیر</label>
+		<input class='form-control' data-bind='comments.stopCheckingDelayReasonText'  value='@Model?.StopCheckingDelayReasonText' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3 align-content-center'>
+		<div class="form-check">
+			<input data-bind='comments.isNeedToUpdateBom' class="form-check-input" type="checkbox" value='@Model?.IsNeedToUpdateBom' />
+			<label class="form-check-label">
+				نیاز به بروزرسانی Bom
+			</label>
+		</div>
+	</div>
+
+	<div class='col-md-3 align-content-center'>
+		<div class="form-check">
+			<input data-bind='comments.isNeedToDeleteBom' class="form-check-input" type="checkbox" value='@Model?.IsNeedToDeleteBom' />
+			<label class="form-check-label">
+				نیاز به حذف Bom
+			</label>
+		</div>
+	</div>
+
+
+
+	<div class='col-md-3'>
+		<label class=''>StopCheckingStatus</label>
+		<select class='form-control' data-bind='comments.stopCheckingStatus' asp-for='StopCheckingStatus' asp-items="Html.GetEnumSelectList(typeof(OpenOrderRequestStopCheckingStatusEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات توقف بررسی وضعیت</label>
+		<input class='form-control' data-bind='comments.stopCheckingStatusComment'  value='@Model?.StopCheckingStatusComment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات تکمیلی</label>
+		<input class='form-control' data-bind='comments.additionalDescription'  value='@Model?.AdditionalDescription' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

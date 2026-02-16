@@ -1,6 +1,7 @@
 using Common.Attributes;
 using Entities.App.Hrm;
 using Entities.App.Inv.Enums;
+using Entities.App.Sup;
 using Entities.Base;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -107,6 +108,12 @@ namespace Entities.App.Inv
 
 		public long? HamkaranId { get; set; }
 
+		[DisplayName("دسته خرید")]
+
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public long? BuyCategoryId { get; set; }
+		public BuyCategory? BuyCategory { get; set; }
+
 		[DisplayName("مدارک")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<PartDocument> Documents { get; set; } = new();
@@ -181,6 +188,8 @@ namespace Entities.App.Inv
 
 		public long AttachmentId { get; set; }
 
+		public long HtsId { get; set; }
+
 
 	}
 
@@ -192,6 +201,9 @@ namespace Entities.App.Inv
 
 			builder.Property(x => x.Name)
 				  .IsRequired();
+
+			builder.HasIndex(x => x.Code)
+				.IsUnique();
 
 			builder.HasMany(x => x.SpareParts)
 				  .WithOne(x => x.Part)
@@ -216,6 +228,9 @@ namespace Entities.App.Inv
 				  .WithMany()
 				  .HasForeignKey(x => x.SparePartId)
 				  .OnDelete(DeleteBehavior.Restrict);
+
+		
+
 		}
 	}
 

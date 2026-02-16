@@ -88,6 +88,7 @@ namespace WebApp.Controllers.SystemControllers
 					AuthorizationType = user.AuthorizationType,
 					RoleIds = user.RoleIds,
 					Email = user.Email,
+					FName = user.NameFa
 				}, cn);
 			}
 			else
@@ -104,6 +105,7 @@ namespace WebApp.Controllers.SystemControllers
 					AuthorizationType = user.AuthorizationType,
 					RoleIds = user.RoleIds,
 					Email = user.Email,
+					NameFa = user.NameFa
 				}, cn);
 			}
 
@@ -224,7 +226,7 @@ namespace WebApp.Controllers.SystemControllers
 					Username = request.Username,
 					Password = "", // AD users don't need password stored
 					ProfileUrl = profileUrl,
-					Roles = request.Roles ?? Array.Empty<string>(),
+					Roles = request.Roles ?? new List<string>(),
 					AuthorizationType = AuthorizationTypeEnum.ActiveDirectory,
 					RoleIds = request.RoleIds ?? new List<long>(),
 					Email = adUserInfo.Email,
@@ -351,7 +353,7 @@ namespace WebApp.Controllers.SystemControllers
 		public string AdUsername { get; set; } = string.Empty;
 		public string AdPassword { get; set; } = string.Empty;
 		public string Username { get; set; } = string.Empty;
-		public string[]? Roles { get; set; }
+		public List<string>? Roles { get; set; }
 		public List<long>? RoleIds { get; set; }
 	}
 
@@ -361,7 +363,7 @@ namespace WebApp.Controllers.SystemControllers
 		public string AdUsername { get; set; } = string.Empty;
 		public string AdPassword { get; set; } = string.Empty;
 		public string Username { get; set; } = string.Empty;
-		public string[]? Roles { get; set; }
+		public List<string>? Roles { get; set; }
 		public List<long>? RoleIds { get; set; }
 	}
 

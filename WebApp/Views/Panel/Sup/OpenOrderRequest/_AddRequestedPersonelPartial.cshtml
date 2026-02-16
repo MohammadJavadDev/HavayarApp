@@ -1,0 +1,61 @@
+﻿@using Entities.Auth
+
+<div class="row">
+	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
+
+	<div class='col-md-12'>
+		<label class=''>ذینفعان</label>
+		@(Html.EntitySelector<User>(
+				"requestedPersonelIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					Name = c.Name,
+					Email =c.Email,
+					c.NameFa
+				},
+				c => new { c.Name , c.NameFa },
+				"{NameFa} {Email}",
+				"requestedPersonelIds",
+				null,
+				 null,
+				 false,
+				 true
+				))
+	</div>
+
+	<div class='col-md-12 my-3'>
+		<label class=''>درخواست کنندگان</label>
+		@(Html.EntitySelector<User>(
+				"requestedEngineeringPersonelIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					Name = c.Name,
+					Email = c.Email,
+					c.NameFa
+				},
+				c => new { c.Name, c.NameFa },
+				"{NameFa} {Email}",
+				"requestedEngineeringPersonelIds",
+				null,
+				null,
+				false,
+				true
+				))
+	</div>
+	<div class='col-md-3 my-3'>
+		 <button class="btn btn-primary" id="addStaticPersonel" >نفرات ثابت</button>
+	 </div>
+	  
+</div>
+
+<script>
+	$("#addStaticPersonel").click(function(){
+				var staticPersonel = @Html.Raw(Json.Serialize(ViewBag.StaticPersonels));
+				$("#requestedPersonelIdsSelector").data("entitySelectorInstance").addByIds(staticPersonel[0].id)
+				debugger
+			})
+</script>

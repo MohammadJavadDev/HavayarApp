@@ -35,10 +35,9 @@ namespace Data
 		public DbSet<RahkaranDL> RahkaranDL { get; set; }
 		public DbSet<RahkaranContract> RahkaranContract { get; set; }
 		public DbSet<RahkaranUser> RahkaranUsers { get; set; }
-
-		protected override void OnModelCreating(ModelBuilder modelBuilder)
-		{
-
-		}
+		public DbSet<RahkaranSup_BuyCategory> RahkaranSup_BuyCategorys { get; set; }
+		public DbSet<RahkaranSup_BuyCategoryItems> RahkaranSup_BuyCategoryItemss { get; set; }
+ 
+		 
 	}
 }

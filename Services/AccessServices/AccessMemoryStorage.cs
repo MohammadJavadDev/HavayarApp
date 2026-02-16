@@ -50,9 +50,9 @@ public class AccessMemoryStorage : IAccessMemoryStorage
 
     public bool ExistPath(string path)
     {
-        
-        return _accessPaths.Any(c=>c == path);
-    }
+
+		return _accessPaths.Any(c => string.Equals(c, path, StringComparison.OrdinalIgnoreCase));
+	}
 
     public AccessAction? GetAccessAction(string path)
     {

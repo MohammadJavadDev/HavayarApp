@@ -9,7 +9,7 @@ using Entities.ViewModels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using static System.Net.Mime.MediaTypeNames;
+
 
 
 namespace Services.Auth;
@@ -158,41 +158,37 @@ public class UserService(
      }
      public async Task<User?> UpdateUserAsync(User userObj, CancellationToken cn)
      {
-          var user = new User();
-          var oldUser = db.Users.AsNoTracking().FirstOrDefault(c => c.Id == userObj.Id);
+    
+          var oldUser = await db.Users.FindAsync(userObj.Id);
 
-          user.Password = oldUser.Password;
-
+  
 
           if (!string.IsNullOrEmpty(userObj.Password))
           {
                string hashedPassword = PasswordHasher.HashPassword(userObj.Password);
-               user.Password = hashedPassword;
+			oldUser.Password = hashedPassword;
           }
 
           if (userObj.Email.HasValue())
           {
-               user.Email = userObj.Email;
+			oldUser.Email = userObj.Email;
           }
 
-          user.CreatedById = oldUser.CreatedById;
-          user.CreatedByName = oldUser.CreatedByName;
-          user.CreatedOnMiladiDateTime = oldUser.CreatedOnMiladiDateTime;
-          user.CreatedOnShamsiDateTime = oldUser.CreatedOnShamsiDateTime;
-
-          user.Username = userObj.Username;
-          user.Name = userObj.Name;
-          user.Roles = userObj.Roles;
-          user.RoleIds = userObj.RoleIds;
-          user.AuthorizationType = userObj.AuthorizationType;
-          user.Id = (long)userObj.Id;
-
-          user.ProfileUrl = userObj.ProfileUrl;
 
 
-          var entity = db.Users.Update(user);
+		oldUser.Username = userObj.Username;
+		oldUser.Name = userObj.Name;
+		oldUser.Roles = userObj.Roles;
+		oldUser.RoleIds = userObj.RoleIds;
+		oldUser.AuthorizationType = userObj.AuthorizationType;
+          oldUser.NameFa = userObj.NameFa;
+ 
+
+		oldUser.ProfileUrl = userObj.ProfileUrl;
+
+           
           await db.SaveChangesAsync(cn);
-          return entity.Entity;
+          return oldUser;
      }
      public User? UpdateUser(User user)
      {
@@ -250,6 +246,7 @@ public class UserService(
           user.Name = userObj.Name;
           user.Roles = userObj.Roles;
           user.Email = userObj.Email;
+          user.NameFa = userObj.FName;
 
           user.ProfileUrl = userObj.ProfileUrl;
           return await AddUserAsync(user, cn);
@@ -336,7 +333,8 @@ public class UserService(
           user.Username = userObj.Username;
           user.Name = userObj.Name;
           user.Roles = userObj.Roles;
-          user.Id = (long)userObj.Id;
+		user.RoleIds = userObj?.RoleIds ?? [];
+		user.Id = (long)userObj.Id;
 
           user.ProfileUrl = userObj.ProfileUrl;
           return await UpdateUserAsync(user, cn);
@@ -348,5 +346,38 @@ public class UserService(
           return await db.Users.Select(c => new User() { Id = c.Id, Name = c.Name }).Where(c => c.Name.Contains(name)).ToArrayAsync();
      }
 
+     public async Task<User[]?> GetUsersByRoleName(string roleName) {
+
+
+		return await db.Set<User>()
+		    .FromSqlRaw(@"
+                  SELECT *
+                  FROM [system].[User]
+                  WHERE EXISTS (
+                      SELECT 1 
+                      FROM OPENJSON(Roles) WITH (RoleName nvarchar(max) '$') 
+                      WHERE RoleName = {0}
+                  )", roleName)
+			   .AsNoTracking()
+			   .ToArrayAsync();
+	} 
+
+     public async Task<User[]?> GetUsersByRoleId(long roleId) {
+           
+		var users = await db.Set<User>()
+              .FromSqlRaw(@"
+                  SELECT *
+                  FROM [system].[User]
+                  WHERE EXISTS (
+                      SELECT 1 
+                      FROM OPENJSON(RoleIds) WITH (RoleId bigint '$') 
+                      WHERE RoleId = {0}
+                  )", roleId)
+                  .AsNoTracking()
+                  .ToArrayAsync();
+
+
+          return users;
+	}  
 
 }

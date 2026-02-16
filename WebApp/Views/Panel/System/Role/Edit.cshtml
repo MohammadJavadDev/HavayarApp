@@ -1,4 +1,4 @@
-﻿@using Common.Attributes
+@using Common.Attributes
 @using Common.Auth.Enums
 @using Data.Repositories
 @using Entities.Auth
@@ -65,6 +65,20 @@
    
             <input class="form-control" value="@Model?.Title" data-bind="title" />
         </div>
+
+        @if (Model?.Id != null)
+        {
+            <div class="col-md-12 mt-5">
+                <button type="button" class="btn btn-primary w-100" id="btnOpenUsersModal">
+                    <i class="ki-duotone ki-user-tick fs-2">
+                        <span class="path1"></span>
+                        <span class="path2"></span>
+                        <span class="path3"></span>
+                    </i>
+                    مدیریت کاربران نقش
+                </button>
+            </div>
+        }
 
         <div class="col-md-6 mt-5">
             <input class="form-control" id="searchController" placeholder="جستجو در دسترسی ها" />
@@ -174,6 +188,145 @@
           </div>
     </div>
 </div>
+
+<!-- Modal مدیریت کاربران -->
+<div class="modal fade" id="usersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">مدیریت کاربران نقش</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="usersTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="manage-tab" data-bs-toggle="tab" data-bs-target="#manage-users" type="button">
+                            <i class="ki-duotone ki-user fs-3 me-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            مدیریت کاربران
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk-add" type="button">
+                            <i class="ki-duotone ki-add-files fs-3 me-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            افزودن گروهی
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="usersTabContent">
+                    <!-- تب مدیریت کاربران -->
+                    <div class="tab-pane fade show active" id="manage-users" role="tabpanel">
+                        <div class="row">
+                            <!-- کاربران فعلی -->
+                            <div class="col-md-5">
+                                <h5 class="mb-3">کاربران دارای نقش (<span id="roleUsersCount">0</span>)</h5>
+                                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                                    <table class="table table-row-bordered table-hover table-sm">
+                                        <thead class="sticky-top bg-white">
+                                            <tr class="fw-bold fs-7 text-gray-800">
+                                                <th>نام</th>
+                                                <th>نام کاربری</th>
+                                                <th width="80">عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="roleUsersBody">
+                                            <tr>
+                                                <td colspan="3" class="text-center">
+                                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                                    در حال بارگذاری...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- کاربران قابل افزودن -->
+                            <div class="col-md-7">
+                                <h5 class="mb-3">افزودن کاربر</h5>
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="searchUsers" placeholder="جستجوی کاربران (نام، نام کاربری، نام فارسی)..." />
+                                </div>
+                                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                                    <table class="table table-row-bordered table-hover table-sm">
+                                        <thead class="sticky-top bg-white">
+                                            <tr class="fw-bold fs-7 text-gray-800">
+                                                <th>نام</th>
+                                                <th>نام کاربری</th>
+                                                <th width="80">عملیات</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="availableUsersBody">
+                                            <tr>
+                                                <td colspan="3" class="text-center">
+                                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                                    در حال بارگذاری...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- تب افزودن گروهی -->
+                    <div class="tab-pane fade" id="bulk-add" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="mb-3">ورود لیست Username ها</h5>
+                                <p class="text-muted fs-7">لیست username ها را به صورت JSON وارد کنید:</p>
+                                <textarea class="form-control mb-3" id="usernamesJson" rows="15" placeholder='["username1", "username2", "username3"]'></textarea>
+                                <button type="button" class="btn btn-success w-100" id="btnBulkAdd">
+                                    <i class="ki-duotone ki-check fs-2">
+                                        <span class="path1"></span>
+                                        <span class="path2"></span>
+                                    </i>
+                                    افزودن گروهی کاربران
+                                </button>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h5 class="mb-3">نتیجه عملیات</h5>
+                                <div id="bulkAddResult" class="d-none">
+                                    <div class="alert alert-success mb-3" id="addedUsers" style="display:none;">
+                                        <h6 class="fw-bold">✅ کاربران اضافه شده (<span id="addedCount">0</span>)</h6>
+                                        <ul id="addedList" class="mb-0 fs-7"></ul>
+                                    </div>
+
+                                    <div class="alert alert-warning mb-3" id="alreadyUsers" style="display:none;">
+                                        <h6 class="fw-bold">⚠️ کاربران دارای نقش (<span id="alreadyCount">0</span>)</h6>
+                                        <ul id="alreadyList" class="mb-0 fs-7"></ul>
+                                    </div>
+
+                                    <div class="alert alert-danger mb-3" id="notFoundUsers" style="display:none;">
+                                        <h6 class="fw-bold">❌ کاربران یافت نشده (<span id="notFoundCount">0</span>)</h6>
+                                        <ul id="notFoundList" class="mb-0 fs-7"></ul>
+                                    </div>
+                                </div>
+                                <div id="bulkAddPlaceholder" class="text-center text-muted p-5">
+                                    <i class="ki-duotone ki-information fs-3x mb-3">
+                                        <span class="path1"></span>
+                                        <span class="path2"></span>
+                                        <span class="path3"></span>
+                                    </i>
+                                    <p>نتایج عملیات اینجا نمایش داده می‌شود</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 
      $$("#searchController")
@@ -193,29 +346,349 @@
          });
 
      $$("#save").click(function () {
+        debugger
+        var model = $$(".card").dataBind();
+
+        model.RoleAccesses = $$(".form-check-input:checked")
+            .map((i,c) => {
+
+                 var actionAccessType = $(c).data("accessactiontype");
+                 var actionAccessItemType = $(c).data("accessesactionitemtype");
+                 var entityname = $(c).data("entityname");
+                return {
+                path:$(c).attr("id"),
+                actionAccessType ,
+                actionAccessItemType,
+                entityname
+                };
+            }).get();
+            debugger;
+        $$.post("/panel/SaveRole", model, function (r) {
+            if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+
+            toastr.success("ذخیره سازی با موفقیت انجام شد .");
+            $(".card").dataBind(r);
+        })
+    })
+
+    // مدیریت کاربران
+    var roleId = @(Model?.Id ?? 0);
+    var allUsers = []; // لیست همه کاربران
+    var roleUsers = []; // کاربران دارای نقش
+    var usersModal = null;
+    
+    if (roleId > 0) {
+        // آماده‌سازی مودال
+        usersModal = new bootstrap.Modal(document.getElementById('usersModal'));
+        
+        // بارگذاری داده‌ها
+        $$("#btnOpenUsersModal").click(function() {
+            usersModal.show();
+            if (allUsers.length === 0) {
+                loadAllData();
+            }
+        });
+    }
+
+    function loadAllData() {
+        // بارگذاری همه کاربران
+        $$.get("/panel/Role/GetAllActiveUsers", function (r) {
+            if (!r.isSuccess) {
+                toastr.error(r.message, 'خطا در بارگذاری کاربران');
+                return;
+            }
+            
+            allUsers = r.data;
+            
+            // بارگذاری کاربران دارای نقش
+            $$.get("/panel/Role/GetRoleUsers?roleId=" + roleId, function (r2) {
+                if (!r2.isSuccess) {
+                    toastr.error(r2.message, 'خطا در بارگذاری کاربران نقش');
+                    return;
+                }
+                
+                roleUsers = r2.data;
+                
+                // نمایش داده‌ها
+                renderRoleUsers();
+                renderAvailableUsers();
+            });
+        });
+    }
+
+    function renderRoleUsers() {
+        var tbody = $$("#roleUsersBody");
+        tbody.empty();
+        
+        $$("#roleUsersCount").text(roleUsers.length);
+        
+        if (roleUsers.length === 0) {
+            tbody.append(`
+                <tr>
+                    <td colspan="3" class="text-center text-muted">
+                        هیچ کاربری در این نقش وجود ندارد
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+        
+        roleUsers.forEach(function(user) {
+            var row = `
+                <tr data-userid="${user.id}">
+                    <td>
+                        <div class="d-flex flex-column">
+                            <span class="fw-bold fs-7">${user.name || '-'}</span>
+                            ${user.nameFa ? `<span class="text-muted fs-8">${user.nameFa}</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="fs-7">${user.username || '-'}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger btn-icon btn-remove-user" data-userid="${user.id}" title="حذف">
+                            <i class="ki-duotone ki-trash fs-5">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                                <span class="path3"></span>
+                                <span class="path4"></span>
+                                <span class="path5"></span>
+                            </i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+    }
+
+    function renderAvailableUsers(searchTerm = '') {
+        var tbody = $$("#availableUsersBody");
+        tbody.empty();
+        
+        // فیلتر کاربرانی که این نقش را ندارند
+        var roleUserIds = roleUsers.map(u => u.id);
+        var availableUsers = allUsers.filter(u => !roleUserIds.includes(u.id));
+        
+        // جستجو در داده‌های لوکال
+        if (searchTerm) {
+            searchTerm = searchTerm.toLowerCase();
+            availableUsers = availableUsers.filter(u => 
+                (u.name && u.name.toLowerCase().includes(searchTerm)) ||
+                (u.username && u.username.toLowerCase().includes(searchTerm)) ||
+                (u.nameFa && u.nameFa.toLowerCase().includes(searchTerm))
+            );
+        }
+        
+        if (availableUsers.length === 0) {
+            tbody.append(`
+                <tr>
+                    <td colspan="3" class="text-center text-muted">
+                        ${searchTerm ? 'نتیجه‌ای یافت نشد' : 'همه کاربران دارای این نقش هستند'}
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+        
+        availableUsers.forEach(function(user) {
+            var row = `
+                <tr>
+                    <td>
+                        <div class="d-flex flex-column">
+                            <span class="fw-bold fs-7">${user.name || '-'}</span>
+                            ${user.nameFa ? `<span class="text-muted fs-8">${user.nameFa}</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="fs-7">${user.username || '-'}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-success btn-icon btn-add-user" data-userid="${user.id}" title="افزودن">
+                            <i class="ki-duotone ki-plus fs-5">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.append(row);
+        });
+    }
+
+    // جستجوی لوکال
+    $$("#searchUsers").on('keyup', function() {
+        var searchTerm = $(this).val();
+        renderAvailableUsers(searchTerm);
+    });
+
+    // افزودن کاربر به نقش
+    $(document).on('click', '.btn-add-user', function() {
          debugger
-         var model = $$(".card").dataBind();
+        var userId = $(this).data('userid');
+        
+        Swal.fire({
+            title: 'آیا مطمئن هستید؟',
+            text: "این کاربر به نقش اضافه خواهد شد",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'بله، افزودن شود',
+            cancelButtonText: 'انصراف'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $$.post("/Role/AddUserToRole", { roleId: roleId, userId: userId }, function(r) {
+                    if (!r.isSuccess) {
+                        toastr.error(r.message, 'خطا');
+                        return;
+                    }
+                    
+                    toastr.success('کاربر با موفقیت به نقش اضافه شد', 'موفق');
+                    
+                    // آپدیت لوکال
+                    var user = allUsers.find(u => u.id === userId);
+                    if (user) {
+                        roleUsers.push(user);
+                        renderRoleUsers();
+                        renderAvailableUsers($$("#searchUsers").val());
+                    }
+                });
+            }
+        });
+    });
 
-         model.RoleAccesses = $$(".form-check-input:checked")
-             .map((i,c) => {
+    // حذف کاربر از نقش
+    $$(document).on('click', '.btn-remove-user', function() {
+        var userId = $(this).data('userid');
+        
+        Swal.fire({
+            title: 'آیا مطمئن هستید؟',
+            text: "این کاربر از نقش حذف خواهد شد",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'بله، حذف شود',
+            cancelButtonText: 'انصراف',
+            confirmButtonColor: '#d33'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                 $$.post("/Role/RemoveUserFromRole", { roleId: roleId, userId: userId }, function(r) {
+                    if (!r.isSuccess) {
+                        toastr.error(r.message, 'خطا');
+                        return;
+                    }
+                    
+                    toastr.success('کاربر با موفقیت از نقش حذف شد', 'موفق');
+                    
+                    // آپدیت لوکال
+                    roleUsers = roleUsers.filter(u => u.id !== userId);
+                    renderRoleUsers();
+                    renderAvailableUsers($$("#searchUsers").val());
+                });
+            }
+        });
+    });
+    function parseJsArray(jsString) {
+    // حذف براکت‌ها و split کردن
+    const cleaned = jsString
+        .replace(/^\[|\]$/g, '')  // حذف [ و ]
+        .replace(/'/g, '')       // حذف تک‌کوتیشن‌ها
+    
+    const items = cleaned.split(',');
+    
+    return items.map(item => {
+        if (item === 'null') return null;
+        return item.trim();
+    });
+}
 
-                  var actionAccessType = $(c).data("accessactiontype");
-                  var actionAccessItemType = $(c).data("accessesactionitemtype");
-                  var entityname = $(c).data("entityname");
-                 return {
-                 path:$(c).attr("id"),
-                 actionAccessType ,
-                 actionAccessItemType,
-                 entityname
-                 };
-             }).get();
-             debugger;
-         $$.post("/panel/SaveRole", model, function (r) {
-             if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+    // افزودن گروهی کاربران
+    $$("#btnBulkAdd").click(function() {
+        var jsonText = $$("#usernamesJson").val().trim();
+         
+        if (!jsonText) {
+            toastr.warning('لطفاً لیست username ها را وارد کنید', 'هشدار');
+            return;
+        }
+        debugger    
+        
+        try {
+                 var usernames = parseJsArray(jsonText);
 
-             toastr.success("ذخیره سازی با موفقیت انجام شد .");
-             $(".card").dataBind(r);
-         })
-     })
+            
+            if (!Array.isArray(usernames)) {
+                toastr.error('فرمت JSON باید یک آرایه باشد', 'خطا');
+                return;
+            }
+            
+            if (usernames.length === 0) {
+                toastr.warning('لیست خالی است', 'هشدار');
+                return;
+            }
+            
+            // ارسال درخواست
+            var btn = $$(this);
+            btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span>در حال پردازش...');
+            
+            $$.post("/Role/AddUsersToRoleByUsernames", { roleId: roleId, usernames: usernames }, function(r) {
+                btn.prop('disabled', false).html('<i class="ki-duotone ki-check fs-2"><span class="path1"></span><span class="path2"></span></i> افزودن گروهی کاربران');
+                
+                if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+                }
+                
+                // نمایش نتایج
+                displayBulkAddResult(r.data.data);
+                
+                // بارگذاری مجدد لیست کاربران
+                loadAllData();
+                
+                toastr.success(r.message, 'موفق');
+            });
+            
+        } catch (e) {
+            toastr.error('فرمت JSON نامعتبر است: ' + e.message, 'خطا');
+        }
+    });
+
+    function displayBulkAddResult(data) {
+        $$("#bulkAddPlaceholder").hide();
+        $$("#bulkAddResult").removeClass('d-none');
+        
+        // کاربران اضافه شده
+        if (data.added && data.added.length > 0) {
+            $$("#addedCount").text(data.added.length);
+            var addedHtml = '';
+            data.added.forEach(function(u) {
+                addedHtml += `<li>${u.name} (${u.username})</li>`;
+            });
+            $$("#addedList").html(addedHtml);
+            $$("#addedUsers").show();
+        } else {
+            $$("#addedUsers").hide();
+        }
+        
+        // کاربران دارای نقش
+        if (data.alreadyHasRole && data.alreadyHasRole.length > 0) {
+            $$("#alreadyCount").text(data.alreadyHasRole.length);
+            var alreadyHtml = '';
+            data.alreadyHasRole.forEach(function(u) {
+                alreadyHtml += `<li>${u.name} (${u.username})</li>`;
+            });
+            $$("#alreadyList").html(alreadyHtml);
+            $$("#alreadyUsers").show();
+        } else {
+            $$("#alreadyUsers").hide();
+        }
+        
+        // کاربران یافت نشده
+        if (data.notFound && data.notFound.length > 0) {
+            $$("#notFoundCount").text(data.notFound.length);
+            var notFoundHtml = '';
+            data.notFound.forEach(function(username) {
+                notFoundHtml += `<li>${username}</li>`;
+            });
+            $$("#notFoundList").html(notFoundHtml);
+            $$("#notFoundUsers").show();
+        } else {
+            $$("#notFoundUsers").hide();
+        }
+    }
 
 </script>

@@ -106,9 +106,9 @@ button.toast-close-button {
 }
 
 #toast-container {
-    position: fixed;
-    z-index: 999999;
-    pointer-events: none
+     position: fixed;
+     z-index: 100000000;
+     pointer-events: none
 }
 
     #toast-container * {
@@ -1943,7 +1943,7 @@ body[class*=jconfirm-no-scroll-] {
 
 /* The Chips */
 .entity-chip {
-     font-size: 0.9em;
+     font-size: 1em !important;
      padding: 2px 8px;
      border-radius: 12px;
      display: flex;

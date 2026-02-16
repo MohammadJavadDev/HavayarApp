@@ -107,7 +107,7 @@ namespace WebFramework.Middlewares
                 var userId = context.User.Identity.GetUserId();
                 var roleNames = _onlineUserService.GetUserRole(userId);
 
-                if (roleNames == null || roleNames.Length == 0)
+                if (roleNames == null || roleNames.Count == 0)
                 {
                     _logger.LogWarning("User {UserId} has no roles assigned", userId);
                     return false;
@@ -161,7 +161,7 @@ namespace WebFramework.Middlewares
             }
         }
 
-        private bool CheckRoleAccess(string[] roleNames, string requestPath)
+        private bool CheckRoleAccess(List<string> roleNames, string requestPath)
         {
             foreach (var roleName in roleNames)
             {
@@ -186,20 +186,20 @@ namespace WebFramework.Middlewares
             return false;
         }
 
-        private static string BuildCacheKey(string[] roleNames, string requestPath)
+        private static string BuildCacheKey(List<string> roleNames, string requestPath)
         {
           
-            if (roleNames.Length <= 3)
+            if (roleNames.Count <= 3)
             {
                 return $"{string.Join(",", roleNames)}:{requestPath}";
             }
 
            
-            var capacity = roleNames.Sum(r => r.Length) + roleNames.Length + requestPath.Length + 1;
+            var capacity = roleNames.Sum(r => r.Count()) + roleNames.Count + requestPath.Length + 1;
             return string.Create(capacity, (roleNames, requestPath), (span, state) =>
             {
                 int pos = 0;
-                for (int i = 0; i < state.roleNames.Length; i++)
+                for (int i = 0; i < state.roleNames.Count; i++)
                 {
                     if (i > 0)
                     {

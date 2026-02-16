@@ -57,14 +57,14 @@ public interface IOnlineUserService
 	/// <summary>
 	/// دریافت RoleAccess های یک کاربر
 	/// </summary>
-	Task<string[]> GetUserRoleAsync(long userId, CancellationToken ct = default);
+	Task<List<string>> GetUserRoleAsync(long userId, CancellationToken ct = default);
 
 
 
 	/// <summary>
 	/// دریافت RoleAccess های یک کاربر
 	/// </summary>
-	string[] GetUserRole(long userId);
+	List<string> GetUserRole(long userId);
 
 
 	/// <summary>

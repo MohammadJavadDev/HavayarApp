@@ -1,0 +1,71 @@
+@using Common.Utilities
+@using Entities.App.Sup
+@model List<OpenOrderRequestComment>
+
+<div class="row">
+	<div class="col-md-12">
+		@if (Model != null && Model.Any())
+		{
+			<div class="table-responsive">
+				<table class="table table-striped table-bordered table-hover">
+					<thead>
+						<tr>
+							<th>تاریخ</th>
+							<th>توضیحات</th>
+							<th>متوقف</th>
+							<th>راه اندازی</th>
+							<th>نوع توقف</th>
+							<th>عامل توقف</th>
+							<th>نتیجه بررسی</th>
+							<th>تایید فروش</th>
+							<th>کاربر ثبت‌کننده</th>
+							<th>تاریخ ثبت</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var comment in Model.OrderBy(c => c.CreatedOnMiladiDateTime))
+						{
+							<tr>
+								<td>@comment.ShamsiDate</td>
+								<td>@comment.CommentValue</td>
+								<td>
+									@if (comment.IsStop)
+									{
+										<span class="badge badge-danger">بله</span>
+									}
+								</td>
+								<td>
+									@if (comment.IsLaunched)
+									{
+										<span class="badge badge-success">بله</span>
+									}
+								</td>
+								<td>@comment.StopType?.ToDisplay()</td>
+								<td>@comment.StopOperator?.Name</td>
+								<td>@comment.StopCheckingResult?.ToDisplay()</td>
+								<td>
+									@if (comment.HasSalesUnitConfirmation)
+									{
+										<span class="badge badge-success">دارد</span>
+										<br />
+										<small>@comment.SalesUnitConfirmationComment</small>
+									}
+								</td>
+								<td style="white-space: nowrap;">
+									<i class="fa fa-user"></i> @comment.CreatedByName
+								</td>
+								<td style="direction: ltr; text-align: right;">@comment.CreatedOnShamsiDateTime</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		else
+		{
+			<div class="alert alert-info">
+				<i class="fa fa-info-circle"></i> هیچ کامنتی ثبت نشده است
+			</div>
+		}
+	</div>
+</div>

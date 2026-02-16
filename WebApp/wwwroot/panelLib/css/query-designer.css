@@ -1,0 +1,598 @@
+﻿/* Query Designer Styles - FIXED VERSION */
+
+:root {
+	--primary-color: #0d6efd;
+	--secondary-color: #6c757d;
+	--success-color: #198754;
+	--danger-color: #dc3545;
+	--warning-color: #ffc107;
+	--info-color: #0dcaf0;
+	--border-color: #dee2e6;
+	--hover-bg: #f8f9fa;
+	--connection-color: #dc3545; /* قرمز برای خطوط اتصال */
+}
+
+/* Layout */
+.designer-sidebar {
+	height: calc(100vh - 56px);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+}
+
+.sidebar-header {
+	flex-shrink: 0;
+}
+
+.sidebar-body {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.designer-toolbar {
+	flex-shrink: 0;
+}
+
+/* Table List Items */
+.table-list-item {
+	padding: 8px 12px;
+	margin-bottom: 4px;
+	background: var(--bs-app-sidebar-light-bg-color);
+	border: 1px solid var(--bs-border-color);
+	border-radius: 4px;
+	cursor: grab;
+	transition: all 0.2s ease;
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+}
+
+	.table-list-item:hover {
+		background: var(--hover-bg);
+		border-color: var(--primary-color);
+		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	}
+
+	.table-list-item:active {
+		cursor: grabbing;
+	}
+
+	.table-list-item .table-icon {
+		color: var(--primary-color);
+		margin-left: 8px;
+	}
+
+	.table-list-item .badge {
+		font-size: 0.7rem;
+	}
+
+/* Diagram Canvas */
+.diagram-container {
+	position: relative;
+	background: #f8f9fa;
+	overflow: auto;
+	height: 100%;
+}
+
+.diagram-scroll-wrapper {
+	padding: 500px;
+	min-width: min-content;
+	min-height: min-content;
+	background: #f8f9fa;
+	background-image: linear-gradient(rgba(0,0,0,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,.05) 1px, transparent 1px);
+	background-size: 20px 20px;
+}
+
+#diagramCanvas {
+	transform-origin: 0 0;
+	transition: transform 0.2s ease;
+	min-width: 2000px;
+	min-height: 2000px;
+	width: 2000px;
+	height: 2000px;
+	position: relative;
+}
+
+.empty-state {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	text-align: center;
+}
+
+/* Table Box */
+.table-box {
+	position: absolute;
+	background: white;
+	border: 2px solid var(--primary-color);
+	border-radius: 8px;
+	min-width: 280px;
+	max-width: 450px;
+	width: auto;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	z-index: 10;
+	cursor: move;
+	transition: box-shadow 0.2s ease;
+}
+
+	.table-box:hover {
+		box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+	}
+
+	.table-box.selected {
+		border-color: var(--success-color);
+		box-shadow: 0 0 0 3px rgba(25,135,84,0.2);
+	}
+
+.table-box-header {
+	background: var(--primary-color);
+	color: white;
+	padding: 10px 12px;
+	border-radius: 6px 6px 0 0;
+	cursor: move;
+}
+
+	.table-box-header .table-name {
+		font-size: 14px;
+	}
+ 
+.table-list-item .table-name {
+	color: var(--bs-secondary-active);
+}
+
+.table-box-header .table-displayname {
+	font-size: 14px;
+}
+
+	.table-box-header .btn-close {
+		filter: invert(1);
+		opacity: 0.8;
+		font-size: 12px;
+	}
+
+		.table-box-header .btn-close:hover {
+			opacity: 1;
+		}
+
+.table-box-body {
+	max-height: none;
+	overflow-y: visible;
+	padding: 8px;
+}
+
+/* Column Items */
+.column-item {
+	padding: 6px 10px;
+	margin-bottom: 4px;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	background: white;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	transition: all 0.2s ease;
+	position: relative;
+	min-height: 36px;
+}
+
+/* Endpoint divs - نقاط اتصال قابل کلیک */
+.column-endpoint-left,
+.column-endpoint-right {
+	width: 20px;
+	min-width: 20px;
+	height: 100%;
+	min-height: 28px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer; /* تغییر از crosshair به pointer */
+	flex-shrink: 0;
+	position: relative;
+	transition: all 0.2s ease;
+}
+
+.column-endpoint-left {
+	order: -1;
+	margin-left: 4px;
+}
+
+	.column-endpoint-left::before {
+		content: '';
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--primary-color);
+		border: 2px solid white;
+		opacity: 0.7;
+		transition: all 0.2s ease;
+	}
+
+.column-endpoint-right {
+	margin-right: 4px;
+}
+
+	.column-endpoint-right::before {
+		content: '';
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--primary-color);
+		border: 2px solid white;
+		opacity: 0.7;
+		transition: all 0.2s ease;
+	}
+
+.column-item:hover .column-endpoint-left::before,
+.column-item:hover .column-endpoint-right::before {
+	opacity: 1;
+	transform: scale(1.2);
+	box-shadow: 0 0 8px rgba(13, 110, 253, 0.5);
+}
+
+.column-endpoint-left:hover::before,
+.column-endpoint-right:hover::before {
+	transform: scale(1.4) !important;
+	box-shadow: 0 0 12px rgba(13, 110, 253, 0.8) !important;
+	cursor: pointer;
+}
+
+/* حالت فعال (انتخاب شده) برای endpoint */
+.column-endpoint-left.endpoint-selected::before,
+.column-endpoint-right.endpoint-selected::before {
+	background: #ff6600 !important;
+	transform: scale(1.5) !important;
+	box-shadow: 0 0 16px rgba(255, 102, 0, 0.8) !important;
+	animation: pulse 1s infinite;
+}
+
+/* انیمیشن pulse برای endpoint انتخاب شده */
+@keyframes pulse {
+	0%, 100% {
+		box-shadow: 0 0 16px rgba(255, 102, 0, 0.8);
+	}
+
+	50% {
+		box-shadow: 0 0 24px rgba(255, 102, 0, 1);
+	}
+}
+
+/* حذف استایل‌های اضافی jsPlumb که دیگر نیاز نیست */
+.jtk-endpoint {
+	display: none !important; /* حذف کامل endpoint های jsPlumb */
+}
+
+/* فقط connector ها نمایش داده شوند */
+.jtk-connector {
+	display: block !important;
+}
+
+.column-item:hover {
+	background: var(--hover-bg);
+	border-color: var(--primary-color);
+}
+
+.column-item.pk {
+	border-left: 3px solid var(--warning-color);
+}
+
+.column-item.fk {
+	border-left: 3px solid var(--info-color);
+}
+
+.column-item label {
+	margin: 0;
+	flex: 1;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.column-item .column-name {
+	font-weight: 500;
+}
+
+.column-item .column-type {
+	font-size: 11px;
+	margin-right: 8px;
+}
+
+.column-item .btn-add-filter {
+	padding: 2px 6px;
+	font-size: 12px;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.column-item:hover .btn-add-filter {
+	opacity: 1;
+}
+
+/* JSPlumb Connections - خطوط با رنگ‌های رندوم */
+.jtk-connector {
+	z-index: 5;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	display: block !important;
+	fill: none !important;
+	/* رنگ و stroke-width از JavaScript تنظیم می‌شود */
+}
+
+	.jtk-connector:hover {
+		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+	}
+
+	/* Connection در حالت انتخاب شده */
+	.jtk-connector.selected {
+		stroke: var(--success-color) !important;
+		stroke-width: 4 !important;
+		filter: drop-shadow(0 2px 6px rgba(25, 135, 84, 0.4));
+	}
+
+	/* Connector paths - خطوط شکسته Flowchart */
+	.jtk-connector path {
+		fill: none !important;
+		/* stroke و stroke-width از JavaScript تنظیم می‌شود */
+	}
+
+/* Connection Overlays - برچسب‌های JOIN */
+.jtk-overlay {
+	background: white;
+	padding: 6px 12px;
+	border: 2px solid var(--connection-color);
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+	min-width: 100px;
+	text-align: center;
+	white-space: nowrap;
+	z-index: 20;
+	color: var(--connection-color);
+}
+
+	.jtk-overlay:hover {
+		background: var(--connection-color);
+		color: white;
+		border-color: var(--connection-color);
+		transform: scale(1.05);
+		box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+	}
+
+	/* Arrow heads */
+	.jtk-overlay.jtk-arrow {
+		fill: var(--connection-color) !important;
+	}
+
+		.jtk-overlay.jtk-arrow:hover {
+			fill: #c82333 !important;
+		}
+
+/* Query Editor */
+#queryEditor {
+	font-family: 'Courier New', monospace;
+	font-size: 13px;
+	line-height: 1.5;
+	tab-size: 4;
+}
+
+/* Columns Table */
+#columnsTable {
+	font-size: 14px;
+}
+
+	#columnsTable .form-control,
+	#columnsTable .form-select {
+		font-size: 13px;
+		padding: 4px 8px;
+	}
+
+/* Filters Display */
+.filter-item {
+	display: inline-block;
+	background: var(--info-color);
+	color: white;
+	padding: 4px 10px;
+	margin: 2px;
+	border-radius: 12px;
+	font-size: 12px;
+}
+
+	.filter-item .btn-close {
+		filter: invert(1);
+		opacity: 0.8;
+		font-size: 10px;
+		margin-right: 6px;
+	}
+
+/* Scrollbar Styling */
+.sidebar-body::-webkit-scrollbar,
+.table-box-body::-webkit-scrollbar {
+	width: 6px;
+}
+
+.sidebar-body::-webkit-scrollbar-track,
+.table-box-body::-webkit-scrollbar-track {
+	background: #f1f1f1;
+}
+
+.sidebar-body::-webkit-scrollbar-thumb,
+.table-box-body::-webkit-scrollbar-thumb {
+	background: #888;
+	border-radius: 3px;
+}
+
+	.sidebar-body::-webkit-scrollbar-thumb:hover,
+	.table-box-body::-webkit-scrollbar-thumb:hover {
+		background: #555;
+	}
+
+/* Responsive */
+@media (max-width: 768px) {
+	.designer-sidebar {
+		display: none;
+	}
+
+	.table-box {
+		min-width: 200px;
+	}
+}
+
+/* Animations */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.table-box {
+	animation: fadeIn 0.3s ease;
+}
+
+/* Loading State */
+.loading-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(255,255,255,0.9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000;
+}
+
+/* Tooltips */
+[data-bs-toggle="tooltip"] {
+	cursor: help;
+}
+
+/* Success/Error Messages */
+.alert-floating {
+	position: fixed;
+	top: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 9999;
+	min-width: 300px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Context Menu */
+.context-menu {
+	position: absolute;
+	background: white;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+	z-index: 1000;
+	min-width: 150px;
+}
+
+.context-menu-item {
+	padding: 8px 16px;
+	cursor: pointer;
+	transition: background 0.2s ease;
+}
+
+	.context-menu-item:hover {
+		background: var(--hover-bg);
+	}
+
+.context-menu-divider {
+	height: 1px;
+	background: var(--border-color);
+	margin: 4px 0;
+}
+
+/* اطمینان از نمایش صحیح در RTL */
+[dir="rtl"] .column-endpoint-left {
+	order: 1;
+	margin-left: 0;
+	margin-right: 4px;
+}
+
+[dir="rtl"] .column-endpoint-right {
+	order: -1;
+	margin-right: 0;
+	margin-left: 4px;
+}
+
+/* Filters List in Sidebar */
+.filters-list-container {
+	max-height: 25vh;
+	overflow-y: auto;
+}
+
+.filters-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.filter-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
+	padding: 8px 10px;
+	background: white;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	font-size: 0.85rem;
+}
+
+	.filter-item:hover {
+		background: var(--hover-bg);
+		border-color: var(--primary-color);
+	}
+
+.filter-item-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.filter-item-label {
+	font-weight: 600;
+	color: var(--primary-color);
+	margin-bottom: 2px;
+}
+
+.filter-item-condition {
+	font-size: 0.8rem;
+	color: var(--secondary-color);
+}
+
+.filter-item-actions {
+	display: flex;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+	.filter-item-actions .btn {
+		padding: 2px 6px;
+		font-size: 0.75rem;
+	}
+
+/* Mode Selection */
+.mode-card {
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+	.mode-card:hover {
+		border-color: var(--primary-color);
+		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+	}
+
+textarea {
+	resize: none;
+	overflow: hidden;
+}

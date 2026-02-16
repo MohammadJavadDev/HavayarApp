@@ -11,7 +11,10 @@ using Microsoft.IdentityModel.Tokens;
 using Services.Auth;
 using Services.FileServices;
 using Services.Job;
+using Services.NotifitactionBuilderServices;
 using System.Text;
+using WebFramework.Initializes;
+using Z.EntityFramework.Extensions;
 
 try
 {
@@ -147,6 +150,7 @@ builder.Services.AddAuthorization(options =>
 	app.UseAuthorization();
 
 
+	InitializeApplication(app);
 
 	app.MapControllerRoute(
 	    name: "default",
@@ -159,4 +163,25 @@ catch (Exception ex)
 {
 	File.WriteAllText("startup-crash.log", ex.ToString());
 	throw;
+}
+
+
+void InitializeApplication(WebApplication app)
+{
+	using (var scope = app.Services.CreateScope())
+	{
+		var applicationDbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+		applicationDbContext.Database.Migrate();
+
+		string licenseName = "134;100-DOWNLOADDEVTOOLS.COM";
+		string licenseKey = "1519351-28861E0-148651C-25E14B3-9428";
+
+		LicenseManager.AddLicense(licenseName, licenseKey);
+
+		if (!LicenseManager.ValidateLicense(out string licenseErrorMessage))
+		{
+			throw new Exception(licenseErrorMessage);
+		}
+
+	}
 }

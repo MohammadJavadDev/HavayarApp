@@ -1,0 +1,1331 @@
+@using Data.SystemAuth
+@using Entities.App.FIN;
+@using Entities.App.Gnr;
+@using Entities.App.Inv;
+@using Entities.App.Sale;
+@using Entities.App.Sup;
+@using Entities.App.Sup.Enums;
+@using Entities.Auth;
+@using Common.Utilities
+@inject ISdk sdk
+@model OpenOrderRequest
+@{
+
+var isAdmin = sdk.IsAdministrator;
+var isProjectOrSalesUnit = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.SalesOrProjectAccept");
+var isIndustrial = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Industrial");
+var isEngineering = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.EngineeringAccept");
+var isSupply = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Supply");
+var hasStopPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Stop");
+var hasStartPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Start");
+var hasSendingPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Sending");
+var hasQueryPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Query");
+var hasTerminatePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Terminate");
+var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.ConfigManage");
+
+}
+<div class="card">
+	
+</div>
+<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+<div class="row">
+	<!-- هدر اطلاعات -->
+	<div class="col-12 mb-4">
+		<div class="card border-0 shadow-sm">
+			 
+				<div class="d-flex   align-items-center">
+					 
+					<div class="form-action-buttons w-100">
+						<form-action-buttons entity-type="typeof(OpenOrderRequest)"
+						save-btn="false"
+						save-and-close-btn="false"
+						save-and-new-btn="false"
+						new-page-btn="false"
+						>
+							<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-comment"
+								action-name="addComment" title="افزودن کامنت"></form-action-button>
+													<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check-circle"
+								action-name="engineeringAccept" title="تایید مهندسی"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-handshake"
+								action-name="salesOrProjectAccept" title="تایید واحد فروش/پروژه"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-link"
+								action-name="linkVpis" title="لینک با مدارک پروژه"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-stop-circle"
+								action-name="stopRequest" title="ثبت توقف"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-play-circle"
+								action-name="triggeringRequest" title="راه اندازی"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-truck"
+								action-name="inWayStatus" title="در راه"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-secondary" icon-class="fa fa-search"
+								action-name="statusInquiry" title="استعلام وضعیت"></form-action-button>
+							<form-action-button color-class="btn-active-icon-dark btn-color-dark" icon-class="fa fa-times-circle"
+								action-name="terminateRequest" title="خاتمه"></form-action-button>
+													<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-user-plus"
+											action-name="addRequestedPersonel" title="افزودن درخواست کنندگان و ذینفعان"></form-action-button>
+						</form-action-buttons>
+					</div>
+					
+				</div>
+			 
+		</div>
+	</div>
+
+	<!-- Tab Navigation -->
+	<div class="col-12">
+		<div class="card border-0 shadow-sm">
+			<div class="card-body p-3">
+				<ul class="nav nav-tabs nav-line-tabs nav-stretch fs-6 border-0 px-4 pt-4 justify-content-between" role="tablist">
+					<li class="nav-item">
+						<a class="nav-link active" data-bs-toggle="tab" href="#tab_general_@Model.Id">
+							<i class="bi bi-info-circle me-2"></i>اطلاعات کلی
+						</a>
+					</li>
+				 
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#tab_production_@Model.Id">
+							<i class="bi bi-gear me-2"></i>تولید و تامین
+						</a>
+					</li>
+				 
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#tab_attachments_@Model.Id" id="tab_attachments_link_">
+							<i class="bi bi-paperclip me-2"></i>مدیریت پیوست‌ها
+							<span class="badge-circle badge badge-light-primary mx-1">@(Model?.Attachments.Count ?? 0)</span>
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#tab_comments_@Model.Id" id="tab_comments_link">
+							<i class="bi bi-chat-dots me-2"></i>تاریخچه کامنت‌ها
+							<span class="badge-circle badge badge-light-primary mx-1">@(Model?.Comments.Count ?? 0)</span>
+						</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-12 my-1">
+ 
+			<div class="tab-content p-3" id="myTabContent">
+					<!-- Tab 1: اطلاعات کلی -->
+					<div class="tab-pane fade show active  " id="tab_general_@Model.Id" role="tabpanel">
+						<div class="card card-body  g-3  my-1">
+							<div class="row">
+
+							 <div class="col-md-6 col-lg-3">
+								 <label class="form-label text-muted small">وضعیت</label>
+								 @if (!string.IsNullOrWhiteSpace(Model?.Status))
+									{
+										<span class="badge badge-light-primary fs-6 px-3 py-2">@Model.Status</span>
+									}
+							else
+							{
+								<span>-</span>
+							}
+						</div>
+						
+							 
+							<div class="col-md-6 col-lg-3">
+								<label class="form-label text-muted small">شماره حواله فروش</label>
+								<div class="fw-semibold">@(Model?.OrderNo?.ToString() ?? "-")</div>
+							</div>
+							<div class="col-md-6 col-lg-3">
+								<label class="form-label text-muted small">تاریخ حواله فروش</label>
+								<div class="fw-semibold">@(Model?.OrderShamsiDate ?? "-")</div>
+							</div>
+							<div class="col-md-6 col-lg-3">
+								<label class="form-label text-muted small">تاریخ نیاز</label>
+								<div class="fw-semibold">@(Model?.NeedDateShamsiDate ?? "-")</div>
+							</div>
+							<div class="col-md-6 col-lg-3">
+								<label class="form-label text-muted small">تاریخ تایید</label>
+								<div class="fw-semibold">@(Model?.OrderConfirmShamsiDate ?? "-")</div>
+							</div>
+							<div class="col-md-6 col-lg-3">
+								<label class="form-label text-muted small">شماره درخواست خرید</label>
+								<div class="fw-semibold">@Model?.PurchaseRequestNumber</div>
+							</div>
+							<div class="col-md-6 col-lg-3">
+								<label class="form-label text-muted small">تاریخ درخواست خرید</label>
+								<div class="fw-semibold">@(Model?.PurchaseRequestShamsiDate ?? "-")</div>
+							</div>
+							<div class="col-md-6 col-lg-6">
+								<label class="form-label text-muted small">پرسنل درخواست کننده</label>
+								<div class="fw-semibold">@(Model?.RequestedPersonel ?? "-")</div>
+							</div>
+							<div class="col-12">
+								<label class="form-label text-muted small">توضیحات سفارش</label>
+								<div class="fw-semibold">@(Model?.OrderItemComment ?? "-")</div>
+							</div>
+								</div>
+						</div>
+
+							 <div class="row g-4 ">
+							<!-- وضعیت -->
+
+							<div class="col-12">
+								<div class="card card-body">
+								 <div class="  rounded p-3">
+									<h6 class="text-dark mb-3"><i class="bi bi-flag me-2"></i>وضعیت</h6>
+									<div class="row g-2">
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">متوقف شده</label>
+											<div>
+												@if (Model?.IsStop == true)
+												{
+													<span class="badge badge-light-danger">بله</span>
+												}
+												else
+												{
+													<span class="badge badge-light-success">خیر</span>
+												}
+											</div>
+										</div>
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">عدم تایید QC</label>
+											<div>
+												@if (Model?.IsRejectedByInspection == true)
+												{
+													<span class="badge badge-light-danger">بله</span>
+												}
+												else
+												{
+													<span class="badge badge-light-success">خیر</span>
+												}
+											</div>
+										</div>
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">حذف شده</label>
+											<div>
+												@if (Model?.IsDeleted == true)
+												{
+													<span class="badge badge-light-danger">بله</span>
+												}
+												else
+												{
+													<span class="badge badge-light-success">خیر</span>
+												}
+											</div>
+										</div>
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">ویرایش شده</label>
+											<div>
+												@if (Model?.Changed == true)
+												{
+													<span class="badge badge-light-warning">بله</span>
+												}
+												else
+												{
+													<span class="badge badge-light-secondary">خیر</span>
+												}
+											</div>
+										</div>
+									</div>
+								</div>
+								</div>
+							</div>
+ 
+						
+						</div>
+						<div class="col-12 my-1">
+								<div class="  rounded card card-body">
+									<h6 class="text-primary mb-3"><i class="bi bi-box-seam me-2"></i>اطلاعات کالا</h6>
+									<div class="row g-3">
+										<div class="col-md-6">
+											<label class="form-label text-muted small">کالا</label>
+											<div class="fw-semibold">
+												@if (Model?.Part != null)
+												{
+													<span>@Model.Part.Name  </span>
+												}
+												else
+												{
+													<span class="text-muted">-</span>
+												}
+											</div>
+										</div>
+										<div class="col-md-2">
+											<label class="form-label text-muted small">کد کالا</label>
+											<div class="fw-semibold">@(@Model?.Part.Code ?? "-")</div>
+										</div>
+										<div class="col-md-2">
+											<label class="form-label text-muted small">تفصیل</label>
+											<div class="fw-semibold">@(Model?.Dl?.Title ?? "-")</div>
+										</div>
+										<div class="col-md-2">
+											<label class="form-label text-muted small">کالای مرتبط</label>
+											<div class="fw-semibold">
+												@if (Model?.RelatedPart != null)
+												{
+													<span>@Model.RelatedPart.Name</span>
+												}
+												else
+												{
+													<span class="text-muted">-</span>
+												}
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						 	<div class="col-12 my-1">
+								<div class="  rounded  card card-body">
+									<h6 class="text-info mb-3"><i class="bi bi-calculator me-2"></i>اطلاعات تعداد</h6>
+									<div class="row g-3">
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">تعداد نیاز</label>
+											<div class="fs-4 fw-bold text-primary">@Model?.RequiredQty</div>
+										</div>
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">تعداد سفارش</label>
+											<div class="fs-4 fw-bold text-success">@(Model?.OrderQty?.ToString() ?? "-")</div>
+										</div>
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">تعداد ارسال شده</label>
+											<div class="fs-4 fw-bold text-warning">@(Model?.SumSendQty?.ToString() ?? "-")</div>
+										</div>
+										<div class="col-md-3 col-6">
+											<label class="form-label text-muted small">تعداد رسیده شده</label>
+											<div class="fs-4 fw-bold text-info">@Model?.FactoredCount</div>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="row g-4" style="padding: 0.1rem 0.8rem;">
+							<!-- تاییدات مهندسی -->
+							<div class="col-lg-6 card ">
+								<div class=" card-body  p-3 h-100">
+									<h6 class="text-dark mb-3 pb-2 border-bottom">
+										<i class="bi bi-tools me-2"></i>تاییدات مهندسی
+									</h6>
+									<div class="row g-2">
+										<div class="col-6">
+											<label class="form-label text-muted small">تایید مهندسی</label>
+											<div>
+												@if (Model?.EngineeringAccept == true)
+												{
+													<span class="badge badge-light-success">تایید شده</span>
+												}
+												else
+												{
+													<span class="badge badge-light-danger">بدون تایید</span>
+												}
+											</div>
+										</div>
+										<div class="col-6">
+											<label class="form-label text-muted small">تایید خودکار</label>
+											<div>
+												@if (Model?.IsAcceptedAutomaticallyByEngineering == true)
+												{
+													<span class="badge badge-light-success">بله</span>
+												}
+												else
+												{
+													<span class="badge badge-light-secondary">خیر</span>
+												}
+											</div>
+										</div>
+										<div class="col-12">
+											<label class="form-label text-muted small">کاربر تایید</label>
+											<div class="fw-semibold">@(Model?.EngineeringAcceptUser?.Name ?? "-")</div>
+										</div>
+										<div class="col-6">
+											<label class="form-label text-muted small">تاریخ تایید</label>
+											<div class="small">@(Model?.EngineeringAcceptShamsiDateTime ?? "-")</div>
+										</div>
+										<div class="col-6">
+											<label class="form-label text-muted small">مهندسین درخواستی</label>
+											<div class="small">@(Model?.RequestedEngineeringPersonel ?? "-")</div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- تاییدات واحد فروش -->
+							<div class="col-lg-6 card ">
+								<div class="card-body  p-3 h-100">
+									<h6 class="text-dark mb-3 pb-2 border-bottom">
+										<i class="bi bi-shop me-2"></i>تاییدات واحد فروش
+									</h6>
+									<div class="row g-2">
+										<div class="col-6">
+											<label class="form-label text-muted small">تایید فروش</label>
+											<div>
+												@if (Model?.HasSalesUnitConfirmation == true)
+												{
+													<span class="badge badge-light-success">تایید شده</span>
+												}
+												else
+												{
+													<span class="badge badge-light-danger">بدون تایید</span>
+												}
+											</div>
+										</div>
+										<div class="col-6">
+											<label class="form-label text-muted small">تایید اولیه</label>
+											<div>
+												@if (Model?.HasSalesUnitPrimitiveApprove == true)
+												{
+													<span class="badge badge-light-success">بله</span>
+												}
+												else
+												{
+													<span class="badge badge-light-secondary">خیر</span>
+												}
+											</div>
+										</div>
+										<div class="col-12">
+											<label class="form-label text-muted small">کاربر تایید</label>
+											<div class="fw-semibold">@(Model?.SalesUnitConfirmationUser?.Name ?? "-")</div>
+										</div>
+										<div class="col-12">
+											<label class="form-label text-muted small">تاریخ تایید</label>
+											<div class="small">@(Model?.SalesUnitConfirmationShamsiDateTime ?? "-")</div>
+										</div>
+										<div class="col-12">
+											<label class="form-label text-muted small">کارشناس فروش</label>
+											<div class="small">@(Model?.SalesUnitSalesExpert?.Name ?? "-")</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+				  
+					<!-- Tab 4: تولید و تامین -->
+					<div class="tab-pane fade " id="tab_production_@Model.Id" role="tabpanel">
+						<div class="card card-body mb-2">
+								<div class="row g-3">
+							<div class="col-md-4">
+								<label class="form-label text-muted small">شماره سفارش ساخت</label>
+								<div class="fw-semibold">@(Model?.ProductionOrderNumber?.ToString() ?? "-")</div>
+							</div>
+							<div class="col-md-4">
+								<label class="form-label text-muted small">تامین کننده</label>
+								<div class="fw-semibold">@(Model?.ManCompany?.Party?.FullName ?? "-")</div>
+							</div>
+							<div class="col-md-4">
+								<label class="form-label text-muted small">تاخیر خرید</label>
+								<div class="fw-semibold">
+									@if (Model?.DelaysBuyDay.HasValue == true)
+									{
+										<span class="badge badge-light-warning">@Model.DelaysBuyDay روز</span>
+									}
+									else
+									{
+										<span class="text-muted">-</span>
+									}
+								</div>
+							</div>
+							<div class="col-md-4">
+								<label class="form-label text-muted small">درخواست روتین</label>
+								<div>
+									@if (Model?.IsRoutineRequest == true)
+									{
+										<span class="badge badge-light-success">بله</span>
+									}
+									else
+									{
+										<span class="badge badge-light-secondary">خیر</span>
+									}
+								</div>
+							</div>
+						</div>
+							</div>
+					
+							<!-- تاریخ‌های مهم -->
+							<div class="col-12">
+								<div class="card card-body">
+								<h6 class="text-dark mb-3"><i class="bi bi-calendar-event me-2"></i>تاریخ‌های مهم</h6>
+								<div class="row g-2">
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-primary ps-3">
+											<label class="form-label text-muted small mb-1">فاکتوردهی</label>
+											<div class="fw-semibold small">@(Model?.FactoredShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-success ps-3">
+											<label class="form-label text-muted small mb-1">سند تحویل</label>
+											<div class="fw-semibold small">@(Model?.DeliveryVoucherShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-info ps-3">
+											<label class="form-label text-muted small mb-1">سند موقت</label>
+											<div class="fw-semibold small">@(Model?.TemporaryInventoryVoucherShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-warning ps-3">
+											<label class="form-label text-muted small mb-1">سند QC</label>
+											<div class="fw-semibold small">@(Model?.QcVoucherShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-danger ps-3">
+											<label class="form-label text-muted small mb-1">سند دائم</label>
+											<div class="fw-semibold small">@(Model?.FinalInventoryVoucherShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-secondary ps-3">
+											<label class="form-label text-muted small mb-1">تامین</label>
+											<div class="fw-semibold small">@(Model?.SupplyShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-dark ps-3">
+											<label class="form-label text-muted small mb-1">اختتام</label>
+											<div class="fw-semibold small">@(Model?.CompletionShamsiDate ?? "-")</div>
+										</div>
+									</div>
+									<div class="col-md-3 col-sm-6">
+										<div class="border-start border-4 border-muted ps-3">
+											<label class="form-label text-muted small mb-1">توقف</label>
+											<div class="fw-semibold small">@(Model?.StopShamsiDate ?? "-")</div>
+										</div>
+									</div>
+								</div>
+								</div>
+							</div>
+					</div>
+
+				 
+
+				<!-- Tab 6: مدیریت پیوست‌ها -->
+				<div class="tab-pane fade card card-body" id="tab_attachments_@Model.Id" role="tabpanel">
+					<div class="d-flex justify-content-between align-items-center mb-4">
+						<h6 class="fw-bold text-dark mb-0"><i class="bi bi-paperclip me-2"></i>مدیریت پیوست‌ها</h6>
+						<button type="button" class="btn btn-sm btn-primary" id="btnAddNewAttachment">
+							<i class="fa fa-plus me-1"></i>افزودن پیوست جدید
+						</button>
+					</div>
+					<div id="attachments_content">
+						@await Html.PartialAsync("_AttachmentListPartial.cshtml", Model?.Attachments)
+					</div>
+				</div>
+
+				<!-- Tab 7: تاریخچه کامنت‌ها -->
+				<div class="tab-pane fade card card-body" id="tab_comments_@Model.Id" role="tabpanel">
+					<div class="d-flex justify-content-between align-items-center mb-4">
+						<h6 class="fw-bold text-dark mb-0"><i class="bi bi-chat-dots me-2"></i>تاریخچه کامنت‌ها</h6>
+						<button type="button" class="btn btn-sm btn-primary" id="btnAddNewComment">
+							<i class="fa fa-plus me-1"></i>افزودن کامنت
+						</button>
+					</div>
+					<div id="comments_content">
+							@await Html.PartialAsync("_CommentListPartial.cshtml", Model?.Comments)
+					</div>
+				</div>
+
+				</div>
+			</div>
+		</div>
+ 
+</div>
+<script>
+    var permissions = @Html.Raw(Json.Serialize(new {
+				   isProjectOrSalesUnit,
+				   isIndustrial,
+				   isEngineering,
+				   isSupply,
+				   hasStopPermission,
+				   hasStartPermission,
+				   hasSendingPermission,
+				   hasQueryPermission,
+				   hasTerminatePermission,
+				   hasConfigManagePermission
+			    }));
+	var openOrderRequest =  @Html.Raw(Json.Serialize(Model));
+	 
+	
+	function initializePage(){
+		  	 
+	for(let btn in self.FormActionButtons)
+	{
+		self.FormActionButtons[btn].element.disabled = true;
+	}
+
+		self.FormActionButtons.history.element.disabled = false;
+		self.FormActionButtons.addComment.element.disabled = false;
+
+
+		 
+	
+		if(permissions.isEngineering)
+		{
+
+		    self.FormActionButtons.linkVpis.element.disabled = false;
+
+		    if(!openOrderRequest.engineeringAccept && !openOrderRequest.isStop)
+		      self.FormActionButtons.engineeringAccept.element.disabled = false
+			 
+		}
+
+		if(permissions.isProjectOrSalesUnit)
+		{
+
+			self.FormActionButtons.salesOrProjectAccept.element.disabled = false;
+		    
+			 
+		}
+		permissions.stopOpersions = false;
+		if(permissions.isIndustrial || permissions.isSupply || permissions.isEngineering || permissions.hasStopPermission)
+		{
+			permissions.stopOpersions = true;
+		}
+	 
+		if(permissions.stopOpersions)
+		{
+
+			self.FormActionButtons.statusInquiry.element.disabled = false;
+			self.FormActionButtons.inWayStatus.element.disabled = false;
+			self.FormActionButtons.triggeringRequest.element.disabled = false;
+			self.FormActionButtons.stopRequest.element.disabled = false;
+			self.FormActionButtons.terminateRequest.element.disabled = false;
+		  
+		}
+		
+
+		if(permissions.hasConfigManagePermission)
+		{
+		   self.FormActionButtons.addRequestedPersonel.element.disabled = false;
+		}
+
+		if (permissions.isEngineering && !permissions.isIndustrial) {
+            self.FormActionButtons.triggeringRequest.element.disabled = true;
+		  self.FormActionButtons.inWayStatus.element.disabled = true;
+		  self.FormActionButtons.statusInquiry.element.disabled = true;
+		  self.FormActionButtons.terminateRequest.element.disabled = true;
+        }
+	}
+
+	initializePage()
+ 
+
+	//#region Add Comment
+	self.FormActionButtons.addComment.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		const url = `/Panel/Sup/OpenOrderRequest/AddCommentPartial?openOrderRequestId=${openOrderRequestId}`;
+
+		$$.get(url, function (result) {
+			let bodyCn = `<div style="overflow-x: hidden;overflow-y: auto; max-height: 70vh;">${result}</div>`;
+			$.confirm({
+				title: 'افزودن کامنت',
+				columnClass: 'col-md-8',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+							const self = this;
+
+							$$.post('/Panel/Sup/OpenOrderRequest/SaveComment', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('کامنت با موفقیت ذخیره شد');
+								 
+								self.close();
+								page.close()
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						self.$body.find('select.select2-hidden-accessible').each(function () {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	});
+	//#endregion
+
+	//#region View Comments List (moved to tab)
+	//#endregion
+
+	//#region Engineering Accept
+	self.FormActionButtons.engineeringAccept.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		 
+		if (!permissions.isEngineering) {
+			toastr.error('شما دسترسی تایید مهندسی را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید',
+			content: 'آیا از تایید مهندسی این درخواست اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-success',
+					action: function () {
+						debugger
+						$$.post('/Panel/Sup/OpenOrderRequest/EngineeringAccept/'+openOrderRequestId, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+
+							toastr.success('تایید مهندسی با موفقیت انجام شد');
+						 
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	});
+	//#endregion
+
+	//#region Sales/Project Accept
+	self.FormActionButtons.salesOrProjectAccept.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+ 
+
+		if (!permissions.isProjectOrSalesUnit) {
+			toastr.error('شما دسترسی تایید واحد فروش/پروژه را ندارید');
+			return;
+		}
+
+		const url = `/Panel/Sup/OpenOrderRequest/SalesOrProjectAcceptPartial?openOrderRequestId=${openOrderRequestId}`;
+
+		$$.get(url, function (result) {
+			let bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
+			$.confirm({
+				title: 'تایید واحد فروش/پروژه',
+				columnClass: 'col-md-6',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'تایید',
+						btnClass: 'btn-success',
+						action: function () {
+							const $content = this.$content;
+
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+							const self = this;
+
+							$$.post('/Panel/Sup/OpenOrderRequest/SalesOrProjectAccept', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('تایید با موفقیت انجام شد');
+							 
+								self.close();
+								page.close()
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+					}, 100);
+				}
+			});
+		});
+	});
+	//#endregion
+
+	//#region Stop Request
+	self.FormActionButtons.stopRequest.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		const url = `/Panel/Sup/OpenOrderRequest/StopRequestPartial?openOrderRequestId=${openOrderRequestId}`;
+
+		$$.get(url, function (result) {
+			let bodyCn = `<div style="overflow-x: hidden;overflow-y: auto; max-height: 70vh;">${result}</div>`;
+			$.confirm({
+				title: 'ثبت توقف',
+				columnClass: 'col-md-10',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-danger',
+						action: function () {
+							debugger
+							const $content = this.$content;
+
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+							const self = this;
+
+							$$.post('/Panel/Sup/OpenOrderRequest/StopOperation', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('توقف با موفقیت ثبت شد');
+								 
+								self.close();
+								page.close()
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						initFileUploaders(self.$body)
+						self.$body.find('select.select2-hidden-accessible').each(function () {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	});
+	//#endregion
+
+	//#region Triggering (راه اندازی)
+	self.FormActionButtons.triggeringRequest.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		 
+
+		if (!permissions.stopOpersions) {
+			toastr.error('شما دسترسی راه‌اندازی را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید',
+			content: 'آیا از راه‌اندازی این درخواست اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-success',
+					action: function () {
+						const self = this;
+						$$.post('/Panel/Sup/OpenOrderRequest/Triggering/'+openOrderRequestId, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('درخواست با موفقیت راه‌اندازی شد');
+						 self.close()
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	});
+	//#endregion
+
+	//#region InWay Status
+	self.FormActionButtons.inWayStatus.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		 
+
+		if (!permissions.stopOpersions) {
+			toastr.error('شما دسترسی تغییر وضعیت به در راه را ندارید');
+			return;
+		}
+
+		$$.post('/Panel/Sup/OpenOrderRequest/SetInWayStatus/'+openOrderRequestId, null, function (r) {
+			if (!r.isSuccess) {
+				toastr.error(`${r.message}`, 'خطا');
+				return;
+			}
+			toastr.success('وضعیت به "در راه" تغییر یافت');
+ 
+		});
+	});
+	//#endregion
+
+	//#region Status Inquiry
+	self.FormActionButtons.statusInquiry.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		 
+
+		if (!permissions.stopOpersions) {
+			toastr.error('شما دسترسی استعلام وضعیت را ندارید');
+			return;
+		}
+
+		$$.post('/Panel/Sup/OpenOrderRequest/StatusInquiry/'+openOrderRequestId, null, function (r) {
+			if (!r.isSuccess) {
+				toastr.error(`${r.message}`, 'خطا');
+				return;
+			}
+			toastr.success('وضعیت به "در حال استعلام" تغییر یافت');
+			 
+		});
+	});
+	//#endregion
+
+	//#region Terminate
+	self.FormActionButtons.terminateRequest.onclick(function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+  
+		if (!permissions.hasTerminatePermission) {
+			toastr.error('شما دسترسی خاتمه را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید',
+			content: 'آیا از خاتمه یافتن این درخواست اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-danger',
+					action: function () {
+						$$.post('/Panel/Sup/OpenOrderRequest/Terminate/'+openOrderRequestId,null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('درخواست با موفقیت خاتمه یافت');
+				 
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	});
+	//#endregion
+
+	//#region Manage Attachments (moved to tab)
+	function openAttachmentModal(attachmentId = null) {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+
+		const url = attachmentId
+			? `/Panel/Sup/OpenOrderRequest/AttachmentPartial?id=${attachmentId}&openOrderRequestId=${openOrderRequestId}`
+			: `/Panel/Sup/OpenOrderRequest/AttachmentPartial?openOrderRequestId=${openOrderRequestId}`;
+
+		$$.get(url, function (result) {
+			let bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
+			$.confirm({
+				title: attachmentId ? 'ویرایش پیوست' : 'افزودن پیوست',
+				columnClass: 'col-md-8',
+				content: bodyCn,
+				rtl: true,
+				onContentReady: function () {
+					debugger
+					var self = this;
+					setTimeout(function () {
+						initFileUploaders(self.$body)
+					},100)
+				},
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+							const self = this;
+
+							$$.post('/Panel/Sup/OpenOrderRequest/SaveAttachment', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('پیوست با موفقیت ذخیره شد');
+								self.close();
+								// Reload attachments tab
+								attachmentsLoaded = false;
+								loadAttachmentsTab();
+								page.close()
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				}
+			});
+		});
+	}
+	//#endregion
+
+	//#region Link VPIS
+	self.FormActionButtons.linkVpis.onclick(function () {
+		 
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		 
+		if (!permissions.isEngineering) {
+			toastr.error('شما دسترسی لینک با مدارک پروژه را ندارید');
+			return;
+		}
+
+		const url = `/Panel/Sup/OpenOrderRequest/LinkVpisPartial?openOrderRequestId=${openOrderRequestId}`;
+		
+		$$.get(url, function(result) {
+			let bodyCn = `<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">${result}</div>`;
+			$.confirm({
+				title: 'لینک با مدارک پروژه',
+				columnClass: 'col-md-10',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-success',
+						action: function() {
+							const $content = this.$content;
+							
+							if (validateError($content)) {
+								return false;
+							}
+							
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+							const self = this;
+							
+							$$.post('/Panel/Sup/OpenOrderRequest/DoLinkVpis', model, function(r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+								
+								toastr.success('لینک با موفقیت ثبت شد');
+								self.close();
+								page.close()
+							});
+							
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						self.$body.find('select.select2-hidden-accessible').each(function() {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	});
+	//#endregion
+
+
+	//#region AddRequestedPersonel
+	self.FormActionButtons.addRequestedPersonel.onclick(function () {
+
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		 
+
+		if (!permissions.hasConfigManagePermission) {
+			toastr.error('شما دسترسی افزودن ذینفعان را ندارید');
+			return;
+		}
+
+			const url = `/Panel/Sup/OpenOrderRequest/AddRequestedPersonelPartial?openOrderRequestId=${openOrderRequestId}`;
+
+				$$.get(url, function(result) {
+				let bodyCn = `<div style="overflow-x: hidden; overflow-y: hidden; max-height: 70vh;">${result}</div>`;
+				
+				$.confirm({
+				title: 'افزودن درخواست کنندگان و ذینفعان',
+				columnClass: 'col-md-10',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-success',
+						action: function() {
+							const $content = this.$content;
+
+							 
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+
+							model.requestedPersonelIds = model.requestedPersonelIds.split(',').map(c=>parseInt(c))
+							model.requestedEngineeringPersonelIds = model.requestedEngineeringPersonelIds.split(',').map(c=>parseInt(c));
+	
+
+							const self = this;
+
+							$$.post('/Panel/Sup/OpenOrderRequest/AddRequestedPersonelToOpenRequest', model, function(r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('اطلاعات با موفقیت ثبت شد');
+								self.close();
+								page.close()
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						 
+					}, 100);
+				}
+			});
+				
+				})
+
+	})
+	//#endregion
+
+	//#region Attachments & Comments
+  
+	 
+	// Add new attachment button
+	$$('#btnAddNewAttachment').on('click', function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+		openAttachmentModal();
+	});
+
+	// Add new comment button
+	$$('#btnAddNewComment').on('click', function () {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		const url = `/Panel/Sup/OpenOrderRequest/AddCommentPartial?openOrderRequestId=${openOrderRequestId}`;
+
+		$$.get(url, function (result) {
+			let bodyCn = `<div style="overflow-x: hidden;overflow-y: auto; max-height: 70vh;">${result}</div>`;
+			$.confirm({
+				title: 'افزودن کامنت',
+				columnClass: 'col-md-8',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							model.openOrderRequestId = openOrderRequestId;
+							const self = this;
+
+							$$.post('/Panel/Sup/OpenOrderRequest/SaveComment', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('کامنت با موفقیت ذخیره شد');
+								self.close();
+								// Reload comments tab
+								commentsLoaded = false;
+								loadCommentsTab();
+								page.close()
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						self.$body.find('select.select2-hidden-accessible').each(function () {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	});
+	//#endregion
+</script>

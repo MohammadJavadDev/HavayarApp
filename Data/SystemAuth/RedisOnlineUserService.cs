@@ -6,53 +6,58 @@ using Entities.Base;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.IdentityModel.Tokens;
-using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Data.SystemAuth;
 
 /// <summary>
-/// پیاده‌سازی Redis-backed سرویس کاربران آنلاین
+/// پیاده‌سازی Redis-backed سرویس کاربران آنلاین با بهینه‌سازی کامل
 /// </summary>
 public sealed class RedisOnlineUserService : IOnlineUserService
 {
 	private readonly IDistributedCache _redis;
 	private readonly IServiceScopeFactory _scopeFactory;
 	private readonly string _keyPrefix = "OnlineUsers:";
-	private readonly string _allUsersKey = "OnlineUsers:All";
+	private readonly string _userIdsKey = "OnlineUsers:UserIds";
 	private readonly TimeSpan _expiration = TimeSpan.FromHours(24);
-	private readonly TimeSpan _userExpiration = TimeSpan.FromMinutes(30); // کاربر بعد از 30 دقیقه غیرفعال، offline می‌شود
- 
-	// JsonSerializerOptions
-	private static readonly JsonSerializerOptions JsonOptions = new()
+	private readonly TimeSpan _userExpiration = TimeSpan.FromMinutes(30);
+
+	// برای primitive types و collections ساده
+	private static readonly JsonSerializerOptions SimpleJsonOptions = new()
 	{
-		ReferenceHandler = ReferenceHandler.Preserve,
+		WriteIndented = false
+	};
+
+	// برای اشیاء پیچیده
+	private static readonly JsonSerializerOptions ComplexJsonOptions = new()
+	{
+		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
 		WriteIndented = false
 	};
 
 	public RedisOnlineUserService(IDistributedCache redis, IServiceScopeFactory scopeFactory)
 	{
-		_redis = redis;
-		_scopeFactory = scopeFactory;
-		 
+		_redis = redis ?? throw new ArgumentNullException(nameof(redis));
+		_scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
 	}
 
+	#region Add/Remove Online Users
+
 	/// <summary>
-	/// اضافه کردن کاربر آنلاین
+	/// اضافه کردن کاربر آنلاین (Async)
 	/// </summary>
 	public async Task AddOnlineUserAsync(long userId, string? connectionId, CancellationToken ct = default)
 	{
 		try
 		{
-			// دریافت اطلاعات کاربر از دیتابیس
-			var userDto = await LoadUserFromDatabaseAsync(userId, ct);
+			var userDto = await GetOrLoadUserAsync(userId, ct);
 			if (userDto == null)
 				return;
 
 			// اضافه کردن connectionId
-			if (connectionId.HasValue() && !userDto.ConnectionIds.Contains(connectionId))
+			if (!string.IsNullOrWhiteSpace(connectionId) && !userDto.ConnectionIds.Contains(connectionId))
 			{
 				userDto.ConnectionIds.Add(connectionId);
 			}
@@ -61,37 +66,30 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			userDto.LastActivity = DateTime.UtcNow;
 
 			// ذخیره در Redis
-			var userKey = GetUserKey(userId);
-			var userJson = JsonSerializer.Serialize(userDto, JsonOptions);
-			await _redis.SetStringAsync(userKey, userJson, new DistributedCacheEntryOptions
-			{
-				AbsoluteExpirationRelativeToNow = _userExpiration
-			}, ct);
+			await SaveUserToRedisAsync(userId, userDto, ct);
 
-			// اضافه کردن userId به لیست کاربران آنلاین
+			// اضافه کردن userId به لیست آنلاین
 			await AddUserIdToOnlineListAsync(userId, ct);
 		}
 		catch (Exception ex)
 		{
-			// Log error but don't throw
 			Console.WriteLine($"Error adding online user {userId}: {ex.Message}");
 		}
 	}
 
 	/// <summary>
-	/// اضافه کردن کاربر آنلاین
+	/// اضافه کردن کاربر آنلاین (Sync)
 	/// </summary>
 	public OnlineUserDto? AddOnlineUser(long userId, string? connectionId)
 	{
 		try
 		{
-			// دریافت اطلاعات کاربر از دیتابیس
-			var userDto =   LoadUserFromDatabase(userId);
+			var userDto = GetOrLoadUser(userId);
 			if (userDto == null)
 				return null;
 
 			// اضافه کردن connectionId
-			if (connectionId.HasValue() && !userDto.ConnectionIds.Contains(connectionId))
+			if (!string.IsNullOrWhiteSpace(connectionId) && !userDto.ConnectionIds.Contains(connectionId))
 			{
 				userDto.ConnectionIds.Add(connectionId);
 			}
@@ -100,23 +98,16 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			userDto.LastActivity = DateTime.UtcNow;
 
 			// ذخیره در Redis
-			var userKey = GetUserKey(userId);
-			var userJson = JsonSerializer.Serialize(userDto, JsonOptions);
-			  _redis.SetString(userKey, userJson, new DistributedCacheEntryOptions
-			{
-				AbsoluteExpirationRelativeToNow = _userExpiration
-			});
+			SaveUserToRedis(userId, userDto);
 
-			// اضافه کردن userId به لیست کاربران آنلاین
-			  AddUserIdToOnlineList(userId);
+			// اضافه کردن userId به لیست آنلاین
+			AddUserIdToOnlineList(userId);
 
 			return userDto;
 		}
 		catch (Exception ex)
 		{
-			// Log error but don't throw
 			Console.WriteLine($"Error adding online user {userId}: {ex.Message}");
-
 			return null;
 		}
 	}
@@ -128,33 +119,23 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	{
 		try
 		{
-			var userKey = GetUserKey(userId);
-			var userJson = await _redis.GetStringAsync(userKey, ct);
-
-			if (string.IsNullOrEmpty(userJson))
-				return;
-
-			var userDto = JsonSerializer.Deserialize<OnlineUserDto>(userJson, JsonOptions);
+			var userDto = await GetOnlineUserAsync(userId, ct);
 			if (userDto == null)
 				return;
 
 			// حذف connectionId
 			userDto.ConnectionIds.Remove(connectionId);
 
-			// اگر دیگر connectionی نداره، کاربر را حذف کن
+			// اگر connection نداره، کاربر را حذف کن
 			if (userDto.ConnectionIds.Count == 0)
 			{
-				await _redis.RemoveAsync(userKey, ct);
+				await _redis.RemoveAsync(GetUserKey(userId), ct);
 				await RemoveUserIdFromOnlineListAsync(userId, ct);
 			}
 			else
 			{
-				// در غیر این صورت، فقط به‌روزرسانی کن
-				var updatedJson = JsonSerializer.Serialize(userDto, JsonOptions);
-				await _redis.SetStringAsync(userKey, updatedJson, new DistributedCacheEntryOptions
-				{
-					AbsoluteExpirationRelativeToNow = _userExpiration
-				}, ct);
+				// در غیر این صورت، به‌روزرسانی کن
+				await SaveUserToRedisAsync(userId, userDto, ct);
 			}
 		}
 		catch (Exception ex)
@@ -163,6 +144,10 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		}
 	}
 
+	#endregion
+
+	#region Get Online Users
+
 	/// <summary>
 	/// دریافت لیست تمام کاربران آنلاین
 	/// </summary>
@@ -170,27 +155,17 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	{
 		try
 		{
-			// دریافت لیست userId های آنلاین
-			var userIdsJson = await _redis.GetStringAsync("OnlineUsers:UserIds", ct);
-			if (string.IsNullOrEmpty(userIdsJson))
+			var userIds = await GetOnlineUserIdsAsync(ct);
+			if (userIds.Count == 0)
 				return new List<OnlineUserDto>();
 
-			var userIds = JsonSerializer.Deserialize<List<long>>(userIdsJson, JsonOptions);
-			if (userIds == null || userIds.Count == 0)
-				return new List<OnlineUserDto>();
+			// دریافت اطلاعات کاربران به صورت موازی
+			var tasks = userIds.Select(userId => GetOnlineUserAsync(userId, ct));
+			var users = await Task.WhenAll(tasks);
 
-			// دریافت اطلاعات هر کاربر
-			var users = new List<OnlineUserDto>();
-			foreach (var userId in userIds)
-			{
-				var user = await GetOnlineUserAsync(userId, ct);
-				if (user != null && user.ConnectionIds.Count > 0)
-				{
-					users.Add(user);
-				}
-			}
-
-			return users;
+			return users
+			    .Where(u => u != null && u.ConnectionIds.Count > 0)
+			    .ToList()!;
 		}
 		catch (Exception ex)
 		{
@@ -200,7 +175,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	}
 
 	/// <summary>
-	/// دریافت اطلاعات یک کاربر آنلاین
+	/// دریافت اطلاعات یک کاربر آنلاین (Async)
 	/// </summary>
 	public async Task<OnlineUserDto?> GetOnlineUserAsync(long userId, CancellationToken ct = default)
 	{
@@ -208,10 +183,11 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		{
 			var userKey = GetUserKey(userId);
 			var userJson = await _redis.GetStringAsync(userKey, ct);
+
 			if (string.IsNullOrEmpty(userJson))
 				return null;
 
-			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, JsonOptions);
+			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
 		}
 		catch (Exception ex)
 		{
@@ -221,7 +197,8 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	}
 
 	/// <summary>
-	/// دریافت اطلاعات یک کاربر آنلاین
+	/// دریافت اطلاعات یک کاربر آنلاین (Sync)
+	/// در صورت عدم وجود در Redis، از دیتابیس لود می‌کند
 	/// </summary>
 	public OnlineUserDto? GetOnlineUser(long userId)
 	{
@@ -229,11 +206,14 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		{
 			var userKey = GetUserKey(userId);
 			var userJson = _redis.GetString(userKey);
+
 			if (string.IsNullOrEmpty(userJson))
-				return AddOnlineUser(userId,null);
+			{
+				// اگر در Redis نبود، از دیتابیس لود کن و به Redis اضافه کن
+				return AddOnlineUser(userId, null);
+			}
 
-
-			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, JsonOptions);
+			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
 		}
 		catch (Exception ex)
 		{
@@ -243,7 +223,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	}
 
 	/// <summary>
-	/// بررسی اینکه آیا کاربر آنلاین است یا نه
+	/// بررسی آنلاین بودن کاربر
 	/// </summary>
 	public async Task<bool> IsUserOnlineAsync(long userId, CancellationToken ct = default)
 	{
@@ -256,12 +236,16 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	/// </summary>
 	public async Task<int> GetOnlineUsersCountAsync(CancellationToken ct = default)
 	{
-		var allUsers = await GetAllOnlineUsersAsync(ct);
-		return allUsers.Count;
+		var userIds = await GetOnlineUserIdsAsync(ct);
+		return userIds.Count;
 	}
 
+	#endregion
+
+	#region Role Access Methods
+
 	/// <summary>
-	/// دریافت RoleAccess های یک کاربر
+	/// دریافت RoleAccess های کاربر (Async)
 	/// </summary>
 	public async Task<List<RoleAccessDto>> GetUserRoleAccessesAsync(long userId, CancellationToken ct = default)
 	{
@@ -270,7 +254,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	}
 
 	/// <summary>
-	/// دریافت RoleAccess های یک کاربر
+	/// دریافت RoleAccess های کاربر (Sync)
 	/// </summary>
 	public List<RoleAccessDto> GetUserRoleAccesses(long userId)
 	{
@@ -279,49 +263,59 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	}
 
 	/// <summary>
+	/// دریافت نقش‌های کاربر (Async)
+	/// </summary>
+	public async Task<List<string>> GetUserRoleAsync(long userId, CancellationToken ct = default)
+	{
+		var user = await GetOnlineUserAsync(userId, ct);
+		return user?.Roles ?? new List<string>();
+	}
+
+	/// <summary>
+	/// دریافت نقش‌های کاربر (Sync)
+	/// </summary>
+	public List<string> GetUserRole(long userId)
+	{
+		var user = GetOnlineUser(userId);
+		return user?.Roles ?? new List<string>();
+	}
+
+	/// <summary>
 	/// بررسی دسترسی کاربر به یک path
 	/// </summary>
 	public async Task<bool> HasUserAccessAsync(long userId, string path, CancellationToken ct = default)
 	{
+		if (string.IsNullOrWhiteSpace(path))
+			return false;
+
 		var roleAccesses = await GetUserRoleAccessesAsync(userId, ct);
-		return roleAccesses.Any(ra => ra.Path == path);
+		return roleAccesses.Any(ra => ra.Path?.Equals(path, StringComparison.OrdinalIgnoreCase) == true);
 	}
 
 	/// <summary>
-	/// به‌روزرسانی RoleAccess های یک کاربر
+	/// به‌روزرسانی RoleAccess های کاربر (Async)
 	/// </summary>
 	public async Task RefreshUserRoleAccessesAsync(long userId, CancellationToken ct = default)
 	{
 		try
 		{
-			var userKey = GetUserKey(userId);
-			var userJson = await _redis.GetStringAsync(userKey, ct);
-
-			if (string.IsNullOrEmpty(userJson))
+			var existingUser = await GetOnlineUserAsync(userId, ct);
+			if (existingUser == null)
 				return; // کاربر آنلاین نیست
 
-			var userDto = JsonSerializer.Deserialize<OnlineUserDto>(userJson, JsonOptions);
-			if (userDto == null)
-				return;
-
-			// بارگذاری مجدد RoleAccess ها از دیتابیس
+			// بارگذاری مجدد از دیتابیس
 			var updatedUserDto = await LoadUserFromDatabaseAsync(userId, ct);
 			if (updatedUserDto == null)
 				return;
 
-			// حفظ ConnectionIds و timestamps
-			updatedUserDto.ConnectionIds = userDto.ConnectionIds;
-			updatedUserDto.ConnectedAt = userDto.ConnectedAt;
+			// حفظ اطلاعات connection
+			updatedUserDto.ConnectionIds = existingUser.ConnectionIds;
+			updatedUserDto.ConnectedAt = existingUser.ConnectedAt;
 			updatedUserDto.LastActivity = DateTime.UtcNow;
+			updatedUserDto.PagesByConnection = existingUser.PagesByConnection;
 
 			// ذخیره مجدد
-			var updatedJson = JsonSerializer.Serialize(updatedUserDto, JsonOptions);
-			await _redis.SetStringAsync(userKey, updatedJson, new DistributedCacheEntryOptions
-			{
-				AbsoluteExpirationRelativeToNow = _userExpiration
-			}, ct);
-
-			// لیست کلی خودکار به‌روزرسانی می‌شود
+			await SaveUserToRedisAsync(userId, updatedUserDto, ct);
 		}
 		catch (Exception ex)
 		{
@@ -329,42 +323,30 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		}
 	}
 
-
 	/// <summary>
-	/// به‌روزرسانی RoleAccess های یک کاربر
+	/// به‌روزرسانی RoleAccess های کاربر (Sync)
 	/// </summary>
 	public void RefreshUserRoleAccesses(long userId)
 	{
 		try
 		{
-			var userKey = GetUserKey(userId);
-			var userJson =  _redis.GetString(userKey);
-
-			if (string.IsNullOrEmpty(userJson))
-				return; // کاربر آنلاین نیست
-
-			var userDto = JsonSerializer.Deserialize<OnlineUserDto>(userJson, JsonOptions);
-			if (userDto == null)
+			var existingUser = GetOnlineUser(userId);
+			if (existingUser == null)
 				return;
 
-			// بارگذاری مجدد RoleAccess ها از دیتابیس
-			var updatedUserDto =  LoadUserFromDatabase(userId);
+			// بارگذاری مجدد از دیتابیس
+			var updatedUserDto = LoadUserFromDatabase(userId);
 			if (updatedUserDto == null)
 				return;
 
-			// حفظ ConnectionIds و timestamps
-			updatedUserDto.ConnectionIds = userDto.ConnectionIds;
-			updatedUserDto.ConnectedAt = userDto.ConnectedAt;
+			// حفظ اطلاعات connection
+			updatedUserDto.ConnectionIds = existingUser.ConnectionIds;
+			updatedUserDto.ConnectedAt = existingUser.ConnectedAt;
 			updatedUserDto.LastActivity = DateTime.UtcNow;
+			updatedUserDto.PagesByConnection = existingUser.PagesByConnection;
 
 			// ذخیره مجدد
-			var updatedJson = JsonSerializer.Serialize(updatedUserDto, JsonOptions);
-			 _redis.SetString(userKey, updatedJson, new DistributedCacheEntryOptions
-			{
-				AbsoluteExpirationRelativeToNow = _userExpiration
-			});
-
-			// لیست کلی خودکار به‌روزرسانی می‌شود
+			SaveUserToRedis(userId, updatedUserDto);
 		}
 		catch (Exception ex)
 		{
@@ -372,262 +354,32 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		}
 	}
 
-	/// <summary>
-	/// بارگذاری اطلاعات کاربر از دیتابیس
-	/// </summary>
-	private async Task<OnlineUserDto?> LoadUserFromDatabaseAsync(long userId, CancellationToken ct)
-	{
-		using var scope = _scopeFactory.CreateAsyncScope();
+	#endregion
 
- 
-	 
-		var _db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-		// دریافت کاربر
-		var user = await _db.Users.AsNoTracking()
-			.FirstOrDefaultAsync(u => u.Id == userId 
-			&& u.IsActive == IsActiveEnum.Active, ct);
-
-		if (user == null)
-			return null;
-
-		// دریافت RoleAccess ها
-		var roleAccesses = new List<RoleAccessDto>();
-
-		if (user.Roles != null && user.Roles.Length > 0)
-		{
-		// دریافت Role ها با RoleAccesses
-		var roles = await _db.Roles.AsNoTracking()
-			.Where(r => user.RoleIds.Contains((long)r.Id))
-			.Include(r => r.RoleAccesses)
-			.AsNoTracking()
-			.ToListAsync(ct);
-
-			// تبدیل RoleAccess ها به DTO
-			foreach (var role in roles)
-			{
-				foreach (var roleAccess in role.RoleAccesses ?? new List<RoleAccess>())
-				{
-					roleAccesses.Add(new RoleAccessDto
-					{
-						Id = (long)roleAccess.Id!,
-						Path = roleAccess.Path,
-						ActionAccessType = roleAccess.ActionAccessType,
-						ActionAccessItemType = roleAccess.ActionAccessItemType,
-						EntityName = roleAccess.EntityName,
-						DisplayName = roleAccess.DisplayName,
-						EntityId = roleAccess.EntityId,
-						RowId = roleAccess.RowId,
-						RoleId = roleAccess.RoleId,
-						RoleName = role.Name
-					});
-				}
-			}
-		}
-
-		return new OnlineUserDto
-		{
-			UserId = (long)user.Id!,
-			Username = user.Username,
-			FullName = user.Name,
-			ProfileImage = user.ProfileUrl,
-			Roles = user.Roles ?? Array.Empty<string>(),
-			RoleIds = user.RoleIds ?? [],
-			RoleAccesses = roleAccesses,
-			ConnectionIds = new List<string>(),
-			ConnectedAt = DateTime.UtcNow,
-			LastActivity = DateTime.UtcNow
-		};
-	}
-
+	#region Page Management
 
 	/// <summary>
-	/// بارگذاری اطلاعات کاربر از دیتابیس
+	/// اضافه یا به‌روزرسانی صفحه باز شده کاربر
 	/// </summary>
-	private OnlineUserDto? LoadUserFromDatabase(long userId)
-	{
-		using var scope = _scopeFactory.CreateScope();
-		 
-	 
-		var _db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-		// دریافت کاربر
-		var user =  _db.Users.AsNoTracking()
-			.FirstOrDefault(u => u.Id == userId && u.IsActive == IsActiveEnum.Active);
-
-		if (user == null)
-			return null;
-
-		// دریافت RoleAccess ها
-		var roleAccesses = new List<RoleAccessDto>();
-
-		if (user.Roles != null && user.Roles.Length > 0)
-		{
-			// دریافت Role ها با RoleAccesses
-			var roles = _db.Roles.AsNoTracking()
-				.Where(r => user.Roles.Contains(r.Name))
-				.Include(r => r.RoleAccesses)
-				.AsNoTracking()
-				.ToList();
-
-			// تبدیل RoleAccess ها به DTO
-			foreach (var role in roles)
-			{
-				foreach (var roleAccess in role.RoleAccesses ?? new List<RoleAccess>())
-				{
-					roleAccesses.Add(new RoleAccessDto
-					{
-						Id = (long)roleAccess.Id!,
-						Path = roleAccess.Path,
-						ActionAccessType = roleAccess.ActionAccessType,
-						ActionAccessItemType = roleAccess.ActionAccessItemType,
-						EntityName = roleAccess.EntityName,
-						DisplayName = roleAccess.DisplayName,
-						EntityId = roleAccess.EntityId,
-						RowId = roleAccess.RowId,
-						RoleId = roleAccess.RoleId,
-						RoleName = role.Name
-					});
-				}
-			}
-		}
-
-		return new OnlineUserDto
-		{
-			UserId = (long)user.Id!,
-			Username = user.Username,
-			FullName = user.Name,
-			ProfileImage = user.ProfileUrl,
-			RoleIds = user.RoleIds,
-			Roles = user.Roles ?? Array.Empty<string>(),
-			RoleAccesses = roleAccesses,
-			ConnectionIds = new List<string>(),
-			ConnectedAt = DateTime.UtcNow,
-			LastActivity = DateTime.UtcNow
-		};
-	}
-	/// <summary>
-	/// اضافه کردن userId به لیست کاربران آنلاین
-	/// </summary>
-	private async Task AddUserIdToOnlineListAsync(long userId, CancellationToken ct)
-	{
-		try
-		{
-			var userIdsKey = "OnlineUsers:UserIds";
-			var userIdsJson = await _redis.GetStringAsync(userIdsKey, ct);
-			
-			var userIds = string.IsNullOrEmpty(userIdsJson)
-				? new List<long>()
-				: JsonSerializer.Deserialize<List<long>>(userIdsJson, JsonOptions) ?? new List<long>();
-
-			if (!userIds.Contains(userId))
-			{
-				userIds.Add(userId);
-				var updatedJson = JsonSerializer.Serialize(userIds, JsonOptions);
-				await _redis.SetStringAsync(userIdsKey, updatedJson, new DistributedCacheEntryOptions
-				{
-					AbsoluteExpirationRelativeToNow = _expiration
-				}, ct);
-			}
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"Error adding userId to online list: {ex.Message}");
-		}
-	}
-
-	/// <summary>
-	/// اضافه کردن userId به لیست کاربران آنلاین
-	/// </summary>
-	private void AddUserIdToOnlineList(long userId)
-	{
-		try
-		{
-			var userIdsKey = "OnlineUsers:UserIds";
-			var userIdsJson =   _redis.GetString(userIdsKey);
-
-			var userIds = string.IsNullOrEmpty(userIdsJson)
-				? new List<long>()
-				: JsonSerializer.Deserialize<List<long>>(userIdsJson, JsonOptions) ?? new List<long>();
-
-			if (!userIds.Contains(userId))
-			{
-				userIds.Add(userId);
-				var updatedJson = JsonSerializer.Serialize(userIds, JsonOptions);
-				  _redis.SetString(userIdsKey, updatedJson, new DistributedCacheEntryOptions
-				{
-					AbsoluteExpirationRelativeToNow = _expiration
-				});
-			}
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"Error adding userId to online list: {ex.Message}");
-		}
-	}
-
-	/// <summary>
-	/// حذف userId از لیست کاربران آنلاین
-	/// </summary>
-	private async Task RemoveUserIdFromOnlineListAsync(long userId, CancellationToken ct)
-	{
-		try
-		{
-			var userIdsKey = "OnlineUsers:UserIds";
-			var userIdsJson = await _redis.GetStringAsync(userIdsKey, ct);
-			
-			if (string.IsNullOrEmpty(userIdsJson))
-				return;
-
-			var userIds = JsonSerializer.Deserialize<List<long>>(userIdsJson, JsonOptions);
-			if (userIds == null)
-				return;
-
-			userIds.Remove(userId);
-
-			if (userIds.Count == 0)
-			{
-				await _redis.RemoveAsync(userIdsKey, ct);
-			}
-			else
-			{
-				var updatedJson = JsonSerializer.Serialize(userIds, JsonOptions);
-				await _redis.SetStringAsync(userIdsKey, updatedJson, new DistributedCacheEntryOptions
-				{
-					AbsoluteExpirationRelativeToNow = _expiration
-				}, ct);
-			}
-		}
-		catch (Exception ex)
-		{
-			Console.WriteLine($"Error removing userId from online list: {ex.Message}");
-		}
-	}
-
 	public async Task AddOrUpdatePageAsync(
-	long userId,
-	string connectionId,
-	string path,
-	string? title,
-	CancellationToken ct = default)
+	    long userId,
+	    string connectionId,
+	    string path,
+	    string? title,
+	    CancellationToken ct = default)
 	{
 		try
 		{
-			var userKey = GetUserKey(userId);
-			var json = await _redis.GetStringAsync(userKey, ct);
-			if (string.IsNullOrEmpty(json))
-				return;
-
-			var user = JsonSerializer.Deserialize<OnlineUserDto>(json, JsonOptions);
+			var user = await GetOnlineUserAsync(userId, ct);
 			if (user == null)
 				return;
 
 			if (!user.PagesByConnection.ContainsKey(connectionId))
-				user.PagesByConnection[connectionId] = new();
+				user.PagesByConnection[connectionId] = new List<OnlineUserPageDto>();
 
 			var pages = user.PagesByConnection[connectionId];
-
 			var page = pages.FirstOrDefault(p => p.Path == path);
+
 			if (page == null)
 			{
 				pages.Add(new OnlineUserPageDto
@@ -646,32 +398,26 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 
 			user.LastActivity = DateTime.UtcNow;
 
-			await _redis.SetStringAsync(userKey,
-				JsonSerializer.Serialize(user, JsonOptions),
-				new DistributedCacheEntryOptions
-				{
-					AbsoluteExpirationRelativeToNow = _userExpiration
-				}, ct);
+			await SaveUserToRedisAsync(userId, user, ct);
 		}
 		catch (Exception ex)
 		{
 			Console.WriteLine($"AddOrUpdatePageAsync error: {ex.Message}");
 		}
 	}
+
+	/// <summary>
+	/// حذف صفحه باز شده کاربر
+	/// </summary>
 	public async Task RemovePageAsync(
-	long userId,
-	string connectionId,
-	string path,
-	CancellationToken ct = default)
+	    long userId,
+	    string connectionId,
+	    string path,
+	    CancellationToken ct = default)
 	{
 		try
 		{
-			var userKey = GetUserKey(userId);
-			var json = await _redis.GetStringAsync(userKey, ct);
-			if (string.IsNullOrEmpty(json))
-				return;
-
-			var user = JsonSerializer.Deserialize<OnlineUserDto>(json, JsonOptions);
+			var user = await GetOnlineUserAsync(userId, ct);
 			if (user == null)
 				return;
 
@@ -683,12 +429,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			if (pages.Count == 0)
 				user.PagesByConnection.Remove(connectionId);
 
-			await _redis.SetStringAsync(userKey,
-				JsonSerializer.Serialize(user, JsonOptions),
-				new DistributedCacheEntryOptions
-				{
-					AbsoluteExpirationRelativeToNow = _userExpiration
-				}, ct);
+			await SaveUserToRedisAsync(userId, user, ct);
 		}
 		catch (Exception ex)
 		{
@@ -696,26 +437,247 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		}
 	}
 
+	#endregion
 
+	#region Private Helper Methods
+
+	/// <summary>
+	/// دریافت یا لود کاربر از دیتابیس (Async)
+	/// </summary>
+	private async Task<OnlineUserDto?> GetOrLoadUserAsync(long userId, CancellationToken ct)
+	{
+		var existingUser = await GetOnlineUserAsync(userId, ct);
+		return existingUser ?? await LoadUserFromDatabaseAsync(userId, ct);
+	}
+
+	/// <summary>
+	/// دریافت یا لود کاربر از دیتابیس (Sync)
+	/// </summary>
+	private OnlineUserDto? GetOrLoadUser(long userId)
+	{
+		var userKey = GetUserKey(userId);
+		var userJson = _redis.GetString(userKey);
+
+		if (!string.IsNullOrEmpty(userJson))
+		{
+			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+		}
+
+		return LoadUserFromDatabase(userId);
+	}
+	/// <summary>
+	/// بارگذاری اطلاعات کاربر از دیتابیس با یک Query بهینه (Async)
+	/// </summary>
+	private async Task<OnlineUserDto?> LoadUserFromDatabaseAsync(long userId, CancellationToken ct)
+	{
+		try
+		{
+			using var scope = _scopeFactory.CreateAsyncScope();
+			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+			// مرحله 1: دریافت کاربر
+			var user = await db.Users.AsNoTracking()
+			    .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive == IsActiveEnum.Active, ct);
+
+			if (user == null)
+				return null;
+
+			// مرحله 2: دریافت RoleAccess ها (فقط اگر RoleIds وجود داشت)
+			var roleAccesses = new List<RoleAccessDto>();
+
+			if (user.RoleIds != null && user.RoleIds.Count > 0)
+			{
+				// دریافت RoleAccess ها به صورت مستقیم
+				roleAccesses = await db.Roles.AsNoTracking()
+				    .Where(r => user.RoleIds.Contains((long)r.Id))
+				    .SelectMany(r => r.RoleAccesses.Select(ra => new RoleAccessDto
+				    {
+					    Id = (long)ra.Id!,
+					    Path = ra.Path,
+					    ActionAccessType = ra.ActionAccessType,
+					    ActionAccessItemType = ra.ActionAccessItemType,
+					    EntityName = ra.EntityName,
+					    DisplayName = ra.DisplayName,
+					    EntityId = ra.EntityId,
+					    RowId = ra.RowId,
+					    RoleId = ra.RoleId,
+					    RoleName = r.Name
+				    }))
+				    .ToListAsync(ct);
+			}
+
+			return new OnlineUserDto
+			{
+				UserId = (long)user.Id!,
+				Username = user.Username,
+				FullName = user.Name,
+				ProfileImage = user.ProfileUrl,
+				Roles = user.Roles ?? new List<string>(),
+				RoleIds = user.RoleIds ?? new List<long>(),
+				RoleAccesses = roleAccesses,
+				ConnectionIds = new List<string>(),
+				ConnectedAt = DateTime.UtcNow,
+				LastActivity = DateTime.UtcNow,
+				FullNameFn = user.NameFa,
+				OrganizationUnitId = user.OrgUnitId,
+				Email = user.Email,
+				PagesByConnection = new Dictionary<string, List<OnlineUserPageDto>>()
+			};
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error loading user from database {userId}: {ex.Message}");
+			return null;
+		}
+	}
+	/// <summary>
+	/// بارگذاری اطلاعات کاربر از دیتابیس (Sync)
+	/// </summary>
+	private OnlineUserDto? LoadUserFromDatabase(long userId)
+	{
+		return LoadUserFromDatabaseAsync(userId, CancellationToken.None)
+		    .GetAwaiter()
+		    .GetResult();
+	}
+
+	/// <summary>
+	/// ذخیره کاربر در Redis (Async)
+	/// </summary>
+	private async Task SaveUserToRedisAsync(long userId, OnlineUserDto user, CancellationToken ct)
+	{
+		var userKey = GetUserKey(userId);
+		var userJson = JsonSerializer.Serialize(user, ComplexJsonOptions);
+
+		await _redis.SetStringAsync(userKey, userJson, new DistributedCacheEntryOptions
+		{
+			AbsoluteExpirationRelativeToNow = _userExpiration
+		}, ct);
+	}
+
+	/// <summary>
+	/// ذخیره کاربر در Redis (Sync)
+	/// </summary>
+	private void SaveUserToRedis(long userId, OnlineUserDto user)
+	{
+		var userKey = GetUserKey(userId);
+		var userJson = JsonSerializer.Serialize(user, ComplexJsonOptions);
+
+		_redis.SetString(userKey, userJson, new DistributedCacheEntryOptions
+		{
+			AbsoluteExpirationRelativeToNow = _userExpiration
+		});
+	}
+
+	/// <summary>
+	/// دریافت لیست userId های آنلاین
+	/// </summary>
+	private async Task<HashSet<long>> GetOnlineUserIdsAsync(CancellationToken ct)
+	{
+		try
+		{
+			var userIdsJson = await _redis.GetStringAsync(_userIdsKey, ct);
+
+			if (string.IsNullOrEmpty(userIdsJson))
+				return new HashSet<long>();
+
+			return JsonSerializer.Deserialize<HashSet<long>>(userIdsJson, SimpleJsonOptions)
+				  ?? new HashSet<long>();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error getting online user IDs: {ex.Message}");
+			return new HashSet<long>();
+		}
+	}
+
+	/// <summary>
+	/// اضافه کردن userId به لیست آنلاین (Async)
+	/// </summary>
+	private async Task AddUserIdToOnlineListAsync(long userId, CancellationToken ct)
+	{
+		try
+		{
+			var userIds = await GetOnlineUserIdsAsync(ct);
+
+			if (userIds.Add(userId)) // فقط اگر اضافه شد
+			{
+				var updatedJson = JsonSerializer.Serialize(userIds, SimpleJsonOptions);
+				await _redis.SetStringAsync(_userIdsKey, updatedJson, new DistributedCacheEntryOptions
+				{
+					AbsoluteExpirationRelativeToNow = _expiration
+				}, ct);
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error adding userId to online list: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// اضافه کردن userId به لیست آنلاین (Sync)
+	/// </summary>
+	private void AddUserIdToOnlineList(long userId)
+	{
+		try
+		{
+			var userIdsJson = _redis.GetString(_userIdsKey);
+
+			var userIds = string.IsNullOrEmpty(userIdsJson)
+			    ? new HashSet<long>()
+			    : JsonSerializer.Deserialize<HashSet<long>>(userIdsJson, SimpleJsonOptions)
+				 ?? new HashSet<long>();
+
+			if (userIds.Add(userId))
+			{
+				var updatedJson = JsonSerializer.Serialize(userIds, SimpleJsonOptions);
+				_redis.SetString(_userIdsKey, updatedJson, new DistributedCacheEntryOptions
+				{
+					AbsoluteExpirationRelativeToNow = _expiration
+				});
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error adding userId to online list: {ex.Message}");
+		}
+	}
+
+	/// <summary>
+	/// حذف userId از لیست آنلاین (Async)
+	/// </summary>
+	private async Task RemoveUserIdFromOnlineListAsync(long userId, CancellationToken ct)
+	{
+		try
+		{
+			var userIds = await GetOnlineUserIdsAsync(ct);
+
+			if (userIds.Remove(userId)) // فقط اگر حذف شد
+			{
+				if (userIds.Count == 0)
+				{
+					await _redis.RemoveAsync(_userIdsKey, ct);
+				}
+				else
+				{
+					var updatedJson = JsonSerializer.Serialize(userIds, SimpleJsonOptions);
+					await _redis.SetStringAsync(_userIdsKey, updatedJson, new DistributedCacheEntryOptions
+					{
+						AbsoluteExpirationRelativeToNow = _expiration
+					}, ct);
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error removing userId from online list: {ex.Message}");
+		}
+	}
 
 	/// <summary>
 	/// ساخت کلید Redis برای کاربر
 	/// </summary>
-	private string GetUserKey(long userId)
-	{
-		return $"{_keyPrefix}User:{userId}";
-	}
+	private string GetUserKey(long userId) => $"{_keyPrefix}User:{userId}";
 
-	public async Task<string[]>  GetUserRoleAsync(long userId, CancellationToken ct)
-	{
-		var user = await GetOnlineUserAsync(userId, ct);
-		return user?.Roles ?? new string[0];
-	}
-
-	public string[] GetUserRole(long userId)
-	{
-		var user =   GetOnlineUser(userId);
-		return user?.Roles ?? new string[0];
-	}
+	#endregion
 }
-

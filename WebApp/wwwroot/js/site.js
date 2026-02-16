@@ -3934,12 +3934,8 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 				const $filterIcon = $('<i>')
 					.addClass('fa-light fa-filter filter-icon text-muted ')
 					.css({ cursor: 'pointer', fontSize: '0.9em' })
-					.attr('data-column-index', columnIndex)
-					.attr('data-bs-toggle', 'popover')
-					.attr('data-bs-trigger', 'manual') // Use manual trigger to have full control
-					.attr('data-bs-placement', 'bottom')
-					.attr('data-bs-html', 'true')
-					.attr('title', 'فیلتر');
+					.attr('data-column-index', columnIndex);
+				 
 
 				// Prevent sort when clicking on filter icon and toggle popover
 				// Use capture phase to handle before DataTable's sort handler
@@ -4167,6 +4163,7 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 						$popoverContent.off('click', '.filter-apply').on('click', '.filter-apply', function (e) {
 							e.preventDefault();
 							e.stopPropagation();
+							debugger
 							applyColumnFilter(columnIndex, column, columnType);
 							if (popover) {
 								popover.hide();
@@ -6371,6 +6368,7 @@ class AppController {
 					
 				}
 				page.execScripts();
+				page.close = () => appController.closePage(page.address);
 				appController.initPage($page);
 			 
 			},
@@ -6482,7 +6480,8 @@ class AppController {
 		// Only find buttons that have data-action attribute (these are form-action-buttons)
 		// This way we don't accidentally remove other buttons in .form-action-buttons div
 		const $buttons = $pageEl.find(".form-action-buttons button[data-action]")
-		
+		 
+
 		if ($buttons.length === 0) {
 			// No FormActionButtons in this page
 			return null;
@@ -7891,6 +7890,7 @@ class AppController {
 		if (el.getAttribute("data-kt-initialized") === "1") {
 			return;
 		}
+ 
 
 		var delay = {};
 		var tp;
@@ -7908,64 +7908,16 @@ class AppController {
 			options['delay'] = delay;
 		}
 
-		// Check dismiss options
-		var dismissOption = null;
-		if (el.hasAttribute('data-bs-dismiss')) {
-			dismissOption = el.getAttribute('data-bs-dismiss');
-		}
+	 
+
+		options.trigger = "hover";
 
 		// Initialize tooltip
 		tp = new bootstrap.Tooltip(el, options);
 
-		// Handle dismiss on click
-		if (dismissOption && dismissOption === 'click') {
-			// متغیر برای ردیابی وضعیت tooltip
-			let isTooltipVisible = false;
+		 
 
-			// ردیابی رویدادهای show/hide
-			el.addEventListener('shown.bs.tooltip', function () {
-				isTooltipVisible = true;
-			});
-
-			el.addEventListener('hidden.bs.tooltip', function () {
-				isTooltipVisible = false;
-			});
-
-			// Hide tooltip when clicking on the element itself
-			el.addEventListener("click", function (e) {
-				e.stopPropagation();
-				if (isTooltipVisible) {
-					tp.hide();
-				}
-			});
-
-			// اضافه کردن event listener برای کلیک روی document
-			const documentClickListener = function (e) {
-				// اگر کلیک روی خود المان tooltip نبوده و tooltip باز است
-				if (!el.contains(e.target) && isTooltipVisible) {
-					const tooltipElement = document.querySelector('.tooltip');
-					// اگر tooltip وجود دارد و کلیک روی آن نبوده
-					if (!tooltipElement || !tooltipElement.contains(e.target)) {
-						tp.hide();
-					}
-				}
-			};
-
-			document.addEventListener('click', documentClickListener);
-
-			// ذخیره handler برای cleanup
-			el._tooltipClickListener = documentClickListener;
-
-			// جلوگیری از بسته شدن tooltip وقتی روی آن کلیک می‌شود
-			el.addEventListener('shown.bs.tooltip', function () {
-				const tooltipElement = document.querySelector('.tooltip');
-				if (tooltipElement) {
-					tooltipElement.addEventListener('click', function (e) {
-						e.stopPropagation();
-					});
-				}
-			});
-		}
+		
 
 		el.setAttribute("data-kt-initialized", "1");
 
@@ -9394,7 +9346,6 @@ if (typeof initItemsForms === 'function') {
 (function ($) {
 	class EntitySelector {
 		constructor(element, options) {
-			 
 			this.$container = $(element);
 			if (this.$container.data('entitySelectorInstance')) return;
 			this.$container.data('entitySelectorInstance', this);
@@ -9408,26 +9359,24 @@ if (typeof initItemsForms === 'function') {
 			this.$hiddenName = this.$container.find('.entity-selector-text');
 			this.$results = this.$container.find('.entity-selector-results');
 
-			// --- FIX 1: Move Dropdown to Body to avoid Overflow Issues ---
+			// Move Dropdown to Body to avoid Overflow Issues
 			this.$results.appendTo('body');
-			// ------------------------------------------------------------
 
 			this.$arrow = this.$container.find('.entity-arrow');
 			this.$clearBtn = this.$container.find('.entity-clear');
 
-			// --- FIX 2: Style Adjustments ---
+			// Style Adjustments
 			this.$container.css({
 				'width': '100%',
 				'display': 'block'
 			});
-			// Ensure input takes full width if it's not multi-select (multi-select handles its own container)
+
 			if (!this.isMulti) {
 				this.$input.css('width', '100%');
 				this.$container.find('.input-group').css('width', '100%');
 			}
-			// --------------------------------
 
-			// --- TRANSFORM UI FOR MULTI-SELECT ---
+			// Setup Multi-Select UI if needed
 			if (this.isMulti) {
 				this.setupMultiSelectUI();
 			}
@@ -9439,186 +9388,177 @@ if (typeof initItemsForms === 'function') {
 			this.selectedItems = [];
 			this.debounceTimer = null;
 			this.lastId = 0;
-			this.lastQuery = null; // Track this to prevent double firing
+			this.lastQuery = null;
 			this.hasMore = true;
+
 			this.init();
 		}
 
 		setupMultiSelectUI() {
-
-			// چک میکنیم اگر سرور رندر کرده باشد
+			// Check if server has already rendered the structure
 			if (this.$container.find('.entity-selector-multi-container').length > 0) {
 				this.$multiContainer = this.$container.find('.entity-selector-multi-container');
-				// اینپوت قبلا دیتچ شده و داخل این قرار گرفته
 				this.$input = this.$multiContainer.find('.entity-selector-multi-input');
-				// آیکون‌ها هم داخلش هستند، فقط باید سلکت کنیم
 				this.$arrow = this.$multiContainer.find('.entity-arrow');
 				this.$clearBtn = this.$multiContainer.find('.entity-clear');
-
 				this.bindMultiEvents();
-				return; // تمام
+				return;
 			}
 
-			// اگر سرور رندر نکرده بود (حالت خالی)، خودمان میسازیم (کدهای قبلی)
-			this.$multiContainer = $('<div class="entity-selector-multi-container"></div>');
+			// Build the multi-select container if not server-rendered
 			this.$multiContainer = $('<div class="entity-selector-multi-container"></div>');
 			this.$container.find('.input-group').hide().before(this.$multiContainer);
 			this.$input.detach().appendTo(this.$multiContainer);
 			this.$input.addClass('entity-selector-multi-input').removeClass('form-control');
+
+			// Add focus/blur handlers
 			this.$input.on('focus', () => this.$multiContainer.addClass('focused'));
 			this.$input.on('blur', () => this.$multiContainer.removeClass('focused'));
 
+			// Move icons to multi-container
 			this.$container.find('.entity-icons').detach().appendTo(this.$multiContainer);
 
+			// Click on container focuses input and opens dropdown
 			this.$multiContainer.on('click', (e) => {
 				if (e.target === this.$multiContainer[0]) {
 					this.$input.focus();
-					// --- CHANGE 1: Ensure click on gray area opens dropdown ---
 					if (!this.$results.hasClass('show')) {
 						this.search(this.$input.val());
 					}
 				}
 			});
 
-			this.$multiContainer.on('click', (e) => {
- 				if (e.target === this.$multiContainer[0] || e.target === this.$input[0]) {
-					this.$input.focus();
-					if (!this.$results.hasClass('show')) this.search(this.$input.val());
-				}
-			});
+			this.bindMultiEvents();
 		}
 
 		init() {
+			// Input event handler
 			this.$input.on('input', () => {
 				this.onInput();
-				this.updateIcons();  
-			});
-			this.$input.on('focus click', () => {
-				if (!this.$results.hasClass('show')) this.search(this.$input.val());
+				this.updateIcons();
 			});
 
-			// --- CHANGE 2: Open on Focus/Click (even if empty) ---
+			// Open dropdown on focus/click
 			this.$input.on('focus click', () => {
-				// Only open if not already open
 				if (!this.$results.hasClass('show')) {
-					// Pass current value (empty string = load all)
 					this.search(this.$input.val());
 				}
 			});
 
+			// Clear button
 			this.$clearBtn.on('click', (e) => {
-				
-				e.stopPropagation();  
+				e.stopPropagation();
 				this.clearAll();
 				this.$input.focus();
 			});
 
+			// Keyboard navigation
 			this.$input.on('keydown', (e) => this.onKeydown(e));
 
+			// Close dropdown when clicking outside
 			$(document).on('click', (e) => {
 				const target = e.target;
 				const inContainer = this.$container.is(target) || this.$container.has(target).length > 0;
+				const inResults = this.$results.is(target) || this.$results.has(target).length > 0;
 
-				if (!inContainer) {
+				if (!inContainer && !inResults) {
 					this.close();
 				}
 			});
 
+			// Infinite scroll
 			this.$results.on('scroll', () => {
 				if (this.$results.scrollTop() + this.$results.innerHeight() >= this.$results[0].scrollHeight - 10) {
-					// FIX: Use hasMore flag instead of total/page math
 					if (!this.isLoading && this.hasMore) {
 						this.nextPage();
 					}
 				}
 			});
 
-			// --- FIX: Handle scroll/resize to update dropdown position ---
+			// Update dropdown position on scroll/resize
 			$(window).on('scroll resize', () => {
 				if (this.$results.hasClass('show')) {
 					this.updateDropdownPosition();
 				}
 			});
-			
+
 			// Handle modal scroll if inside a modal
 			this.$container.closest('.modal').on('scroll', () => {
 				if (this.$results.hasClass('show')) {
 					this.updateDropdownPosition();
 				}
 			});
-			// ------------------------------------------------------------
 
+			// Load initial data
 			const serverInitData = this.$container.attr('data-initial-items');
-
 			if (serverInitData) {
 				try {
 					const items = JSON.parse(serverInitData);
 					if (items && items.length > 0) {
 						this.selectedItems = items;
-						 
- 						if (this.isMulti && this.$container.find('.entity-selector-multi-container').length > 0) {
-							 
+						if (this.isMulti && this.$container.find('.entity-selector-multi-container').length > 0) {
 							this.$multiContainer = this.$container.find('.entity-selector-multi-container');
 							this.$input = this.$multiContainer.find('.entity-selector-multi-input');
-
-						 
 							this.bindMultiEvents();
 						}
 						this.renderChips();
 						this.updateIcons();
 					}
-				} catch (e) { console.error("Error parsing initial items", e); }
+				} catch (e) {
+					console.error("Error parsing initial items", e);
+				}
 			} else {
-			 
 				const initIds = this.$hidden.val();
 				if (initIds) this.loadInitial(initIds);
 			}
-	 
 
 			this.updateIcons();
 		}
+
 		bindMultiEvents() {
-			this.$input.on('input', () => { this.onInput(); this.updateIcons(); });
-			this.$input.on('focus click', () => {
-				if (!this.$results.hasClass('show')) this.search(this.$input.val());
+			this.$input.off('input focus click keydown blur'); // Remove duplicate handlers
+
+			this.$input.on('input', () => {
+				this.onInput();
+				this.updateIcons();
 			});
+
+			this.$input.on('focus click', () => {
+				if (!this.$results.hasClass('show')) {
+					this.search(this.$input.val());
+				}
+			});
+
 			this.$input.on('keydown', (e) => this.onKeydown(e));
 			this.$input.on('focus', () => this.$multiContainer.addClass('focused'));
 			this.$input.on('blur', () => this.$multiContainer.removeClass('focused'));
 
-			this.$multiContainer.on('click', (e) => {
+			this.$multiContainer.off('click').on('click', (e) => {
 				if (e.target === this.$multiContainer[0] || e.target === this.$input[0]) {
 					this.$input.focus();
-					if (!this.$results.hasClass('show')) this.search(this.$input.val());
+					if (!this.$results.hasClass('show')) {
+						this.search(this.$input.val());
+					}
 				}
 			});
 		}
 
 		updateIcons() {
+			const hasText = this.$input.val().length > 0;
+			const hasSelection = this.selectedItems.length > 0;
 
-			if (this.$input.val() || this.selectedItems) {
-
-				const hasText = this.$input.val().length > 0;
-				const hasSelection = this.selectedItems.length > 0;
-
-				if (hasText || hasSelection) {
-					this.$arrow.hide();
-					this.$clearBtn.show();
-				} else {
-					this.$arrow.show();
-					this.$clearBtn.hide();
-				}
+			if (hasText || hasSelection) {
+				this.$arrow.hide();
+				this.$clearBtn.show();
+			} else {
+				this.$arrow.show();
+				this.$clearBtn.hide();
 			}
-			
 		}
 
 		onInput() {
 			clearTimeout(this.debounceTimer);
-			const val = this.$input.val(); // Do not trim immediately to allow space
-
-			// --- CHANGE 3: Removed "if (!val) close()" logic ---
-			// Now we search even if empty (to show all results again)
-
+			const val = this.$input.val();
 			this.page = 1;
 			this.debounceTimer = setTimeout(() => this.search(val), 300);
 		}
@@ -9634,28 +9574,27 @@ if (typeof initItemsForms === 'function') {
 				'left': offset.left + 'px',
 				'width': width + 'px',
 				'z-index': 1019100000,
-				'display': 'block' // Ensure it's visible for calculations, 'show' class handles opacity/visibility usually
+				'display': 'block'
 			});
 		}
 
 		search(query, append = false) {
-			// === FIX: RESET STATE IF NOT APPENDING ===
+			// Reset state if not appending
 			if (!append) {
 				this.page = 1;
 				this.lastId = 0;
 				this.$results.scrollTop(0);
 				this.hasMore = true;
 			}
-			// =========================================
 
-			// Prevent duplicate searches (Optimization)
+			// Prevent duplicate searches
 			if (this.lastQuery === query && this.$results.hasClass('show') && !append && this.page === 1) {
 				return;
 			}
-			if (this.isMulti == false && this.selectedItems.length == 1 && this.selectedItems[0].display === query) {
+
+			if (!this.isMulti && this.selectedItems.length === 1 && this.selectedItems[0].display === query) {
 				return;
 			}
-			 
 
 			this.isLoading = true;
 			this.lastQuery = query;
@@ -9667,18 +9606,10 @@ if (typeof initItemsForms === 'function') {
 				lastId: this.lastId,
 				queryId: this.options.queryId,
 				defaultParams: this.$container.attr('data-default-params')
-
-				 
 			};
 
-			if (this.isMulti) {
-		 
-				// this.$results.css('top', this.$multiContainer.outerHeight() + 'px'); // Removed: Position is handled by updateDropdownPosition
-				this.updateDropdownPosition(); // Update position for multi-select too
-			}
-
 			if (!append) {
-				this.$results.empty().addClass('show').html('<div class="dropdown-item text-muted">Loading...</div>');
+				this.$results.empty().addClass('show').html('<div class="dropdown-item text-muted">در حال بارگذاری...</div>');
 				this.updateDropdownPosition();
 			}
 
@@ -9690,29 +9621,29 @@ if (typeof initItemsForms === 'function') {
 					this.total = res.total;
 					this.renderResults(res.items, append);
 				},
-				error: () => this.$results.html('<div class="dropdown-item text-danger">Error</div>'),
-				complete: () => this.isLoading = false
+				error: () => {
+					this.$results.html('<div class="dropdown-item text-danger">خطا در بارگذاری</div>');
+				},
+				complete: () => {
+					this.isLoading = false;
+				}
 			});
 		}
+
 		renderResults(items, append) {
 			if (!append) this.$results.empty();
 
-			if (items.length < this.options.pageSize) {
-				this.hasMore = false;
-			} else {
-				this.hasMore = true;
-			}
+			this.hasMore = items.length >= this.options.pageSize;
 
 			if (items.length === 0 && this.page === 1) {
 				this.$results.html('<div class="dropdown-item text-muted">هیچ مقداری یافت نشد</div>');
 				return;
 			}
+
 			if (items.length > 0) {
-				// Get the ID of the last item in the list for the next query
 				const lastItem = items[items.length - 1];
 				this.lastId = lastItem.id;
 			}
-
 
 			items.forEach(item => {
 				const isSelected = this.selectedItems.some(x => x.id == item.id);
@@ -9724,6 +9655,7 @@ if (typeof initItemsForms === 'function') {
 					e.preventDefault();
 					this.select(item);
 				});
+
 				this.$results.append($row);
 			});
 		}
@@ -9734,11 +9666,11 @@ if (typeof initItemsForms === 'function') {
 				const $row = this.$results.find(`.dropdown-item[data-id="${item.id}"]`);
 
 				if (index >= 0) {
-					// Item exists: Remove it (Toggle OFF)
+					// Remove item (toggle off)
 					this.selectedItems.splice(index, 1);
 					$row.removeClass('active');
 				} else {
-					// Item new: Add it (Toggle ON)
+					// Add item (toggle on)
 					this.selectedItems.push(item);
 					$row.addClass('active');
 				}
@@ -9747,9 +9679,8 @@ if (typeof initItemsForms === 'function') {
 				this.updateHidden();
 				this.$input.focus();
 				this.updateIcons();
-
 			} else {
-				// Single Select
+				// Single select
 				this.selectedItems = [item];
 				this.$input.val(item.display);
 				this.updateHidden();
@@ -9760,14 +9691,16 @@ if (typeof initItemsForms === 'function') {
 
 		renderChips() {
 			if (!this.isMulti) return;
+
 			this.$multiContainer.find('.entity-chip').remove();
+
 			this.selectedItems.forEach(item => {
 				const $chip = $(`
-                    <span class="entity-chip badge bg-primary">
-                        ${item.display}
-                        <span class="remove-chip" title="حدف">&times;</span>
-                    </span>
-                `);
+					<span class="entity-chip badge bg-primary">
+						${item.display}
+						<span class="remove-chip" title="حذف">&times;</span>
+					</span>
+				`);
 
 				$chip.find('.remove-chip').on('click', (e) => {
 					e.stopPropagation();
@@ -9776,7 +9709,7 @@ if (typeof initItemsForms === 'function') {
 
 				this.$input.before($chip);
 			});
-			// this.$results.css('top', this.$multiContainer.outerHeight() + 'px'); // Removed: Position is handled by updateDropdownPosition
+
 			if (this.$results.hasClass('show')) {
 				this.updateDropdownPosition();
 			}
@@ -9784,13 +9717,14 @@ if (typeof initItemsForms === 'function') {
 
 		clearAll() {
 			this.selectedItems = [];
-			if (this.isMulti) this.renderChips();
-			else this.$input.val('');
-
+			if (this.isMulti) {
+				this.renderChips();
+			} else {
+				this.$input.val('');
+			}
 			this.updateHidden();
-			this.close(); 
-
-			this.updateIcons(); 
+			this.close();
+			this.updateIcons();
 		}
 
 		removeItem(id) {
@@ -9805,7 +9739,6 @@ if (typeof initItemsForms === 'function') {
 			this.$hidden.val(ids).trigger('change');
 
 			if (this.$hiddenName.length > 0) {
-
 				const names = this.selectedItems.map(x => x.display).join(',');
 				this.$hiddenName.val(names).trigger('change');
 			}
@@ -9830,8 +9763,52 @@ if (typeof initItemsForms === 'function') {
 							this.$input.val(items[0].display);
 						}
 						this.updateHidden();
-						this.updateIcons(); 
+						this.updateIcons();
 					}
+				},
+				error: (xhr) => {
+					console.error('Error loading initial items:', xhr);
+				}
+			});
+		}
+
+		addByIds(ids) {
+			const idArray = Array.isArray(ids) ? ids : ids.toString().split(',').map(x => x.trim()).filter(x => x);
+
+			if (idArray.length === 0) {
+				console.warn('EntitySelector.addByIds: No valid IDs provided');
+				return;
+			}
+
+			$.ajax({
+				url: `${this.options.apiUrl}/get-ids`,
+				method: 'GET',
+				data: {
+					ids: idArray.join(','),
+					queryId: this.options.queryId,
+					defaultParams: this.$container.attr('data-default-params'),
+					displayTemplate: this.options.template
+				},
+				success: (items) => {
+					if (items && items.length > 0) {
+						if (this.isMulti) {
+							items.forEach(item => {
+								const exists = this.selectedItems.some(x => x.id == item.id);
+								if (!exists) {
+									this.selectedItems.push(item);
+								}
+							});
+							this.renderChips();
+						} else {
+							this.selectedItems = [items[0]];
+							this.$input.val(items[0].display);
+						}
+						this.updateHidden();
+						this.updateIcons();
+					}
+				},
+				error: (xhr) => {
+					console.error('EntitySelector.addByIds: Error loading items by IDs:', xhr);
 				}
 			});
 		}
@@ -9843,10 +9820,7 @@ if (typeof initItemsForms === 'function') {
 
 		close() {
 			this.$results.removeClass('show');
-			this.$results.css('display', 'none'); // Ensure it's hidden
-			// Optional: Reset state on close so next open is definitely fresh
-			this.page = 1;
-			this.lastQuery = null;
+			this.$results.css('display', 'none');
 		}
 
 		onKeydown(e) {
@@ -9856,7 +9830,10 @@ if (typeof initItemsForms === 'function') {
 		}
 	}
 
-	EntitySelector.DEFAULTS = { pageSize: 20, apiUrl: '/api/entity-selector' };
+	EntitySelector.DEFAULTS = {
+		pageSize: 20,
+		apiUrl: '/api/entity-selector'
+	};
 
 	$.fn.entitySelector = function (option) {
 		return this.each(function () {
@@ -9870,7 +9847,7 @@ if (typeof initItemsForms === 'function') {
 	};
 
 	$(function () {
-		$(".entity-selector-wrapper").each(function() {
+		$(".entity-selector-wrapper").each(function () {
 			if (!$(this).data('readonly')) {
 				$(this).entitySelector();
 			}
@@ -9878,7 +9855,6 @@ if (typeof initItemsForms === 'function') {
 	});
 
 })(jQuery);
-
 
 const observer = new MutationObserver(function(mutations) {
     for (let i = 0; i < mutations.length; i++) {

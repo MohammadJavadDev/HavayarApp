@@ -7,6 +7,7 @@ using RabbitMQ.Client.Events;
 using Shared.Realtime.Events;
 using Shared.Realtime.Options;
 using App.Real.Hubs;
+using Common.Utilities;
 
 namespace App.Real.Services;
 
@@ -148,8 +149,10 @@ public sealed class RabbitMqSubscriberHostedService : BackgroundService
                         {
                             Title = evt.Title,
                             Body = evt.Body,
+                            ViewPath = evt.ViewPath,
+                            Id = evt.Id,
                             IsRead = false,
-                            CreatedOnShamsiDateTime = DateTime.Now.ToString("yyyy/MM/dd HH:mm")
+                            CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
                         }, stoppingToken);
 
                         _logger.LogDebug("Notification sent to user {UserId}", userId);

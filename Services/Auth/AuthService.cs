@@ -43,7 +43,7 @@ public class AuthService(IConfiguration _configuration) : IAuthService
         claims.Add(new Claim("id", user.Id.ToString()));
         
         // Add role claims for authorization
-        if (user.Roles != null && user.Roles.Length > 0)
+        if (user.Roles != null && user.Roles.Count > 0)
         {
             foreach (var role in user.Roles)
             {

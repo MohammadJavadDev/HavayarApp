@@ -232,7 +232,7 @@ namespace Entities.App.Edms
 
 		[DisplayName("محرمانه است")]
 		[DisplayInfo(null, true, SystemType.Boolean)]
-		public bool IsBeneficiary { get; set; } = false;
+		public bool IsConfidential { get; set; } = false;
 
 		[DisplayName("کاربران محرمانه")]
 		[DisplayInfo(null, true, SystemType.String)]

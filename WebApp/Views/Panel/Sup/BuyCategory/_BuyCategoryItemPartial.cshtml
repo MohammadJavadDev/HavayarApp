@@ -1,0 +1,44 @@
+@using Entities.App.Inv;
+@using Entities.App.Sup;
+@using Entities.App.Sup.Enums
+@model BuyCategoryItem
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='items.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<label class=''>کالا</label>
+		@(Html.EntitySelector<Part>(
+			"itemsPartSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id, Name = c.Name, Code = c.Code
+			},
+			c => new { c.Name, c.Code },
+			"{Name} {Code}",
+			"items.partId",
+			"items.partName",
+			Model?.PartId?.ToString()
+		))
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>زمان در راه</label>
+		<input class='form-control' data-bind='items.timeInWay'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.TimeInWay' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>تامین کننده</label>
+		<select class='form-control' data-bind='items.supplier' asp-for='Supplier' asp-items="Html.GetEnumSelectList(typeof(BuyCategoryItemSupplierEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات</label>
+		<input class='form-control' data-bind='items.comments'  value='@Model?.Comments' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

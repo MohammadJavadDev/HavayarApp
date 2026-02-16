@@ -25,7 +25,7 @@ namespace WebApp.Controllers.SystemControllers
         [HttpGet("/Panel")]
         public async Task<IActionResult> Index(CancellationToken ct)
 		{
-		  await onlineUserService.RefreshUserRoleAccessesAsync((long)CurrentUserId , ct );
+	
 
 		  return View("Views/Panel/Index.cshtml");
 		}

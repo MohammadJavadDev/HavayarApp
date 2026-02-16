@@ -1,4 +1,4 @@
-﻿using Common.Entities;
+using Common.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Services;
 
@@ -21,9 +21,10 @@ namespace WebFramework.Controllers.SystemControllers
 		   [FromQuery] string q,
 		   [FromQuery] int page = 1,
 		   [FromQuery] int pageSize = 20,
-		   [FromQuery] string queryId = "",       
-		   [FromQuery] string defaultParams = "",  
-		   [FromQuery] long? lastId = null)        
+		   [FromQuery] string queryId = "",
+		   [FromQuery] string defaultParams = "",
+		   [FromQuery] string searchColumnsInfo = "",   
+		   [FromQuery] long? lastId = null)
 		{
 			var request = new EntitySelectorRequest
 			{
@@ -32,10 +33,11 @@ namespace WebFramework.Controllers.SystemControllers
 				PageSize = pageSize,
 				LastId = lastId,
 				Extra = new Dictionary<string, string>
-			 {
-				{ "queryId", queryId },
-				{ "defaultParams", defaultParams }
-			 }
+				{
+					{ "queryId", queryId },
+					{ "defaultParams", defaultParams },
+					{ "searchColumnsInfo", searchColumnsInfo }   
+				}
 			};
 
 			return Ok(await _service.QueryAsync(entityName, request));
@@ -43,18 +45,38 @@ namespace WebFramework.Controllers.SystemControllers
 
 		[HttpGet("get-ids")]
 		public async Task<IActionResult> GetByIds(
-		  [FromQuery] string ids, // Comma separated IDs
+		  [FromQuery] string ids,
 		  [FromQuery] string queryId,
 		  [FromQuery] string defaultParams,
 		  [FromQuery] string displayTemplate)
 		{
-			if (string.IsNullOrEmpty(ids)) return Ok(new List<object>());
+			if (string.IsNullOrEmpty(ids))
+				return Ok(new List<object>());
 
-			// idList = ids.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+			var idList = ids.Split(',', StringSplitOptions.RemoveEmptyEntries)
+						   .Select(x => x.Trim())
+						   .Where(x => !string.IsNullOrEmpty(x))
+						   .ToList();
 
-			//var items = await _service.GetItemsByIdsAsync(idList, queryId, defaultParams, displayTemplate);
+			if (idList.Count == 0)
+				return Ok(new List<object>());
 
-			return Ok(new { });
+			try
+			{
+				var items = await _service.GetItemsByIdsAsync(
+					idList,
+					queryId,
+					defaultParams,
+					displayTemplate,
+					colMapStr: null
+				);
+
+				return Ok(items);
+			}
+			catch (Exception ex)
+			{
+				return BadRequest(new { error = ex.Message });
+			}
 		}
 	}
 }

@@ -20,5 +20,8 @@ public interface IUserService
     Task<User?> UpdateUser(CreateUserViewModel userObj, CancellationToken cn);
  
      Task<IEnumerable<User>> SearchByName(string name);
-   
+
+	Task<User[]?> GetUsersByRoleName(string roleName);
+	Task<User[]?> GetUsersByRoleId(long roleId);
+
 }

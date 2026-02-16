@@ -51,7 +51,9 @@ namespace Services.AccessServices
             }
             else
             {
-                menu = _systemMenus.FirstOrDefault();
+
+               var menus = GetMenuByRole(sdk);
+			 menu = menus.FirstOrDefault();
             }
 
     

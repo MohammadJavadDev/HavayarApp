@@ -1,4 +1,3 @@
-
 using Common.Entities;
 using Common.Utilities;
 using Data;
@@ -10,7 +9,6 @@ using Services;
 using Services.InMemoryData;
 using System;
 using System.Data;
-
 using System.Linq.Expressions;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -49,17 +47,24 @@ namespace WebFramework.TagHelpers
 			// 1. ساخت کوئری
 			var query = dbContext.Set<T>().AsQueryable();
 			if (filter != null) query = query.Where(filter);
+
+			// 2. جمع‌آوری اطلاعات ستون‌های جستجو و نوع آنها
+			var searchColumnInfo = new List<SearchColumnInfo>();
 			if (searchColumns != null)
 			{
-				var searchPredicate = BuildSearchPredicate<T>(searchColumns, SEARCH_TOKEN);
-				if (searchPredicate != null) query = query.Where(searchPredicate);
+				searchColumnInfo = GetSearchColumnInfo<T>(searchColumns);
+
+				// اضافه کردن شرط جستجو برای فقط string ها (برای تولید SQL اولیه)
+				var stringOnlyPredicate = BuildSearchPredicateStringOnly<T>(searchColumns, SEARCH_TOKEN);
+				if (stringOnlyPredicate != null)
+					query = query.Where(stringOnlyPredicate);
 			}
 
-			// 2. تولید SQL (استفاده از SqlUtils)
+			// 3. تولید SQL (استفاده از SqlUtils)
 			string rawSql = query.Select(projection).ToQueryString();
 			var (cleanSql, sqlParams) = SqlUtils.ParseAndClean(rawSql);
 
-			// 3. تزریق ID
+			// 4. تزریق ID
 			var projectionProps = ParseProperties(projection).ToList();
 			bool hasId = projectionProps.Contains("Id", StringComparer.OrdinalIgnoreCase);
 
@@ -74,32 +79,35 @@ namespace WebFramework.TagHelpers
 				SearchCols = ParsePropertyNames(searchColumns)
 			};
 
-			// 4. کش و رمزنگاری
+			// 5. کش و رمزنگاری
 			string queryId = sqlStore.GetOrSet(definition);
 			string encryptedParams = protector.Protect(JsonSerializer.Serialize(sqlParams));
-			string colMapStr = string.Join(",", projectionProps);
 
-			// 5. SSR: دریافت دیتای اولیه (توسط سرویس)
+			// ذخیره اطلاعات نوع ستون‌ها برای استفاده در سرویس
+			string searchColumnsInfo = JsonSerializer.Serialize(searchColumnInfo);
+			string encryptedSearchInfo = protector.Protect(searchColumnsInfo);
+
+			// 6. SSR: دریافت دیتای اولیه (توسط سرویس)
 			var initialItems = new List<EntitySelectorItem>();
 			if (!string.IsNullOrEmpty(selectedId))
 			{
 				var ids = selectedId.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
 				if (ids.Any())
 				{
-					// فراخوانی متد سرویس برای اجرای SQL
 					initialItems = selectorService.GetInitialItemsSync(ids, cleanSql, sqlParams, displayTemplate, projectionProps.ToArray());
 				}
 			}
 			string initialNamesJoined = string.Join(" , ", initialItems.Select(x => x.Display));
 
 
-			// 6. ساخت UI
+			// 7. ساخت UI
 			var container = new TagBuilder("div");
 			container.AddCssClass("entity-selector-wrapper position-relative");
 			container.Attributes.Add("id", id);
 			container.Attributes.Add("data-entity", typeof(T).Name);
 			container.Attributes.Add("data-query-id", queryId);
 			container.Attributes.Add("data-default-params", encryptedParams);
+			container.Attributes.Add("data-search-columns-info", encryptedSearchInfo); // اطلاعات جدید
 
 			container.Attributes.Add("data-page-size", pageSize.ToString());
 			container.Attributes.Add("data-api-url", "/api/entity-selector");
@@ -136,7 +144,6 @@ namespace WebFramework.TagHelpers
 			// UI Elements
 			if (_readonly)
 			{
-				// Readonly Mode: Display as span
 				var readonlySpan = new TagBuilder("span");
 				readonlySpan.AddCssClass("form-control-plaintext");
 				if (multiSelect && initialItems.Any())
@@ -155,7 +162,6 @@ namespace WebFramework.TagHelpers
 			}
 			else
 			{
-				// Normal or Disabled Mode
 				var inputGroup = new TagBuilder("div");
 				var input = new TagBuilder("input");
 				input.Attributes.Add("type", "text");
@@ -169,7 +175,6 @@ namespace WebFramework.TagHelpers
 
 				if (multiSelect)
 				{
-					// Multi-Select UI (Chips Rendered by Server)
 					var multiContainer = new TagBuilder("div");
 					multiContainer.AddCssClass("entity-selector-multi-container");
 					foreach (var item in initialItems)
@@ -192,7 +197,6 @@ namespace WebFramework.TagHelpers
 				}
 				else
 				{
-					// Single-Select UI
 					input.AddCssClass("form-control entity-selector-input");
 					if (initialItems.Any()) input.Attributes.Add("value", initialItems[0].Display);
 
@@ -222,12 +226,16 @@ namespace WebFramework.TagHelpers
 			return d;
 		}
 
-		private static Expression<Func<T, bool>> BuildSearchPredicate<T>(Expression<Func<T, object>> searchCols, string token)
+		/// <summary>
+		/// فقط برای string ها predicate می‌سازد (برای تولید SQL اولیه)
+		/// </summary>
+		private static Expression<Func<T, bool>> BuildSearchPredicateStringOnly<T>(Expression<Func<T, object>> searchCols, string token)
 		{
 			var param = Expression.Parameter(typeof(T), "x");
 			Expression body = null;
-			var containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
+			var stringContainsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) });
 			var tokenExpr = Expression.Constant(token);
+
 			foreach (var propPath in GetPropertyPaths(searchCols))
 			{
 				Expression prop = param;
@@ -238,11 +246,42 @@ namespace WebFramework.TagHelpers
 
 				if (prop.Type == typeof(string))
 				{
-					var call = Expression.Call(prop, containsMethod, tokenExpr);
-					body = body == null ? call : Expression.OrElse(body, call);
+					var notNullCheck = Expression.NotEqual(prop, Expression.Constant(null, typeof(string)));
+					var containsCall = Expression.Call(prop, stringContainsMethod, tokenExpr);
+					var searchExpression = Expression.AndAlso(notNullCheck, containsCall);
+					body = body == null ? searchExpression : Expression.OrElse(body, searchExpression);
 				}
 			}
 			return body == null ? null : Expression.Lambda<Func<T, bool>>(body, param);
+		}
+
+		/// <summary>
+		/// جمع‌آوری اطلاعات ستون‌های جستجو با نوع آنها
+		/// </summary>
+		private static List<SearchColumnInfo> GetSearchColumnInfo<T>(Expression<Func<T, object>> searchCols)
+		{
+			var result = new List<SearchColumnInfo>();
+			var param = Expression.Parameter(typeof(T), "x");
+
+			foreach (var propPath in GetPropertyPaths(searchCols))
+			{
+				Expression prop = param;
+				foreach (var member in propPath.Split('.'))
+				{
+					prop = Expression.Property(prop, member);
+				}
+
+				var propType = Nullable.GetUnderlyingType(prop.Type) ?? prop.Type;
+
+				result.Add(new SearchColumnInfo
+				{
+					ColumnName = propPath,
+					TypeName = propType.Name,
+					IsString = propType == typeof(string)
+				});
+			}
+
+			return result;
 		}
 
 		private static IEnumerable<string> GetPropertyPaths(Expression expr)
@@ -279,6 +318,14 @@ namespace WebFramework.TagHelpers
 			if (expr is MemberExpression memberExpr) return new[] { memberExpr.Member.Name };
 			return Array.Empty<string>();
 		}
+
 		private static string ParsePropertyNames(Expression expr) => string.Join(",", GetPropertyPaths(expr));
+	}
+
+	public class SearchColumnInfo
+	{
+		public string ColumnName { get; set; }
+		public string TypeName { get; set; }
+		public bool IsString { get; set; }
 	}
 }

@@ -42,7 +42,6 @@ namespace Services.AccessServices
 				 DisplayName = ControllerInfoAttribute,
                     Path = "", // Path can be set dynamically based on routing rules,
                     EntityType = entityType,
-
 				Actions = new List<AccessAction>()
                 };
 

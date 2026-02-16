@@ -1,4 +1,4 @@
-﻿using App.BackgroundJob.Models;
+using App.BackgroundJob.Models;
 using Common.Attributes;
 using Data;
 using Data.Contracts;
@@ -11,12 +11,12 @@ using Services.FileServices;
 
 namespace App.BackgroundJob.Jobs.Inv
 {
-	 
-	public class PartJob(RahkaranDbContext Rdb , IUnitOfWork unitOfWork,HtsDbContext Hdb,
+
+	public class PartJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork, HtsDbContext Hdb,
 		IFileService fileService)
 	{
 		[JobHandler("افزودن اطلاعات کالا از راهکاران")]
-		public async Task AddPartsFromRahkaran(CancellationToken cn  =default)
+		public async Task AddPartsFromRahkaran(CancellationToken cn = default)
 		{
 
 			var unitData = await Rdb.RahkaranUnits.AsNoTracking().ToListAsync(cn);
@@ -44,7 +44,7 @@ namespace App.BackgroundJob.Jobs.Inv
 
 			if (newUnits.Any())
 			{
-				await unitOfWork.Repository<PartUnit>().AddRangeAsync(newUnits, cn,false); // اگر متد دارید
+				await unitOfWork.Repository<PartUnit>().AddRangeAsync(newUnits, cn, false); // اگر متد دارید
 			}
 
 			await unitOfWork.SaveChangesAsync(cn);
@@ -53,7 +53,7 @@ namespace App.BackgroundJob.Jobs.Inv
 			var appParts = await unitOfWork.Repository<Part>().Table.ToListAsync(cn);
 
 			// Dictionary برای جستجوی سریع
-			var appPartsDict = appParts.ToDictionary(x => x.HamkaranId);
+			var appPartsDict = appParts.Where(c => c.HamkaranId != null).ToDictionary(x => x.HamkaranId);
 
 			var newParts = new List<Part>();
 
@@ -76,7 +76,7 @@ namespace App.BackgroundJob.Jobs.Inv
 				}
 				else
 				{
-			 
+
 					bool isModified = false;
 
 					if (existPart.Code != part.Code)
@@ -122,76 +122,105 @@ namespace App.BackgroundJob.Jobs.Inv
 						isModified = true;
 					}
 
-	 
+
 				}
-			} 
+			}
 			if (newParts.Any())
 			{
 				await unitOfWork.Repository<Part>().AddRangeAsync(newParts, cn, false);
 			}
 
-	 
+
 			await unitOfWork.SaveChangesAsync(cn);
 
-			 
+
 		}
 
 		[JobHandler("افزودن اطلاعات تکمیلی کالا از Hts")]
 		public async Task AddExteraInfoToPartFromHtnk(CancellationToken cancellationToken)
 		{
 
-			var newParts = await unitOfWork.Repository<Part>().TableNoTracking
-				.ToArrayAsync();
-		     var existOldParts = await Hdb.Hts_Inv_Parts.AsNoTracking().ToListAsync();
+			var newParts = await unitOfWork.Repository<Part>().Table
+				.ToListAsync(cancellationToken);
+			var newPartsDict = newParts.Where(c => c.HamkaranId != null).ToDictionary(c => c.HamkaranId!.Value);
 
-			var partAttachments = await Hdb.Hts_Inv_Part_Attachments.AsNoTracking().ToListAsync();
+			var existOldParts = await Hdb.Hts_Inv_Parts.AsNoTracking().ToListAsync(cancellationToken);
+			var existOldPartsDict = existOldParts.ToDictionary(c => c.Part_ID);
 
-			var partAttachmentPermissions = await Hdb.Hts_Inv_Part_Attachment_Permissions.AsNoTracking().ToListAsync();
+			var partAttachments = await Hdb.Hts_Inv_Part_Attachments.AsNoTracking().ToListAsync(cancellationToken);
 
-			  
-			foreach(var pa in partAttachments)
+			var partAttachmentPermissions = await Hdb.Hts_Inv_Part_Attachment_Permissions.AsNoTracking().ToListAsync(cancellationToken);
+			var permissionsDict = partAttachmentPermissions.GroupBy(c => c.Part_Attachment_FK).ToDictionary(g => g.Key, g => g.ToList());
+
+			var existingPartDocs = await unitOfWork.Repository<PartDocument>().Table
+				.Where(c => c.HtsId != 0)
+				.ToListAsync(cancellationToken);
+			var existingPartDocsDict = existingPartDocs.ToDictionary(c => c.HtsId);
+
+			foreach (var pa in partAttachments)
 			{
-				var existOldPart = existOldParts.FirstOrDefault(c => c.Part_ID == pa.Part_FK);
+				if (!existOldPartsDict.TryGetValue(pa.Part_FK, out var existOldPart)) { continue; }
 
-				if(existOldPart is null) { continue; }
+				if (existOldPart.Hamkaran_Part_FK == null || !newPartsDict.TryGetValue(existOldPart.Hamkaran_Part_FK.Value, out var newExistPart)) { continue; }
 
-				var newExistPart = newParts.FirstOrDefault(c => c.HamkaranId == existOldPart.Hamkaran_Part_FK);
+				if (!File.Exists(pa.AttachmentFilePath)) { continue; }
 
-				if (newExistPart is null) { continue; }
-
-				if(!File.Exists(pa.AttachmentFilePath)) { continue; }
-
-				byte[]? existFIle;
+				byte[] existFIle;
 				long attachmentId = 0;
 
-				 
-				existFIle = File.ReadAllBytes(pa.AttachmentFilePath);
-				var attachment = await fileService
-					.UploadAsync(existFIle, (pa?.Attachment_FileName ?? Guid.NewGuid().ToString().Substring(0, 6)), null, "Entities.App.Inv.PartDocument", "Attachment", null, cancellationToken);
-				attachmentId = (long)attachment.Id;
-				 
+				existFIle = await File.ReadAllBytesAsync(pa.AttachmentFilePath, cancellationToken);
 
-				var partAttachmentPermission = partAttachmentPermissions
-					.Where(c => c.Part_Attachment_FK == pa.Part_Attachment_ID)
-					.Select(c => c.OrgUnit_FK);
+				var partAttachmentPermission = permissionsDict.ContainsKey(pa.Part_Attachment_ID)
+					? permissionsDict[pa.Part_Attachment_ID].Select(c => c.OrgUnit_FK)
+					: Enumerable.Empty<short>(); // Use appropriate type for OrgUnit_FK
 
 				var partAttachmentPermissionIds = string.Join(',', partAttachmentPermission);
 
-
-				var newPartDocument = new PartDocument()
+				if (existingPartDocsDict.TryGetValue(pa.Part_Attachment_ID, out var existingDoc))
 				{
-					AttachmentId = attachmentId,
-					Comment = pa.Comment,
-					Main = pa.IsMain,
-					OrganizationUnitIds = partAttachmentPermissionIds,
-					PartId = (long)newExistPart.Id,
-					Type = (PartDocumentTypeEnum)(pa?.Project_Document_Type_FK ?? 1) 				
-				};
+					// Update existing
+					if (existingDoc.AttachmentId > 0)
+					{
+						await fileService.DeleteAsync(existingDoc.AttachmentId, cancellationToken);
+					}
 
-			var res =	await unitOfWork.Repository<PartDocument>().
-					AddAsync(newPartDocument,cancellationToken);
+					var attachment = await fileService
+						.UploadAsync(existFIle, (pa?.Attachment_FileName ?? Guid.NewGuid().ToString().Substring(0, 6)), null, "Entities.App.Inv.PartDocument", "Attachment", null, cancellationToken);
+					attachmentId = (long)attachment.Id;
 
-				if(existOldPart.DataSheetTypeId != null)
+					existingDoc.AttachmentId = attachmentId;
+					existingDoc.Comment = pa.Comment;
+					existingDoc.Main = pa.IsMain;
+					existingDoc.OrganizationUnitIds = partAttachmentPermissionIds;
+					existingDoc.PartId = (long)newExistPart.Id;
+					existingDoc.Type = (PartDocumentTypeEnum)(pa?.Project_Document_Type_FK ?? 1);
+
+					// Update explicitly if needed, though tracking handles it
+					// unitOfWork.Repository<PartDocument>().Update(existingDoc); 
+				}
+				else
+				{
+					// Insert new
+					var attachment = await fileService
+						.UploadAsync(existFIle, (pa?.Attachment_FileName ?? Guid.NewGuid().ToString().Substring(0, 6)), null, "Entities.App.Inv.PartDocument", "Attachment", null, cancellationToken);
+					attachmentId = (long)attachment.Id;
+
+					var newPartDocument = new PartDocument()
+					{
+						AttachmentId = attachmentId,
+						Comment = pa.Comment,
+						Main = pa.IsMain,
+						OrganizationUnitIds = partAttachmentPermissionIds,
+						PartId = (long)newExistPart.Id,
+						Type = (PartDocumentTypeEnum)(pa?.Project_Document_Type_FK ?? 1),
+						HtsId = pa.Part_Attachment_ID
+					};
+
+					await unitOfWork.Repository<PartDocument>().AddAsync(newPartDocument, cancellationToken);
+					existingPartDocsDict[pa.Part_Attachment_ID] = newPartDocument;
+				}
+
+				if (existOldPart.DataSheetTypeId != null)
 				{
 					newExistPart.DataSheet = (PartDataSheetEnum)existOldPart.DataSheetTypeId;
 				}
@@ -200,11 +229,9 @@ namespace App.BackgroundJob.Jobs.Inv
 				newExistPart.BrandInDataSheet = existOldPart?.DataSheetBrand;
 				newExistPart.Brand = existOldPart.Brand;
 				newExistPart.Dimensions = existOldPart?.Dimensions;
-			 
-				 
-
 			}
-			 
+
+			await unitOfWork.SaveChangesAsync(cancellationToken);
 		}
 	}
 }

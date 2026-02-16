@@ -142,7 +142,33 @@ namespace Common.Utilities
             return string.Join(' ', words);
         }
 
-        public static string ConvertSqlTypeToCSharpType(this string sqlType)
+		public static string GetHamkaranYearNumber(this string yearNumber)
+		{
+			if (!yearNumber.Contains(","))
+				return GetHamkaranYearNumberResult(yearNumber);
+
+			var result = string.Empty;
+			foreach (var y in yearNumber.Split(','))
+			{
+				result += GetHamkaranYearNumberResult(y);
+				result += ",";
+			}
+			return result.Substring(0, result.Length - 1);
+		}
+
+		private static string GetHamkaranYearNumberResult(string yearNumber)
+		{
+			if (string.IsNullOrWhiteSpace(yearNumber))
+				return string.Empty;
+
+			var year = Convert.ToInt32(yearNumber);
+			if (yearNumber.Length <= 2)
+				return year >= 80 && year <= 99 ? year.ToString() : ((year + 99) + 1).ToString();
+
+			return year <= 1399 ? yearNumber.Substring(2) : ((year - 1399) + 99).ToString();
+		}
+
+		public static string ConvertSqlTypeToCSharpType(this string sqlType)
         {
             switch (sqlType)
             {

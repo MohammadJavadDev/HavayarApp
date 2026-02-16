@@ -1,0 +1,125 @@
+@using Entities.App.Edms
+@model dynamic
+
+<div class="row">
+	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
+	
+	<div class="col-md-12">
+		<div class="alert alert-info">
+			<i class="fa fa-info-circle"></i>
+			در این بخش می‌توانید مدارک پروژه (VPIS) را به درخواست باز لینک کنید
+		</div>
+	</div>
+
+	<div class='col-md-12'>
+		<label class='required'>پروژه</label>
+		@(Html.EntitySelector<Project>(
+			"ProjectVpisSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsConfidential == false,
+				c => new { Id = c.Id, ProjectName = c.ProjectName, Code = c.Code },
+				c => new { c.ProjectName, c.Code },
+			"{ProjectCode} - {ProjectName}",
+			"projectId",
+			"projectName",
+			null,
+			false,
+			false,
+			false,
+			true
+		))
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-12'>
+		<label class='required'>مدارک VPIS</label>
+		<select class='form-control' data-bind='selectedVpisIds' id="vpisMultiSelect" multiple required>
+			@* این از سرور بعد از انتخاب پروژه load می‌شود *@
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class='col-md-12 mt-3'>
+		<div id="linkedVpisInfo" class="alert alert-secondary" style="display:none;">
+			<strong>مدارک لینک شده فعلی:</strong>
+			<div id="currentLinkedVpisList"></div>
+		</div>
+	</div>
+</div>
+
+<script>
+	(function() {
+		const openOrderRequestId = @ViewBag.OpenOrderRequestId;
+		const $projectSelector = $$('[data-bind="projectId"]');
+		const $vpisSelect = $$('#vpisMultiSelect');
+
+		// Initialize multiselect
+		$vpisSelect.select2({
+			placeholder: 'ابتدا پروژه را انتخاب کنید',
+			allowClear: true,
+			width: '100%'
+		});
+
+		// Load current project if exists
+		$$.get(`/Panel/Sup/OpenOrderRequest/GetCurrentProjectForVpis?openOrderRequestId=${openOrderRequestId}`, function(r) {
+			if (r.isSuccess && r.data && r.data > 0) {
+				$projectSelector.val(r.data).trigger('change');
+			}
+		});
+
+		// Project change handler
+		$projectSelector.on('change', function() {
+			const projectId = $$(this).val();
+			
+			if (!projectId) {
+				$vpisSelect.empty().select2({
+					placeholder: 'ابتدا پروژه را انتخاب کنید',
+					allowClear: true,
+					width: '100%'
+				});
+				$$('#linkedVpisInfo').hide();
+				return;
+			}
+
+			// Load VPIS for selected project
+			$$.get(`/Panel/Sup/OpenOrderRequest/GetVpisListByProject?projectId=${projectId}&openOrderRequestId=${openOrderRequestId}`, 
+				function(r) {
+					if (r.isSuccess && r.data) {
+						$vpisSelect.empty();
+						
+						// Add options
+						r.data.vpisList.forEach(function(vpis) {
+							$vpisSelect.append(`<option value="${vpis.id}">${vpis.documentFullTitle}</option>`);
+						});
+
+						$vpisSelect.select2({
+							placeholder: 'مدارک را انتخاب کنید',
+							allowClear: true,
+							width: '100%'
+						});
+
+						// Set currently linked VPIS
+						if (r.data.linkedDocumentIds && r.data.linkedDocumentIds.length > 0) {
+							$vpisSelect.val(r.data.linkedDocumentIds).trigger('change');
+							
+							// Show info
+							const linkedNames = r.data.vpisList
+								.filter(v => r.data.linkedDocumentIds.includes(v.id))
+								.map(v => `<li>${v.documentFullTitle}</li>`)
+								.join('');
+							
+							$$('#currentLinkedVpisList').html(`<ul>${linkedNames}</ul>`);
+							$$('#linkedVpisInfo').show();
+						}
+					} else {
+						toastr.warning('هیچ مدرک VPIS مناسبی برای این پروژه یافت نشد');
+						$vpisSelect.empty().select2({
+							placeholder: 'مدرکی یافت نشد',
+							allowClear: true,
+							width: '100%'
+						});
+					}
+				}
+			);
+		});
+	})();
+</script>

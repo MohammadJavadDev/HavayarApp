@@ -19,6 +19,7 @@ using Shared.Realtime.Options;
 using System.Security.Claims;
 using System.Text;
 using WebFramework.Initializes;
+using Z.EntityFramework.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -159,6 +160,8 @@ app.UseCors("AllowWebApp");
 app.UseAuthentication();
 app.UseAuthorization();
 
+InitializeApplication(app);
+
 app.MapHub<RealtimeHub>("/hubs/realtime");
 app.MapHealthChecks("/health");
 
@@ -174,3 +177,21 @@ app.MapGet("/status", () => Results.Ok(new
 app.Run();
 
 
+
+void InitializeApplication(WebApplication app)
+{
+	using (var scope = app.Services.CreateScope())
+	{
+
+		string licenseName = "134;100-DOWNLOADDEVTOOLS.COM";
+		string licenseKey = "1519351-28861E0-148651C-25E14B3-9428";
+
+		LicenseManager.AddLicense(licenseName, licenseKey);
+
+		if (!LicenseManager.ValidateLicense(out string licenseErrorMessage))
+		{
+			throw new Exception(licenseErrorMessage);
+		}
+
+	}
+}

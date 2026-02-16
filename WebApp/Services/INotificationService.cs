@@ -60,6 +60,8 @@ namespace Services.NotificationServices
 			{
 				Title = notification.Title,
 				Body = notification.Body,
+				Id = result.Id,
+				ViewPath = result.ViewPath,
 				UserIds = new[] { result.OwnerId }
 			};
 			await _eventPublisher.PublishAsync(evt);

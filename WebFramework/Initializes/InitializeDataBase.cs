@@ -21,7 +21,8 @@ namespace WebFramework.Initializes
         {
 		 applicationDbContext.Database.Migrate();
 
-	    var roleAdmin = unitOfWork.Repository<Role>().TableNoTracking
+
+	   var roleAdmin = unitOfWork.Repository<Role>().TableNoTracking
                 .FirstOrDefault(t => t.Name == "admin");
 
             if (roleAdmin == null)
@@ -45,7 +46,7 @@ namespace WebFramework.Initializes
                     Id = 1,
                     Name = "مدیر سیستم",
                     Password = "nimda123456",
-                    Roles = new string[1]
+                    Roles = new ()
                     {
                         "admin"
                     },

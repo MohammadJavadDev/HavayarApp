@@ -1,6 +1,7 @@
 using Common.Attributes;
+using Common.Entities.EntityMetadatas;
 
-namespace WebFramework.ViewModels.FormBuilder
+namespace Entities.Base.FormBuilder
 {
 	/// <summary>
 	/// اطلاعات Connection String
@@ -40,6 +41,7 @@ namespace WebFramework.ViewModels.FormBuilder
 	public class TableColumnInfo
 	{
 		public string ColumnName { get; set; }
+		public string? DisplayName { get; set; } 
 		public string DataType { get; set; }
 		public int? MaxLength { get; set; }
 		public bool IsNullable { get; set; }
@@ -49,15 +51,19 @@ namespace WebFramework.ViewModels.FormBuilder
 		public string? ForeignKeyColumn { get; set; }
 		public string? DefaultValue { get; set; }
 		public SystemType MappedSystemType { get; set; }
+		public string MappedSystemTypeName { get; set; }
 		public string SuggestedDisplayName { get; set; }
 		public int? NumericPrecision { get; set; }
 		public int? NumericScale { get; set; }
-		
+		public List<PropertyMetadataOption> Options { get; set; } = new();
+
 		// فیلدهای قابل ویرایش توسط کاربر
 		public bool Required { get; set; }
 		public bool AddToTable { get; set; } = true;
 		public string? RelatedEntityFullName { get; set; }
 		public string? RelatedEntityName { get; set; }
+
+
 	}
 
 	/// <summary>

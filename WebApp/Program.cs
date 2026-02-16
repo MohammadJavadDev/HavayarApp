@@ -1,4 +1,4 @@
-using Common.System;
+﻿using Common.System;
 using Data;
 using Data.Contracts;
 using Data.Repositories;
@@ -23,8 +23,10 @@ using Services.AccessServices;
 using Services.Auth;
 using Services.FileServices;
 using Services.InMemoryData;
+using Services.NotificationGroupServices;
 using Services.NotificationServices;
 using Services.NotifitactionBuilderServices;
+using Services.QueryBuilderServices;
 using Shared.Realtime.Options;
 using System.IO.Compression;
 using System.Text;
@@ -35,6 +37,7 @@ using WebFramework.Initializes;
 using WebFramework.Middlewares;
 using WebFramework.Services;
 using WebFramework.TagHelpers;
+using Z.EntityFramework.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -109,6 +112,7 @@ builder.Services.AddScoped<IFormBuilderCodeGenerator,FormBuilderCodeGenerator>()
 builder.Services.AddScoped<IDatabaseSchemaService, DatabaseSchemaService>();
 builder.Services.AddHttpClient();
 // Redis Distributed Cache
+
 var redisConnection = builder.Configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>()?.ConnectionString ?? "localhost:6379";
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -142,12 +146,32 @@ builder.Services.AddSingleton<IRabbitMqPublisher, RabbitMqPublisher>();
 builder.Services.AddSingleton<INotificationEventPublisher, NotificationEventPublisher>();
 builder.Services.AddSingleton<ICrudEventPublisher, CrudEventPublisher>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<INotificationGroupService, NotificationGroupService>();
+
+
+//QueryBuilder Services 
+
+// سرویس Cache دار
+builder.Services.AddScoped<IDatabaseSchemaService, CachedDatabaseSchemaService>();
+
+builder.Services.AddScoped<DatabaseSchemaService>();
+
+// سرویس ساخت Query
+builder.Services.AddScoped<IQueryBuilderService, QueryBuilderService>();
+
+// سرویس مدیریت گزارش‌ها
+builder.Services.AddScoped<IQueryService, QueryService>();
+
+// سرویس جایگزینی پارامترها
+builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>();
 
  
-
 builder.Services.AddScoped<IActiveDirectoryService, ActiveDirectoryService>();
-
  
+builder.Services.AddSingleton<SqlQueryValidator>();
+
+builder.Services.AddDistributedMemoryCache();
+
 
 
 builder.Services
@@ -333,23 +357,35 @@ app.Run();
 // Method to initialize the AccessControllers
 void InitializeApplication(WebApplication app)
 {
-    using (var scope = app.Services.CreateScope())
-    {
-        var initializeDataBase = scope.ServiceProvider.GetRequiredService<IInitializeDataBase>();
+	using (var scope = app.Services.CreateScope())
+	{
+		var initializeDataBase = scope.ServiceProvider.GetRequiredService<IInitializeDataBase>();
 
-        initializeDataBase.InitAdminUser();
+		initializeDataBase.InitAdminUser();
 
-        var initializeProgram = scope.ServiceProvider.GetRequiredService<IInitializeProgram>();
-        initializeProgram.InitializeDataProfiles();
-        initializeProgram.InitializeMenu();
-        initializeProgram.InitializeRoles();
-        initializeProgram.InitializeAccessControllers();
-        initializeProgram.InitializeEntityMetadataCache();
+		var initializeProgram = scope.ServiceProvider.GetRequiredService<IInitializeProgram>();
+		initializeProgram.InitializeDataProfiles();
+		initializeProgram.InitializeMenu();
+		initializeProgram.InitializeRoles();
+		initializeProgram.InitializeAccessControllers();
+		initializeProgram.InitializeEntityMetadataCache();
 
-        // Initialize notification rules cache
-        var notificationService = scope.ServiceProvider.GetRequiredService<INotifitactionBuilderService>();
-        notificationService.InitializeCacheAsync().GetAwaiter().GetResult();
-    }
+		// Initialize notification rules cache
+		var notificationService = scope.ServiceProvider.GetRequiredService<INotifitactionBuilderService>();
+		notificationService.InitializeCacheAsync().GetAwaiter().GetResult();
+
+
+		string licenseName = "134;100-DOWNLOADDEVTOOLS.COM";
+		string licenseKey = "1519351-28861E0-148651C-25E14B3-9428";
+
+		LicenseManager.AddLicense(licenseName, licenseKey);
+
+		if (!LicenseManager.ValidateLicense(out string licenseErrorMessage))
+		{
+			throw new Exception(licenseErrorMessage);
+		}
+
+	}
 }
 
 

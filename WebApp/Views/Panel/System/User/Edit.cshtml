@@ -82,10 +82,21 @@
                     
                     </div>
                 </div>
+               <div class="col-md-6 ">
+                    <div class="form-group">
+                         <label class="form-label">نام به فارسی</label>
+                         <input value="@Model?.NameFa" class="form-control" data-bind="NameFa" />
+                         <input type="hidden" value="@Model?.Id" data-bind="Id" />
+
+                    </div>
+
+               </div>
+
+              
 
                <div class="col-md-6 ">
                     <div class="form-group">
-                         <label class="form-label">نام کاربری</label>
+                         <label class="form-label">ایمیل</label>
                          <input value="@Model?.Email" class="form-control" data-bind="Email" />
 
                     </div>
@@ -187,7 +198,7 @@
 
           model.Roles = roleNames;
           model.RoleIds  =roleIds;
-          debugger
+           
        
  
          $$.post("/panel/SaveUser", model, function (r) {

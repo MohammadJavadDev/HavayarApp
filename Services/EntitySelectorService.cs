@@ -1,15 +1,11 @@
-﻿using Common.Entities;
+using Common.Entities;
 using Data;
 using Microsoft.EntityFrameworkCore;
 using Services.InMemoryData;
-using System;
-using System.Collections.Generic;
 using System.Data;
-using System.Linq;
-using System.Security;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+ 
 
 namespace Services
 {
@@ -31,31 +27,48 @@ namespace Services
 
 		public async Task<EntitySelectorResult> QueryAsync(string entityName, EntitySelectorRequest request)
 		{
-			 
 			if (request.Extra == null || !request.Extra.TryGetValue("queryId", out string queryId))
 				return new EntitySelectorResult();
 
 			var definition = _sqlStore.Get(queryId);
 			if (definition == null) throw new Exception("Query expired or invalid.");
 
-
 			string cachedSql = definition.Sql;
 			string displayTemplate = definition.DisplayTemplate;
 			string[] colMap = definition.ColMap;
-			string searchCols = definition.SearchCols;  
 
+			// دریافت اطلاعات ستون‌های جستجو
+			List<SearchColumnInfo> searchColumnsInfo = new List<SearchColumnInfo>();
+			if (request.Extra.TryGetValue("searchColumnsInfo", out string encryptedSearchInfo))
+			{
+				try
+				{
+					string json = _protector.Unprotect(encryptedSearchInfo);
+					if (!string.IsNullOrEmpty(json))
+					{
+						searchColumnsInfo = JsonSerializer.Deserialize<List<SearchColumnInfo>>(json) ?? new List<SearchColumnInfo>();
+					}
+				}
+				catch { }
+			}
 
-			string searchTerm = string.IsNullOrEmpty(request.Q) ? "%" : $"%{request.Q}%";
-			string runnableSql = cachedSql.Replace(TOKEN_LITERAL_SQL, "@searchTerm").Replace(TOKEN_LITERAL_SQL_ALT, "@searchTerm");
+			string searchTerm = string.IsNullOrWhiteSpace(request.Q) ? "%" : $"%{request.Q.Trim()}%";
+
+			// تبدیل SQL با اضافه کردن CAST برای ستون‌های غیر string
+			string modifiedSql = AddCastToNonStringColumns(cachedSql, searchColumnsInfo);
+
+			// جایگزینی توکن جستجو
+			string runnableSql = modifiedSql
+				.Replace(TOKEN_LITERAL_SQL, "@searchTerm")
+				.Replace(TOKEN_LITERAL_SQL_ALT, "@searchTerm");
 
 			// Keyset Pagination
 			string seekSql = (request.LastId.HasValue && request.LastId.Value > 0) ? "AND [Id] > @lastId" : "";
 
-			 
 			string finalSql = $@"
-                WITH BaseQuery AS ( {runnableSql} )
-                SELECT TOP ({request.PageSize}) *, COUNT(*) OVER() as TotalCount
-                FROM BaseQuery WHERE (1=1 {seekSql}) ORDER BY [Id] ASC";
+WITH BaseQuery AS ( {runnableSql} )
+SELECT TOP ({request.PageSize}) *, COUNT(*) OVER() as TotalCount
+FROM BaseQuery WHERE (1=1 {seekSql}) ORDER BY [Id] ASC";
 
 			var resultItems = new List<EntitySelectorItem>();
 			int totalCount = 0;
@@ -71,9 +84,7 @@ namespace Services
 
 				if (request.Extra.TryGetValue("defaultParams", out string encryptedParams))
 					AddDefaultParams(command, encryptedParams);
-				 
 
-				// استفاده از SequentialAccess برای پرفورمنس بهتر
 				using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
 				{
 					while (await reader.ReadAsync())
@@ -94,24 +105,54 @@ namespace Services
 			return new EntitySelectorResult { Page = request.Page, PageSize = request.PageSize, Total = totalCount, Items = resultItems };
 		}
 
-	 
+		/// <summary>
+		/// اضافه کردن CAST برای ستون‌های غیر string در SQL
+		/// </summary>
+		private string AddCastToNonStringColumns(string sql, List<SearchColumnInfo> searchColumns)
+		{
+			if (searchColumns == null || searchColumns.Count == 0)
+				return sql;
+
+			string modifiedSql = sql;
+
+			foreach (var col in searchColumns.Where(c => !c.IsString))
+			{
+				// پیدا کردن pattern: [ColumnName] LIKE
+				// و تبدیل به: CAST([ColumnName] AS NVARCHAR(50)) LIKE
+
+				string columnPattern = $@"\[{Regex.Escape(col.ColumnName)}\]\s+(LIKE|like)";
+				string replacement = $"CAST([{col.ColumnName}] AS NVARCHAR(50)) LIKE";
+
+				modifiedSql = Regex.Replace(modifiedSql, columnPattern, replacement, RegexOptions.IgnoreCase);
+			}
+
+			return modifiedSql;
+		}
+
 		public List<EntitySelectorItem> GetInitialItemsSync(List<string> ids, string cleanSql, Dictionary<string, string> sqlParams, string displayTemplate, string[] colMap)
 		{
-			string runnableSql = cleanSql.Replace(TOKEN_LITERAL_SQL, "'%'").Replace(TOKEN_LITERAL_SQL_ALT, "'%'");
+			// برای initial items جستجو نداریم
+			string runnableSql = cleanSql
+				.Replace(TOKEN_LITERAL_SQL, "'%'")
+				.Replace(TOKEN_LITERAL_SQL_ALT, "'%'");
+
 			var idParamNames = new List<string>();
 			for (int i = 0; i < ids.Count; i++)
 			{
-				if (long.TryParse(ids[i] , out var x))
+				if (long.TryParse(ids[i], out var x))
 				{
 					idParamNames.Add($"@idVal{i}");
 				}
-			} 
+			}
+
+			if (idParamNames.Count == 0)
+				return new List<EntitySelectorItem>();
 
 			string finalSql = $@"WITH BaseQuery AS ( {runnableSql} ) SELECT * FROM BaseQuery WHERE Id IN ({string.Join(",", idParamNames)})";
 
 			var resultMap = new Dictionary<string, EntitySelectorItem>();
 			var connection = _dbContext.Database.GetDbConnection();
-			if (connection.State != ConnectionState.Open) connection.Open(); // Sync Open
+			if (connection.State != ConnectionState.Open) connection.Open();
 
 			using (var command = connection.CreateCommand())
 			{
@@ -122,8 +163,7 @@ namespace Services
 					{
 						AddParameter(command, idParamNames[i], x, true);
 					}
-				
-				} 
+				}
 				foreach (var kvp in sqlParams) AddParameter(command, kvp.Key, kvp.Value, true);
 
 				using (var reader = command.ExecuteReader(CommandBehavior.SequentialAccess))
@@ -140,7 +180,6 @@ namespace Services
 				}
 			}
 
-			// بازگرداندن به ترتیب ورودی
 			var results = new List<EntitySelectorItem>();
 			foreach (var id in ids) if (resultMap.ContainsKey(id)) results.Add(resultMap[id]);
 			return results;
@@ -148,11 +187,87 @@ namespace Services
 
 		public async Task<List<EntitySelectorItem>> GetItemsByIdsAsync(List<string> ids, string queryId, string encryptedParams, string displayTemplate, string colMapStr)
 		{
-			 
-			return new List<EntitySelectorItem>();
-		}
+			if (ids == null || ids.Count == 0)
+				return new List<EntitySelectorItem>();
 
- 
+			var definition = _sqlStore.Get(queryId);
+			if (definition == null)
+				throw new Exception("Query expired or invalid.");
+
+			string cachedSql = definition.Sql;
+			string template = string.IsNullOrEmpty(displayTemplate) ? definition.DisplayTemplate : displayTemplate;
+			string[] colMap = string.IsNullOrEmpty(colMapStr) ? definition.ColMap : colMapStr.Split(',');
+
+			string runnableSql = cachedSql
+				.Replace(TOKEN_LITERAL_SQL, "'%'")
+				.Replace(TOKEN_LITERAL_SQL_ALT, "'%'");
+
+			var idParamNames = new List<string>();
+			for (int i = 0; i < ids.Count; i++)
+			{
+				if (long.TryParse(ids[i], out _))
+				{
+					idParamNames.Add($"@idVal{i}");
+				}
+			}
+
+			if (idParamNames.Count == 0)
+				return new List<EntitySelectorItem>();
+
+			string finalSql = $@"
+WITH BaseQuery AS ( {runnableSql} )
+SELECT * FROM BaseQuery 
+WHERE Id IN ({string.Join(",", idParamNames)})
+ORDER BY Id ASC";
+
+			var resultMap = new Dictionary<string, EntitySelectorItem>();
+			var connection = _dbContext.Database.GetDbConnection();
+			if (connection.State != ConnectionState.Open)
+				await connection.OpenAsync();
+
+			using (var command = connection.CreateCommand())
+			{
+				command.CommandText = finalSql;
+
+				for (int i = 0; i < ids.Count; i++)
+				{
+					if (long.TryParse(ids[i], out var idValue))
+					{
+						AddParameter(command, idParamNames[i], idValue, true);
+					}
+				}
+
+				AddDefaultParams(command, encryptedParams);
+
+				using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
+				{
+					while (await reader.ReadAsync())
+					{
+						var row = ReadRow(reader, colMap, out _);
+						string idVal = row.ContainsKey("Id") ? row["Id"]?.ToString() : null;
+
+						if (idVal != null)
+						{
+							resultMap[idVal] = new EntitySelectorItem
+							{
+								Id = idVal,
+								Display = FormatDisplay(row, template),
+								Row = row
+							};
+						}
+					}
+				}
+			}
+
+			var results = new List<EntitySelectorItem>();
+			foreach (var id in ids)
+			{
+				if (resultMap.ContainsKey(id))
+					results.Add(resultMap[id]);
+			}
+
+			return results;
+		}
 
 		private Dictionary<string, object> ReadRow(IDataReader reader, string[] colMap, out int totalCount)
 		{
@@ -161,9 +276,7 @@ namespace Services
 			for (int i = 0; i < reader.FieldCount; i++)
 			{
 				string colName = reader.GetName(i);
-				
-				// Use colMap as the source of truth for column names (especially for nested properties)
-				// This ensures that flattened property names (e.g., Parent_Parent_Title) are correctly mapped
+
 				if (i < colMap.Length && !string.IsNullOrEmpty(colMap[i]))
 				{
 					colName = colMap[i];
@@ -172,17 +285,16 @@ namespace Services
 				{
 					colName = "Col" + i;
 				}
-				
-				// Skip duplicate Id columns
-				if (colName.StartsWith("Id_") && i < colMap.Length && colMap[i] == "Id") 
+
+				if (colName.StartsWith("Id_") && i < colMap.Length && colMap[i] == "Id")
 				{
 					continue;
 				}
 
-				if (colName == "TotalCount") 
-				{ 
-					totalCount = Convert.ToInt32(reader[i]); 
-					continue; 
+				if (colName == "TotalCount")
+				{
+					totalCount = Convert.ToInt32(reader[i]);
+					continue;
 				}
 
 				row[colName] = reader.IsDBNull(i) ? null : reader[i];
@@ -220,14 +332,11 @@ namespace Services
 		private string FormatDisplay(Dictionary<string, object> row, string template)
 		{
 			string display = template;
-			
-			// First, replace nested properties (e.g., {Parent.Parent.Title} with flattened keys like {Parent_Parent_Title})
-			// This handles properties that were flattened in the projection (Parent.Parent.Title -> Parent_Parent_Title)
-			var nestedPattern = new System.Text.RegularExpressions.Regex(@"\{([^}]+)\}");
+
+			var nestedPattern = new Regex(@"\{([^}]+)\}");
 			display = nestedPattern.Replace(display, match =>
 			{
 				var propPath = match.Groups[1].Value;
-				// If it contains dots, try to find the flattened version
 				if (propPath.Contains('.'))
 				{
 					var flattenedKey = propPath.Replace(".", "_");
@@ -236,16 +345,20 @@ namespace Services
 						return row[flattenedKey]?.ToString() ?? "";
 					}
 				}
-				// Try direct key match
 				if (row.ContainsKey(propPath))
 				{
 					return row[propPath]?.ToString() ?? "";
 				}
-				// If not found, return empty string
 				return "";
 			});
-			
+
 			return string.IsNullOrWhiteSpace(display) ? "No Title" : display;
 		}
+	}
+	public class SearchColumnInfo
+	{
+		public string ColumnName { get; set; }   // نام ستون (مثل "ProductionOrderNumber")
+		public string TypeName { get; set; }     // نوع (مثل "Int32")
+		public bool IsString { get; set; }       // آیا string است؟
 	}
 }

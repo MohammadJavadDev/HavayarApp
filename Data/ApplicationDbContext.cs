@@ -71,7 +71,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 		    .ToTable("RoleAccess", schema: "system")
 		    .HasKey(x => x.Id);
 
-	 
+
+		modelBuilder.Entity<NotificationGroup>()
+		    .ToTable("NotificationGroup", schema: "system")
+		    .HasKey(x => x.Id);
+
+		modelBuilder.Entity<NotificationGroupMember>()
+		    .ToTable("NotificationGroupMember", schema: "system")
+		    .HasKey(x => x.Id);
+
+
+		modelBuilder.Entity<SavedQuery>()
+		    .ToTable("SavedQuery", schema: "system")
+		    .HasKey(x => x.Id);
 
 
 		var entitiesAssembly = typeof(BaseEntity).Assembly;
@@ -240,6 +252,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 	public virtual DbSet<JobDefinition> JobDefinitions { get; set; }
 	public virtual DbSet<JobSchedule> JobSchedules { get; set; }
 	public virtual DbSet<JobHistory> JobHistories { get; set; }
+	public virtual DbSet<NotificationGroupMember> NotificationGroupMembers { get; set; }
+	public virtual DbSet<NotificationGroup> NotificationGroups { get; set; }
+	public virtual DbSet<SavedQuery> SavedQueries { get; set; }
  
 
 

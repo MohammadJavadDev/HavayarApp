@@ -8,6 +8,7 @@ using Entities.Base.FormBuilder;
 using Entities.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Services.QueryBuilderServices;
 using WebFramework.Abstractions;
 using WebFramework.Filtters;
 using WebFramework.Page;
@@ -48,8 +49,6 @@ namespace WebFramework.Controllers
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(FormDefinition formDefinition, CancellationToken cn)
 		{
-			NormalizeFormDefinitionGraph(formDefinition);
-
 			if (formDefinition.Id == null || formDefinition.Id == 0)
 			{
 				return await Add(formDefinition, cn);
@@ -66,62 +65,198 @@ namespace WebFramework.Controllers
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(FormDefinition formDefinition, CancellationToken cn)
 		{
-			NormalizeFormDefinitionGraph(formDefinition);
-
-			// Clear all IDs for new entity graph
-			foreach (var section in formDefinition.Sections)
+			// مرحله 1: ذخیره FormDefinition (بدون فرزندان)
+			var newFormDefinition = new FormDefinition
 			{
-				section.Id = null;
-				foreach (var prop in section.Properties)
+				EntityName = formDefinition.EntityName,
+				DisplayName = formDefinition.DisplayName,
+				Module = formDefinition.Module,
+				Schema = formDefinition.Schema,
+				Namespace = formDefinition.Namespace,
+				BaseEntityType = formDefinition.BaseEntityType,
+				Description = formDefinition.Description,
+				IsFromExistingEntity = formDefinition.IsFromExistingEntity,
+				SourceEntityFullName = formDefinition.SourceEntityFullName,
+				Sections = new List<FormSection>()
+			};
+
+			var savedFormDefinition = await _unitOfWork.Repository<FormDefinition>().SaveAsync(newFormDefinition, cn, true);
+
+			// مرحله 2: ذخیره Sections (بدون Properties)
+			if (formDefinition.Sections != null && formDefinition.Sections.Any())
+			{
+				foreach (var section in formDefinition.Sections.OrderBy(s => s.OrderIndex))
 				{
-					prop.Id = null;
-					prop.FormSection = section;
-					prop.FormSectionId = null;
+					var newSection = new FormSection
+					{
+						FormDefinitionId = savedFormDefinition.Id.Value,
+						Title = section.Title,
+						OrderIndex = section.OrderIndex,
+						Properties = new List<FormProperty>()
+					};
 
-					// Clear enum option IDs
-					ClearEnumOptionIds(prop.EnumOptions);
+					_dbContext.Set<FormSection>().Add(newSection);
+					await _dbContext.SaveChangesAsync(cn);
 
-					// Recursively clear child property IDs
-					ClearChildPropertyIds(prop.ChildProperties);
+					// مرحله 3: ذخیره Properties سطح اول (بدون EnumOptions و ChildProperties)
+					if (section.Properties != null && section.Properties.Any())
+					{
+						foreach (var prop in section.Properties.OrderBy(p => p.OrderIndex))
+						{
+							var newProperty = new FormProperty
+							{
+								FormDefinitionId = savedFormDefinition.Id.Value,
+								FormSectionId = newSection.Id.Value,
+								PropertyName = prop.PropertyName,
+								DisplayName = prop.DisplayName,
+								SystemType = prop.SystemType,
+								SearchPath = prop.SearchPath,
+								AddToTable = prop.AddToTable,
+								SystemProperty = prop.SystemProperty,
+								ShowInRelationData = prop.ShowInRelationData,
+								Required = prop.Required,
+								FileTypes = prop.FileTypes,
+								MaxFileSize = prop.MaxFileSize,
+								Regex = prop.Regex,
+								RegexInvalidError = prop.RegexInvalidError,
+								MaxLength = prop.MaxLength,
+								AutoNumberStart = prop.AutoNumberStart,
+								AutoNumberStep = prop.AutoNumberStep,
+								RelatedEntityFullName = prop.RelatedEntityFullName,
+								RelatedEntityName = prop.RelatedEntityName,
+								EnumName = prop.EnumName,
+								ChildEntityName = prop.ChildEntityName,
+								ChildEntityDisplayName = prop.ChildEntityDisplayName,
+								ColSize = prop.ColSize,
+								OrderIndex = prop.OrderIndex,
+								DisplayTemplate = prop.DisplayTemplate,
+								EnumOptions = new List<FormPropertyEnumOption>(),
+								ChildProperties = new List<FormProperty>()
+							};
+
+							_dbContext.Set<FormProperty>().Add(newProperty);
+							await _dbContext.SaveChangesAsync(cn);
+
+							// مرحله 4: ذخیره EnumOptions
+							if (prop.EnumOptions != null && prop.EnumOptions.Any())
+							{
+								foreach (var enumOption in prop.EnumOptions.OrderBy(e => e.OrderIndex))
+								{
+									var newEnumOption = new FormPropertyEnumOption
+									{
+										FormPropertyId = newProperty.Id.Value,
+										Value = enumOption.Value,
+										Title = enumOption.Title,
+										EnglishName = enumOption.EnglishName,
+										OrderIndex = enumOption.OrderIndex
+									};
+
+									_dbContext.Set<FormPropertyEnumOption>().Add(newEnumOption);
+								}
+								await _dbContext.SaveChangesAsync(cn);
+							}
+
+							// مرحله 5: ذخیره ChildProperties به صورت بازگشتی
+							if (prop.ChildProperties != null && prop.ChildProperties.Any())
+							{
+								await SaveChildPropertiesRecursively(prop.ChildProperties, newProperty.Id.Value, savedFormDefinition.Id.Value, cn);
+							}
+						}
+					}
 				}
 			}
 
-			var entity = await _unitOfWork.Repository<FormDefinition>().SaveAsync(formDefinition, cn, true);
-			return Ok(entity);
+			// بازخوانی کل FormDefinition با تمام فرزندان
+			var result = await _unitOfWork.Repository<FormDefinition>()
+				.TableNoTracking
+				.AsSplitQuery()
+				.Include(f => f.Sections)
+					.ThenInclude(s => s.Properties)
+						.ThenInclude(p => p.EnumOptions)
+				.Include(f => f.Sections)
+					.ThenInclude(s => s.Properties)
+						.ThenInclude(p => p.ChildProperties)
+							.ThenInclude(cp => cp.EnumOptions)
+				.FirstOrDefaultAsync(f => f.Id == savedFormDefinition.Id, cn);
+
+			return Ok(result);
 		}
 
 		/// <summary>
-		/// Clear IDs for enum options
+		/// ذخیره بازگشتی ChildProperties
 		/// </summary>
-		private void ClearEnumOptionIds(ICollection<FormPropertyEnumOption> enumOptions)
-		{
-			if (enumOptions == null || !enumOptions.Any()) return;
-
-			foreach (var option in enumOptions)
-			{
-				option.Id = null;
-				option.FormPropertyId = 0;
-			}
-		}
-
-		/// <summary>
-		/// Recursively clear IDs for child properties
-		/// </summary>
-		private void ClearChildPropertyIds(ICollection<FormProperty> childProperties)
+		private async Task SaveChildPropertiesRecursively(
+			ICollection<FormProperty> childProperties,
+			long parentPropertyId,
+			long formDefinitionId,
+			CancellationToken cn)
 		{
 			if (childProperties == null || !childProperties.Any()) return;
 
-			foreach (var childProp in childProperties)
+			foreach (var childProp in childProperties.OrderBy(c => c.OrderIndex))
 			{
-				childProp.Id = null;
-				childProp.ParentPropertyId = null;
-				childProp.FormSectionId = null;
+				var newChildProperty = new FormProperty
+				{
+					FormDefinitionId = formDefinitionId,
+					ParentPropertyId = parentPropertyId,
+					PropertyName = childProp.PropertyName,
+					DisplayName = childProp.DisplayName,
+					SystemType = childProp.SystemType,
+					SearchPath = childProp.SearchPath,
+					AddToTable = childProp.AddToTable,
+					SystemProperty = childProp.SystemProperty,
+					ShowInRelationData = childProp.ShowInRelationData,
+					Required = childProp.Required,
+					FileTypes = childProp.FileTypes,
+					MaxFileSize = childProp.MaxFileSize,
+					Regex = childProp.Regex,
+					RegexInvalidError = childProp.RegexInvalidError,
+					MaxLength = childProp.MaxLength,
+					AutoNumberStart = childProp.AutoNumberStart,
+					AutoNumberStep = childProp.AutoNumberStep,
+					RelatedEntityFullName = childProp.RelatedEntityFullName,
+					RelatedEntityName = childProp.RelatedEntityName,
+					EnumName = childProp.EnumName,
+					ChildEntityName = childProp.ChildEntityName,
+					ChildEntityDisplayName = childProp.ChildEntityDisplayName,
+					ColSize = childProp.ColSize,
+					OrderIndex = childProp.OrderIndex,
+					DisplayTemplate = childProp.DisplayTemplate,
+					EnumOptions = new List<FormPropertyEnumOption>(),
+					ChildProperties = new List<FormProperty>()
+				};
 
-				// Clear enum option IDs
-				ClearEnumOptionIds(childProp.EnumOptions);
+				_dbContext.Set<FormProperty>().Add(newChildProperty);
+				await _dbContext.SaveChangesAsync(cn);
 
-				// Recursively clear deeper child properties
-				ClearChildPropertyIds(childProp.ChildProperties);
+				// ذخیره EnumOptions این فرزند
+				if (childProp.EnumOptions != null && childProp.EnumOptions.Any())
+				{
+					foreach (var enumOption in childProp.EnumOptions.OrderBy(e => e.OrderIndex))
+					{
+						var newEnumOption = new FormPropertyEnumOption
+						{
+							FormPropertyId = newChildProperty.Id.Value,
+							Value = enumOption.Value,
+							Title = enumOption.Title,
+							EnglishName = enumOption.EnglishName,
+							OrderIndex = enumOption.OrderIndex
+						};
+
+						_dbContext.Set<FormPropertyEnumOption>().Add(newEnumOption);
+					}
+					await _dbContext.SaveChangesAsync(cn);
+				}
+
+				// ذخیره بازگشتی فرزندان عمیق‌تر
+				if (childProp.ChildProperties != null && childProp.ChildProperties.Any())
+				{
+					await SaveChildPropertiesRecursively(
+						childProp.ChildProperties,
+						newChildProperty.Id.Value,
+						formDefinitionId,
+						cn);
+				}
 			}
 		}
 
@@ -131,21 +266,21 @@ namespace WebFramework.Controllers
 		{
 			if (formDefinition.Id == null || formDefinition.Id == 0) return BadRequest("شناسه فرم نامعتبر است");
 
-			// 1. Load Data
+			// مرحله 1: بارگذاری FormDefinition موجود
 			var existingForm = await _unitOfWork.Repository<FormDefinition>()
 				.Table
 				.Include(f => f.Sections)
-				   .ThenInclude(s => s.Properties)
-					  .ThenInclude(p => p.EnumOptions)
+					.ThenInclude(s => s.Properties)
+						.ThenInclude(p => p.EnumOptions)
 				.Include(f => f.Sections)
-				   .ThenInclude(s => s.Properties)
-					  .ThenInclude(p => p.ChildProperties)
-						 .ThenInclude(cp => cp.EnumOptions)
+					.ThenInclude(s => s.Properties)
+						.ThenInclude(p => p.ChildProperties)
+							.ThenInclude(cp => cp.EnumOptions)
 				.FirstOrDefaultAsync(f => f.Id == formDefinition.Id, cn);
 
 			if (existingForm == null) return NotFound("فرم یافت نشد");
 
-			// 2. Update Main Properties
+			// مرحله 2: بروزرسانی ویژگی‌های اصلی FormDefinition
 			existingForm.EntityName = formDefinition.EntityName;
 			existingForm.DisplayName = formDefinition.DisplayName;
 			existingForm.Module = formDefinition.Module;
@@ -156,151 +291,371 @@ namespace WebFramework.Controllers
 			existingForm.IsFromExistingEntity = formDefinition.IsFromExistingEntity;
 			existingForm.SourceEntityFullName = formDefinition.SourceEntityFullName;
 
-			// 3. Sync Children (Passing formId)
-			SyncSections(existingForm.Sections, formDefinition.Sections, existingForm.Id.Value);
+			await _dbContext.SaveChangesAsync(cn);
 
-			// 4. Save
-			await _unitOfWork.SaveChangesAsync(cn);
-			return Ok(existingForm);
+			// مرحله 3: همگام‌سازی Sections
+			await SyncSectionsStepByStep(existingForm, formDefinition, cn);
+
+			// مرحله 4: بازخوانی کل FormDefinition با تمام فرزندان
+			var result = await _unitOfWork.Repository<FormDefinition>()
+				.TableNoTracking
+				.AsSplitQuery()
+				.Include(f => f.Sections)
+					.ThenInclude(s => s.Properties)
+						.ThenInclude(p => p.EnumOptions)
+				.Include(f => f.Sections)
+					.ThenInclude(s => s.Properties)
+						.ThenInclude(p => p.ChildProperties)
+							.ThenInclude(cp => cp.EnumOptions)
+				.FirstOrDefaultAsync(f => f.Id == formDefinition.Id, cn);
+
+			return Ok(result);
 		}
 		/// <summary>
-		/// همگام‌سازی لیست بخش‌ها
+		/// همگام‌سازی مرحله‌ای Sections
 		/// </summary>
-		private void SyncSections(ICollection<FormSection> existingSections, List<FormSection> incomingSections, long formId)
+		private async Task SyncSectionsStepByStep(FormDefinition existingForm, FormDefinition incomingForm, CancellationToken cn)
 		{
-			if (incomingSections == null) incomingSections = new List<FormSection>();
+			var incomingSections = incomingForm.Sections ?? new List<FormSection>();
 
-			// Delete
-			var incomingIds = incomingSections.Where(x => x.Id > 0).Select(x => x.Id).ToList();
-			var toDelete = existingSections.Where(x => !incomingIds.Contains(x.Id)).ToList();
-			foreach (var item in toDelete)
+			// مرحله 1: حذف Sections که در داده‌های جدید نیستند
+			var incomingSectionIds = incomingSections
+				.Where(s => s.Id.HasValue && s.Id > 0)
+				.Select(s => s.Id.Value)
+				.ToHashSet();
+
+			var sectionsToDelete = existingForm.Sections
+				.Where(s => s.Id.HasValue && s.Id > 0 && !incomingSectionIds.Contains(s.Id.Value))
+				.ToList();
+
+			foreach (var sectionToDelete in sectionsToDelete)
 			{
-				existingSections.Remove(item);
-				_dbContext.Entry(item).State = EntityState.Deleted;
+				_dbContext.Set<FormSection>().Remove(sectionToDelete);
 			}
 
-			// Upsert
-			foreach (var incoming in incomingSections)
+			if (sectionsToDelete.Any())
 			{
-				var existing = existingSections.FirstOrDefault(x => x.Id == incoming.Id && x.Id > 0);
-				if (existing != null)
+				await _dbContext.SaveChangesAsync(cn);
+			}
+
+			// مرحله 2: بروزرسانی یا افزودن Sections
+			foreach (var incomingSection in incomingSections.OrderBy(s => s.OrderIndex))
+			{
+				FormSection? targetSection = null;
+
+				if (incomingSection.Id.HasValue && incomingSection.Id > 0)
 				{
-					existing.Title = incoming.Title;
-					existing.OrderIndex = incoming.OrderIndex;
-					SyncProperties(existing.Properties, incoming.Properties, formId);
+					// بروزرسانی Section موجود
+					targetSection = existingForm.Sections.FirstOrDefault(s => s.Id == incomingSection.Id);
+					if (targetSection != null)
+					{
+						targetSection.Title = incomingSection.Title;
+						targetSection.OrderIndex = incomingSection.OrderIndex;
+						await _dbContext.SaveChangesAsync(cn);
+					}
 				}
 				else
 				{
+					// افزودن Section جدید
 					var newSection = new FormSection
 					{
-						// Id = null/0 (Default)
-						FormDefinitionId = formId,
-						Title = incoming.Title,
-						OrderIndex = incoming.OrderIndex,
+						FormDefinitionId = existingForm.Id.Value,
+						Title = incomingSection.Title,
+						OrderIndex = incomingSection.OrderIndex,
 						Properties = new List<FormProperty>()
 					};
-					SyncProperties(newSection.Properties, incoming.Properties, formId);
-					existingSections.Add(newSection);
+
+					_dbContext.Set<FormSection>().Add(newSection);
+					await _dbContext.SaveChangesAsync(cn);
+
+					targetSection = newSection;
+					existingForm.Sections.Add(newSection);
+				}
+
+				// مرحله 3: همگام‌سازی Properties این Section
+				if (targetSection != null && incomingSection.Properties != null)
+				{
+					await SyncPropertiesStepByStep(targetSection, incomingSection.Properties, existingForm.Id.Value, cn);
 				}
 			}
 		}
 		/// <summary>
-		/// همگام‌سازی لیست ویژگی‌ها (به صورت بازگشتی برای فرزندان)
+		/// همگام‌سازی مرحله‌ای Properties
 		/// </summary>
-		private void SyncProperties(ICollection<FormProperty> existingProperties, List<FormProperty> incomingProperties, long formId)
+		private async Task SyncPropertiesStepByStep(
+			FormSection targetSection,
+			List<FormProperty> incomingProperties,
+			long formDefinitionId,
+			CancellationToken cn)
 		{
-			if (incomingProperties == null) incomingProperties = new List<FormProperty>();
+			incomingProperties ??= new List<FormProperty>();
 
-			// Delete
-			var incomingIds = incomingProperties.Where(x => x.Id > 0).Select(x => x.Id).ToList();
-			var toDelete = existingProperties.Where(x => !incomingIds.Contains(x.Id)).ToList();
-			foreach (var item in toDelete)
+			// مرحله 1: حذف Properties که در داده‌های جدید نیستند
+			var incomingPropertyIds = incomingProperties
+				.Where(p => p.Id.HasValue && p.Id > 0)
+				.Select(p => p.Id.Value)
+				.ToHashSet();
+
+			var propertiesToDelete = targetSection.Properties
+				.Where(p => p.Id.HasValue && p.Id > 0 && !incomingPropertyIds.Contains(p.Id.Value))
+				.ToList();
+
+			foreach (var propertyToDelete in propertiesToDelete)
 			{
-				existingProperties.Remove(item);
-				_dbContext.Entry(item).State = EntityState.Deleted;
+				_dbContext.Set<FormProperty>().Remove(propertyToDelete);
 			}
 
-			// Upsert
-			foreach (var incoming in incomingProperties)
+			if (propertiesToDelete.Any())
 			{
-				var existing = existingProperties.FirstOrDefault(x => x.Id == incoming.Id && x.Id > 0);
-				if (existing != null)
-				{
-					MapPropertyValues(existing, incoming);
-					existing.FormDefinitionId = formId; // Ensure correct parent
-
-					SyncEnumOptions(existing.EnumOptions, incoming.EnumOptions);
-
-					if (existing.ChildProperties == null)
-						_dbContext.Entry(existing).Collection(x => x.ChildProperties).Load();
-					SyncProperties(existing.ChildProperties, incoming.ChildProperties, formId);
-				}
-				else
-				{
-					var newProp = new FormProperty();
-					MapPropertyValues(newProp, incoming);
-
-					// Explicitly Clear ID
-					newProp.Id = null;
-					newProp.FormDefinitionId = formId;
-					newProp.FormSectionId = null;
-					newProp.ParentPropertyId = null;
-
-					newProp.EnumOptions = new List<FormPropertyEnumOption>();
-					SyncEnumOptions(newProp.EnumOptions, incoming.EnumOptions);
-
-					newProp.ChildProperties = new List<FormProperty>();
-					SyncProperties(newProp.ChildProperties, incoming.ChildProperties, formId);
-
-					existingProperties.Add(newProp);
-				}
-			}
-		}
-		/// <summary>
-		/// همگام‌سازی گزینه‌های Enum
-		/// </summary>
-		private void SyncEnumOptions(ICollection<FormPropertyEnumOption> existingOptions, List<FormPropertyEnumOption> incomingOptions)
-		{
-			if (incomingOptions == null) incomingOptions = new List<FormPropertyEnumOption>();
-
-			// Delete
-			var incomingIds = incomingOptions.Where(x => x.Id > 0).Select(x => x.Id).ToList();
-			var toDelete = existingOptions.Where(x => !incomingIds.Contains(x.Id)).ToList();
-			foreach (var item in toDelete)
-			{
-				existingOptions.Remove(item);
-				_dbContext.Entry(item).State = EntityState.Deleted;
+				await _dbContext.SaveChangesAsync(cn);
 			}
 
-			// Upsert
-			foreach (var incoming in incomingOptions)
+			// مرحله 2: بروزرسانی یا افزودن Properties
+			foreach (var incomingProperty in incomingProperties.OrderBy(p => p.OrderIndex))
 			{
-				var existing = existingOptions.FirstOrDefault(x => x.Id == incoming.Id && x.Id > 0);
-				if (existing != null)
+				FormProperty? targetProperty = null;
+
+				if (incomingProperty.Id.HasValue && incomingProperty.Id > 0)
 				{
-					existing.Value = incoming.Value;
-					existing.Title = incoming.Title;
-					existing.EnglishName = incoming.EnglishName;
-					existing.OrderIndex = incoming.OrderIndex;
-				}
-				else
-				{
-					var newOption = new FormPropertyEnumOption
+					// بروزرسانی Property موجود
+					targetProperty = targetSection.Properties.FirstOrDefault(p => p.Id == incomingProperty.Id);
+					if (targetProperty != null)
 					{
-						// NO ID MAPPING HERE!
-						Value = incoming.Value,
-						Title = incoming.Title,
-						EnglishName = incoming.EnglishName,
-						OrderIndex = incoming.OrderIndex
+						// بروزرسانی فیلدهای پایه
+						UpdatePropertyBasicFields(targetProperty, incomingProperty);
+						targetProperty.FormDefinitionId = formDefinitionId;
+						targetProperty.FormSectionId = targetSection.Id;
+
+						await _dbContext.SaveChangesAsync(cn);
+					}
+				}
+				else
+				{
+					// افزودن Property جدید
+					var newProperty = new FormProperty
+					{
+						FormDefinitionId = formDefinitionId,
+						FormSectionId = targetSection.Id,
+						PropertyName = incomingProperty.PropertyName,
+						DisplayName = incomingProperty.DisplayName,
+						SystemType = incomingProperty.SystemType,
+						SearchPath = incomingProperty.SearchPath,
+						AddToTable = incomingProperty.AddToTable,
+						SystemProperty = incomingProperty.SystemProperty,
+						ShowInRelationData = incomingProperty.ShowInRelationData,
+						Required = incomingProperty.Required,
+						FileTypes = incomingProperty.FileTypes,
+						MaxFileSize = incomingProperty.MaxFileSize,
+						Regex = incomingProperty.Regex,
+						RegexInvalidError = incomingProperty.RegexInvalidError,
+						MaxLength = incomingProperty.MaxLength,
+						AutoNumberStart = incomingProperty.AutoNumberStart,
+						AutoNumberStep = incomingProperty.AutoNumberStep,
+						RelatedEntityFullName = incomingProperty.RelatedEntityFullName,
+						RelatedEntityName = incomingProperty.RelatedEntityName,
+						EnumName = incomingProperty.EnumName,
+						ChildEntityName = incomingProperty.ChildEntityName,
+						ChildEntityDisplayName = incomingProperty.ChildEntityDisplayName,
+						ColSize = incomingProperty.ColSize,
+						OrderIndex = incomingProperty.OrderIndex,
+						DisplayTemplate = incomingProperty.DisplayTemplate,
+						EnumOptions = new List<FormPropertyEnumOption>(),
+						ChildProperties = new List<FormProperty>()
 					};
 
-					// Safe guard:
-					newOption.Id = null;
+					_dbContext.Set<FormProperty>().Add(newProperty);
+					await _dbContext.SaveChangesAsync(cn);
 
-					existingOptions.Add(newOption);
+					targetProperty = newProperty;
+					targetSection.Properties.Add(newProperty);
+				}
+
+				// مرحله 3: همگام‌سازی EnumOptions
+				if (targetProperty != null && incomingProperty.EnumOptions != null)
+				{
+					await SyncEnumOptionsStepByStep(targetProperty, incomingProperty.EnumOptions, cn);
+				}
+
+				// مرحله 4: همگام‌سازی ChildProperties به صورت بازگشتی
+				if (targetProperty != null && incomingProperty.ChildProperties != null)
+				{
+					await SyncChildPropertiesStepByStep(targetProperty, incomingProperty.ChildProperties, formDefinitionId, cn);
 				}
 			}
-		}         // تابع کمکی برای کپی مقادیر
+		}
+		/// <summary>
+		/// همگام‌سازی مرحله‌ای EnumOptions
+		/// </summary>
+		private async Task SyncEnumOptionsStepByStep(
+			FormProperty targetProperty,
+			List<FormPropertyEnumOption> incomingOptions,
+			CancellationToken cn)
+		{
+			incomingOptions ??= new List<FormPropertyEnumOption>();
+
+			// مرحله 1: حذف EnumOptions که در داده‌های جدید نیستند
+			var incomingOptionIds = incomingOptions
+				.Where(eo => eo.Id.HasValue && eo.Id > 0)
+				.Select(eo => eo.Id.Value)
+				.ToHashSet();
+
+			var optionsToDelete = targetProperty.EnumOptions
+				.Where(eo => eo.Id.HasValue && eo.Id > 0 && !incomingOptionIds.Contains(eo.Id.Value))
+				.ToList();
+
+			foreach (var optionToDelete in optionsToDelete)
+			{
+				_dbContext.Set<FormPropertyEnumOption>().Remove(optionToDelete);
+				targetProperty.EnumOptions.Remove(optionToDelete);
+			}
+
+			if (optionsToDelete.Any())
+			{
+				await _dbContext.SaveChangesAsync(cn);
+			}
+
+			// مرحله 2: بروزرسانی یا افزودن EnumOptions
+			foreach (var incomingOption in incomingOptions.OrderBy(eo => eo.OrderIndex))
+			{
+				if (incomingOption.Id.HasValue && incomingOption.Id > 0)
+				{
+					// بروزرسانی EnumOption موجود
+					var existingOption = targetProperty.EnumOptions.FirstOrDefault(eo => eo.Id == incomingOption.Id);
+					if (existingOption != null)
+					{
+						existingOption.Value = incomingOption.Value;
+						existingOption.Title = incomingOption.Title;
+						existingOption.EnglishName = incomingOption.EnglishName;
+						existingOption.OrderIndex = incomingOption.OrderIndex;
+
+						await _dbContext.SaveChangesAsync(cn);
+					}
+				}
+				else
+				{
+					// افزودن EnumOption جدید
+					var newOption = new FormPropertyEnumOption
+					{
+						FormPropertyId = targetProperty.Id.Value,
+						Value = incomingOption.Value,
+						Title = incomingOption.Title,
+						EnglishName = incomingOption.EnglishName,
+						OrderIndex = incomingOption.OrderIndex
+					};
+
+					_dbContext.Set<FormPropertyEnumOption>().Add(newOption);
+					await _dbContext.SaveChangesAsync(cn);
+
+					targetProperty.EnumOptions.Add(newOption);
+				}
+			}
+		}           /// <summary>
+					/// همگام‌سازی مرحله‌ای ChildProperties به صورت بازگشتی
+					/// </summary>
+		private async Task SyncChildPropertiesStepByStep(
+			FormProperty parentProperty,
+			List<FormProperty> incomingChildren,
+			long formDefinitionId,
+			CancellationToken cn)
+		{
+			incomingChildren ??= new List<FormProperty>();
+
+			// مرحله 1: حذف ChildProperties که در داده‌های جدید نیستند
+			var incomingChildIds = incomingChildren
+				.Where(cp => cp.Id.HasValue && cp.Id > 0)
+				.Select(cp => cp.Id.Value)
+				.ToHashSet();
+
+			var childrenToDelete = parentProperty.ChildProperties
+				.Where(cp => cp.Id.HasValue && cp.Id > 0 && !incomingChildIds.Contains(cp.Id.Value))
+				.ToList();
+
+			foreach (var childToDelete in childrenToDelete)
+			{
+				_dbContext.Set<FormProperty>().Remove(childToDelete);
+				parentProperty.ChildProperties.Remove(childToDelete);
+			}
+
+			if (childrenToDelete.Any())
+			{
+				await _dbContext.SaveChangesAsync(cn);
+			}
+
+			// مرحله 2: بروزرسانی یا افزودن ChildProperties
+			foreach (var incomingChild in incomingChildren.OrderBy(cp => cp.OrderIndex))
+			{
+				FormProperty? targetChild = null;
+
+				if (incomingChild.Id.HasValue && incomingChild.Id > 0)
+				{
+					// بروزرسانی ChildProperty موجود
+					targetChild = parentProperty.ChildProperties.FirstOrDefault(cp => cp.Id == incomingChild.Id);
+					if (targetChild != null)
+					{
+						// بروزرسانی فیلدهای پایه
+						UpdatePropertyBasicFields(targetChild, incomingChild);
+						targetChild.FormDefinitionId = formDefinitionId;
+						targetChild.ParentPropertyId = parentProperty.Id;
+
+						await _dbContext.SaveChangesAsync(cn);
+					}
+				}
+				else
+				{
+					// افزودن ChildProperty جدید
+					var newChild = new FormProperty
+					{
+						FormDefinitionId = formDefinitionId,
+						ParentPropertyId = parentProperty.Id,
+						PropertyName = incomingChild.PropertyName,
+						DisplayName = incomingChild.DisplayName,
+						SystemType = incomingChild.SystemType,
+						SearchPath = incomingChild.SearchPath,
+						AddToTable = incomingChild.AddToTable,
+						SystemProperty = incomingChild.SystemProperty,
+						ShowInRelationData = incomingChild.ShowInRelationData,
+						Required = incomingChild.Required,
+						FileTypes = incomingChild.FileTypes,
+						MaxFileSize = incomingChild.MaxFileSize,
+						Regex = incomingChild.Regex,
+						RegexInvalidError = incomingChild.RegexInvalidError,
+						MaxLength = incomingChild.MaxLength,
+						AutoNumberStart = incomingChild.AutoNumberStart,
+						AutoNumberStep = incomingChild.AutoNumberStep,
+						RelatedEntityFullName = incomingChild.RelatedEntityFullName,
+						RelatedEntityName = incomingChild.RelatedEntityName,
+						EnumName = incomingChild.EnumName,
+						ChildEntityName = incomingChild.ChildEntityName,
+						ChildEntityDisplayName = incomingChild.ChildEntityDisplayName,
+						ColSize = incomingChild.ColSize,
+						OrderIndex = incomingChild.OrderIndex,
+						DisplayTemplate = incomingChild.DisplayTemplate,
+						EnumOptions = new List<FormPropertyEnumOption>(),
+						ChildProperties = new List<FormProperty>()
+					};
+
+					_dbContext.Set<FormProperty>().Add(newChild);
+					await _dbContext.SaveChangesAsync(cn);
+
+					targetChild = newChild;
+					parentProperty.ChildProperties.Add(newChild);
+				}
+
+				// مرحله 3: همگام‌سازی EnumOptions این فرزند
+				if (targetChild != null && incomingChild.EnumOptions != null)
+				{
+					await SyncEnumOptionsStepByStep(targetChild, incomingChild.EnumOptions, cn);
+				}
+
+				// مرحله 4: همگام‌سازی بازگشتی ChildProperties عمیق‌تر
+				if (targetChild != null && incomingChild.ChildProperties != null && incomingChild.ChildProperties.Any())
+				{
+					await SyncChildPropertiesStepByStep(targetChild, incomingChild.ChildProperties, formDefinitionId, cn);
+				}
+			}
+		}
+
+		// تابع کمکی برای کپی مقادیر
 		private void MapPropertyValues(FormProperty target, FormProperty source)
 		{
 			target.PropertyName = source.PropertyName;
@@ -1918,7 +2273,7 @@ Return ONLY the Persian display name."
 		/// </summary>
 		[HttpPost("[action]")]
 		[ActionDisplayName("ایجاد فرم از جدول", ActionAccessType.Api)]
-		public async Task<IActionResult> GenerateFormFromTable([FromBody] ViewModels.FormBuilder.GenerateFormFromTableRequest request)
+		public async Task<IActionResult> GenerateFormFromTable([FromBody] GenerateFormFromTableRequest request, CancellationToken cn)
 		{
 			try
 			{
@@ -2075,24 +2430,17 @@ Return ONLY the Persian display name."
 					formDefinition.Sections.Add(section);
 				}
 
-				// Normalize و ذخیره
-				NormalizeFormDefinitionGraph(formDefinition);
-
-				FormDefinition savedForm;
+				// ذخیره با استفاده از متدهای مرحله‌ای
 				if (formDefinition.Id.HasValue && formDefinition.Id > 0)
 				{
-					savedForm = await _unitOfWork.Repository<FormDefinition>().UpdateAsync(formDefinition, CancellationToken.None, true);
+					// بروزرسانی فرم موجود
+					return await Update(formDefinition, cn);
 				}
 				else
 				{
-					savedForm = await _unitOfWork.Repository<FormDefinition>().SaveAsync(formDefinition, CancellationToken.None, true);
+					// افزودن فرم جدید
+					return await Add(formDefinition, cn);
 				}
-
-				return Ok(new
-				{
-					message = "فرم با موفقیت ایجاد شد",
-					formDefinition = savedForm
-				});
 			}
 			catch (Exception ex)
 			{
