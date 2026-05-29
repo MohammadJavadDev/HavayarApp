@@ -23,27 +23,16 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(Project project, CancellationToken cn)
 		{
-			if (project.Id == null || project.Id == 0)
-			{
-				return await Add(project, cn);
-			}
-			var exist = await unitOfWork.Repository<Project>().TableNoTracking.AnyAsync(c => c.Id == project.Id);
-			if (exist)
-			{
-				return await Update(project, cn);
-			}
-			return await Add(project, cn);
+			project = await unitOfWork.Repository<Project>().SaveAsync(project, cn);
+			return Ok(project);
 		}
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(Project project, CancellationToken cn)
 		{
-
-			if(!project.Code.HasValue())
-				project.Code = GetProjectCode(project);
-
-			var entity = await unitOfWork.Repository<Project>().SaveAsync(project, cn, true);
+			 
+			var entity = await unitOfWork.Repository<Project>().AddAsync(project, cn, true);
 			return Ok(entity);
 		}
 
@@ -143,111 +132,5 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 
-		private   string GetOrganizationUnit(long organizationUnitId)
-		{
-
-			var orgUnitCode = unitOfWork.Repository<OrgUnit>()
-				.TableNoTracking
-				.Select(c => new { c.Id, c.ProjectPrefixCode })
-				.FirstOrDefault(c => c.Id == organizationUnitId);
-
-			if (orgUnitCode == null)
-				throw new Exception("واحد سازمانی مورد نظر یافت نشد.");
-
-
-			if (!orgUnitCode.ProjectPrefixCode.HasValue())
-				throw new Exception("برای واحد سازمانی انتخاب شده پیش کد پروژه تعریف نشده .");
-
-			return orgUnitCode.ProjectPrefixCode;
-
-
-
-			//    1   مهندسی فروش NULL    121000002
-			//    24  هئیت مدیره  NULL    121000082
-			//    30  فروش گازهای صنعتی NULL    121000090
-			//    31  فروش کمپرسورهای فرآیندی NULL    121000091
-			//    32  فروش کمپرسورهای صنعتی NULL    121000092
-			//    33  فروش تجهیزات پزشکی NULL    121000093
-			//    140 فروش کمپرسورهای مهندسی NULL    121000133
-			//    142 فروش توربو ماشین NULL    121000135
-			//    225 فروش صنعتی  NULL    121000149
-
-			switch (organizationUnitId)
-			{
-				case 1:
-				case 140:
-					return "EC";
-				case 24:
-					return "EN";
-				case 30:
-					return "IG";
-				case 31:
-					return "EN";
-				case 32:
-					return "IC";
-				case 33:
-					return "ME";
-				case 41:
-					return "TC";
-				case 131:
-					return "IG";
-				case 142:
-					return "TM";
-				case 225:
-					return "IS";
-				case 226:
-					return "HGI";
-			}
-
-	 
-		}
-
-		private string GetProjectCode( Project projectEntity)
-		{
-			//XX / XX / XX / 00
-			//SP , VP / شمارنده اتوماتیک / سال / مخفف واحدهای فروش
-
-			//SP: Special project
-			//VP: Vendor project
-			//TP: Takvin project
-			 
-				var latestOrganizationUnit = unitOfWork.Repository<Project>().TableNoTracking
-					.Where(p => p.SubjectUnitId == projectEntity.SubjectUnitId)
-				    .OrderByDescending(p => p.Id)
-				    .FirstOrDefault();
-
-				var latestOrganizationUnitCounterInText = latestOrganizationUnit != null ? latestOrganizationUnit.Code.Split('/').Last() : "00";
-
-				var now = DateTime.Now;
-				var year = now.GetShamsiYear();
-
-				if (latestOrganizationUnit != null)
-				{
-					var latestOrganizationUnitCodeYear =  latestOrganizationUnit.Code.Split('/')[2];
-						if(latestOrganizationUnitCodeYear != year.ToString())
-							{
-								latestOrganizationUnitCounterInText = "00";
-							}
-				}
-				
-				
-				var projectType = projectEntity.IsTakvinProject ? "TP" : projectEntity.ProjectIsVendoriType ? "VP" : "SP";
-				var counter = $"{(Convert.ToInt32(latestOrganizationUnitCounterInText) + 1):00}";
-
-			SetAgian:
-
-				var projectCode = $"{projectType}/{GetOrganizationUnit(projectEntity.SubjectUnitId)}/{now.GetShamsiYear()}/{counter}";
-
-				var isAlreadyExist = unitOfWork.Repository<Project>().TableNoTracking.
-					Any(p => p.Code == projectCode);
-				if (!isAlreadyExist)
-					return projectCode;
-
-
-				counter += 1;
-				goto SetAgian;
-			 
-			 
-		}
 	}
 }

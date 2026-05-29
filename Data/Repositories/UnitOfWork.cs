@@ -1,14 +1,16 @@
 ﻿ 
 using Common.System;
+using Data.Actions;
 using Data.Contracts;
 using Data.Services;
+using Data.Services.Actions;
 using Data.SystemAuth;
 using Entities.Base;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Data.Repositories
 {
-    public class UnitOfWork(ApplicationDbContext context,  ISdk? sdk  , IAuditService _auditService) : IUnitOfWork
+    public class UnitOfWork(ApplicationDbContext context,  ISdk? sdk  , IAuditService _auditService, IEntityActionInvoker invoker) : IUnitOfWork
     {
         private readonly IDictionary<Type, object> _repositories = new Dictionary<Type, object>();
         private IDbContextTransaction _transaction;
@@ -20,7 +22,7 @@ namespace Data.Repositories
                 return (IRepository<TEntity>)repository;
             }
 
-            var newRepository = new Repository<TEntity>(context , sdk, _auditService);
+            var newRepository = new Repository<TEntity>(context , sdk, _auditService , invoker);
             _repositories[typeof(TEntity)] = newRepository;
             return newRepository;
         }

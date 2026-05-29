@@ -1,4 +1,3 @@
-@using Entities.App.Bom;
 @using Entities.App.FIN
 @using Entities.App.Gnr
 @using Entities.App.Inv
@@ -41,7 +40,7 @@
                                     title="اقلام مصرفی">
                 </form-action-button>
 
-                 <form-action-button color-class="btn-active-icon-dark btn-color-primary"
+                <form-action-button color-class="btn-active-icon-dark btn-color-primary"
                                     icon-class="fas fa-comment-medical"
                                     action-name="addComments"
                                     title="افزودن کامنت">
@@ -52,7 +51,7 @@
                                     action-name="commentList"
                                     title="لیست کامنت">
                 </form-action-button>
-               
+
                 <form-action-button color-class="btn-active-icon-dark btn-color-primary"
                                     icon-class="fas fa-user-clock"
                                     action-name="addManHours"
@@ -80,6 +79,9 @@
     <div class="card-body row">
 
         <input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+        <div class="alert alert-info">
+            شناسنامه تعمیرات: <span id="displayRepairId"></span>
+        </div>
 
 
         <div class='col-md-2 align-content-center'>
@@ -124,11 +126,13 @@
             @(Html.EntitySelector<Customer>(
                         "CustomerSelect",
                         c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                     	c => new
-				        {
-					      Id = c.Id, Code = c.Code, PartyFullName = c.Party.FullName
-				        },
-				        c => new { c.Code, c.Party.FullName },
+                         c => new
+                         {
+                             Id = c.Id,
+                             Code = c.Code,
+                             PartyFullName = c.Party.FullName
+                         },
+                        c => new { c.Code, c.Party.FullName },
                         "{Code} {PartyFullName}",
                         "CustomerId",
                         "CustomerName",
@@ -143,9 +147,11 @@
                         "CustomerAgencySelect",
                         c => c.IsActive == Entities.Base.IsActiveEnum.Active,
                         c => new
-				        {
-					      Id = c.Id, Code = c.Code, PartyFullName = c.Party.FullName
-				        },
+                        {
+                            Id = c.Id,
+                            Code = c.Code,
+                            PartyFullName = c.Party.FullName
+                        },
                         c => new { c.Code, c.Party.FullName },
                         "{Code} {PartyFullName}",
                         "CustomerAgencyId",
@@ -160,7 +166,7 @@
                         "CustomerAddressSelect",
                         c => c.IsActive == Entities.Base.IsActiveEnum.Active,
                         c => new { Id = c.Id, Code = c.Code, Title = c.Party.FullName },
-                        c => new { c.Code , c.Party.FullName  },
+                        c => new { c.Code, c.Party.FullName },
                         "{Code} {Title}",
                         "CustomerAddressId",
                         "CustomerAddressName",
@@ -175,7 +181,7 @@
                         "ZoneSelect",
                         c => c.IsActive == Entities.Base.IsActiveEnum.Active,
                         c => new { Id = c.Id, Code = c.Code, Title = c.Name },
-                        c => new { c.Code , c.Name },
+                        c => new { c.Code, c.Name },
                         "{Code} {Title}",
                         "ZoneId",
                         "ZoneName",
@@ -228,8 +234,8 @@
             @(Html.EntitySelector<CostCenter>(
                         "CostCenterSelect",
                         c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                        c => new {Id = c.Id, Code = c.Number, Title = c.Title },
-                        c => new { c.Number,c.Title },
+                        c => new { Id = c.Id, Code = c.Number, Title = c.Title },
+                        c => new { c.Number, c.Title },
                         "{Code} {Title}",
                         "CostCenterId",
                         Model?.CostCenterId.ToString()
@@ -247,7 +253,7 @@
 
         <div class='col-md-4'>
             <label class=''>
-                ساعت کارکرد دستگاه 
+                ساعت کارکرد دستگاه
             </label>
             <input class='form-control' data-bind='operatingHoursOfTheDevice' asp-for='OperatingHoursOfTheDevice' />
         </div>
@@ -300,25 +306,52 @@
             <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
         </div>
 
-             <div class="col-md-3">
+        @*   <div class="col-md-3">
             <label>محصول مادر</label>
             @(Html.EntitySelector<ProductionOrderItem>(
-                        "ProductionOrderItemSelect",
-                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                        c => new { Id = c.Id, Code = c.Part.Code, Title = c.Part.Name },
-                        c => new { c.Part.Code , c.Part.Name },
-                        "{Code} {Title}",
-                        "ProductionOrderItemId",
-                        "ProductionOrderItem",
-                        Model?.ProductionOrderItemId.ToString()
-                        ))
+                  "ProductionOrderItemSelector",
+                  c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                  c => new { Id = c.Id, Code = c.Part.Code, Name = c.Part.Name, Serial = c.Serial },
+                  c => new { Id = c.Id, Code = c.Part.Code, Name = c.Part.Name, Serial = c.Serial },
+                  "{Code} - {Name}",
+                  "ProductionOrderItemId",
+                  "ProductionOrderItem",
+                 Model?.ProductionOrderItemId.ToString()
+                ))
+        </div> *@
+        <div class="col-md-3">
+            <label>محصول مادر</label>
+            @(Html.EntitySelector<ProductionOrderItem>(
+                  "ProductionOrderItemSelector",
+                  c => false,
+                  c => new { Id = c.Id, Code = c.Part.Code, Name = c.Part.Name, Serial = c.Serial },
+                  c => new { Id = c.Id, Code = c.Part.Code, Name = c.Part.Name, Serial = c.Serial },
+                  "{Code} - {Name}",
+                  "ProductionOrderItemId",
+                  "ProductionOrderItem",
+                 Model?.ProductionOrderItemId.ToString()
+                ))
         </div>
 
-           <div class="col-md-3">
+
+        @* <div class="col-md-3">
             <label>سریال مرتبط</label>
             @(Html.EntitySelector<ProductionOrderItem>(
                         "SerialSelect",
                         c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                        c => new { Id = c.Id, Serial = c.Serial },
+                        c => new { c.Serial },
+                        "{Serial}",
+                        "ProductionOrderItemId",
+                        "Serial",
+                        Model?.ProductionOrderItemId.ToString()
+                        ))
+        </div> *@
+        <div class="col-md-3">
+            <label>سریال مرتبط</label>
+            @(Html.EntitySelector<ProductionOrderItem>(
+                        "SerialSelect",
+                        c => false,
                         c => new { Id = c.Id, Serial = c.Serial },
                         c => new { c.Serial },
                         "{Serial}",
@@ -507,45 +540,45 @@
     </div>
 
     <div class="card card-body my-3">
-    <div class='col-md-12'>
-        <div class="table-responsive">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0">لیست پیمانکار</h4>
-                <button type="button" class="btn btn-primary btn-sm" data-action="addNewContractor">
-                    <i class="fa fa-plus"></i> افزودن پیمانکار
-                </button>
+        <div class='col-md-12'>
+            <div class="table-responsive">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0">لیست پیمانکار</h4>
+                    <button type="button" class="btn btn-primary btn-sm" data-action="addNewContractor">
+                        <i class="fa fa-plus"></i> افزودن پیمانکار
+                    </button>
+                </div>
+                <table id="contractorTable" class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%">عملیات</th>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 15%">پیمانکار</th>
+                            <th style="width: 10%">مبلغ تعمیر</th>
+                            <th style="width: 17%">نام قطعه ارسالی</th>
+                            <th style="width: 8%">تاریخ ارسال</th>
+                            <th style="width: 8%">تاریخ تاییدیه</th>
+                            <th style="width: 8%">تاریخ توافق</th>
+                            <th style="width: 8%">تاریخ برگشت</th>
+                            <th style="width: 8%">تاریخ اعلام هزینه</th>
+                            <th style="width: 8%">کاربر ایجاد کننده</th>
+                            <th style="width: 8%">تاریخ ایجاد</th>
+                            <th style="width: 13%">توضیحات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contractorTableBody">
+                        <tr id="contractorLoadingRow">
+                            <td colspan="13" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">در حال بارگذاری...</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-            <table id="contractorTable" class="table table-striped table-bordered">
-                <thead>
-                    <tr>
-                        <th style="width: 8%">عملیات</th>
-                        <th style="width: 5%">#</th>
-                        <th style="width: 15%">پیمانکار</th>
-                        <th style="width: 10%">مبلغ تعمیر</th>
-                        <th style="width: 17%">نام قطعه ارسالی</th>
-                        <th style="width: 8%">تاریخ ارسال</th>
-                        <th style="width: 8%">تاریخ تاییدیه</th>
-                        <th style="width: 8%">تاریخ توافق</th>
-                        <th style="width: 8%">تاریخ برگشت</th>
-                        <th style="width: 8%">تاریخ اعلام هزینه</th>
-                        <th style="width: 8%">کاربر ایجاد کننده</th>
-                        <th style="width: 8%">تاریخ ایجاد</th>
-                        <th style="width: 13%">توضیحات</th>
-                    </tr>
-                </thead>
-                <tbody id="contractorTableBody">
-                    <tr id="contractorLoadingRow">
-                        <td colspan="13" class="text-center">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">در حال بارگذاری...</span>
-                            </div>
-                        </td>
-                     </tr>
-                </tbody>
-            </table>
         </div>
     </div>
-</div>
 
 </div>
 
@@ -624,241 +657,171 @@
 <script>
 
 
-    $(document).on('click', '[data-action="addPartFraction"]', function() {
-       var url = '/Panel/Rpr/RepairRequest/ShowPartFractionForm';
-       $$.get(url, function(result) {
-           var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
-           $.confirm({
-               title: 'افزودن کسری قطعات',
-               columnClass: 'col-md-4',
-               content: bodyCn,
-               rtl: true,
-               buttons: {
-                   save: {
-                       text: 'ذخیره',
-                       btnClass: 'btn-success',
-                       action: function() {
-                           var $content = this.$content;
-                           if (validateError($content)) {
-                               return false;
-                           }
-                           var model = $content.dataBind();
-                           var self = this;
-                               $$.post('/Panel/Rpr/RepairRequest/AddPartFraction', model, function(r) {
-                               if (!r.isSuccess) {
-                                   toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+             const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
+            if (repairRequestId) {
+            $('#displayRepairId').text(repairRequestId);
+        }
+        $(document).on('click', '[data-action="addPartFraction"]', function() {
+           var url = '/Panel/Rpr/RepairRequest/ShowPartFractionForm';
+           $$.get(url, function(result) {
+               var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
+               $.confirm({
+                   title: 'افزودن کسری قطعات',
+                   columnClass: 'col-md-4',
+                   content: bodyCn,
+                   rtl: true,
+                   buttons: {
+                       save: {
+                           text: 'ذخیره',
+                           btnClass: 'btn-success',
+                           action: function() {
+                               var $content = this.$content;
+                               if (validateError($content)) {
                                    return false;
                                }
-                               toastr.success('با موفقیت اضافه شد');
-                               refreshContractorTable();                                
-                               self.close();
-                           });
-                           return false;
+                               var model = $content.dataBind();
+                               var self = this;
+                                   $$.post('/Panel/Rpr/RepairRequest/AddPartFraction', model, function(r) {
+                                   if (!r.isSuccess) {
+                                       toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+                                       return false;
+                                   }
+                                   toastr.success('با موفقیت اضافه شد');
+                                   refreshContractorTable();
+                                   self.close();
+                               });
+                               return false;
+                           }
+                       },
+                       cancel: {
+                           text: 'انصراف',
+                           btnClass: 'btn-secondary'
                        }
                    },
-                   cancel: {
-                       text: 'انصراف',
-                       btnClass: 'btn-secondary'
-                   }
-               },
+               });
            });
-       });
-    });
-
-    function loadContractorList(repairRequestId) {
-        if (!repairRequestId || repairRequestId === '0') {
-            $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">شناسه تعمیرات یافت نشد</td></tr>');
-            return;
-        }
-
-        $.ajax({
-            url: '/Panel/Rpr/RepairRequest/GetRepairRequestContractor',
-            type: 'GET',
-            data: { repairRequestId: repairRequestId },
-            dataType: 'json',
-            success: function(response) {
-                debugger
-                if (response && response.isSuccess === true && response.data && response.data.length >= 0){
-                    debugger
-                    renderContractorTable(response.data);
-                } else {
-                    $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">هیچ اطلاعاتی یافت نشد</td></tr>');
-                }
-            },
-            error: function(xhr) {
-                console.error('خطا در دریافت اطلاعات:', xhr);
-                $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-danger">خطا در دریافت اطلاعات</td></tr>');
-            }
         });
-    }
 
-    function renderContractorTable(data) {
-        var tbody = $('#contractorTableBody');
-        tbody.empty();
-
-        $.each(data, function(index, item) {
-            debugger
-            var contractorName = '-';
-            if (item.contractor) {
-                debugger
-                contractorName = item.contractor.title || item.contractor.name || '-';
-            }
-            
-            var row = '<tr data-item-id="' + (item.id || 0) + '">';
-            row += '<td class="text-center">';
-            row += '<button type="button" class="btn btn-icon btn-warning btn-sm" data-action="editContractorBtn" data-id="' + (item.id || 0) + '" style="margin-left: 5px;">';
-            row += '<i class="fa fa-pencil"></i>';
-            row += '</button>';
-            row += '<button type="button" class="btn btn-icon btn-danger btn-sm" data-action="deleteContractorBtn" data-id="' + (item.id || 0) + '">';
-            row += '<i class="fa fa-trash"></i>';
-            row += '</button>';
-            row += '</td>';
-            row += '<td class="text-center">' + (index + 1) + '</td>';
-            row += '<td>' + contractorName + '</td>';
-            row += '<td class="text-end">' + (item.cost ? new Intl.NumberFormat('fa-IR').format(item.cost) : '-') + '</td>';
-            row += '<td><span title="' + (item.part.name + ' - ' + item.part.code || '') + '">' + (item.part.name || '-') + ' (' + (item.part.code || '-') + ')</span></td>';
-            row += '<td class="text-center">' + (item.sendPartShamsiDate || '-') + '</td>';
-            row += '<td class="text-center">' + (item.contractorAcceptShamsiDate || '-') + '</td>';
-            row += '<td class="text-center">' + (item.agreegmentShamsiDate || '-') + '</td>';
-            row += '<td class="text-center">' + (item.contractorReturnShamsiDate || '-') + '</td>';
-            row += '<td class="text-center">' + (item.costAnnouncementShamsiDate || '-') + '</td>';
-            row += '<td>' + (item.createdByName || item.createdBy || '-') + '</td>';
-            row += '<td class="text-center">' + (item.createdOnShamsiDateTime || '-') + '</td>';
-            row += '<td style="max-width:250px; white-space:normal; word-wrap:break-word;">' + (item.comment || '-') + '</td>';
-            row += '</tr>';
-            tbody.append(row);
-        });
-    }
-
-    function refreshContractorTable() {
-    var repairRequestId = $('[data-bind="id"]').val();
-    
-    if (repairRequestId && repairRequestId !== '0' && repairRequestId !== '') {
-        $('#contractorTableBody').html('<td><td colspan="13" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">در حال بارگذاری...</span></div></td></tr>');
-        loadContractorList(repairRequestId);
-    } else {
-        console.warn('شناسه تعمیرات برای رفرش جدول یافت نشد');
-    }
-}
-
-function saveOrUpdateContractor(model, self) {
-    return new Promise((resolve, reject) => {
-        $$.post('/Panel/Rpr/RepairRequest/AddRepairRequestContractor', model, function(r) {
-            if (!r.isSuccess) {
-                toastr.error(r.message || 'خطا در ذخیره', 'خطا');
-                reject(r);
+        function loadContractorList(repairRequestId) {
+            if (!repairRequestId || repairRequestId === '0') {
+                $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">شناسه تعمیرات یافت نشد</td></tr>');
                 return;
             }
-            
-            var actionText = model.Id && model.Id != 0 ? 'ویرایش' : 'افزودن';
-            toastr.success(`پیمانکار با موفقیت ${actionText} شد`);
-            resolve(r);
-        });
-    });
-}
 
-function openContractorModal(contractorId = null) {
-    debugger
-    var repairRequestId = $('[data-bind="id"]').val();
-    
-    if (!repairRequestId || repairRequestId === '0') {
-        toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید');
-        return;
-    }
-
-    var url;
-    var titleText;
-    
-    if (contractorId) {
-        url = '/Panel/Rpr/RepairRequest/EditContractorForm?id=' + contractorId + '&repairRequestId=' + repairRequestId;
-
-        titleText = 'ویرایش پیمانکار';
-    } else {
-  
-        url = '/Panel/Rpr/RepairRequest/ShowContractorForm?repairRequestId=' + repairRequestId;
-        titleText = 'افزودن پیمانکار';
-    }
-    
-    $$.get(url, function(result) {
-        var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
-        initPersionDatePicker(bodyCn);
-        
-        $.confirm({
-            title: titleText,
-            columnClass: 'col-md-6',
-            content: bodyCn,
-            rtl: true,
-            buttons: {
-                save: {
-                    text: 'ذخیره',
-                    btnClass: 'btn-success',
-                    action: function() {
-                        var $content = this.$content;
-                        if (validateError($content)) {
-                            return false;
-                        }
-                        
-                        var model = $content.dataBind();
-                        model.RepairRequestId = repairRequestId;
-                                                
-                        if (contractorId) {
-                            model.Id = contractorId;
-                        }
-                        
-                        var self = this;
-                        
-                        saveOrUpdateContractor(model, self).then(function() {
-                            refreshContractorTable();
-                            self.close();
-                        }).catch(function(error) {
-                        });
-                        
-                        return false;
+            $.ajax({
+                url: '/Panel/Rpr/RepairRequest/GetRepairRequestContractor',
+                type: 'GET',
+                data: { repairRequestId: repairRequestId },
+                dataType: 'json',
+                success: function(response) {
+                    debugger
+                    if (response && response.isSuccess === true && response.data && response.data.length >= 0){
+                        debugger
+                        renderContractorTable(response.data);
+                    } else {
+                        $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">هیچ اطلاعاتی یافت نشد</td></tr>');
                     }
                 },
-                cancel: {
-                    text: 'انصراف',
-                    btnClass: 'btn-secondary'
+                error: function(xhr) {
+                    console.error('خطا در دریافت اطلاعات:', xhr);
+                    $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-danger">خطا در دریافت اطلاعات</td></tr>');
                 }
-            },
-            onContentReady: function() {
-                var self = this;
-                setTimeout(function() {
+            });
+        }
+
+        function renderContractorTable(data) {
+            var tbody = $('#contractorTableBody');
+            tbody.empty();
+
+            $.each(data, function(index, item) {
+                debugger
+                var contractorName = '-';
+                if (item.contractor) {
                     debugger
-                    self.$body.find('select.select2-hidden-accessible').each(function() {
-                        var $select = $$(this);
-                        var currentData = $select.select2('data');
-                        $select.select2('destroy');
-                        $select.select2({
-                            dropdownParent: self.$body,
-                            width: '100%',
-                            placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                        });
-                        if (currentData && currentData.length > 0) {
-                            $select.val($select.val()).trigger('change');
-                        }
-                    });
-                }, 100);
-            }
- });
-    });
-}    
-$(document).on('click', '[data-action="addNewContractor"]', function() {
+                    contractorName = item.contractor.title || item.contractor.name || '-';
+                }
+
+                var row = '<tr data-item-id="' + (item.id || 0) + '">';
+                row += '<td class="text-center">';
+                row += '<button type="button" class="btn btn-icon btn-warning btn-sm" data-action="editContractorBtn" data-id="' + (item.id || 0) + '" style="margin-left: 5px;">';
+                row += '<i class="fa fa-pencil"></i>';
+                row += '</button>';
+                row += '<button type="button" class="btn btn-icon btn-danger btn-sm" data-action="deleteContractorBtn" data-id="' + (item.id || 0) + '">';
+                row += '<i class="fa fa-trash"></i>';
+                row += '</button>';
+                row += '</td>';
+                row += '<td class="text-center">' + (index + 1) + '</td>';
+                row += '<td>' + contractorName + '</td>';
+                row += '<td class="text-end">' + (item.cost ? new Intl.NumberFormat('fa-IR').format(item.cost) : '-') + '</td>';
+                row += '<td><span title="' + (item.part.name + ' - ' + item.part.code || '') + '">' + (item.part.name || '-') + ' (' + (item.part.code || '-') + ')</span></td>';
+                row += '<td class="text-center">' + (item.sendPartShamsiDate || '-') + '</td>';
+                row += '<td class="text-center">' + (item.contractorAcceptShamsiDate || '-') + '</td>';
+                row += '<td class="text-center">' + (item.agreegmentShamsiDate || '-') + '</td>';
+                row += '<td class="text-center">' + (item.contractorReturnShamsiDate || '-') + '</td>';
+                row += '<td class="text-center">' + (item.costAnnouncementShamsiDate || '-') + '</td>';
+                row += '<td>' + (item.createdByName || item.createdBy || '-') + '</td>';
+                row += '<td class="text-center">' + (item.createdOnShamsiDateTime || '-') + '</td>';
+                row += '<td style="max-width:250px; white-space:normal; word-wrap:break-word;">' + (item.comment || '-') + '</td>';
+                row += '</tr>';
+                tbody.append(row);
+            });
+        }
+
+        function refreshContractorTable() {
         var repairRequestId = $('[data-bind="id"]').val();
-        
+
+        if (repairRequestId && repairRequestId !== '0' && repairRequestId !== '') {
+            $('#contractorTableBody').html('<td><td colspan="13" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">در حال بارگذاری...</span></div></td></tr>');
+            loadContractorList(repairRequestId);
+        } else {
+            console.warn('شناسه تعمیرات برای رفرش جدول یافت نشد');
+        }
+    }
+
+        function saveOrUpdateContractor(model, self) {
+        return new Promise((resolve, reject) => {
+            $$.post('/Panel/Rpr/RepairRequest/AddRepairRequestContractor', model, function(r) {
+                if (!r.isSuccess) {
+                    toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+                    reject(r);
+                    return;
+                }
+
+                var actionText = model.Id && model.Id != 0 ? 'ویرایش' : 'افزودن';
+                toastr.success(`پیمانکار با موفقیت ${actionText} شد`);
+                resolve(r);
+            });
+        });
+    }
+
+        function openContractorModal(contractorId = null) {
+        debugger
+        var repairRequestId = $('[data-bind="id"]').val();
+
         if (!repairRequestId || repairRequestId === '0') {
             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید');
             return;
         }
 
-        var url = '/Panel/Rpr/RepairRequest/ShowContractorForm?repairRequestId=' + repairRequestId;
-        
+        var url;
+        var titleText;
+
+        if (contractorId) {
+            url = '/Panel/Rpr/RepairRequest/EditContractorForm?id=' + contractorId + '&repairRequestId=' + repairRequestId;
+
+            titleText = 'ویرایش پیمانکار';
+        } else {
+
+            url = '/Panel/Rpr/RepairRequest/ShowContractorForm?repairRequestId=' + repairRequestId;
+            titleText = 'افزودن پیمانکار';
+        }
+
         $$.get(url, function(result) {
             var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
             initPersionDatePicker(bodyCn);
-            
+
             $.confirm({
-                title: 'افزودن پیمانکار',
+                title: titleText,
                 columnClass: 'col-md-6',
                 content: bodyCn,
                 rtl: true,
@@ -871,19 +834,22 @@ $(document).on('click', '[data-action="addNewContractor"]', function() {
                             if (validateError($content)) {
                                 return false;
                             }
-                            
+
                             var model = $content.dataBind();
                             model.RepairRequestId = repairRequestId;
+
+                            if (contractorId) {
+                                model.Id = contractorId;
+                            }
+
                             var self = this;
-                                $$.post('/Panel/Rpr/RepairRequest/AddRepairRequestContractor', model, function(r) {
-                                if (!r.isSuccess) {
-                                    toastr.error(r.message || 'خطا در ذخیره', 'خطا');
-                                    return false;
-                                }
-                                toastr.success('پیمانکار با موفقیت اضافه شد');
-                                refreshContractorTable();                                
+
+                            saveOrUpdateContractor(model, self).then(function() {
+                                refreshContractorTable();
                                 self.close();
+                            }).catch(function(error) {
                             });
+
                             return false;
                         }
                     },
@@ -895,9 +861,497 @@ $(document).on('click', '[data-action="addNewContractor"]', function() {
                 onContentReady: function() {
                     var self = this;
                     setTimeout(function() {
+                        debugger
                         self.$body.find('select.select2-hidden-accessible').each(function() {
                             var $select = $$(this);
                             var currentData = $select.select2('data');
+                            $select.select2('destroy');
+                            $select.select2({
+                                dropdownParent: self.$body,
+                                width: '100%',
+                                placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                            });
+                            if (currentData && currentData.length > 0) {
+                                $select.val($select.val()).trigger('change');
+                            }
+                        });
+                    }, 100);
+                }
+     });
+        });
+    }
+        $(document).on('click', '[data-action="addNewContractor"]', function() {
+            var repairRequestId = $('[data-bind="id"]').val();
+            debugger
+
+            // if (!repairRequestId || repairRequestId === '0') {
+            //     toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید');
+            //     return;
+            // }
+
+            var url = '/Panel/Rpr/RepairRequest/ShowContractorForm?repairRequestId=' + repairRequestId;
+
+            $$.get(url, function(result) {
+                var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
+                initPersionDatePicker(bodyCn);
+
+                $.confirm({
+                    title: 'افزودن پیمانکار',
+                    columnClass: 'col-md-6',
+                    content: bodyCn,
+                    rtl: true,
+                    buttons: {
+                        save: {
+                            text: 'ذخیره',
+                            btnClass: 'btn-success',
+                            action: function() {
+                                var $content = this.$content;
+                                if (validateError($content)) {
+                                    return false;
+                                }
+
+                                var model = $content.dataBind();
+                                model.RepairRequestId = repairRequestId;
+                                var self = this;
+                                    $$.post('/Panel/Rpr/RepairRequest/AddRepairRequestContractor', model, function(r) {
+                                    if (!r.isSuccess) {
+                                        toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+                                        return false;
+                                    }
+                                    toastr.success('پیمانکار با موفقیت اضافه شد');
+                                    refreshContractorTable();
+                                    self.close();
+                                });
+                                return false;
+                            }
+                        },
+                        cancel: {
+                            text: 'انصراف',
+                            btnClass: 'btn-secondary'
+                        }
+                    },
+                    onContentReady: function() {
+                        var self = this;
+                        setTimeout(function() {
+                            self.$body.find('select.select2-hidden-accessible').each(function() {
+                                var $select = $$(this);
+                                var currentData = $select.select2('data');
+                                $select.select2('destroy');
+                                $select.select2({
+                                    dropdownParent: self.$body,
+                                    width: '100%',
+                                    placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                });
+                                if (currentData && currentData.length > 0) {
+                                    $select.val($select.val()).trigger('change');
+                                }
+                            });
+                        }, 100);
+                    }
+                });
+            });
+        });
+
+        $(document).on('click', '[data-action="editContractorBtn"]', function() {
+        var contractorId = $(this).data('id');
+        openContractorModal(contractorId);
+    });
+
+        $(document).on('click', '[data-action="deleteContractorBtn"]', function() {
+        var contractorId = $(this).data('id');
+
+        Swal.fire({
+            title: 'آیا اطمینان دارید؟',
+            text: "این عملیات غیرقابل بازگشت است!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'بله، حذف شود',
+            cancelButtonText: 'انصراف'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: `/Panel/Rpr/RepairRequest/DeleteContractor?id=${contractorId}`,
+                    type: 'DELETE',
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response && response.isSuccess === true) {
+                            toastr.success(response.message || 'رکورد با موفقیت حذف شد');
+                            refreshContractorTable();
+                        } else {
+                            var errorMsg = response?.data?.message || response?.message || 'خطا در حذف';
+                            toastr.error(errorMsg);
+                        }
+                    },
+                    error: function(xhr) {
+                        toastr.error('خطا در حذف رکورد');
+                    }
+                });
+            }
+        });
+    });
+
+        $(document).ready(function() {
+            var repairRequestId = $('[data-bind="id"]').val();
+            if (repairRequestId && repairRequestId !== '0') {
+                loadContractorList(repairRequestId);
+            }
+        });
+
+               self.FormActionButtons.addConsumableItems.onclick(function () {
+               const url = '/Panel/Rpr/RepairRequest/RepairRequestPartItems';
+               $$.get(url, function(result) {
+                   let bodyCn = `<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">${result}</div>`;
+                   $.confirm({
+                       title: 'اقلام مصرفی ',
+                       columnClass: 'col-md-10',
+                       content: bodyCn,
+                       rtl: true,
+                       buttons: {
+                           save: {
+                               text: 'ذخیره',
+                               btnClass: 'btn-success',
+                               action: function() {
+                                   const $content = this.$content;
+
+                                   if (validateError($content)) {
+                                       return false;
+                                   }
+                                   const self = this;
+                                   return false;
+                               }
+                           },
+                           cancel: {
+                               text: 'انصراف',
+                               btnClass: 'btn-secondary'
+                           }
+                       },
+                       onContentReady: function () {
+                           var self = this;
+                           setTimeout(function () {
+                               self.$body.find('select.select2-hidden-accessible').each(function() {
+                                   const $select = $$(this);
+                                   const currentData = $select.select2('data');
+                                   $select.select2('destroy');
+                                   $select.select2({
+                                       dropdownParent: self.$body,
+                                       width: '100%',
+                                       placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                   });
+                                   if (currentData && currentData.length > 0) {
+                                       $select.val($select.val()).trigger('change');
+                                   }
+                               });
+                           }, 100);
+                       }
+                   });
+               });
+           });
+               self.FormActionButtons.commentList.onclick(function  () {
+                 debugger
+                      const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
+                       if(!repairRequestId ){
+                       toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
+                       return;
+                     }
+
+                const url = `/Panel/Rpr/RepairRequest/GetRepairRequestComment?repairRequestId=${repairRequestId}`;
+               $$.get(url, function(result) {
+
+            let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
+               ${result}</div>`);
+               initPersionDatePicker(bodyCn);
+
+                   $.confirm({
+                       title: 'لیست کامنت',
+                       columnClass: 'col-md-6',
+                       content: bodyCn,
+                       rtl: true,
+                       buttons: {
+                           cancel: {
+                               text: 'انصراف',
+                               btnClass: 'btn-secondary'
+                           }
+                       },
+                       onContentReady: function () {
+                           var self = this;
+                           setTimeout(function () {
+                               self.$body.find('select.select2-hidden-accessible').each(function() {
+                                   const $select = $$(this);
+                                   const currentData = $select.select2('data');
+                                   $select.select2('destroy');
+                                   $select.select2({
+                                       dropdownParent: self.$body,
+                                       width: '100%',
+                                       placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                   });
+                                   if (currentData && currentData.length > 0) {
+                                       $select.val($select.val()).trigger('change');
+                                   }
+                               });
+                           }, 100);
+                       }
+                   });
+               });
+           });
+               self.FormActionButtons.addComments.onclick(function  () {
+                     debugger
+                 const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
+                 if(!repairRequestId ){
+                 toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
+                 return;
+                }
+                   const url = `/Panel/Rpr/RepairRequestComment/AddRepairRequestComment?repairRequestId=${repairRequestId}`;
+                   $$.get(url, function(result) {
+                         let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">${result}</div>`);
+                         initPersionDatePicker(bodyCn);
+                       $.confirm({
+                           title: 'افزودن کامنت',
+                           columnClass: 'col-md-4',
+                           content: bodyCn,
+                           rtl: true,
+                           buttons: {
+                               save: {
+                                   text: 'ذخیره',
+                                   btnClass: 'btn-success',
+                                   action: function() {
+                                       const $content = this.$content;
+
+                                       if (validateError($content)) {
+                                           return false;
+                                       }
+
+                                       const model = $content.dataBind();
+                                       model.RepairRequestId = repairRequestId;
+                                       const self = this;
+
+                                       $$.post('/Panel/Rpr/RepairRequestComment/CreateRepairRequestComment', model, function(r) {
+                                           if (!r.isSuccess) {
+                                               toastr.error(`${r.message}`, 'خطا');
+                                               return false;
+                                           }
+
+                                           toastr.success('لینک با موفقیت ثبت شد');
+                                           self.close();
+                                           page.close()
+                                       });
+
+                                       return false;
+                                   }
+                               },
+                               cancel: {
+                                   text: 'انصراف',
+                                   btnClass: 'btn-secondary'
+                               }
+                           },
+                           onContentReady: function () {
+                               var self = this;
+                               setTimeout(function () {
+                                   self.$body.find('select.select2-hidden-accessible').each(function() {
+                                       const $select = $$(this);
+                                       const currentData = $select.select2('data');
+                                       $select.select2('destroy');
+                                       $select.select2({
+                                           dropdownParent: self.$body,
+                                           width: '100%',
+                                           placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                       });
+                                       if (currentData && currentData.length > 0) {
+                                           $select.val($select.val()).trigger('change');
+                                       }
+                                   });
+                               }, 100);
+                           }
+                       });
+                   });
+               });
+               self.FormActionButtons.confirmDate.onclick(function  () {
+
+                          const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
+                           if(!repairRequestId ){
+                               toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
+                               return;
+                                 }
+                     const url = `/Panel/Rpr/RepairRequestComment/ConfirmDate?repairRequestId=${repairRequestId}`;
+
+                   $$.get(url, function(result) {
+                         let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
+                            ${result}</div>`);
+                       initPersionDatePicker(bodyCn);
+                       $.confirm({
+                           title: ' تاریخ تایید ',
+                           columnClass: 'col-md-4',
+                           content: bodyCn,
+                           rtl: true,
+                           buttons: {
+                               save: {
+                                   text: 'ذخیره',
+                                   btnClass: 'btn-success',
+                                   action: function() {
+                                       const $content = this.$content;
+
+                                       if (validateError($content)) {
+                                           return false;
+                                       }
+
+                                       const model = $content.dataBind();
+                                       model.RepairRequestId = repairRequestId;
+                                       model.id = repairRequestId;
+
+                                       const self = this;
+                                       debugger
+
+                                       $$.post('/Panel/Rpr/RepairRequest/Update', model, function(r) {
+                                           if (!r.isSuccess) {
+                                               toastr.error(`${r.message}`, 'خطا');
+                                               return false;
+                                           }
+
+                                           toastr.success('تاریخ با موفقیت ثبت شد');
+                                           self.close();
+                                           page.close()
+                                       });
+
+                                       return false;
+                                   }
+                               },
+                               cancel: {
+                                   text: 'انصراف',
+                                   btnClass: 'btn-secondary'
+                               }
+                           },
+                           onContentReady: function () {
+                               var self = this;
+                               setTimeout(function () {
+                                   self.$body.find('select.select2-hidden-accessible').each(function() {
+                                       const $select = $$(this);
+                                       const currentData = $select.select2('data');
+                                       $select.select2('destroy');
+                                       $select.select2({
+                                           dropdownParent: self.$body,
+                                           width: '100%',
+                                           placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                       });
+                                       if (currentData && currentData.length > 0) {
+                                           $select.val($select.val()).trigger('change');
+                                       }
+                                   });
+                               }, 100);
+                           }
+                       });
+                   });
+               });
+               self.FormActionButtons.addManHours.onclick(function  () {
+                       debugger
+                      const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
+                         if(!repairRequestId ){
+                          toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
+                          return;
+                        }
+                      const url = `/Panel/Rpr/RepairRequestManHours/AddManHoursForm?repairRequestId=${repairRequestId}`;
+                      debugger
+
+                   $$.get(url, function(result) {
+                         let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
+                            ${result}</div>`);
+                            initPersionDatePicker(bodyCn);
+                       $.confirm({
+                           title: 'افزودن نفر ساعت',
+                           columnClass: 'col-md-4',
+                           content: bodyCn,
+                           rtl: true,
+                           buttons: {
+                               save: {
+                                   text: 'ذخیره',
+                                   btnClass: 'btn-success',
+                                   action: function() {
+                                       const $content = this.$content;
+
+                                       if (validateError($content)) {
+                                           return false;
+                                       }
+
+                                       const model = $content.dataBind();
+                                       model.RepairRequestId = repairRequestId;
+                                       const self = this;
+                                       $$.post('/Panel/Rpr/RepairRequestManHours/Save', model, function(r) {
+                                           if (!r.isSuccess) {
+                                               toastr.error(`${r.message}`, 'خطا');
+                                               return false;
+                                           }
+
+                                           toastr.success('نفر ساعت با موفقیت ثبت شد');
+                                           self.close();
+                                           page.close()
+                                       });
+
+                                       return false;
+                                   }
+                               },
+                               cancel: {
+                                   text: 'انصراف',
+                                   btnClass: 'btn-secondary'
+                               }
+                           },
+                           onContentReady: function () {
+                               var self = this;
+                               setTimeout(function () {
+                                   self.$body.find('select.select2-hidden-accessible').each(function() {
+                                       const $select = $$(this);
+                                       const currentData = $select.select2('data');
+                                       $select.select2('destroy');
+                                       $select.select2({
+                                           dropdownParent: self.$body,
+                                           width: '100%',
+                                           placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                       });
+                                       if (currentData && currentData.length > 0) {
+                                           $select.val($select.val()).trigger('change');
+                                       }
+                                   });
+                               }, 100);
+                           }
+                       });
+                   });
+               });
+               self.FormActionButtons.listManHours.onclick(function () {
+        debugger;
+        const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
+
+        if (!repairRequestId) {
+            toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را ذخیره کنید.');
+            return;
+        }
+
+        const url = `/Panel/Rpr/RepairRequestManHours/GetManHoursList?repairRequestId=${repairRequestId}`;
+        debugger;
+
+        $$.get(url, function(result) {
+
+            let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
+                ${result}
+            </div>`);
+
+            initPersionDatePicker(bodyCn);
+
+            $.confirm({
+                title: 'لیست نفر ساعت‌ها',
+                columnClass: 'col-md-8',
+                content: bodyCn,
+                rtl: true,
+                buttons: {
+                    close: {
+                        text: 'بستن',
+                        btnClass: 'btn-secondary'
+                    }
+                },
+                onContentReady: function () {
+                    var self = this;
+                    setTimeout(function () {
+                        self.$body.find('select.select2-hidden-accessible').each(function() {
+                            const $select = $$(this);
+                            const currentData = $select.select2('data');
                             $select.select2('destroy');
                             $select.select2({
                                 dropdownParent: self.$body,
@@ -914,465 +1368,49 @@ $(document).on('click', '[data-action="addNewContractor"]', function() {
         });
     });
 
-    $(document).on('click', '[data-action="editContractorBtn"]', function() {
-    var contractorId = $(this).data('id');
-    openContractorModal(contractorId);
-});
 
-$(document).on('click', '[data-action="deleteContractorBtn"]', function() {
-    var contractorId = $(this).data('id');
-    
-    Swal.fire({
-        title: 'آیا اطمینان دارید؟',
-        text: "این عملیات غیرقابل بازگشت است!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'بله، حذف شود',
-        cancelButtonText: 'انصراف'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            $.ajax({                    
-                url: `/Panel/Rpr/RepairRequest/DeleteContractor?id=${contractorId}`,
-                type: 'DELETE',
-                dataType: 'json',
-                success: function(response) {
-                    if (response && response.isSuccess === true) {
-                        toastr.success(response.message || 'رکورد با موفقیت حذف شد');
-                        refreshContractorTable();
-                    } else {
-                        var errorMsg = response?.data?.message || response?.message || 'خطا در حذف';
-                        toastr.error(errorMsg);
-                    }
-                },
-                error: function(xhr) {
-                    toastr.error('خطا در حذف رکورد');
-                }
+        $(document).ready(function() {
+
+
+            $('form-action-button[action-name="addRepairModal"]').on('click', function(e) {
+                e.preventDefault();
+                $('#addRepairModal').modal('show');
             });
+
+
+            $('form-action-button[action-name="confirmationModal"]').on('click', function(e) {
+                e.preventDefault();
+                $('#confirmationModal').modal('show');
+            });
+
+            $('#btnConfirm').on('click', function() {
+                $('#addRepairModal').modal('show');
+            });
+
+            $('#btnConfirm3').on('click', function() {
+                $('#confirmationModal').modal('show');
+            });
+        });
+
+        function savefn($btnAction) {
+            if (validateError($$('.card'))) { return; }
+            var model = $$('.card').dataBind();
+            const $btn = $(this.element).block();
+            $$.post('save',
+                model,
+                function (r) {
+                    $btn.block(false);
+                    if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+                    toastr.success('ذخیره سازی با موفقیت انجام شد .');
+                    $$('.card').dataBind(r.data);
+                    $btnAction.baseaction();
+                })
         }
-    });
-});
 
-    $(document).ready(function() {
-        var repairRequestId = $('[data-bind="id"]').val();
-        if (repairRequestId && repairRequestId !== '0') {
-            loadContractorList(repairRequestId);
-        }
-    });
-
-           self.FormActionButtons.addConsumableItems.onclick(function () {
-           const url = '/Panel/Rpr/RepairRequest/RepairRequestPartItems';
-           $$.get(url, function(result) {
-               let bodyCn = `<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">${result}</div>`;
-               $.confirm({
-                   title: 'اقلام مصرفی ',
-                   columnClass: 'col-md-10',
-                   content: bodyCn,
-                   rtl: true,
-                   buttons: {
-                       save: {
-                           text: 'ذخیره',
-                           btnClass: 'btn-success',
-                           action: function() {
-                               const $content = this.$content;
-
-                               if (validateError($content)) {
-                                   return false;
-                               }
-                               const self = this;
-                               return false;
-                           }
-                       },
-                       cancel: {
-                           text: 'انصراف',
-                           btnClass: 'btn-secondary'
-                       }
-                   },
-                   onContentReady: function () {
-                       var self = this;
-                       setTimeout(function () {
-                           self.$body.find('select.select2-hidden-accessible').each(function() {
-                               const $select = $$(this);
-                               const currentData = $select.select2('data');
-                               $select.select2('destroy');
-                               $select.select2({
-                                   dropdownParent: self.$body,
-                                   width: '100%',
-                                   placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                               });
-                               if (currentData && currentData.length > 0) {
-                                   $select.val($select.val()).trigger('change');
-                               }
-                           });
-                       }, 100);
-                   }
-               });
-           });
-       });
-           self.FormActionButtons.commentList.onclick(function  () {
-             debugger
-                  const repairRequestId = page.$pageEl.find("[data-bind='id']").val();               
-                   if(!repairRequestId ){
-                   toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
-                   return;
-                 }
-           
-            const url = `/Panel/Rpr/RepairRequest/GetRepairRequestComment?repairRequestId=${repairRequestId}`;
-           $$.get(url, function(result) {
-               
-        let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-           ${result}</div>`);
-           initPersionDatePicker(bodyCn);
-
-               $.confirm({
-                   title: 'لیست کامنت',
-                   columnClass: 'col-md-6',
-                   content: bodyCn,
-                   rtl: true,
-                   buttons: {
-                       cancel: {
-                           text: 'انصراف',
-                           btnClass: 'btn-secondary'
-                       }
-                   },
-                   onContentReady: function () {
-                       var self = this;
-                       setTimeout(function () {
-                           self.$body.find('select.select2-hidden-accessible').each(function() {
-                               const $select = $$(this);
-                               const currentData = $select.select2('data');
-                               $select.select2('destroy');
-                               $select.select2({
-                                   dropdownParent: self.$body,
-                                   width: '100%',
-                                   placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                               });
-                               if (currentData && currentData.length > 0) {
-                                   $select.val($select.val()).trigger('change');
-                               }
-                           });
-                       }, 100);
-                   }
-               });
-           });
-       });
-           self.FormActionButtons.addComments.onclick(function  () {
-                 debugger
-             const repairRequestId = page.$pageEl.find("[data-bind='id']").val();               
-             if(!repairRequestId ){
-             toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
-             return;
-            }
-               const url = `/Panel/Rpr/RepairRequestComment/AddRepairRequestComment?repairRequestId=${repairRequestId}`;
-               $$.get(url, function(result) {
-                     let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">${result}</div>`);
-                     initPersionDatePicker(bodyCn);
-                   $.confirm({
-                       title: 'افزودن کامنت',
-                       columnClass: 'col-md-4',
-                       content: bodyCn,
-                       rtl: true,
-                       buttons: {
-                           save: {
-                               text: 'ذخیره',
-                               btnClass: 'btn-success',
-                               action: function() {
-                                   const $content = this.$content;
-
-                                   if (validateError($content)) {
-                                       return false;
-                                   }
-                              
-                                   const model = $content.dataBind();
-                                   model.RepairRequestId = repairRequestId;                                   
-                                   const self = this;                                   
-
-                                   $$.post('/Panel/Rpr/RepairRequestComment/CreateRepairRequestComment', model, function(r) {
-                                       if (!r.isSuccess) {
-                                           toastr.error(`${r.message}`, 'خطا');
-                                           return false;
-                                       }
-
-                                       toastr.success('لینک با موفقیت ثبت شد');
-                                       self.close();
-                                       page.close()
-                                   });
-
-                                   return false;
-                               }
-                           },
-                           cancel: {
-                               text: 'انصراف',
-                               btnClass: 'btn-secondary'
-                           }
-                       },
-                       onContentReady: function () {
-                           var self = this;
-                           setTimeout(function () {
-                               self.$body.find('select.select2-hidden-accessible').each(function() {
-                                   const $select = $$(this);
-                                   const currentData = $select.select2('data');
-                                   $select.select2('destroy');
-                                   $select.select2({
-                                       dropdownParent: self.$body,
-                                       width: '100%',
-                                       placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                                   });
-                                   if (currentData && currentData.length > 0) {
-                                       $select.val($select.val()).trigger('change');
-                                   }
-                               });
-                           }, 100);
-                       }
-                   });
-               });
-           });
-           self.FormActionButtons.confirmDate.onclick(function  () {
-
-                      const repairRequestId = page.$pageEl.find("[data-bind='id']").val();               
-                       if(!repairRequestId ){
-                           toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
-                           return;
-                             }
-                 const url = `/Panel/Rpr/RepairRequestComment/ConfirmDate?repairRequestId=${repairRequestId}`;
-
-               $$.get(url, function(result) {
-                     let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-                        ${result}</div>`);
-                   initPersionDatePicker(bodyCn);
-                   $.confirm({
-                       title: ' تاریخ تایید ',
-                       columnClass: 'col-md-4',
-                       content: bodyCn,
-                       rtl: true,
-                       buttons: {
-                           save: {
-                               text: 'ذخیره',
-                               btnClass: 'btn-success',
-                               action: function() {
-                                   const $content = this.$content;
-
-                                   if (validateError($content)) {
-                                       return false;
-                                   }
-
-                                   const model = $content.dataBind();
-                                   model.RepairRequestId = repairRequestId;
-                                   model.id = repairRequestId;
-
-                                   const self = this;
-                                   debugger
-
-                                   $$.post('/Panel/Rpr/RepairRequest/Update', model, function(r) {
-                                       if (!r.isSuccess) {
-                                           toastr.error(`${r.message}`, 'خطا');
-                                           return false;
-                                       }
-
-                                       toastr.success('تاریخ با موفقیت ثبت شد');
-                                       self.close();
-                                       page.close()
-                                   });
-
-                                   return false;
-                               }
-                           },
-                           cancel: {
-                               text: 'انصراف',
-                               btnClass: 'btn-secondary'
-                           }
-                       },
-                       onContentReady: function () {
-                           var self = this;
-                           setTimeout(function () {
-                               self.$body.find('select.select2-hidden-accessible').each(function() {
-                                   const $select = $$(this);
-                                   const currentData = $select.select2('data');
-                                   $select.select2('destroy');
-                                   $select.select2({
-                                       dropdownParent: self.$body,
-                                       width: '100%',
-                                       placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                                   });
-                                   if (currentData && currentData.length > 0) {
-                                       $select.val($select.val()).trigger('change');
-                                   }
-                               });
-                           }, 100);
-                       }
-                   });
-               });
-           });
-           self.FormActionButtons.addManHours.onclick(function  () {
-                   debugger
-                  const repairRequestId = page.$pageEl.find("[data-bind='id']").val();               
-                     if(!repairRequestId ){
-                      toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را دخیره کنید.');
-                      return;
-                    }
-                  const url = `/Panel/Rpr/RepairRequestManHours/AddManHoursForm?repairRequestId=${repairRequestId}`;
-                  debugger
-
-               $$.get(url, function(result) {
-                     let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-                        ${result}</div>`);
-                        initPersionDatePicker(bodyCn);
-                   $.confirm({
-                       title: 'افزودن نفر ساعت',
-                       columnClass: 'col-md-4',
-                       content: bodyCn,
-                       rtl: true,
-                       buttons: {
-                           save: {
-                               text: 'ذخیره',
-                               btnClass: 'btn-success',
-                               action: function() {
-                                   const $content = this.$content;
-
-                                   if (validateError($content)) {
-                                       return false;
-                                   }
-
-                                   const model = $content.dataBind();
-                                   model.RepairRequestId = repairRequestId;
-                                   const self = this;
-                                   $$.post('/Panel/Rpr/RepairRequestManHours/Save', model, function(r) {
-                                       if (!r.isSuccess) {
-                                           toastr.error(`${r.message}`, 'خطا');
-                                           return false;
-                                       }
-
-                                       toastr.success('نفر ساعت با موفقیت ثبت شد');
-                                       self.close();
-                                       page.close()
-                                   });
-
-                                   return false;
-                               }
-                           },
-                           cancel: {
-                               text: 'انصراف',
-                               btnClass: 'btn-secondary'
-                           }
-                       },
-                       onContentReady: function () {
-                           var self = this;
-                           setTimeout(function () {
-                               self.$body.find('select.select2-hidden-accessible').each(function() {
-                                   const $select = $$(this);
-                                   const currentData = $select.select2('data');
-                                   $select.select2('destroy');
-                                   $select.select2({
-                                       dropdownParent: self.$body,
-                                       width: '100%',
-                                       placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                                   });
-                                   if (currentData && currentData.length > 0) {
-                                       $select.val($select.val()).trigger('change');
-                                   }
-                               });
-                           }, 100);
-                       }
-                   });
-               });
-           });
-           self.FormActionButtons.listManHours.onclick(function () {
-    debugger;
-    const repairRequestId = page.$pageEl.find("[data-bind='id']").val();
-    
-    if (!repairRequestId) {
-        toastr.error('لطفا ابتدا اقلام مربوط به تعمیرات را ذخیره کنید.');
-        return;
-    }
-    
-    const url = `/Panel/Rpr/RepairRequestManHours/GetManHoursList?repairRequestId=${repairRequestId}`;
-    debugger;
-
-    $$.get(url, function(result) {
-        
-        let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-            ${result}
-        </div>`);
-        
-        initPersionDatePicker(bodyCn);
-        
-        $.confirm({
-            title: 'لیست نفر ساعت‌ها',  
-            columnClass: 'col-md-8',
-            content: bodyCn,
-            rtl: true,
-            buttons: {
-                close: {
-                    text: 'بستن',
-                    btnClass: 'btn-secondary'
-                }
-            },
-            onContentReady: function () {
-                var self = this;
-                setTimeout(function () {
-                    self.$body.find('select.select2-hidden-accessible').each(function() {
-                        const $select = $$(this);
-                        const currentData = $select.select2('data');
-                        $select.select2('destroy');
-                        $select.select2({
-                            dropdownParent: self.$body,
-                            width: '100%',
-                            placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                        });
-                        if (currentData && currentData.length > 0) {
-                            $select.val($select.val()).trigger('change');
-                        }
-                    });
-                }, 100);
-            }
-        });
-    });
-});
-
-
-    $(document).ready(function() {
-
-
-        $('form-action-button[action-name="addRepairModal"]').on('click', function(e) {
-            e.preventDefault();
-            $('#addRepairModal').modal('show');
-        });
-
-
-        $('form-action-button[action-name="confirmationModal"]').on('click', function(e) {
-            e.preventDefault();
-            $('#confirmationModal').modal('show');
-        });
-
-        $('#btnConfirm').on('click', function() {
-            $('#addRepairModal').modal('show');
-        });
-
-        $('#btnConfirm3').on('click', function() {
-            $('#confirmationModal').modal('show');
-        });
-    });
-
-    function savefn($btnAction) {
-        if (validateError($$('.card'))) { return; }
-        var model = $$('.card').dataBind();
-        const $btn = $(this.element).block();
-        $$.post('save',
-            model,
-            function (r) {
-                $btn.block(false);
-                if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-                toastr.success('ذخیره سازی با موفقیت انجام شد .');
-                $$('.card').dataBind(r.data);
-                $btnAction.baseaction();
-            })
-    }
-
-    debugger
-    self.FormActionButtons.save.onclick(function () { savefn(this) })
-    // self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
-    self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+        debugger
+        self.FormActionButtons.save.onclick(function () { savefn(this) })
+        // self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+        self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 </script>
 
 
@@ -1380,11 +1418,11 @@ $(document).on('click', '[data-action="deleteContractorBtn"]', function() {
     #contractorTable td {
         vertical-align: middle;
     }
-    
+
     #contractorTable tbody tr:hover {
         background-color: #f5f5f5;
     }
-    
+
     .btn-icon {
         padding: 0.25rem 0.5rem;
         margin: 0 0.125rem;

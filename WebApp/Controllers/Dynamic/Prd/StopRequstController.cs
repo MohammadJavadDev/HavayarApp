@@ -153,11 +153,11 @@ namespace WebApp.Controllers.Dynamic
 			await unitOfWork.Repository<ProductionOrderItemComment>()
 		    .AddAsync(comment, cn);
 
-			unitOfWork.Repository<ProductionOrderItem>()
-		    .UpdateFieldsAsync(
-				model.ProductionOrderItemId,
-				c=>c.ProductionStatus
-				);
+			//unitOfWork.Repository<ProductionOrderItem>()
+		 //   .UpdateFieldsAsync(
+			//	model.ProductionOrderItemId,
+			//	c=>c.ProductionStatus
+			//	);
 
 		}
 	}

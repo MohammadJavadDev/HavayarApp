@@ -18,9 +18,9 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
-using RB.WebApp;
+ 
 using ReportBuilder.WebApp;
-using ReportBuilder.WebApp;
+ 
 using ReportBuilder.WebApp.Controllers;
 using Services;
 using Services.AccessServices;
@@ -31,6 +31,7 @@ using Services.InMemoryData;
 using Services.NotificationGroupServices;
 using Services.NotificationServices;
 using Services.NotifitactionBuilderServices;
+using Data.Actions;
  
 using Shared.Realtime.Options;
 using System.IO.Compression;
@@ -81,6 +82,10 @@ builder.Services.AddSingleton<IEnvironmentService, EnvironmentService>();
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
+
+builder.Services.AddEntityActions(
+	typeof(Program).Assembly
+	);
 
 builder.Services.AddScoped(typeof(INotificationService), typeof(NotificationService));
 

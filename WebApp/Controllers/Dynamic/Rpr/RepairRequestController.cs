@@ -7,6 +7,7 @@ using Entities.Base.DataTable;
 using WebFramework.Filtters;
 using WebFramework.Page;
 using Entities.App.Prp;
+using Entities.App.Inv;
 
 namespace WebApp.Controllers.Dynamic.Rpr
 {
@@ -284,7 +285,7 @@ namespace WebApp.Controllers.Dynamic.Rpr
 
         [HttpGet("[action]")]
         public IActionResult ShowPartFractionForm(CancellationToken cancellationToken)
-        {            
+        {
             return PartialView(@"\Views\Panel\Rpr\RepairRequest\PartFraction\Edit.cshtml");
         }
 
@@ -295,6 +296,77 @@ namespace WebApp.Controllers.Dynamic.Rpr
             var entity = await unitOfWork.Repository<RepairRequestPartFraction>().SaveAsync(partFraction, cn, true);
             return Ok(entity);
         }
+
+
+        [HttpPost("[action]")]
+        [ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
+        public async Task<IActionResult> AddContractor([FromBody] Contractor contractor, CancellationToken cn)
+        {
+            var entity = await unitOfWork.Repository<Contractor>().SaveAsync(contractor, cn, true);
+            return Ok(entity);
+        }
+
+
+        [HttpPost("[action]")]
+        [ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
+        public async Task<IActionResult> AddPart([FromBody] Part part, CancellationToken cn)
+        {
+            var entity = await unitOfWork.Repository<Part>().SaveAsync(part, cn, true);
+            return Ok(entity);
+        }
+
+
+        //[HttpGet("GetProductsByCustomerId/{customerId}")]
+        //public async Task<IActionResult> GetProductsByCustomerId(int customerId, [FromQuery] bool onlyApprovedSaleOrder = false)
+        //{
+        //    try
+        //    {
+        //        var accCtgrys = new List<int?> { 4, 8, 9, 10 };
+
+                
+        //        var query = unitOfWork.Repository<OrderDetail>().Entities.AsNoTracking()
+        //            .Where(p => (p.Sale_Order.CustomerAddressId == customerId || p.Sale_OrderDetail_Serial.Any(sod => sod.NewCustomer_FK == customerId))
+        //                        && (accCtgrys.Contains(p.Part.AccCtgryRef) || p.Inv_Part.Part_Code.StartsWith("18")));
+
+                
+        //        if (onlyApprovedSaleOrder)
+        //        {
+        //            query = query.Where(p => p.Sale_Order.Status_FK == 93);
+        //        }
+
+                
+        //        query = query.Where(p => p.Inv_Part.PartType_Fk == 8 || p.Inv_Part.PartType_Fk == 9);
+
+                
+        //        var rawData = await query
+        //            .Select(p => new
+        //            {
+        //                p.OrderDetail_ID,
+        //                p.Inv_Part.Part_ID,
+        //                p.Inv_Part.Part_Code,
+        //                p.Inv_Part.Part_Name,
+        //                Serials = p.Sale_OrderDetail_Serial.Select(s => s.Serial).ToList(),
+        //                VchDate = p.Sale_Order.VchDate_Shamsi
+        //            })
+        //            .ToListAsync();
+
+                
+        //        var result = rawData.Select(p => new
+        //        {
+        //            Id = p.OrderDetail_ID,
+        //            Code = p.Part_ID.ToString(),
+        //            Text = $"{p.Part_Code} | {p.Part_Name} | {(p.Serials.Any() ? string.Join(",", p.Serials) : "بدون سریال")} | ت خ: {p.VchDate}",
+        //            ExtraData = $"{p.Part_Code}|{p.Part_Name}"
+        //        }).ToList();
+
+        //        return Ok(result);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, "Internal Server Error");
+        //    }
+        //}
+
 
     }
 }

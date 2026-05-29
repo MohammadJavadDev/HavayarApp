@@ -1,10 +1,5 @@
-@using Entities.App.Bom;
-@using Entities.App.FIN
-@using Entities.App.Gnr
 @using Entities.App.Inv
 @using Entities.App.Prp
-@using Entities.App.SLS
-@using Entities.Auth
 @using WebFramework.TagHelpers;
 @model RepairRequestContractor
 
@@ -14,6 +9,10 @@
         <div class='row '>
             <div class="col-md-6">
                 <label>پیمانکار</label>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addContractorModal">
+                    <i class="fa fa-plus"></i>
+                </button>
+
                 @(Html.EntitySelector<Contractor>(
                                 "ContractorSelector",
                                 c => c.IsActive == Entities.Base.IsActiveEnum.Active,
@@ -26,8 +25,28 @@
                                 ))
             </div>
 
+            <div class="modal fade" id="addContractorModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header"><h5 class="modal-title">افزودن پیمانکار جدید</h5></div>
+                        <div class="modal-body">
+                            <input type="text" id="newContractorTitle" class="form-control" placeholder="عنوان پیمانکار را وارد کنید" />
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" onclick="saveContractor()">ذخیره</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
             <div class="col-md-6">
                 <label>نام قطعه ارسالی</label>
+
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addPartModal">
+                    <i class="fa fa-plus"></i>
+                </button>
                 @(Html.EntitySelector<Part>(
                                 "PartSelector",
                                 c => c.IsActive == Entities.Base.IsActiveEnum.Active,
@@ -39,6 +58,22 @@
                                 Model?.PartId.ToString()
                                 ))
             </div>
+
+            <div class="modal fade" id="addPartModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header"><h5 class="modal-title">نام قطعه ارسالی جدید</h5></div>
+                        <div class="modal-body">
+                            <input type="text" id="newPartTitle" class="form-control" placeholder="عنوان قطعه ارسالی را وارد کنید" />
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-primary" onclick="savePart()">ذخیره</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 
             <div class='col-md-6'>
                 <label class=''>
@@ -62,7 +97,11 @@
                 <label class=''>
                     مبلغ تعمیر
                 </label>
-                <input type="text" class="form-control" data-bind="cost" value="@Model?.Cost" />
+                <input type="text"
+                       class="form-control numeric-input"
+                       onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
+                       data-bind="textInput: cost"
+                       value="@Model?.Cost" />
             </div>
 
             <div class='col-md-6'>
@@ -120,3 +159,73 @@
         <span>@Model?.ModifiedDateShamsiDateTime</span>
     </div>
 </div>
+
+<script>
+
+        function saveContractor() {
+        var title = $('#newContractorTitle').val();
+        if (!title) { alert("لطفا عنوان پیمانکار را وارد کنید"); return; }
+
+        $.ajax({
+            url: '/Panel/Rpr/RepairRequest/AddContractor',
+            type: 'POST',
+            data: JSON.stringify({ Title: title }),
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (response) {
+                $('#addContractorModal').modal('hide');
+                $('#newContractorTitle').val('');
+                location.reload();
+            },
+            error: function (xhr, status, error) {
+                console.error("Error details:", xhr.responseText);
+                alert("خطا در ثبت پیمانکار: " + xhr.statusText);
+            }
+        });
+    }
+
+      function savePart() {
+        var title = $('#newPartTitle').val();
+        if (!title) { alert("لطفا عنوان قطعه ارسالی را وارد کنید"); return; }
+
+        $.ajax({
+            url: '/Panel/Rpr/RepairRequest/AddPart',
+            type: 'POST',
+            data: JSON.stringify({ Name: title }),
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            success: function (response) {
+                $('#addContractorModal').modal('hide');
+                $('#newPartTitle').val('');
+                location.reload();
+            },
+            error: function (xhr, status, error) {
+                console.error("Error details:", xhr.responseText);
+                alert("خطا در ثبت قطعه ارسالی: " + xhr.statusText);
+            }
+        });
+    }
+
+    function addCommas(n) {
+        if (!n) return "";
+        n = n.toString().replace(/[^\d]/g, "");
+        return n.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    $(document).ready(function () {
+        $('.numeric-input').each(function () {
+            var raw = $(this).val();
+            console.log("Initial value:", raw);
+            $(this).val(addCommas(raw));
+        });
+
+        $(document).on('input', '.numeric-input', function () {
+            var caretPos = this.selectionStart;
+            var raw = $(this).value || $(this).val();
+            raw = raw.replace(/,/g, "");
+            var formatted = addCommas(raw);
+            $(this).val(formatted);
+            this.setSelectionRange(formatted.length, formatted.length);
+        });
+    });
+</script>

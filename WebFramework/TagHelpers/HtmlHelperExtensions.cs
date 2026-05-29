@@ -67,6 +67,20 @@ namespace WebFramework.TagHelpers
 			cleanSql = SqlUtils.InjectIdIfMissing(cleanSql, hasId, out _);
 			if (!hasId) projectionProps.Insert(0, "Id");
 
+			if (searchColumnInfo.Any())
+			{
+				var missingSearchCols = searchColumnInfo
+				    .Where(sc => !projectionProps.Contains(sc.SqlAlias, StringComparer.OrdinalIgnoreCase))
+				    .ToList();
+
+				if (missingSearchCols.Any())
+				{
+					var (injectedSql, injectedCols) = InjectMissingSearchColumns(cleanSql, missingSearchCols);
+					cleanSql = injectedSql;
+					projectionProps.AddRange(injectedCols);
+				}
+			}
+
 			var definition = new SelectorDefinition
 			{
 				Sql = cleanSql,
@@ -231,6 +245,43 @@ namespace WebFramework.TagHelpers
 			d.InnerHtml.AppendHtml(c); d.InnerHtml.AppendHtml(a);
 			return d;
 		}
+
+		private static (string cleanSql, List<string> addedCols) InjectMissingSearchColumns(
+		    string cleanSql,
+		    List<SearchColumnInfo> missingCols)
+				{
+					var addedCols = new List<string>();
+
+					// navigation property که در projection نیست → خطای واضح
+					var navMissing = missingCols.Where(c => c.ColumnName.Contains('.')).ToList();
+					if (navMissing.Any())
+						throw new InvalidOperationException(
+						    $"ستون‌های جستجو از navigation property باید در projection هم وجود داشته باشند. " +
+						    $"این موارد را به projection اضافه کنید: " +
+						    $"{string.Join(", ", navMissing.Select(c => c.ColumnName))}");
+
+					// استخراج table alias از اولین ستون در SELECT — مثلاً [u] از SELECT [u].[Id]
+					var aliasMatch = Regex.Match(cleanSql, @"SELECT\s+\[(\w+)\]\.", RegexOptions.IgnoreCase);
+					if (!aliasMatch.Success) return (cleanSql, addedCols);
+
+					string tableAlias = aliasMatch.Groups[1].Value;
+
+					// ساخت رشته injection: , [u].[Username] AS [Username]
+					var injection = string.Concat(missingCols.Select(c =>
+					    $", [{tableAlias}].[{c.ColumnName}] AS [{c.SqlAlias}]"));
+
+					// درج قبل از FROM
+					var fromMatch = Regex.Match(cleanSql, @"\r?\nFROM\s+", RegexOptions.IgnoreCase);
+					if (!fromMatch.Success)
+						fromMatch = Regex.Match(cleanSql, @"\sFROM\s+\[", RegexOptions.IgnoreCase);
+
+					if (!fromMatch.Success) return (cleanSql, addedCols);
+
+					cleanSql = cleanSql.Insert(fromMatch.Index, injection);
+					addedCols.AddRange(missingCols.Select(c => c.SqlAlias));
+
+					return (cleanSql, addedCols);
+				}
 
 		/// <summary>
 		/// فقط برای string ها predicate می‌سازد (برای تولید SQL اولیه)

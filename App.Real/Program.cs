@@ -21,6 +21,7 @@ using System.Security.Claims;
 using System.Text;
 using WebFramework.Initializes;
 using Z.EntityFramework.Extensions;
+using Data.Actions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -110,6 +111,10 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
+
+builder.Services.AddEntityActions(
+	typeof(Program).Assembly
+	);
 
 
 builder.Services.AddScoped<IUserService, UserService>();
