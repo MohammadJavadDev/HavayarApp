@@ -83,3 +83,5 @@
 /Infrastructure/bin/Release/net10.0
 /Shared/bin/Release/net10.0
 /WebApp/bin/Release/net10.0
+/$tf
+*.rar
