@@ -1,0 +1,24 @@
+﻿@using Entities.App.Edms;
+@model ProjectAttachment
+<div class="entity-item">
+	<input class='form-control' type="hidden" data-bind='projectAttachments.id' value='@Model?.Id' />
+	<div class='col-md-3'>
+		<label class=''>نوع مدرک</label>
+		<select class='form-control' data-bind='projectAttachments.type' asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectAttachmentTypeEnum))">
+		</select>
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+	<div class="col-md-3">
+		<fileuploader bind="projectAttachments.attachmentId" file-id="@Model?.AttachmentId" file-entity="@Model?.Attachment"
+				    Label="پیوست" entity-type="@typeof(ProjectAttachment).FullName" entity-prop-name="Attachment" max-file-size="10"
+				    accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+	</div>
+
+	<div class='col-md-3'>
+		<label class=''>توضیحات</label>
+		<input class='form-control' data-bind='projectAttachments.comment' value='@Model?.Comment' />
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+</div>

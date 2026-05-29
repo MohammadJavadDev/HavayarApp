@@ -1,16 +1,13 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿ 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.StaticFiles;
-using NUglify;
-using NUglify.JavaScript;
-using WebFramework.Filtters;
-using static Stimulsoft.Report.StiOptions;
+using Microsoft.AspNetCore.Mvc.Rendering;
+ 
 
 namespace WebApp.Controllers
 {
 	public class HomeController(IWebHostEnvironment _webHostEnvironment) : ControllerBase
 	{
-		 
+	 
 
 		//private string GetContentType(string path)
 		//{
@@ -130,7 +127,7 @@ namespace WebApp.Controllers
 		//	}
 
 
-			  
+
 
 		//	try
 		//	{

@@ -43,7 +43,7 @@ namespace WebApp.Controllers.SystemControllers
 		{
 			if (request == null)
 				return Ok(new { success = false, message = "داده نامعتبر" });
-			if (!HasRole("admin"))
+			if (!CurrentUserHasRole("admin"))
 				return Ok(new { success = false, message = "عدم دسترسی" });
 			var result = await _notificationGroupService.RemoveMemberFromGroupAsync(request.GroupCode, request.UserId);
 			return Ok(new { success = result, message = result ? "عضو با موفقیت حذف شد" : "خطا در حذف عضو" });

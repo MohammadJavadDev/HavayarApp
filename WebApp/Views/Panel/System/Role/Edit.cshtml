@@ -1,50 +1,55 @@
 @using Common.Attributes
 @using Common.Auth.Enums
 @using Data.Repositories
+@using Data.Services.QueryBuilderServices
 @using Entities.Auth
 @using ReportBuilder.Services.Contracts
+@using Services.ImportDefinitionServices
 @model Entities.Auth.Role
 @inject IReportBuilderService reportBuilderService
-@inject IDataTableProfileService _dataTableProfileService
+@inject IQueryService _queryService
+@inject IImportRepository _importRepository
 @{
 
-  
+     var accessControllers = (List<AccessController>)ViewBag.ListEndPoints;
 
-    var accessControllers = (List<AccessController>)ViewBag.ListEndPoints;
+     // var reports = reportBuilderService.GetListReports();
 
-    // var reports = reportBuilderService.GetListReports();
+     if (accessControllers.Any(c => c.Id == 564000))
+     {
+          // accessControllers.FirstOrDefault(c => c.Id == 564000).Actions = reports.Select(c => new AccessAction()
+          //         {
+          //             Title = c.Title,
+          //             Name = "Rep" + c.Title,
+          //             Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
+          //             ActionAccessType = ActionAccessType.View
+          //         }).ToList();
+     }
+     else
+     {
+          // var newAccessController = new AccessController()
+          //         {
+          //             Title = "گزارشات",
+          //             Name = "Reports",
+          //             Id = 564000,
+          //             Actions = reports.Select(c => new AccessAction()
+          //             {
+          //                 Title = c.Title,
+          //                 Name = "Rep" + c.Title,
+          //                 Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
+          //                 ActionAccessType = ActionAccessType.View
+          //             }).ToList()
 
-    if (accessControllers.Any(c => c.Id == 564000))
-    {
-        // accessControllers.FirstOrDefault(c => c.Id == 564000).Actions = reports.Select(c => new AccessAction()
-        //         {
-        //             Title = c.Title,
-        //             Name = "Rep" + c.Title,
-        //             Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
-        //             ActionAccessType = ActionAccessType.View
-        //         }).ToList();
-    }
-    else
-    {
-        // var newAccessController = new AccessController()
-        //         {
-        //             Title = "گزارشات",
-        //             Name = "Reports",
-        //             Id = 564000,
-        //             Actions = reports.Select(c => new AccessAction()
-        //             {
-        //                 Title = c.Title,
-        //                 Name = "Rep" + c.Title,
-        //                 Path = $"/System/ReportBuilder/ViewReport/{c.Id}",
-        //                 ActionAccessType = ActionAccessType.View
-        //             }).ToList()
+          //         };
+          // accessControllers.Add(newAccessController);
+     }
 
-        //         };
-        // accessControllers.Add(newAccessController);
-    }
+     var allDataProfiles = await _queryService.GetAllReportsAsync();
 
-  
-     
+     var allImports = _importRepository.GetAllDefinitions();
+
+     var importsWithoutFullEntityName = allImports.Where(c => !accessControllers.Any(z => c.FullNameEntity != null && c.FullNameEntity.ToLower() == (z?.EntityType?.FullName.ToLower() ?? z.Name.ToLower())));
+
 }
 
 
@@ -58,7 +63,7 @@
         <div class="col-md-6">
             <label> نام</label>
             <input type="hidden" class="form-control" value="@Model?.Id" data-bind="id" />
-            <input class="form-control" value="@Model?.Name" data-bind="name" data-invalidMessage='فقط حروف لاتین' data-inputmask="'regex':'^[A-Za-z][A-Za-z0-9]*$' , 'placeholder' : ''" />
+            <input class="form-control" value="@Model?.Name" data-bind="name" data-invalidMessage='فقط حروف لاتین' data-inputmask="'regex':'^[A-Za-z][A-Za-z0-9._]*$' , 'placeholder' : ''" />
         </div>
         <div class="col-md-6">
             <label> عنوان</label>
@@ -89,9 +94,14 @@
 			<div class="col-md-12 pe-md-10 mb-10 mb-md-0">
 
                 @foreach (var controller in accessControllers)
-                { var dataProfiles = _dataTableProfileService.GetDataTableProfileListByEntityName(controller?.EntityType?.FullName ?? controller.Name);
+                         {
+
+                              var importData = allImports.Where(c => c.FullNameEntity != null && c.FullNameEntity.ToLower() == (controller?.EntityType?.FullName.ToLower() ?? controller.Name.ToLower()));
                                
-                     
+                              var dataProfiles = allDataProfiles.Where(c => c.EntityFullName != null && c.EntityFullName.ToLower() == (controller?.EntityType?.FullName.ToLower() ?? controller.Name.ToLower()));
+                              
+                               
+                                
 
                     <div class="m-0" data-section="controller" data-controllertitle="@controller.DisplayName">
 
@@ -123,7 +133,10 @@
                                               var path = action.Path;
                                     <div class="col-md-3 mb-3">
                                         <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
-                                                            <input class="form-check-input" type="checkbox" value="" data-accessActionType="@((int)action.ActionAccessType)" data-accessesActionItemtype="@((int)action.ActionAccessItemType)" id="@path" @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                            <input class="form-check-input" type="checkbox" value="" data-accessActionType="@((int)action.ActionAccessType)" data-accessesActionItemtype="@((int)action.ActionAccessItemType)" 
+                                                            id="@path" 
+                                                            
+                                                            @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
                                                                    data-entityname="@(controller?.EntityType?.FullName ?? controller.Name)" />
                                             <label class="form-check-label" for="path">
                                                                  @action.DisplayName
@@ -139,21 +152,24 @@
                             {
                                 <span>صفحات</span>
                                 <div class="separator separator-dashed mb-4"></div>
-                                @foreach (var action in controller.Actions.Where(c => c.ActionAccessType == ActionAccessType.View).ToArray())
-                                {
-                                    var path = action.Path;
-                                    <div class="col-md-3 mb-3">
-                                        <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
-                                                            <input class="form-check-input" type="checkbox" value="" data-accessActionType="@((int)action.ActionAccessType)" data-accessesActionItemtype="@((int)@action.ActionAccessItemType)" id="@path" @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
-                                                                   data-entityname="@(controller?.EntityType?.FullName ?? controller.Name)" />
-                                            <label class="form-check-label" for="path">
-                                                                 @action.DisplayName
-                                            </label>
-                                        </div>
+                                          @foreach (var action in controller.Actions.Where(c => c.ActionAccessType == ActionAccessType.View).ToArray())
+                                          {
 
-                                    </div>
-                                }
-                            }
+                                               
+
+                                              var path = action.Path;
+                                              <div class="col-md-3 mb-3">
+                                                  <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
+                                                                      <input class="form-check-input" type="checkbox" value="" data-accessActionType="@((int)action.ActionAccessType)" data-accessesActionItemtype="@((int)@action.ActionAccessItemType)" id="@path" @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                                             data-entityname="@(controller?.EntityType?.FullName ?? controller.Name)" />
+                                                      <label class="form-check-label" for="path">
+                                                                           @action.DisplayName
+                                                      </label>
+                                                  </div>
+
+                                              </div>
+                                          }
+                                      }
 
                                         @if (dataProfiles.Any())
                                         {
@@ -161,10 +177,39 @@
                                              <div class="separator separator-dashed mb-4"></div>
                                              @foreach (var action in dataProfiles)
                                              {
-                                                  var path = action.Id.ToString();
+                                                  var path = "dataProfile_"+action.Id.ToString();
                                                   <div class="col-md-3 mb-3">
                                                        <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
-                                                            <input class="form-check-input" type="checkbox" data-accessActionType="@((int)ActionAccessType.DataProfile)" data-accessesActionItemtype="@((int)@ActionAccessItemType.DataProfile)" value="" id="@path" @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                            <input class="form-check-input" type="checkbox" data-accessActionType="@((int)ActionAccessType.DataProfile)" data-accessesActionItemtype="@((int)@ActionAccessItemType.DataProfile)" value="" 
+                                                            id="@path"
+                                                            rowId="@action.Id"
+                                                            @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                                   data-entityname="@(controller?.EntityType?.FullName ?? controller.Name)" />
+                                                            <label class="form-check-label" for="path">
+                                                                 @action.Title
+                                                            </label>
+                                                       </div>
+
+                                                  </div>
+                                             }
+                                        }
+
+                                        @if (importData.Any())
+                                        {
+                                             <span>ورود اطلاعات </span>
+                                             <div class="separator separator-dashed mb-4"></div>
+                                             @foreach (var action in importData)
+                                             {
+                                                  var path = "importData_" + action.Id.ToString();
+                                                  <div class="col-md-3 mb-3">
+                                                       <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                            data-accessActionType="@((int)ActionAccessType.ImportData)" 
+                                                            data-accessesActionItemtype="@((int)@ActionAccessItemType.DataProfile)" 
+                                                            value="" 
+                                                            id="@path"
+                                                            rowId="@action.Id"
+                                                            @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
                                                                    data-entityname="@(controller?.EntityType?.FullName ?? controller.Name)" />
                                                             <label class="form-check-label" for="path">
                                                                  @action.Title
@@ -182,7 +227,35 @@
 			 
 				</div>
 		        }
-			</div>
+		          <div class="row">
+
+                                 @if (importsWithoutFullEntityName.Any())
+                         {
+                              <span>ورود اطلاعات </span>
+                              <div class="separator separator-dashed mb-4"></div>
+                                   @foreach (var action in importsWithoutFullEntityName)
+                              {
+                                   var path = "importData_"+action.Id.ToString();
+                                   <div class="col-md-3 mb-3">
+                                        <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
+                                             <input class="form-check-input" type="checkbox" 
+                                             data-accessActionType="@((int)ActionAccessType.ImportData)"
+                                             data-accessesActionItemtype="@((int)@ActionAccessItemType.DataProfile)"
+                                             value="" 
+                                             id="@path"
+                                             rowId="@action.Id"
+                                             @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                    data-entityname="@action.FullNameEntity" />
+                                             <label class="form-check-label" for="path">
+                                                       @action.Title (@action.FullNameEntity)
+                                             </label>
+                                        </div>
+
+                                   </div>
+                              }
+                              }
+                         </div>
+                 </div>
               
         </div>
           </div>
@@ -346,7 +419,7 @@
          });
 
      $$("#save").click(function () {
-        debugger
+         
         var model = $$(".card").dataBind();
 
         model.RoleAccesses = $$(".form-check-input:checked")
@@ -357,13 +430,15 @@
                  var entityname = $(c).data("entityname");
                 return {
                 path:$(c).attr("id"),
+                rowId:$(c).attr("rowId"),
                 actionAccessType ,
                 actionAccessItemType,
                 entityname
                 };
             }).get();
-            debugger;
+         let $btn=  $(this).block();
         $$.post("/panel/SaveRole", model, function (r) {
+             $btn.block(false);
             if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
             toastr.success("ذخیره سازی با موفقیت انجام شد .");

@@ -10,6 +10,10 @@ namespace Common.Utilities
     {
         public static string JsonSerialize(this object? obj , bool notCamelCase = false)
         {
+               if (obj == null)
+               {
+                    return "";
+               }
             if (notCamelCase == false)
             {
                 DefaultContractResolver contractResolver = new DefaultContractResolver
@@ -34,6 +38,11 @@ namespace Common.Utilities
 
         public static T? JsonDeserialize<T>(this string? obj)
         {
+               if(obj == null)
+               {
+                    return default(T?);
+               }
+
             return JsonConvert.DeserializeObject<T>(obj);
         }
 

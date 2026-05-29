@@ -19,7 +19,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 {
 	protected readonly ApplicationDbContext DbContext;
 	private readonly ISdk? sdk;
-	private readonly IDataTableQueryBuilder? _dataTableQuery;
+ 
 	private readonly IAuditService _auditService;
 
 	public  DbSet<TEntity> Entities { get; }
@@ -28,12 +28,11 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 
 	public string? ConnectionString { get; set; }
 
-	public Repository(ApplicationDbContext dbContext, ISdk? sdk, IDataTableQueryBuilder dataTableQuery, IAuditService auditService)
+	public Repository(ApplicationDbContext dbContext, ISdk? sdk,   IAuditService auditService)
 	{
 		DbContext = dbContext;
 		Entities = DbContext.Set<TEntity>();
 		this.sdk = sdk;
-		_dataTableQuery = dataTableQuery;
 		_auditService = auditService;
 		ConnectionString = dbContext.Database.GetConnectionString();
 		 
@@ -45,13 +44,17 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 	private void SetEntityDates(TEntity entity, bool isNew)
 	{
 		var now = DateTime.Now;
+ 
 		entity.ModifiedDateMiladiDateTime = now;
 		entity.ModifiedDateShamsiDateTime = now.ToShamsiDateTime();
 
 		if (isNew)
 		{
-			entity.CreatedOnMiladiDateTime = now;
-			entity.CreatedOnShamsiDateTime = now.ToShamsiDateTime();
+			if (!entity.CreatedOnMiladiDateTime.HasValue)
+				entity.CreatedOnMiladiDateTime = now;
+
+			if (!entity.CreatedOnShamsiDateTime.HasValue())
+				entity.CreatedOnShamsiDateTime = now.ToShamsiDateTime();
 		}
 	}
 
@@ -65,8 +68,11 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			if (isNew)
 			{
 				entity.IsActive = IsActiveEnum.Active;
+				if(!entity.CreatedById.HasValue)
 				entity.CreatedById = sdk.CurrentUser.Id;
-				entity.CreatedByName = sdk.CurrentUser.FullName;
+
+				if (!entity.CreatedByName.HasValue())
+					entity.CreatedByName = sdk.CurrentUser.FullName;
 			}
 		}
 	}
@@ -422,6 +428,15 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return await Entities.Where(predicate).ExecuteDeleteAsync(cancellationToken);
 	}
 
+	/// <summary>
+	/// حذف با شرط (بهینه شده)
+	/// </summary>
+	public virtual int DeleteWhere(
+		Expression<Func<TEntity, bool>> predicate)
+	{
+		return  Entities.Where(predicate).ExecuteDelete();
+	}
+
 	#endregion
 
 	#region Optimized Execute Query Methods
@@ -690,77 +705,83 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 
 	public virtual async Task<DataTableResponse> FetchDataAsync(DataTableRequest request, CancellationToken cn)
 	{
-		if (!request.TableName.HasValue(true))
-		{
-			request.TableName = typeof(TEntity).Name;
-		}
 
-		var resQuery = _dataTableQuery!.BuildSqlServerQuery(request);
 
-		var itemsTask = ExecuteQueryAsync(resQuery.MainQuery, null, cn);
-		var recordsFilteredTask = ExecuteQueryAsync(resQuery.CountFiltterdQuery, null, cn);
-		var recordsTotalTask = ExecuteQueryAsync(resQuery.CountTotalQuery, null, cn);
+		throw new NotImplementedException();
 
-		await Task.WhenAll(itemsTask, recordsFilteredTask, recordsTotalTask);
+		//if (!request.TableName.HasValue(true))
+		//{
+		//	request.TableName = typeof(TEntity).Name;
+		//}
 
-		var items = await itemsTask;
-		var recordsFilteredResult = await recordsFilteredTask;
-		var recordsTotalResult = await recordsTotalTask;
+		//var resQuery = _dataTableQuery!.BuildSqlServerQuery(request);
 
-		var recordsFiltered = recordsFilteredResult.First()["TotalCount"];
-		var recordsTotal = recordsTotalResult.First()["TotalCount"];
+		//var itemsTask = ExecuteQueryAsync(resQuery.MainQuery, null, cn);
+		//var recordsFilteredTask = ExecuteQueryAsync(resQuery.CountFiltterdQuery, null, cn);
+		//var recordsTotalTask = ExecuteQueryAsync(resQuery.CountTotalQuery, null, cn);
 
-		return new DataTableResponse
-		{
-			Data = items,
-			Draw = request.draw,
-			RecordsFiltered = recordsFiltered,
-			RecordsTotal = recordsTotal
-		};
+		//await Task.WhenAll(itemsTask, recordsFilteredTask, recordsTotalTask);
+
+		//var items = await itemsTask;
+		//var recordsFilteredResult = await recordsFilteredTask;
+		//var recordsTotalResult = await recordsTotalTask;
+
+		//var recordsFiltered = recordsFilteredResult.First()["TotalCount"];
+		//var recordsTotal = recordsTotalResult.First()["TotalCount"];
+
+		//return new DataTableResponse
+		//{
+		//	Data = items,
+		//	Draw = request.draw,
+		//	RecordsFiltered = recordsFiltered,
+		//	RecordsTotal = recordsTotal
+		//};
 	}
 
 	public virtual async Task ExportLargeDataToExcelAsync(DataTableRequest request, Stream outputStream, string licensePath)
 	{
-		var workbook = new Workbook();
+		throw new NotImplementedException();
 
-		if (!workbook.IsLicensed)
-			new License().SetLicense(licensePath);
+		//var workbook = new Workbook();
 
-		if (!request.TableName.HasValue(true))
-		{
-			request.TableName = typeof(TEntity).Name;
-		}
+		//if (!workbook.IsLicensed)
+		//	new License().SetLicense(licensePath);
 
-		var resQuery = _dataTableQuery!.BuildSqlServerQuery(request);
-		var query = resQuery.WithoutPagnationQuery;
+		//if (!request.TableName.HasValue(true))
+		//{
+		//	request.TableName = typeof(TEntity).Name;
+		//}
 
-		var worksheet = workbook.Worksheets[0];
-		worksheet.Name = "LargeData";
+		//var resQuery = _dataTableQuery!.BuildSqlServerQuery(request);
+		//var query = resQuery.WithoutPagnationQuery;
 
-		var firstChunk = ExecuteQuery(query);
-		if (firstChunk == null || !firstChunk.Any())
-		{
-			return;
-		}
+		//var worksheet = workbook.Worksheets[0];
+		//worksheet.Name = "LargeData";
 
-		var headers = firstChunk.First().Keys.ToList();
-		if (request.columns != null)
-		{
-			for (int i = 0; i < headers.Count && i < request.columns.Count; i++)
-			{
-				var header = request.columns[i]?.title ?? string.Empty;
-				worksheet.Cells[0, i].PutValue(header);
-			}
-		}
+		//var firstChunk = ExecuteQuery(query);
+		//if (firstChunk == null || !firstChunk.Any())
+		//{
+		//	return;
+		//}
 
-		await AddChunkDataToWorksheet(worksheet, firstChunk, 1, request);
+		//var headers = firstChunk.First().Keys.ToList();
+		//if (request.columns != null)
+		//{
+		//	for (int i = 0; i < headers.Count && i < request.columns.Count; i++)
+		//	{
+		//		var header = request.columns[i]?.title ?? string.Empty;
+		//		worksheet.Cells[0, i].PutValue(header);
+		//	}
+		//}
 
-		worksheet.AutoFitColumns();
+		//await AddChunkDataToWorksheet(worksheet, firstChunk, 1, request);
 
-		if (!workbook.IsLicensed)
-			new License().SetLicense(licensePath);
+		//worksheet.AutoFitColumns();
 
-		workbook.Save(outputStream, SaveFormat.Xlsx);
+		//if (!workbook.IsLicensed)
+		//	new License().SetLicense(licensePath);
+
+		//workbook.Save(outputStream, SaveFormat.Xlsx);
 	}
 
 	private Task AddChunkDataToWorksheet(Worksheet worksheet, IEnumerable<Dictionary<string, object>> chunkData, int startRow, DataTableRequest request)

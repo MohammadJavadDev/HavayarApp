@@ -34,6 +34,7 @@ namespace WebFramework.TagHelpers
 			bool multiSelect = false,
 			bool disabled = false,
 			bool _readonly = false,
+			string? template= null ,
 			string placeholder = "جستجو...",
 			int pageSize = 20) where T : class
 		{
@@ -52,12 +53,7 @@ namespace WebFramework.TagHelpers
 			var searchColumnInfo = new List<SearchColumnInfo>();
 			if (searchColumns != null)
 			{
-				searchColumnInfo = GetSearchColumnInfo<T>(searchColumns);
-
-				// اضافه کردن شرط جستجو برای فقط string ها (برای تولید SQL اولیه)
-				var stringOnlyPredicate = BuildSearchPredicateStringOnly<T>(searchColumns, SEARCH_TOKEN);
-				if (stringOnlyPredicate != null)
-					query = query.Where(stringOnlyPredicate);
+				searchColumnInfo = GetSearchColumnInfo<T>(searchColumns, projection);
 			}
 
 			// 3. تولید SQL (استفاده از SqlUtils)
@@ -76,7 +72,8 @@ namespace WebFramework.TagHelpers
 				Sql = cleanSql,
 				ColMap = projectionProps.ToArray(),
 				DisplayTemplate = displayTemplate,
-				SearchCols = ParsePropertyNames(searchColumns)
+				SearchCols = ParsePropertyNames(searchColumns),
+				SearchColumnInfos = searchColumnInfo
 			};
 
 			// 5. کش و رمزنگاری
@@ -95,6 +92,7 @@ namespace WebFramework.TagHelpers
 				if (ids.Any())
 				{
 					initialItems = selectorService.GetInitialItemsSync(ids, cleanSql, sqlParams, displayTemplate, projectionProps.ToArray());
+				
 				}
 			}
 			string initialNamesJoined = string.Join(" , ", initialItems.Select(x => x.Display));
@@ -113,10 +111,14 @@ namespace WebFramework.TagHelpers
 			container.Attributes.Add("data-api-url", "/api/entity-selector");
 			if (multiSelect) container.Attributes.Add("data-multi-select", "true");
 			if (_readonly) container.Attributes.Add("data-readonly", "true");
+			if (template.HasValue()) container.Attributes.Add("data-template", template);
 
 			// دیتای اولیه برای JS
-			var jsInitData = initialItems.Select(x => new { id = x.Id, display = x.Display }).ToList();
-			container.Attributes.Add("data-initial-items", JsonSerializer.Serialize(jsInitData));
+			var jsInitData = initialItems.Select(x => new { id = x.Id, display = x.Display , row = x.Row }).ToList();
+
+			var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+			container.Attributes.Add("data-initial-items", JsonSerializer.Serialize(jsInitData, jsonOptions));
+ 
 
 			// Hidden Inputs
 			var hidden = new TagBuilder("input");
@@ -139,16 +141,20 @@ namespace WebFramework.TagHelpers
 
 				container.InnerHtml.AppendHtml(hName);
 			}
-			container.InnerHtml.AppendHtml(hidden);
+		     	container.InnerHtml.AppendHtml(hidden);
 
 			// UI Elements
 			if (_readonly)
 			{
 				var readonlySpan = new TagBuilder("span");
-				readonlySpan.AddCssClass("form-control-plaintext");
+				readonlySpan.AddCssClass("form-control-plaintext border p-3 border-radius");
 				if (multiSelect && initialItems.Any())
 				{
-					readonlySpan.InnerHtml.AppendHtml(string.Join(" , ", initialItems.Select(x => x.Display)));
+					foreach(var item in initialItems.Select(x => $"<span class='entity-chip badge badge-success'>{x.Display}</span>"))
+				{
+					readonlySpan.InnerHtml.AppendHtml(item);
+				}
+				 
 				}
 				else if (!multiSelect && initialItems.Any())
 				{
@@ -258,24 +264,33 @@ namespace WebFramework.TagHelpers
 		/// <summary>
 		/// جمع‌آوری اطلاعات ستون‌های جستجو با نوع آنها
 		/// </summary>
-		private static List<SearchColumnInfo> GetSearchColumnInfo<T>(Expression<Func<T, object>> searchCols)
+		private static List<SearchColumnInfo> GetSearchColumnInfo<T>(
+						    Expression<Func<T, object>> searchCols,
+						    Expression<Func<T, object>> projection)   // ← پارامتر جدید
 		{
 			var result = new List<SearchColumnInfo>();
 			var param = Expression.Parameter(typeof(T), "x");
+
+			// نگاشت: "ProductionOrder.ProductionOrderNumber" → "ProductionOrderNumber"
+			var projectionMap = BuildProjectionMap<T>(projection);
 
 			foreach (var propPath in GetPropertyPaths(searchCols))
 			{
 				Expression prop = param;
 				foreach (var member in propPath.Split('.'))
-				{
 					prop = Expression.Property(prop, member);
-				}
 
 				var propType = Nullable.GetUnderlyingType(prop.Type) ?? prop.Type;
+
+				// پیدا کردن alias واقعی در SQL
+				string sqlAlias = projectionMap.TryGetValue(propPath, out string alias)
+				    ? alias
+				    : propPath.Split('.').Last(); // fallback: آخرین بخش مسیر
 
 				result.Add(new SearchColumnInfo
 				{
 					ColumnName = propPath,
+					SqlAlias = sqlAlias,       // ← نام واقعی ستون در CTE
 					TypeName = propType.Name,
 					IsString = propType == typeof(string)
 				});
@@ -319,13 +334,29 @@ namespace WebFramework.TagHelpers
 			return Array.Empty<string>();
 		}
 
+		private static Dictionary<string, string> BuildProjectionMap<T>(Expression<Func<T, object>> projection)
+		{
+			var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+			var body = projection.Body;
+			if (body is UnaryExpression unary) body = unary.Operand;
+
+			if (body is NewExpression newExpr)
+			{
+				for (int i = 0; i < newExpr.Arguments.Count; i++)
+				{
+					string alias = newExpr.Members[i].Name;
+					string path = GetFullPropertyName(newExpr.Arguments[i]);
+					if (!string.IsNullOrEmpty(path))
+						map[path] = alias;
+				}
+			}
+
+			return map;
+		}
+
 		private static string ParsePropertyNames(Expression expr) => string.Join(",", GetPropertyPaths(expr));
 	}
 
-	public class SearchColumnInfo
-	{
-		public string ColumnName { get; set; }
-		public string TypeName { get; set; }
-		public bool IsString { get; set; }
-	}
+	 
 }

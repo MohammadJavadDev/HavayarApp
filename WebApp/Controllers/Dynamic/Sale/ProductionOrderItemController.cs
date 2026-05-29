@@ -1,13 +1,14 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
+using Data.Repositories;
 using Data.SystemAuth;
+using Entities.App.Sale;
+using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Entities.Base.DataTable;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using Entities.App.Sale;
 
 namespace WebApp.Controllers.Dynamic
 {
@@ -340,7 +341,118 @@ namespace WebApp.Controllers.Dynamic
 
 		return PartialView(@"\Views\Panel\Sale\ProductionOrderItem\_StopRequestListPartial.cshtml", stopRequests);
 	}
-}
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("جابه جایی قلم", ActionAccessType.Api)]
+		public async Task<IActionResult> Swap(ProductionOrderItemSwapViewModel productionOrderItemSwap, CancellationToken cn)
+		{
+
+			var result = await unitOfWork.Repository<ProductionOrderItem>()
+						.TableNoTracking
+						.Include(c=>c.ProductionOrderItemComments)
+						.Where(c=>c.Id == productionOrderItemSwap.CurrentId || c.Id == productionOrderItemSwap.SwapId)
+						.ToListAsync();
+
+			var entity1 = result.First(p => p.Id == productionOrderItemSwap.CurrentId);
+			var entity2 = result.First(p => p.Id == productionOrderItemSwap.SwapId);
+
+			if(productionOrderItemSwap.ShouldBeChangePartCode)
+			{
+				var entity1PartId = entity1.PartId;
+				entity1.PartId = entity2.PartId;
+				entity2.PartId = entity1PartId;
+			}
+
+			var ProductionStep = entity1.ProductionStep;
+			var Status = entity1.Status;
+			var Serial = entity1.Serial;
+			var PlanningNumber = entity1.PlanningNumber;
+			var SerialType = entity1.SerialType;
+			var ProductionStartMiladiDate = entity1.ProductionStartMiladiDate;
+			var ProductionStartShamsiDate = entity1.ProductionStartShamsiDate;
+			var ProductionStatus = entity1.ProductionStatus;
+			var ProductionEndMiladiDate = entity1.ProductionEndMiladiDate;
+			var ProductionEndShamsiDate = entity1.ProductionEndShamsiDate;
+			var TestingEndMiladiDate = entity1.TestingEndMiladiDate;
+			var TestingEndShamsiDate = entity1.TestingEndShamsiDate;
+			var PreparationMiladiDate = entity1.PreparationMiladiDate;
+			var PreparationShamsiDate = entity1.PreparationShamsiDate;
+			var DeliveryMiladiDate = entity1.DeliveryMiladiDate;
+			var DeliveryShamsiDate = entity1.DeliveryShamsiDate;
+
+			entity2.ProductionStep = ProductionStep;
+			entity2.Status = Status;
+			entity2.Serial = Serial;
+			entity2.PlanningNumber = PlanningNumber;
+			entity2.SerialType = SerialType;
+			entity2.ProductionStartMiladiDate =ProductionStartMiladiDate ;
+			entity2.ProductionStartShamsiDate =ProductionStartShamsiDate ;
+			entity2.ProductionStatus = ProductionStatus;
+			entity2.ProductionEndMiladiDate =ProductionEndMiladiDate ;
+			entity2.ProductionEndShamsiDate =ProductionEndShamsiDate ;
+			entity2.TestingEndMiladiDate =TestingEndMiladiDate ;
+			entity2.TestingEndShamsiDate =TestingEndShamsiDate ;
+			entity2.PreparationMiladiDate =PreparationMiladiDate ;
+			entity2.PreparationShamsiDate =PreparationShamsiDate ;
+			entity2.DeliveryMiladiDate =DeliveryMiladiDate ;
+			entity2.DeliveryShamsiDate = DeliveryShamsiDate;
+
+
+			// IsForProductionMode = فقط وضعیت های تولید
+			var entity1Comments = entity1.ProductionOrderItemComments;
+			var entity2Comments = entity2.ProductionOrderItemComments;
+
+
+			entity1Comments.ForEach(p =>
+			{
+				p.Id = null;
+				p.ProductionOrderItem = null;
+				p.ProductionOrderItemId = productionOrderItemSwap.SwapId;
+			});
+
+			entity2Comments.ForEach(p =>
+			{
+				p.Id = null;
+				p.ProductionOrderItem = null;
+				p.ProductionOrderItemId = productionOrderItemSwap.CurrentId;
+			});
+
+			await unitOfWork.BeginTransactionAsync(cn);
+
+			try
+			{
+
+				await unitOfWork.Repository<ProductionOrderItemComment>()
+			    .DeleteRangeAsync(entity1Comments, cn);
+				await unitOfWork.Repository<ProductionOrderItemComment>()
+					.DeleteRangeAsync(entity2Comments, cn);
+
+				entity1.ProductionOrderItemComments = entity2Comments;
+				entity2.ProductionOrderItemComments = entity1Comments;
+
+				await unitOfWork.Repository<ProductionOrderItem>()
+					.UpdateRangeAsync(new() { entity1, entity2 }, cn);
+
+				await unitOfWork.CommitTransactionAsync(cn);
+
+			}
+			catch (Exception ex) {
+				
+				await unitOfWork.RollbackTransactionAsync(cn);
+				throw ex;
+			}
+
+		    
+
+			return Ok();
+		}
+	}
+	public class ProductionOrderItemSwapViewModel  
+	{
+		public long CurrentId { get; set; }
+		public long SwapId { get; set; }
+		public bool ShouldBeChangePartCode { get; set; }
+	}
 
 	public class ProductionOrderItemBomViewModel: ProductionOrderItemBom
 	{

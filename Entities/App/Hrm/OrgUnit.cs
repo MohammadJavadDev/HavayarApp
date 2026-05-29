@@ -39,5 +39,10 @@ namespace Entities.App.Hrm
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public OrgUnit? Parent { get; set; }
 
+		[DisplayName("پیش کد پروژه")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(10)]
+		public string? ProjectPrefixCode { get; set; }
+
 	}
 }

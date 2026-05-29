@@ -24,9 +24,9 @@ namespace Entities.App.Edms
 		public long DocumentId { get; set; }
 
 
-		[DisplayName("شماره")]
-		[DisplayInfo(null, false, type: SystemType.String, required: true)]
-		public string Number { get; set; }
+		[DisplayName("شماره ترانسمیتال")]
+		[DisplayInfo(null, false, type: SystemType.String)]
+		public string? Number { get; set; }
 
 
 		[DisplayName("شماره تعریف شده توسط کاربر")]
@@ -42,6 +42,12 @@ namespace Entities.App.Edms
 		[DisplayName("مربوط به کارفرما")]
 		[DisplayInfo(null, false, type: SystemType.Boolean)]
 		public bool? EmployerRelated { get; set; } = false;
+
+
+		[DisplayName("برای ReplySheet")]
+		[DisplayInfo(null, false, type: SystemType.Boolean)]
+		public bool? IsForReplySheet { get; set; } = false;
+		
 
 
 		[DisplayName("تاریخ ارسال به کارفرما")]

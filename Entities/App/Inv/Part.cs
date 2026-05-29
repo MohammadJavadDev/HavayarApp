@@ -60,9 +60,18 @@ namespace Entities.App.Inv
 		public bool EngineeringRoutine { get; set; } = false;
 
 
+
+		[DisplayName("روتین دیتاشیت")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool? DesignTypeIsRoutine { get; set; }
+
+
+
 		[DisplayName("نیاز به پیوست مدارک ندارد")]
 		[DisplayInfo(null, true, type: SystemType.Boolean)]
 		public bool DocumentsNotRequired { get; set; } = false;
+
+
 
 
 		[DisplayName("ابزار دقیق")]

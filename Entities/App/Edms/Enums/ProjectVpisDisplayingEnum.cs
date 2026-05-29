@@ -6,5 +6,7 @@ namespace Entities.App.Edms.Enums
 	{
 		[Display(Name = "GN")]
 		GN = 0,
+
+
 	}
 }

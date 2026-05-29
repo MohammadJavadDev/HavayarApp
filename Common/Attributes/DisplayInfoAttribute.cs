@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -40,21 +41,37 @@ namespace Common.Attributes
     }
      public enum SystemType
      {
-          String,
-          Boolean,
-          DateTime,
-          Date,
-          DateTimeShamsi,
-          DateShamsi,
-          Long,
-          Int,
-          Select,
-          File,
-          Entity,
-          ListEntity,
-          ListString,
-          ListLong,
+		[Display(Name = "متن")]
+		String,
+		[Display(Name = "بله/خیر")]
+		Boolean,
+		[Display(Name = "تاریخ و ساعت(میلادی)")]
+		DateTime,
+		[Display(Name = "تاریخ  (میلادی)")]
+		Date,
+		[Display(Name = "تاریخ و ساعت(شمسی)")]
+		DateTimeShamsi,
+		[Display(Name = "تاریخ  (شمسی)")]
+		DateShamsi,
+		[Display(Name = "عدد بزرگ")]
+		Long,
+		[Display(Name = "عدد")]
+		Int,
+		[Display(Name = "چند مقداری")]
+		Select,
+		[Display(Name = "فایل")]
+		File,
+		[Display(Name = "موجودیت")]
+		Entity,
+		[Display(Name = "لیست موجودیت")]
+		ListEntity,
+		[Display(Name = "لیست متن")]
+		ListString,
+		[Display(Name = "لیست عدد بزرگ")]
+		ListLong,
+		[Display(Name = "اعشاری")]
 		Decimal,
+		[Display(Name = "شمارنده خودکار")]
 		AutoNumber
 	}
 }

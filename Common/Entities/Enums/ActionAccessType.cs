@@ -18,6 +18,8 @@ namespace Common.Auth.Enums
 		Api,
 		[Display(Name = "نمایه داده")]
 		DataProfile,
+		[Display(Name = "ورود اطلاعات")]
+		ImportData,
 		[Display(Name = "سایر")]
 		Other = 1000
 	}

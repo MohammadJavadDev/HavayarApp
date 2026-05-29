@@ -1,3 +1,4 @@
+using Common.Attributes;
 using Common.Entities.EntityMetadatas;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
@@ -102,5 +103,13 @@ public sealed class RedisEntityMetadataCache : IEntityMetadataCache
 			});
 		}
 	}
+
+    public IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums()
+    {
+
+		return _fallback.GetAllSystemEnums();
+
+
+    }
 }
 

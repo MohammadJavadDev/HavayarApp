@@ -20745,13 +20745,17 @@
             });
 
             setTimeout(function() {
+			
                 that._restoreWidths();
+				that._distributeRemainingWidth();
                 that._ensureHandles();
                 if(dt.oFeatures.bAutoWidth !== false) {
                     dt.oFeatures.bAutoWidth = false;
                     new DataTable.Api(dt).columns.adjust();
                 }
             }, 50);
+ 
+			
         },
 
         _isRtl: function () {
@@ -21355,7 +21359,76 @@
             $(dt.nTable).removeClass('dt-colmanager-table');
             
             delete dt._colManagerId;
-        }
+        },
+		_distributeRemainingWidth : function() {
+			var dt = this.settings;
+			if (dt.bDestroying) return;
+			
+			var api = new DataTable.Api(dt);
+			var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+			var $container = dt.nScrollBody ? $(dt.nScrollBody) : $(dt.nTableWrapper);
+			
+			// عرض در دسترس برای جدول (عرض محتوای والد یا اسکرول)
+			var availableWidth = $container.width();
+			if (dt.oScroll.sX !== '' || dt.oScroll.sY !== '') {
+				availableWidth = $(dt.nScrollBody).width();
+			}
+			if (!availableWidth || availableWidth <= 0) return;
+			
+			// گرفتن ستون‌های visible
+			var visibleCols = [];
+			api.columns(':visible').every(function(idx) {
+				visibleCols.push(idx);
+			});
+			if (visibleCols.length === 0) return;
+			
+			// محاسبه مجموع عرض فعلی ستون‌ها
+			var totalCurrent = 0;
+			visibleCols.forEach(function(colIdx) {
+				var th = $(api.column(colIdx).header());
+				totalCurrent += th.outerWidth();
+			});
+			
+			// اگر اختلاف مثبت وجود دارد
+			if (totalCurrent < availableWidth - 2) { // 2px برای حاشیه
+				var diff = availableWidth - totalCurrent;
+				var addPerCol = Math.floor(diff / visibleCols.length);
+				var remainder = diff % visibleCols.length;
+				
+				visibleCols.forEach(function(colIdx, index) {
+					var actualIdx = colIdx;
+					var th = $(api.column(actualIdx).header());
+					var currentWidth = th.outerWidth();
+					var newWidth = currentWidth + addPerCol + (index < remainder ? 1 : 0);
+					newWidth = Math.max(this.opts.minWidth, newWidth);
+					
+					// ذخیره در state
+					var storageId = dt.aoColumns[actualIdx]._ColMgr_InitIdx;
+					this.state.widths[storageId] = newWidth;
+					
+					// اعمال به هدر و colgroup
+					var visualIdx = this._actualToVisualIndex(actualIdx);
+					var $headerCol = $headerTable.find('colgroup col').eq(visualIdx);
+					th.css({ 'width': newWidth + 'px', 'min-width': newWidth + 'px' });
+					if ($headerCol.length) $headerCol.css('width', newWidth + 'px');
+					
+					if (dt.nScrollBody) {
+						var $bodyTable = $(dt.nScrollBody).find('table');
+						var $bodyCol = $bodyTable.find('colgroup col').eq(visualIdx);
+						if ($bodyCol.length) $bodyCol.css('width', newWidth + 'px');
+					}
+				}, this);
+				
+				// تنظیم عرض کل جدول
+				$headerTable.css('width', availableWidth + 'px');
+				if (dt.nScrollBody) {
+					$(dt.nScrollBody).find('table').css('width', availableWidth + 'px');
+				}
+				
+				this._saveState();
+			}
+		}
+		
     });
 
     // ثبت feature در DataTables
@@ -21381,4 +21454,241 @@
 
     DataTable.ColManager = ColManager;
 
+	// اضافه کردن متد autoSizeColumn به prototype
+ColManager.prototype._autoSizeColumn = function(visualIndex, actualIndex) {
+    var dt = this.settings;
+    var api = new DataTable.Api(dt);
+    var column = api.column(actualIndex);
+    var th = $(column.header());
+    var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+    var $bodyTable = dt.nScrollBody ? $(dt.nScrollBody).find('table') : $(dt.nTable);
+    var $headerCol = $headerTable.find('colgroup col').eq(visualIndex);
+    var $bodyCol = $bodyTable.find('colgroup col').eq(visualIndex);
+    
+    // جمع‌آوری سلول‌های قابل مشاهده در این ستون (حداکثر 100 ردیف اول برای عملکرد)
+    var cells = column.nodes().toArray();
+    var maxWidth = 0;
+    
+    // موقتاً عرض ستون را auto می‌کنیم تا محتوا بتواند منبسط شود
+    var originalThWidth = th.css('width');
+    th.css('width', 'auto');
+    if ($headerCol.length) $headerCol.css('width', 'auto');
+    if ($bodyCol.length) $bodyCol.css('width', 'auto');
+    $headerTable.css('width', 'auto');
+    if (dt.nScrollBody) $bodyTable.css('width', 'auto');
+    
+    // محاسبه حداکثر عرض محتوا با بررسی سلول‌ها (حداکثر 100 سلول)
+    var sampleSize = Math.min(cells.length, 100);
+    for (var i = 0; i < sampleSize; i++) {
+        var cell = cells[i];
+        if (cell && cell.getBoundingClientRect) {
+            var rect = cell.getBoundingClientRect();
+            if (rect.width > maxWidth) maxWidth = rect.width;
+        }
+    }
+    
+    // همچنین هدر را هم در نظر بگیرید
+    var headerRect = th[0].getBoundingClientRect();
+    if (headerRect.width > maxWidth) maxWidth = headerRect.width;
+    
+    // بازگرداندن وضعیت موقت
+    th.css('width', originalThWidth);
+    if ($headerCol.length) $headerCol.css('width', originalThWidth);
+    if ($bodyCol.length) $bodyCol.css('width', originalThWidth);
+    $headerTable.css('width', '');
+    if (dt.nScrollBody) $bodyTable.css('width', '');
+    
+    // اعمال عرض جدید (با در نظر گرفتن minWidth)
+    var newWidth = Math.max(this.opts.minWidth, Math.ceil(maxWidth));
+    newWidth = Math.min(newWidth, 800); // حداکثر 800px برای جلوگیری از خروج از صفحه
+    
+    // ذخیره در state
+    var storageId = dt.aoColumns[actualIndex]._ColMgr_InitIdx;
+    this.state.widths[storageId] = newWidth;
+    this._saveState();
+    
+    // اعمال عرض جدید به المان‌ها
+    th.css({ 'width': newWidth + 'px', 'min-width': newWidth + 'px', 'max-width': newWidth + 'px' });
+    if ($headerCol.length) $headerCol.css('width', newWidth + 'px');
+    if ($bodyCol.length) $bodyCol.css('width', newWidth + 'px');
+    
+    // بازمحاسبه عرض کل جدول
+    var totalWidth = 0;
+    api.columns(':visible').every(function(visIdx) {
+        var colWidth = $(this.header()).outerWidth();
+        totalWidth += colWidth;
+    });
+    $headerTable.css('width', totalWidth + 'px');
+    if (dt.nScrollBody) $bodyTable.css('width', totalWidth + 'px');
+    
+    // به‌روزرسانی draw
+    dt.oFeatures.bAutoWidth = false;
+    api.columns.adjust();
+    api.draw(false);
+};
+
+var originalSetupEvents = ColManager.prototype._setupInstanceEvents;
+ColManager.prototype._setupInstanceEvents = function() {
+    var that = this;
+    var dt = this.settings;
+    var $wrapper = $(dt.nTableWrapper);
+    
+    // فراخوانی متد اصلی (برای ریسایز و درگ)
+    if (originalSetupEvents) originalSetupEvents.call(this);
+    
+    // اضافه کردن double-click روی handleها
+    $wrapper.on('dblclick.colManager_' + this.instanceId, '.dt-colmanager-handle', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var handle = $(this);
+        var th = handle.parent();
+        var visualIndex = th.index();
+        var actualIndex = that._visualToActualIndex(visualIndex);
+        that._autoSizeColumn(visualIndex, actualIndex);
+    });
+};
+
+
+ 
+
+ 
+
 }(jQuery, window, document));
+
+
+
+(function() {
+    // نگهداری ارجاع به تمام نمونه‌های ColManager
+    if (!DataTable.ColManager._instances) {
+        DataTable.ColManager._instances = [];
+    }
+
+    // اصلاح constructor برای ثبت نمونه
+    var originalInit = DataTable.ColManager.prototype._init;
+    DataTable.ColManager.prototype._init = function() {
+        // ثبت نمونه در آرایه global
+        DataTable.ColManager._instances.push(this);
+        // فراخوانی متد اصلی
+        originalInit.call(this);
+    };
+
+    // اضافه کردن متد reset به prototype
+    DataTable.ColManager.prototype.reset = function() {
+        var dt = this.settings;
+        var api = new DataTable.Api(dt);
+
+        // 1. بازگرداندن ترتیب ستون‌ها به حالت اولیه (بر اساس _ColMgr_InitIdx)
+        var currentCols = dt.aoColumns.slice();
+        currentCols.sort(function(a, b) {
+            return a._ColMgr_InitIdx - b._ColMgr_InitIdx;
+        });
+        var originalOrder = currentCols.map(function(col) { return col._ColMgr_InitIdx; });
+
+        // اگر ترتیب فعلی با ترتیب اولیه تفاوت دارد، اعمال کن
+        var needReorder = false;
+        for (var i = 0; i < dt.aoColumns.length; i++) {
+            if (dt.aoColumns[i]._ColMgr_InitIdx !== originalOrder[i]) {
+                needReorder = true;
+                break;
+            }
+        }
+        if (needReorder) {
+            this._applySavedOrder(originalOrder);
+        }
+
+        // 2. پاک کردن عرض‌های ذخیره‌شده
+        this.state.widths = {};
+        this.state.order = [];
+
+        // 3. حذف state از storage
+        if (this.storage) {
+            this.storage.remove('tableState');
+        } else {
+            // حذف مستقیم از localStorage
+            var storageKey = 'DT_Manager_V9_' + this.opts.dataProfileId;
+            localStorage.removeItem(storageKey);
+        }
+
+        // 4. بازگرداندن عرض پیش‌فرض به همه ستون‌ها
+        var defaultWidth = this.opts.defaultWidth;
+        api.columns().every(function(idx) {
+            var col = dt.aoColumns[idx];
+            var th = $(this.header());
+            th.css({
+                'width': defaultWidth + 'px',
+                'min-width': defaultWidth + 'px',
+                'max-width': defaultWidth + 'px'
+            });
+            // آپدیت colgroup
+            var visualIdx = this.index();
+            var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+            var $bodyTable = dt.nScrollBody ? $(dt.nScrollBody).find('table') : $(dt.nTable);
+            $headerTable.find('colgroup col').eq(visualIdx).css('width', defaultWidth + 'px');
+            if (dt.nScrollBody) {
+                $bodyTable.find('colgroup col').eq(visualIdx).css('width', defaultWidth + 'px');
+            }
+        });
+
+        // 5. بازنشانی عرض کلی جدول
+        var totalWidth = api.columns(':visible').count() * defaultWidth;
+        var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+        $headerTable.css('width', totalWidth + 'px');
+        if (dt.nScrollBody) {
+            $(dt.nScrollBody).find('table').css('width', totalWidth + 'px');
+        }
+
+        // 6. غیرفعال کردن autoWidth و تنظیم مجدد draw
+        dt.oFeatures.bAutoWidth = false;
+        api.columns.adjust();
+        api.draw();
+
+        // 7. اطمینان از ذخیره شدن state جدید (خالی)
+        this._saveState();
+    };
+
+    // متد استاتیک برای پاک کردن تنظیمات یک profile مشخص
+    DataTable.ColManager.clearSettings = function(profileId) {
+        if (!profileId) {
+            console.warn('ColManager.clearSettings: profileId is required');
+            return false;
+        }
+		 
+
+        // 1. حذف از storage عمومی
+        var storageKey = 'DT_Manager_V9_' + profileId;
+        localStorage.removeItem(storageKey);
+        // اگر SettingsManager در دسترس است، از آن هم حذف کنید
+        if (typeof SettingsManager !== 'undefined') {
+            try {
+                var sm = new SettingsManager(storageKey);
+                sm.remove('tableState');
+            } catch(e) {}
+        }
+
+        // 2. بازنشانی تمام نمونه‌های ColManager که با این profileId کار می‌کنند
+        var instances = DataTable.ColManager._instances;
+        for (var i = 0; i < instances.length; i++) {
+            var inst = instances[i];
+            if (inst.opts.dataProfileId === profileId) {
+                inst.reset();
+				inst._distributeRemainingWidth();
+            }
+        }
+ 
+
+        return true;
+    };
+
+    // در زمان destroy، نمونه را از آرایه حذف کنید
+    var originalDestroy = DataTable.ColManager.prototype.destroy;
+    DataTable.ColManager.prototype.destroy = function() {
+        var idx = DataTable.ColManager._instances.indexOf(this);
+        if (idx !== -1) {
+            DataTable.ColManager._instances.splice(idx, 1);
+        }
+        if (originalDestroy) {
+            originalDestroy.call(this);
+        }
+    };
+})();
+

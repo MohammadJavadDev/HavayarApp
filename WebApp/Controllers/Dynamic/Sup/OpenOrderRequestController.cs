@@ -231,7 +231,7 @@ namespace WebApp.Controllers.Dynamic
 
 				//Seed Role => Sup.OpenOrderRequest.EngineeringAccept => تامین و خرید -درخواست های باز - تایید مهندسی 
 				//برسی داشتن دسترسی برای تایید مهندسی 
-				if (!HasAnyRole("Sup.OpenOrderRequest.EngineeringAccept")) 
+				if (!CurrentUserHasAnyRole("Sup.OpenOrderRequest.EngineeringAccept")) 
 					return Unauthorized("شما دسترسی تایید مهندسی را ندارید");
 
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
@@ -301,7 +301,7 @@ namespace WebApp.Controllers.Dynamic
 			{
 				//Seed Role => Sup.OpenOrderRequest.SalesOrProjectAccept => تامین و خرید -درخواست های باز - تایید فروش/پروژه 
 				//برسی داشتن دسترسی برای تایید فروش/پروژه 
-				if (!HasAnyRole("Sup.OpenOrderRequest.SalesOrProjectAccept"))
+				if (!CurrentUserHasAnyRole("Sup.OpenOrderRequest.SalesOrProjectAccept"))
 					return Unauthorized("شما دسترسی تایید فروش/پروژه را ندارید");
 
 
@@ -1724,7 +1724,7 @@ namespace WebApp.Controllers.Dynamic
 				var validDocuments = allDocuments
 					.Where(d => 
 						// 1. ApprovedDate داشته باشد
-						d.ApprovedMiladiDate != null ||
+						d.ApprovedMiladiDateTime != null ||
 						// 2. بیش از 1 کامنت داشته باشد
 						(d.Comments != null && d.Comments.Count > 1) ||
 						// 3. کامنت با وضعیت NotReview داشته باشد

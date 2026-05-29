@@ -1,0 +1,579 @@
+using Common.Attributes;
+using Common.Utilities;
+using Data;
+using Data.SystemAuth;
+using Entities.Base;
+using Entities.Base.DataTable;
+using Microsoft.EntityFrameworkCore;
+
+using System.Linq;
+using System.Text;
+using System.Text.Json;
+using static Data.Repositories.DataTableQueryBuilder;
+
+namespace Data.Services.QueryBuilderServices
+{
+	/// <summary>
+	/// سرویس مدیریت گزارش‌ها
+	/// </summary>
+	public interface IQueryService
+	{
+		Task<SavedQuery> SaveReportAsync(QueryDesignRequest design, long userId);
+		Task<SavedQuery> SaveReportAsync(SavedQuery design, long userId);
+		Task<SavedQuery> UpdateReportAsync(long id, QueryDesignRequest design, long userId);
+		Task<bool> DeleteReportAsync(long id);
+		Task<SavedQuery> GetReportAsync(long id);
+		Task<SavedQuery> GetReportByNameAsync(string name);
+		Task<List<SavedQuery>> GetAllReportsAsync();
+		Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null);
+		Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null);
+		Task<bool> IsNameUniqueAsync(string name, long? excludeId = null);
+		List<SavedQuery> GetDataTableProfileListByEntityName(string? entityName);
+		List<SavedQuery> GetDataTableProfileById(List<long?> ids , string? entityName);
+		Dictionary<string, string> ExtractParameterValuesFromRequest(DataTableRequest request);
+
+		Task<QueryResult> ExecuteReportAsync(DataTableRequest request, IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null);
+
+
+
+	}
+
+	public class QueryService : IQueryService
+	{
+		private readonly ApplicationDbContext _context;
+		private readonly IQueryBuilderService _queryBuilder;
+		private readonly IDatabaseSchemaService _schemaService;
+		private readonly IParameterResolverService _parameterResolver;
+
+		public QueryService(
+		    ApplicationDbContext context,
+		    IQueryBuilderService queryBuilder,
+		    IDatabaseSchemaService schemaService,
+		    IParameterResolverService parameterResolver)
+		{
+			_context = context;
+			_queryBuilder = queryBuilder;
+			_schemaService = schemaService;
+			_parameterResolver = parameterResolver;
+		}
+
+		/// <summary>
+		/// ذخیره گزارش جدید
+		/// </summary>
+		public async Task<SavedQuery> SaveReportAsync(QueryDesignRequest design, long userId)
+		{
+			// بررسی یکتا بودن نام
+			if (!await IsNameUniqueAsync(design.Name))
+				throw new InvalidOperationException($"گزارشی با نام '{design.Name}' قبلاً ثبت شده است");
+
+			// ذخیره Tables بدون Columns - ستون‌ها هنگام ویرایش از سرور دریافت می‌شوند
+			var tablesForStorage = (design.QueryDesign.Tables ?? new List<TableInfo>())
+				.Select(t => new TableInfo { Schema = t.Schema, Name = t.Name, Type = t.Type, PositionX = t.PositionX, PositionY = t.PositionY, Columns = null, BoxId = t.BoxId, InstanceId = t.InstanceId }).ToList();
+			var queryDesignForStorage = new QueryDesign
+			{
+				Tables = tablesForStorage,
+				Relations = design.QueryDesign.Relations,
+				Filters = design.QueryDesign.Filters,
+				CustomQuery = design.QueryDesign.CustomQuery,
+				Parameters = design.QueryDesign.Parameters
+			};
+
+			var report = new SavedQuery
+			{
+				Name = design.Name,
+				Title = design.Title,
+				Type = design.Type,
+				Mode = design.Mode,
+				EntityFullName = design.EntityFullName,
+				QueryJson = JsonSerializer.Serialize(queryDesignForStorage),
+				ColumnsJson = JsonSerializer.Serialize(design.Columns),
+				DiagramJson = JsonSerializer.Serialize(tablesForStorage),
+				CreatedById = userId,
+				ModifiedById = userId,
+				CreatedOnMiladiDateTime = DateTime.Now,
+				CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+				ModifiedDateMiladiDateTime = DateTime.Now,
+				ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+				IsActive = IsActiveEnum.Active,
+				ActionOptions = design.ActionOptions,
+				CustomActionButtonsJson = design.CustomActionButtons,
+				EventScriptsJson = design.EventScripts
+			};
+
+			_context.SavedQueries.Add(report);
+			await _context.SaveChangesAsync();
+
+			return report;
+		}
+
+		public async Task<SavedQuery> SaveReportAsync(SavedQuery design, long userId)
+		{
+			// بررسی یکتا بودن نام
+			if (!await IsNameUniqueAsync(design.Name))
+				throw new InvalidOperationException($"گزارشی با نام '{design.Name}' قبلاً ثبت شده است");
+			 
+
+			_context.SavedQueries.Add(design);
+			await _context.SaveChangesAsync();
+
+			return design;
+		}
+
+		/// <summary>
+		/// بروزرسانی گزارش
+		/// </summary>
+		public async Task<SavedQuery> UpdateReportAsync(long id, QueryDesignRequest design, long userId)
+		{
+			var report = await _context.SavedQueries.FindAsync(id);
+			if (report == null)
+				throw new KeyNotFoundException("گزارش مورد نظر یافت نشد");
+
+			// بررسی یکتا بودن نام
+			if (report.Name != design.Name && !await IsNameUniqueAsync(design.Name, id))
+				throw new InvalidOperationException($"گزارشی با نام '{design.Name}' قبلاً ثبت شده است");
+
+			// ذخیره Tables بدون Columns
+			var tablesForStorage = (design.QueryDesign.Tables ?? new List<TableInfo>())
+				.Select(t => new TableInfo { Schema = t.Schema, Name = t.Name, Type = t.Type, PositionX = t.PositionX, PositionY = t.PositionY, Columns = null,BoxId=t.BoxId,InstanceId = t.InstanceId }).ToList();
+			var queryDesignForStorage = new QueryDesign
+			{
+				Tables = tablesForStorage,
+				Relations = design.QueryDesign.Relations,
+				Filters = design.QueryDesign.Filters,
+				CustomQuery = design.QueryDesign.CustomQuery,
+				Parameters = design.QueryDesign.Parameters
+			};
+
+			report.Name = design.Name;
+			report.Title = design.Title;
+			report.QueryJson = JsonSerializer.Serialize(queryDesignForStorage);
+			report.ColumnsJson = JsonSerializer.Serialize(design.Columns);
+			report.DiagramJson = JsonSerializer.Serialize(tablesForStorage);
+			report.ModifiedDateMiladiDateTime = DateTime.Now;
+			report.ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime();
+			report.ModifiedById = userId;
+			report.ActionOptions = design.ActionOptions;
+			report.CustomActionButtonsJson = design.CustomActionButtons;
+			report.EventScriptsJson = design.EventScripts;
+
+			await _context.SaveChangesAsync();
+
+			return report;
+		}
+
+		/// <summary>
+		/// حذف گزارش
+		/// </summary>
+		public async Task<bool> DeleteReportAsync(long id)
+		{
+			var report = await _context.SavedQueries.FindAsync(id);
+			if (report == null)
+				return false;
+
+			_context.SavedQueries.Remove(report);
+			await _context.SaveChangesAsync();
+
+			return true;
+		}
+
+		/// <summary>
+		/// دریافت گزارش
+		/// </summary>
+		public async Task<SavedQuery> GetReportAsync(long id)
+		{
+			return await _context.SavedQueries.FindAsync(id);
+		}
+
+		/// <summary>
+		/// دریافت گزارش بر اساس نام
+		/// </summary>
+		public async Task<SavedQuery> GetReportByNameAsync(string name)
+		{
+			return await _context.SavedQueries
+			    .FirstOrDefaultAsync(r => r.Name == name && r.IsActive == IsActiveEnum.Active);
+		}
+
+		/// <summary>
+		/// دریافت تمام گزارش‌ها
+		/// </summary>
+		public async Task<List<SavedQuery>> GetAllReportsAsync()
+		{
+			return await _context.SavedQueries
+			    .Where(r =>   r.IsActive == IsActiveEnum.Active)
+			    .OrderByDescending(r => r.CreatedOnMiladiDateTime)
+			    .ToListAsync();
+		}
+
+		/// <summary>
+		/// اجرای گزارش (بدون صفحه‌بندی - کل داده)
+		/// </summary>
+		public async Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null)
+		{
+			return await ExecuteReportInternalAsync(id, parameterValues, null, null, userId, username);
+		}
+
+		/// <summary>
+		/// اجرای گزارش با صفحه‌بندی
+		/// </summary>
+		public async Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null)
+		{
+			return await ExecuteReportInternalAsync(id, parameterValues, offset, limit, userId, username);
+		}
+
+		public async Task<QueryResult> ExecuteReportAsync(DataTableRequest request , IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null)
+		{
+			return await ExecuteReportInternalAsync(request, parameterValues, offset, limit, userId, username);
+		}
+
+		private async Task<QueryResult> ExecuteReportInternalAsync(DataTableRequest request, IReadOnlyDictionary<string, string> parameterValues, int? offset, int? limit, string userId, string username)
+		{
+			var report = await GetReportAsync(request.profileId.Value);
+			if (report == null)
+				throw new KeyNotFoundException("گزارش مورد نظر یافت نشد");
+
+			var queryDesign = JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
+			var columns = JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson);
+
+			// ادغام مقادیر پارامترهای داینامیک با مقادیر پیش‌فرض
+			var paramValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var p in queryDesign.Parameters ?? Enumerable.Empty<QueryParameter>())
+			{
+				if (!string.IsNullOrEmpty(p.Name) && !paramValues.ContainsKey(p.Name))
+					paramValues[p.Name] = p.DefaultValue ?? "";
+			}
+			if (parameterValues != null)
+			{
+				foreach (var kv in parameterValues)
+					paramValues[kv.Key] = kv.Value ?? "";
+			}
+			// برای IN/NOT IN که نمی‌توان از پارامتر استفاده کرد - resolve در filter value
+			_parameterResolver.ResolveFiltersForInOperator(queryDesign.Filters ?? new List<FilterCondition>(), paramValues, userId, username);
+
+			// ساخت Query (بدون replace - پارامترها در query باقی می‌مانند)
+			string query;
+			if (!string.IsNullOrEmpty(queryDesign.CustomQuery))
+			{
+				query = queryDesign.CustomQuery;
+			}
+			else if (columns != null && columns.Any())
+			{
+				query = _queryBuilder.BuildQueryWithShaping(queryDesign, columns);
+			}
+			else
+			{
+				query = _queryBuilder.BuildQuery(queryDesign, columns);
+			}
+
+			// ساخت Dictionary پارامترها
+			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, userId, username);
+
+			var criteriaQuery = BuildSearchQueryProfile(request,columns);
+			 
+			// Add search searchBuilder conditions
+			if (request.searchBuilder is { criteria.Count: > 0 })
+			{
+
+				criteriaQuery = " Where " + criteriaQuery +  BuildCriteriaQueryProfile(request.searchBuilder.criteria, request.searchBuilder.logic, request, columns);
+		 
+			}
+			else if(criteriaQuery.HasValue())
+			{
+				criteriaQuery = " Where " + criteriaQuery;
+			}
+
+
+				var orderByQuery = "";
+			// Add order conditions
+			if ((request.order is { Length: > 0 }) && request.order.All(c=>c.column != null))
+			{
+ 
+				var orderConditions = request.order.Select(o => $"{o.column} {o.dir}");
+
+				orderByQuery = string.Join(", ", orderConditions);
+				 
+			}
+			else
+			{
+
+				orderByQuery = $"[{columns[0]?.Alliance ?? columns[0].ColumnName}] DESC";
+			}
+
+			   
+
+			return await _schemaService.ExecuteQueryWithPaginationAsync(query , criteriaQuery , orderByQuery, sqlParams, offset.Value, limit.Value);
+			 
+		}
+
+		private string BuildSearchQueryProfile(DataTableRequest request, List<QueryColumn> column)
+		{
+			StringBuilder searchSection = new StringBuilder();
+			if (request.columns is { Count: > 0 })
+			{
+				foreach (var cl in request.columns)
+				{
+					var pc = column
+					    .FirstOrDefault(c => c.Alliance == cl.data || c.ColumnName.ToCamelCase() == cl.data);
+
+					var path = pc?.Alliance ?? pc.ColumnName.ToCamelCase();
+
+					if (cl.Search.value.Any())
+					{
+						if (searchSection.Length > 0)
+						{
+							searchSection.Append(" and ");
+
+						}
+
+						//if (cl.type == "shamsidatetime" || cl.type == "datetimeshamsi" || cl.type == "shamsidate" || cl.type == "dateshamsi")
+						//{
+
+						//	if (cl.Search.value.Length == 1 && cl.Search.value[0].Contains("from"))
+						//	{
+						//		var dateFilter = cl.Search.value[0].Replace("from ", "");
+						//		searchSection.Append($"[{pc.Label}].[{pc.PropName.Replace("Shamsi", "Miladi")}] > '{dateFilter}'");
+						//	}
+						//	else if (cl.Search.value.Length == 1 && cl.Search.value[0].Contains("to"))
+						//	{
+						//		var dateFilter = cl.Search.value[0].Replace("to ", "");
+						//		searchSection.Append($"[{pc.Label}].[{pc.PropName.Replace("Shamsi", "Miladi")}] < '{dateFilter}'");
+						//	}
+						//	else if (cl.Search.value.Length == 2)
+						//	{
+						//		var dateFilterFrom = cl.Search.value.First(c => c.Contains("from")).Replace("from ", "");
+						//		var dateFilterTo = cl.Search.value.First(c => c.Contains("to")).Replace("to ", "");
+						//		searchSection.Append($"[{pc.Label}].[{pc.PropName.Replace("Shamsi", "Miladi")}] BETWEEN '{dateFilterFrom}' AND '{dateFilterTo}'");
+						//	}
+
+						//}
+						 if (cl.Search.value.Length == 1)
+						{
+							searchSection.Append($"[{path}] Like N'%{cl.Search.value[0]}%'");
+						}
+						else if (cl.Search.value.Length == 2)
+						{
+							searchSection.Append($"[{path}]  BETWEEN '{cl.Search.value[0]}' AND '{cl.Search.value[1]}'");
+						}
+					}
+
+				}
+
+			}
+			return searchSection.ToString();
+		}
+
+		private string BuildCriteriaQueryProfile(List<DataTableCriterion> criteria, string logic, DataTableRequest request, List<QueryColumn> queryColumn)
+		{
+			var queryParts = new List<string>();
+			foreach (var criterion in criteria)
+			{
+				if (criterion.criteria != null && criterion.criteria.Count > 0)
+				{
+					queryParts.Add($"({BuildCriteriaQueryProfile(criterion.criteria, criterion.logic, request, queryColumn)})");
+				}
+				else if ((criterion.value != null && criterion.value.Any()) || (criterion.condition == "null" || criterion.condition == "!null"))
+				{
+					string condition = criterion.condition;
+
+					string part;
+					var valuePlaceholders = string.Join(",", criterion.value.Select(v => $"{v}"));
+
+					var colName = criterion.name;
+
+					var pc =
+					    queryColumn
+						   .FirstOrDefault(c => c.Alliance == criterion.name);
+
+					var propAddress = pc?.Alliance ?? pc.ColumnName.ToCamelCase();
+
+					if (pc.SystemType == SystemType.DateTimeShamsi || pc.SystemType == SystemType.DateShamsi)
+					{
+						propAddress = $" dbo.fn_shmasiToMiladi({propAddress}) ";
+					}
+
+					switch (condition)
+					{
+						case "=":
+							part = $" {propAddress} = N'{valuePlaceholders}'";
+							break;
+						case "!=":
+							part = $"{propAddress} <> N'{valuePlaceholders}'";
+							break;
+						case ">":
+							part = $"{propAddress} > N'{valuePlaceholders}'";
+							break;
+						case ">=":
+							part = $"{propAddress} >= N'{valuePlaceholders}'";
+							break;
+						case "<":
+							part = $"{propAddress} < N'{valuePlaceholders}'";
+							break;
+						case "<=":
+							part = $"{propAddress} <= N'{valuePlaceholders}'";
+							break;
+						case "contains":
+							part = $"{propAddress} LIKE N'%{valuePlaceholders}%'";
+							break;
+						case "!contains":
+							part = $"{propAddress} NOT LIKE N'%{valuePlaceholders}%'";
+							break;
+						case "starts":
+							part = $"{propAddress} LIKE N'{valuePlaceholders}%'";
+							break;
+						case "!starts":
+							part = $"{propAddress} Not LIKE N'{valuePlaceholders}%'";
+							break;
+						case "ends":
+							part = $"{propAddress} LIKE N'%{valuePlaceholders}'";
+							break;
+						case "!ends":
+							part = $"{propAddress} Not LIKE N'%{valuePlaceholders}'";
+							break;
+						case "IN":
+							part = $"{propAddress} IN ({valuePlaceholders})";
+							break;
+						case "NOT IN":
+							part = $"{propAddress} NOT IN ({valuePlaceholders})";
+							break;
+						case "null":
+							part = $"{propAddress} IS NULL";
+							break;
+						case "!null":
+							part = $"{propAddress} IS NOT NULL";
+							break;
+						case "between":
+							part = $"{propAddress} BETWEEN N'{criterion.value[0]}' And N'{criterion.value[1]}'";
+							break;
+						case "!between":
+							part = $"{propAddress} NOT BETWEEN N'{criterion.value[0]}' And N'{criterion.value[1]}'";
+							break;
+						default:
+							throw new ArgumentException($"Unsupported operator: {criterion.condition}");
+					}
+					queryParts.Add($"({part})");
+				}
+
+			}
+
+			if (queryParts.Count() > 0)
+				return string.Join($" {logic} ", queryParts);
+			else
+			{
+				return "";
+
+			}
+		}
+
+ 
+		private async Task<QueryResult> ExecuteReportInternalAsync(long id, IReadOnlyDictionary<string, string> parameterValues, int? offset, int? limit, string userId, string username)
+		{
+			var report = await GetReportAsync(id);
+			if (report == null)
+				throw new KeyNotFoundException("گزارش مورد نظر یافت نشد");
+
+			var queryDesign = JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
+			var columns = JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson);
+
+			// ادغام مقادیر پارامترهای داینامیک با مقادیر پیش‌فرض
+			var paramValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var p in queryDesign.Parameters ?? Enumerable.Empty<QueryParameter>())
+			{
+				if (!string.IsNullOrEmpty(p.Name) && !paramValues.ContainsKey(p.Name))
+					paramValues[p.Name] = p.DefaultValue ?? "";
+			}
+			if (parameterValues != null)
+			{
+				foreach (var kv in parameterValues)
+					paramValues[kv.Key] = kv.Value ?? "";
+			}
+
+			// برای IN/NOT IN که نمی‌توان از پارامتر استفاده کرد - resolve در filter value
+			_parameterResolver.ResolveFiltersForInOperator(queryDesign.Filters ?? new List<FilterCondition>(), paramValues, userId, username);
+
+			// ساخت Query (بدون replace - پارامترها در query باقی می‌مانند)
+			string query;
+			if (!string.IsNullOrEmpty(queryDesign.CustomQuery))
+			{
+				query = queryDesign.CustomQuery;
+			}
+			else if (columns != null && columns.Any())
+			{
+				query = _queryBuilder.BuildQueryWithShaping(queryDesign, columns);
+			}
+			else
+			{
+				query = _queryBuilder.BuildQuery(queryDesign, columns);
+			}
+
+			// ساخت Dictionary پارامترها
+			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, userId, username);
+
+			if (offset.HasValue && limit.HasValue && limit.Value > 0)
+			{
+				return await _schemaService.ExecuteQueryWithPaginationAsync(query, sqlParams, offset.Value, limit.Value);
+			}
+
+			return await _schemaService.ExecuteQueryAsync(query, sqlParams);
+		}
+
+		/// <summary>
+		/// بررسی یکتا بودن نام
+		/// </summary>
+		public async Task<bool> IsNameUniqueAsync(string name, long? excludeId = null)
+		{
+			var query = _context.SavedQueries.Where(r => r.Name == name && r.IsActive == IsActiveEnum.Active);
+
+			if (excludeId.HasValue)
+				query = query.Where(r => r.Id != excludeId.Value);
+
+			return !await query.AnyAsync();
+		}
+
+        
+
+        List<SavedQuery> IQueryService.GetDataTableProfileListByEntityName(string? entityName)
+        {
+			return _context.SavedQueries
+				.Select(c=>new SavedQuery() 
+				{	Id = c.Id ,
+					IsActive = c.IsActive,
+					Title = c.Title,
+					EntityFullName = c.EntityFullName,
+					Name = c.Name,
+				})
+				.Where(r => r.EntityFullName != null &&  r.EntityFullName.ToLower() == entityName.ToLower()
+			&& r.IsActive == IsActiveEnum.Active).ToList();
+		}
+
+        List<SavedQuery> IQueryService.GetDataTableProfileById(List<long?> ids , string? entityName)
+        {
+			return _context.SavedQueries
+				    .Select(c => new SavedQuery()
+				    {
+					    Id = c.Id,
+					    IsActive = c.IsActive,
+					    Title = c.Title,
+					    EntityFullName = c.EntityFullName,
+					    Name = c.Name,
+				    })
+				    .Where(r => ids.Contains(r.Id)
+				    && r.EntityFullName.ToLower() == entityName.ToLower()
+			    && r.IsActive == IsActiveEnum.Active).ToList();
+		}
+
+	public Dictionary<string, string> ExtractParameterValuesFromRequest(DataTableRequest request)
+        {
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (request?.searchBuilder?.criteria == null) return dict;
+            foreach (var c in request.searchBuilder.criteria)
+            {
+                if (!string.IsNullOrEmpty(c.data) && c.value != null && c.value.Count > 0)
+                    dict[c.data] = c.value[0] ?? "";
+            }
+            return dict;
+        }
+
+      
+
+        
+    }
+}

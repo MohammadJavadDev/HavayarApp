@@ -22,22 +22,22 @@ else
 			{
 					var isActive = rev.Id == currentId;
 					var statusText = rev.Status.HasValue ? rev.Status.Value.ToDisplay() : "-";
-					var statusClass = rev.Status switch
-					{
-							DocumentStatusEnums.Approve or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNote or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
-							DocumentStatusEnums.Reject or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+						var statusClass = rev?.Status switch
+						{
+							DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByEmployer or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
+							DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
 							DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-							DocumentStatusEnums.Commented or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+							DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
 							DocumentStatusEnums.Archived => "badge-light-dark",
 							_ => "badge-light"
-					};
+						};
 
 					<div class="p-3 border rounded @((isActive ? "border-primary" : "border-gray-200")) js-revision-item" data-revision-id="@rev.Id">
 						<div class="d-flex align-items-start justify-content-between">
 							<div class="d-flex flex-column">
 								<div class="d-flex flex-wrap align-items-center gap-2">
-									<span class="badge badge-light-primary">R @rev.Revision</span>
-									<span class="badge @statusClass">@statusText</span>
+							<span class="badge badge-light-primary">R 0@(rev.Revision)</span>
+							<span class="badge @statusClass" style="max-width:125px;overflow:hidden">@statusText</span>
 									@if (rev.CommentCount > 0)
 									{
 											<span class="badge badge-light">@rev.CommentCount کامنت</span>

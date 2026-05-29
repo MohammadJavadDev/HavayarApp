@@ -1,16 +1,15 @@
-﻿@inject IUnitOfWork _unitOfWork;
+@inject IUnitOfWork _unitOfWork;
 @using Common.Utilities
 @using Data.Contracts
+@using Entities.Base
 @using Microsoft.EntityFrameworkCore
 @using ReportBuilder.Entities
 @model ReportBuilder.Entities.ReportBuilderReport;
 @{
- 
-
     var objects = await _unitOfWork.Repository<ReportBuilderTable>()
         .TableNoTracking
-        .Select(c=> new {c.Id, c.ObjectType , c.Title, c.ObjectName, c.ObjectSchema}).ToListAsync()
-        ;
+        .Select(c=> new {c.Id, c.ObjectType , c.Title, c.ObjectName, c.ObjectSchema}).ToListAsync();
+    var savedQueries = ViewBag.SavedQueries as List<Entities.Base.SavedQuery> ?? new List<Entities.Base.SavedQuery>();
 }
 
 <div class="card">
@@ -52,7 +51,19 @@
         </nav>
         <div class="tab-content" id="nav-tabContent">
             <div class="tab-pane fade show active p-5" id="nav-reportItem" role="tabpanel" aria-labelledby="nav-reportItem-tab">
-               @if (Model?.Name?.HasValue(true) ?? false)
+               @if (Model?.SavedQueryId > 0 && savedQueries.Any(sq => sq.Id == Model.SavedQueryId))
+               {
+                    var sq = savedQueries.First(sq => sq.Id == Model.SavedQueryId);
+                    <div class="col-md-6 mt-3" data-sectionItem="">
+                        <div class="input-group mb-5">
+                            <span class="input-group-text">
+                                <input type="radio" class="mx-3" id="sq_@sq.Id" name="reportItems" data-objectName="@sq.Name" data-objectType="SavedQuery" data-savedqueryid="@sq.Id" checked="checked" disabled="disabled" />
+                                <label for="sq_@sq.Id">@sq.Title</label>
+                            </span>
+                        </div>
+                    </div>
+               }
+               else if (Model?.Name?.HasValue(true) ?? false)
                {
                     @foreach (var r in objects.Where(c => c.ObjectSchema + "." + c.ObjectName == Model?.Name))
 	               {
@@ -71,11 +82,26 @@
                }
                else
                {
-                    <div class="separator separator-content my-15 border-success">
-                        <span class=" text-success">
+                    @if (savedQueries.Any())
+                    {
+                        <div class="separator separator-content my-15 border-primary">
+                            <span class="text-primary">گزارش‌های QueryDesigner</span>
+                        </div>
+                        @foreach (var sq in savedQueries)
+                        {
+                            <div class="col-md-6 mt-3" data-sectionItem="">
+                                <div class="input-group mb-5">
+                                    <span class="input-group-text">
+                                        <input type="radio" class="mx-3" id="sq_@sq.Id" name="reportItems" data-objectName="@sq.Name" data-objectType="SavedQuery" data-savedqueryid="@sq.Id" />
+                                        <label for="sq_@sq.Id">@sq.Title</label>
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    }
 
-                            VIEWS
-                        </span>
+                    <div class="separator separator-content my-15 border-success">
+                        <span class=" text-success">VIEWS</span>
                     </div>
                     @foreach (var r in objects.Where(c => c.ObjectType == "VIEW"))
                     {
@@ -209,9 +235,7 @@
 
 
 
-@section Scripts{
-
-		
+ 
 
 
     <script>
@@ -222,45 +246,82 @@
         let designer;
         let itemData;
 
-        if($("[data-bind=id]").val().length != 0)
+        if($$("[data-bind=id]").val().length != 0)
         {
-            $("[data-bind=type]").prop("disabled",true);
+            $$("[data-bind=type]").prop("disabled",true);
         }
 
-        $("#selectTable")
+        let isSavedQuery = @(Model?.SavedQueryId > 0 ? "true" : "false");
+        let savedQueryId = @(Model?.SavedQueryId > 0 ? Model.SavedQueryId.ToString() : "null");
+
+        $$("#selectTable")
             .click(function() {
-                if ($("input:checked").length === 0) {
+                 debugger
+                if ($$("input:checked").length === 0) {
                     return toastr.error(`هیچ آیتمی انتخاب نشده است`, 'خطا');
                 }
 
+                let $checked = $$("#nav-reportItem input:checked");
+                 
 
-                $("[data-bind='reportName']")
-                    .val($("#nav-reportItem input:checked").attr("data-objectName"));
+                let dataObjectType = $checked.attr("data-objectType");
+                isSavedQuery = dataObjectType === "SavedQuery";
+                savedQueryId = isSavedQuery ? $checked.attr("data-savedqueryid") : null;
+                itemId = isSavedQuery ? savedQueryId : $checked.attr("id");
 
-                let dataObjectType = $("#nav-reportItem input:checked").attr("data-objectType");
-
-                reportType = $("[data-bind='type']").val();
+                reportType = $$("[data-bind='type']").val();
 
                 if (reportType === '0' && dataObjectType === "Store_Procedures") {
                     return toastr.error(`امکان ایجاد گزارش از نوع جدول برای Store_Procedures نمیباشد .`, 'خطا');
                 }
 
-                $("[data-bind='type']").prop("disabled", true);
+                $$("[data-bind='type']").prop("disabled", true);
 
-                itemId = $("#nav-reportItem input:checked").attr("id");
-
-                get("/System/ReportBuilder/GetItems?id=" + itemId,
+                let getItemsUrl = "/System/ReportBuilder/GetItems?id=" + itemId + (isSavedQuery ? "&fromSavedQuery=true" : "");
+                get(getItemsUrl,
                     function(r) {
                         if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
-                        $('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
-                        $("#filtersPlace").html("");
+                        $$('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
+                        $$("#filtersPlace").html("");
+
+
+                       if(r.data.filters.length > 0)
+                  {
+
+                   r.data.filters.forEach(c => {
+                          let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
+                                  <div class="input-group mb-5">
+                                      <span class="input-group-text">
+                                               <input type="text" class=" mx-3 form-control" id="${c.columnName}f" data-columnName="${c.columnName}"   data-type="${c.dataType}"  data-title="${c.title}" data-param="${c.columnName}"   />
+                                                     <label for="${c.columnName}f">${c.title} - ${c.columnName} </label>
+                                      </span>
+                                  </div>
+                              </div>`);
+
+
+
+                          $$("#filtersPlace").append($tpl);
+
+                      });
+
+                           //  {
+                           //     "id": "id_46585s68l",
+                           //     "title": "شناسه کالا",
+                           //     "columnName": "productId",
+                           //     "dataType": "nvarchar"
+                           // }
+
+                      $$("#filtersPlace").append("<hr/>")
+                  }
+
+
 
 
                         if (dataObjectType === "Store_Procedures") {
 
                             r.data.filters.forEach(c => {
-                                let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
+                                let $tpl = $$(`    <div class="col-md-6 mt-3" data-sectionItem="">
                                         <div class="input-group mb-5">
                                             <span class="input-group-text">
                                                <input type="checkbox" class=" mx-3" id="${c.id}" data-type="${c.dataType}" disabled="disabled" checked  />
@@ -273,20 +334,20 @@
                                     .change(function() {
                                          
                                         if (this.checked == true) {
-                                            items.push({ title: c.title, columnName: c.columnName, dataType: c.dataType })
+                                        items.push({ title: c.title, columnName: c.columnName, dataType: c.dataType , alliance: c.alliance })
                                         } else {
                                             items.remove(z => z.columnName == c.columnName);
                                         }
                                     });
 
-                                $("#filtersPlace").append($tpl);
+                                $$("#filtersPlace").append($tpl);
                             });
                         } else {
                             r.data.items[0].reportBuilderReportItems.forEach(c => {
                                 let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
                                         <div class="input-group mb-5">
                                             <span class="input-group-text">
-                                                                       <input type="checkbox" class=" mx-3" id="${c.columnName}f" data-columnName="${c.columnName}" data-type="${c.dataType}"  data-title="${c.title}"   />
+                                                           <input type="checkbox" class=" mx-3" id="${c.columnName}f" data-columnName="${c.columnName}" data-alliance="${c.alliance}" data-type="${c.dataType}"  data-title="${c.title}"   />
                                                            <label for="${c.columnName}f">${c.title} - ${c.columnName} </label>
                                             </span>
                                         </div>
@@ -294,14 +355,14 @@
 
                               
 
-                                $("#filtersPlace").append($tpl);
+                                $$("#filtersPlace").append($tpl);
                                
                             });
                             r.data.items[0].reportBuilderReportItems.forEach(c => {
                                 let $tpl = $(`    <div class="col-md-6 mt-3" data-sectionItem="">
                                                 <div class="input-group mb-5">
                                                     <span class="input-group-text">
-                                                                               <input type="checkbox" class=" mx-3" id="${c.columnName}s" data-columnName="${c.columnName}" data-type="${c.dataType}"  data-title="${c.title}"   />
+                                                                         <input type="checkbox" class=" mx-3" id="${c.columnName}s" data-columnName="${c.columnName}" data-alliance="${c.alliance}" data-type="${c.dataType}"  data-title="${c.title}"   />
                                                                    <label for="${c.columnName}s">${c.title} - ${c.columnName} </label>
                                                     </span>
                                                 </div>
@@ -309,10 +370,12 @@
 
                                 
 
-                                $("#itemPlace").append($tpl);
+                                $$("#itemPlace").append($tpl);
 
                             });
                         }
+
+                   
 
                         dataSets = r.data.items;
                         itemData = r.data;
@@ -322,55 +385,74 @@
 
             });
 
-        $("#filterPrevious").click(function() {
-            $("[data-bind='type']").prop("disabled", false);
-            $('#nav-tab button[data-bs-target="#nav-reportItem"]').tab('show');
-            $("#filtersPlace").html("");
-            $("#itemPlace").html("");
+        $$("#filterPrevious").click(function() {
+            $$("[data-bind='type']").prop("disabled", false);
+            $$('#nav-tab button[data-bs-target="#nav-reportItem"]').tab('show');
+            $$("#filtersPlace").html("");
+            $$("#itemPlace").html("");
+            isSavedQuery = false;
+            savedQueryId = null;
         });
 
-        $("#filterNext").click(function() {
+        $$("#filterNext").click(function() {
 
             if (reportType === "1") {
-                $("#tableViewDesigne").addClass("d-none");
-                $("#StimulsoftViewDesigne").removeClass("d-none");
+                $$("#tableViewDesigne").addClass("d-none");
+                $$("#StimulsoftViewDesigne").removeClass("d-none");
 
                 // designer = LoadStimulsoft(itemId, dataSets, reportContent);
-                var id = $("[data-bind=id]").val();
-                $("#StimulsoftViewDesigne").append(`<iframe src="/system/ReportBuilder/StimulSoftReport?itemId=${itemId}&reportId=${id}" style="width: 100%;min-height: 1200px;"></iframe>`);
+                var id = $$("[data-bind=id]").val();
+                let fromSavedQueryParam = isSavedQuery ? "&fromSavedQuery=true" : "";
+                let queryParames = {};
+                     $$("[data-param]").each((c,i)=>{
+                      queryParames[$(i).attr("data-param")] =$(i).val();
+                    });
+
+              const queryString = new URLSearchParams(queryParames).toString();
+              let iframUrl ="";
+
+              if(queryString.length >0){
+                 iframUrl =`<iframe src="/System/ReportBuilder/StimulSoftReport?itemId=${itemId}&reportId=${id}${fromSavedQueryParam}&${queryString}" style="width: 100%;min-height: 1200px;"></iframe>`
+              }
+              else{
+                 iframUrl =`<iframe src="/System/ReportBuilder/StimulSoftReport?itemId=${itemId}&reportId=${id}${fromSavedQueryParam}" style="width: 100%;min-height: 1200px;"></iframe>`
+              }
+          $$("#StimulsoftViewDesigne").append(iframUrl);
 
             } else {
-                $("#tableViewDesigne").removeClass("d-none");
-                $("#StimulsoftViewDesigne").addClass("d-none");
+                $$("#tableViewDesigne").removeClass("d-none");
+                $$("#StimulsoftViewDesigne").addClass("d-none");
             }
 
 
-            $('#nav-tab button[data-bs-target="#nav-selectItems"]').tab('show');
+            $$('#nav-tab button[data-bs-target="#nav-selectItems"]').tab('show');
 
 
         });
 
 
-        $("#selectItemsPrevious")
+        $$("#selectItemsPrevious")
             .click(function() {
 
-                $('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
-                $("#StimulsoftViewDesigne").html("");
+                $$('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
+                $$("#StimulsoftViewDesigne").html("");
 
             });
 
     
 
 
-        $("#saveReport").click(function() {
-
-            debugger
+        $$("#saveReport").click(function() {
+             debugger
             var model = {};
-            model.title = $("[data-bind='reportTitle']").val();
-            model.name = $("[data-bind=reportName]").val();
-            model.id = $("[data-bind=id]").val();
-            model.type = $("[data-bind='type']").val();
-            model.objectType = $("#nav-reportItem input:checked").attr("data-objectType");
+            model.title = $$("[data-bind='reportTitle']").val();
+            model.name = $$("[data-bind=reportName]").val();
+            model.id = $$("[data-bind=id]").val();
+            model.type = $$("[data-bind='type']").val();
+            model.objectType = $$("#nav-reportItem input:checked").attr("data-objectType");
+            if (isSavedQuery && savedQueryId) {
+                model.savedQueryId = parseInt(savedQueryId);
+            }
 
            
 
@@ -382,12 +464,16 @@
                 model.reportBuilderReportFilters = itemData.filters;
             }
             else {
-                model.reportBuilderReportFilters =   $("#filtersPlace").find("input[type=checkbox]:checked ").map((i, c) => {
+                model.reportBuilderReportFilters =   $$("#filtersPlace")
+                    .find("input[type=checkbox]:checked ").map((i, c) => {
                     var columnName = $(c).attr("data-columnName")
                     var dataType = $(c).attr("data-type")
                     var title = $(c).attr("data-title")
-                    return { columnName, dataType, title }
+                   var alliance = $(c).attr("alliance")
+                 return { columnName, dataType, title , alliance }
                 }).get();
+             if(itemData?.filters && itemData?.filters.length >0)
+             model.reportBuilderReportFilters.push(...itemData.filters)
             }
 
           
@@ -396,7 +482,7 @@
 
                 for (let index = 0; index < itemData.items[0].reportBuilderReportItems.length; index++) {
                  let colName = itemData.items[0].reportBuilderReportItems[index].columnName;
-                 if(!$("#itemPlace").find(`[data-columnName='${colName}']`)[0].checked)
+                 if(!$$("#itemPlace").find(`[data-columnName='${colName}']`)[0].checked)
                  {
                      itemData.items[0].reportBuilderReportItems.remove(c=>c.columnName === colName);
                  }
@@ -406,6 +492,7 @@
 
 
             model.reportBuilderReportSelects = itemData.items;
+           model.reportBuilderReportFilters.forEach(x=>x.id = null)
             
 
             let $btn = $(this).block();
@@ -420,29 +507,29 @@
                 });
         });
 
-        $("#selectAllItems").click(function() {
-            $("#itemPlace").find("input[type=checkbox]").each((i, c) => {
+        $$("#selectAllItems").click(function() {
+            $$("#itemPlace").find("input[type=checkbox]").each((i, c) => {
                 $(c).prop("checked", true).change();
             })
         });
 
-        $("#deleteAllItems").click(function() {
-            $("#itemPlace").find("input[type=checkbox]").each((i, c) => {
+        $$("#deleteAllItems").click(function() {
+            $$("#itemPlace").find("input[type=checkbox]").each((i, c) => {
                 $(c).prop("checked", false).change();
             })
         });
 
-        $("#selectAllFilters").click(function() {
-            $("#filtersPlace").find("input[type=checkbox]").each((i, c) => {
+        $$("#selectAllFilters").click(function() {
+            $$("#filtersPlace").find("input[type=checkbox]").each((i, c) => {
                 $(c).prop("checked", true).change();
             })
         });
 
-        $("#deleteAllFilters").click(function() {
-            $("#filtersPlace").find("input[type=checkbox]").each((i, c) => {
+        $$("#deleteAllFilters").click(function() {
+            $$("#filtersPlace").find("input[type=checkbox]").each((i, c) => {
                 $(c).prop("checked", false).change();
             })
         });
 
     </script>
-}
+ 

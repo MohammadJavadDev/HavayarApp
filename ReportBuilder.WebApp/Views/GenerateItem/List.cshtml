@@ -1,4 +1,4 @@
-﻿@model IEnumerable<Entities.Base.SavedQuery>
+@model IEnumerable<Entities.Base.SavedQuery>
 @{
      ViewData["Title"] = "لیست گزارش‌ها";
 
@@ -99,7 +99,7 @@
                     <div class="stats-card">
                          <div class="d-flex justify-content-between align-items-center">
                               <div>
-                                   <h6 class="text-muted mb-2">کل گزارش‌ها</h6>
+                                   <h6 class="text-muted mb-2">کل  پرس جو ها</h6>
                                    <h2 class="mb-0">@Model.Count()</h2>
                               </div>
                               <i class="bi bi-file-earmark-bar-graph stats-icon text-primary"></i>
@@ -110,7 +110,7 @@
                     <div class="stats-card">
                          <div class="d-flex justify-content-between align-items-center">
                               <div>
-                                   <h6 class="text-muted mb-2">گزارش‌های امروز</h6>
+                                   <h6 class="text-muted mb-2"> پرس جو های امروز</h6>
                                    <h2 class="mb-0">@Model.Count(r => r.CreatedOnMiladiDateTime.Value.Date == DateTime.Today)</h2>
                               </div>
                               <i class="bi bi-calendar-check stats-icon text-success"></i>
@@ -139,16 +139,16 @@
                <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                          <i class="bi bi-list"></i>
-                         لیست گزارش‌ها
+                         لیست  پرس جو ها‌ 
                     </h5>
                     <div class="btn-group btn-group-sm" role="group">
-                         <button type="button" class="btn btn-outline-primary" onclick="location.reload();">
+                         <button type="button" class="btn btn-outline-primary" onclick="appController.refreshCurrentPage();">
                               <i class="bi bi-arrow-clockwise"></i>
                               بروزرسانی
                          </button>
                     </div>
                     <div class="  text-start">
-                         <a href="/panel/querydesigner/edit" class="btn btn-light btn-lg">
+                         <a href="/Panel/QueryDesigner/Edit" class="btn btn-light btn-lg">
                               <i class="bi bi-plus-circle"></i>
                               آیتم جدید
                          </a>
@@ -160,8 +160,8 @@
                {
                     <div class="empty-state">
                          <i class="bi bi-inbox"></i>
-                         <h4 class="text-muted">گزارشی یافت نشد</h4>
-                         <p class="text-muted mb-4">هنوز گزارشی ایجاد نشده است</p>
+                         <h4 class="text-muted"> پرس جو یافت نشد</h4>
+                         <p class="text-muted mb-4">هنوز پرس جو ایجاد نشده است</p>
                          
                     </div>
                }
@@ -221,7 +221,7 @@
                                                           title="اجرا و نمایش">
                                                        <i class="bi bi-play-circle"></i>
                                                   </button>
-                                                  <a href="/QueryDesigner/Edit/@report.Id"
+                                                  <a href="/Panel/QueryDesigner/Edit?id=@report.Id"
                                                      class="btn btn-sm btn-outline-primary"
                                                      title="ویرایش">
                                                        <i class="bi bi-pencil"></i>
@@ -262,7 +262,7 @@
                <div class="modal-header">
                     <h5 class="modal-title">
                          <i class="bi bi-play-circle"></i>
-                         نتایج گزارش
+                         نتایج پرس جو
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                </div>
@@ -272,7 +272,7 @@
                               <div class="spinner-border text-primary" role="status">
                                    <span class="visually-hidden">در حال اجرا...</span>
                               </div>
-                              <p class="text-muted mt-3">در حال اجرای گزارش...</p>
+                              <p class="text-muted mt-3">در حال اجرای پرس جو...</p>
                          </div>
                     </div>
                </div>
@@ -291,7 +291,7 @@
          @if (Model != null && Model.Any())
          {
                             <text>
-                            $$('#reportsTable').DataTable({
+                            $('#reportsTable').DataTable({
                                 responsive: true,
 
                                 order: [[3, 'desc']], // مرتب‌سازی بر اساس تاریخ ایجاد
@@ -311,9 +311,9 @@
              const modal = new bootstrap.Modal(document.getElementById('executeModal'));
              modal.show();
 
-             const response = await $.get('/QueryDesigner/ExecuteReport', { id: id });
+             const response = await $.get('/Panel/QueryDesigner/ExecuteReport', { id: id });
 
-             if (response.success) {
+             if (response.isSuccess) {
                  const result = response.data;
                  let html = `
                      <div class="mb-3">
@@ -341,9 +341,9 @@
                  });
 
                  html += '</tbody></table></div>';
-                 $$('#executeContent').html(html);
+                 $('#executeContent').html(html);
              } else {
-                 $$('#executeContent').html(`
+                 $('#executeContent').html(`
                      <div class="alert alert-danger">
                          <i class="bi bi-exclamation-triangle"></i>
                          ${response.message || 'خطا در اجرای گزارش'}
@@ -352,7 +352,7 @@
              }
          } catch (error) {
              console.error(error);
-             $$('#executeContent').html(`
+             $('#executeContent').html(`
                  <div class="alert alert-danger">
                      <i class="bi bi-exclamation-triangle"></i>
                      خطا در ارتباط با سرور
@@ -380,9 +380,9 @@
          if (!confirmed) return;
 
          try {
-             const response = await $.post('/QueryDesigner/DeleteReport', { id: id });
+             const response = await $.post('/Panel/QueryDesigner/DeleteReport', { id: id });
 
-             if (response.success) {
+             if (response.isSuccess) {
                  showAlert('گزارش با موفقیت حذف شد', 'success');
                  setTimeout(() => {
                      location.reload();
@@ -408,7 +408,7 @@
          $('body').append(alertHtml);
 
          setTimeout(() => {
-             $$('.alert').alert('close');
+             $('.alert').alert('close');
          }, 5000);
      }
 </script>

@@ -1,0 +1,299 @@
+@using Entities.App.Edms;
+<datatableprofile entity-Type="typeof(Document)"></datatableprofile>
+
+
+<div class="card mb-3">
+	<form-action-buttons>
+		<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-note"
+						action-name="comDataSheet" title="دیتاشیت کمپرسور اویل اینجکت"></form-action-button>
+
+		<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-note"
+						action-name="comOilFreeDataSheet" title="دیتاشیت کمپرسور اویل فری"></form-action-button>
+	
+
+		<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-note"
+						action-name="deryrDataSheet" title="دیتاشیت درایر"></form-action-button>
+
+
+		<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-note"
+						action-name="psaDataSheet" title="دیتاشیت Psa"></form-action-button>
+
+
+		<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-note"
+						action-name="staticDataSheet" title="دیتاشیت ثابت"></form-action-button>
+					
+					</form-action-buttons>
+</div>
+<div class="card" data-document-products-table="true">
+	 
+	<div class="card-body p-1">
+		<div class="table-responsive">
+			<table id="documentProductsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%; direction: rtl;">
+				<thead>
+					<tr>
+						<th>شناسه</th>
+						<th>دارای پیوست</th>
+						<th>دارای BOM</th>
+						<th>کد کالا</th>
+						<th>نام کالا</th>
+						<th>گروه محصول</th>
+						<th>قیمت کل خرید داخلی</th>
+						<th>قیمت کل خرید خارجی</th>
+						<th>مجموع قیمت</th>
+						<th>مجموع قیمت یورو</th>
+						<th>قیمت فروش</th>
+						<th>روتین مهندسی</th>
+					     <th>تاریخ ایجاد</th>
+						<th>توضیحات</th>
+						<th>تعداد پیوست BOM</th>
+						<th>خارجی</th>	
+						<th>ابزار دقیق</th>
+						<th>ریویژن دیتاشیت</th>
+					</tr>
+				</thead>
+				<tfoot>
+					<tr>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="id" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="بله/خیر" data-col="haveAttachment" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="بله/خیر" data-col="hasBom" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="partCode" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="partName" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="productNameGroupName" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="internalTotalBuyPrice" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="externalTotalBuyPrice" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="buyPrice" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="buyPriceInEuro" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="salePrice" /></th>
+							<th><input type="text" class="form-control form-control-sm" placeholder="بله/خیر" data-col="engineeringRoutine" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="createdDate" /></th>
+ 
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="comment" /></th>
+						
+						<th><input type="text" class="form-control form-control-sm" placeholder="جستجو" data-col="bomProductFormulAttachmentCount" /></th>
+						<th><input type="text" class="form-control form-control-sm" placeholder="بله/خیر" data-col="foreign" /></th>
+					
+						<th><input type="text" class="form-control form-control-sm" placeholder="بله/خیر" data-col="preciseTool" /></th>
+						<th</th>
+					</tr>
+				</tfoot>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+	var fetchUrl = "/Panel/Edms/Document/DocumentProductFetchData";
+
+		
+
+	    function formatPrice(val) {
+		    if (val === null || val === undefined) return '-';
+		    var num = parseFloat(val);
+		    if (isNaN(num)) return val;
+		    return num.toLocaleString('fa-IR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+	    }
+
+	    function formatBool(val) {
+		    if (val === true || val === 'true' || val === 1) return 'بله';
+		    return 'خیر';
+	    }
+
+	    var columns = [
+		    { data: "id", name: "Id", title: "شناسه", searchable: true, orderable: true, render: function(d) { return d != null ? d : '-'; } },
+			    { data: "haveAttachment", name: "HaveAttachment", title: "دارای پیوست", searchable: true, orderable: true, render: formatBool },
+			    { data: "hasBom", name: "HasBom", title: "دارای BOM", searchable: true, orderable: true, render: formatBool },
+
+		    { data: "partCode", name: "PartCode", title: "کد کالا", searchable: true, orderable: true, render: function(d) { return d != null ? d : '-'; } },
+		    { data: "partName", name: "PartName", title: "نام کالا", searchable: true, orderable: true, render: function(d) { return d != null ? d : '-'; } },
+		    { data: "productNameGroupName", name: "ProductNameGroupName", title: "گروه محصول", searchable: true, orderable: true, render: function(d) { return d != null ? d : '-'; } },
+			    { data: "internalTotalBuyPrice", name: "InternalTotalBuyPrice", title: "قیمت کل خرید داخلی", searchable: true, orderable: true, render: formatPrice },
+			    { data: "externalTotalBuyPrice", name: "ExternalTotalBuyPrice", title: "قیمت کل خرید خارجی", searchable: true, orderable: true, render: formatPrice },
+		    { data: "buyPrice", name: "BuyPrice", title: "قیمت خرید", searchable: true, orderable: true, render: formatPrice },
+			    { data: "buyPriceInEuro", name: "BuyPriceInEuro", title: "قیمت خرید یورو", searchable: true, orderable: true, render: formatPrice },
+
+		    { data: "salePrice", name: "SalePrice", title: "قیمت فروش", searchable: true, orderable: true, render: formatPrice },
+		    { data: "bomProductFormulAttachmentCount", name: "BomProductFormulAttachmentCount", title: "تعداد پیوست BOM", searchable: true, orderable: true, render: function(d) { return d != null ? d : '0'; } },
+			    { data: "comment", name: "Comment", title: "توضیحات", searchable: true, orderable: true, render: function(d) { return d != null ? d : '-'; } },
+			    { data: "createdDate", name: "CreatedDate", title: "تاریخ ایجاد", searchable: true, orderable: true, render: function(d) { return d != null ? d : '-'; } },
+
+		    { data: "foreign", name: "Foreign", title: "خارجی", searchable: true, orderable: true, render: formatBool },
+		    { data: "engineeringRoutine", name: "EngineeringRoutine", title: "روتین مهندسی", searchable: true, orderable: true, render: formatBool },
+		    { data: "preciseTool", name: "PreciseTool", title: "ابزار دقیق", searchable: true, orderable: true, render: formatBool },
+		    { data: "partExteraInfoRev", name: "PartExteraInfoRev", title: "ریویژن دیتاشیت" }
+	    ];
+
+	    function buildRequest(d) {
+		    var req = {
+			    draw: d.draw,
+			    start: d.start,
+			    length: d.length,
+			    search: { value: (d.search && d.search.value) ? (Array.isArray(d.search.value) ? d.search.value : [d.search.value]) : [], regex: false },
+			    order: d.order && d.order.length > 0 ? [{ column: d.order[0].column.toString(), dir: d.order[0].dir || 'asc' }] : [{ column: "0", dir: "desc" }],
+			    columns: []
+		    };
+		    var priceCols = ['salePrice','buyPrice','internalTotalBuyPrice','externalTotalBuyPrice','buyPriceInEuro'];
+		    (d.columns || columns).forEach(function(col, i) {
+			    var c = columns[i] || col;
+			    var colData = col.data || c.data;
+			    var colName = c.name || col.name;
+			    var val = '';
+			    if (col.search && col.search.value) {
+				    val = Array.isArray(col.search.value) ? (col.search.value[0] || '') : col.search.value;
+			    }
+			    var filterInput = document.querySelector('[data-col="' + colData + '"]');
+			    if (filterInput && filterInput.value && filterInput.value.trim()) {
+				    val = filterInput.value.trim();
+			    }
+			    if (val && priceCols.indexOf(colData) >= 0) val = val.replace(/,/g, '').replace(/\s/g, '');
+			    req.columns.push({
+				    data: colData,
+				    name: colName,
+				    searchable: c.searchable !== false,
+				    orderable: c.orderable !== false,
+				    search: { value: val ? [val] : [], regex: false }
+			    });
+		    });
+		    return req;
+	    }
+
+	    var $table = $$('#documentProductsTable');
+
+	    if ($table.length) {
+		    var table = $table.DataTable({
+			    language: { url: "/panelLib/plugins/custom/datatables/fa.json" },
+			    processing: true,
+			    serverSide: true,
+			    ajax: {
+				    url: fetchUrl,
+				    type: "POST",
+				    contentType: "application/json",
+				    data: function(d) {
+					    return JSON.stringify(buildRequest(d));
+				    },
+				    dataFilter: function(data) {
+					    var json = JSON.parse(data);
+					    if (!json.isSuccess) {
+						    if (typeof toastr !== 'undefined') toastr.error(json.message || 'خطا', 'خطا');
+						    return JSON.stringify({ draw: 0, recordsTotal: 0, recordsFiltered: 0, data: [] });
+					    }
+					    return JSON.stringify(json.data || json);
+				    }
+			    },
+			    columns: columns,
+			    pageLength: 25,
+			    lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "همه"]],
+			    scrollX: true,
+			    scrollCollapse: true,
+			    order: [[0, 'desc']],
+			    colResize: {
+				isEnabled: true,
+				resize: true,
+				reorder: true,
+				dataProfileId: "documentproductsList" ,
+			}
+		    });
+
+		    var searchTimeout;
+		    $table.find('tfoot input').on('keyup change', function() {
+			    var self = this;
+			    clearTimeout(searchTimeout);
+			    searchTimeout = setTimeout(function() {
+				    var colData = $(self).data('col');
+				    var colIndex = columns.findIndex(function(c) { return c.data === colData; });
+				    if (colIndex >= 0) {
+					    table.column(colIndex).search(self.value).draw();
+				    }
+			    }, 400);
+		    });
+	    }
+
+
+		    var selectedRowData = null;
+		  
+
+	$$('#documentProductsTable tbody').on('click', 'tr', function () {
+		 
+	    var $row = $(this);
+
+	    if ($row.hasClass('selected')) {
+		   // unselect
+		   $row.removeClass('selected');
+		   selectedRowData = null;
+	    } else {
+		   // remove selection from other rows
+		   table.$('tr.selected').removeClass('selected');
+
+		   // select new row
+		   $row.addClass('selected');
+
+		   // store row data
+		   selectedRowData = table.row(this).data();
+	    }
+
+	    if(selectedRowData && selectedRowData.partExteraInfoType)
+	    {
+			loadDataSheetReport(selectedRowData)
+	    }
+	    
+	});
+
+	$$("[data-action=comDataSheet]").click(function(){
+
+		    appController.addPage(`/System/ReportBuilder/ViewReportByName/partexterainfooilinject?productId={'values':['${selectedRowData.partId}'],'condition':'='}&rev={'values':['${selectedRowData.partExteraInfoRev}'],'condition':'='}&autoRun=True`)
+	});
+
+	$$("[data-action=comOilFreeDataSheet]").click(function(){
+
+		    appController.addPage(`/System/ReportBuilder/ViewReportByName/PartExteraInfoOilFree?productId={'values':['${selectedRowData.partId}'],'condition':'='}&rev={'values':['${selectedRowData.partExteraInfoRev}'],'condition':'='}&autoRun=True`)
+	});
+
+	$$("[data-action=deryrDataSheet]").click(function(){
+
+		    appController.addPage(`/System/ReportBuilder/ViewReportByName/PartExteraInfoDryer?productId={'values':['${selectedRowData.partId}'],'condition':'='}&rev={'values':['${selectedRowData.partExteraInfoRev}'],'condition':'='}&autoRun=True`)
+	});
+
+	$$("[data-action=psaDataSheet]").click(function(){
+
+		    appController.addPage(`/System/ReportBuilder/ViewReportByName/PartExteraInfoPsa?productId={'values':['${selectedRowData.partId}'],'condition':'='}&rev={'values':['${selectedRowData.partExteraInfoRev}'],'condition':'='}&autoRun=True`)
+	});
+
+	$$("[data-action=staticDataSheet]").click(function(){
+
+		    appController.addPage(`/System/ReportBuilder/ViewReportByName/PartExteraInfoPsa?productId={'values':['${selectedRowData.partId}'],'condition':'='}&rev={'values':['${selectedRowData.partExteraInfoRev}'],'condition':'='}&autoRun=True`)
+	});
+
+	$$("[data-action=comDataSheet]").prop("disabled",true);
+	$$("[data-action=comOilFreeDataSheet]").prop("disabled",true);
+	 $$("[data-action=deryrDataSheet]").prop("disabled",true);
+		$$("[data-action=psaDataSheet]").prop("disabled",true);
+	$$("[data-action=staticDataSheet]").prop("disabled",true);
+ 
+	function loadDataSheetReport(selectedRowData)
+	{
+
+			switch (selectedRowData.partExteraInfoType)
+			{
+				   case 1:
+					$$("[data-action=comDataSheet]").prop("disabled",false);
+				   break;
+					case 2:
+					$$("[data-action=comOilFreeDataSheet]").prop("disabled",false);
+				   break;
+				   case 3:
+					$$("[data-action=deryrDataSheet]").prop("disabled",false);
+				   break;
+				   case 4:
+					$$("[data-action=psaDataSheet]").prop("disabled",false);
+				   break;
+
+					case 5:
+					$$("[data-action=staticDataSheet]").prop("disabled",false);
+				   break;
+			   }
+	}
+
+
+
+
+</script>

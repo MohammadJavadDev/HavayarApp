@@ -1,2 +1,30 @@
-@using Entities.App.Sale;
-<datatableprofile entity-Type="typeof(ProductionOrderItem)" ></datatableprofile>
+﻿@using Entities.App.Sale;
+<datatableprofile entity-Type="typeof(ProductionOrderItem)"></datatableprofile>
+
+
+<div class="d-none" id="bodySawpModal">
+	<div class="col-md-12">
+		<label class="required">جابجایی با</label>
+		@(Html.EntitySelector<ProductionOrderItem>(
+				"ProductionOrderItemSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active && !string.IsNullOrEmpty(c.Serial)
+				&& !c.IsDeleted && c.IsLatestVersion,
+				c => new
+				{
+					Id = c.Id,
+					ProductionOrderNumber = (int)c.ProductionOrder.ProductionOrderNumber,
+					PartCode =c.Part.Code,
+					c.Serial
+				},
+				c => new { c.ProductionOrder.ProductionOrderNumber, c.Part.Code, c.Serial },
+				"{ProductionOrderNumber} | {PartCode} | {Serial}",
+				"ProductionOrderItemId",
+				"ProductionOrderItemName",
+				null
+				))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12">
+		<input type="checkbox" data-bind="chkSwapParts" />
+	</div>
+</div>

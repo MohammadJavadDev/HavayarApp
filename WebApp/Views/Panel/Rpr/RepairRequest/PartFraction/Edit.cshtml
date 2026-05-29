@@ -1,0 +1,49 @@
+@using Entities.App.Bom;
+@using Entities.App.FIN
+@using Entities.App.Gnr
+@using Entities.App.Inv
+@using Entities.App.Prp
+@using Entities.App.SLS
+@using Entities.Auth
+@using WebFramework.TagHelpers;
+@model RepairRequestPartFraction
+
+<div class="card">
+
+    <div class="card  card-body my-3">
+        <div class='row '>
+
+            <div class="col-md-12">
+                <label>عنوان</label>
+                <input type="text" class="form-control" data-bind="title" value="@Model?.Title" />
+            </div>
+
+
+            <div class="col-md-12">
+                <label>توضیحات</label>
+                <textarea class="form-control" data-bind="description">@Model?.Description</textarea>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<div class='card-footer row'>
+    <div class='col-md-3'>
+        <span>ایجاد کننده :</span>
+        <span>@Model?.CreatedByName</span>
+    </div>
+    <div class='col-md-3'>
+        <span>تاریخ ایجاد :</span>
+        <span>@Model?.CreatedOnShamsiDateTime</span>
+    </div>
+    <div class='col-md-3'>
+        <span>ویرایش کننده :</span>
+        <span>@Model?.ModifiedByName</span>
+    </div>
+    <div class='col-md-3'>
+        <span>تاریخ ویرایش :</span>
+        <span>@Model?.ModifiedDateShamsiDateTime</span>
+    </div>
+</div>

@@ -7,21 +7,21 @@
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Proposal)"></form-action-buttons></div>
 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class='col-md-3'>
+		<div class='col-md-6'>
 			<label class='required'>عنوان</label>
 			<input class='form-control' data-bind='title' required asp-for='Title' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-6'>
 			<label class=''>کد</label>
-			<input class='form-control' data-bind='code' asp-for='Code' />
+			<input class='form-control' data-bind='code' asp-for='Code' disabled />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 
 
-		<div class="col-md-3">
+		<div class="col-md-6">
 			<label class='required'>واحد درخواست دهنده</label>
 			@(Html.EntitySelector<OrgUnit>
 						(
@@ -43,7 +43,7 @@
 		 
 
 		</div>
-		<div class="col-md-3">
+		<div class="col-md-6">
 			<label class=''>صنعت</label>
 			@(Html.EntitySelector<PartyIndustry>
 						(

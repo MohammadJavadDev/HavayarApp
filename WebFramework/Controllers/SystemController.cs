@@ -1,6 +1,8 @@
-﻿using Common.Utilities;
+﻿using Common.Attributes;
+using Common.Utilities;
 using Data.Contracts;
 using Data.Repositories;
+using Data.Services.QueryBuilderServices;
 using Entities.Base;
 using Entities.Base.DataTable;
 using Entities.Services;
@@ -11,6 +13,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using WebFramework.Abstractions;
 using WebFramework.Filtters;
 using WebFramework.Page;
@@ -27,6 +30,7 @@ namespace WebFramework.Controllers.SystemControllers
         IEntityRepository _service,
         IEntityHistoryRepository repositoryHistoryRepository,
         IDataTableProfileService dataTableProfile,
+        IQueryService queryService ,
 	    IEnvironmentService _webHostEnvironment
         , IEntityMetadataCache _entityMetadataCache,
         HttpClient http) : BaseController
@@ -41,9 +45,9 @@ namespace WebFramework.Controllers.SystemControllers
 
         }
         [HttpPost("[action]")]
-        public async Task<IActionResult> FetchDataProfile(DataTableRequest request)
+        public async Task<IActionResult> FetchDataProfile(DataTableRequest request , CancellationToken ct)
         {
-            var res = await _service.FetchDataProfile(request);
+            var res = await _service.FetchDataProfile(request , ct);
 
 
             return Ok(res);
@@ -57,28 +61,32 @@ namespace WebFramework.Controllers.SystemControllers
                 .GetCustomAttribute<DisplayAttribute>();
             return displayAttribute?.Name ?? enumValue.ToString();
         }
-        [HttpPost("[action]")]
-        public IActionResult FetchDataTableProfile(GetDataProfileViewModel request)
-        {
-            var data = dataTableProfile.GetDataTableProfileById(request.Id);
-            var cols = data.Columns.JsonDeserialize<List<SystemDataTableProfileSelectViewModel>>();
+
+		/// <summary>
+		/// متد قدیمی دیتا پروفایل
+		/// </summary>
+		[HttpPost("[action]")]
+		public IActionResult FetchDataTableProfileOld(GetDataProfileViewModel request)
+		{
+			var data = dataTableProfile.GetDataTableProfileById(request.Id);
+			var cols = data.Columns.JsonDeserialize<List<SystemDataTableProfileSelectViewModel>>();
 
 
 
-            foreach (var dat in cols.Where(c => c.Type == "select").ToList())
-            {
+			foreach (var dat in cols.Where(c => c.Type == "select").ToList())
+			{
 
 				var tableName = dat.TableName;
 				var entityType = _entityMetadataCache.Get(data.EntityName);
 
 				if (entityType == null)
-                    throw new Exception("Invalid table name.");
+					throw new Exception("Invalid table name.");
 
-                var prop = entityType.Properties.FirstOrDefault(c => c.Name == dat.PropName);
+				var prop = entityType.Properties.FirstOrDefault(c => c.Name == dat.PropName);
 				dat.options = dat.options;
 				if (prop != null)
-                    {
-                         dat.options = new();
+				{
+					dat.options = new();
 					foreach (var value in prop.Options)
 					{
 
@@ -92,28 +100,97 @@ namespace WebFramework.Controllers.SystemControllers
 				}
 
 
-             
 
+
+
+			}
+			var dataTableColumns = cols.Select(c =>
+			{
+				return new
+				{
+					name = c.Alliance,
+					data = c.Alliance,
+					type = c?.Type ?? "string",
+					title = c.Title,
+					render = c?.Render ?? "",
+					c?.options,
+					showInRelationData = c.Name == request.ShowInRelationData,
+					c.Visible
+
+				};
+
+			}).ToList();
+
+			return Ok(dataTableColumns);
+
+		}
+		[HttpPost("[action]")]
+        public async Task<IActionResult> FetchDataTableProfile(GetDataProfileViewModel request)
+        {
+            var data = await queryService.GetReportAsync(request.Id);
+
+               if(data == null)
+               {
+                    throw new Exception("نمایه داده یافت نشد.");
+               }
+		 var columns = JsonSerializer.Deserialize<List<QueryColumn>>(data.ColumnsJson);
+		 
+
+
+			foreach (var col in columns.Where(c => c.SystemType ==  SystemType.Select))
+            {
+
+                    if((TypeOptionEnum)col.OptionSetting.TypeOption == TypeOptionEnum.System)
+                    {
+					col.Options = EnumExtensions
+                              .GetEnumValuesWithDisplayNamesByTypeName(col.OptionSetting.SystemTypeName)
+                              .Select(c=>new SelectOptions { Name = c.Text , Value = c.Value}).ToList();
+
+				}
+                    else if((TypeOptionEnum)col.OptionSetting.TypeOption == TypeOptionEnum.Defination)
+                    {
+                         col.Options = col.OptionSetting.ListOptions;
+
+				}
+                    else
+                    {
+                         throw new Exception("دریافت از گزینه های موجود پیاده سازی نشده است.");
+                    }
+
+                      
               
             }
-            var dataTableColumns = cols.Select(c =>
+
+			 
+			var dataTableColumns = columns.Select(c =>
             {
                  return new
                  {
-                      name = c.Alliance,
-                      data = c.Alliance,
-                      type = c?.Type ?? "string",
-                      title = c.Title,
+                      name = c?.Alliance ?? c.ColumnName.ToCamelCase(),
+                      data = c?.Alliance ?? c.ColumnName.ToCamelCase(),
+                      type = c?.SystemType.ToString().ToLower() ?? "string",
+                      title = c.DisplayName,
                       render = c?.Render ?? "",
-                      c?.options,
-                      showInRelationData = c.Name == request.ShowInRelationData,
-                      c.Visible
+                      c?.Options,
+                      showInRelationData = c.ColumnName == request.ShowInRelationData,
+                      c.PrimaryKey,
+                      c.SortDirection,
+                      c.SortOrder,
+                      c.Visible,
+				  isCustom = c.IsCustom,
+				  customColType = c.CustomColType,
+				  htmlTemplate = c.HtmlTemplate,
+				  btnConfig = c.BtnConfig,
+				  inputConfig = c.InputConfig,
 
-                 };
+
+			  };
 
 		  }).ToList();
 
-            return Ok(dataTableColumns);
+
+
+            return Ok(new { columns = dataTableColumns  , ActionOptions = data.ActionOptions , CustomActionButtons = data.CustomActionButtonsJson , eventScripts = data.EventScriptsJson });
 
         }
         [HttpPost("[action]")]
@@ -161,11 +238,17 @@ namespace WebFramework.Controllers.SystemControllers
             return Ok(await repositoryHistoryRepository.GetEntityHistoryById(model.Id, model.type));
         }
 
-      
-        
+		[HttpGet("[action]")]
+		public async Task<IActionResult> ListSystemEnums()
+		{
+			return Ok( _entityMetadataCache.GetAllSystemEnums());
+		}
 
 
-        public class GetHistoryViewModel
+
+
+
+		public class GetHistoryViewModel
         {
             public long Id { get; set; }
             public string? type { get; set; }

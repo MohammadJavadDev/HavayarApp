@@ -1,5 +1,6 @@
 @using Common.Utilities
 @using Entities.App.Edms;
+@using Entities.App.Edms.Enums
 @using Entities.Auth
 @model Document
 
@@ -10,6 +11,17 @@
 	{
 		CanEditDocument = (bool)ViewData["CanEditDocument"];
 	}
+
+	var statusText = Model.Status.HasValue ? Model.Status.Value.ToDisplay() : "-";
+	var statusClass = Model?.Status switch
+	{
+		DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByEmployer or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
+		DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+		DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
+		DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+		DocumentStatusEnums.Archived => "badge-light-dark",
+		_ => "badge-light"
+	};
 }
 <div id="DocumentRevisionEditor">
 
@@ -19,6 +31,8 @@
 			<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 			<input class='form-control' data-bind='projectId' value='@Model?.ProjectId' type='hidden' />
 			<input class='form-control' data-bind='documentVpisId' value='@Model?.DocumentVpisId' type='hidden' />
+			<input class='form-control' id="docStatus"  value='@Model?.Status' type='hidden' />
+			<input class='form-control' id="projectId" value='@Model?.ProjectId' type='hidden' />
 
 			<div class="col-12">
 				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
@@ -26,7 +40,7 @@
 						<span class="fw-bold">ریویژن</span>
 						<span class="badge badge-light-primary">@Model?.Revision</span>
 						<span class="text-muted">وضعیت:</span>
-						<span class="badge badge-light">@(Model?.Status.HasValue == true ? Model.Status.Value.ToDisplay() : "-")</span>
+						<span class="badge @statusClass">@statusText</span>
 					</div>
 					<div class="text-muted small">
 						آخرین ویرایش: <span class="rtl">@(Model?.ModifiedDateShamsiDateTime ?? "-")</span>
@@ -43,7 +57,7 @@
 			</div>
 
 			<div class='col-md-6'>
-				<label class='form-label'>نفر ساعت</label>
+				<label class='form-label'>نفر-ساعت</label>
 				<input class='form-control' data-bind='hourPrePerson' data-invalidMessage='فقط عدد'
 					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HourPrePerson' />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -57,7 +71,7 @@
 			</div>
 
 			<div class='col-md-6'>
-				<label class='form-label'>بازنگری</label>
+				<label class='form-label'>رویژن</label>
 				<input class='form-control' data-bind='revision' data-invalidMessage='فقط عدد'
 					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' disabled />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -112,25 +126,25 @@
 			<div class='col-md-6'>
 				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
 						    label="فایل اصلی" entity-type="@typeof(Document).FullName" entity-prop-name="MainFile" bindid="mainFile"
-							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="motherFileId" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
 						    label="فایل مادر" entity-type="@typeof(Document).FullName" entity-prop-name="MotherFile" bindid="motherFile"
-							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="secondaryFileId" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
 						    label="فایل ثانوی" entity-type="@typeof(Document).FullName" entity-prop-name="SecondaryFile" bindid="secondaryFile"
-							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
 						    label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" bindid="replySheet"
-							max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
+						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
@@ -169,26 +183,9 @@
 		</div>
 
 	</div>
-	<div class="card my-1">
-
-	<div class='card-body row'>
-		<div class='col-md-3'>
-			<span>ایجاد کننده :</span>
-			<span data-bind="createdByName">@Model?.CreatedByName</span>
-		</div>
-		<div class='col-md-3'>
-			<span>تاریخ ایجاد :</span>
-			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
-		</div>
-		<div class='col-md-3'>
-			<span>ویرایش کننده :</span>
-			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
-		</div>
-		<div class='col-md-3'>
-			<span>تاریخ ویرایش :</span>
-			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
-		</div>
-	</div>
-</div>
+ 
 </div>
 
+	<script>
+		debugger
+	</script>

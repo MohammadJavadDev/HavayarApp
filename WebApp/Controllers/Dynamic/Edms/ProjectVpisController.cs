@@ -1,13 +1,16 @@
 using Common.Attributes;
 using Common.Auth.Enums;
+using Common.Utilities;
 using Data.Contracts;
 using Data.SystemAuth;
+using Entities.App.Edms;
+using Entities.App.Edms.Enums;
+using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Entities.Base.DataTable;
+ 
 using WebFramework.Filtters;
 using WebFramework.Page;
-using Entities.App.Edms;
 
 namespace WebApp.Controllers.Dynamic
 {
@@ -38,6 +41,18 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Add(ProjectVpis projectVpis, CancellationToken cn)
 		{
 			var entity = await unitOfWork.Repository<ProjectVpis>().SaveAsync(projectVpis, cn, true);
+
+			await unitOfWork.Repository<Document>().AddAsync(new()
+			{
+				DocumentVpisId = entity.Id,
+				ProjectId = entity.ProjectNameId,
+				Status =DocumentStatusEnums.NotIssue,
+				Revision = 0,	
+				ApproverId = entity.ApproverId,
+				ReviewerId = entity.ReviewersId.Split(',')[0].ToInt(),
+				 
+			},cn);
+
 			return Ok(entity);
 		}
 
@@ -67,8 +82,6 @@ namespace WebApp.Controllers.Dynamic
 			{
 				var entity = unitOfWork.Repository<ProjectVpis>().TableNoTracking
 					.Include(c => c.ProjectName)
-					.Include(c => c.Reviewer)
-					.Include(c => c.Approver)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Edms\ProjectVpis\Edit.cshtml", entity);
 			}

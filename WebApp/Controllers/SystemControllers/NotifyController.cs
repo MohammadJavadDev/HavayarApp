@@ -128,7 +128,7 @@ namespace WebApp.Controllers.SystemControllers
 			}
 
 			notification.IsRead = true;
-			await _unitOfWork.Repository<Notification>().UpdateAsync(notification, cancellationToken);
+			await _unitOfWork.SaveChangesAsync(cancellationToken);
 
 			return Ok();
 		}
@@ -184,7 +184,7 @@ namespace WebApp.Controllers.SystemControllers
 				}
 				else
 				{
-					await _notificationService.CreateAndSendToAllUsersAsync(notification);
+					await _notificationService.CreateAndSendAsync(notification, model.OwnerIds);
 				}
 			}
 			else
@@ -195,7 +195,8 @@ namespace WebApp.Controllers.SystemControllers
 				}
 				else
 				{
-					await _notificationService.SendToAllUsersAsync(notification);
+					await _notificationService.SendAsync(notification, model.OwnerIds);
+ 
 				}
 			}
 

@@ -3,6 +3,7 @@ using Data;
 using Data.Contracts;
 using Data.Repositories;
 using Data.Services;
+using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Auth;
 using Entities.Services;
@@ -17,6 +18,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
+using RB.WebApp;
 using ReportBuilder.WebApp;
 using ReportBuilder.WebApp;
 using ReportBuilder.WebApp.Controllers;
@@ -24,11 +26,12 @@ using Services;
 using Services.AccessServices;
 using Services.Auth;
 using Services.FileServices;
+using Services.ImportDefinitionServices;
 using Services.InMemoryData;
 using Services.NotificationGroupServices;
 using Services.NotificationServices;
 using Services.NotifitactionBuilderServices;
-using Services.QueryBuilderServices;
+ 
 using Shared.Realtime.Options;
 using System.IO.Compression;
 using System.Text;
@@ -43,10 +46,8 @@ using Z.EntityFramework.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
-
-
-
-
+ 
+ 
 builder.Services.AddControllersWithViews()
 
     .AddNewtonsoftJson(o =>
@@ -151,6 +152,10 @@ builder.Services.AddSingleton<ICrudEventPublisher, CrudEventPublisher>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<INotificationGroupService, NotificationGroupService>();
 
+builder.Services.AddScoped<IImportRepository, ImportRepository>();
+
+ 
+   
 
 //QueryBuilder Services 
 

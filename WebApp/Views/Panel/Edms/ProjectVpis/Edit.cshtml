@@ -40,7 +40,7 @@
 
 		<div class='col-md-3'>
 			<label class=''>وزن</label>
-			<input class='form-control'  data-bind='weight'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Weight' />
+			<input class='form-control' data-bind='weight' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+([\\.][\u06F0-\u06F90-9]{1,2})?$'" placeholder="مثال: ۱۲۳.۴۵" asp-for='Weight' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -73,55 +73,48 @@
 		</div>
 
 		<div class='col-md-3'>
-			<label class=''>تاریخ مبنای اولین مدرک (میلادی)</label>
-			<input class='form-control'  data-bind='firstDegreeDocumentMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.FirstDegreeDocumentMiladiDate' />
+			<label class=''>تاریخ مبنای اولین مدرک</label>
+			<input class='form-control' data-bind='firstDegreeDocumentShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.FirstDegreeDocumentMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-
-		<div class='col-md-3'>
-			<label class=''>تاریخ مبنای اولین مدرک (شمسی)</label>
-			<input class='form-control'  data-bind='firstDegreeDocumentShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.FirstDegreeDocumentShamsiDate' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
+		 
 
 		<div class='col-md-3'>
 			<label class=''>تاریخ برنامه جایگزین</label>
-			<input class='form-control'  data-bind='replaceMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ReplaceMiladiDate' />
+			<input class='form-control' data-bind='replaceShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ReplaceMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
-			<label class=''>تاریخ برنامه جایگزین شمسی</label>
-			<input class='form-control'  data-bind='replaceShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ReplaceShamsiDate' />
+		 
+		<div class="col-md-12">
+
+		</div>
+		<div class='col-md-6'>
+			<label class=''>نفر ساعت برای ریویژن 00</label>
+			<input class='form-control ltr' data-bind='personHourRevisionZero' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"   />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-6'>
-			<label class=''>نفر ساعت برای ریویژن 0</label>
-			<input class='form-control'  data-bind='personHourRevisionZero'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionZero' />
+			<label class=''>نفر ساعت برای ریویژن 01</label>
+			<input class='form-control ltr' data-bind='personHourRevisionOne' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"  />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-6'>
-			<label class=''>نفر ساعت برای ریویژن 1</label>
-			<input class='form-control'  data-bind='personHourRevisionOne'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionOne' />
+			<label class=''>نفر ساعت برای ریویژن 02</label>
+			<input class='form-control ltr' data-bind='personHourRevisionTwo' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"   />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-6'>
-			<label class=''>نفر ساعت برای ریویژن 2</label>
-			<input class='form-control'  data-bind='personHourRevisionTwo'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionTwo' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-6'>
-			<label class=''>نفر ساعت برای ریویژن 3</label>
-			<input class='form-control'  data-bind='personHourRevisionThree'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PersonHourRevisionThree' />
+			<label class=''>نفر ساعت برای ریویژن 03</label>
+			<input class='form-control ltr' data-bind='personHourRevisionThree' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"   />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class="col-md-6">
-			<label class="form-label">بررسی کننده</label>
+			<label class="form-label">بررسی کنندگان مدرک</label>
 			@(Html.EntitySelector<User>
 						(
 						"BeneficiaryUnitIdSelector",
@@ -134,9 +127,10 @@
 						},
 						c => new { c.Name },
 						"{Name}",
-						"ReviewerId",
-						null,
-						Model?.ReviewerId.ToString(),
+						"ReviewersId",
+						"ReviewerNames",
+						Model?.ReviewersId,
+						true,
 						true
 						))
  		</div>
@@ -161,6 +155,27 @@
 						true
 						))
  		</div>
+
+		<div class="col-md-6">
+			<label class="form-label">تهیه کننده</label>
+			@(Html.EntitySelector<User>
+						(
+						"ProducerIdSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => new
+						{
+							Id = c.Id,
+							Name = c.Name,
+
+						},
+						c => new { c.Name },
+						"{Name}",
+						"ProducerId",
+						null,
+						Model?.ProducerId.ToString(),
+						true
+						))
+		</div>
 
 		<div class='col-md-12'>
 			<label class=''>توضیحات</label>
@@ -192,17 +207,63 @@
 </div>
 
 <script>
+	debugger
+	  
+	var personHourRevisionZero = @(Model?.PersonHourRevisionZero ?? 0)
+	var personHourRevisionOne  = @(Model?.PersonHourRevisionOne ?? 0)
+	var personHourRevisionTwo  = @(Model?.PersonHourRevisionTwo ?? 0)
+	var personHourRevisionThree  = @(Model?.PersonHourRevisionThree ?? 0)
+
+	var normalizeForInputpersonHourRevisionZero = String(MJUtil.minutesToTimeFormat(personHourRevisionZero)).padStart(6, "0")
+	var normalizeForInputpersonHourRevisionOne = String(MJUtil.minutesToTimeFormat(personHourRevisionOne)).padStart(6, "0")
+	var normalizeForInputpersonHourRevisionTwo = String(MJUtil.minutesToTimeFormat(personHourRevisionTwo)).padStart(6, "0")
+	var normalizeForInputpersonHourRevisionThree = String(MJUtil.minutesToTimeFormat(personHourRevisionThree)).padStart(6, "0")
+
+	 
+	 $("[data-bind=personHourRevisionZero]").val(normalizeForInputpersonHourRevisionZero)
+	 $("[data-bind=personHourRevisionOne]").val(normalizeForInputpersonHourRevisionOne)
+	 $("[data-bind=personHourRevisionTwo]").val(normalizeForInputpersonHourRevisionTwo)
+	 $("[data-bind=personHourRevisionThree]").val(normalizeForInputpersonHourRevisionThree)
+
 	function savefn($btnAction) {
 		if (validateError($$('.card'))) { return; }
 		var model = $$('.card').dataBind();
 		const $btn = $(this.element).block();
+
+			let spliter= [];
+			if(model.personHourRevisionZero)
+			{
+				spliter= model.personHourRevisionZero.split(":")
+			 model.personHourRevisionZero = spliter[0] *60 + spliter[1]
+			}
+
+			if(model.personHourRevisionOne)
+			{
+				 spliter= model.personHourRevisionOne.split(":")
+			 model.personHourRevisionOne = spliter[0] *60 + spliter[1]
+			}
+
+			if(model.personHourRevisionTwo)
+			{
+				spliter= model.personHourRevisionTwo.split(":")
+			 model.personHourRevisionTwo = spliter[0] *60 + spliter[1]
+			}
+
+			if(model.personHourRevisionThree)
+			{
+				 spliter= model.personHourRevisionThree.split(":")
+				 model.personHourRevisionThree = spliter[0] *60 + spliter[1]
+			}
+
+		 
 		$$.post('save',
 			model,
 			function (r) {
 				$btn.block(false);
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				$$('.card').dataBind(r.data);
+				
+				 $$("[data-bind='id']").val(r.data.id)
 				$btnAction.baseaction();
 			})
 	}

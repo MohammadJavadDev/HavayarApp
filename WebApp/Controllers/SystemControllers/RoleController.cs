@@ -74,28 +74,16 @@ namespace WebApp.Controllers.SystemControllers
 	public async Task<IActionResult> SaveRole(Role role, CancellationToken cn)
 	{
 
-		foreach (var item in role.RoleAccesses)
-		{
-			if (item.ActionAccessType == ActionAccessType.DataProfile && item.ActionAccessItemType == ActionAccessItemType.DataProfile)
-			{
-				item.RowId = item.Path.ToInt();
-			}
-		}
+			await unitOfWork.Repository<RoleAccess>().DeleteWhereAsync(c=>c.RoleId == role.Id,cn);
 
-		var res = await unitOfWork.Repository<Role>().SaveAsync(role, cn);
+			var res = await unitOfWork.Repository<Role>().SaveAsync(role, cn);
 
-		var existRole = roleMemoryStorage.GetRoleById((long)res.Id);
+			var roles = unitOfWork.Repository<Role>().TableNoTracking
+				    .Include(c => c.RoleAccesses).ToList();
 
-		if (existRole != null)
-		{
-			roleMemoryStorage.UpdateRoleAccessPaths((long)existRole.Id, []);
-		}
-		else
-		{
-			roleMemoryStorage.AddRole(res);
-		}
+			roleMemoryStorage.SetRoles(roles);
 
-		return Ok(res);
+			return Ok(res);
 	}
 
 	[HttpGet("/panel/Role/{action}")]

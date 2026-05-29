@@ -24,6 +24,7 @@ namespace Services.NotificationServices
 	public interface INotificationService
 	{
 		Task SendAsync(Notification notification);
+		Task SendAsync(Notification notification, long[] UserIds);
 		Notification CreateAsync(Notification notification);
 		Task<Notification> CreateAndSendAsync(Notification notification);
 		Task CreateAndSendAsync(Notification notification, long[] UserIds);
@@ -42,6 +43,19 @@ namespace Services.NotificationServices
 				Title = notification.Title,
 				Body = notification.Body,
 				UserIds = new[] { notification.OwnerId }
+			};
+			await _eventPublisher.PublishAsync(evt);
+		}
+
+		public async Task SendAsync(Notification notification, long[] UserIds)
+		{
+			// ارسال نوتیف از طریق صف برای سرویس Real
+
+			var evt = new NotificationEvent
+			{
+				Title = notification.Title,
+				Body = notification.Body,
+				UserIds = UserIds
 			};
 			await _eventPublisher.PublishAsync(evt);
 		}
@@ -81,28 +95,37 @@ namespace Services.NotificationServices
 
 			var result = _unitOfWork.Repository<Notification>().AddRange(listNotifications);
 
-			var evt = new NotificationEvent
+			foreach( var r in  result)
 			{
-				Title = notification.Title,
-				Body = notification.Body,
-				UserIds = result.Select(x => x.OwnerId).ToArray()
-			};
-			await _eventPublisher.PublishAsync(evt);
+
+
+				var evt = new NotificationEvent
+				{
+					Title = notification.Title,
+					Body = notification.Body,
+					Id = r.Id,
+					ViewPath = r.ViewPath,
+					UserIds = new[] { r.OwnerId }
+				};
+				  _eventPublisher.PublishAsync(evt);
+			}
+		
 
 
 		}
 
 		public async Task CreateAndSendToAllUsersAsync(Notification notification)
 		{
-			var allUsersIds = await _userService.TableNoTracking.Where(c => c.IsActive == IsActiveEnum.Active).Select(c => c.Id)
-				.ToArrayAsync();
-
+			var allUsersIds = await _userService.TableNoTracking
+			    .Where(c => c.IsActive == IsActiveEnum.Active)
+			    .Select(c => c.Id)
+			    .ToArrayAsync();
 
 			var listNotifications = allUsersIds.Select(c =>
 			{
-				notification.OwnerId = (long)c;
-				return notification;
-
+				var newNotification = notification.Clone();
+				newNotification.OwnerId = (long)c;
+				return newNotification;
 			}).ToList();
 
 			var result = _unitOfWork.Repository<Notification>().AddRange(listNotifications);

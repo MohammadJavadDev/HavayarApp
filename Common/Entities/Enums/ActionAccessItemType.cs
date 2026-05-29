@@ -31,6 +31,9 @@ namespace Common.Auth.Enums
 		DataProfileEdit,
 		[Display(Name = "حذف نمایه داده")]
 		DataProfileDelete,
+		[Display(Name = "ورود اطلاعات")]
+		ImportData,
+		
 		[Display(Name = "سایر")]
 		Custom = 1000
 	}

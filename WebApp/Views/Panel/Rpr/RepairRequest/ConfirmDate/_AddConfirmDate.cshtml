@@ -1,0 +1,36 @@
+@using Entities.App.Prp
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.App.Inv
+@model RepairRequest
+
+<div class="row">
+    <input type="hidden" data-bind="id" value="@Model?.Id" />
+    <input type="hidden" data-bind="RepairRequestId" value="@Model?.Id" />
+
+    <div class="col-md-12">
+        <label class="required">تاریخ پیش بررسی</label>
+        <input class="form-control" data-bind="PreCheckShamsiDate" data-persionDatePicker="true"
+               persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
+               value="@Model?.PreCheckMiladiDate" />
+        <div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+    </div>
+
+
+    <div class="col-md-12">
+        <label class="required">تاریخ پیشنهاد مالی</label>
+        <input class='form-control' data-bind='FinancialProposalShamsiDate' data-persionDatePicker="true"
+               persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+               value='@Model?.FinancialProposalMiladiDate' />
+        <div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+    </div>
+
+    <div class="col-md-12">
+        <label class="required">تاریخ تایید</label>
+        <input class='form-control' data-bind='ConfirmShamsiDateTime' data-persionDatePicker="true"
+               persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+               value='@Model?.ConfirmMiladiDateTime' />
+        <div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+    </div>
+
+</div>

@@ -1,6 +1,7 @@
-﻿ 
-using Common.Utilities;
  
+using Common.Utilities;
+using Entities.App.Bom.Views;
+using Entities.App.Edms.Views;
 using Entities.Auth;
 using Entities.Base;
 using Entities.Base.Job;
@@ -93,8 +94,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 		var reportBuilderAssembly = typeof(ReportBuilderReport).Assembly;
      
 
-        modelBuilder.RegisterAllEntities<BaseEntity>(entitiesAssembly);
-        modelBuilder.AddSequentialGuidForIdConvention();
+        modelBuilder.RegisterAllEntities<BaseEntity>(entitiesAssembly, reportBuilderAssembly);
+        modelBuilder.AddSequentialGuidForIdConvention<BaseEntity>();
         modelBuilder.RegisterEntityTypeConfiguration(entitiesAssembly);
 
 		var listStringConverter = new ValueConverter<List<string>, string>(
@@ -258,7 +259,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 	public virtual DbSet<NotificationGroupMember> NotificationGroupMembers { get; set; }
 	public virtual DbSet<NotificationGroup> NotificationGroups { get; set; }
 	public virtual DbSet<SavedQuery> SavedQueries { get; set; }
- 
+	public virtual DbSet<vw_PartDocumentPrice> vw_PartDocumentPrices { get; set; }
+	public virtual DbSet<vw_ProductItems> vw_ProductItems { get; set; }
+	
+	
 
 
 }

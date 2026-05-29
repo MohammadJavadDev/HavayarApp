@@ -13,6 +13,9 @@
 		canEditDocument =(bool) ViewData["CanEditDocument"];
 	}
 
+
+
+
 }
 <div class="card my-1">
 	<div class="form-action-buttons">
@@ -23,28 +26,29 @@
 							action-name="reloadRevisions" title="به‌روزرسانی لیست ریویژن‌ها"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-note"
 							action-name="addComment" title="افزودن کامنت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="ki-abstract-27 ki-outline"
+							action-name="addReplySheet" title="افزودن ReplySheet"></form-action-button>
 		</form-action-buttons>
 	</div>
 </div>
 
 <div class="card my-1">
 	<div class="card-body border-0 pt-6 pb-4">
-		<div class="d-flex flex-column">
+		<div class="d-flex flex-row justify-content-around">
+		
+			<span class="me-3">پروژه: <span class="fw-bold fs-4" data-header-project-title>@(Model?.Project?.Name ?? "-")</span></span>
+				<span class="me-3">سند: <span class="fw-bold fs-4" data-header-document-title>@(Model?.DocumentVpis?.Title ?? "-")</span></span>
+				<span class="me-3" data-header-document-code-wrapper style="@(string.IsNullOrWhiteSpace(Model?.DocumentVpis?.Code) ? "display:none;" : "")">
+					کد: <span class="fw-bold fs-4" data-header-document-code>@(Model?.DocumentVpis?.Code ?? "")</span>
+				</span>
 			<div class="d-flex flex-wrap align-items-center gap-2">
-				<span class="fw-bold fs-4">مدیریت مدارک مهندسی </span>
+
 				@if (Model?.Current != null)
 				{
-					<span class="badge badge-light-primary" id="currentRevisionHeader">ریویژن @Model.Current.Revision</span>
-					<span class="badge badge-light">@(Model.Current.Status.HasValue? Model.Current.Status.Value.ToDisplay() : "")</span>
+					<span class="badge badge-light-primary fs-4" id="currentRevisionHeader">ریویژن @Model.Current.Revision</span>
 				}
 			</div>
-			<div class="text-muted mt-1">
-				<span class="me-3">پروژه: <span class="fw-semibold" data-header-project-title>@(Model?.Project?.Title ?? "-")</span></span>
-				<span class="me-3">Vpis: <span class="fw-semibold" data-header-document-title>@(Model?.DocumentVpis?.Title ?? "-")</span></span>
-				<span class="me-3" data-header-document-code-wrapper style="@(string.IsNullOrWhiteSpace(Model?.DocumentVpis?.Code) ? "display:none;" : "")">
-					کد: <span class="fw-semibold" data-header-document-code>@(Model?.DocumentVpis?.Code ?? "")</span>
-				</span>
-			</div>
+		 
 		</div>
 	</div>
 </div>
@@ -107,7 +111,7 @@
 		}
 
 		<div class="row g-5">
-			<div class="col-lg-4">
+			<div class="col-lg-3">
 				<div id="DocumentVpisSummaryContainer">
 					@await Html.PartialAsync("_DocumentVpisSummaryPartial.cshtml", Model?.DocumentVpis)
 				</div>
@@ -119,7 +123,7 @@
 							<span class="text-muted fs-7" id="revisionsTotalCount">@(Model?.Revisions?.Count ?? 0) مورد</span>
 						</div>
 					</div>
-					<div class="card-body pt-3" id="RevisionsListContainer">
+					<div class="card-body pt-3 p-0" id="RevisionsListContainer">
 						@await Html.PartialAsync(
 							"_DocumentRevisionsListPartial.cshtml",
 							Model?.Revisions ?? new List<WebApp.ViewModels.Edms.DocumentRevisionSummaryViewModel>(),
@@ -129,7 +133,7 @@
 				</div>
 			</div>
 
-			<div class="col-lg-8">
+			<div class="col-lg-9">
 				<div id="RevisionEditorContainer">
 					@if (!groupReady)
 					{
@@ -148,6 +152,8 @@
 </div>
 
 <script>
+
+	 
 	function getGroupKey() {
 		// 1) Prefer current editor values (after partial load)
 		const $editor = $$('#RevisionEditorContainer');
@@ -229,7 +235,7 @@
 		});
 	}
 
-	function saveCurrentRevision($btnAction) {
+	function saveCurrentRevision($btnAction , replySheet =false) {
 		const $editor = $$('#DocumentRevisionEditor');
 		const canEditDocument = '@canEditDocument'
 		if ($editor.length === 0) return toastr.error('فرم ریویژن یافت نشد.', 'خطا');
@@ -242,6 +248,8 @@
 		if (!pid || !vid) return toastr.error('برای ذخیره، پروژه و سند (Vpis) باید مشخص باشد.', 'خطا');
 
 		const $btn = $(this.element).block();
+		if(replySheet == true)
+			model.status = 22;
 
 		$$.post('save/'+canEditDocument, model, function (r) {
 			$btn.block(false);
@@ -270,6 +278,7 @@
 			$container.html(html);
 			var totalCount = $("#RevisionsListContainer div[data-revision-id]").length;
 			 $$("#revisionsTotalCount").text(`${totalCount} مورد`)
+			 loadRevisionEditor(currentRevisionId)
 		});
 	}
 
@@ -358,6 +367,7 @@
 	self.FormActionButtons.save.onclick(function () { saveCurrentRevision.call(this, this) });
 	self.FormActionButtons.saveandnew.onclick(function () { saveCurrentRevision.call(this, this) });
 	self.FormActionButtons.saveandclose.onclick(function () { saveCurrentRevision.call(this, this) });
+	self.FormActionButtons.addReplySheet.onclick(function () { saveCurrentRevision.call(this, this, true) });
 
 	// Custom actions
 	self.FormActionButtons.newRevision.onclick(function () { newRevision(); });
@@ -374,6 +384,7 @@
 	$(document).on('change', '#RevisionEditorContainer [data-comment-status="true"]', function () {
 		syncHoldFields($(this).closest('[data-document-comment-item="true"]'));
 	});
+	
 
 	// Initial sync
 	syncHoldFields($$('#RevisionEditorContainer'));
@@ -393,8 +404,9 @@
 		$$('[data-header-document-title]').text('-');
 		$$('[data-header-document-code-wrapper]').hide();
 	});
-
+	
 		self.FormActionButtons.addComment.onclick(function () {
+			
 			const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
 
 			if(!id){
@@ -402,7 +414,10 @@
 				return;
 			}
 
-		page.getPartialView(`DocumentCommentPartial?documentId=${id}&canEdit=true`, function (v) {
+			var currentStatus =$$("#docStatus").val() ;
+			var projectId = $$("#projectId").val() ;
+
+		page.getPartialView(`DocumentCommentPartialEdit?documentId=${id}&projectId=${projectId}&currentStatus=${currentStatus}&canEdit=true`, function (v) {
 
 			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
 		let $conf =	$.confirm({
@@ -416,8 +431,7 @@
 						text: 'افزودن کامنت',
 						btnClass: 'btn  btn-success',
 						action: function () {
-
-							debugger;
+ 
 							let model =this.$content.dataBind().comments[0];
 							$$.post("AddNewComment",model,function(r){
 								if(!r.isSuccess)return error2(r.message);
@@ -425,6 +439,7 @@
 								 reloadRevisionsList(getCurrentRevisionId());
 								 toastr.success("کامنت جدید به مدرک اضافه شد")
 								 $conf.close();
+								 appController.closeCurrentPage();
 							})
 
 							return false;

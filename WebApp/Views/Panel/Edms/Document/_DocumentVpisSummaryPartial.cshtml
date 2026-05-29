@@ -28,7 +28,7 @@ else
 		<div class="card-body pt-3">
 			<div class="d-flex flex-column gap-2">
 				<div class="d-flex justify-content-between">
-					<span class="text-muted">نوع</span>
+					<span class="text-muted">تهیه کننده مدرک</span>
 					<span class="fw-semibold">@(Model.Type.HasValue ? Model.Type.Value.ToDisplay() : "-")</span>
 				</div>
 				<div class="d-flex justify-content-between">
@@ -48,28 +48,28 @@ else
 				{
 					<div class="d-flex justify-content-between">
 						<span class="text-muted">نفرساعت R0</span>
-						<span class="fw-semibold">@Model.PersonHourRevisionZero</span>
+						<span class="fw-semibold ltr">@Model.PersonHourRevisionZero.MinutesToTimeFormat()</span>
 					</div>
 				}
 				@if (Model.PersonHourRevisionOne.HasValue)
 				{
 					<div class="d-flex justify-content-between">
 						<span class="text-muted">نفرساعت R1</span>
-						<span class="fw-semibold">@Model.PersonHourRevisionOne</span>
+						<span class="fw-semibold ltr">@Model.PersonHourRevisionOne.MinutesToTimeFormat()</span>
 					</div>
 				}
 				@if (Model.PersonHourRevisionTwo.HasValue)
 				{
 					<div class="d-flex justify-content-between">
 						<span class="text-muted">نفرساعت R2</span>
-						<span class="fw-semibold">@Model.PersonHourRevisionTwo</span>
+						<span class="fw-semibold ltr">@Model.PersonHourRevisionTwo.MinutesToTimeFormat()</span>
 					</div>
 				}
 				@if (Model.PersonHourRevisionThree.HasValue)
 				{
 					<div class="d-flex justify-content-between">
 						<span class="text-muted">نفرساعت R3</span>
-						<span class="fw-semibold">@Model.PersonHourRevisionThree</span>
+						<span class="fw-semibold ltr">@Model.PersonHourRevisionThree.MinutesToTimeFormat()</span>
 					</div>
 				}
 
@@ -85,6 +85,13 @@ else
 					<div class="d-flex justify-content-between">
 						<span class="text-muted">برنامه جایگزین</span>
 						<span class="fw-semibold">@Model.ReplaceShamsiDate</span>
+					</div>
+				}
+				@if (!string.IsNullOrWhiteSpace(Model.CreatedOnShamsiDateTime))
+				{
+					<div class="d-flex justify-content-between">
+						<span class="text-muted">تاریخ انتشار</span>
+						<span class="fw-semibold ltr">@Model.CreatedOnShamsiDateTime</span>
 					</div>
 				}
 			</div>

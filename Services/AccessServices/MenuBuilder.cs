@@ -15,7 +15,8 @@ using Data.SystemAuth;
 
 namespace Services.AccessServices
 {
-    public class MenuBuilderService(IRoleMemoryStorage roleMemoryStorage 
+    public class MenuBuilderService(
+         IRoleMemoryStorage roleMemoryStorage 
          , IAccessMemoryStorage accessMemoryStorage) : IMenuBuilderService
     {
         private readonly List<SystemMenu> _systemMenus = new();
@@ -76,7 +77,7 @@ namespace Services.AccessServices
 			var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 			if (env == "Production")
 			{
-			var fb =	accessControllers.FindIndex(c=>c.Name == "FormBuilder");
+		     	var fb =	accessControllers.FindIndex(c=>c.Name == "FormBuilder");
                     accessControllers.RemoveRange(fb,1);
 			}
 
@@ -208,9 +209,9 @@ namespace Services.AccessServices
             }
         }
 
-        public string GetHtmlItems(List<SystemMenuItem> items ,string? url)
+        public string GetHtmlItems(List<SystemMenuItem> items ,string? url,ISdk sdk)
         {
-            return RenderMenuItems(items, url);
+            return RenderMenuItems(items, url, sdk);
         }
 
         public bool MenuIsActive(List<SystemMenuItem> items , string? url)
@@ -234,60 +235,27 @@ namespace Services.AccessServices
            return active;
         }
 
-        public string RenderMenuItems(List<SystemMenuItem> items, string? url)
-        {
-            var html = new StringBuilder();
-            MenuIsActive(items, url);
+		public string RenderMenuItems(List<SystemMenuItem> items, string? url, ISdk sdk)
+		{
+			var currentUserRoleAccess = sdk.CurrentUser.RoleAccess;
+			var isAdmin = sdk.CurrentUser.IsAdministrator;
 
-            foreach (var c in items)
-            {
-                 if(c.Children != null && c.Children.Any())
-                 {
-	                 var show = "";
-                   
+			// فیلتر کردن منوها بر اساس دسترسی
+			items = FilterMenuItems(items, currentUserRoleAccess, isAdmin);
 
-                     if (c.show)
-	                 {
-		                 show = "show here";
-	                 }
+			var html = new StringBuilder();
+			MenuIsActive(items, url);
 
-                         var icon = c.Icon;
-                         if(icon != null && !icon.Contains("<i"))
-                         {
-                              var styleColor = "";
-                              if(c.iconColor.HasValue())
-                              {
-                                   styleColor = $"style='color:{c.iconColor}'";
+			foreach (var c in items)
+			{
+				if (c.Children != null && c.Children.Any())
+				{
+					var show = "";
 
-						}
-                              icon = $"<i class='{c.Icon}' {styleColor}></i>";
-                         }
-	                 html.Append(
-		                 $"""
-		                     <div data-kt-menu-trigger="click" class="menu-item menu-accordion {show}">
-		                  
-		                                      <span class="menu-link">
-		                                          <span class="menu-icon">
-		                                             {icon}
-		                                          </span>
-		                                          <span class="menu-title">{c.Text}</span>
-		                                          <span class="menu-arrow"></span>
-		                                      </span>
-		                  
-		                                      <div class="menu-sub menu-sub-accordion">
-		                                     {RenderMenuItems(c.Children , url)}
-		                           
-		                                      </div>
-		                  
-		                                  </div>
-
-		                  """
-	                 );
-                 }
-                 else
-                 {
-	                 var iconString = "";
-	                 var isActive = "";
+					if (c.show)
+					{
+						show = "show here";
+					}
 
 					var icon = c.Icon;
 					if (icon != null && !icon.Contains("<i"))
@@ -296,56 +264,131 @@ namespace Services.AccessServices
 						if (c.iconColor.HasValue())
 						{
 							styleColor = $"style='color:{c.iconColor}'";
+						}
+						icon = $"<i class='{c.Icon}' {styleColor}></i>";
+					}
 
+					html.Append(
+					    $"""
+                 <div data-kt-menu-trigger="click" class="menu-item menu-accordion {show}">
+                     <span class="menu-link">
+                         <span class="menu-icon">
+                             {icon}
+                         </span>
+                         <span class="menu-title">{c.Text}</span>
+                         <span class="menu-arrow"></span>
+                     </span>
+                     <div class="menu-sub menu-sub-accordion">
+                         {RenderMenuItems(c.Children, url, sdk)}
+                     </div>
+                 </div>
+                 """
+					);
+				}
+				else
+				{
+					var iconString = "";
+					var isActive = "";
+
+					var icon = c.Icon;
+					if (icon != null && !icon.Contains("<i"))
+					{
+						var styleColor = "";
+						if (c.iconColor.HasValue())
+						{
+							styleColor = $"style='color:{c.iconColor}'";
 						}
 						icon = $"<i class='{c.Icon}' {styleColor}></i>";
 					}
 
 					if (c.Icon.HasValue(true))
-	                 {
-		                 iconString = $"""
-		                               
-		                                                                    <span class="menu-icon">
-		                                                                        {icon}
-		                                                                    </span>
-		                               """;
-	                 }
-	                 else
-	                 {
-		                 iconString = $"""
-		                                 <span class="menu-bullet">
-		                                     <span class="bullet bullet-dot"></span>
-		                                 </span>
-		                                                               
-		                               """;
-	                 }
+					{
+						iconString = $"""
+                              <span class="menu-icon">
+                                  {icon}
+                              </span>
+                              """;
+					}
+					else
+					{
+						iconString = """
+                             <span class="menu-bullet">
+                                 <span class="bullet bullet-dot"></span>
+                             </span>
+                             """;
+					}
 
-	                 if (c.Path == url)
-	                 {
-		                 isActive = "active";
-	                 }
+					if (c.Path == url)
+					{
+						isActive = "active";
+					}
 
-	                 html.Append(
-		                 $"""
-		                   <div class="menu-item">
-		                  
-		                           <a class="menu-link  {isActive}" href="{c.Path}">
-		                               
-		                               
-		                             {iconString}
-		                  
-		                               <span class="menu-title">{c.Text}</span>
-		                           </a>
-		                       </div>
-		                  """
-	                 );
-                 }
-            }
+					html.Append(
+					    $"""
+                 <div class="menu-item">
+                     <a class="menu-link {isActive}" href="{c.Path}">
+                         {iconString}
+                         <span class="menu-title">{c.Text}</span>
+                     </a>
+                 </div>
+                 """
+					);
+				}
+			}
 
-            return html.ToString();
-        }
+			return html.ToString();
+		}
 
-        public void SetSystemMenu(List<SystemMenu> systemMenus)
+		private List<SystemMenuItem> FilterMenuItems(List<SystemMenuItem> items, List<RoleAccessDto> roleAccess, bool isAdmin)
+		{
+			if (isAdmin)
+				return items;
+
+			var filtered = new List<SystemMenuItem>();
+
+			foreach (var item in items)
+			{
+				if (item.Children != null && item.Children.Any())
+				{
+					// فیلتر کردن فرزندان به صورت بازگشتی
+					var filteredChildren = FilterMenuItems(item.Children, roleAccess, isAdmin);
+					if (filteredChildren.Any())
+					{
+						// کپی کردن آیتم و جایگزینی فرزندان فیلتر شده
+						var newItem = CloneMenuItem(item);
+						newItem.Children = filteredChildren;
+						filtered.Add(newItem);
+					}
+				}
+				else
+				{
+					// آیتم نهایی: فقط در صورتی مجاز است که Path آن در roleAccess وجود داشته باشد
+					if (!string.IsNullOrEmpty(item.Path) && roleAccess.Any(ra => ra.Path == item.Path))
+					{
+						filtered.Add(item);
+					}
+				}
+			}
+
+			return filtered;
+		}
+
+		// متد کمکی برای clone کردن SystemMenuItem (با فرض اینکه یک کپی سطحی کافی است)
+		private SystemMenuItem CloneMenuItem(SystemMenuItem original)
+		{
+			return new SystemMenuItem
+			{
+				Text = original.Text,
+				Path = original.Path,
+				Icon = original.Icon,
+				iconColor = original.iconColor,
+				Children = original.Children, // بعداً جایگزین می‌شود
+				show = original.show
+				// دیگر پراپرتی‌های مورد نیاز را نیز کپی کنید
+			};
+		}
+
+		public void SetSystemMenu(List<SystemMenu> systemMenus)
         {
             lock (_lockObj)
             {
@@ -380,7 +423,7 @@ namespace Services.AccessServices
         public List<SystemMenu> GetMenuByRole(ISdk sdk);
         public List<SystemMenu> GetSystemMenu();
         public void UpdateSystemMenu(SystemMenu systemMenu);
-        public string GetHtmlItems(List<SystemMenuItem> items ,string? url);
+          public string GetHtmlItems(List<SystemMenuItem> items, string? url, ISdk sdk);
     }
 
 }

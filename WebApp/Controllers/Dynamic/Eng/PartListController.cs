@@ -1,15 +1,15 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
-using Data.SystemAuth;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Entities.Base.DataTable;
 using WebFramework.Filtters;
 using WebFramework.Page;
 using Entities.App.Eng;
+using Entities.App.FIN;
 
-namespace WebApp.Controllers.Dynamic
+namespace WebApp.Controllers.Dynamic.Eng
 {
 	[Route("Panel/Eng/[controller]")]
 	[ApiController]
@@ -19,7 +19,7 @@ namespace WebApp.Controllers.Dynamic
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
-		public async Task<IActionResult> Save(PartList partList, CancellationToken cn)
+		public async Task<IActionResult> Save([FromBody]PartList partList, CancellationToken cn)
 		{
 			if (partList.Id == null || partList.Id == 0)
 			{
@@ -115,5 +115,82 @@ namespace WebApp.Controllers.Dynamic
 		{
 			return Ok(await unitOfWork.Repository<PartList>().FetchDataAsync(request, cn));
 		}
-	}
+
+
+        [HttpGet("[action]")]
+        public IActionResult CreateOrEdit(long? id, long groupId)
+        {
+            PartList entity;
+
+            if (id != null && id != 0)
+            {
+                entity = unitOfWork.Repository<PartList>().TableNoTracking
+                    .Include(c => c.PartListGroup)
+                    .Include(c => c.Product)
+                    .Include(c => c.Part)
+                    .FirstOrDefault(c => c.Id == id);
+            }
+            else
+            {
+                entity = new PartList
+                {
+                    PartListGroupId = groupId
+                };
+            }
+
+            return PartialView(@"\Views\Panel\Eng\PartList\_Form.cshtml", entity);
+        }
+
+
+        [HttpGet("[action]")]        
+        public IActionResult GetByGroupId()
+        {
+            var data = unitOfWork.Repository<PartList>().TableNoTracking
+                .Include(x => x.Part)
+                .Select(x => new
+                {
+                    x.Id,
+                    partName = x.Part.Name,
+                    qty = x.Qty,
+                    order = x.Order
+                })
+                .ToList();
+
+            return Json(new { data });
+        }
+
+
+		[HttpGet("[action]")]
+		public IActionResult GetPartList()
+		{
+			var data = unitOfWork
+				.Repository<PartList>()
+				.TableNoTracking
+				.Include(it=> it.PartListGroup)
+				.Include(it=> it.Product)
+				.Include(it=> it.Part)
+				.ToList();
+			return Json(new { data });
+		}
+
+
+        [HttpGet("[action]/{id}")]
+        public IActionResult GetById(int id)
+        {
+            var item = unitOfWork.Repository<PartList>()
+                .TableNoTracking
+                .Include(x => x.PartListGroup)
+                .Include(x => x.Product)
+                .Include(x => x.Part)
+                .FirstOrDefault(x => x.Id == id);
+
+            if (item == null)
+                return NotFound();
+
+            return PartialView(@"\Views\Panel\Eng\PartList\_Form.cshtml", item);
+        }
+
+
+
+    }
 }

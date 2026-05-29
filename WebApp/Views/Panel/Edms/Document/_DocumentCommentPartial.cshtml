@@ -29,7 +29,7 @@
 	<input class='form-control' type="hidden" data-bind='comments.id' value='@Model?.Id' />
 	<input class='form-control' type="hidden" data-bind='comments.documentId' value='@Model?.DocumentId' />
 	 
-	<div class='col-md-3
+	<div class='col-md-1
 align-content-center'>
 		@if (canEdit)
 		{
@@ -45,11 +45,10 @@ align-content-center'>
 			{
 				<div class="d-flex align-items-center gap-2">
 					<a href="/File/download/@Model.AttachmentId.Value" class="btn btn-sm btn-light-primary" target="_blank">
-						<i class="ki-duotone ki-arrow-down fs-5">
-							<span class="path1"></span>
-							<span class="path2"></span>
+						<i class="ki-file-down ki-solid fs-2hx">
+							 
 						</i>
-						دانلود فایل
+						 
 					</a>
 					@if (Model?.Attachment != null && !string.IsNullOrWhiteSpace(Model.Attachment.OriginalName))
 					{
@@ -59,12 +58,19 @@ align-content-center'>
 			}
 			else
 			{
-				<span class="text-muted ">فایلی ثبت نشده است</span>
+
+				<a href="#" class="btn btn-sm btn-light-secondary  disabled" disabled>
+					<i class="ki-delete-files ki-solid fs-2hx">
+
+					</i>
+
+				</a>
+			 
 			}
 		}
 	</div>
  
-	<div class='col-md-4'>
+	<div class='col-md-3'>
 
 		@if (canEdit)
 		{
@@ -87,10 +93,10 @@ align-content-center'>
 				{
 					var statusClass = Model?.Status switch
 					{
-						DocumentStatusEnums.Approve or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNote or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
-						DocumentStatusEnums.Reject or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+						DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByEmployer or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
+						DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
 						DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-						DocumentStatusEnums.Commented or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+						DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
 						DocumentStatusEnums.Archived => "badge-light-dark",
 						_ => "badge-light"
 					};
@@ -106,7 +112,7 @@ align-content-center'>
 	</div>
 
 	 
-	<div class='col-md-3'>
+	<div class='col-md-4'>
 
 		@if (canEdit)
 		{
@@ -303,7 +309,7 @@ align-content-center'>
 
 	@if (Model != null && canEdit == false && Model.CreatedOnShamsiDateTime != null)
 	{
-		<div class="col-md-2">
+		<div class="col-md-1">
 			<div class="form-control-plaintext">
 				<span class="badge badge-light-primary" style="direction: ltr;">@Model.CreatedOnShamsiDateTime</span>
 			</div>

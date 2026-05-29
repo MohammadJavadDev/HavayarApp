@@ -1,19 +1,86 @@
+@using Common.Utilities
+@using Data.SystemAuth
 @using Entities.App.Bom;
 @using Entities.App.Inv
+@using Entities.App.Bom.Enums;
+@inject ISdk sdk;
 @model FormulChangeRequest
+@{
+	var disableForEditBool = false;
+	string? disableForEdit = null;
+	var changePartMode = false;
+	var endOperation = false;
+
+	if(Model.Id.HasValue && Model.Id > 0)
+	{
+		disableForEdit = "disabled";
+		disableForEditBool = true;
+	}
+
+	IEnumerable<FormulChangeRequestStatusEnum> filterdStatus = null;
+
+	if(!sdk.IsAdministrator)
+	{
+		//TODO add admin for access to All status && !sdk.IsAdministrator
+	}
+
+	switch(Model?.Status)
+	{
+		case null or FormulChangeRequestStatusEnum.PlanningReject:
+			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
+				c=>c == FormulChangeRequestStatusEnum.InitialRegistration);
+			break;
+		case FormulChangeRequestStatusEnum.InitialRegistration or FormulChangeRequestStatusEnum.QcReject:
+			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
+					c=>c == FormulChangeRequestStatusEnum.PlanningApproval 
+						|| c == FormulChangeRequestStatusEnum.PlanningReject);
+			break;
+		case FormulChangeRequestStatusEnum.PlanningApproval or FormulChangeRequestStatusEnum.EngineeringReject:
+			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
+					c=>c == FormulChangeRequestStatusEnum.QcApproval 
+						|| c == FormulChangeRequestStatusEnum.QcReject);
+			break;
+
+		case FormulChangeRequestStatusEnum.QcApproval:
+			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
+					c=>c == FormulChangeRequestStatusEnum.EngineeringApproval 
+						|| c == FormulChangeRequestStatusEnum.EngineeringReject);
+			break;
+
+		case FormulChangeRequestStatusEnum.EngineeringApproval:
+			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
+			c=>c == FormulChangeRequestStatusEnum.EndOperation);
+			changePartMode = true;
+			break;
+
+		case FormulChangeRequestStatusEnum.EndOperation:
+			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
+			c=>c == FormulChangeRequestStatusEnum.EndOperation);
+			changePartMode = true;
+			endOperation = true;
+			break;
+	}
+
+	var avableStatus = filterdStatus.GetEnumValuesWithDisplayNames();
+
+}
 
 <div class="card  ">
-	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(FormulChangeRequest)"></form-action-buttons></div>
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(FormulChangeRequest)" save-btn="false">
+
+		</form-action-buttons>
+	</div>
 </div>
 <div class="card">
 	<div class="card-body row">
 		<div class="col-12 mb-4">
 			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
 		</div>
-		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden'  />
 		<div class='col-md-6'>
 			<label class=''>نوع عملیات</label>
-			<select class='form-control' data-bind='operationType'  asp-for='OperationType' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Bom.Enums.FormulChangeRequestOperationTypeEnum))">
+			<select class='form-control' data-bind='operationType' disabled="@disableForEdit"   asp-for='OperationType' asp-items="Html.GetEnumSelectList(typeof(FormulChangeRequestOperationTypeEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
@@ -32,7 +99,9 @@
 				"PartId",
 				"PartName",
 				Model?.PartId?.ToString(),
-				true
+				true,
+				false,
+				disableForEditBool
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
@@ -48,10 +117,14 @@
 				},
 				c => new {   c.Name },
 				" {Name}",
-				"ProductGroupId",
-				 null,
-				Model?.ProductGroupId.ToString(),
-				true
+				"ProductGroupIds",
+				"ProductGroupNames",
+				Model?.ProductGroupIds,
+				false,
+				true,
+				disableForEditBool,
+				disableForEditBool
+
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
@@ -71,40 +144,229 @@
 				"{Code} {Name}",
 				"ReplacementPartId",
 				"ReplacementPartName",
-				Model?.ReplacementPartId?.ToString()
+				Model?.ReplacementPartId?.ToString(),
+				false,
+				false,
+				disableForEditBool
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>توضیحات</label>
-			<input class='form-control' data-bind='description'  asp-for='Description' />
+		 <div class='col-md-6'>
+			<label class=''>  ضریب مصرفی<spam class="text-danger">(ضریب مصرف جایگزین میشود)</spam></label>
+			<input disabled="@disableForEdit" class='form-control' data-bind='usingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.UsingRate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<fileuploader
-				bind="attachmentId" 
-				accepted-file-types=".rar,.zip,.pdf,.excel,.word"
-				file-id="@Model?.AttachmentId"
-				file-entity="@Model?.Attachment"
-				entity-prop-name="Attachment"
-				entity-type="@typeof(FormulChangeRequest).FullName"
-				max-file-size="10"
-				label="پیوست"></fileuploader>
-		</div>
-		 
+		
+
+	
 
 		<div class='col-md-6'>
 			<label class=''>وضعیت</label>
-			<select class='form-control' data-bind='status'  asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Bom.Enums.FormulChangeRequestStatusEnum))">
+			<select class='form-control' data-bind='status'  asp-for='Status'  >
+					@foreach(var option in avableStatus)
+					{
+						<option value="@option.Value">@option.Text</option>
+					 }
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
+		@if(changePartMode == false  )
+		{
+				<div class='col-md-6'>
+					<fileuploader
+						bind="attachmentId" 
+						accepted-file-types=".rar,.zip,.pdf,.excel,.word"
+						file-entity="@Model?.Attachment"
+						entity-prop-name="Attachment"
+						entity-type="@typeof(FormulChangeRequest).FullName"
+						max-file-size="10"
+						label="پیوست"
+						show-delete="false"
+					></fileuploader>
+				</div>
+		 
+
+			 <div class='col-md-12'>
+				<label class=''>توضیحات</label>
+				<textarea class='form-control' data-bind='description'></textarea>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+		}
+	 
+
+		
+
+
+
+
 	</div>
 </div>
 
+@if(changePartMode == true)
+{
+<div class="card card-body my-3  ">
+
+	 	<div class="row">
+		 <div class="col-md-12 ">
+				 <h4 class="text-center">تغییر قطعه</h4>
+			 
+			</div>
+			<div class="col-md-6">
+						      <button id="addFromOrginalRequest" class="btn btn-outline btn-outline-info">دریافت از درخواست ایجاد شده</button>
+
+			</div>
+					<div class="col-md-6"></div>
+
+				
+
+			<div class="col-md-6">
+			<label class=''>فرمول قطعه</label>
+			@(Html.EntitySelector<ProductGroup>(
+				"ProductGroupSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,  Name = c.Name
+				},
+				c => new {   c.Name },
+				" {Name}",
+				"ChangedFormulIds",
+				"ChangedFormulNames",
+				Model?.ChangedFormulIds,
+				false,
+				true,
+			     endOperation,
+				endOperation
+
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>گروه محصول</label>
+			@(Html.EntitySelector<ProductGroup>(
+				"ChangedProductGroupSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,  Name = c.Name
+				},
+				c => new {   c.Name },
+				" {Name}",
+				"ChangedProductGroupIds",
+				"ChangedProductGroupNames",
+				Model?.ChangedProductGroupIds,
+				false,
+				true,
+				endOperation,
+				endOperation
+
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		  <div class='col-md-6'>
+				<label class=''>  ضریب مصرفی برای تغییر<spam class="text-danger">(ضریب مصرف جایگزین میشود)</spam></label>
+				<input   class='form-control' data-bind='changedUsingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.ChangedUsingRate' />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+				 <div class='col-md-6'>
+					<fileuploader
+						bind="attachmentId" 
+						accepted-file-types=".rar,.zip,.pdf,.excel,.word"
+						file-entity="@Model?.Attachment"
+						entity-prop-name="Attachment"
+						entity-type="@typeof(FormulChangeRequest).FullName"
+						max-file-size="10"
+						label="پیوست"
+						show-delete="false"
+					></fileuploader>
+				</div>
+		 </div>
+	
+ </div>
+ }
+
+ <div class="card card-body my-3">
+	  <div class="col-md-12">
+					<div class="  p-4">
+		<h4 class="text-center">
+			تاریخچه تغییرات
+		</h4>
+	</div>
+	<div class=" p-1">
+		
+		<table class="table table-bordered text-center">
+			<thead>
+				<tr>
+					<th >
+						فایل پیوست
+					</th>
+					<th >
+						 وضعیت
+					</th>
+					<th>
+						 توضیحات
+					</th>
+					<th >
+						تاریخ 
+					</th>
+					<th >
+						ایجاد کننده 
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+
+			
+		@foreach(var comment in Model?.Comments)
+		{
+			<tr  >
+				<td class="col-md-2">
+					@if(comment.AttachmentId.HasValue)
+					{
+						<a href="/File/download/@comment.AttachmentId" class="btn btn-light-primary btn-sm" target="_blank"
+					style=" text-align: center; width: 80px; height: 25px;">دانلود</a>
+					}
+					else
+					{
+						<a href="#" class="btn btn-light-secondary btn-sm disabled"   target="_blank"
+						style=" text-align: center; width: 80px; height: 25px;">بدون پیوست</a>
+					}
+				</td>
+
+					<td class="col-md-2">
+						 <span>
+							 @comment.Status.ToDisplay()
+						 </span>
+					</td>
+
+					<td class="col-md-4">
+						 <span>
+							 @comment.Description
+						 </span>
+					</td>
+					<td class="col-md-2">
+						 <span class="ltr">
+							 @comment.CreatedOnShamsiDateTime
+						 </span>
+					</td>
+					<td class="col-md-2">
+						 <span>
+							 @comment.CreatedByName
+						 </span>
+					</td>
+			</tr>
+		}
+		</tbody>
+		</table>
+	</div>
+			</div>
+ </div>
  
 
 <div class="card">
@@ -130,7 +392,23 @@
 </div>
 
 <script>
+
+	var endOperation = @endOperation.ToString().ToLower();
+
+	$$("#addFromOrginalRequest").click(function(){
+
+		var ids = $$("[data-bind=ProductGroupIds]").val();
+
+		if(!ids || ids.length == 0 )
+		{
+			return toastr.error("هیچ گروه محصولی در درخواست انتخاب نشده است")
+		}
+
+		$$("#ChangedProductGroupSelector").data("entitySelector").addByIds(ids)
+		 
+	});
 	function savefn($btnAction) {
+		
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
 		const $btn = $(this.element).block();
@@ -142,10 +420,15 @@
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
 				page.$pageEl.dataBind(r.data);
 				$btnAction.baseaction();
+				
 			})
 	}
-
-	self.FormActionButtons.save.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+ 
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+ 
+	if(endOperation == true)
+	{
+		self.FormActionButtons.saveandclose.element.disabled = true
+		 
+	}
 </script>

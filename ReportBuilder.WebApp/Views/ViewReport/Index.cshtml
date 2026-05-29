@@ -1,352 +1,274 @@
-﻿@using Common.Utilities
+@using Common.Utilities
 @using ReportBuilder.Entities
 @model ReportBuilder.Entities.ReportBuilderReport
 @{
-    Layout = "/Views/Panel/Shared/_PanelLayout.cshtml";
+ 
+    ViewData["Title"] = Model?.Title ?? "اجرای گزارش";
+    var tableColumns = ViewBag.TableColumns as List<ReportBuilder.WebApp.ViewModels.ReportColumnConfig> ?? new List<ReportBuilder.WebApp.ViewModels.ReportColumnConfig>();
 }
 
+@if (Model == null)
+{
+    <div class="alert alert-warning">گزارش یافت نشد.</div>
+    return;
+}
+
+@* گزارش Stored Procedure *@
 @if (Model.ObjectType == "Store_Procedures")
 {
-    <div class="card">
-        <div class='card-header  pb-3'>
-            <div class='col-md-12 align-content-center  text-center  fa-2x justify-content-center'>
-                <span>@Model.Title</span>
-            </div>
-
+    <div class="card shadow-sm">
+        <div class="card-header py-3">
+            <h5 class="mb-0">@Model.Title</h5>
         </div>
         <div class="card-body">
-            <div class="row mb-10" id="filtersPlace">
-
-                @if (Model?.ReportBuilderReportFilters != null)
+            <div class="row g-3 mb-4" id="filtersPlace">
+                @if (Model.ReportBuilderReportFilters != null)
                 {
                     @foreach (var col in Model.ReportBuilderReportFilters)
                     {
-                        if (col.DataType == "datetime" || col.DataType == "datetime2")
-                        {
-                            <div class='col-md-3'>
-                                <label class=''>
-                                    @col.Title
-                                </label>
-                                <input class="form-control" data-type="@col.DataType" data-bind="@col.ColumnName" data-persionDatePicker="true" data-persionDatePickerOption='{"format": "YYYY/MM/DD HH:mm:ss" ,"autoClose": true,"initialValue": false, "timePicker": { "enabled": true }}' />
-                            </div>
-
-                        }
-                        else if (col.DataType == "bigint" || col.DataType == "int" || col.DataType == "numeric" || col.DataType == "decimal" || col.DataType == "tinyint" || col.DataType == "smallint")
-                        {
-                            <div class='col-md-3'>
-                                <label class=''>
-                                    @col.Title
-                                </label>
+                        <div class="col-md-4">
+                            <label class="form-label">@col.Title</label>
+                            @if (col.DataType == "datetime" || col.DataType == "datetime2")
+                            {
+                                <input class="form-control" data-type="@col.DataType" data-bind="@col.ColumnName"
+                                       data-persionDatePicker="true"
+                                       data-persionDatePickerOption='{"format": "YYYY/MM/DD HH:mm:ss", "autoClose": true, "initialValue": false, "timePicker": { "enabled": true }}' />
+                            }
+                            else
+                            {
                                 <input class="form-control" data-type="@col.DataType" data-bind="@col.ColumnName" />
-                            </div>
-
-                        }
-                        else 
-                        {
-	                        <div class='col-md-3'>
-		                        <label class=''>
-			                        @col.Title
-		                        </label>
-		                        <input class="form-control" data-type="@col.DataType" data-bind="@col.ColumnName" />
-	                        </div>
-
-                        }
-             
-                    }  
-                }
-            
-            </div>
-            
-            <div class="row justify-content-end">
-                <div class="col-md-2">
-                    <button class="btn btn-outline btn-outline-info mx-2" id="draw">نمایش نتیجه</button>
-                </div>
-            </div>
-            <hr/>
-
-            <div id="content"></div>
-      
-        </div>
-    </div>
-
-    @section Scripts {
-        
- 
-
-        <script>
-            let repId = '@Html.Raw(Model?.Id)';
-            let cols = [
-                
-            ]
-            $("#draw").click(function() {
-                debugger
-                let model = {};
-                model.filters = [];
-                let haveError = false;
-                $("#filtersPlace").find("input").each((i, c) => {
-                    let f = {};
-                    f.value = $(c).val();
-                    if (f.value) {
-                        f.columnName = $(c).attr("data-bind")
-                        f.type = $(c).attr("data-type");
-                        if (f.type == "datetime") {
-                            f.value = MJUtil.shamsiToMiladi(f.value);
-                        }
-                        model.filters.push(f);
-                    } else {
-                        haveError = true;
+                            }
+                        </div>
                     }
-                   
-                });
-                if (haveError) {
-                    return toastr.error(`لطفا فیلتر های مورد نیاز را انتخاب کنید`, 'خطا');
                 }
-
- 
-
-                const params = new URLSearchParams();
-
-                for (var i of model.filters) {
-                    params.append(i.columnName, `{values:["${i.value}"],condition:"="}`);
-                }
-
-
-                const queryString = params.toString();
-
-
-                var addres = `StimulSoftViewReport?reportId=${repId}&${queryString}`;
-                $("#content").html("");
-
-                $("#content").append(`<iframe src="/system/ReportBuilder/${addres}" style="width: 100%;min-height: 1200px;"></iframe>`);
- 
-
-            });
-        </script>
-    }
-}
-else if (Model.Type == ReportType.StimulSoft)
-{
-    <div class="card">
-        <div class='card-header  pb-3'>
-            <div class='col-md-12 align-content-center  text-center  fa-2x justify-content-center'>
-                <span>@Model.Title</span>
             </div>
-
-        </div>
-        <div class="card-body">
-            <div class="row mb-10" id="filtersPlace">
-
-                @if (Model?.ReportBuilderReportFilters != null)
-                {
-                    @foreach (var col in Model.ReportBuilderReportFilters)
-                    {
-                        if (col.DataType == "datetime" || col.DataType == "datetime2")
-                        {
-
-
-                            <div class="row mt-2" data-type="@col.DataType" data-bind="@col.ColumnName">
-		                        <div class='col-md-3'>
-			                        <label class=''>
-				                        @col.Title
-			                        </label>
-		                        </div>
-		                        <div class='col-md-3'>
-                                    <select class="form-control" data-action="filter" data-filter-type="datetime" data-title="@col.Title">
-				                        <option value=""  selected=""  >شرط</option>
-				                        <option value="=" class="dtsb-option dtsb-notItalic">برابر</option>
-				                        <option value="!=" class="dtsb-option dtsb-notItalic">نباشد</option>
-				                        <option value="<" class="dtsb-option dtsb-notItalic">قبل از</option>
-				                        <option value=">" class="dtsb-option dtsb-notItalic">بعد از</option>
-				                        <option value="between" class="dtsb-option dtsb-notItalic">میان</option>
-				                        <option value="!between" class="dtsb-option dtsb-notItalic">میان نباشد</option>
-				                        <option value="null" class="dtsb-option dtsb-notItalic">خالی</option>
-				                        <option value="!null" class="dtsb-option dtsb-notItalic">خالی نباشد</option>
-			                        </select>
-
-		                        </div>
-		                        <div class='col-md-3'>
-			                        <input class="form-control" data-persionDatePicker="true" data-persionDatePickerOption='{"format": "YYYY/MM/DD HH:mm:ss" ,"autoClose": true,"initialValue": false, "timePicker": { "enabled": true }}' />
-
-		                        </div>
-	                        </div>
-
-                        }
-                        else  
-                        {
-
-                            <div class="row mt-2" data-type="@col.DataType" data-bind="@col.ColumnName" data-title="@col.Title">
-		                        <div class='col-md-3'>
-			                        <label class=''>
-				                        @col.Title
-			                        </label>
-		                        </div>
-		                        <div class='col-md-3'>
-			                        <select class="form-control" data-action="filter">
-				                        <option value=""   selected=""  >شرط</option>
-				                        <option value="=" class="dtsb-option dtsb-notItalic">برابر</option>
-				                        <option value="!=" class="dtsb-option dtsb-notItalic">نباشد</option>
-				                        <option value="starts" class="dtsb-option dtsb-notItalic">شروع شود با</option>
-				                        <option value="!starts" class="dtsb-option dtsb-notItalic">شروع نشود با</option>
-				                        <option value="contains" class="dtsb-option dtsb-notItalic">حاوی</option>
-				                        <option value="!contains" class="dtsb-option dtsb-notItalic">نباشد حاوی</option>
-				                        <option value="ends" class="dtsb-option dtsb-notItalic">به پایان می رسد با</option>
-				                        <option value="!ends" class="dtsb-option dtsb-notItalic">پایان نیابد با</option>
-				                        <option value="null" class="dtsb-option dtsb-notItalic">خالی</option>
-				                        <option value="!null" class="dtsb-option dtsb-notItalic">خالی نباشد</option>
-			                        </select>
-		                        </div>
-		                        <div class='col-md-3'>
-			                     
-			                        <input class="form-control"/>
-		                        </div>
-	                        </div>
-
-		                        }
-
-		                        }
-		                        }
-
-	                        </div>
-
-            <div class="row justify-content-end">
-                <div class="col-md-2">
-                    <button class="btn btn-outline btn-outline-info mx-2" id="draw">نمایش نتیجه</button>
-                </div>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-primary" id="btnDraw">نمایش نتیجه</button>
             </div>
             <hr />
-
-            <div id="content"></div>
-
+            <div id="reportContent"></div>
         </div>
     </div>
 
-    @section Scripts {
-
-
-
+ 
     <script>
-        let repId = '@Html.Raw(Model?.Id)';
+        (function() {
 
-        $("[data-filter-type='datetime']")
-            .change(function () {
-                if ($(this).val() === "between" || $(this).val() === "!between") {
-                    var inputsValue = $(this).closest(".row")
-                        .find("input");
-                    if (inputsValue.length === 1) {
-                      
-                            let $inputDateTime = $(` <div class='col-md-3'> <input class="form-control" /></div>`);
-                        $inputDateTime.find("input").persianDatepicker({ "format": "YYYY/MM/DD HH:mm:ss", "autoClose": true, "initialValue": false, "timePicker": { "enabled": true } });
+          
+               debugger
 
-                        $(this).closest(".row")
-                            .append($inputDateTime)
-                    }
-                }
-                else {
-                        var inputsValue = $(this).closest(".row")
-                            .find("input");
-                    if (inputsValue.length !== 1) {
-                        $(inputsValue[1]).parent().remove();
-                    }
-                }
-            });
-           
-            $("#draw").click(function () {
-                debugger
-                let model = {};
-                model.filters = [];
-                let haveError = "";
-                $("#filtersPlace").find(".row").each((i, c) => {
-                    let f = {};
-                    f.values = $(c).find("input").map((x, z) => { if ($(z).val().length > 0) return $(z).val() }).get();
-                    if (f.values.length > 0) {
-                        f.columnName = $(c).attr("data-bind");
-                        f.title = $(c).attr("data-title") ?? f.columnName;
-                        f.type = $(c).attr("data-type");
-                        f.values.forEach((x,n) => {
+              const queryParams = @Html.Raw(Json.Serialize(ViewBag.QueryParams));
+              const reportId = @Html.Raw(Json.Serialize(ViewBag.ReportId));
+               
 
-                            if (f.type == "datetime" || f.type == "datetime2") {
-                                f.values[n] = MJUtil.shamsiToMiladi(x);
-                            }
 
-                        })
-
-                        f.condition = $(c).find("[data-action='filter']").val();
-
-                        if (!f.condition || f.condition === "") {
-                            haveError += " شرط فیلتر انتخاب نشده است " + f.title
+            const repId = '@Model.Id';
+            $('#btnDraw').on('click', function() {
+                const model = { filters: [] };
+                let hasError = false;
+                $('#filtersPlace input').each(function() {
+                    const $input = $(this);
+                    const val = $input.val();
+                    if (val) {
+                        let fVal = val;
+                        if ($input.attr('data-type') === 'datetime' || $input.attr('data-type') === 'datetime2') {
+                            fVal = typeof MJUtil !== 'undefined' ? MJUtil.shamsiToMiladi(val) : val;
                         }
-                        else {
-                            if (f.values.any(vv => vv.length === 0)) {
-                                haveError += " مقدار فیلتر وارد نشده است " + f.title
-                               
-                            }
-                        }
-
-                        model.filters.push(f);
-                     
-                    }  
-
+                        model.filters.push({ columnName: $input.attr('data-bind'), type: $input.attr('data-type'), value: fVal });
+                    } else {
+                        hasError = true;
+                    }
                 });
-
-                if (haveError.length !== 0) {
-                    return toastr.error(haveError, 'خطا');
+                if (hasError) {
+                    toastr.error('لطفا فیلترهای مورد نیاز را پر کنید', 'خطا');
+                    return;
                 }
-                 
-
-
-
                 const params = new URLSearchParams();
-
-                for (var i of model.filters) {
-                    params.append(i.columnName, `{values:["${i.values.join('","')}"],condition:"${i.condition}"}`);
-                }
-
-                const queryString = params.toString();
-
-
-                var addres = `StimulSoftViewReport?reportId=${repId}&${queryString}`;
-                $("#content").html("");
-
-                $("#content").append(`<iframe src="/system/ReportBuilder/${addres}" style="width: 100%;min-height: 1200px;"></iframe>`);
-
-
+                model.filters.forEach(f => params.append(f.columnName, `{values:["${f.value}"],condition:"="}`));
+                const url = `/System/ReportBuilder/StimulSoftViewReport?reportId=${repId}&${params.toString()}`;
+                  $('#reportContent').html(`<iframe src="${url}" style="width:100%;min-height:1125px;border:none;"></iframe>`);
             });
-        </script>
-    }
+        })();
+    </script>
+   
 }
-else
+
+@* گزارش StimulSoft (طراحی) *@
+else if (Model.Type == ReportType.StimulSoft)
 {
-    <div class="card">
-        <div class='card-header  pb-3'>
-            <div class='col-md-12 align-content-center  text-center  fa-2x justify-content-center'>
-                <span>@Model.Title</span>
-            </div>
-        
+    <div class="card shadow-sm">
+        <div class="card-header py-3">
+            <h5 class="mb-0">@Model.Title</h5>
         </div>
         <div class="card-body">
+            <div class="row g-3 mb-4" id="filtersPlace">
+                @if (Model.ReportBuilderReportFilters != null)
+                {
+                    @foreach (var col in Model.ReportBuilderReportFilters)
+                    {
+                              <div class="row mt-2 col-md-6" data-type="@col.DataType" data-bind="@col.ColumnName" data-title="@col.Title">
+                            <div class="col-md-3">
+                                <label class="form-label">@col.Title</label>
+                            </div>
+                            <div class="col-md-3">
+                                <select class="form-select" data-action="filter" data-filter-type="@(col.DataType == "datetime" || col.DataType == "datetime2" ? "datetime" : "")">
+                                    <option value="">شرط</option>
+                                    <option value="=">برابر</option>
+                                    <option value="!=">نباشد</option>
+                                    <option value="<">قبل از</option>
+                                    <option value=">">بعد از</option>
+                                    <option value="between">میان</option>
+                                    <option value="!between">میان نباشد</option>
+                                    <option value="contains">حاوی</option>
+                                    <option value="!contains">حاوی نباشد</option>
+                                    <option value="null">خالی</option>
+                                    <option value="!null">خالی نباشد</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                @if (col.DataType == "datetime" || col.DataType == "datetime2")
+                                {
+                                    <input class="form-control" data-persionDatePicker="true"
+                                           data-persionDatePickerOption='{"format": "YYYY/MM/DD HH:mm:ss", "autoClose": true, "initialValue": false, "timePicker": { "enabled": true }}' />
+                                }
+                                else
+                                {
+                                    <input class="form-control" />
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-primary" id="btnDraw">نمایش نتیجه</button>
+            </div>
+            <hr />
+            <div id="reportContent">
             
-
-            <table id="itemsTable" class="table table-row-bordered nowrap table-hover " style="width: 100%">
-               
-            </table>
-
-
+            <h3>درحال بارگذاری گزارش ...</h3>
+            </div>
         </div>
     </div>
 
-    @section Scripts {
+    
+    <script>
+        (function() {
 
-        <script>
-            var cols = [
-              @foreach (var col in Model.ReportBuilderReportSelects[0].ReportBuilderReportItems)
+
+                    
+
+                const queryParams = @Html.Raw(Json.Serialize(ViewBag.QueryParams));
+                 const autoRun = @Html.Raw(ViewBag.AutoRun.ToString().ToLower());
+
+
+           
+            const repId = '@Model.Id';
+            $('[data-filter-type="datetime"]').on('change', function() {
+                const val = $(this).val();
+                const $row = $(this).closest('.row');
+                const $inputs = $row.find('input');
+                if (val === 'between' || val === '!between') {
+                    if ($inputs.length === 1) {
+                        const $newInput = $('<div class="col-md-3"><input class="form-control" /></div>');
+                        $newInput.find('input').persianDatepicker({ format: 'YYYY/MM/DD HH:mm:ss', autoClose: true, initialValue: false, timePicker: { enabled: true } });
+                        $row.append($newInput);
+                    }
+                } else if ($inputs.length > 1) {
+                    $inputs.last().closest('.col-md-3').remove();
+                }
+            });
+
+                      $(`[data-bind]`).each((c,i)=>{
+              let bind = $(i).attr("data-bind").toLowerCase()
+              for( let qp in queryParams)
               {
-                @Html.Raw($"{{'data': '{col.ColumnName.ToCamelCase()}', 'type': '{col.DataType.ConvertSqlTypeToCSharpType()}', 'name': '{col.ColumnName.ToCamelCase()}', title: '{col.Title}', showInRelationData: false, options: [], tableName: '' }},")
+                     if(qp.toLowerCase() == bind)
+                   {
+                         $(i).find("input").val(queryParams[qp].values[0]).change()
+                         $(i).find("select").val(queryParams[qp].condition).change()
+                   }
               }
-            ]
+          })
+            if(autoRun == true){
+                     $$("#filtersPlace").hide();
+                       $("#btnDraw").parent().removeClass('d-flex').addClass("d-none");
+          }
 
-            InitDataTabel($('#itemsTable'), cols, null, "/System/ReportBuilder/FetchDataReport", false)
-         
-        </script>
-    }
+            $('#btnDraw').on('click', function() {
+                const model = { filters: [] };
+                let hasError = '';
+                $('#filtersPlace .row').each(function() {
+                    const $row = $(this);
+                    const values = $row.find('input').map(function() { return $(this).val(); }).get().filter(v => v && v.length > 0);
+                    if (values.length > 0) {
+                        const colName = $row.attr('data-bind');
+                        const title = $row.attr('data-title') || colName;
+                        const type = $row.attr('data-type');
+                        const condition = $row.find('[data-action="filter"]').val();
+                        if (!condition) {
+                            hasError += ' شرط فیلتر انتخاب نشده: ' + title;
+                        } else {
+                            let fValues = values;
+                            if (type === 'datetime' || type === 'datetime2') {
+                                fValues = values.map(v => typeof MJUtil !== 'undefined' ? MJUtil.shamsiToMiladi(v) : v);
+                            }
+                            model.filters.push({ columnName: colName, values: fValues, condition: condition });
+                        }
+                    }
+                });
+                if (hasError) {
+                    toastr.error(hasError, 'خطا');
+                    return;
+                }
+                const params = new URLSearchParams();
+                model.filters.forEach(f => params.append(f.columnName, `{values:["${f.values.join('","')}"],condition:"${f.condition}"}`));
+                const url = `/System/ReportBuilder/StimulSoftViewReport?reportId=${repId}&${params.toString()}`;
+                  $('#reportContent').html(`<iframe src="${url}" style="width:100%;min-height:1125px;border:none;"></iframe>`);
+            });
+
+              if(autoRun == true)
+              {
+                     $('#btnDraw').click();
+              }
+        })();
+    </script>
+ 
 }
-  
+
+@* گزارش جدولی (Table) - شامل SavedQuery *@
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-header py-3">
+            <h5 class="mb-0">@Model.Title</h5>
+        </div>
+        <div class="card-body">
+            @if (tableColumns.Any())
+            {
+                <div class="table-responsive">
+                    <table id="reportsDataTable" class="table table-row-bordered table-hover align-middle" style="width:100%"></table>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-info">ستونی برای نمایش تعریف نشده است.</div>
+            }
+        </div>
+    </div>
+
+ 
+    <script>
+     
+          var cols = [
+                 @foreach (var col in tableColumns)
+                 {
+                          @Html.Raw($"{{ data: '{col.Data}', type: '{col.Type}', name: '{col.Name}', title: '{col.Title}', showInRelationData: false, options: [], tableName: '' }},")
+                 }
+             ];
+             if (cols.length > 0) {
+                   InitDataTable($('#reportsDataTable'), cols, null, '/System/ReportBuilder/FetchDataReport', false);
+             }
+    </script>
+    
+}

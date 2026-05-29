@@ -47,14 +47,24 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("تاریخ تایید شمسی")]
-		[DisplayInfo(null, false, type: SystemType.DateShamsi)]
-		public string? ApprovedShamsiDate { get; set; }
+		[DisplayInfo(null, false, type: SystemType.DateTimeShamsi)]
+		public string? ApprovedShamsiDateTime { get; set; }
 
 
 		[DisplayName("تاریخ تایید میلادی")]
-		[DisplayInfo(null, false, type: SystemType.Date)]
-		public DateTime? ApprovedMiladiDate { get; set; }
-		
+		[DisplayInfo(null, false, type: SystemType.DateTime)]
+		public DateTime? ApprovedMiladiDateTime { get; set; }
+
+
+		[DisplayName("تاریخ بررسی شمسی")]
+		[DisplayInfo(null, false, type: SystemType.DateTimeShamsi)]
+		public string? RevieweShamsiDateTime { get; set; }
+
+
+		[DisplayName("تاریخ بررسی میلادی")]
+		[DisplayInfo(null, false, type: SystemType.DateTime)]
+		public DateTime? RevieweMiladiDateTime { get; set; }
+
 
 
 		[DisplayName("بررسی کننده")]
@@ -78,28 +88,28 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("فایل اصلی")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
 		public FileEntity? MainFile { get; set; }
 
 		public long? MainFileId { get; set; }
 
 
 		[DisplayName("فایل مادر")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
 		public FileEntity? MotherFile { get; set; }
 
 		public long? MotherFileId { get; set; }
 
 
 		[DisplayName("فایل ثانوی")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
 		public FileEntity? SecondaryFile { get; set; }
 
 		public long? SecondaryFileId { get; set; }
 
 
 		[DisplayName("فایل ReplySheet")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
 		public FileEntity? ReplySheet { get; set; }
 
 		public long? ReplySheetId { get; set; }
@@ -108,16 +118,20 @@ namespace Entities.App.Edms
 		[DisplayName("وضعیت مدرک")]
 		[DisplayInfo(null, false, type: SystemType.Select)]
 		public DocumentStatusEnums? Status { get; set; }
+
+
 		[DisplayName("بازنگری")]
 		[DisplayInfo(null, false, type: SystemType.Int)]
 		public int Revision { get; set; }
 
-
+		[DisplayName("آخرین رویژن")]
+		[DisplayInfo(null, false, type: SystemType.Boolean)]
+		public bool IsLatest { get; set; }
 
 		[DisplayName("کامنتها")]
 		[DisplayInfo(null, false, type: SystemType.ListEntity)]
  
-		public List<DocumentComment>? Comments { get; set; }
+		public List<DocumentComment> Comments { get; set; }=new List<DocumentComment>();
 	}
 	[Display(Name = "کامنت های مدارک مهندسی")]
 	[Table("DocumentComment", Schema = "Edms")]

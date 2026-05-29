@@ -2,12 +2,14 @@ using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
 using Data.SystemAuth;
+using Entities.App.Edms;
+using Entities.App.Edms.Enums;
+using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Entities.Base.DataTable;
+using Stimulsoft.Blockly.Model;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using Entities.App.Edms;
 
 namespace WebApp.Controllers.Dynamic
 {
@@ -21,6 +23,9 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(Transmital transmital, CancellationToken cn)
 		{
+
+
+			 
 			if (transmital.Id == null || transmital.Id == 0)
 			{
 				return await Add(transmital, cn);
@@ -37,7 +42,41 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(Transmital transmital, CancellationToken cn)
 		{
-			var entity = await unitOfWork.Repository<Transmital>().SaveAsync(transmital, cn, true);
+
+			var transmitalCount = await unitOfWork.Repository<Transmital>()
+							.TableNoTracking.
+							CountAsync(c => !(c.IsForReplySheet ?? false) && c.ProjectId == transmital.ProjectId);
+
+			var project = await unitOfWork.Repository<Project>()
+							.TableNoTracking
+							.FirstOrDefaultAsync(p => p.Id == transmital.ProjectId);
+
+			var entity = new Transmital();
+			if (project == null)
+			{
+				entity = await unitOfWork.Repository<Transmital>().SaveAsync(transmital, cn, true);
+				return Ok(entity);
+			}
+
+			if(transmital.IsForReplySheet.Value != false)
+			{
+
+				transmital.Number = entity.DefinedByUserNumber;
+				transmital.DefinedByUserNumber = null;
+				if (string.IsNullOrEmpty(transmital.Comments))
+					transmital.Comments = "is for reply sheet";
+			}
+			else
+			{
+				var transmitalNo = string.Concat("-", (transmitalCount + 1).ToString().PadLeft(4, '0'));
+				var finalTransmitalNo = string.Concat(project.TransmissionPrefix, transmitalNo);
+				transmital.Number = finalTransmitalNo;
+			}
+
+			entity = await unitOfWork.Repository<Transmital>().SaveAsync(transmital, cn);
+
+			 await AddNotReviewComments(entity.DocumentId);
+
 			return Ok(entity);
 		}
 
@@ -46,6 +85,8 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Update(Transmital transmital, CancellationToken cn)
 		{
 			var entity = await unitOfWork.Repository<Transmital>().UpdateAsync(transmital, cn, true);
+
+			await AddNotReviewComments(entity.DocumentId);
 			return Ok(entity);
 		}
 
@@ -113,6 +154,37 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 		{
 			return Ok(await unitOfWork.Repository<Transmital>().FetchDataAsync(request, cn));
+		}
+
+
+		private async Task AddNotReviewComments(long documentId,CancellationToken ct =default)
+		{
+			var document = await unitOfWork.Repository<Document>()
+				.TableNoTracking
+				.FirstOrDefaultAsync(c => c.Id == documentId);
+
+			if (document == null)
+				return;
+
+			var newCommentDocument = new DocumentComment()
+			{
+				DocumentId = documentId,
+				Status = DocumentStatusEnums.NotReview,
+				Comment = "ایجاد شده از ترانسمیتال",
+
+			};
+
+
+			await unitOfWork.Repository<DocumentComment>()
+				.AddAsync(newCommentDocument,ct);
+
+			await unitOfWork.Repository<Document>().UpdateFieldsAsync(
+				   documentId,
+			    c => c.Status,
+				   DocumentStatusEnums.NotReview,
+			    ct
+				   );
+
 		}
 	}
 }

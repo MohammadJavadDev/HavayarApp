@@ -1,0 +1,230 @@
+@using Entities.App.Acc;
+@using Entities.App.Inv;
+@using Entities.App.Sup;
+@using Entities.App.Sup.Enums;
+@model InquiryPartPrice
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(InquiryPartPrice)"></form-action-buttons></div>
+</div>
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class='col-md-6'>
+			<label class=''>تاریخ اعتبار میلادی</label>
+			<input class='form-control'  data-bind='validityMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ValidityMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>نوع</label>
+			<select class='form-control' data-bind='type'  asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sup.Enums.InquiryPartPriceTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>عنوان شرکت</label>
+			<input class='form-control' data-bind='companyName'  asp-for='CompanyName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class='required'>کالا</label>
+			@(Html.EntitySelector<Part>(
+				"PartSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Name = c.Name, Code = c.Code
+				},
+				c => new { c.Name, c.Code },
+				"{Name} {Code}",
+				"PartId",
+				"PartName",
+				Model?.PartId.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تعداد خرید</label>
+			<input class='form-control'  data-bind='buyCount'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='BuyCount' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class='required'>نرخ به ریال</label>
+			<input class='form-control'  data-bind='priceUnitValue' required data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PriceUnitValue' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class='required'>هزینه حمل</label>
+			<input class='form-control'  data-bind='transportationCost' required data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='TransportationCost' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class='required'>قیمت واحد</label>
+			<input class='form-control'  data-bind='unitPrice' required data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='UnitPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='isFixedPrice' class="form-check-input" type="checkbox" asp-for='IsFixedPrice' />
+				<label class="form-check-label" asp-for='IsFixedPrice'>
+					قیمت ثابت
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>کامنت</label>
+			<input class='form-control' data-bind='comment'  asp-for='Comment' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ اعتبار</label>
+			<input class='form-control'  data-bind='validityDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ValidityDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ اعتبار شمسی</label>
+			<input class='form-control' data-bind='validShamsiDate'  asp-for='ValidShamsiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>مبلغ استاندار ارزی</label>
+			<input class='form-control'  data-bind='currencyStandardPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CurrencyStandardPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>مبلغ واقعی ارزی</label>
+			<input class='form-control'  data-bind='currencyActualPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CurrencyActualPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>مبلغ استاندارد حمل و نقل</label>
+			<input class='form-control'  data-bind='shippingStandardPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ShippingStandardPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>مبلغ واقعی حمل و نقل</label>
+			<input class='form-control'  data-bind='shippingActualPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ShippingActualPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>مبلغ تمام شده استاندارد</label>
+			<input class='form-control'  data-bind='totalStandardPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='TotalStandardPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>مبلغ تمام شده واقعی</label>
+			<input class='form-control'  data-bind='totalActualPrice'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='TotalActualPrice' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 align-content-center'>
+			<div class="form-check">
+				<input data-bind='isSpecialCases' class="form-check-input" type="checkbox" asp-for='IsSpecialCases' />
+				<label class="form-check-label" asp-for='IsSpecialCases'>
+					موارد خاص
+				</label>
+			</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>توضیحات موارد خاص</label>
+			<input class='form-control' data-bind='specialCasesDescription'  asp-for='SpecialCasesDescription' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>وضعیت قیمت</label>
+			<select class='form-control' data-bind='priceStatus'  asp-for='PriceStatus' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sup.Enums.InquiryPartPricePriceStatusEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>قیمت خرید بازار</label>
+			<input class='form-control'  data-bind='newFeature'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='NewFeature' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>واحد ارز</label>
+			@(Html.EntitySelector<PriceUnit>(
+				"PriceUnitSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Title = c.Title
+				},
+				c => new { c.Title },
+				"{Title}",
+				"PriceUnitId",
+				"PriceUnitName",
+				Model?.PriceUnitId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card">
+	
+ 
+	<div class='card-body row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

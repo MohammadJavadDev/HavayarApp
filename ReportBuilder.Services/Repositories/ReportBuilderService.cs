@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Text;
 using Aspose.Cells;
 using Common.Utilities;
@@ -316,26 +316,63 @@ namespace ReportBuilder.Services.Repositories
 
         public List<Dictionary<string, object>> FetchTableDataStimilSoft(FetchDataReportTableViewModelReq request)
         {
-            
-            var resQuery = BuildSqlServerQuery(request);
+            if (!string.IsNullOrWhiteSpace(request.BaseQuery))
+            {
+                var paramDict = request.ParameterValues != null
+                    ? request.ParameterValues.ToDictionary(kv => kv.Key, kv => (object)(kv.Value ?? ""))
+                    : new Dictionary<string, object>();
+                return ExecuteQueryWithParameters(request.BaseQuery, paramDict).ToList();
+            }
 
-            var items = ExecuteQuery(resQuery.MainQuery);
-         
-            return items.ToList();
+            var resQuery = BuildSqlServerQuery(request);
+            return ExecuteQuery(resQuery.MainQuery).ToList();
         }
+
+        /// <summary>
+        /// اجرای کوئری با پارامترهای نام‌گذاری شده (برای BaseQuery از SavedQuery)
+        /// </summary>
+        private IEnumerable<Dictionary<string, object>> ExecuteQueryWithParameters(string query, IReadOnlyDictionary<string, object> parameters)
+        {
+            var results = new List<Dictionary<string, object>>();
+            using var connection = new SqlConnection(ConnectionString);
+            using var command = new SqlCommand(query, connection);
+            connection.Open();
+
+            foreach (var kv in parameters)
+            {
+                var paramName = kv.Key.StartsWith("@") ? kv.Key : "@" + kv.Key;
+                command.Parameters.AddWithValue(paramName, kv.Value ?? DBNull.Value);
+            }
+
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                var entity = new Dictionary<string, object>();
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    var propertyName = reader.GetName(i);
+                    entity.Add(propertyName, reader.IsDBNull(i) ? null! : reader.GetValue(i));
+                }
+                results.Add(entity);
+            }
+            return results;
+        }
+
         public DataTableQueryBuilderResult BuildSqlServerQuery(FetchDataReportTableViewModelReq request)
         {
             var res = new DataTableQueryBuilderResult();
+            var filters = request.Filters ?? new List<FetchDataReportTableViewModelReq.FetchDataReportTableViewModelReqFilters>();
             StringBuilder query = new StringBuilder($"SELECT * From {request.TableName} (NoLock)");
 
-            if (request.Filters.Any())
+            if (filters.Any())
             {
                 query.AppendLine("Where");
                 var queryParts = new List<string>();
-                request.Filters.ForEach(z =>
+                filters.ForEach(z =>
                 {
                     var propAddress = z.ColumnName;
-                    var valuePlaceholders = string.Join(",", z.Values.Select(v => $"{v}"));
+                    var values = z.Values ?? Array.Empty<string>();
+                    var valuePlaceholders = string.Join(",", values.Select(v => $"{v}"));
                     var part = "";
                     switch (z.Condition)
                     {
@@ -388,10 +425,14 @@ namespace ReportBuilder.Services.Repositories
                             part = $"{propAddress} IS NOT NULL";
                             break;
                         case "between":
-                            part = $"{propAddress} BETWEEN N'{z.Values[0]}' And N'{z.Values[1]}'";
+                            part = values.Length >= 2
+                                ? $"{propAddress} BETWEEN N'{values[0]}' And N'{values[1]}'"
+                                : $"{propAddress} IS NULL";
                             break;
                         case "!between":
-                            part = $"{propAddress} NOT BETWEEN N'{z.Values[0]}' And N'{z.Values[1]}'";
+                            part = values.Length >= 2
+                                ? $"{propAddress} NOT BETWEEN N'{values[0]}' And N'{values[1]}'"
+                                : $"{propAddress} IS NOT NULL";
                             break;
                         default:
                             throw new ArgumentException($"Unsupported operator: {z.Condition}");

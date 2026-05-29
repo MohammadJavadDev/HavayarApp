@@ -91,11 +91,11 @@ namespace Entities.App.Edms
 
 		[DisplayName("شناسه واحد ذینفع")]
 		[DisplayInfo(null, true, SystemType.Long)]
-		public long? SubjectUnitId { get; set; }
+		public long SubjectUnitId { get; set; }
 
 		[DisplayName("واحد ذینفع")]
 		[DisplayInfo(null, true, SystemType.Entity)]
-		public OrgUnit? SubjectUnit { get; set; }
+		public OrgUnit SubjectUnit { get; set; }
 
 		[DisplayName("شناسه کارشناس فروش")]
 		[DisplayInfo(null, true, SystemType.Long)]
@@ -264,6 +264,10 @@ namespace Entities.App.Edms
 		[DisplayName("درصد پیشرفت")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<ProjectProgressPercentage> ProgressPercentage { get; set; } = new();
+
+		[DisplayName("پیوست")]
+		[DisplayInfo(null, true, type: SystemType.ListEntity)]
+		public List<ProjectAttachment> ProjectAttachments { get; set; } = new();
 	}
 
 	[Display(Name = "درصد پیشرفت")]
@@ -283,5 +287,28 @@ namespace Entities.App.Edms
 		public int? Percentage { get; set; }
 
 
+	}
+
+	[Display(Name = "پیوست پروژه")]
+	[Table("ProjectAttachment", Schema = "Edms")]
+	public class ProjectAttachment : BaseEntity
+	{
+		public long ProjectId { get; set; }
+		public Project Project { get; set; }
+
+		[DisplayName("فایل پیوست")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+
+		public FileEntity Attachment { get; set; }
+		public long AttachmentId { get; set; }
+
+		[DisplayName("توضیحات")]
+		[DisplayInfo(null, true, SystemType.String)]
+		public string Comment { get; set; }
+
+		[DisplayName("نوع مدرک")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+
+		public ProjectAttachmentTypeEnum Type { get; set; }
 	}
 }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Common.Attributes;
 using Entities.Base;
 
@@ -15,6 +15,10 @@ namespace ReportBuilder.Entities
         public string Title { get; set; }
 
         public string ObjectType { get; set; }
+ 
+        public long? SavedQueryId { get; set; }
+
+        public string? BaseQuery { get; set; }
         public ReportType Type { get; set; }
         public List<ReportBuilderReportSelect> ReportBuilderReportSelects { get; set; }
         public List<ReportBuilderReportItem> ReportBuilderReportFilters { get; set; }

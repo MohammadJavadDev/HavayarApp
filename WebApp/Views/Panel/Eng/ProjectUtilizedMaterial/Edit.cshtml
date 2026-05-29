@@ -1,0 +1,98 @@
+@using Entities.App.Eng
+@using Entities.App.FIN;
+@using Entities.App.Inv
+@using Entities.App.Sale
+@model PartList
+
+<div class="card">
+    <div class="form-action-buttons"><form-action-buttons entity-type="typeof(PartList)"></form-action-buttons></div>
+
+</div>
+<div class="card">
+    <div class="card-body row">
+        <div class="col-12 mb-4">
+            <h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+        </div>
+        <input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+
+        <div class="col-md-6">
+            <label>محصول</label>
+            @(Html.EntitySelector<Part>(
+                        "PartSelector",
+                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                        c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+                        c => new { c.Code, c.Name },
+                        "{Code} {Name}",
+                        "PartId",
+                        "PartName",
+                        Model?.PartId?.ToString()
+                        ))
+            <div data-invalidmessagespan><span class="text-danger"></span></div>
+        </div>
+
+        <div class='col-md-6'>
+            <label class='required'>مقدار</label>
+            <input class='form-control' data-bind='qty' required asp-for='Qty' />
+            <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+        </div>
+
+           <div class='col-md-6'>
+            <label class='required'>ترتیب</label>
+            <input class='form-control' data-bind='order' required asp-for='Order' />
+            <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+        </div>
+
+        <div class='col-md-6'>
+            <label class='required'>کامنت</label>
+            <input class='form-control' data-bind='description' required asp-for='Description' />
+            <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+        </div>
+
+
+
+
+    </div>
+</div>
+
+<div class="card">
+
+    <div class='card-body row'>
+        <div class='col-md-3'>
+            <span>ایجاد کننده :</span>
+            <span data-bind="createdByName">@Model?.CreatedByName</span>
+        </div>
+        <div class='col-md-3'>
+            <span>تاریخ ایجاد :</span>
+            <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+        </div>
+        <div class='col-md-3'>
+            <span>ویرایش کننده :</span>
+            <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+        </div>
+        <div class='col-md-3'>
+            <span>تاریخ ویرایش :</span>
+            <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function savefn($btnAction) {
+        if (validateError(page.$pageEl)) { return; }
+        var model = page.$pageEl.dataBind();
+        const $btn = $(this.element).block();
+        $$.post('save',
+            model,
+            function (r) {
+                $btn.block(false);
+                if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+                toastr.success('ذخیره سازی با موفقیت انجام شد .');
+                page.$pageEl.dataBind(r.data);
+                $btnAction.baseaction();
+            })
+    }
+
+    self.FormActionButtons.save.onclick(function () { savefn(this) })
+    self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+    self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

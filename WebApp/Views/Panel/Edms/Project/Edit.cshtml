@@ -9,23 +9,19 @@
 <div class="card">
  	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class='col-md-3'>
+		<div class='col-md-6'>
 			<label class='required'>عنوان</label>
-			<input class='form-control' data-bind='title' required asp-for='Title' />
+			<input class='form-control' data-bind='title' required asp-for='Title' disabled />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-
-		<div class='col-md-3'>
-			<label class=''>نام</label>
-			<input class='form-control' data-bind='name' asp-for='Name' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
 		<div class='col-md-3'>
 			<label class=''>کد</label>
-			<input class='form-control' data-bind='code' asp-for='Code' />
+			<input class='form-control ltr' data-bind='code' asp-for='Code' disabled />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
+
+		<div class='col-md-3'>
+   		</div>
 
 		<div class='col-md-3'>
 			<label class=''>شرکت طرف قرارداد (مشترى)</label>
@@ -44,6 +40,17 @@
 			<input class='form-control' data-bind='packageType' asp-for='PackageType' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
+		<div class="col-md-12"></div>
+
+		<div class='col-md-3'>
+			<label class=''>نام</label>
+			<input class='form-control' data-bind='name' asp-for='Name' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	
+
+
 
 	 
 
@@ -148,7 +155,7 @@
 						"{Title}",
 						"SubjectUnitId",
 						null,
-						Model?.SubjectUnitId?.ToString(),
+						Model?.SubjectUnitId.ToString(),
 						false
 						))
  		</div>
@@ -574,6 +581,12 @@
 								درصد پیشرفت
 							</a>
 						</li>
+					<li class="nav-item" role="presentation">
+						<a class="nav-link  " data-bs-toggle="tab" href="#attachmentTab" role="tab" aria-selected="true">
+							<span class="svg-icon svg-icon-2 me-2"></span>
+							پیوست ها
+						</a>
+					</li>
 					</ul>
 					<div class="tab-content">
 						<div class="tab-pane fade show active" id="progressPercentageTab" role="tabpanel" data-add-url="/Panel/Edms/Project/ProjectProgressPercentagePartial">
@@ -589,6 +602,19 @@
 								}
 							</div>
 						</div>
+					<div class="tab-pane fade " id="attachmentTab" role="tabpanel" data-add-url="/Panel/Edms/Project/ProjectAttachmentsPartial">
+						<div id='ProjectAttachmentsContainer' class="entity-item-container">
+							@if (Model?.ProjectAttachments != null)
+							{
+								@foreach (var item in Model.ProjectAttachments)
+								{
+									<div data-item-id="@(item.Id ?? 0)">
+										@await Html.PartialAsync("_ProjectAttachmentsPartial.cshtml", item)
+									</div>
+								}
+							}
+						</div>
+					</div>
 					</div>
 				</div>
 			</div>
@@ -617,7 +643,7 @@
 </div>
 <script>
 	function savefn($btnAction) {
-		debugger
+		 
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
 		const $btn = $(this.element).block();
@@ -627,7 +653,9 @@
 				$btn.block(false);
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				page.$pageEl.dataBind(r.data);
+
+				page.$pageEl.find("[data-bind=id]").val(r.data.id);
+				page.$pageEl.find("[data-bind=code]").val(r.data.code);
 				$btnAction.baseaction();
 			})
 	}
@@ -635,4 +663,23 @@
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+
+	 $$("[data-bind=contractPartyCustomer] , [data-bind=projectName] , [data-bind=packageType] ")
+	 .change(getProjectTitle); 
+
+	  function getProjectTitle() {
+		    
+	    var a =  $$("[data-bind=contractPartyCustomer]").val();
+	    var b =  $$("[data-bind=projectName]").val();
+	    var c =  $$("[data-bind=packageType]").val();
+
+	    var splitter = '_';
+	    var result = "".concat(a, splitter, b, splitter, c);
+
+	    result = result.concat(splitter, "0000");
+
+	   $$("[data-bind=title]").val(result)
+	     
+	}
 </script>

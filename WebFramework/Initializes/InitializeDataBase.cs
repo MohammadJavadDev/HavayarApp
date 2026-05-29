@@ -19,7 +19,7 @@ namespace WebFramework.Initializes
     {
         public void InitAdminUser()
         {
-		 applicationDbContext.Database.Migrate();
+		  applicationDbContext.Database.Migrate();
 
 
 	   var roleAdmin = unitOfWork.Repository<Role>().TableNoTracking

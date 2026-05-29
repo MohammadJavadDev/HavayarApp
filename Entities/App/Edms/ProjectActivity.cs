@@ -1,4 +1,5 @@
 using Common.Attributes;
+using Entities.App.Epms.Enums;
 using Entities.App.Hrm;
 using Entities.Base;
 using System.ComponentModel;
@@ -37,7 +38,7 @@ namespace Entities.App.Edms
 
 		[DisplayName("نوع فعالیت")]
 		[DisplayInfo("Type", true, type: SystemType.Select, required: true, regexInvalidError: "کاراکتر وارد شده غیر مجاز میباشد. ")]
-		public int Type { get; set; }
+		public ProjectActivityTypeEnum Type { get; set; }
 
 
 		[DisplayName("کامنت")]

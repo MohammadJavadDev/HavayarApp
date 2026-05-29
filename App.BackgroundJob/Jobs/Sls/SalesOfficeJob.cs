@@ -11,26 +11,26 @@ namespace App.BackgroundJob.Jobs.Sls
 	public class SalesOfficeJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork)
 	{
 
-		[JobHandler("افزودن مراکز هزینه از راهکاران")]
+		[JobHandler("افزودن مراکز فروش از راهکاران")]
 		public async Task AddSalesOfficeFromRahkaran(IJobLogger? jobLogger = null, CancellationToken cn = default)
 		{
 			try
 			{
-				await jobLogger?.LogInfoAsync("شروع همگام‌سازی مراکز هزینه از راهکاران", cn);
+				await jobLogger?.LogInfoAsync("شروع همگام‌سازی مراکز فروش از راهکاران", cn);
 
 				var sqlRow = @"SELECT Code, [Name] AS BranchName FROM SLS3.SalesOffice";
 
-				await jobLogger?.LogInfoAsync("در حال اجرای کوئری برای دریافت داده‌های مراکز هزینه از راهکاران...", cn);
+				await jobLogger?.LogInfoAsync("در حال اجرای کوئری برای دریافت داده‌های مراکز فروش از راهکاران...", cn);
 				var rahakarnData = await Rdb.Database.SqlQueryRaw<AddSalesOfficeDto>(sqlRow).ToListAsync(cn);
 
-				await jobLogger?.LogInfoAsync($"تعداد {rahakarnData.Count} رکورد مرکز هزینه از راهکاران دریافت شد", cn);
+				await jobLogger?.LogInfoAsync($"تعداد {rahakarnData.Count} رکورد مرکز فروش از راهکاران دریافت شد", cn);
 
 				// بارگذاری SalesOffice های موجود
 				var appSalesOffices = await unitOfWork.Repository<SalesOffice>()
 					.Table
 					.ToListAsync(cn);
 
-				await jobLogger?.LogInfoAsync($"تعداد {appSalesOffices.Count} مرکز هزینه در پایگاه داده برنامه موجود است", cn);
+				await jobLogger?.LogInfoAsync($"تعداد {appSalesOffices.Count} مرکز فروش در پایگاه داده برنامه موجود است", cn);
 
 				// ایجاد Dictionary برای نگاشت Code به SalesOffice
 				var appSalesOfficesDict = appSalesOffices
@@ -77,17 +77,17 @@ namespace App.BackgroundJob.Jobs.Sls
 
 				if (newSalesOffices.Any())
 				{
-					await jobLogger?.LogInfoAsync($"افزودن {newSalesOffices.Count} مرکز هزینه جدید به پایگاه داده", cn);
+					await jobLogger?.LogInfoAsync($"افزودن {newSalesOffices.Count} مرکز فروش جدید به پایگاه داده", cn);
 					await unitOfWork.Repository<SalesOffice>().AddRangeAsync(newSalesOffices, cn, false);
 				}
 
 				if (updatedSalesOfficesCount > 0)
 				{
-					await jobLogger?.LogInfoAsync($"به‌روزرسانی {updatedSalesOfficesCount} مرکز هزینه موجود", cn);
+					await jobLogger?.LogInfoAsync($"به‌روزرسانی {updatedSalesOfficesCount} مرکز فروش موجود", cn);
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
-				await jobLogger?.LogInfoAsync("همگام‌سازی مراکز هزینه با موفقیت انجام شد", cn);
+				await jobLogger?.LogInfoAsync("همگام‌سازی مراکز فروش با موفقیت انجام شد", cn);
 			}
 			catch (Exception ex)
 			{

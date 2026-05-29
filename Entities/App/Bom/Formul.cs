@@ -15,16 +15,10 @@ namespace Entities.App.Bom
 		[DisplayInfo(null, true, type: SystemType.String, required: true, showInRelationData: true)]
 		public string Title { get; set; }
 
-
-		[DisplayName("قطعه")]
-		[DisplayInfo(null, false, type: SystemType.Entity)]
-		public Part? Part { get; set; }
-
-		public long? PartId { get; set; }
-
+ 
 
 		[DisplayName("گروه")]
-		[DisplayInfo(null, true, type: SystemType.Entity, required: true, showInRelationData: true)]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public FormulGroup Group { get; set; }
 
 		public long GroupId { get; set; }
@@ -52,8 +46,14 @@ namespace Entities.App.Bom
 
 
 		[DisplayName("ضریب مصرفی")]
-		[DisplayInfo(null, false, type: SystemType.Int)]
-		public int? UsingRate { get; set; }
+		[DisplayInfo(null, false, type: SystemType.Decimal)]
+		public decimal? UsingRate { get; set; }
+
+
+		[DisplayName("منبع ایجاد/ویرایش")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+
+		public string? SourcePath { get; set; }
 
 
 	}

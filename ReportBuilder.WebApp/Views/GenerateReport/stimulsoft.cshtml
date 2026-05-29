@@ -1,8 +1,12 @@
-﻿@using Stimulsoft.Report.Mvc
+﻿@using Common.Utilities
+@using Stimulsoft.Report.Mvc
+
 @{
      Layout = null;
  }
  <div style="direction: ltr">
+
+ 
 	 @Html.StiNetCoreDesigner("STDesiner",new StiNetCoreDesignerOptions()
 	 {
 		 Actions =
@@ -19,7 +23,23 @@
  
  
 	 <script>
-		 window.jsSTDesiner = jsSTDesiner;
+		   var urlParams = new URLSearchParams(window.location.search);
+
+	    const queryParams = @Html.Raw(Json.Serialize(ViewBag.QueryParams));
+	    const reportId = @Html.Raw(Json.Serialize(ViewBag.ReportId));
+
+	jsSTDesiner.onBeginProcessData = function (args) {
+
+	    if (args.action == "GetReport") {
+
+		   args.data["reportId"] = reportId;
+
+		   for (const key in queryParams) {
+			  args.data[key] = JSON.stringify(queryParams[key]);
+		   }
+
+	    }
+	};
 
 	 </script>
   

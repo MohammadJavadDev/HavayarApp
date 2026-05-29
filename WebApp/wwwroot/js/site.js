@@ -1,4 +1,16 @@
 
+
+// پلاگین سفارشی disabled برای jQuery
+$.fn.disabled = function (value) {
+	// اگر مقدار (value) undefined باشد، به عنوان getter عمل می‌کند
+	if (value === undefined) {
+		// مقدار disabled اولین المنت را برمی‌گرداند
+		return this.prop('disabled');
+	}
+	// در غیر این صورت، مقدار disabled همه المنت‌های مجموعه را تنظیم می‌کند
+	return this.prop('disabled', Boolean(value));
+};
+
 $.fn.block = function (block = true, withText = false) {
 
 	if (block === false) {
@@ -317,11 +329,11 @@ const persionDatePickerOptionsDate = {
 	 
 };
 
-function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton = true, exportExcellPath = "/System/ReportBuilder/ExportDataToExcel" ) {
+function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton = true, exportExcellPath = "/System/ReportBuilder/ExportDataToExcel" ) {
 	let dataTableRequest = {};
 	let fetchUrl = path ?? "/System/FetchData";
 	let deleteUrl = "/System/Remove";
- 
+	 
 	let top2startInit = {};
 	if (searchBuilderOnButton === false) {
 
@@ -1612,7 +1624,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 							switch (type) {
 								case 'string':
 									$('<input type="text" class="form-control" placeholder="جستجو ' + title + '" />')
-										.appendTo($(place).empty())
+										.appendTo($(place))
 
 									break;
 								case 'date':
@@ -1725,7 +1737,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 
 				});
 				
-			api.columns.adjust();
+			this.api().columns.adjust();
 		 
 		},
 		layout: {
@@ -1844,46 +1856,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
           scrollX: true,
 		scrollY: '50vh'
 	});
-	table.on("draw", function () {
-
-		 
-
-		$(this).find(`[data-action=remove]`).each((i, c) => {
-
-			$(c).click(function () {
-				let url = $(this).attr("data-url");
-				$.confirm({
-					title: 'حذف اطلاعات',
-					content: 'آیا از حذف کردن اطلاعات مطمئن هستید ؟',
-					type: 'red',
-					typeAnimated: true,
-					buttons: {
-						tryAgain: {
-							text: 'بله',
-							btnClass: 'btn-red',
-							action: function () {
-            					get(url, function (r) {
-									if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-
-									table.draw();
-								})
-							}
-						},
-						close: {
-							text: 'بست',
-							btnClass: 'btn',
-							action: function () {
-							}
-						}
-					}
-				});
-
-
-			});
-
-		})
-	
-	})
+	 
  
 	$(table.footer()[0])
 		.find("button").click(function () {
@@ -2006,61 +1979,177 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 }
  
 
-function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = true) {
-
-
-	let dataTableRequest = {};
+function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton = true) {
 	 
+	var columns = dataTable.columns;
+
+	let currentTable;
 	let fetchUrl = "/System/FetchDataProfile";
-	let deleteUrl = "/System/Remove";
-	let searchBuilderCollapseId = $el.parent().parent().find("[data-place=searchBuilderCollapse]").attr("id");
+	let exportPath = "/System/ExportToExcelProfile";
+
+	let searchBuilderCollapseId = $el.parent().parent()
+		.find("[data-place=searchBuilderCollapse]").attr("id");
+
 	let dataProfileSelector = $el.closest(".card").find(`[data-action=dataProfile]`);
 
-	var newPath = dataProfileSelector.data("new-path")
-	var editPath = dataProfileSelector.data("edit-path")
-	var deletePath = dataProfileSelector.data("delete-path")
-	var exportPath = dataProfileSelector.data("exportExcell-path")
+	let newPath = dataProfileSelector.data("new-path");
+	let editPath = dataProfileSelector.data("edit-path");
+	let deletePath = dataProfileSelector.data("delete-path");
 
-
-	let canNew = (newPath && newPath.length > 0);
-	let canEdit = (editPath && editPath.length > 0);
-	let canExportExcell = (exportPath && exportPath.length > 0);
-	let canDelete = (deletePath && deletePath.length > 0);
-	let selectedRow = {};
-	let $selectedRowEl;
-
-	let $editBtn, $deleteBtn, $newBtn, $exportEcellBtn, $drawBtn, $notificationbuilder;
-
-	let handelEdit = function (id) {
-
-		if (!canEdit) return toastr.error(`شما مجوز دسترسی برای ویرایش این اطلاعات ندارید`, 'عدم دسترسی');
-		appController.addPage(editPath + "?id=" + id);
+	if (dataProfileSelector.data("exportExcell-path")?.length > 0) {
+		exportPath = dataProfileSelector.data("exportExcell-path");
 	}
-	let handelDelete = function (id) {
 
-		if (!canEdit) return toastr.error(`شما مجوز دسترسی برای حذف این اطلاعات ندارید`, 'عدم دسترسی');
+	let canNew = !!(newPath && newPath.length > 0);
+	let canEdit = !!(editPath && editPath.length > 0);
+	let canDelete = !!(deletePath && deletePath.length > 0);
+	let canExportExcell = !!(exportPath && exportPath.length > 0);
+	let selectedRow = null;
+	let $selectedRowEl = null;
+	let dataTableRequest = {};
+	let tableApi = null;
+	const rowRenderCallbacks = [];
+
+	let $editBtn, $deleteBtn, $newBtn, $exportEcellBtn, $drawBtn,
+		$notificationbuilder, $reStyleTableBtn;
 
 
+
+	/**
+    * @param {Object|null} row       - داده ردیف
+    * @param {jQuery}      $row      - المان tr
+    * @param {boolean}     isDeselect
+    * @returns {Object}
+    */
+	const buildRowSelectContext = (row, $row, isDeselect) => { 
+		let dataActionBtns = {};
+		top1startBtns.find("[data-action]").each((c, i) => {
+			var dataActionName = $(i).data("action")
+			dataActionBtns[dataActionName] = $(i)
+		})
+		return {
+			selectedRow: row,
+			$row: $row,
+			table: tableApi,
+			$toolbar: top1startBtns,
+			dataActionBtns,
+			isDeselect: isDeselect,
+			draw: () => table.draw(),
+		}
+	}
+
+	/**
+	* @param {Object} rowData
+	* @param {jQuery} $row
+	* @param {number} rowIndex
+	* @returns {Object}
+	*/
+	const buildRowAddedContext = (rowData, $row, rowIndex) => ({
+		rowData: rowData,
+		$row: $row,
+		rowIndex: rowIndex,
+		table: tableApi,
+		draw: () => table.draw(),
+	});
+
+	/**
+	* اجرای امن یک تابع رویداد
+	* @param {string} scriptStr  - متن تابع: "function(ctx){...}"
+	* @param {Object} ctx        - آبجکت context
+	* @param {string} eventLabel - نام رویداد برای پیام خطا
+	*/
+	const fireEvent = (scriptStr, ctx, eventLabel) => {
+		if (!scriptStr?.trim()) return;
+		try {
+			// eslint-disable-next-line no-new-func
+			const fn = new Function('ctx', `return (${scriptStr})(ctx)`);
+			fn(ctx);
+		} catch (err) {
+			console.error(`خطا در رویداد ${eventLabel}:`, err);
+		}
+	};
+
+	/**
+    * پارس امن یک رشته JSON
+    * @param {string|null} raw
+    * @param {*} fallback
+    * @returns {*}
+    */
+	const safeParse = (raw, fallback) => {
+		if (!raw) return fallback;
+		try { return typeof raw === 'string' ? JSON.parse(raw) : raw; }
+		catch (e) { console.warn('خطا در پارس:', e); return fallback; }
+	};
+
+	// ── افزودن دکمه‌های سفارشی ────────────────────────────────────────────
+
+	/**
+	 * تولید context برای تابع اکشن
+	 * @param {jQuery} $btn - دکمه کلیک شده
+	 * @returns {Object}
+	 */
+	const buildActionContext = ($btn) => ({
+		selectedRow: selectedRow || null,
+		table: tableApi,
+		tableData: tableApi
+			? tableApi.rows({ page: 'current' }).data().toArray()
+			: [],
+		$toolbar: top1startBtns,
+		$btn: $btn,
+		draw: () => table.draw(),
+	});
+
+	/**
+	 * اجرای امن تابع اکشن
+	 * @param {string} scriptStr
+	 * @param {jQuery} $btn
+	 */
+	const executeActionScript = (scriptStr, $btn) => {
+		try {
+			// eslint-disable-next-line no-new-func
+			const fn = new Function('ctx', `return (${scriptStr})(ctx)`);
+			fn(buildActionContext($btn));
+		} catch (err) {
+			console.error('خطا در اجرای اکشن سفارشی:', err);
+			toastr.error(`خطا در اجرای اکشن: ${err.message}`, 'خطا');
+		}
+	};
+
+
+	const eventScripts = safeParse(
+		dataTable?.eventScripts,
+		{ onSelectedRow: '', onRowAdded: '' }
+	);
+
+
+	let customActionButtons = safeParse(dataTable?.customActionButtons, []);
+
+
+	const handelEdit = (id) => {
+		if (!canEdit) return toastr.error('شما مجوز دسترسی برای ویرایش این اطلاعات ندارید', 'عدم دسترسی');
+		appController.addPage(editPath + "?id=" + id);
+	};
+
+	const handelDelete = (id) => {
+		if (!canDelete) return toastr.error('شما مجوز دسترسی برای حذف این اطلاعات ندارید', 'عدم دسترسی');
 		Swal.fire({
 			icon: "warning",
 			title: "آیا از حذف این اطلاعات مطمعن هستید ؟",
 			showDenyButton: true,
 			confirmButtonText: "بله",
-			denyButtonText: `خیر`
-		}).then((result) => {
-
+			denyButtonText: "خیر"
+		}).then(result => {
 			if (result.isConfirmed) {
-				get(deletePath + "?id=" + id, function (r) {
+				get(deletePath + "?id=" + id, (r) => {
 					if (!r.isSuccess) return error2(r.message);
 					table.draw();
 				});
-			} else if (result.isDenied) {
-
 			}
 		});
+	};
 
+	
 
-	}
 
 	let top2startInit = {};
 	if (searchBuilderOnButton === false) {
@@ -2767,7 +2856,6 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 
 	}
 	else {
-
 		top2startInit = {
 			buttons: [{
 				extend: 'searchBuilder',
@@ -3289,46 +3377,134 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 	}
 
 
-
 	let top1startBtns = $(`
-	<div class='mb-2 gap-1 d-md-flex justify-content-between align-items-center  col-md-auto me-auto'>
-		<button   class='btn-sm btn btn-icon   btn-color-info btn-active-icon-dark ' data-action='draw' data-bs-toggle="tooltip" data-bs-placement="top" title="بارگذاری اطلاعات">
-		    <i class='fs-2 fa-light fa-magnifying-glass-arrows-rotate fa-solid'  ></i>
-		</button>
-		<button ${canExportExcell == false ? "disabled" : ""}   class='btn-sm btn btn-icon   btn-color-success btn-active-icon-dark p-2' data-action='exportExcell' data-bs-toggle="tooltip" data-bs-placement="top" title="خروجی اکسل">
-		    <i  class='fs-2 fa-light fa-file-xls'></i>
+        <div class='mb-2 gap-1 d-md-flex justify-content-between align-items-center col-md-auto me-auto'>
+            <button class='btn-sm btn btn-icon btn-color-info btn-active-icon-dark'
+                    data-action='draw'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="بارگذاری اطلاعات">
+                <i class='fs-2 fa-light fa-magnifying-glass-arrows-rotate fa-solid'></i>
+            </button>
 
-		</button>
+            <button ${canExportExcell ? '' : 'disabled'}
+                    class='btn-sm btn btn-icon btn-color-success btn-active-icon-dark p-2'
+                    data-action='exportExcell'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="خروجی اکسل">
+                <i class='fs-2 fa-light fa-file-xls'></i>
+            </button>
+
+            <button ${canNew ? '' : 'disabled'}
+                    class='btn-sm btn btn-icon btn-active-icon-dark btn-color-primary'
+                    data-action='new'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="جدید">
+                <i class="fs-2 fa-jelly fa-light fa-circle-plus"></i>
+            </button>
+
+            <button disabled
+                    class='btn-sm btn btn-icon btn-active-icon-dark'
+                    data-action='edit'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="ویرایش">
+                <i class="fs-2 fa-light fa-pen-to-square"></i>
+            </button>
+
+            <button disabled
+                    class='btn-sm btn btn-icon btn-active-icon-dark'
+                    data-action='delete'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="حذف">
+                <i class="fs-2 fa-light fa-trash"></i>
+            </button>
+
+            <button class='btn-sm btn btn-icon btn-active-icon-dark btn-color-info'
+                    data-bs-toggle="collapse"
+                    data-bs-target="#${searchBuilderCollapseId}"
+                    data-bs-placement="top" title="جستجوی پیشرفته">
+                <i class="fs-2 fa-light fa-magnifying-glass-plus"></i>
+            </button>
+
+            <button class='btn-sm btn btn-icon btn-active-icon-dark btn-color-warning'
+                    data-action='notificationbuilder'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="ایجاد اعلان">
+                <i class="ki-duotone ki-notification-on fs-1">
+                    <span class="path1"></span><span class="path2"></span>
+                    <span class="path3"></span><span class="path4"></span><span class="path5"></span>
+                </i>
+            </button>
+
+            <button class='btn-sm btn btn-icon btn-active-icon-dark btn-color-dark'
+                    data-action='reStyleTable'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="بازنشانی تنظیمات جدول">
+                <i class="la-reply la fs-1"></i>
+            </button>
+        </div>
+    `);
 	 
-		<button ${canNew == false ? "disabled" : ""} class='btn-sm btn btn-icon btn-active-icon-dark btn-color-primary' data-action='new' data-bs-toggle="tooltip" data-bs-placement="top" title="جدید">
-		   <i class="fs-2 fa-jelly fa-light fa-circle-plus"  ></i>
-		</button>
+	if (dataTable.actionOptions && dataTable.actionOptions.length>0) {
+		var actionOptions = JSON.parse(dataTable.actionOptions);
 
-		<button disabled class='btn-sm btn btn-icon btn-active-icon-dark  ' data-action='edit' data-bs-toggle="tooltip" data-bs-placement="top" title="ویرایش">
-			<i class="fs-2 fa-light fa-pen-to-square"  ></i>
-		</button>
+		actionOptions.forEach(c => {
+			if (top1startBtns.find(`[data-action=${c.dataActionName}]`).length > 0) {
+				if (c.enable === false) {
+					top1startBtns.find(`[data-action=${c.dataActionName}]`).prop("disabled", "disabled")
+					top1startBtns.find(`[data-action=${c.dataActionName}]`).attr("forcedisabled",'true')
+				}
+			}
+		})
 
-		<button disabled class='btn-sm btn btn-icon btn-active-icon-dark ' data-action='delete' data-bs-toggle="tooltip" data-bs-placement="top" title="حذف">
-		   <i class="fs-2 fa-light fa-trash"  ></i>
-		</button>
-
-		 <button   class='btn-sm btn btn-icon btn-active-icon-dark btn-color-info '  data-bs-toggle="collapse" data-bs-target="#${searchBuilderCollapseId}"    data-bs-placement="top" title="جستجوی پیشرفته">
-		   <i class="fs-2 fa-light fa-magnifying-glass-plus "  ></i>
-		</button>
-		 <button   class='btn-sm btn btn-icon btn-active-icon-dark btn-color-warning'  data-action='notificationbuilder'   data-bs-toggle="tooltip" data-bs-placement="top" title="ایجاد اعلان">
- 			<i class="ki-duotone ki-notification-on fs-1">
-							<span class="path1"></span>
-							<span class="path2"></span>
-							<span class="path3"></span>	
-							<span class="path4"></span>
-							<span class="path5"></span>
-						</i>
-		 </button>
+	}
 
 	
-		 
-	</div>
-	`)
+
+
+	// رندر هر دکمه سفارشی و افزودن به نوار ابزار
+	customActionButtons.forEach((btnDef) => {
+		let $customBtn;
+
+		if (btnDef.useHtml && btnDef.html) {
+			// ── حالت HTML سفارشی ──────────────────────────────────────────
+			$customBtn = $(btnDef.html);
+
+			// اتصال رویداد کلیک به المان‌هایی که data-custom-action دارند
+			$customBtn.find('[data-custom-action]').addBack('[data-custom-action]').on('click', function () {
+				executeActionScript(btnDef.actionScript, $(this));
+			});
+
+		} else {
+			// ── حالت دکمه پیش‌فرض ────────────────────────────────────────
+			const colorClass = btnDef.colorClass || 'btn-color-primary';
+			const iconClass = btnDef.iconClass || 'bi bi-lightning';
+			const title = btnDef.title || 'اکشن';
+			const dataActionName = btnDef.dataActionName || `custom_${btnDef.id}`;
+
+			$customBtn = $(`
+                <button class="btn-sm btn btn-icon btn-active-icon-dark ${colorClass}"
+                        data-action="${dataActionName}"
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        title="${title}"
+                        ${btnDef.requiresSelection ? 'disabled data-requires-selection="true"' : ''}>
+                    <i class="${iconClass} fs-2"></i>
+                </button>
+            `);
+
+			$customBtn.on('click', function () {
+				executeActionScript(btnDef.actionScript, $(this));
+			});
+		}
+
+		top1startBtns.append($customBtn);
+	});
+
+	const updateSelectionDependentButtons = (hasSelection) => {
+ 
+		// دکمه‌های پیش‌فرض (edit / delete)
+		if (canEdit && $editBtn.attr("forcedisabled") !== "true")
+			$editBtn.prop("disabled", !hasSelection).toggleClass("btn-color-warning", hasSelection);
+
+		if (canDelete && $deleteBtn.attr("forcedisabled") !== "true")
+			$deleteBtn.prop("disabled", !hasSelection).toggleClass("btn-color-danger", hasSelection);
+
+		// دکمه‌های سفارشی با requiresSelection
+		top1startBtns.find('[data-requires-selection="true"]').prop("disabled", !hasSelection);
+	};
 
 	$editBtn = top1startBtns.find("[data-action=edit]");
 	$newBtn = top1startBtns.find("[data-action=new]");
@@ -3336,6 +3512,324 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 	$exportEcellBtn = top1startBtns.find("[data-action=exportExcell]");
 	$drawBtn = top1startBtns.find("[data-action=draw]");
 	$notificationbuilder = top1startBtns.find("[data-action=notificationbuilder]");
+	$reStyleTableBtn = top1startBtns.find("[data-action='reStyleTable']");
+
+	 
+	 
+	let order = [];
+	columns.filter(c => c.sortOrder).forEach(c => {
+		order.push({ name: c.name, dir: c.sortOrder === 1 ? 'DESC' : 'ASC' });
+	});
+
+	var table = new DataTable($el, {
+		rowCallback: function (row, data) {
+			const $row = $(row);
+			const rowIndex = table.row(row).index();
+
+			// ① رویداد سفارشی onRowAdded
+			fireEvent(
+				eventScripts.onRowAdded,
+				buildRowAddedContext(data, $row, rowIndex),
+				'onRowAdded'
+			);
+
+			// ② rowRender callbacks (مانند قبل - برای سازگاری با onRowRender API)
+			rowRenderCallbacks.forEach(cb => {
+				try { cb(data, $row); } catch (e) { console.warn(e); }
+			});
+		},
+		initComplete: function () {
+			tableApi = this.api();
+			const api = tableApi;
+
+			// onRowRender helper
+			api.onRowRender = function (callback) {
+				if (typeof callback !== 'function') {
+					console.warn('onRowRender callback must be a function');
+					return api;
+				}
+				rowRenderCallbacks.push(callback);
+				api.rows().every(function () {
+					const node = this.node();
+					if (node) {
+						try { callback(this.data(), $(node)); } catch (e) { console.warn(e); }
+					}
+				});
+				return api;
+			};
+			table.onRowRender = api.onRowRender;
+
+			// Filter icons setup (بدون تغییر)
+			_initColumnFilterIcons(api, columns);
+			
+			// searchBuilder container
+			const sb = api.searchBuilder.container();
+			$('body').find(`#${searchBuilderCollapseId}`).append(sb);
+		},
+	 
+		order,
+		layout: {
+			top2start: searchBuilderOnButton === false ? null : top2startInit,
+			top2: searchBuilderOnButton === false ? top2startInit : null,
+			top1start: top1startBtns,
+			topEnd: null,
+			bottomStart: [{ pageLength: { text: "  تعداد در هر صفحه _MENU_  ", class: "mx-11" } }, 'info'],
+			bottomEnd: 'paging',
+			top1End: null,
+			topStart: null
+
+		},
+		language: {
+			url: "/panelLib/plugins/custom/datatables/fa.json"
+
+		},
+		"processing": true,
+		"serverSide": true,
+		ajax: {
+			url: fetchUrl,
+			type: "POST",
+			contentType: "application/json",
+
+			data: function (d) {
+				d.columns.forEach(col => {
+					const match = columns.find(c => c.data === col.data);
+					col.title = match?.title ?? "نامشخص";
+					col.options = match?.options ?? [];
+					col.type = match?.type ?? "string";
+					col.tableName = match?.tableName ?? "";
+
+					if (!Array.isArray(col.search.value)) {
+						col.search.value = col.search.value?.length > 0
+							? [col.search.value]
+							: [];
+					}
+				});
+
+				d.order = d.order.map(o => ({
+					column: d.columns[o.column].data,
+					dir: o.dir
+				}));
+
+				d.profileId = profileId;
+				d.search.value = [];
+				d.searchBuilder = table.searchBuilder.getDetails();
+
+				if (d.searchBuilder) {
+					try {
+						d.searchBuilder.criteria = addNameAndValueToSearchBuilder(
+							d.searchBuilder.criteria, d.columns
+						);
+					} catch (e) {
+						console.warn('خطا در searchBuilder:', e);
+						throw null;
+					}
+				}
+
+				dataTableRequest = d;
+				return JSON.stringify(d);
+			},
+			dataSrc: function (json) {
+				if (!json.isSuccess) {
+					toastr.error(json.message, 'خطا');
+					return [];
+				}
+				return _processRows(json.data, columns);
+			},
+		 
+			dataFilter: function (data) {
+				const json = jQuery.parseJSON(data);
+				const model = { isSuccess: json.isSuccess, message: json.message, ...json.data };
+				return JSON.stringify(model);
+			}
+
+		},
+		"columns": columns,
+		fixedColumns: false,
+		scrollCollapse: true,
+		scrollX: true,
+		autoWidth: false,
+		pageLength:50,
+		scrollY: '50vh',
+		colResize: {
+			isEnabled: true,
+			resize: true,   
+			reorder: true,
+			dataProfileId: profileId ,
+		}
+		 
+	});
+	table.on("draw", function () {
+		// اجرای row render callbacks
+		if (tableApi && rowRenderCallbacks.length > 0) {
+			tableApi.rows({ page: 'current' }).every(function () {
+				const node = this.node();
+				if (!node) return;
+				const $row = $(node);
+				rowRenderCallbacks.forEach(cb => {
+					try { cb(this.data(), $row); } catch (e) { console.warn(e); }
+				});
+			});
+		}
+
+		// دکمه‌های remove داخل سلول‌ها
+		$(this).find(`[data-action=remove]`).each((i, el) => {
+			$(el).off('click').on('click', function () {
+				const url = $(this).attr("data-url");
+				if (!url) return;
+				$.confirm({
+					title: 'حذف اطلاعات',
+					content: 'آیا از حذف کردن اطلاعات مطمئن هستید ؟',
+					type: 'red',
+					typeAnimated: true,
+					buttons: {
+						tryAgain: {
+							text: 'بله',
+							btnClass: 'btn-red',
+							action: () => get(url, r => {
+								if (!r.isSuccess) return toastr.error(r.message, 'خطا');
+								table.draw();
+							})
+						},
+						close: { text: 'بستن', btnClass: 'btn', action() { } }
+					}
+				});
+			});
+		});
+	});
+
+
+	table.on('click', 'tbody tr', (e) => {
+		const classList = e.currentTarget.classList;
+		const $row = $(e.currentTarget);
+		const rowData = table.row(e.currentTarget).data();
+		const wasSelected = classList.contains('selected');
+
+		if (wasSelected) {
+			// ── deselect ────────────────────────────────────────────────
+			classList.remove('selected');
+			$selectedRowEl = null;
+			selectedRow = null;
+
+			updateSelectionDependentButtons(false);
+
+			// اجرای onSelectedRow با isDeselect = true
+			fireEvent(
+				eventScripts.onSelectedRow,
+				buildRowSelectContext(rowData, $row, true),
+				'onSelectedRow'
+			);
+
+		} else {
+			// ── select ──────────────────────────────────────────────────
+			table.rows('.selected').nodes().each(r => r.classList.remove('selected'));
+			classList.add('selected');
+			$selectedRowEl = $row;
+			selectedRow = rowData;
+
+			updateSelectionDependentButtons(true);
+
+			// اجرای onSelectedRow با isDeselect = false
+			fireEvent(
+				eventScripts.onSelectedRow,
+				buildRowSelectContext(rowData, $row, false),
+				'onSelectedRow'
+			);
+		}
+	});
+
+	table.on('dblclick', 'tbody tr', (e) => {
+		e.preventDefault();
+		if ($editBtn.attr("forcedisabled") === "true") return;
+		if (!canEdit) return;
+
+		const pkData = table.columns().context[0].aoColumns
+			.find(c => c.primaryKey === true)?.data;
+
+		if (pkData) {
+			selectedRow = table.row(e.currentTarget).data();
+			handelEdit(selectedRow[pkData]);
+		} else {
+			toastr.error("عدم امکان ویرایش.");
+		}
+	});
+
+	table.ready(() => {
+
+		$drawBtn.on('click', () => table.draw());
+
+		$exportEcellBtn.on('click', function () {
+			const $btn = $(this).block();
+			$.ajax({
+				url: exportPath,
+				method: 'POST',
+				data: JSON.stringify(dataTableRequest),
+				contentType: 'application/json',
+				xhrFields: { responseType: 'blob' },
+				success: (data, status, xhr) => {
+					const blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
+					let filename = "download.xlsx";
+					const cd = xhr.getResponseHeader('Content-Disposition');
+					if (cd) {
+						const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(cd);
+						if (m?.[1]) filename = m[1].replace(/['"]/g, '');
+					}
+					const a = document.createElement('a');
+					a.href = URL.createObjectURL(blob);
+					a.download = filename;
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					URL.revokeObjectURL(a.href);
+					$btn.block(false);
+				},
+				error: () => { $btn.block(false); alert("خطا در دانلود فایل"); }
+			});
+		});
+
+		$newBtn.on('click', () => appController.addPage(newPath));
+
+		$editBtn.on('click', () => {
+			if ($editBtn.attr("forcedisabled") === "true" || !canEdit) return;
+			const pkData = table.columns().context[0].aoColumns
+				.find(c => c.primaryKey === true)?.data;
+			if (pkData && selectedRow) {
+				handelEdit(selectedRow[pkData]);
+			} else {
+				toastr.error("عدم امکان ویرایش.");
+			}
+		});
+
+		$deleteBtn.on('click', () => {
+			if ($deleteBtn.attr("forcedisabled") === "true" || !canDelete) return;
+			const pkData = table.columns().context[0].aoColumns
+				.find(c => c.primaryKey === true)?.data;
+			if (pkData && selectedRow) {
+				handelDelete(selectedRow[pkData]);
+			} else {
+				toastr.error("عدم امکان حذف.");
+			}
+		});
+
+		$notificationbuilder.on('click', (e) => openNotifictionBuilder(e, profileId));
+		$reStyleTableBtn.on('click', () => $.fn.dataTable.ColManager.clearSettings(profileId));
+
+		$drawBtn.parent().parent().parent().addClass("datatabel-action-btns");
+		appController.createBootstrapTooltips();
+	});
+
+	$.fn.dataTable.ext.errMode = (settings, helpPage, message) => {
+		toastr.error("خطا در انجام فرایند: " + message);
+	};
+
+	return table;
+}
+/**
+ * راه‌اندازی آیکون‌های فیلتر ستون‌ها
+ * @param {Object} api - DataTable API
+ * @param {Array}  columns
+ */
+function _initColumnFilterIcons(api, columns) {
+
 
 	// Store filter popups for each column (using Map for better performance)
 	const columnFilterPopups = new Map();
@@ -3348,6 +3842,8 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 
 	// Flag to ensure document click handler is added only once
 	let documentClickHandlerAdded = false;
+
+	const table = api;
 
 	/**
 	 * Closes all open popovers when clicking outside
@@ -3616,8 +4112,9 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 	/**
 	 * Updates filter icon color based on active filters
 	 */
-	function updateFilterIcon(columnIndex, hasFilter) {
-		const $icon = $(`.filter-icon[data-column-index="${columnIndex}"]`);
+	function updateFilterIcon(columnIndex, hasFilter, column) {
+		 
+		const $icon = $(column.header()).find(".filter-icon");
 
 		if ($icon.length) {
 			if (hasFilter) {
@@ -3633,6 +4130,7 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 	 * Checks if column has active filter
 	 */
 	function hasActiveFilter(column) {
+		 
 		if (!column) {
 			return false;
 		}
@@ -3795,7 +4293,7 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 				}
 		}
 
-		updateFilterIcon(columnIndex, hasActiveFilter(column));
+		updateFilterIcon(columnIndex, hasActiveFilter(column), column);
 		table.draw();
 	}
 
@@ -3829,7 +4327,7 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 		}
 
 		// Force update icon immediately to reflect cleared state
-		updateFilterIcon(columnIndex, false);
+		updateFilterIcon(columnIndex, false, column);
 
 		// Draw table - the draw event will verify the icon state
 		table.draw();
@@ -3844,11 +4342,11 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 					(Array.isArray(searchValue) && !searchValue.some(v => v != null && v.toString().trim().length > 0));
 
 				if (isActuallyCleared) {
-					updateFilterIcon(columnIndex, false);
+					updateFilterIcon(columnIndex, false, column);
 				}
 			} else {
 				// If column reference is lost, just set to inactive
-				updateFilterIcon(columnIndex, false);
+				updateFilterIcon(columnIndex, false, column);
 			}
 
 			// Remove from cleared set after a delay to allow draw event to complete
@@ -3858,142 +4356,63 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 		}, 150);
 	}
 
-	let tableApi = null;
-	// Store row render callbacks
-	const rowRenderCallbacks = [];
+	api.columns().every(function () {
+		const column = this;
+		const columnIndex = column.index();
+		const columnHeader = column.header();
+		const columnType = columns[columnIndex]?.type || 'string';
 
-	var table = new DataTable($el, {
-		rowCallback: function (row, data) {
-			// Call all registered row render callbacks
-			const $row = $(row);
-			rowRenderCallbacks.forEach(function (callback) {
-				if (typeof callback === 'function') {
-					try {
-						callback(data, $row);
-					} catch (err) {
-						console.warn('Error in row render callback:', err);
-					}
-				}
-			});
-		},
-		initComplete: function () {
-			tableApi = this.api();
-			const api = tableApi;
+		if (!columnHeader || !column.visible()) {
+			return;
+		}
 
-			// Add onRowRender method to table API for registering row render callbacks
-			api.onRowRender = function (callback) {
-				if (typeof callback === 'function') {
-					rowRenderCallbacks.push(callback);
+		 
+		const $header = $(columnHeader);
+		const title = $header.text().trim();
 
-					// Apply callback to existing rows immediately
-					// This ensures callback works on first load as well
-					api.rows().every(function () {
-						const rowData = this.data();
-						const rowNode = this.node();
-						if (rowNode) {
-							try {
-								callback(rowData, $(rowNode));
-							} catch (err) {
-								console.warn('Error in row render callback:', err);
+		if (title.length === 0 || columnType.toLowerCase() === 'button') {
+			return;
+		}
+
+		// Store column reference for later use
+		columnReferences.set(columnIndex, column);
+
+		// Create filter icon with proper escaping
+		const $filterIcon = $('<i>')
+			.addClass('fa-light fa-filter filter-icon text-muted ')
+			.css({ cursor: 'pointer', fontSize: '0.9em' })
+			.attr('data-column-index', columnIndex);
+
+		 
+		// Prevent sort when clicking on filter icon and toggle popover
+		// Use capture phase to handle before DataTable's sort handler
+		$filterIcon[0].addEventListener('click', function (e) {
+			
+			// Stop event propagation to prevent sort
+			e.stopPropagation();
+			e.stopImmediatePropagation();
+			e.preventDefault();
+			 
+
+			// Toggle popover manually
+			const popoverInstance = bootstrap.Popover.getInstance($filterIcon[0]);
+			if (popoverInstance) {
+				// Check if popover is currently shown
+				const isShown = $filterIcon.attr('aria-describedby');
+				if (isShown) {
+					popoverInstance.hide();
+				} else {
+					// Hide other popovers first
+					columnFilterPopups.forEach(function (otherPopover, otherIndex) {
+						if (otherIndex !== columnIndex && otherPopover && otherPopover._element) {
+							const $otherIcon = $(otherPopover._element);
+							if ($otherIcon.attr('aria-describedby')) {
+								otherPopover.hide();
 							}
 						}
 					});
-				} else {
-					console.warn('onRowRender callback must be a function');
-				}
-				return api; // Return API for chaining
-			};
+					popoverInstance.show();
 
-			// Also add to table instance for direct access
-			table.onRowRender = api.onRowRender;
-
-			const thead = $(api.table().header());
-
-			// Initialize filter icons and popups for each column
-			api.columns().every(function () {
-				const column = this;
-				const columnIndex = column.index();
-				const columnHeader = column.header();
-				const columnType = columns[columnIndex]?.type || 'string';
-
-				if (!columnHeader || !column.visible()) {
-					return;
-				}
-
-				const $header = $(columnHeader);
-				const title = $header.text().trim();
-
-				if (title.length === 0 || columnType.toLowerCase() === 'button') {
-					return;
-				}
-
-				// Store column reference for later use
-				columnReferences.set(columnIndex, column);
-
-				// Create filter icon with proper escaping
-				const $filterIcon = $('<i>')
-					.addClass('fa-light fa-filter filter-icon text-muted ')
-					.css({ cursor: 'pointer', fontSize: '0.9em' })
-					.attr('data-column-index', columnIndex);
-				 
-
-				// Prevent sort when clicking on filter icon and toggle popover
-				// Use capture phase to handle before DataTable's sort handler
-				$filterIcon[0].addEventListener('click', function (e) {
-					// Stop event propagation to prevent sort
-					e.stopPropagation();
-					e.stopImmediatePropagation();
-					e.preventDefault();
-
-					// Toggle popover manually
-					const popoverInstance = bootstrap.Popover.getInstance($filterIcon[0]);
-					if (popoverInstance) {
-						// Check if popover is currently shown
-						const isShown = $filterIcon.attr('aria-describedby');
-						if (isShown) {
-							popoverInstance.hide();
-						} else {
-							// Hide other popovers first
-							columnFilterPopups.forEach(function (otherPopover, otherIndex) {
-								if (otherIndex !== columnIndex && otherPopover && otherPopover._element) {
-									const $otherIcon = $(otherPopover._element);
-									if ($otherIcon.attr('aria-describedby')) {
-										otherPopover.hide();
-									}
-								}
-							});
-							popoverInstance.show();
-						}
-					}
-
-					return false; // Additional prevention
-				}, true); // Use capture phase
-
-				// Append icon to header
-				$header.append($filterIcon);
-
-				// Initialize popover with proper configuration
-				// Content will be generated dynamically when popover is shown
-				const popover = new bootstrap.Popover($filterIcon[0], {
-					content: function () {
-						// Generate content dynamically to get latest filter values
-						return createFilterPopupContent(column, columnIndex, columnType);
-					},
-					html: true,
-					placement: 'bottom',
-					trigger: 'manual', // Manual trigger for better control
-					container: 'body',
-					sanitize: false // We control the content, so no need for sanitization
-				});
-
-				// Store popover reference
-				columnFilterPopups.set(columnIndex, popover);
-
-				// Setup document click handler to close popovers (only once)
-				setupDocumentClickHandler();
-
-				// Initialize date pickers and bind events when popover is shown
-				$filterIcon.on('shown.bs.popover', function () {
 					// Use setTimeout to ensure DOM is ready
 					setTimeout(function () {
 						// Find the popover that was just shown (use the icon's popover instance)
@@ -4163,7 +4582,8 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 						$popoverContent.off('click', '.filter-apply').on('click', '.filter-apply', function (e) {
 							e.preventDefault();
 							e.stopPropagation();
-							debugger
+
+
 							applyColumnFilter(columnIndex, column, columnType);
 							if (popover) {
 								popover.hide();
@@ -4192,335 +4612,87 @@ function InitDataTabelProfile($el, columns, profileId, searchBuilderOnButton = t
 							}
 						});
 					}, 100);
-				});
-
-				// Update filter icon on initial load
-				updateFilterIcon(columnIndex, hasActiveFilter(column));
-			});
-
-
-			var sb = this.api().searchBuilder.container();
-
-			$(api.context[0].nTableWrapper).parent().parent()
-				.find(`#${searchBuilderCollapseId}`).append(sb);
-
-			 
-	 
-
-			 
-
-
-		},
-	 
-		layout: {
-			top2start: searchBuilderOnButton === false ? null : top2startInit,
-			top2: searchBuilderOnButton === false ? top2startInit : null,
-			top1start: top1startBtns,
-			topEnd: null,
-			bottomStart: [{ pageLength: { text: "  تعداد در هر صفحه _MENU_  ", class: "mx-11" } }, 'info'],
-			bottomEnd: 'paging',
-			top1End: null,
-			topStart: null
-
-		},
-		language: {
-			url: "/panelLib/plugins/custom/datatables/fa.json"
-
-		},
-		"processing": true,
-		"serverSide": true,
-		"ajax": {
-			"url": fetchUrl,
-			"type": "POST",
-			"contentType": "application/json",
-
-			"data": function (d, z, x) {
-
-
-				d.columns.forEach(d => {
-					d.title = columns.firstOrDefault(c => c.data == d.data)?.title ?? "نامشخص"
-					d.options = columns.firstOrDefault(c => c.data == d.data)?.options ?? [];
-					d.type = columns.firstOrDefault(c => c.data == d.data)?.type ?? "string";
-					d.tableName = columns.firstOrDefault(c => c.data == d.data)?.tableName ?? "";
-					if (!Array.isArray(d.search.value)) {
-						if (d.search.value.length > 0) {
-							d.search.value = [d.search.value];
-						}
-						else {
-							d.search.value = [];
-						}
-
-					}
-				})
-
-				d.order = d.order.map(c => {
-					return { column: d.columns[c.column].data, dir: c.dir }
-				})
-				d.profileId = profileId;
-
-				d.search.value = [];
-				d.searchBuilder = table.searchBuilder.getDetails()
-
-				if (d.searchBuilder) {
-					try {
-
-						d.searchBuilder.criteria = addNameAndValueToSearchBuilder(d.searchBuilder.criteria, d.columns)
-					}
-					catch (e) {
-						$(z.nTableWrapper).find("[role=status]").css("display", "none");
-						throw null;
-					}
 				}
+			}
 
-				dataTableRequest = d;
-				return JSON.stringify(d);
+			return false; // Additional prevention
+		}, true); // Use capture phase
+
+		// Append icon to header
+		$header.append($filterIcon);
+		  
+		$header.wrapInner(`<div style="display: flex;align-content: flex-start;flex-direction: row;justify-content: space-between;"></div>`)
+
+		// Initialize popover with proper configuration
+		// Content will be generated dynamically when popover is shown
+		const popover = new bootstrap.Popover($filterIcon[0], {
+			content: function () {
+				// Generate content dynamically to get latest filter values
+				return createFilterPopupContent(column, columnIndex, columnType);
 			},
-			"dataSrc": function (json) {
-
-
-				if (!json.isSuccess) return toastr.error(`${json.message}`, 'خطا');
-
-				columns.forEach(c => {
-
-					if (c.sType === "boolean" || c.sType === "bool") {
-						json.data.forEach(d => {
-							let v = d[c.data]
-							if ((v ?? false) === true) {
-								d[c.data] = "بله"
-							}
-							else {
-								d[c.data] = "خیر"
-							}
-						})
-					}
-					else if (c.sType === "select") {
-
-						if (c.options && c.options.length > 0) {
-							json.data.forEach(d => {
-								let v = d[c.data]
-								d[c.name] = c.options.firstOrDefault(z => z.value === v?.toString())?.name ?? v
-							})
-						}
-
-					}
-			  
-
-				})
-
-
-
-				return json.data;
-			},
-			dataFilter: function (data) {
-
-				var json = jQuery.parseJSON(data);
-				var model = {
-					isSuccess: json.isSuccess,
-					message: json.message,
-					...json.data
-				}
-
-				return JSON.stringify(model); // return JSON string
-			}
-
-		},
-		"columns": columns,
-		fixedColumns: false,
-		scrollCollapse: true,
-		scrollX: true,
-		autoWidth: false,
-		scrollY: '50vh',
-		colResize: {
-			isEnabled: true,
-			resize: true,   
-			reorder: true,
-			dataProfileId: profileId ,
-		}
-		 
-	});
-	table.on("draw", function () {
-		// Apply row render callbacks to all visible rows after draw
-		// This ensures callbacks are applied even on first load and after every draw
-		if (tableApi && rowRenderCallbacks.length > 0) {
-			tableApi.rows({ page: 'current' }).every(function () {
-				const rowData = this.data();
-				const rowNode = this.node();
-				if (rowNode) {
-					const $row = $(rowNode);
-					rowRenderCallbacks.forEach(function (callback) {
-						if (typeof callback === 'function') {
-							try {
-								callback(rowData, $row);
-							} catch (err) {
-								console.warn('Error in row render callback:', err);
-							}
-						}
-					});
-				}
-			});
-		}
-
-		// Update filter icons after draw (use stored references for better performance)
-		if (tableApi) {
-			columnReferences.forEach(function (column, columnIndex) {
-				// Skip updating icon if this column is currently being cleared
-				// This prevents race condition where draw event fires before clear is complete
-				if (columnsBeingCleared.has(columnIndex)) {
-					// Force icon to inactive state during clearing
-					updateFilterIcon(columnIndex, false);
-					return;
-				}
-
-				// Check if filter is actually active
-				const hasFilter = hasActiveFilter(column);
-				updateFilterIcon(columnIndex, hasFilter);
-			});
-		}
-
-		// Handle remove action buttons
-		$(this).find(`[data-action=remove]`).each((i, c) => {
-			$(c).off('click').on('click', function () {
-				const url = $(this).attr("data-url");
-				if (!url) return;
-
-				$.confirm({
-					title: 'حذف اطلاعات',
-					content: 'آیا از حذف کردن اطلاعات مطمئن هستید ؟',
-					type: 'red',
-					typeAnimated: true,
-					buttons: {
-						tryAgain: {
-							text: 'بله',
-							btnClass: 'btn-red',
-							action: function () {
-								get(url, function (r) {
-									if (!r.isSuccess) {
-										return toastr.error(`${r.message}`, 'خطا');
-									}
-									table.draw();
-								});
-							}
-						},
-						close: {
-							text: 'بستن',
-							btnClass: 'btn',
-							action: function () { }
-						}
-					}
-				});
-			});
+			html: true,
+			placement: 'bottom',
+			trigger: 'manual', // Manual trigger for better control
+			container: 'body',
+			sanitize: false // We control the content, so no need for sanitization
 		});
-	});
 
-	table.ready(() => {
-		$drawBtn.click(function () {
+		// Store popover reference
+		columnFilterPopups.set(columnIndex, popover);
 
-			table.draw();
+		// Setup document click handler to close popovers (only once)
+		setupDocumentClickHandler();
 
+		// Initialize date pickers and bind events when popover is shown
+		$filterIcon.on('shown.bs.popover', function () {
+			
+		
 		});
-		$exportEcellBtn.click(function () {
-			let $btn = $(this).block();
-			$.ajax({
-				url: exportPath,
-				method: 'POST',
-				data: JSON.stringify(dataTableRequest),
-				contentType: 'application/json',
-				crossDomain: true,
-				xhrFields: {
-					responseType: 'blob'
-				},
-				success: function (data, status, xhr) {
-					// Create a Blob from the returned data
-					var blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
 
-
-					var filename = "download.xlsx";
-					var disposition = xhr.getResponseHeader('Content-Disposition');
-					if (disposition && disposition.indexOf('attachment') !== -1) {
-						var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-						var matches = filenameRegex.exec(disposition);
-						if (matches != null && matches[1]) {
-							filename = matches[1].replace(/['"]/g, '');
-						}
-					}
-
-
-					var link = document.createElement('a');
-					var url = URL.createObjectURL(blob);
-					link.href = url;
-					link.download = filename;
-					document.body.appendChild(link);
-					link.click();
-					document.body.removeChild(link);
-					URL.revokeObjectURL(url);
-					$btn.block(false);
-				},
-				error: function (xhr, status, error) {
-					$btn.block(false);
-					alert("An error occurred while downloading the file.");
-				}
-			});
-		});
-		$newBtn.click(() => appController.addPage(newPath));
-		appController.createBootstrapTooltips();
-		$editBtn.click(() => handelEdit(selectedRow.id));
-		$deleteBtn.click(() => handelDelete(selectedRow.id));
-		$drawBtn.parent().parent().parent().addClass("datatabel-action-btns");
-		$notificationbuilder.click((e) => openNotifictionBuilder(e, profileId))
+		// Update filter icon on initial load
+		updateFilterIcon(columnIndex, hasActiveFilter(column), column);
 	});
-
-	table.on('dblclick', 'tbody tr', (e) => {
-		e.preventDefault();
-
-		if (canEdit === true) {
-			selectedRow = table.row(e.currentTarget).data()
-			handelEdit(selectedRow.id)
-		}
-	})
-
-	table.on('click', 'tbody tr', (e) => {
-		let classList = e.currentTarget.classList;
-
-		if (classList.contains('selected')) {
-			classList.remove('selected');
-			$selectedRowEl = null;
-			selectedRow = null;
-			$editBtn.prop("disabled", true).removeClass("btn-color-warning");
-			$deleteBtn.prop("disabled", true).removeClass("btn-color-danger");
-
-		}
-		else {
-
-			table.rows('.selected').nodes().each((row) => row.classList.remove('selected'));
-			classList.add('selected');
-			$selectedRowEl = $(e.currentTarget);
-			selectedRow = table.row(e.currentTarget).data()
-
-			if (canEdit === true) {
-				$editBtn.prop("disabled", false).addClass("btn-color-warning")
-			}
-			else {
-				$editBtn.prop("disabled", true).removeClass("btn-color-warning")
-			}
-			if (canDelete === true) {
-				$deleteBtn.prop("disabled", false).addClass("btn-color-danger")
-			}
-			else {
-				$deleteBtn.prop("disabled", true).removeClass("btn-color-danger")
-			}
-		}
-
-	});
-
-
-	$.fn.dataTable.ext.errMode = function (settings, helpPage, message) {
-
-		toastr.error("خطا در انجام فرایند" + message);
-	};
-
-
-	return table;
 }
+
+/**
+ * پردازش ردیف‌ها: تبدیل boolean، select، datetime
+ * @param {Array} rows
+ * @param {Array} columns
+ * @returns {Array}
+ */
+function _processRows(rows, columns) {
+	return rows.map(row => {
+		const processed = { ...row };
+		columns.forEach(col => {
+			const val = processed[col.data];
+			switch ((col.sType || '').toLowerCase()) {
+				case 'boolean':
+				case 'bool':
+					processed[col.data] = (val ?? false) === true ? "بله" : "خیر";
+					break;
+				case 'select':
+					if (col.options?.length > 0) {
+						processed[col.name || col.data] =
+							col.options.find(o => o.value === val)?.name ?? val;
+					}
+					break;
+				case 'datetime':
+					if (val) {
+						try {
+							const d = new Date(val);
+							if (!isNaN(d.getTime())) {
+								processed[col.data] = d.toISOString().replace('T', ' ').split('.')[0];
+							}
+						} catch (_) { }
+					}
+					break;
+			}
+		});
+		return processed;
+	});
+}
+
+
 function getColFilters(table) {
 	table.columns().every(function () {
 		var col = this;
@@ -5324,6 +5496,19 @@ var MJUtil = function () {
 			return new Date(miladiDate).toLocaleString('fa-IR').replace(",", "");
 		},
 
+		minutesToTimeFormat: function (totalMinutes) {
+			if (totalMinutes && totalMinutes != 0) {
+				const hours = Math.floor(totalMinutes / 60);
+				const minutes = totalMinutes % 60;
+
+				// تبدیل به فرمت H:MM
+				return hours + ":" + String(minutes).padStart(2, "0");
+			}
+
+			return  "0:00";
+		
+		}
+
 	}
 }()
 
@@ -5791,7 +5976,12 @@ $.fn.dataBind = function (model) {
                 $el.text(value);
             }
             else {
-                $el.val(value).change();
+			  $el.val(value).change();
+
+			  if ($el.is("input") && $el.attr("data-persiondatepicker") != undefined) {
+				  let optionsDataPicker = JSON.parse($el.attr("persion-datetimepicker"))
+				  $el.persianDatepicker(optionsDataPicker)
+			  }
             }
         }
 
@@ -6066,7 +6256,7 @@ class Page {
 			try {
 				f(this, this.$$, this.self);
 			} catch (err) {
-			 
+				toastr.error(`خطا در سمت کلاینت :${err.message}`);
 			}
 		});
 	}
@@ -6210,7 +6400,7 @@ class AppController {
 		try { } catch (err) { }
 	}
 
-	addPage(address, pushState = true) {
+	addPage(address, pushState = true , tabTitle = null) {
 		address = address.toLowerCase();
 		if (address === "#") return;
 		let existing = this.pages.find(p => p.address === address);
@@ -6314,9 +6504,17 @@ class AppController {
 					};
 				}
 
-				const decoded = tryDecodeV1(r) || tryDecodeLegacy(r) || { html: "", scripts: [], title: "تب جدید" };
+				 
 
-				$tab.find("span").text(decoded.title);
+				const decoded = tryDecodeV1(r) || tryDecodeLegacy(r) || { html: "", scripts: [], title: "تب جدید" };
+				if (tabTitle) {
+
+					$tab.find("span").text(tabTitle);
+				}
+				else {
+					
+					$tab.find("span").text(decoded.title);
+				}
 				$page.html(decoded.html);
 
 				if (decoded.title === "-") {
@@ -6392,6 +6590,7 @@ class AppController {
 	initDataTableAndWait($pageEl, page) {
 		return new Promise(function(resolve, reject) {
 			const $dataProfileSelect = $pageEl.find("[data-action='dataProfile']");
+			 
 		 
 			if ($dataProfileSelect.length === 0) {
 				// No table in this page
@@ -6431,7 +6630,7 @@ class AppController {
 					}
 
 					 
-					r.data.forEach(z => {
+					r.data.columns.forEach(z => {
 						if (z.render) {
 							z.render = z.render.replace("{editpath}", editPath);
 							z.render = z.render.replace("{deletepath}", deletePath);
@@ -7883,6 +8082,7 @@ class AppController {
 		initItemsForms($el);
 		initFileUploaders($el);
 		this.createBootstrapTooltips(el);
+		Inputmask().mask($el.find("[data-inputmask]"));
 		 
  
 	}
@@ -7924,11 +8124,21 @@ class AppController {
 		return tp;
 	}
 	createBootstrapTooltips(el) {
+		return;
 		var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
 		 
 		var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
 			appController.createBootstrapTooltip(tooltipTriggerEl, {});
 		});
+	}
+	refreshCurrentPage() {
+		let activePageAddress = this.activePage.address;
+		this.closePage(activePageAddress);
+		this.addPage(activePageAddress)
+	}
+	closeCurrentPage() {
+		let activePageAddress = this.activePage.address;
+		this.closePage(activePageAddress);
 	}
 }
 
@@ -7947,7 +8157,7 @@ function CalculationCountUnreadNotifications() {
 
 }
 function markAsReadHeader(notificationId, $element) {
-	 
+	  
 	post('/System/Notify/MarkAsRead', notificationId,
 		function (r) {
 			if (!r.isSuccess) return error2(r.message);
@@ -7962,8 +8172,1655 @@ function markAsReadHeader(notificationId, $element) {
 
 		});
 }
+ 
+function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton = true, exportExcellPath = "/System/ReportBuilder/ExportDataToExcel") {
+	let dataTableRequest = {};
+	let fetchUrl = path ?? "/System/FetchData";
+	let deleteUrl = "/System/Remove";
+	 
+	let top2startInit = {};
+	if (searchBuilderOnButton === false) {
+
+		top2startInit = {
+			searchBuilder: {
+				liveSearch: false,
+				conditions: {
+					shamsidate: {
+						"=": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
 
 
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+						">": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+						"<": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+						"between": {
+							init: function (that, fn, preDefined = null) {
+
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+
+										fn(that, el);
+									}
+								})
+								$(el).on("change", function () {
+									fn(that, this);
+								})
+
+								if (preDefined !== null && preDefined[0]) {
+									$(el).val(preDefined[0]);
+								}
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								if (preDefined !== null && preDefined[1]) {
+									$(el2).val(preDefined[1]);
+								}
+
+
+
+								return [el, el2];
+							}
+						},
+						"!between": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+
+
+								return [el, el2];
+							}
+						}
+
+					},
+					shamsidatetime: {
+						"=": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+						">": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+
+						"<": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+
+						"between": {
+							init: function (that, fn, preDefined = null) {
+
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+
+										fn(that, el);
+									}
+								})
+								$(el).on("change", function () {
+									fn(that, this);
+								})
+
+								if (preDefined !== null && preDefined[0]) {
+									$(el).val(preDefined[0]);
+								}
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								if (preDefined !== null && preDefined[1]) {
+									$(el2).val(preDefined[1]);
+								}
+
+
+
+								return [el, el2];
+							}
+						},
+						"!between": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+
+
+								return [el, el2];
+							}
+						}
+
+					},
+					datetime: {
+						"=": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+						">": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+
+						"<": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+
+						"between": {
+							init: function (that, fn, preDefined = null) {
+
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+
+										fn(that, el);
+									}
+								})
+								$(el).on("change", function () {
+									fn(that, this);
+								})
+
+								if (preDefined !== null && preDefined[0]) {
+									$(el).val(preDefined[0]);
+								}
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								if (preDefined !== null && preDefined[1]) {
+									$(el2).val(preDefined[1]);
+								}
+
+
+
+								return [el, el2];
+							}
+						},
+						"!between": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD HH:mm:ss",
+									"autoClose": true,
+									"initialValue": false,
+									"timePicker": { "enabled": true },
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+
+
+								return [el, el2];
+							}
+						}
+
+					},
+					date: {
+						"=": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+						">": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+
+						"<": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+
+						"between": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+
+
+								return [el, el2];
+							}
+						},
+						"!between": {
+							init: function (that, fn, preDefined = null) {
+
+								// Declare the input element
+								let el = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								let picker = el.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+								let el2 = $('<input/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+
+								picker = el2.persianDatepicker({
+									"format": "YYYY/MM/DD",
+									"autoClose": true,
+									"initialValue": false,
+
+									onSelect: function () {
+										fn(that, this);
+									}
+								})
+
+
+
+								return [el, el2];
+							}
+						}
+
+					},
+					select: {
+						"=": {
+							init: function (that, fn, preDefined = null) {
+
+
+								// Declare the input element
+								let el = $('<select/>')
+									.addClass(that.classes.value)
+									.addClass(that.classes.input)
+
+								el.change(function () {
+									fn(that, this);
+								})
+
+
+								// If there is a preDefined value then add it
+								if (preDefined !== null) {
+									$(el).val(preDefined[0]);
+								}
+
+								return el;
+							}
+						},
+					}
+				}
+			}
+		}
+
+	}
+	else {
+
+		top2startInit = {
+			buttons: [{
+				extend: 'searchBuilder',
+				config: {
+					liveSearch: false,
+					conditions: {
+						shamsidatetime: {
+							"=": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+							">": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+
+							"<": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+
+							"between": {
+								init: function (that, fn, preDefined = null) {
+
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+
+											fn(that, el);
+										}
+									})
+									$(el).on("change", function () {
+										fn(that, this);
+									})
+
+									if (preDefined !== null && preDefined[0]) {
+										$(el).val(preDefined[0]);
+									}
+
+									let el2 = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									picker = el2.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									if (preDefined !== null && preDefined[1]) {
+										$(el2).val(preDefined[1]);
+									}
+
+
+
+									return [el, el2];
+								}
+							},
+							"!between": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									let el2 = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									picker = el2.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+
+
+									return [el, el2];
+								}
+							}
+
+						},
+						datetime: {
+							"=": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+							">": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+
+							"<": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+
+							"between": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									let el2 = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									picker = el2.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+
+
+									return [el, el2];
+								}
+							},
+							"!between": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									let el2 = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									picker = el2.persianDatepicker({
+										"format": "YYYY/MM/DD HH:mm:ss",
+										"autoClose": true,
+										"initialValue": false,
+										"timePicker": { "enabled": true },
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+
+
+									return [el, el2];
+								}
+							}
+
+						},
+						date: {
+							"=": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+							">": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+
+							"<": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+
+							"between": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									let el2 = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									picker = el2.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+
+
+									return [el, el2];
+								}
+							},
+							"!between": {
+								init: function (that, fn, preDefined = null) {
+
+									// Declare the input element
+									let el = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									let picker = el.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+									let el2 = $('<input/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+
+									picker = el2.persianDatepicker({
+										"format": "YYYY/MM/DD",
+										"autoClose": true,
+										"initialValue": false,
+
+										onSelect: function () {
+											fn(that, this);
+										}
+									})
+
+
+
+									return [el, el2];
+								}
+							}
+
+						},
+						select: {
+							"=": {
+								init: function (that, fn, preDefined = null) {
+
+
+									// Declare the input element
+									let el = $('<select/>')
+										.addClass(that.classes.value)
+										.addClass(that.classes.input)
+
+									el.change(function () {
+										fn(that, this);
+									})
+
+
+									// If there is a preDefined value then add it
+									if (preDefined !== null) {
+										$(el).val(preDefined[0]);
+									}
+
+									return el;
+								}
+							},
+						}
+					}
+				},
+				className: "btn btn-outline btn-outline-warning "
+			}],
+
+		}
+
+	}
+
+	var table = new DataTable($el, {
+		initComplete: function () {
+			this.api()
+				.columns()
+				.every(function () {
+
+					var column = this;
+					var title = column.header()?.textContent ?? "";
+					var type = columns[column.index()].type;
+					var place = column.header();
+					if (place) {
+						if (title.length > 0) {
+							switch (type) {
+								case 'string':
+									$('<input type="text" class="form-control" placeholder="جستجو ' + title + '" />')
+										.appendTo($(place))
+
+									break;
+								case 'date':
+								case 'shamsidate':
+
+
+									var $divDateTime = $(`
+									<div class="row">
+									<div class="col-md-6" date-action="from"></div>
+									<div class="col-md-6" date-action="to"></div>
+									</div>`);
+
+
+									$(place).empty();
+
+
+									var fromInput = $('<input type="text" class="form-control" placeholder="از تاریخ" />')
+										.appendTo($divDateTime.find("[date-action='from']"))
+										.pDatepicker({
+											format: 'YYYY/MM/DD',
+											autoClose: true,
+											initialValue: false,
+
+
+										})
+
+
+
+									var toInput = $('<input type="text" class="form-control" placeholder="تا تاریخ" />')
+										.appendTo($divDateTime.find("[date-action='to']"))
+										.pDatepicker({
+											format: 'YYYY/MM/DD',
+											autoClose: true,
+											initialValue: false,
+
+										})
+
+
+
+									$divDateTime.appendTo(place)
+
+									break;
+								case 'datetime':
+								case 'shamsidatetime':
+
+
+									var $divDateTime = $(`
+									<div class="row">
+									<div class="col-md-6" date-action="from"></div>
+									<div class="col-md-6" date-action="to"></div>
+									</div>`);
+
+									$(place).empty();
+
+
+									var fromInput = $('<input type="text" class="form-control" placeholder="از تاریخ" />')
+										.appendTo($divDateTime.find("[date-action='from']"))
+										.pDatepicker({
+											format: 'YYYY/MM/DD HH:mm:ss',
+											autoClose: true,
+											initialValue: false,
+											timePicker: {
+												enabled: true
+											}
+
+										})
+
+
+
+									var toInput = $('<input type="text" class="form-control" placeholder="تا تاریخ" />')
+										.appendTo($divDateTime.find("[date-action='to']"))
+										.pDatepicker({
+											format: 'YYYY/MM/DD HH:mm:ss',
+											autoClose: true,
+											initialValue: false,
+											timePicker: {
+												enabled: true
+											}
+										})
+
+
+
+									$divDateTime.appendTo(place)
+
+
+									break;
+								case 'button':
+
+									break;
+								case 'select':
+
+									var options = columns[column.index()].options;
+									$('<select  class="form-control"  /> </select>')
+										.append(`<option value="null">انتخاب کنید</option>`)
+										.append(options.map(c => {
+											return `<option value=${c.value}>${c.name}</option>`
+										}))
+										.appendTo($(place).empty())
+
+									break;
+								default:
+									$('<input type="text" class="form-control" placeholder="جستجو ' + title + '" />')
+										.appendTo($(place).empty())
+
+									break;
+							}
+						}
+					}
+
+
+				});
+
+			this.api().columns.adjust();
+
+		},
+		layout: {
+			top2start: searchBuilderOnButton === false ? null : top2startInit,
+			top2: searchBuilderOnButton === false ? top2startInit : null,
+			top1start: null,
+			topEnd: null,
+			bottomStart: [{ pageLength: { text: "  تعداد در هر صفحه _MENU_  ", class: "mx-11" } }, 'info'],
+			bottomEnd: 'paging',
+			top1End: [
+				{
+					div: {
+						className: 'btn btn-outline btn-outline-info mx-2',
+						text: 'نمایش نتیجه',
+						id: "draw",
+					}
+				},
+				{
+					div: {
+						className: 'btn btn-outline btn-outline-primary',
+						text: 'خروجی اکسل',
+						id: "exportExcell",
+					}
+				}
+			]
+
+		},
+		language: {
+			url: "/panelLib/plugins/custom/datatables/fa.json"
+
+		},
+		"processing": true,
+		"serverSide": true,
+		"ajax": {
+			"url": fetchUrl,
+			"type": "POST",
+			"contentType": "application/json",
+
+			"data": function (d, z, x) {
+
+				d.columns.forEach(d => {
+					d.title = columns.firstOrDefault(c => c.data == d.data)?.title ?? "نامشخص"
+					d.options = columns.firstOrDefault(c => c.data == d.data)?.options ?? [];
+					d.type = columns.firstOrDefault(c => c.data == d.data)?.type ?? "string";
+					d.tableName = columns.firstOrDefault(c => c.data == d.data)?.tableName ?? "";
+					if (!Array.isArray(d.search.value)) {
+						d.search.value = [];
+					}
+				})
+
+				d.order = d.order.map(c => {
+					return { column: d.columns[c.column].data, dir: c.dir }
+				})
+				d.tableName = tabelName;
+
+				d.search.value = [];
+				d.searchBuilder = table.searchBuilder.getDetails()
+
+				if (d.searchBuilder) {
+
+					d.searchBuilder.criteria = addNameAndValueToSearchBuilder(d.searchBuilder.criteria, d.columns)
+				}
+
+				dataTableRequest = d;
+				return JSON.stringify(d);
+			},
+			"dataSrc": function (json) {
+
+
+				if (!json.isSuccess) return toastr.error(`${json.message}`, 'خطا');
+
+				columns.forEach(c => {
+					if (c.sType === "bool") {
+						json.data.forEach(d => {
+							let v = d[c.data]
+							if ((v ?? false) === true) {
+								d[c.data] = "بله"
+							}
+							else {
+								d[c.data] = "خیر"
+							}
+						})
+					}
+					else if (c.sType === "select") {
+						if (c.options && c.options.length > 0) {
+							json.data.forEach(d => {
+								let v = d[c.data]
+								d[c.name] = c.options.firstOrDefault(z => z.value === v?.toString())?.name ?? v
+							})
+						}
+					}
+
+
+				})
+
+
+
+				return json.data;
+			},
+			dataFilter: function (data) {
+
+				var json = jQuery.parseJSON(data);
+				var model = {
+					isSuccess: json.isSuccess,
+					message: json.message,
+					...json.data
+				}
+
+				return JSON.stringify(model); // return JSON string
+			}
+
+		},
+		"columns": columns,
+		fixedColumns: true,
+		scrollCollapse: true,
+		scrollX: true,
+		scrollY: '50vh'
+	});
+
+
+	$(table.footer()[0])
+		.find("button").click(function () {
+
+			let needDraw = false;
+			table.columns().every(function () {
+				var col = this;
+				var inputs = $(col.footer()).find("input");
+				var select = $(col.footer()).find("select");
+
+				if (select.length > 0) {
+					if (select.val() != "null") {
+
+						col.search([select.val()]);
+						needDraw = true
+
+					}
+					else {
+						col.search([]);
+					}
+				}
+				else {
+					if (inputs.length > 1) {
+						let from = $(inputs[0]).val();
+						let to = $(inputs[1]).val();
+
+						if (from.length > 0 && to.length > 0) {
+
+							from = MJUtil.shamsiToMiladi(from)
+							to = MJUtil.shamsiToMiladi(to)
+							col.search([from, to])
+							needDraw = true;
+						}
+					}
+					else {
+
+
+						if (inputs.val() != col.search()) {
+
+							col.search([inputs.val()]);
+							needDraw = true
+						}
+
+					}
+
+				}
+
+
+			})
+			if (needDraw)
+				table.draw();
+
+
+
+		});
+
+	table.ready(() => {
+
+		$("#draw").click(function () {
+
+			table.draw();
+
+		});
+
+		$("#exportExcell").click(function () {
+			let $btn = $(this).block();
+
+			$.ajax({
+				url: exportExcellPath,
+				method: 'POST',
+				data: JSON.stringify(dataTableRequest),
+				contentType: 'application/json',
+				crossDomain: true,
+				xhrFields: {
+					responseType: 'blob'
+				},
+				success: function (data, status, xhr) {
+					// Create a Blob from the returned data
+					var blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
+
+
+					var filename = "download.xlsx";
+					var disposition = xhr.getResponseHeader('Content-Disposition');
+					if (disposition && disposition.indexOf('attachment') !== -1) {
+						var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+						var matches = filenameRegex.exec(disposition);
+						if (matches != null && matches[1]) {
+							filename = matches[1].replace(/['"]/g, '');
+						}
+					}
+
+
+					var link = document.createElement('a');
+					var url = URL.createObjectURL(blob);
+					link.href = url;
+					link.download = filename;
+					document.body.appendChild(link);
+					link.click();
+					document.body.removeChild(link);
+					URL.revokeObjectURL(url);
+					$btn.block(false);
+				},
+				error: function (xhr, status, error) {
+					alert("An error occurred while downloading the file.");
+				}
+			});
+
+		});
+
+
+	});
+
+
+	$.fn.dataTable.ext.errMode = function (settings, helpPage, message) {
+
+		toastr.error("خطا در انجام فرایند" + message);
+	};
+
+	return table;
+}
 
  
 
@@ -8000,7 +9857,7 @@ function initDataTableProflie(page) {
 					function (r) {
 						if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
-						r.data.forEach(z => {
+						r.data.columns.forEach(z => {
 
 							if (z.render) {
 								z.render = z.render.replace("{editpath}", editPath);
@@ -8025,7 +9882,7 @@ function initDataTableProflie(page) {
 			if (!profileId) {
 				return toastr.error(`هیچ نمایه داده ای جهت ویرایش یافت نشد .`, 'خطا');
 			}
-			appController.addPage("/datatableprofilebuilder/edit?id=" + profileId);
+			appController.addPage("/panel/querydesigner/edit?id=" + profileId);
 		 
 		});
 
@@ -8034,7 +9891,33 @@ function initDataTableProflie(page) {
 			if (!entityNam) {
 				return toastr.error(`موجودیت برای ایجاد نمایه داده یافت نشد .`, 'خطا');
 			}
-			appController.addPage("/datatableprofilebuilder/new?entityName=" + entityNam);
+			appController.addPage("/panel/querydesigner/edit?entityName=" + entityNam);
+		})
+
+		page.find("[data-action='removeDataProfile']").click(function () {
+			let profileId = page.find("[data-action='dataProfile']").val();
+			if (!profileId) {
+				return toastr.error(`هیچ نمایه داده ای جهت حذف یافت نشد .`, 'خطا');
+			}
+			post("/panel/querydesigner/remove/" + profileId , null, function (r) {
+				if (!r.isSuccess) return error2(r.message);
+
+				success2("حذف ما موفقیت انجام شد.");
+			});
+		})
+
+		page.find("[data-action='copyDataProfile']").click(function () {
+			let profileId = page.find("[data-action='dataProfile']").val();
+			if (!profileId) {
+				return toastr.error(`هیچ نمایه داده ای جهت کپی یافت نشد .`, 'خطا');
+			}
+
+			post("/panel/querydesigner/copy/" + profileId, null, function (r) {
+				if (!r.isSuccess) return error2(r.message);
+
+				success2("کپی ما موفقیت انجام شد.");
+			});
+		 
 		})
 	}
 	else {
@@ -8059,7 +9942,7 @@ function initDataTableProflie(page) {
 					function (r) {
 						if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 
-						r.data.forEach(z => {
+						r.data.columns.forEach(z => {
 
 							if (z.render) {
 								z.render = z.render.replace("{editpath}", editPath);
@@ -8343,7 +10226,7 @@ function handleEntitySelectProfileClick(event) {
 		function (r) {
 			if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 			
-			r.data.forEach(z => {
+			r.data.columns.forEach(z => {
 				if (z.render) {
 					z.render = function (data, type, row) { 
 						return `<td> <a href='#' class= 'btn btn-bg-light btn-icon btn-primary btn-sm '> <i class='fs-2 ki-duotone ki-plus lh-0'></i> </a> </td>` 
@@ -9177,6 +11060,7 @@ $(document).ready(function () {
 		});
 
 		$("[data-inputmask]").inputmask()
+		
 
 	}
 
@@ -9256,7 +11140,7 @@ $(document).ready(function () {
 		
 		if (!isSameOrigin(href)) return;
 
-		if (href && href.startsWith("/File/download")) {
+		if (href && href.startsWith("/File/download") || href.startsWith("/panel/importData/downloadSample") ) {
 
 			return;
 		}
@@ -9273,7 +11157,15 @@ $(document).ready(function () {
 			})
 		}
 		else {
-			appController.addPage(href);
+			 
+			var menuTitle = null;
+
+			if ($a.find(".menu-title")) {
+				if ($a.find(".menu-title").text().length > 0) {
+					menuTitle = $a.find(".menu-title").text();
+				}
+			}
+			appController.addPage(href, true, menuTitle);
 
 		}
 
@@ -9346,6 +11238,8 @@ if (typeof initItemsForms === 'function') {
 (function ($) {
 	class EntitySelector {
 		constructor(element, options) {
+			 
+			 
 			this.$container = $(element);
 			if (this.$container.data('entitySelectorInstance')) return;
 			this.$container.data('entitySelectorInstance', this);
@@ -9359,8 +11253,20 @@ if (typeof initItemsForms === 'function') {
 			this.$hiddenName = this.$container.find('.entity-selector-text');
 			this.$results = this.$container.find('.entity-selector-results');
 
-			// Move Dropdown to Body to avoid Overflow Issues
+			if (this.$results.length == 0) {
+				let $resAppend = $(`<div class="dropdown-menu entity-selector-results" style="max-height: 300px; overflow-y: auto;"></div>`)
+				this.$container.append($resAppend);
+				this.$results = this.$container.find('.entity-selector-results');
+			}
 			this.$results.appendTo('body');
+
+			
+
+			this.extraFilters = this.options.filters || {};
+
+			if (this.options.watchDependencies && this.options.watchDependencies.length) {
+				this.watchDependencies();
+			}
 
 			this.$arrow = this.$container.find('.entity-arrow');
 			this.$clearBtn = this.$container.find('.entity-clear');
@@ -9393,6 +11299,8 @@ if (typeof initItemsForms === 'function') {
 
 			this.init();
 		}
+
+
 
 		setupMultiSelectUI() {
 			// Check if server has already rendered the structure
@@ -9514,6 +11422,31 @@ if (typeof initItemsForms === 'function') {
 
 			this.updateIcons();
 		}
+		watchDependencies() {
+			this.options.watchDependencies.forEach(selectorId => {
+				$(document).on('change', selectorId, () => {
+					// در صورت تغییر مقدار سلکتور وابسته، دوباره جستجو را صفر می‌کنیم
+					this.selectedItems = [];
+					this.page = 1;
+					this.lastId = 0;
+					this.hasMore = true;
+					this.$input.val('');
+					this.updateHidden();
+					if (!this.isMulti) this.renderChips();  // برای حالت multi
+					this.search(this.$input.val());
+				});
+			});
+		}
+
+		getCurrentFilters() {
+			let filters = {};
+			if (typeof this.extraFilters === 'function') {
+				filters = this.extraFilters();
+			} else {
+				filters = { ...this.extraFilters };
+			}
+			return filters;
+		}
 
 		bindMultiEvents() {
 			this.$input.off('input focus click keydown blur'); // Remove duplicate handlers
@@ -9598,6 +11531,7 @@ if (typeof initItemsForms === 'function') {
 
 			this.isLoading = true;
 			this.lastQuery = query;
+			const extra = this.getCurrentFilters();
 
 			const requestData = {
 				q: query,
@@ -9605,7 +11539,8 @@ if (typeof initItemsForms === 'function') {
 				pageSize: this.options.pageSize,
 				lastId: this.lastId,
 				queryId: this.options.queryId,
-				defaultParams: this.$container.attr('data-default-params')
+				defaultParams: this.$container.attr('data-default-params'),
+				extraFilters: JSON.stringify(extra)    
 			};
 
 			if (!append) {
@@ -9632,6 +11567,7 @@ if (typeof initItemsForms === 'function') {
 
 		renderResults(items, append) {
 			if (!append) this.$results.empty();
+			 
 
 			this.hasMore = items.length >= this.options.pageSize;
 
@@ -9645,11 +11581,21 @@ if (typeof initItemsForms === 'function') {
 				this.lastId = lastItem.id;
 			}
 
+			// دریافت template از دیتای کانتینر
+			const template = this.$container.data("template");
+
 			items.forEach(item => {
 				const isSelected = this.selectedItems.some(x => x.id == item.id);
 				const activeClass = isSelected ? 'active' : '';
 
-				const $row = $(`<a href="#" class="dropdown-item ${activeClass}" data-id="${item.id}">${item.display}</a>`);
+				let displayHtml = item.display;
+
+				// اگر template وجود داشت، از اون استفاده کن
+				if (template) {
+					displayHtml = this.renderTemplate(template, item.row);
+				}
+
+				const $row = $(`<a href="#" class="dropdown-item ${activeClass}" data-id="${item.id}">${displayHtml}</a>`);
 
 				$row.on('click', (e) => {
 					e.preventDefault();
@@ -9658,6 +11604,51 @@ if (typeof initItemsForms === 'function') {
 
 				this.$results.append($row);
 			});
+		}
+
+		renderTemplate(template, data) {
+			let result = template;
+
+			// پیدا کردن تمام کلیدهای داخل {}
+			const matches = template.match(/\{([^}]+)\}/g);
+
+			if (matches) {
+				matches.forEach(match => {
+					const originalKey = match.slice(1, -1); // کلید اصلی با همان حروف بزرگ/کوچک
+					let value = this.getValueCaseInsensitive(data, originalKey);
+					value = (value !== undefined && value !== null) ? value : '';
+					result = result.replace(match, value);
+				});
+			}
+
+			return result;
+		}
+
+		// متد برای گرفتن value بدون حساسیت به حروف بزرگ/کوچک (حتی برای nested properties)
+		getValueCaseInsensitive(obj, path) {
+			// پشتیبانی از nested properties مثل {user.name} یا {row.title}
+			const parts = path.split('.');
+			let current = obj;
+
+			for (let i = 0; i < parts.length; i++) {
+				if (current === null || current === undefined) {
+					return '';
+				}
+
+				const part = parts[i];
+				// جستجوی case-insensitive در کلیدهای سطح فعلی
+				const foundKey = Object.keys(current).find(
+					key => key.toLowerCase() === part.toLowerCase()
+				);
+
+				if (foundKey) {
+					current = current[foundKey];
+				} else {
+					return '';
+				}
+			}
+
+			return current;
 		}
 
 		select(item) {
@@ -10231,3 +12222,646 @@ class SettingsManager {
 		return this.settings;
 	}
 }
+
+
+
+var SiteSettings = (function () {
+	var STORAGE_KEY = 'site_style_settings';
+
+	var defaults = {
+		fontSize: 10,
+		fontFamily: 'IRANSansWeb, Tahoma, sans-serif',
+		fontWeight: 400,
+		lineHeight: 1.7,
+		buttonDisplayMode: 'compact' 
+
+	};
+
+	function load() {
+		try {
+			var stored = localStorage.getItem(STORAGE_KEY);
+			return stored ? $.extend({}, defaults, JSON.parse(stored)) : $.extend({}, defaults);
+		} catch (e) {
+			return $.extend({}, defaults);
+		}
+	}
+
+	function apply(settings) {
+		var root = document.documentElement;
+		root.style.setProperty('--site-font-size', settings.fontSize + 'px');
+		root.style.setProperty('--site-font-family', settings.fontFamily);
+		root.style.setProperty('--site-font-weight', settings.fontWeight);
+		root.style.setProperty('--site-line-height', settings.lineHeight);
+
+		if (settings.buttonDisplayMode === 'large') {
+			root.classList.add('btn-display-large');
+		} else {
+			root.classList.remove('btn-display-large');
+		}
+	}
+
+	function save(settings) {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+		apply(settings);
+	}
+
+	function reset() {
+		localStorage.removeItem(STORAGE_KEY);
+		apply(defaults);
+		return $.extend({}, defaults);
+	}
+
+	// اجرای خودکار هنگام لود صفحه
+	function init() {
+		apply(load());
+	}
+
+	return { load: load, save: save, reset: reset, init: init, defaults: defaults };
+})();
+
+
+SiteSettings.init();
+var SiteThemes = (function () {
+	var STORAGE_KEY = 'site_color_theme';
+
+	var themes = {
+		ocean: {
+			name: 'اقیانوس آبی',
+			'--bs-primary': '#2E86C1', '--bs-primary-rgb': '46,134,193',
+			'--bs-body-bg': '#F4F8FB', '--bs-body-color': '#1A2B3C',
+			'--bs-heading-color': '#1A2B3C',
+			'--bs-secondary-bg': '#E3EEF7', '--bs-tertiary-bg': '#F4F8FB',
+			'--bs-border-color': '#C8DFF0',
+			'--bs-success': '#1ABC9C', '--bs-warning': '#F39C12',
+			'--bs-danger': '#E74C3C', '--bs-info': '#8E44AD',
+			'--bs-app-header-base-bg-color': '#E3EEF7',
+			'--bs-app-sidebar-bg-color': '#D6E5F0',   // کمی تیره‌تر از secondary-bg
+			'--bs-app-sidebar-color': '#1A2B3C',
+			'--dt-row-selected': '46,134,193',
+
+			'--bs-component-active-bg': '#2E86C1',
+ 
+
+			// text colors
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#2E86C1',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#1ABC9C',
+			'--bs-text-info': '#8E44AD',
+			'--bs-text-warning': '#F39C12',
+			'--bs-text-danger': '#E74C3C',
+			'--bs-text-dark': '#1A2B3C',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#EAF2F8', '--bs-gray-200': '#D6E8F5', '--bs-gray-300': '#AED6F1',
+			'--bs-link-color': '#2E86C1', '--bs-link-hover-color': '#1A5276'
+		},
+		forest: {
+			name: 'جنگل سبز',
+			'--bs-primary': '#27AE60', '--bs-primary-rgb': '39,174,96',
+			'--bs-body-bg': '#F2F8F4', '--bs-body-color': '#1B2E22',
+			'--bs-heading-color': '#1B2E22',
+			'--bs-secondary-bg': '#DFF0E6', '--bs-tertiary-bg': '#F2F8F4',
+			'--bs-border-color': '#B2DEC0',
+			'--bs-success': '#1E8449', '--bs-warning': '#D4AC0D',
+			'--bs-danger': '#CB4335', '--bs-info': '#2874A6',
+			'--bs-app-header-base-bg-color': '#DFF0E6',
+			'--bs-app-sidebar-bg-color': '#D0E8DA',
+			'--bs-app-sidebar-color': '#1B2E22',
+
+			'--dt-row-selected': '39,174,96',
+			'--bs-component-active-bg': '#27AE60',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#27AE60',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#1E8449',
+			'--bs-text-info': '#2874A6',
+			'--bs-text-warning': '#D4AC0D',
+			'--bs-text-danger': '#CB4335',
+			'--bs-text-dark': '#1B2E22',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#EAF5ED', '--bs-gray-200': '#D5ECD9', '--bs-gray-300': '#A9DAAD',
+			'--bs-link-color': '#27AE60', '--bs-link-hover-color': '#1E8449'
+		},
+		slate: {
+			name: 'خاکستری مدرن',
+			'--bs-primary': '#5D6D7E', '--bs-primary-rgb': '93,109,126',
+			'--bs-body-bg': '#F5F6F7', '--bs-body-color': '#212529',
+			'--bs-heading-color': '#1A1D20',
+			'--bs-secondary-bg': '#E9ECEF', '--bs-tertiary-bg': '#F5F6F7',
+			'--bs-border-color': '#CED4DA',
+			'--bs-success': '#28A745', '--bs-warning': '#FFC107',
+			'--bs-danger': '#DC3545', '--bs-info': '#6610F2',
+			'--bs-app-header-base-bg-color': '#E9ECEF',
+			'--bs-app-sidebar-bg-color': '#E2E6EA',
+			'--bs-app-sidebar-color': '#212529',
+
+			'--dt-row-selected': '93,109,126',
+			'--bs-component-active-bg': '#5D6D7E',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#5D6D7E',
+			'--bs-text-secondary': '#6C757D',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#28A745',
+			'--bs-text-info': '#6610F2',
+			'--bs-text-warning': '#FFC107',
+			'--bs-text-danger': '#DC3545',
+			'--bs-text-dark': '#212529',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#F8F9FA', '--bs-gray-200': '#E9ECEF', '--bs-gray-300': '#DEE2E6',
+			'--bs-link-color': '#5D6D7E', '--bs-link-hover-color': '#2E4057'
+		},
+		lavender: {
+			name: 'یاسی ملایم',
+			'--bs-primary': '#7D5BA6', '--bs-primary-rgb': '125,91,166',
+			'--bs-body-bg': '#F8F5FC', '--bs-body-color': '#2C1A3E',
+			'--bs-heading-color': '#2C1A3E',
+			'--bs-secondary-bg': '#EDE5F7', '--bs-tertiary-bg': '#F8F5FC',
+			'--bs-border-color': '#D5C4EC',
+			'--bs-success': '#2ECC71', '--bs-warning': '#F1C40F',
+			'--bs-danger': '#E74C3C', '--bs-info': '#2980B9',
+			'--bs-app-header-base-bg-color': '#EDE5F7',
+			'--bs-app-sidebar-bg-color': '#E2D8F2',
+			'--bs-app-sidebar-color': '#2C1A3E',
+
+			'--dt-row-selected': '125,91,166',
+			'--bs-component-active-bg': '#7D5BA6',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#7D5BA6',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#2ECC71',
+			'--bs-text-info': '#2980B9',
+			'--bs-text-warning': '#F1C40F',
+			'--bs-text-danger': '#E74C3C',
+			'--bs-text-dark': '#2C1A3E',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#F3EEF9', '--bs-gray-200': '#E5D9F3', '--bs-gray-300': '#C9B2E7',
+			'--bs-link-color': '#7D5BA6', '--bs-link-hover-color': '#5B3D82'
+		},
+		warmgray: {
+			name: 'گرم‌خاکی',
+			'--bs-primary': '#7B6D5A', '--bs-primary-rgb': '123,109,90',
+			'--bs-body-bg': '#FAF8F5', '--bs-body-color': '#2D2519',
+			'--bs-heading-color': '#2D2519',
+			'--bs-secondary-bg': '#EDE9E2', '--bs-tertiary-bg': '#FAF8F5',
+			'--bs-border-color': '#D5CCBF',
+			'--bs-success': '#5D9B5A', '--bs-warning': '#C9961F',
+			'--bs-danger': '#C0392B', '--bs-info': '#5B7FA6',
+			'--bs-app-header-base-bg-color': '#EDE9E2',
+			'--bs-app-sidebar-bg-color': '#E3DDD4',
+			'--bs-app-sidebar-color': '#2D2519',
+
+			'--dt-row-selected': '123,109,90',
+			'--bs-component-active-bg': '#7B6D5A',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#7B6D5A',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#5D9B5A',
+			'--bs-text-info': '#5B7FA6',
+			'--bs-text-warning': '#C9961F',
+			'--bs-text-danger': '#C0392B',
+			'--bs-text-dark': '#2D2519',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#F5F2EC', '--bs-gray-200': '#EAE5DC', '--bs-gray-300': '#D3CCBF',
+			'--bs-link-color': '#7B6D5A', '--bs-link-hover-color': '#4A3F30'
+		},
+		midnight: {
+			name: 'شب تیره',
+			'--bs-primary': '#4D9EFF', '--bs-primary-rgb': '77,158,255',
+			'--bs-body-bg': '#141820', '--bs-body-color': '#E8ECF2',
+			'--bs-heading-color': '#FFFFFF',
+			'--bs-secondary-bg': '#1E2533', '--bs-tertiary-bg': '#141820',
+			'--bs-border-color': '#2B3347',
+			'--bs-success': '#3DDC84', '--bs-warning': '#FFB627',
+			'--bs-danger': '#FF5A65', '--bs-info': '#9B5CFF',
+			'--bs-app-header-base-bg-color': '#1E2533',
+			'--bs-app-sidebar-bg-color': '#0F131A',   // تیره‌تر از بدنه برای عمق
+			'--bs-app-sidebar-color': '#E8ECF2',
+
+			'--dt-row-selected': '77,158,255',
+			'--bs-component-active-bg': '#4D9EFF',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#4D9EFF',
+			'--bs-text-secondary': '#9BA4B5',
+			'--bs-text-light': '#E8ECF2',
+			'--bs-text-success': '#3DDC84',
+			'--bs-text-info': '#9B5CFF',
+			'--bs-text-warning': '#FFB627',
+			'--bs-text-danger': '#FF5A65',
+			'--bs-text-dark': '#E8ECF2',
+			'--bs-text-muted': '#9BA4B5',
+			'--bs-text-gray-100': '#1E2533',
+			'--bs-text-gray-200': '#252E41',
+			'--bs-text-gray-300': '#30394F',
+			'--bs-text-gray-400': '#3B445C',
+			'--bs-text-gray-500': '#4B5675',
+			'--bs-text-gray-600': '#6B7A9A',
+			'--bs-text-gray-700': '#8A99B5',
+			'--bs-text-gray-800': '#A9B5CC',
+			'--bs-text-gray-900': '#C8D0E3',
+
+			'--bs-gray-100': '#1E2533', '--bs-gray-200': '#252E41', '--bs-gray-300': '#30394F',
+			'--bs-link-color': '#4D9EFF', '--bs-link-hover-color': '#82BEFF'
+		},
+		rose: {
+			name: 'گل‌رز کم‌رنگ',
+			'--bs-primary': '#C0526A', '--bs-primary-rgb': '192,82,106',
+			'--bs-body-bg': '#FDF5F7', '--bs-body-color': '#2C1217',
+			'--bs-heading-color': '#2C1217',
+			'--bs-secondary-bg': '#F5E0E5', '--bs-tertiary-bg': '#FDF5F7',
+			'--bs-border-color': '#E8BCC4',
+			'--bs-success': '#4CAF6E', '--bs-warning': '#E8A020',
+			'--bs-danger': '#B03060', '--bs-info': '#5B6DAE',
+			'--bs-app-header-base-bg-color': '#F5E0E5',
+			'--bs-app-sidebar-bg-color': '#EDD4DB',
+			'--bs-app-sidebar-color': '#2C1217',
+
+			'--dt-row-selected': '192,82,106',
+			'--bs-component-active-bg': '#C0526A',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#C0526A',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#4CAF6E',
+			'--bs-text-info': '#5B6DAE',
+			'--bs-text-warning': '#E8A020',
+			'--bs-text-danger': '#B03060',
+			'--bs-text-dark': '#2C1217',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#FAF0F2', '--bs-gray-200': '#F2DEE2', '--bs-gray-300': '#E5C1C8',
+			'--bs-link-color': '#C0526A', '--bs-link-hover-color': '#8C3048'
+		},
+		teal: {
+			name: 'فیروزه‌ای',
+			'--bs-primary': '#0B8A8A', '--bs-primary-rgb': '11,138,138',
+			'--bs-body-bg': '#F3FAFA', '--bs-body-color': '#0D2626',
+			'--bs-heading-color': '#0D2626',
+			'--bs-secondary-bg': '#D9F0F0', '--bs-tertiary-bg': '#F3FAFA',
+			'--bs-border-color': '#A8DCDC',
+			'--bs-success': '#3A9B6F', '--bs-warning': '#D49B00',
+			'--bs-danger': '#CC3F3F', '--bs-info': '#6B5EA8',
+			'--bs-app-header-base-bg-color': '#D9F0F0',
+			'--bs-app-sidebar-bg-color': '#CCE8E8',
+			'--bs-app-sidebar-color': '#0D2626',
+
+			'--dt-row-selected': '11,138,138',
+			'--bs-component-active-bg': '#0B8A8A',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#0B8A8A',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#3A9B6F',
+			'--bs-text-info': '#6B5EA8',
+			'--bs-text-warning': '#D49B00',
+			'--bs-text-danger': '#CC3F3F',
+			'--bs-text-dark': '#0D2626',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#EAF6F6', '--bs-gray-200': '#D0EDED', '--bs-gray-300': '#A0D5D5',
+			'--bs-link-color': '#0B8A8A', '--bs-link-hover-color': '#065555'
+		},
+		amber: {
+			name: 'کهربایی گرم',
+			'--bs-primary': '#D08030', '--bs-primary-rgb': '208,128,48',
+			'--bs-body-bg': '#FDF8F2', '--bs-body-color': '#2E1E08',
+			'--bs-heading-color': '#2E1E08',
+			'--bs-secondary-bg': '#F5E9D5', '--bs-tertiary-bg': '#FDF8F2',
+			'--bs-border-color': '#E8CFA0',
+			'--bs-success': '#5C9940', '--bs-warning': '#C8860A',
+			'--bs-danger': '#C4362C', '--bs-info': '#5567A8',
+			'--bs-app-header-base-bg-color': '#F5E9D5',
+			'--bs-app-sidebar-bg-color': '#EFE1C6',
+			'--bs-app-sidebar-color': '#2E1E08',
+
+			'--dt-row-selected': '208,128,48',
+			'--bs-component-active-bg': '#D08030',
+
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#D08030',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#5C9940',
+			'--bs-text-info': '#5567A8',
+			'--bs-text-warning': '#C8860A',
+			'--bs-text-danger': '#C4362C',
+			'--bs-text-dark': '#2E1E08',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#FAF3E8', '--bs-gray-200': '#F0E4CC', '--bs-gray-300': '#DECE9E',
+			'--bs-link-color': '#D08030', '--bs-link-hover-color': '#7A4A10'
+		},
+		navy: {
+			name: 'آبی نیروی دریایی',
+			'--bs-primary': '#1A3A6C', '--bs-primary-rgb': '26,58,108',
+			'--bs-body-bg': '#F3F5FA', '--bs-body-color': '#0D1828',
+			'--bs-heading-color': '#0D1828',
+			'--bs-secondary-bg': '#DDE4F0', '--bs-tertiary-bg': '#F3F5FA',
+			'--bs-border-color': '#B0BDDA',
+			'--bs-success': '#2D8A5A', '--bs-warning': '#D4A017',
+			'--bs-danger': '#C83232', '--bs-info': '#6A3BAA',
+			'--bs-app-header-base-bg-color': '#DDE4F0',
+			'--bs-app-sidebar-bg-color': '#CFD8E8',
+			'--bs-app-sidebar-color': '#0D1828',
+
+			'--dt-row-selected': '26,58,108',
+			'--bs-component-active-bg': '#1A3A6C',
+
+			'--bs-text-white': '#FFFFFF',
+			'--bs-text-primary': '#1A3A6C',
+			'--bs-text-secondary': '#5D6D7E',
+			'--bs-text-light': '#F8F9FA',
+			'--bs-text-success': '#2D8A5A',
+			'--bs-text-info': '#6A3BAA',
+			'--bs-text-warning': '#D4A017',
+			'--bs-text-danger': '#C83232',
+			'--bs-text-dark': '#0D1828',
+			'--bs-text-muted': '#6c757d',
+			'--bs-text-gray-100': '#F8F9FA',
+			'--bs-text-gray-200': '#E9ECEF',
+			'--bs-text-gray-300': '#DEE2E6',
+			'--bs-text-gray-400': '#CED4DA',
+			'--bs-text-gray-500': '#ADB5BD',
+			'--bs-text-gray-600': '#6C757D',
+			'--bs-text-gray-700': '#495057',
+			'--bs-text-gray-800': '#343A40',
+			'--bs-text-gray-900': '#212529',
+
+			'--bs-gray-100': '#EAEEf7', '--bs-gray-200': '#D5DCED', '--bs-gray-300': '#B5C0D8',
+			'--bs-link-color': '#1A3A6C', '--bs-link-hover-color': '#0A1830'
+		}
+	};
+
+	function getThemeVars(themeId) {
+		var t = themes[themeId];
+		if (!t) return null;
+		var vars = {};
+		Object.keys(t).forEach(function (k) {
+			if (k.startsWith('--')) vars[k] = t[k];
+		});
+		return vars;
+	}
+
+	function apply(themeId) {
+		var vars = getThemeVars(themeId);
+		if (!vars) return;
+		var root = document.documentElement;
+		Object.keys(vars).forEach(function (k) {
+			 
+			root.style.setProperty(k, vars[k]);
+		});
+		// dark mode tag
+		if (themeId === 'midnight') {
+			root.setAttribute('data-bs-theme', 'dark');
+		} else {
+			root.setAttribute('data-bs-theme', 'light');
+		}
+	}
+
+	function save(themeId) {
+		localStorage.setItem(STORAGE_KEY, themeId);
+		apply(themeId);
+	}
+
+	function load() {
+		return localStorage.getItem(STORAGE_KEY) || 'ocean';
+	}
+
+	function init() {
+		apply(load());
+	}
+
+	function getAll() {
+		return Object.keys(themes).map(function (id) {
+			return { id: id, name: themes[id].name };
+		});
+	}
+
+	return { init: init, save: save, load: load, apply: apply, getAll: getAll };
+})();
+
+SiteThemes.init();
+
+$(function () {
+	var current = SiteSettings.load();
+
+ 
+	function loadUI(s) {
+		$('#fontSizeRange').val(s.fontSize);
+		$('#fontSizeDisplay').text(s.fontSize);
+		$('#lineHeightRange').val(s.lineHeight);
+		$('#lineHeightDisplay').text(parseFloat(s.lineHeight).toFixed(1));
+		$('#boldToggle').prop('checked', s.fontWeight === 700);
+
+		$('.font-opt').removeClass('active btn-primary').addClass('btn-outline-secondary');
+		$('.font-opt[data-font="' + s.fontFamily + '"]')
+			.removeClass('btn-outline-secondary').addClass('active btn-primary');
+
+		loadButtonDisplayUI(s.buttonDisplayMode || 'compact');
+
+		updatePreview(s);
+	}
+
+	function updatePreview(s) {
+		$('#previewText').css({
+			'font-family': s.fontFamily,
+			'font-size': s.fontSize + 'px',
+			'font-weight': s.fontWeight,
+			'line-height': s.lineHeight
+		});
+	}
+
+	function loadButtonDisplayUI(mode) {
+		$('.btn-display-opt').removeClass('border-primary')
+			.addClass('border-light');
+		$('.btn-display-opt[data-mode="' + mode + '"]')
+			.removeClass('border-light')
+			.addClass('border-primary');
+	}
+
+	// رویداد کلیک روی حالت‌ها
+	$(document).on('click', '.btn-display-opt', function () {
+		var mode = $(this).data('mode');
+		current.buttonDisplayMode = mode;
+
+		// preview فوری
+		if (mode === 'large') {
+			document.documentElement.classList.add('btn-display-large');
+		} else {
+			document.documentElement.classList.remove('btn-display-large');
+		}
+
+		loadButtonDisplayUI(mode);
+	});
+
+	function renderThemeCards() {
+		var currentTheme = SiteThemes.load();
+		var html = '';
+		SiteThemes.getAll().forEach(function (t) {
+			var isActive = t.id === currentTheme ? 'border-primary' : 'border-light';
+			html += `
+            <div class="col-6">
+                <div class="card card-body p-2 cursor-pointer theme-opt ${isActive}"
+                     data-theme="${t.id}" style="cursor:pointer;transition:border-color 0.15s">
+                    <small class="text-muted d-block">${t.name}</small>
+                </div>
+            </div>`;
+		});
+		$('#themeOptions').html(html);
+	}
+
+
+	$(document).on('click', '.theme-opt', function () {
+		var themeId = $(this).data('theme');
+		SiteThemes.apply(themeId); // preview فوری
+		$('.theme-opt').removeClass('border-primary').addClass('border-light');
+		$(this).removeClass('border-light').addClass('border-primary');
+		// ذخیره هنگام کلیک روی دکمه ذخیره اصلی
+		window._pendingTheme = themeId;
+	});
+ 
+	$('.font-opt').on('click', function () {
+		$('.font-opt').removeClass('active btn-primary').addClass('btn-outline-secondary');
+		$(this).removeClass('btn-outline-secondary').addClass('active btn-primary');
+		current.fontFamily = $(this).data('font');
+		updatePreview(current);
+	});
+
+	$('#fontSizeRange').on('input', function () {
+		current.fontSize = +$(this).val();
+		$('#fontSizeDisplay').text(current.fontSize);
+		updatePreview(current);
+	});
+
+	$('#lineHeightRange').on('input', function () {
+		current.lineHeight = parseFloat($(this).val()).toFixed(1);
+		$('#lineHeightDisplay').text(current.lineHeight);
+		updatePreview(current);
+	});
+
+	$('#boldToggle').on('change', function () {
+		current.fontWeight = $(this).is(':checked') ? 700 : 400;
+		updatePreview(current);
+	});
+
+	$('#btnSaveSettings').on('click', function () {
+		SiteSettings.save(current);
+
+		if (window._pendingTheme) {
+			SiteThemes.save(window._pendingTheme);
+			window._pendingTheme = null;
+		}
+	 
+		$(this).html('<i class="fa fa-check me-1"></i> ذخیره شد!')
+			.addClass('btn-success').removeClass('btn-primary');
+		var btn = this;
+		setTimeout(function () {
+			$(btn).html('<i class="fa fa-save me-1"></i> ذخیره')
+				.removeClass('btn-success').addClass('btn-primary');
+		}, 2000);
+	});
+
+	$('#btnResetSettings').on('click', function () {
+		current = SiteSettings.reset();
+		loadUI(current);
+	});
+
+ 
+	$('#btnStylePanel').on('click', function () {
+		$('#styleSettingsPanel').toggleClass('show');
+	});
+	$('#btnClosePanel').on('click', function () {
+		$('#styleSettingsPanel').removeClass('show');
+	});
+	renderThemeCards();
+
+	loadUI(current);
+});

@@ -14,7 +14,7 @@
 				Id = c.Id, Code = c.Code, Name = c.Name
 			},
 			c => new { c.Code, c.Name },
-			"{Code} {Name}",
+			 "{Code} || {Name}",
 			"items.partId",
 			null,
 			Model?.PartId?.ToString()
@@ -22,6 +22,26 @@
 		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 	</div>
 
+		<div class='col-md-3'>
+		<label class=''>نیمه ساخته (فرمول)</label>
+		@(Html.EntitySelector<Formul>(
+			"itemsFormulSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,  Title = c.Title
+			},
+			c => new {  c.Title },
+			 "{Title}",
+			"items.formulId",
+			null,
+			Model?.FormulId?.ToString()
+		))
+		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+	</div>
+
+
+	
 	<div class='col-md-3'>
 		<label class=''>ضریب مصرفی</label>
 		<input class='form-control' data-bind='items.usingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.UsingRate' />

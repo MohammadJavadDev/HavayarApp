@@ -1,4 +1,5 @@
 @using Entities.App.Edms;
+@using Entities.App.Edms.Enums
 @model Transmital
 <div class="card">
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Transmital)"></form-action-buttons></div>
@@ -30,28 +31,40 @@
 			@(Html.EntitySelector<Document>
 						(
 						"DocumentIdSelector",
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsLatest == true,
 						c => new
 						{
 							Id = c.Id,
 							Title = c.DocumentVpis.Title,
+							Code = c.DocumentVpis.Code,
+							FileName = c.MainFile.OriginalName,
+							c.Revision,
+							ProjectId = c.ProjectId,
+							HasReplySheet = c.Comments.Any(c => c.Status == DocumentStatusEnums.ReplaySheet )
 
 						},
 						c => new { c.DocumentVpis.Title },
-						"{Title}",
+						"Document Number: {Title}",
 						"DocumentId",
 						null,
 						Model?.DocumentId.ToString(),
-						true
+						true,
+						false,
+						false,
+						false,
+						@"<div style='text-align: left;'><span>Document Number: {Title}</span>
+						 </br>
+						 <span>Document FileName: {Code}</span>
+						</br>
+						<span>Document Rev: {revision}</span>
+						</br>
+						<span>ReplySheet: {HasReplySheet}</span>
+						</div>"
 						))
 			 
 		</div>
 
-		<div class='col-md-6'>
-			<label class='required'>شماره</label>
-			<input class='form-control' data-bind='number' required asp-for='Number' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
+	 
 
 		<div class='col-md-6'>
 			<label class=''>شماره تعریف شده توسط کاربر</label>
@@ -114,10 +127,21 @@
 </div>
 
 <script>
+
+	 
 	function savefn($btnAction) {
 		if (validateError($$('.card'))) { return; }
 		var model = $$('.card').dataBind();
 		const $btn = $(this.element).block();
+
+		model.isForReplySheet = false;
+		
+		if($$('#DocumentIdSelector').data("entitySelector").selectedItems.length > 0)
+		{
+			model.isForReplySheet = $$('#DocumentIdSelector').data("entitySelector").selectedItems[0].row.hasReplySheet
+		}
+		 
+	 
 		$$.post('save',
 			model,
 			function (r) {
@@ -128,6 +152,16 @@
 				$btnAction.baseaction();
 			})
 	}
+
+	debugger
+
+	 $('#DocumentIdSelector').entitySelector({
+	    filters: function() {
+		   let projectId = $('#ProjectIdSelector').find('.entity-selector-value').val();
+		   return { ProjectId: projectId };
+	    },
+	    watchDependencies: ['#ProjectIdSelector']
+	});
 
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })

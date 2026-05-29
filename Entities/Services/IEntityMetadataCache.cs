@@ -21,6 +21,7 @@ namespace Entities.Services
 	{
 		EntityMetadata? Get(string entityName);
 		IReadOnlyCollection<EntityMetadata> GetAll();
+		IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums();
 		void Refresh();  
 	}
 
@@ -65,10 +66,7 @@ namespace Entities.Services
 
 			foreach (var entityType in entityTypes)
 			{
-				if(entityType.FullName.Contains("User"))
-				{
-					var d = "sad";
-				}
+				 
 				var displayAttr = entityType.GetCustomAttribute<DisplayAttribute>();
 				var entityDisplayName = displayAttr?.Name ?? entityType.Name;
 				var tableAttr = entityType.GetCustomAttribute<TableAttribute>();
@@ -97,7 +95,7 @@ namespace Entities.Services
 					{
 						Name = prop.Name,
 						DisplayName = displayName,
-						Type = prop.PropertyType.Name,
+						Type = GetActualTypeFullName(prop.PropertyType),
 						DataType = displayInfo.type.ToString().ToLower() ?? prop.PropertyType.Name.ToLower(),
 						SearchPath = displayInfo.SearchPath ?? prop.Name,
 						AddToTable = displayInfo.AddToTable,
@@ -169,6 +167,30 @@ namespace Entities.Services
 		{
 			EnsureCacheBuilt();
 			return (IReadOnlyCollection<EntityMetadata>)_cache.Values;
+		}
+
+		public IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums()
+{
+		    EnsureCacheBuilt();
+			return _cache.Values
+			   .SelectMany(entity => entity.Properties)
+			   .Where(prop => prop.SystemType == SystemType.Select)
+			   .GroupBy(prop => prop.Type) 
+			   .Select(group => group.First())  
+			   .ToList()
+			   .AsReadOnly();
+		}
+
+		private static string GetActualTypeFullName(Type type)
+		{
+			if (type == null) return string.Empty;
+
+			// حذف Nullable wrapper
+			Type underlyingType = Nullable.GetUnderlyingType(type);
+			Type actualType = underlyingType ?? type;
+
+			// گرفتن FullName
+			return actualType.FullName ?? actualType.Name;
 		}
 
 		public void Refresh()

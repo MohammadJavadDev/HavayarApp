@@ -32,8 +32,8 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("وزن")]
-		[DisplayInfo(null, false, type: SystemType.Int)]
-		public int? Weight { get; set; }
+		[DisplayInfo(null, false, type: SystemType.Decimal)]
+		public decimal? Weight { get; set; }
 
 
 		[DisplayName("نوع")]
@@ -96,11 +96,17 @@ namespace Entities.App.Edms
 		public int? PersonHourRevisionThree { get; set; }
 
 
-		[DisplayName("بررسی کننده")]
-		[DisplayInfo(null, false, type: SystemType.Entity)]
-		public User? Reviewer { get; set; }
+		[DisplayName("بررسی کنندگان")]
+		[DisplayInfo(null, false, type: SystemType.String)]
+		public string? ReviewerNames { get; set; }
 
-		public long? ReviewerId { get; set; }
+		public string? ReviewersId { get; set; }
+
+		[DisplayName("تهیه کننده")]
+		[DisplayInfo(null, false, type: SystemType.Entity)]
+		public User? Producer { get; set; }
+
+		public long? ProducerId { get; set; }
 
 
 		[DisplayName("تایید کننده")]

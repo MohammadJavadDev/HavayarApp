@@ -1,4 +1,5 @@
 using Common.Entities;
+using Common.Utilities;
 using Data;
 using Microsoft.EntityFrameworkCore;
 using Services.InMemoryData;
@@ -37,38 +38,20 @@ namespace Services
 			string displayTemplate = definition.DisplayTemplate;
 			string[] colMap = definition.ColMap;
 
-			// دریافت اطلاعات ستون‌های جستجو
-			List<SearchColumnInfo> searchColumnsInfo = new List<SearchColumnInfo>();
-			if (request.Extra.TryGetValue("searchColumnsInfo", out string encryptedSearchInfo))
+			// ← اطلاعات ستون‌ها مستقیم از cache، بدون نیاز به JS
+			var searchColumnInfos = definition.SearchColumnInfos ?? new List<SearchColumnInfo>();
+
+			var extraFilters = new Dictionary<string, string>();
+			if (request.Extra.TryGetValue("extraFilters", out string extraFiltersJson) && !string.IsNullOrEmpty(extraFiltersJson))
 			{
-				try
-				{
-					string json = _protector.Unprotect(encryptedSearchInfo);
-					if (!string.IsNullOrEmpty(json))
-					{
-						searchColumnsInfo = JsonSerializer.Deserialize<List<SearchColumnInfo>>(json) ?? new List<SearchColumnInfo>();
-					}
-				}
+				try { extraFilters = JsonSerializer.Deserialize<Dictionary<string, string>>(extraFiltersJson); }
 				catch { }
 			}
 
 			string searchTerm = string.IsNullOrWhiteSpace(request.Q) ? "%" : $"%{request.Q.Trim()}%";
 
-			// تبدیل SQL با اضافه کردن CAST برای ستون‌های غیر string
-			string modifiedSql = AddCastToNonStringColumns(cachedSql, searchColumnsInfo);
-
-			// جایگزینی توکن جستجو
-			string runnableSql = modifiedSql
-				.Replace(TOKEN_LITERAL_SQL, "@searchTerm")
-				.Replace(TOKEN_LITERAL_SQL_ALT, "@searchTerm");
-
-			// Keyset Pagination
-			string seekSql = (request.LastId.HasValue && request.LastId.Value > 0) ? "AND [Id] > @lastId" : "";
-
-			string finalSql = $@"
-WITH BaseQuery AS ( {runnableSql} )
-SELECT TOP ({request.PageSize}) *, COUNT(*) OVER() as TotalCount
-FROM BaseQuery WHERE (1=1 {seekSql}) ORDER BY [Id] ASC";
+			// ← searchColumnInfos به BuildFinalSql پاس می‌شود
+			string finalSql = BuildFinalSql(cachedSql, extraFilters, request.LastId, request.PageSize, searchColumnInfos);
 
 			var resultItems = new List<EntitySelectorItem>();
 			int totalCount = 0;
@@ -84,6 +67,9 @@ FROM BaseQuery WHERE (1=1 {seekSql}) ORDER BY [Id] ASC";
 
 				if (request.Extra.TryGetValue("defaultParams", out string encryptedParams))
 					AddDefaultParams(command, encryptedParams);
+
+				foreach (var filter in extraFilters)
+					AddParameter(command, $"@extra_{filter.Key}", filter.Value);
 
 				using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
 				{
@@ -105,6 +91,47 @@ FROM BaseQuery WHERE (1=1 {seekSql}) ORDER BY [Id] ASC";
 			return new EntitySelectorResult { Page = request.Page, PageSize = request.PageSize, Total = totalCount, Items = resultItems };
 		}
 
+		private string BuildFinalSql(
+	    string baseSql,
+	    Dictionary<string, string> extraFilters,
+	    long? lastId,
+	    int pageSize,
+	    List<SearchColumnInfo> searchColumnInfos = null)
+		{
+			string runnableSql = baseSql
+			    .Replace(TOKEN_LITERAL_SQL, "@searchTerm")
+			    .Replace(TOKEN_LITERAL_SQL_ALT, "@searchTerm");
+
+			var whereConditions = new List<string>();
+
+			if (searchColumnInfos != null && searchColumnInfos.Any())
+			{
+				var searchClauses = searchColumnInfos.Select(col =>
+				    col.IsString
+					   // ← SqlAlias به جای ColumnName
+					   ? $"([{col.SqlAlias}] IS NOT NULL AND [{col.SqlAlias}] LIKE @searchTerm)"
+					   : $"CAST([{col.SqlAlias}] AS NVARCHAR(100)) LIKE @searchTerm"
+				);
+				whereConditions.Add("(" + string.Join(" OR ", searchClauses) + ")");
+			}
+
+			foreach (var filter in extraFilters)
+				whereConditions.Add($"[{filter.Key}] = @extra_{filter.Key}");
+
+			string seekCondition = (lastId.HasValue && lastId.Value > 0) ? "AND [Id] > @lastId" : "";
+			string additionalWhere = whereConditions.Any()
+			    ? " AND " + string.Join(" AND ", whereConditions)
+			    : "";
+
+			return $@"
+        WITH BaseQuery AS (
+            {runnableSql}
+        )
+        SELECT TOP ({pageSize}) *, COUNT(*) OVER() AS TotalCount
+        FROM BaseQuery
+        WHERE 1=1 {seekCondition} {additionalWhere}
+        ORDER BY [Id] ASC";
+		}
 		/// <summary>
 		/// اضافه کردن CAST برای ستون‌های غیر string در SQL
 		/// </summary>
@@ -131,60 +158,82 @@ FROM BaseQuery WHERE (1=1 {seekSql}) ORDER BY [Id] ASC";
 
 		public List<EntitySelectorItem> GetInitialItemsSync(List<string> ids, string cleanSql, Dictionary<string, string> sqlParams, string displayTemplate, string[] colMap)
 		{
-			// برای initial items جستجو نداریم
+			if (ids == null || ids.Count == 0)
+				return new List<EntitySelectorItem>();
+
 			string runnableSql = cleanSql
-				.Replace(TOKEN_LITERAL_SQL, "'%'")
-				.Replace(TOKEN_LITERAL_SQL_ALT, "'%'");
+			    .Replace(TOKEN_LITERAL_SQL, "'%'")
+			    .Replace(TOKEN_LITERAL_SQL_ALT, "'%'");
 
 			var idParamNames = new List<string>();
-			for (int i = 0; i < ids.Count; i++)
+			var idValues = new List<long>();
+			foreach (var id in ids)
 			{
-				if (long.TryParse(ids[i], out var x))
+				if (long.TryParse(id, out long idLong))
 				{
-					idParamNames.Add($"@idVal{i}");
+					idParamNames.Add($"@idVal{idParamNames.Count}");
+					idValues.Add(idLong);
 				}
 			}
 
 			if (idParamNames.Count == 0)
 				return new List<EntitySelectorItem>();
 
-			string finalSql = $@"WITH BaseQuery AS ( {runnableSql} ) SELECT * FROM BaseQuery WHERE Id IN ({string.Join(",", idParamNames)})";
+			// ساخت لیست ستون‌ها (بدون تغییر نام برای کوئری)
+			string columnList = string.Join(", ", colMap.Select(c => $"[{c}]"));
+			string finalSql = $@"
+WITH BaseQuery AS ( {runnableSql} )
+SELECT {columnList}
+FROM BaseQuery 
+WHERE Id IN ({string.Join(",", idParamNames)})
+ORDER BY Id ASC";
 
 			var resultMap = new Dictionary<string, EntitySelectorItem>();
 			var connection = _dbContext.Database.GetDbConnection();
-			if (connection.State != ConnectionState.Open) connection.Open();
+			if (connection.State != ConnectionState.Open)
+				connection.Open();
 
 			using (var command = connection.CreateCommand())
 			{
 				command.CommandText = finalSql;
-				for (int i = 0; i < ids.Count; i++)
-				{
-					if (long.TryParse(ids[i], out var x))
-					{
-						AddParameter(command, idParamNames[i], x, true);
-					}
-				}
-				foreach (var kvp in sqlParams) AddParameter(command, kvp.Key, kvp.Value, true);
+				for (int i = 0; i < idValues.Count; i++)
+					AddParameter(command, idParamNames[i], idValues[i], true);
+				foreach (var kvp in sqlParams)
+					AddParameter(command, kvp.Key, kvp.Value, true);
 
 				using (var reader = command.ExecuteReader(CommandBehavior.SequentialAccess))
 				{
 					while (reader.Read())
 					{
-						var row = ReadRow(reader, colMap, out _);
-						string idVal = row.ContainsKey("Id") ? row["Id"]?.ToString() : null;
+						var row = new Dictionary<string, object>();
+						for (int i = 0; i < colMap.Length; i++)
+						{
+							string colName = colMap[i];
+							object value = reader.IsDBNull(i) ? null : reader[i];
+							 
+							row[colName] = value;
+						}
+
+						string idVal = row.ContainsKey("Id") ? row["Id"]?.ToString() : null;  
 						if (idVal != null)
 						{
-							resultMap[idVal] = new EntitySelectorItem { Id = idVal, Display = FormatDisplay(row, displayTemplate), Row = row };
+							resultMap[idVal] = new EntitySelectorItem
+							{
+								Id = idVal,
+								Display = FormatDisplay(row, displayTemplate),
+								Row = row
+							};
 						}
 					}
 				}
 			}
 
 			var results = new List<EntitySelectorItem>();
-			foreach (var id in ids) if (resultMap.ContainsKey(id)) results.Add(resultMap[id]);
+			foreach (var id in ids)
+				if (resultMap.ContainsKey(id))
+					results.Add(resultMap[id]);
 			return results;
 		}
-
 		public async Task<List<EntitySelectorItem>> GetItemsByIdsAsync(List<string> ids, string queryId, string encryptedParams, string displayTemplate, string colMapStr)
 		{
 			if (ids == null || ids.Count == 0)
@@ -276,32 +325,22 @@ ORDER BY Id ASC";
 			for (int i = 0; i < reader.FieldCount; i++)
 			{
 				string colName = reader.GetName(i);
-
-				if (i < colMap.Length && !string.IsNullOrEmpty(colMap[i]))
-				{
-					colName = colMap[i];
-				}
-				else if (string.IsNullOrEmpty(colName))
-				{
-					colName = "Col" + i;
-				}
-
-				if (colName.StartsWith("Id_") && i < colMap.Length && colMap[i] == "Id")
-				{
-					continue;
-				}
-
 				if (colName == "TotalCount")
 				{
 					totalCount = Convert.ToInt32(reader[i]);
 					continue;
 				}
 
+				// پیدا کردن نام ستون منطبق با colMap (بدون حساسیت به حروف)
+				var matchedCol = colMap.FirstOrDefault(c => string.Equals(c, colName, StringComparison.OrdinalIgnoreCase));
+				if (!string.IsNullOrEmpty(matchedCol))
+					colName = matchedCol;
+
+ 
 				row[colName] = reader.IsDBNull(i) ? null : reader[i];
 			}
 			return row;
 		}
-
 		private void AddParameter(IDbCommand cmd, string name, object value, bool autoType = false)
 		{
 			var p = cmd.CreateParameter();
@@ -332,33 +371,35 @@ ORDER BY Id ASC";
 		private string FormatDisplay(Dictionary<string, object> row, string template)
 		{
 			string display = template;
-
 			var nestedPattern = new Regex(@"\{([^}]+)\}");
 			display = nestedPattern.Replace(display, match =>
 			{
-				var propPath = match.Groups[1].Value;
-				if (propPath.Contains('.'))
-				{
-					var flattenedKey = propPath.Replace(".", "_");
-					if (row.ContainsKey(flattenedKey))
-					{
-						return row[flattenedKey]?.ToString() ?? "";
-					}
-				}
-				if (row.ContainsKey(propPath))
-				{
-					return row[propPath]?.ToString() ?? "";
-				}
-				return "";
-			});
+				var propPath = match.Groups[1].Value; // مثلاً "hasReplySheet" یا "row.title"
 
+			 
+				string[] parts = propPath.Split('.');
+				string camelPath = string.Join(".", parts.Select(p => p));
+
+				object value = null;
+				if (camelPath.Contains('.'))
+				{
+					// پشتیبانی از nested properties (در صورت وجود)
+					var flattenedKey = camelPath.Replace(".", "_");
+					if (row.ContainsKey(flattenedKey))
+						value = row[flattenedKey];
+					else if (row.ContainsKey(camelPath))
+						value = row[camelPath];
+				}
+				else
+				{
+					if (row.ContainsKey(camelPath))
+						value = row[camelPath];
+				}
+
+				return value?.ToString() ?? "";
+			});
 			return string.IsNullOrWhiteSpace(display) ? "No Title" : display;
 		}
 	}
-	public class SearchColumnInfo
-	{
-		public string ColumnName { get; set; }   // نام ستون (مثل "ProductionOrderNumber")
-		public string TypeName { get; set; }     // نوع (مثل "Int32")
-		public bool IsString { get; set; }       // آیا string است؟
-	}
+	
 }

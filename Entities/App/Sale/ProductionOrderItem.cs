@@ -218,6 +218,9 @@ namespace Entities.App.Sale
 		public string? PreparationShamsiDate { get; set; } = null;
 
 
+		[DisplayName("حذف شده")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool IsDeleted { get; set; }
 
 
 		[DisplayName("تاریخ میلادی تحویل")]
@@ -308,6 +311,14 @@ namespace Entities.App.Sale
 		[DisplayName("نام های دریافت کنندگان")]
 		[DisplayInfo("CcReciversNames", true, SystemType.ListString)]
 		public string? CcReciversNames { get; set; }
+
+		[DisplayName("برای تولید میباشد")]
+		[DisplayInfo("IsForProductionMode", true, SystemType.Boolean)]
+		public bool IsForProductionMode { get; set; }
+
+		[DisplayName("شناسه درخواست توقف")]
+		[DisplayInfo("StopRequestId", true, SystemType.Long)]
+		public long? StopRequestId { get; set; }
 	}
 
 

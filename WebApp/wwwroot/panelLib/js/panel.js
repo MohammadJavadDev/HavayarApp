@@ -79,6 +79,7 @@ connection.on("ReceiveNotification", message => {
 
 
 function notificationTmpl(z) {
+      
 
 	var notiTmpl = `
 					<div class="d-flex flex-stack py-4 px-3 notification-item"
@@ -123,9 +124,7 @@ function notificationTmpl(z) {
 							class="fs-6 text-gray-800 text-hover-primary fw-bold d-block">
 							${z.title}
 						  </a>
-						  <span class="text-muted fs-8">
-							 ${z.body}
-						  </span>
+						 
 					   </div>
 
 				    </div>
@@ -189,7 +188,6 @@ window.ClosePage = async function (path) {
 /**
 * Query Designer - Main Application
 * سیستم طراحی Query با قابلیت Drag & Drop
-* VERSION: Random Colors for Connections
 */
 
 class QueryDesigner {
@@ -209,8 +207,27 @@ class QueryDesigner {
           this.selectedConnection = null;
           this.firstClickedEndpoint = null;
           this.mode = null;
+          this.entityFullName = null;
           this._writeModePreviewed = false;
           this._writeModeColumns = [];
+          this.storedProcedures = [];
+          this.systemEnums = [];
+          this.actionOptions = [];
+          this.customActionButtons = [];
+          this.eventScripts = {
+                       onSelectedRow: '',
+                       onRowAdded: '',
+                   };
+          this.actionOptionsDefualt = [
+               { dataActionName: "new", enable: true, title:"جدید" },
+               { dataActionName: "edit", enable: true, title:"ویرایش" },
+               { dataActionName: "delete", enable: true, title:"حذف" },
+               { dataActionName: "exportExcell", enable: true, title:"خروجی اکسل" },
+
+          ];
+          this.sqlEditor = null;
+          this.onSelectedRowEditor = null;
+          this.onRowAddedEditor = null;
 
           this.init();
      }
@@ -223,26 +240,231 @@ class QueryDesigner {
           this.initJsPlumb();
           this.bindEvents();
           await this.loadTablesAndViews();
+          await this.loadStoredProcedures();
           this.updateFiltersList();
           this.loadBuiltInParameters();
           this.updateParametersList();
-          if (this.editMode && this.reportId) this.loadReport(this.reportId);
+          await this.loadSystemEnums();
+          this.entityFullName = $("#entityFullName").val()
+          if (this.editMode && this.reportId) this.loadReport(this.reportId)
+          else {
+           this.loadActionOptions();
+           this.initSqlEditor();
+          }
+
+          this.initonSelectedRowEditor();
+          this.initonOnRowAddedEditor();
+
+          this.loadCustomActionButtons();
+          this.loadEventScripts();
+
+
+          this.initDraggableForColumns();
+          this.initDraggableForWritedColumns();
+
+        
+     }
+
+     initonSelectedRowEditor(script = "") {
+          this.onSelectedRowEditor = ace.edit('scriptOnSelectedRow');
+          this.onSelectedRowEditor.setTheme('ace/theme/chrome');
+          this.onSelectedRowEditor.session.setMode('ace/mode/javascript');
+
+      
+          this.onSelectedRowEditor.getSession().on('change', (e) => {
+               const value = this.onSelectedRowEditor.getValue()
+               this.eventScripts['onSelectedRow'] = value;
+               this._refreshEventBadge("onSelectedRow");
+          });
+
+          this.onSelectedRowEditor.setValue(script);
+     }
+
+     initonOnRowAddedEditor(script = "") {
+          this.onRowAddedEditor = ace.edit('scriptOnRowAdded');
+          this.onRowAddedEditor.setTheme('ace/theme/chrome');
+          this.onRowAddedEditor.session.setMode('ace/mode/javascript');
+
+          // تغییر textarea → ذخیره در state + بروزرسانی badge
+          this.onRowAddedEditor.getSession().on('change', (e) => {
+               const value = this.onRowAddedEditor.getValue()
+               this.eventScripts['onRowAdded'] = value;
+               this._refreshEventBadge("onRowAdded");
+          });
+         
+
+          this.onRowAddedEditor.setValue(script);
+     }
+
+     initSqlEditor(query = "") {
+          this.sqlEditor = ace.edit('queryEditorWrite');
+          this.sqlEditor.setTheme('ace/theme/chrome');
+          this.sqlEditor.session.setMode('ace/mode/sqlserver');
+          this.sqlEditor.setValue(query);
+     }
+
+     initDraggableForColumns() {
+          const container = document.getElementById('columnsTableBody');
+          if (!container || container._draggableInitialized) return;
+
+          const sortable = new Draggable.Sortable(container, {
+               draggable: 'tr',
+               handle: '[data-handler="true"]',
+               mirror: {
+                    constrainDimensions: true,
+                    // ایجاد placeholder در حین جابجایی
+                    appendTo: 'body',
+                    element: (sourceElement) => {
+                         
+                         const clone = sourceElement.cloneNode(true);
+                         clone.style.width = `${sourceElement.offsetWidth}px`;
+                         clone.style.backgroundColor = 'red';
+                         clone.style.opacity = '0.8';
+                         return clone;
+                    }
+               },
+               classes: {
+                    'source:dragging': 'dragging-source',
+                    'mirror': 'dragging-mirror'
+               }
+          });
+
+          sortable.on('mirror:attached', (event) => {
+               event.mirror.innerHTML = `<div style="font-size:24px;text-align:center">${$(event.mirror.innerHTML).find('[data-field="displayName"]').val()}</div>`
+                
+          })
+
+          // رویداد پایان جابجایی
+          sortable.on('sortable:stop', (event) => {
+          
+               const oldIndex = event.oldIndex;
+               const newIndex = event.newIndex;
+               if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) {
+                    const [movedItem] = this.columns.splice(oldIndex, 1);
+                    this.columns.splice(newIndex, 0, movedItem);
+                    this.updateColumnsTable();
+                    this.refreshQuery();
+               }
+          });
+
+          container._draggableInitialized = true;
+     }
+
+     initDraggableForWritedColumns() {
+          const container = document.getElementById('writeModeColumnsTableBody');
+          if (!container || container._draggableInitialized) return;
+
+          const sortable = new Draggable.Sortable(container, {
+               draggable: 'tr',
+               handle: '[data-handler="true"]',
+               mirror: {
+                    constrainDimensions: true,
+                    // ایجاد placeholder در حین جابجایی
+                    appendTo: 'body',
+                    element: (sourceElement) => {
+                    
+                         const clone = sourceElement.cloneNode(true);
+                         clone.style.width = `${sourceElement.offsetWidth}px`;
+                         clone.style.backgroundColor = 'red';
+                         clone.style.opacity = '0.8';
+                         return clone;
+                    }
+               },
+               classes: {
+                    'source:dragging': 'dragging-source',
+                    'mirror': 'dragging-mirror'
+               }
+          });
+
+          sortable.on('mirror:attached', (event) => {
+               event.mirror.innerHTML = `<div style="font-size:24px;text-align:center">${$(event.mirror.innerHTML).find('[data-field="displayName"]').val()}</div>`
+ 
+
+          })
+
+          
+          // رویداد پایان جابجایی
+          sortable.on('sortable:stop', (event) => {
+           
+       
+               const oldIndex = event.oldIndex;
+               const newIndex = event.newIndex;
+               if (oldIndex !== undefined && newIndex !== undefined && oldIndex !== newIndex) {
+                    const [movedItem] = this._writeModeColumns.splice(oldIndex, 1);
+                    this._writeModeColumns.splice(newIndex, 0, movedItem);
+                    this.updateWriteModeColumnsTable();
+                 
+               }
+ 
+          
+          });
+
+          container._draggableInitialized = true;
+     }
+
+
+     loadActionOptions() {
+          if (this.actionOptions.length == 0) {
+               this.actionOptions = this.actionOptionsDefualt;
+          }
+         
+
+          this.actionOptions.forEach(c => {
+               var checked = c.enable == true ? "checked":"" 
+
+               let $tplOption = $(`<div class='col-md-3 align-content-center' >
+			                    <div class="form-check">
+				                    <input  class="form-check-input" type="checkbox" asp-for='${c.dataActionName}' ${checked} title="${c.title}" />
+				                         <label class="form-check-label" asp-for='${c.dataActionName}'>
+					                    ${c.title}
+				                    </label>
+			                    </div>
+		                    </div>
+                              `)
+
+               let actionOptions = this.actionOptions;
+
+               $tplOption.find("input").change(function () {
+                     
+                    var actionName = $(this).attr("asp-for");
+                    if (!actionName) return;
+
+                    if (actionOptions.any(c => c.dataActionName == actionName)) {
+                         actionOptions.filter(c => c.dataActionName == actionName)[0].enable = this.checked
+                    }
+                    else {
+                         actionOptions.push(
+                              {
+                                   dataActionName: actionName,
+                                   enable: this.checked ,
+                                   title: $(this).attr("title")
+                              }
+                         )
+                    }
+
+
+               })
+               $("#actionOptionsSection").append($tplOption);
+
+          })
+
+        
      }
 
      initMode() {
           const urlMode = new URLSearchParams(window.location.search).get('mode');
           const storedMode = sessionStorage.getItem('queryDesignerMode');
-          this.mode = null
+          
              //  urlMode || storedMode || (window.__reportMode || null);
 
-          if (this.mode) {
+          if (this.mode != null || this.mode != undefined) {
                $('#modeSelection').addClass('d-none');
-               if (this.mode === 'design') {
+               if (this.mode === 0) {
                     $('#designModeContent').removeClass('d-none');
                     $('#writeModeContent').addClass('d-none');
                     // TODO: if (user.IsAdmin) { $('#queryEditor').prop('readonly', false); }
                     $('#queryEditor').prop('readonly', true);
-               } else if (this.mode === 'write') {
+               } else if (this.mode === 1) {
                     $('#designModeContent').addClass('d-none');
                     $('#writeModeContent').removeClass('d-none');
                }
@@ -254,18 +476,195 @@ class QueryDesigner {
      }
 
      applyMode(mode) {
+          if (mode === undefined)
+               return;
+               
           this.mode = mode;
           sessionStorage.setItem('queryDesignerMode', mode);
           $('#modeSelection').addClass('d-none');
-          if (mode === 'design') {
+          if (mode === 'design' || mode === 0) {
                $('#designModeContent').removeClass('d-none');
                $('#writeModeContent').addClass('d-none');
                // TODO: if (user.IsAdmin) { $('#queryEditor').prop('readonly', false); }
                $('#queryEditor').prop('readonly', true);
-          } else if (mode === 'write') {
+          } else if (mode === 'write' || mode === 1) {
                $('#designModeContent').addClass('d-none');
                $('#writeModeContent').removeClass('d-none');
           }
+     }
+
+     loadEventScripts() {
+          if (!this.eventScripts) {
+               this.eventScripts = { onSelectedRow: '', onRowAdded: '' };
+          }
+
+ 
+          this.onSelectedRowEditor.setValue(this.eventScripts.onSelectedRow || '');
+          $('#scriptOnRowAdded').val(this.eventScripts.onRowAdded || '');
+
+          this._refreshEventBadge('onSelectedRow');
+          this._refreshEventBadge('onRowAdded');
+     }
+
+     /**
+ * اتصال رویدادهای UI – دکمه‌های قالب / پاک کردن و تغییر textarea
+ * @private
+ */
+     _bindEventScriptEditors() {
+        
+
+          // دکمه درج قالب
+          $(document).on('click', '[data-action="insertTemplate"][data-event]', (e) => {
+               const eventName = $(e.currentTarget).data('event');
+               this._insertEventTemplate(eventName);
+          });
+
+          // دکمه پاک کردن
+          $(document).on('click', '[data-action="clearScript"][data-event]', (e) => {
+               const eventName = $(e.currentTarget).data('event');
+               this._clearEventScript(eventName);
+          });
+     }
+
+     /**
+      * اعتبارسنجی هر دو اسکریپت رویداد قبل از ذخیره
+      * @returns {{ valid: boolean, error: string }}
+      */
+     validateEventScripts() {
+          const checks = [
+               { key: 'onSelectedRow', label: 'onSelectedRow' },
+               { key: 'onRowAdded', label: 'onRowAdded' },
+          ];
+
+          for (const { key, label } of checks) {
+               const script = (this.eventScripts[key] || '').trim();
+               if (!script) continue; // اسکریپت خالی مجاز است
+
+               try {
+                    // eslint-disable-next-line no-new-func
+                    new Function('ctx', `return (${script})(ctx)`);
+               } catch (e) {
+                    return {
+                         valid: false,
+                         error: `خطای syntax در رویداد ${label}: ${e.message}`,
+                    };
+               }
+          }
+
+          return { valid: true, error: '' };
+     }
+
+     /**
+      * بروزرسانی badge نشان‌دهنده وجود اسکریپت
+      * @param {string} eventName
+      * @private
+      */
+     _refreshEventBadge(eventName) {
+          const hasScript = !!(this.eventScripts[eventName] || '').trim();
+          $(`#badge-${eventName}`).toggleClass('d-none', !hasScript);
+     }
+
+     /**
+      * درج قالب پیش‌فرض برای هر رویداد
+      * @param {string} eventName
+      * @private
+      */
+     _insertEventTemplate(eventName) {
+           
+          const $textarea = ace.edit($(`#script${_capitalize(eventName)}`)[0]);
+          const current = $textarea.getValue();
+
+          if (current && !confirm('محتوای فعلی جایگزین می‌شود. ادامه می‌دهید؟')) return;
+
+          $textarea.setValue(this._getEventTemplate(eventName)) 
+     }
+
+     /**
+      * پاک کردن اسکریپت یک رویداد
+      * @param {string} eventName
+      * @private
+      */
+     _clearEventScript(eventName) {
+           
+          if (!(this.eventScripts[eventName] || '').trim()) return;
+
+          if (!confirm('اسکریپت این رویداد پاک می‌شود. ادامه می‌دهید؟')) return;
+
+          const $textarea = ace.edit($(`#script${_capitalize(eventName)}`)[0]);
+          $textarea.setValue("");               ;
+      
+     }
+
+     /**
+      * قالب‌های پیش‌فرض هر رویداد
+      * @param {string} eventName
+      * @returns {string}
+      * @private
+      */
+     _getEventTemplate(eventName) {
+          const templates = {
+
+               onSelectedRow: `function(ctx) {
+    // ctx.selectedRow  → آبجکت داده ردیف انتخاب‌شده (null هنگام deselect)
+    // ctx.$row         → jQuery المان <tr>
+    // ctx.table        → DataTable API
+    // ctx.$toolbar     → jQuery نوار ابزار
+    // ctx.isDeselect   → true اگر ردیف deselect شد
+    // ctx.draw()       → بارگذاری مجدد جدول
+
+    if (ctx.isDeselect) {
+        // ردیف deselect شد
+        return;
+    }
+
+    var row = ctx.selectedRow;
+    console.log('ردیف انتخاب شد:', row);
+
+    // مثال: رنگ‌دهی ردیف
+    // ctx.$row.addClass('table-warning');
+}`,
+
+               onRowAdded: `function(ctx) {
+    // ctx.rowData   → آبجکت داده ردیف
+    // ctx.$row      → jQuery المان <tr>
+    // ctx.rowIndex  → ایندکس ردیف در صفحه جاری
+    // ctx.table     → DataTable API
+    // ctx.draw()    → بارگذاری مجدد جدول
+    //
+    // ⚠ این تابع برای هر ردیف در هر draw اجرا می‌شود.
+    //   از عملیات سنگین یا درخواست‌های شبکه‌ای خودداری کنید.
+
+    var data = ctx.rowData;
+    var $row = ctx.$row;
+
+    // مثال: رنگ‌دهی شرطی
+    // if (data.status === 'inactive') {
+    //     $row.addClass('table-danger');
+    // }
+
+    // مثال: فرمت‌دهی یک سلول
+    // var cellIdx = 2;
+    // $row.find('td').eq(cellIdx).css('font-weight', 'bold');
+}`,
+          };
+
+          return templates[eventName] || `function(ctx) {\n    // کد رویداد ${eventName}\n}`;
+     }
+
+    
+
+     async loadSystemEnums() {
+            
+          try {
+               const response = await $.get("/System/ListSystemEnums");
+               if (response.isSuccess) {
+                    this.systemEnums = response.data || [];
+               }
+          } catch (error) {
+               error2("خطا در بارگذاری enum های سیستم");
+               console.error(error);
+          }
+ 
      }
 
      initJsPlumb() {
@@ -335,8 +734,9 @@ class QueryDesigner {
 
      bindEvents() {
           $('.mode-card').on('click', (e) => {
+
                const mode = $(e.currentTarget).data('mode');
-               if (mode) this.applyMode(mode);
+               this.applyMode(mode); 
           });
           $('#btnChangeMode').on('click', () => {
                sessionStorage.removeItem('queryDesignerMode');
@@ -346,10 +746,11 @@ class QueryDesigner {
           $('#btnPreviewQueryWrite').on('click', () => this.previewQueryWrite());
           $('#btnSaveReportWrite').on('click', () => this.saveReportWrite());
           $('#queryEditorWrite').on('input', () => {
-               if (this.mode === 'write') this._writeModePreviewed = false;
+               if (this.mode === 1) this._writeModePreviewed = false;
           });
 
           $('#tableSearch').on('input', (e) => this.filterTables(e.target.value));
+          $('#spSearch').on('input', (e) => this.filterStoredProcedures(e.target.value));
           $('#btnClearDiagram').on('click', () => this.clearDiagram());
           $('#btnZoomIn').on('click', () => this.setZoom(this.zoom + 0.1));
           $('#btnZoomOut').on('click', () => this.setZoom(this.zoom - 0.1));
@@ -371,6 +772,20 @@ class QueryDesigner {
           $('#btnSaveParameter').on('click', () => this.saveParameter());
           $('#reportName').on('blur', () => this.checkNameUnique());
 
+          $('#btnAddCustomButton').on('click', () => this.showCustomButtonModal());
+          $('#btnSaveCustomButton').on('click', () => this.saveCustomButton());
+          $('#customBtnUseHtml').on('change', () => this._toggleCustomButtonMode());
+          $('#btnInsertScriptTemplate').on('click', () => this._insertScriptTemplate());
+          $('#customBtnColorClass, #customBtnIconClass').on('change input', () => this._updateButtonPreview());
+
+
+           $('#btnAddColumnManual').on('click', () => this.showManualColumnModal());
+ 
+           $('#btnSaveManualColumn').on('click', () => this.saveManualColumn());
+           $('#manualColTable').on('change', () => this._onManualColTableChange());
+           $('#btnInsertColRenderTemplate').on('click', () => this._insertColRenderTemplate());
+           $(document).on('click', '.col-type-card', (e) => this._selectColType($(e.currentTarget)));
+
           $(document).on('keydown', (e) => {
                if (e.key === 'Delete' && this.selectedConnection) {
                     this.jsPlumbInstance.deleteConnection(this.selectedConnection);
@@ -390,7 +805,319 @@ class QueryDesigner {
                     this.setZoom(this.zoom + delta);
                }
           }, { passive: false });
+
+          this._bindEventScriptEditors();
      }
+
+     /**
+      * نمایش Modal افزودن / ویرایش ستون دستی
+      * @param {Object|null} col  – اگر null باشد حالت افزودن، وگرنه ویرایش
+      */
+     showManualColumnModal(col = null) {
+          // ── reset فرم ─────────────────────────────────────────────────────────
+          $('#manualColEditId').val(col?.id ?? '');
+          $('#manualColumnModalTitle').text(col ? 'ویرایش ستون' : 'افزودن ستون');
+
+          const colType = col?.customColType ?? 'data';
+          this._selectColType($(`.col-type-card[data-col-type="${colType}"]`));
+
+          $('#manualColDisplayName').val(col?.displayName ?? '');
+          $('#manualColVisible').prop('checked', col?.visible !== false);
+          $('#manualColSystemType').val(col?.systemType ?? 'String');
+          $('#manualColRender').val(col?.render ?? '');
+
+          // ── data section ──────────────────────────────────────────────────────
+          this._populateManualColTables();
+          if (col?.tableRef) {
+               $('#manualColTable').val(col.tableRef);
+               this._onManualColTableChange();
+               setTimeout(() => $('#manualColColumn').val(col.columnName ?? ''), 50);
+          } else {
+               $('#manualColTable').val('');
+               $('#manualColColumn').prop('disabled', true).html('<option value="">-- ابتدا جدول را انتخاب کنید --</option>');
+          }
+
+          // ── button section ────────────────────────────────────────────────────
+          $('#btnColColorClass').val(col?.btnConfig?.colorClass ?? 'btn btn-sm btn-primary');
+          $('#btnColIcon').val(col?.btnConfig?.icon ?? '');
+          $('#btnColText').val(col?.btnConfig?.text ?? col?.displayName ?? '');
+
+          // ── input section ─────────────────────────────────────────────────────
+          $('#inputColType').val(col?.inputConfig?.type ?? 'text');
+          $('#inputColClass').val(col?.inputConfig?.cssClass ?? 'form-control form-control-sm');
+          $('#inputColDataAttr').val(col?.inputConfig?.dataAttr ?? '');
+
+          // ── html section ──────────────────────────────────────────────────────
+          $('#manualColHtml').val(col?.htmlTemplate ?? '');
+
+          new bootstrap.Modal(document.getElementById('manualColumnModal')).show();
+     }
+
+     /**
+      * پر کردن select جداول در Modal
+      * @private
+      */
+     _populateManualColTables() {
+          const $sel = $('#manualColTable');
+          $sel.html('<option value="">-- بدون لینک (ستون مجازی) --</option>');
+          this.selectedTables.forEach(t => {
+               $sel.append(
+                    `<option value="${t.boxId}">${t.displayName || t.name} (${t.schema}.${t.name})</option>`
+               );
+          });
+     }
+
+     /**
+      * تغییر جدول انتخاب‌شده → بارگذاری ستون‌هایش در select
+      * @private
+      */
+     _onManualColTableChange() {
+          const boxId = $('#manualColTable').val();
+          const $colSel = $('#manualColColumn');
+
+          if (!boxId) {
+               $colSel.prop('disabled', true).html('<option value="">--</option>');
+               return;
+          }
+
+          const table = this.selectedTables.find(t => t.boxId === boxId);
+          if (!table) return;
+
+          $colSel.prop('disabled', false).html('<option value="">-- ستون --</option>');
+          (table.columns || []).forEach(col => {
+               $colSel.append(
+                    `<option value="${col.columnName}"
+                     data-type="${col.mappedSystemType ?? ''}"
+                     data-dbtype="${col.dataType ?? ''}">
+                ${col.displayName || col.columnName} (${col.columnName})
+            </option>`
+               );
+          });
+
+          // وقتی ستون تغییر کرد نوع سیستمی را auto-fill کن
+          $colSel.off('change.autoType').on('change.autoType', () => {
+               const $opt = $colSel.find(':selected');
+               if (!$opt.val()) return;
+               const mapped = this.mapDbTypeToSystemType(
+                    $opt.data('type'),
+                    $opt.data('dbtype')
+               );
+               $('#manualColSystemType').val(mapped);
+          });
+     }
+
+     /**
+      * انتخاب نوع ستون در Modal
+      * @param {jQuery} $card
+      * @private
+      */
+     _selectColType($card) {
+          if (!$card.length) return;
+          $('.col-type-card').removeClass('active');
+          $card.addClass('active');
+
+          const type = $card.data('col-type');
+          $('#manualColType').val(type);
+
+          // نمایش section مربوطه
+          $('.col-section').addClass('d-none');
+          $(`#section${type.charAt(0).toUpperCase() + type.slice(1)}`).removeClass('d-none');
+
+          // برای انواع غیر از data نوع سیستمی را مخفی کنیم
+          const showSysType = type === 'data';
+          $('#manualColSystemType').closest('.col-md-4').toggleClass('d-none', !showSysType);
+     }
+
+     /**
+      * درج قالب پیش‌فرض تابع render
+      * @private
+      */
+     _insertColRenderTemplate() {
+          const colType = $('#manualColType').val();
+          const templates = {
+               data: `function(data, type, row, meta) {\n    return data ?? '';\n}`,
+               button: `function(data, type, row, meta) {\n    var id = row.id ?? row.Id ?? '';\n    return '<a href=\"/edit/' + id + '\" class=\"btn btn-sm btn-primary\"><i class=\"fa fa-edit\"></i></a>';\n}`,
+               input: `function(data, type, row, meta) {\n    return '<input type=\"text\" class=\"form-control form-control-sm col-input\" data-id=\"' + row.id + '\" value=\"' + (data ?? '') + '\">';\n}`,
+               html: `function(data, type, row, meta) {\n    return '<span class=\"badge bg-primary\">' + (data ?? '') + '</span>';\n}`,
+          };
+          const cur = $('#manualColRender').val().trim();
+          if (!cur || confirm('محتوای فعلی جایگزین می‌شود. ادامه می‌دهید؟')) {
+               $('#manualColRender').val(templates[colType] ?? templates.data);
+          }
+     }
+
+     /**
+      * ذخیره ستون دستی (افزودن یا ویرایش)
+      */
+     saveManualColumn() {
+          const editId = $('#manualColEditId').val();
+          const colType = $('#manualColType').val();
+          const displayName = $('#manualColDisplayName').val().trim();
+          const visible = $('#manualColVisible').is(':checked');
+          const render = $('#manualColRender').val().trim() || null;
+
+          // ── اعتبارسنجی ────────────────────────────────────────────────────────
+          if (!displayName) { this.showError('عنوان نمایشی الزامی است'); return; }
+
+          if (render) {
+               try { new Function('data,type,row,meta', `return (${render})(data,type,row,meta)`); }
+               catch (e) { this.showError(`خطای syntax در render: ${e.message}`); return; }
+          }
+
+          // ── ساخت مدل ستون ─────────────────────────────────────────────────────
+          const tableBoxId = $('#manualColTable').val() || null;
+          const columnName = $('#manualColColumn').val() || null;
+          const tableInfo = tableBoxId ? this.selectedTables.find(t => t.boxId === tableBoxId) : null;
+          const tableName = tableInfo ? `${tableInfo.schema}.${tableInfo.name}` : '';
+
+          // alias و alliance
+          const alias = tableBoxId ? this.resolveAlias(tableBoxId) : null;
+          const uniqueSuffix = editId || this.generateId();      // برای چند نمونه از یک ستون
+          const alliance = alias && columnName
+               ? `${alias}_${columnName}_${uniqueSuffix}`        // چند نمونه از یک ستون → کلید یکتا
+               : `custom_${uniqueSuffix}`;
+          const address = alias && columnName
+               ? `[${alias}].[${columnName}]`
+               : null;
+
+          const col = {
+               // شناسه یکتا برای مدیریت داخلی
+               id: uniqueSuffix,
+               // فلگ ستون دستی
+               isCustom: true,
+               // نوع ستون دستی
+               customColType: colType,
+               // فیلدهای استاندارد
+               tableRef: tableBoxId,
+               tableName: tableName,
+               columnName: columnName,
+               address: address,
+               alliance: alliance,
+               name: columnName,
+               displayName: displayName,
+               systemType: colType === 'data' ? ($('#manualColSystemType').val() || 'String') : 'String',
+               visible: visible,
+               primaryKey: false,
+               sortDirection: null,
+               sortOrder: null,
+               groupBy: false,
+               aggregate: null,
+               render: render,
+               optionSetting: null,
+               // تنظیمات خاص هر نوع
+               btnConfig: colType === 'button' ? {
+                    colorClass: $('#btnColColorClass').val(),
+                    icon: $('#btnColIcon').val().trim(),
+                    text: $('#btnColText').val().trim(),
+               } : null,
+               inputConfig: colType === 'input' ? {
+                    type: $('#inputColType').val(),
+                    cssClass: $('#inputColClass').val().trim(),
+                    dataAttr: $('#inputColDataAttr').val().trim(),
+               } : null,
+               htmlTemplate: colType === 'html' ? $('#manualColHtml').val().trim() : null,
+          };
+
+          // render پیش‌فرض برای button/input/html اگر render خالی باشد
+          if (!col.render) {
+               col.render = this._buildDefaultRender(col);
+          }
+
+          // ── افزودن یا ویرایش ──────────────────────────────────────────────────
+          const existingIdx = editId
+               ? this.columns.findIndex(c => c.id === editId)
+               : -1;
+
+          if (existingIdx >= 0) {
+               // در ویرایش alliance و id را حفظ کن
+               col.id = this.columns[existingIdx].id;
+               col.alliance = this.columns[existingIdx].alliance;
+               this.columns[existingIdx] = col;
+               this.showSuccess('ستون بروزرسانی شد');
+          } else {
+               this.columns.push(col);
+               this.showSuccess('ستون اضافه شد');
+          }
+
+          bootstrap.Modal.getInstance(document.getElementById('manualColumnModal'))?.hide();
+          this.updateColumnsTable();
+          this.refreshQuery();
+     }
+
+     /**
+      * ساخت تابع render پیش‌فرض بر اساس نوع ستون دستی
+      * @param {Object} col
+      * @returns {string}
+      * @private
+      */
+     _buildDefaultRender(col) {
+          switch (col.customColType) {
+               case 'button': {
+                    const cfg = col.btnConfig || {};
+                    const cls = cfg.colorClass || 'btn btn-sm btn-primary';
+                    const icon = cfg.icon ? `<i class="${cfg.icon}"></i> ` : '';
+                    const text = cfg.text || col.displayName || 'اکشن';
+                    return `function(data, type, row, meta) {
+    return '<button class="${cls} dt-custom-btn" data-id="' + (row.id ?? row.Id ?? '') + '" data-col="${col.alliance}">${icon}${text}</button>';
+}`;
+               }
+               case 'input': {
+                    const cfg = col.inputConfig || {};
+                    const tp = cfg.type || 'text';
+                    const cls = cfg.cssClass || 'form-control form-control-sm';
+                    const da = cfg.dataAttr ? ` ${cfg.dataAttr}` : '';
+                    return `function(data, type, row, meta) {
+    return '<input type="${tp}" class="${cls} dt-custom-input" value="' + (data ?? '') + '" data-id="' + (row.id ?? row.Id ?? '') + '"${da}>';
+}`;
+               }
+               case 'html': {
+                    const tpl = (col.htmlTemplate || '{value}')
+                         .replace(/`/g, '\\`');
+                    return `function(data, type, row, meta) {
+    var value = data ?? '';
+    return \`${tpl}\`.replace(/{value}/g, value).replace(/{row\\.([^}]+)}/g, function(m, f){ return row[f] ?? row[f.charAt(0).toUpperCase()+f.slice(1)] ?? ''; });
+}`;
+               }
+               default:
+                    return `function(data, type, row, meta) { return data ?? ''; }`;
+          }
+     }
+
+     /**
+      * حذف ستون از جدول ستون‌ها
+      * اگر به یک ستون دیاگرام لینک بود، تیکش را برمی‌دارد
+      * @param {number} idx – ایندکس در this.columns
+      */
+     removeColumn(idx) {
+          const col = this.columns[idx];
+          if (!col) return;
+
+          // ── اگر به ستون دیاگرام لینک شده → تیک را بردار ──────────────────────
+          if (col.tableRef && col.columnName && !col.isCustom) {
+               // پیدا کردن جدول مربوطه
+               const table = this.selectedTables.find(t => t.boxId === col.tableRef);
+               if (table) {
+                    const tblCol = table.columns.find(c => c.columnName === col.columnName);
+                    if (tblCol) {
+                         // بررسی: آیا ستون دیگری با همین tableRef+columnName هنوز وجود دارد؟
+                         const otherExists = this.columns.some(
+                              (c, i) => i !== idx && c.tableRef === col.tableRef && c.columnName === col.columnName
+                         );
+                         if (!otherExists) {
+                              tblCol.isSelected = false;
+                              $(`#${col.tableRef} [data-column-name="${col.columnName}"] .column-checkbox`)
+                                   .prop('checked', false);
+                         }
+                    }
+               }
+          }
+
+          this.columns.splice(idx, 1);
+          this.updateColumnsTable();
+          this.refreshQuery();
+          this.showInfo('ستون حذف شد');
+     }
+
 
      async loadTablesAndViews() {
           try {
@@ -407,10 +1134,73 @@ class QueryDesigner {
           }
      }
 
+     async loadStoredProcedures() {
+          try {
+               const response = await $.get('GetStoredProcedures');
+               if (response.isSuccess) {
+                    this.storedProcedures = response.data || [];
+                    this.renderStoredProceduresList();
+               }
+          } catch (error) {
+               $('#storedProceduresList').html('<div class="text-danger small">خطا در بارگذاری</div>');
+               console.error(error);
+          }
+     }
+
+     renderStoredProceduresList() {
+          const $list = $('#storedProceduresList');
+          $list.empty();
+          if (!this.storedProcedures?.length) {
+               $list.html('<div class="text-muted text-center py-2">SP یافت نشد</div>');
+               return;
+          }
+          this.storedProcedures.forEach(sp => {
+               const fullName = `${sp.schema}.${sp.name}`;
+               const $item = $(`
+                    <div class="sp-list-item py-1 px-2 rounded cursor-pointer" data-schema="${sp.schema}" data-name="${sp.name}" title="کلیک برای درج">
+                         <i class="bi bi-gear text-secondary"></i> ${fullName}
+                    </div>
+               `);
+               $item.on('click', () => this.insertStoredProcedureToEditor(sp.schema, sp.name));
+               $list.append($item);
+          });
+     }
+
+     filterStoredProcedures(term) {
+          const t = (term || '').toLowerCase();
+          $('#storedProceduresList .sp-list-item').each(function () {
+               const full = $(this).text().toLowerCase();
+               $(this).toggle(!t || full.includes(t));
+          });
+     }
+
+     async insertStoredProcedureToEditor(schema, procedureName) {
+          try {
+               const response = await $.get('GetStoredProcedureParameters', { schema, procedureName });
+               if (!response.isSuccess) {
+                    this.showError('خطا در دریافت پارامترها');
+                    return;
+               }
+               const params = response.data || [];
+               const inputParams = params.filter(p => !p.isOutput);
+               const paramNames = inputParams.map(p => p.name.startsWith('@') ? p.name : `@${p.name}`);
+               const execQuery = `EXEC [${schema}].[${procedureName}] ${paramNames.join(', ')}`;
+
+               this.sqlEditor.setValue(execQuery);
+          
+               this._writeModePreviewed = false;
+               this.showInfo('درج شد');
+          } catch (error) {
+               this.showError('خطا در درج');
+               console.error(error);
+          }
+     }
+
      renderTablesList() {
           const $list = $('#tablesList');
           $list.empty();
 
+         this.entityFullName = $("#entityFullName").val()
           this.tables.forEach(table => {
                const icon = table.type === 'Table' ? 'bi-table' : 'bi-eye';
                const badge = table.type === 'Table' ? 'primary' : 'info';
@@ -446,6 +1236,10 @@ class QueryDesigner {
                $item.on('dblclick', () => {
                     this.addTableToDiagram(table.name, table.schema, table.displayName, table.entityFullName, table.hasEntity);
                });
+                
+               if (this.entityFullName && !window.__reportId && table.entityFullName && table.entityFullName.toLowerCase() === this.entityFullName.toLowerCase()) {
+                    $item.trigger("dblclick");
+               }
 
                $list.append($item);
           });
@@ -489,8 +1283,11 @@ class QueryDesigner {
           return tableInfo.instanceId ? `table-${safeName}-${tableInfo.instanceId}` : `table-${safeName}`;
      }
 
-     async addTableToDiagram(tableName, schema = 'dbo', displayName, entityFullName, hasEntity, x = null, y = null, skipAutoRelations = false, existingInstanceId = null) {
+     async addTableToDiagram(tableName, schema = 'dbo', displayName, entityFullName, hasEntity, x = null, y = null, skipAutoRelations = true, existingInstanceId = null) {
           try {
+               if (!entityFullName || entityFullName.length == 0) {
+               entityFullName =  this.tables.firstOrDefault(c => c.schema == schema && c.name == tableName)?.entityFullName
+          }
                const response = await $.get('GetTableColumns', {
                     tableName: tableName,
                     schema: schema,
@@ -615,10 +1412,20 @@ class QueryDesigner {
                this.showFilterModal(tableInfo, column);
           });
 
+           
+          if (this.entityFullName && !window.__reportId &&
+               tableInfo.entityFullName &&
+               tableInfo.entityFullName.toLowerCase() === this.entityFullName.toLowerCase() &&
+               column.columnName === "Id")
+          {
+            $checkbox.prop("checked",true).trigger("change");
+          }
+
           return $item;
      }
 
      addColumnEndpoints(boxId, tableInfo) {
+           
           const $box = $(`#${boxId}`);
 
           setTimeout(() => {
@@ -1246,29 +2053,81 @@ class QueryDesigner {
           const dt = (dataType || '').toLowerCase();
           return sqlMap[dt] || 'String';
      }
-
      updateSelectedColumns() {
-          this.columns = [];
+     
+          const oldColumns = this.columns;
 
-          this.selectedTables.forEach(table => {
-               const selectedCols = table.columns.filter(c => c.isSelected);
-               const fullTableName = `${table.schema}.${table.name}`;
-               selectedCols.forEach(col => {
-                    this.columns.push({
-                         tableRef: table.boxId,
-                         tableName: fullTableName,
-                         columnName: col.columnName,
-                         name: col.columnName,
-                         displayName: col.displayName || col.columnName,
-                         systemType: this.mapDbTypeToSystemType(col.mappedSystemType, col.dataType),
-                         sortDirection: null,
-                         sortOrder: null,
-                         groupBy: false,
-                         aggregate: null
-                    });
-               });
+          const customCols = oldColumns.filter(c => c.isCustom);
+     
+          const oldColMap = new Map();
+          oldColumns.filter(c => !c.isCustom).forEach(col => {
+               oldColMap.set(col.alliance, col);
           });
+          const newDataCols = [];
+   
+          // حفظ ستون‌های data موجود که هنوز انتخاب شده‌اند
+          for (const oldCol of oldColumns.filter(c => !c.isCustom)) {
+               let found = false;
+               for (const table of this.selectedTables) {
+                    const alias = this.resolveAlias(table.boxId ?? `${table.schema}.${table.name}`);
+                    const alliance = `${alias}_${oldCol.columnName}`;
+                    if (alliance === oldCol.alliance) {
+                         const colFromTable = table.columns.find(
+                              c => c.columnName === oldCol.columnName && c.isSelected
+                         );
+                         if (colFromTable) {
+                              newDataCols.push({
+                                   ...oldCol,
+                                   tableRef: table.boxId,
+                                   tableName: `${table.schema}.${table.name}`,
+                                   address: `[${alias}].[${oldCol.columnName}]`,
+                                   alliance: alliance,
+                                   name: oldCol.columnName,
+                                   displayName: oldCol.displayName ?? (colFromTable.displayName || colFromTable.columnName),
+                                   systemType: oldCol.systemType ?? this.mapDbTypeToSystemType(colFromTable.mappedSystemType, colFromTable.dataType),
+                                   render: oldCol.render ?? colFromTable.render,
+                              });
+                              found = true;
+                              break;
+                         }
+                    }
+               }
+          }
+ 
+          // اضافه کردن ستون‌های data جدید (تازه تیک خورده)
+          for (const table of this.selectedTables) {
+               const alias = this.resolveAlias(table.boxId ?? `${table.schema}.${table.name}`);
+               const fullTableName = `${table.schema}.${table.name}`;
+               for (const col of table.columns.filter(c => c.isSelected)) {
+                    const alliance = `${alias}_${col.columnName}`;
+                    if (!oldColMap.has(alliance)) {
+                         newDataCols.push({
+                              id: alliance,          // ستون‌های data از alliance به عنوان id
+                              isCustom: false,
+                              customColType: 'data',
+                              tableRef: table.boxId,
+                              tableName: fullTableName,
+                              columnName: col.columnName,
+                              address: `[${alias}].[${col.columnName}]`,
+                              alliance: alliance,
+                              name: col.columnName,
+                              displayName: col.displayName || col.columnName,
+                              systemType: this.mapDbTypeToSystemType(col.mappedSystemType, col.dataType),
+                              sortDirection: null,
+                              sortOrder: null,
+                              groupBy: false,
+                              aggregate: null,
+                              visible: true,
+                              primaryKey: false,
+                              optionSetting: null,
+                              render: col.render ?? null,
+                         });
+                    }
+               }
+          }
 
+          // ── ترکیب: data-linked + custom (ستون‌های دستی همیشه بعد از data می‌آیند)
+          this.columns = [...newDataCols, ...customCols];
           this.updateColumnsTable();
           this.refreshQuery();
      }
@@ -1277,30 +2136,21 @@ class QueryDesigner {
           const $tbody = $('#columnsTableBody');
           $tbody.empty();
 
-          if (this.columns.length === 0) {
+          if (!this.columns.length) {
                $tbody.append(`
-                <tr>
-                    <td colspan="7" class="text-center text-muted">
-                        ستونی انتخاب نشده است
-                    </td>
-                </tr>
-            `);
+            <tr>
+                <td colspan="10" class="text-center text-muted">ستونی انتخاب نشده است</td>
+            </tr>
+        `);
                return;
           }
 
+          const thisColumns = this.columns;
+
           const systemTypeOptions = [
-               { value: 'String', label: 'String' },
-               { value: 'Boolean', label: 'Boolean' },
-               { value: 'DateTime', label: 'DateTime' },
-               { value: 'Date', label: 'Date' },
-               { value: 'DateTimeShamsi', label: 'DateTimeShamsi' },
-               { value: 'DateShamsi', label: 'DateShamsi' },
-               { value: 'Long', label: 'Long' },
-               { value: 'Int', label: 'Int' },
-               { value: 'Select', label: 'Select' },
-               { value: 'File', label: 'File' },
-               { value: 'Decimal', label: 'Decimal' }
-          ];
+               'String', 'Boolean', 'DateTime', 'Date', 'DateTimeShamsi',
+               'DateShamsi', 'Long', 'Int', 'Select', 'File', 'Decimal'
+          ].map(v => `<option value="${v}">${v}</option>`).join('');
 
           const aggregateOptions = [
                { value: '', label: '-' },
@@ -1311,101 +2161,353 @@ class QueryDesigner {
                { value: 'Sum', label: 'Sum' },
                { value: 'CountDistinct', label: 'CountDistinct' },
                { value: 'AvgDistinct', label: 'AvgDistinct' },
-               { value: 'SumDistinct', label: 'SumDistinct' }
-          ];
+               { value: 'SumDistinct', label: 'SumDistinct' },
+          ].map(o => `<option value="${o.value}">${o.label}</option>`).join('');
 
           this.columns.forEach((col, index) => {
+               const isCustom = col.isCustom === true;
                const grpChecked = col.groupBy ? 'checked' : '';
+               const visChecked = col.visible !== false ? 'checked' : '';
+               const pkChecked = col.primaryKey ? 'checked' : '';
                const sysType = col.systemType || 'String';
-               const sysTypeOpts = systemTypeOptions.map(o =>
-                    `<option value="${o.value}" ${(sysType === o.value) ? 'selected' : ''}>${o.label}</option>`
-               ).join('');
-               const aggOpts = aggregateOptions.map(o =>
-                    `<option value="${o.value}" ${(col.aggregate === o.value) ? 'selected' : ''}>${o.label}</option>`
-               ).join('');
-               const sortSel = ['Ascending', '0', 0].includes(col.sortDirection) ? 'Ascending' : ['Descending', '1', 1].includes(col.sortDirection) ? 'Descending' : '';
-               const $row = $(`
-                <tr>
-                    <td>${col.tableName}.${col.columnName}</td>
-                    <td>
-                        <input type="text" class="form-control form-control-sm" 
-                               value="${(col.displayName || '').replace(/"/g, '&quot;')}" 
-                               data-index="${index}"
-                               data-field="displayName">
-                    </td>
-                    <td>
-                        <select class="form-select form-select-sm" 
-                                data-index="${index}"
-                                data-field="systemType">
-                            ${sysTypeOpts}
-                        </select>
-                    </td>
-                    <td class="text-center">
-                        <input type="checkbox" class="form-check-input" 
-                               data-index="${index}"
-                               data-field="groupBy"
-                               ${grpChecked}>
-                    </td>
-                    <td>
-                        <select class="form-select form-select-sm" 
-                                data-index="${index}"
-                                data-field="aggregate">
-                            ${aggOpts}
-                        </select>
-                    </td>
-                    <td>
-                        <select class="form-select form-select-sm" 
-                                data-index="${index}"
-                                data-field="sortDirection">
-                            <option value="">بدون</option>
-                            <option value="0" ${sortSel === 'Ascending' ? 'selected' : ''}>ASC</option>
-                            <option value="1" ${sortSel === 'Descending' ? 'selected' : ''}>DESC</option>
-                        </select>
-                    </td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm" 
-                               min="1" value="${col.sortOrder || ''}"
-                               data-index="${index}"
-                               data-field="sortOrder"
-                               ${col.sortDirection ? '' : 'disabled'}>
-                    </td>
-                </tr>
-            `);
 
-               $row.find('input, select').on('change', (e) => {
-                    const idx = $(e.target).data('index');
+               const sysTypeOpts = systemTypeOptions.replace(
+                    `value="${sysType}"`,
+                    `value="${sysType}" selected`
+               );
+               const aggOpts = aggregateOptions.replace(
+                    `value="${col.aggregate || ''}"`,
+                    `value="${col.aggregate || ''}" selected`
+               );
+               const sortSel = ['Ascending', '0', 0].includes(col.sortDirection) ? '0'
+                    : ['Descending', '1', 1].includes(col.sortDirection) ? '1' : '';
+
+               // ── نشانگر نوع ستون ───────────────────────────────────────────────
+               const colTypeIcon = isCustom
+                    ? (() => {
+                         const icons = { button: 'bi-hand-index text-success', input: 'bi-input-cursor-text text-warning', html: 'bi-code-slash text-danger', data: 'bi-link text-info' };
+                         return `<i class="bi ${icons[col.customColType] || 'bi-star'}" title="${col.customColType}"></i>`;
+                    })()
+                    : '<i class="bi bi-database text-primary" title="data"></i>';
+
+               // ── ستون نام ──────────────────────────────────────────────────────
+               const colNameCell = col.tableName && col.columnName
+                    ? `${col.tableName}.${col.columnName}`
+                    : `<span class="text-muted fst-italic">${col.customColType || 'custom'}</span>`;
+
+               let primaryKeyTd = '';
+               if (this.reportType && this.reportType == 1) {
+                    primaryKeyTd = `<td><input type="checkbox" data-index="${index}" data-field="primaryKey" ${pkChecked}></td>`;
+               }
+
+               const $row = $(`
+            <tr data-col-id="${col.id ?? index}" data-is-custom="${isCustom}">
+                <td class="drag-handle-cell" style="width:40px;">
+                    <i class="fa fa-arrows-alt" data-handler="true" style="cursor:grab;"></i>
+                    ${colTypeIcon}
+                </td>
+                <td>
+                    <div class="d-flex gap-1">
+                        <a href="#" data-action="setting" data-index="${index}"
+                           class="btn btn-xs btn-outline-warning" title="تنظیمات">
+                            <i class="bi bi-gear"></i>
+                        </a>
+                        ${isCustom ? `
+                        <a href="#" data-action="editCustomCol" data-index="${index}"
+                           class="btn btn-xs btn-outline-info" title="ویرایش ستون">
+                            <i class="bi bi-pencil"></i>
+                        </a>` : ''}
+                        <a href="#" data-action="removeCol" data-index="${index}"
+                           class="btn btn-xs btn-outline-danger" title="حذف ستون">
+                            <i class="bi bi-trash"></i>
+                        </a>
+                    </div>
+                </td>
+                <td>
+                    <input type="checkbox" data-index="${index}" data-field="visible" ${visChecked}>
+                </td>
+                ${primaryKeyTd}
+                <td class="small" style="max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                    title="${col.alliance}">
+                    ${colNameCell}
+                    <div class="text-muted" style="font-size:.7rem;">${col.alliance ?? ''}</div>
+                </td>
+                <td>
+                    <input type="text" class="form-control form-control-sm"
+                           value="${(col.displayName || '').replace(/"/g, '&quot;')}"
+                           data-index="${index}" data-field="displayName">
+                </td>
+                <td>
+                    <select class="form-select form-select-sm"
+                            data-index="${index}" data-field="systemType"
+                            ${isCustom && col.customColType !== 'data' ? 'disabled' : ''}>
+                        ${sysTypeOpts}
+                    </select>
+                </td>
+                <td class="text-center">
+                    <input type="checkbox" class="form-check-input"
+                           data-index="${index}" data-field="groupBy" ${grpChecked}
+                           ${isCustom ? 'disabled' : ''}>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm"
+                            data-index="${index}" data-field="aggregate"
+                            ${isCustom ? 'disabled' : ''}>
+                        ${aggOpts}
+                    </select>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm"
+                            data-index="${index}" data-field="sortDirection">
+                        <option value="">بدون</option>
+                        <option value="0" ${sortSel === '0' ? 'selected' : ''}>ASC</option>
+                        <option value="1" ${sortSel === '1' ? 'selected' : ''}>DESC</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm"
+                           min="1" value="${col.sortOrder || ''}"
+                           data-index="${index}" data-field="sortOrder"
+                           ${col.sortDirection ? '' : 'disabled'}>
+                </td>
+            </tr>
+        `);
+
+               // ── رویدادهای input/select ─────────────────────────────────────────
+               $row.find('input[data-field], select[data-field]').on('change', (e) => {
+                    const i = parseInt($(e.target).data('index'));
                     const field = $(e.target).data('field');
                     const val = $(e.target).val();
-                    const isChecked = $(e.target).is(':checked');
+                    const chk = $(e.target).is(':checked');
 
-                    if (field === 'displayName') this.columns[idx].displayName = val;
-                    else if (field === 'systemType') this.columns[idx].systemType = val || 'String';
-                    else if (field === 'groupBy') this.columns[idx].groupBy = isChecked;
-                    else if (field === 'aggregate') this.columns[idx].aggregate = val || null;
+                    if (field === 'displayName') this.columns[i].displayName = val;
+                    else if (field === 'systemType') this.columns[i].systemType = val || 'String';
+                    else if (field === 'groupBy') this.columns[i].groupBy = chk;
+                    else if (field === 'visible') this.columns[i].visible = chk;
+                    else if (field === 'primaryKey') this.columns[i].primaryKey = chk;
+                    else if (field === 'aggregate') this.columns[i].aggregate = val || null;
                     else if (field === 'sortDirection') {
-                         this.columns[idx].sortDirection = parseInt(val) || null;
+                         this.columns[i].sortDirection = val ? parseInt(val) : null;
                          $row.find('[data-field="sortOrder"]').prop('disabled', !val);
-                    } else if (field === 'sortOrder') {
-                         this.columns[idx].sortOrder = val ? parseInt(val) : null;
                     }
+                    else if (field === 'sortOrder') this.columns[i].sortOrder = val ? parseInt(val) : null;
+
                     this.refreshQuery();
+               });
+
+               // ── دکمه حذف ──────────────────────────────────────────────────────
+               $row.find('[data-action="removeCol"]').on('click', (e) => {
+                    e.preventDefault();
+                    const i = parseInt($(e.currentTarget).data('index'));
+                    if (confirm(`ستون "${this.columns[i]?.displayName}" حذف شود؟`)) {
+                         this.removeColumn(i);
+                    }
+               });
+
+               // ── دکمه ویرایش ستون سفارشی ──────────────────────────────────────
+               $row.find('[data-action="editCustomCol"]').on('click', (e) => {
+                    e.preventDefault();
+                    const i = parseInt($(e.currentTarget).data('index'));
+                    this.showManualColumnModal(this.columns[i]);
+               });
+
+               // ── دکمه تنظیمات (render / select options) – بدون تغییر ──────────
+               $row.find('[data-action="setting"]').on('click', (e) => {
+                    e.preventDefault();
+                    const i = parseInt($(e.currentTarget).data('index'))
+                         ?? $(e.currentTarget).closest('tr').index();
+                    const systemType = $row.find('[data-field="systemType"]').val();
+                    const fieldName = $row.find('[data-field="displayName"]').val();
+                    $.confirm({
+                         title: `تنظیمات فیلد '${fieldName}'`,
+                         content: this.settingFeildContetn(systemType, thisColumns[i]),
+                         type: 'green',
+                         columnClass: 'col-md-9',
+                         typeAnimated: true,
+                         buttons: {
+                              acc: {
+                                   text: 'ثبت', btnClass: 'btn btn-success',
+                                   action: function () {
+                                        // [بدون تغییر – همان کد settingFeild موجود]
+                                        let $content = this.$content;
+                                        if (systemType === 'Select') {
+                                             let typeOption = $content.find('[data-action=typeOptions]').val();
+                                             let listOptions = [], systemTypeName = '';
+                                             if (typeOption === '0') { toastr.error('نوع گزینه‌ها انتخاب نشده'); return false; }
+                                             if (typeOption === '1') {
+                                                  let $rows = $content.find('[data-section="defOptions"] tbody tr');
+                                                  if (!$rows.length) { toastr.error('هیچ گزینه‌ای تعریف نشده'); return false; }
+                                                  let err = false;
+                                                  listOptions = $rows.map((ii, c) => {
+                                                       const v = $(c).find('[data-feild="value"]').val();
+                                                       const n = $(c).find('[data-feild="name"]').val();
+                                                       if (!v || isNaN(parseInt(v))) { $(c).find('[data-feild="value"]').addClass('border-danger'); err = true; }
+                                                       if (!n) { $(c).find('[data-feild="name"]').addClass('border-danger'); err = true; }
+                                                       return { value: v, name: n };
+                                                  }).get();
+                                                  if (err) { toastr.error('اطلاعات ناقص است'); return false; }
+                                             } else if (typeOption === '3') {
+                                                  systemTypeName = $content.find('[data-action="systemOptions"]').val();
+                                             }
+                                             thisColumns[i].optionSetting = { listOptions, typeOption, systemTypeName };
+                                        }
+                                        thisColumns[i].render = $content.find('#renderCode').val();
+                                   }
+                              },
+                              close: { text: 'بستن', btnClass: 'btn btn-danger', action() { } }
+                         }
+                    });
                });
 
                $tbody.append($row);
           });
      }
+     settingFeildContetn(type ,column) {
+          let $tpl = $();
+          if (type === "Select") {
+               $tpl = $(`
+               <div class="row col-md-12">
+                    <div class="col-md-4">
+                         <label class="form-label">نوع تبدیل</label>
+                         <select class="form-select" data-action="typeOptions">
+                              <option value="0">انتخاب کنید</option>
+                              <option value="1">تعریف گزینه</option>
+                              <option value="2">گزینه موجود</option>
+                              <option value="3">گزینه سیستمی</option>
+                         </select>
+                    </div>
 
-     /**
-      * ساخت Query در سمت کلاینت - بدون نیاز به سرور
-      */
-     buildQueryClient() {
-          if (!this.selectedTables || this.selectedTables.length === 0) return '';
-          const tables = this.selectedTables;
-          const relations = this.relations || [];
-          const filters = this.filters || [];
-          const columns = this.columns || [];
+                     <div class="col-md-8 d-none">
+                         <label class="form-label" >گزینه های موجود</label>
+                         <select class="form-select w-100" data-action="existOptions">
+                             
+                         </select>
+                    </div>
+                    <div class="col-md-8 d-none">
+                       <label class="form-label" >گزینه های سیستمی</label>
+                         <select class="form-select w-100" data-action="systemOptions">
+                             
+                         </select>
+                    </div>
 
+                    <div class="col-md-12 d-none mt-3" data-section="defOptions">
+                    <button class="btn btn-success" data-action="addnewOptions">افزودن گزینه جدید</button>
+                          <table class="table table-rounded table-striped border table-bordered">
+                               <thead>
+                                    <tr>
+                                          <th>
+                                         #
+                                         </th>
+                                         <th>
+                                         مقدار
+                                         </th>
+                                         <th>
+                                             عنوان
+                                          </th>
+                                    </tr>
+                               </thead>
+                               <tbody>
+                               </tbody>
+                          </table>
+                    </div>
+                     
+               </div>
+               `);
+
+               $tpl.find("[data-action='addnewOptions']").click(function () {
+                    let $newOptionTpl = $(`<tr> 
+                                        <td>
+                                             <button class="btn-sm btn btn-icon btn-active-icon-dark btn-color-danger" data-action="deleteOption">
+		                                      <i class="fs-2 fa-light fa-trash"></i>
+		                                   </button>
+                                        </td>
+                                        <td>
+                                        <input class="form-control" data-feild="value" placeholder="فقط اعداد" />
+                                        </td>
+                                        <td>
+                                           <input class="form-control" data-feild="name" />
+                                        </td>
+                                   </tr>`)
+                    $newOptionTpl.find('[data-action="deleteOption"]').click(function () {
+                         $newOptionTpl.remove();
+                    })
+
+                    $tpl.find("[data-section='defOptions'] tbody")
+                         .append($newOptionTpl)
+               })
+
+               this.systemEnums.forEach((c) => {
+
+                    let $systemEnumOption = $(`<option value="${c.type}">${c.parentEntityTypeName}.${c.name} || ${c.displayName} </option>`)
+                    $tpl.find("[data-action='systemOptions']").append($systemEnumOption)
+               })
+
+               $tpl.find("[data-action='systemOptions']").select2({
+                    width: '100%',
+               });
+
+
+
+               $tpl.find("[data-action='typeOptions']")
+                    .change(function () {
+                         let typeOption = $(this).val();
+
+                         if (typeOption === "1") {
+                              $tpl.find("[data-section='defOptions']").removeClass("d-none");
+                              $tpl.find("[data-action='existOptions']").parent().addClass("d-none");
+                              $tpl.find("[data-action='systemOptions']").parent().addClass("d-none");
+                         }
+                         else if (typeOption === "2") {
+                              $tpl.find("[data-section='defOptions']").addClass("d-none");
+                              $tpl.find("[data-action='existOptions']").parent().removeClass("d-none");
+                              $tpl.find("[data-action='systemOptions']").parent().addClass("d-none");
+                         }
+
+                         else if (typeOption === "3") {
+                              $tpl.find("[data-section='defOptions']").addClass("d-none");
+                              $tpl.find("[data-action='existOptions']").parent().addClass("d-none");
+                              $tpl.find("[data-action='systemOptions']").parent().removeClass("d-none");
+
+                         }
+                         else {
+                              $tpl.find("[data-section='defOptions']").addClass("d-none");
+                              $tpl.find("[data-action='systemOptions']").parent().addClass("d-none");
+                              $tpl.find("[data-action='existOptions']").parent().addClass("d-none");
+                         }
+                    })
+
+               var render = column.render ?? "function(data, type, row) { return data; }"
+               $(`  <div class="col-md-12   mt-3" data-section="render">
+                         <div style=" resize: auto;  height: 300px;"  id="renderCode"></div>
+                     </div>`).appendTo($tpl);
+
+               var newjsEditor = ace.edit($tpl.find("#renderCode")[0]);
+               newjsEditor.setTheme('ace/theme/chrome');
+               newjsEditor.session.setMode('ace/mode/javascript');
+               newjsEditor.setValue(render);
+
+               return $tpl;
+          }
+          else {
+               var render = column.render ?? "function(data, type, row) { return data; }"
+               
+               $tpl = $(`  <div class="col-md-12   mt-3" data-section="render">
+                         <div style=" resize: auto;  height: 300px;"   id="renderCode">${render}</div>
+                     </div>`);
+               var newjsEditor = ace.edit($tpl.find("#renderCode")[0]);
+               newjsEditor.setTheme('ace/theme/chrome');
+               newjsEditor.session.setMode('ace/mode/javascript');
+               newjsEditor.setValue(render);
+
+               return $tpl
+          }
+ 
+     }
+
+     resolveAlias = (tableRef) => {
+           
           const tableToAlias = {};
+          const tables = this.selectedTables;
           let aliasIdx = 1;
           tables.forEach(t => {
                const key = t.boxId || `table-${(t.schema + '.' + t.name).replace(/\./g, '-')}`;
@@ -1413,166 +2515,197 @@ class QueryDesigner {
                aliasIdx++;
           });
 
-          const resolveAlias = (tableRef) => {
-               if (!tableRef) return Object.values(tableToAlias)[0] || 't1';
-               if (tableToAlias[tableRef]) return tableToAlias[tableRef];
-               const tbl = tables.find(t => t.boxId === tableRef || `${t.schema}.${t.name}` === tableRef);
+          if (!tableRef) return Object.values(tableToAlias)[0] || 't1';
+          if (tableToAlias[tableRef]) return tableToAlias[tableRef];
+          const tbl = tables.find(t => t.boxId === tableRef || `${t.schema}.${t.name}` === tableRef);
+          return tbl && tableToAlias[tbl.boxId] ? tableToAlias[tbl.boxId] : (Object.values(tableToAlias)[0] || 't1');
+     };
+
+     /**
+      * ساخت Query در سمت کلاینت - بدون نیاز به سرور
+      */
+
+     buildQueryClient() {
+
+           
+          if (!this.selectedTables?.length) return '';
+
+          const tables = this.selectedTables;
+          const relations = this.relations || [];
+          const filters = this.filters || [];
+          const columns = this.columns || [];
+
+          // ── alias map ──────────────────────────────────────────────────────────
+          const tableToAlias = {};
+          let aliasIdx = 1;
+          tables.forEach(t => {
+               tableToAlias[t.boxId || `table-${(t.schema + '.' + t.name).replace(/\./g, '-')}`] = `t${aliasIdx++}`;
+          });
+
+          const resolveAlias = (ref) => {
+               if (!ref) return Object.values(tableToAlias)[0] || 't1';
+               if (tableToAlias[ref]) return tableToAlias[ref];
+               const tbl = tables.find(t => t.boxId === ref || `${t.schema}.${t.name}` === ref);
                return tbl && tableToAlias[tbl.boxId] ? tableToAlias[tbl.boxId] : (Object.values(tableToAlias)[0] || 't1');
           };
 
-          const getJoinKeyword = (jt) => {
-               const j = (jt || 'INNER').toUpperCase();
-               return j === 'LEFT' ? 'LEFT JOIN' : j === 'RIGHT' ? 'RIGHT JOIN' : 'INNER JOIN';
-          };
-
-          const getOperatorSymbol = (op) => {
-               const o = (op || '').toLowerCase();
-               const map = { equals: '=', notequals: '!=', greater: '>', less: '<', greaterorequal: '>=', lessorequal: '<=', like: 'LIKE', notlike: 'NOT LIKE', in: 'IN', notin: 'NOT IN', isnull: 'IS NULL', isnotnull: 'IS NOT NULL' };
-               return map[o] || '=';
-          };
-
-          const formatValue = (val, dataType) => {
-               if (!val || val.trim() === '') return 'NULL';
-               const esc = val.replace(/'/g, "''");
-               const dt = (dataType || '').toLowerCase();
-               if (dt.includes('int') || dt.includes('decimal') || dt.includes('numeric') || dt.includes('float') || dt.includes('money')) return val;
-               if (dt.includes('date') || dt.includes('time')) return `'${esc}'`;
-               if (dt.includes('bit')) return (val.toLowerCase() === 'true' || val === '1') ? '1' : '0';
+          // ── helpers (بدون تغییر از نسخه قبل) ─────────────────────────────────
+          const getJoinKeyword = jt => ({ LEFT: 'LEFT JOIN', RIGHT: 'RIGHT JOIN' }[(jt || 'INNER').toUpperCase()] ?? 'INNER JOIN');
+          const getOperatorSymbol = op => ({ equals: '=', notequals: '!=', greater: '>', less: '<', greaterorequal: '>=', lessorequal: '<=', like: 'LIKE', notlike: 'NOT LIKE', in: 'IN', notin: 'NOT IN', isnull: 'IS NULL', isnotnull: 'IS NOT NULL' })[(op || '').toLowerCase()] ?? '=';
+          const isParam = v => v && /^@[a-zA-Z_][a-zA-Z0-9_]*$/.test((v || '').trim());
+          const fmtVal = (val, dt) => {
+               if (!val?.trim()) return 'NULL';
+               const esc = val.replace(/'/g, "''"), d = (dt || '').toLowerCase();
+               if (/int|decimal|numeric|float|money/.test(d)) return val;
+               if (/date|time/.test(d)) return `'${esc}'`;
+               if (d.includes('bit')) return (['true', '1'].includes(val.toLowerCase())) ? '1' : '0';
                return `N'${esc}'`;
           };
-
-          const formatInValues = (val, dataType) => {
-               if (!val || !val.trim()) return 'NULL';
-               return val.split(',').map(s => formatValue(s.trim(), dataType)).filter(Boolean).join(', ') || 'NULL';
+          const fmtLike = (v, dt) => (!v ? "N'%%'" : v.trim().includes('%') ? fmtVal(v, dt) : fmtVal(`%${v}%`, dt));
+          const fmtIn = (v, dt) => (!v?.trim() ? 'NULL' : v.split(',').map(s => fmtVal(s.trim(), dt)).join(', ') || 'NULL');
+          const buildFilter = (f) => {
+               const op = (f.operator || '').toLowerCase(), alias = resolveAlias(f.tableRef || f.tableName);
+               const ref = `[${alias}].[${f.columnName}]`;
+               if (op === 'isnull' || op === 'isnotnull') return `${ref} ${getOperatorSymbol(f.operator)}`;
+               if (op === 'in' || op === 'notin') return isParam(f.value) ? `${ref} ${getOperatorSymbol(f.operator)} (${f.value.trim()})` : `${ref} ${getOperatorSymbol(f.operator)} (${fmtIn(f.value, f.dataType)})`;
+               if (op === 'like' || op === 'notlike') return isParam(f.value) ? `${ref} ${getOperatorSymbol(f.operator)} N'%'+${f.value.trim()}+N'%'` : `${ref} ${getOperatorSymbol(f.operator)} ${fmtLike(f.value, f.dataType)}`;
+               return isParam(f.value) ? `${ref} ${getOperatorSymbol(f.operator)} ${f.value.trim()}` : `${ref} ${getOperatorSymbol(f.operator)} ${fmtVal(f.value, f.dataType)}`;
+          };
+          const getAgg = (agg, alias, col) => {
+               const ref = `[${alias}].[${col}]`, a = (agg || '').toUpperCase();
+               const map = { COUNT: `COUNT(${ref})`, MAX: `MAX(${ref})`, MIN: `MIN(${ref})`, AVG: `AVG(${ref})`, SUM: `SUM(${ref})`, COUNTDISTINCT: `COUNT(DISTINCT ${ref})`, AVGDISTINCT: `AVG(DISTINCT ${ref})`, SUMDISTINCT: `SUM(DISTINCT ${ref})` };
+               return map[a] || ref;
           };
 
-          const isParameterReference = (val) => val && /^@[a-zA-Z_][a-zA-Z0-9_]*$/.test((val || '').trim());
+          // ══════════════════════════════════════════════════════════════════════
+          // ★ تغییر اصلی: فقط ستون‌هایی که آدرس DB دارند وارد SELECT می‌شوند
+          // ستون‌های custom بدون tableRef (button, html, input بدون لینک) حذف می‌شوند
+          // ستون‌های custom با tableRef (لینک‌شده) همانند ستون‌های data پردازش می‌شوند
+          // ══════════════════════════════════════════════════════════════════════
+          const selectableColumns = columns.filter(c => c.address && c.tableName);
 
-          const formatLikeValue = (val, dataType) => {
-               if (!val) return "N'%%'";
-               const t = val.trim();
-               if (t.includes('%') || t.includes('_')) return formatValue(val, dataType);
-               return formatValue(`%${val}%`, dataType);
-          };
-
-          const buildFilterClause = (f) => {
-               const op = (f.operator || '').toLowerCase();
-               const alias = resolveAlias(f.tableRef || f.tableName);
-               const colRef = `[${alias}].[${f.columnName}]`;
-               if (op === 'isnull' || op === 'isnotnull') return `${colRef} ${getOperatorSymbol(f.operator)}`;
-               if (op === 'in' || op === 'notin') {
-                    if (isParameterReference(f.value)) return `${colRef} ${getOperatorSymbol(f.operator)} (${f.value.trim()})`;
-                    return `${colRef} ${getOperatorSymbol(f.operator)} (${formatInValues(f.value, f.dataType)})`;
-               }
-               if (op === 'like' || op === 'notlike') {
-                    if (isParameterReference(f.value)) return `${colRef} ${getOperatorSymbol(f.operator)} N'%'+${f.value.trim()}+N'%'`;
-                    return `${colRef} ${getOperatorSymbol(f.operator)} ${formatLikeValue(f.value, f.dataType)}`;
-               }
-               if (isParameterReference(f.value)) return `${colRef} ${getOperatorSymbol(f.operator)} ${f.value.trim()}`;
-               return `${colRef} ${getOperatorSymbol(f.operator)} ${formatValue(f.value, f.dataType)}`;
-          };
-
-          const getAggregateSql = (agg, alias, col) => {
-               const ref = `[${alias}].[${col}]`;
-               const a = (agg || '').toUpperCase();
-               if (a === 'COUNT') return `COUNT(${ref})`;
-               if (a === 'MAX') return `MAX(${ref})`;
-               if (a === 'MIN') return `MIN(${ref})`;
-               if (a === 'AVG') return `AVG(${ref})`;
-               if (a === 'SUM') return `SUM(${ref})`;
-               if (a === 'COUNTDISTINCT') return `COUNT(DISTINCT ${ref})`;
-               if (a === 'AVGDISTINCT') return `AVG(DISTINCT ${ref})`;
-               if (a === 'SUMDISTINCT') return `SUM(DISTINCT ${ref})`;
-               return ref;
-          };
-
-          const hasGroupBy = columns.some(c => c.groupBy);
-          const hasAggregate = columns.some(c => c.aggregate);
+          const hasGroupBy = selectableColumns.some(c => c.groupBy);
+          const hasAggregate = selectableColumns.some(c => c.aggregate);
           const useShaping = hasGroupBy || hasAggregate;
 
-          if (useShaping && columns.length > 0) {
-               const allShaped = columns.every(c => c.groupBy || c.aggregate);
-               if (!allShaped) return ''; // invalid mix
+          if (useShaping && selectableColumns.length > 0) {
+               if (!selectableColumns.every(c => c.groupBy || c.aggregate)) return '';
           }
 
-          let selectClauses = [];
-          if (columns.length > 0 && useShaping) {
-               columns.forEach(c => {
+          // ── ساخت SELECT ────────────────────────────────────────────────────────
+          let selectClauses;
+
+          if (selectableColumns.length > 0 && useShaping) {
+               selectClauses = selectableColumns.map(c => {
                     const alias = resolveAlias(c.tableRef || c.tableName);
-                    const aliasName = `${alias}_${c.columnName}`;
-                    const expr = c.aggregate ? getAggregateSql(c.aggregate, alias, c.columnName) : `[${alias}].[${c.columnName}]`;
-                    selectClauses.push(`${expr} AS [${aliasName}]`);
+                    const aliasName = c.alliance;
+                    const expr = c.aggregate
+                         ? getAgg(c.aggregate, alias, c.columnName)
+                         : `[${alias}].[${c.columnName}]`;
+                    return `${expr} AS [${aliasName}]`;
                });
           } else {
-               const selectedCols = [];
-               tables.forEach(t => {
-                    const alias = tableToAlias[t.boxId];
-                    (t.columns || []).filter(c => c.isSelected).forEach(col => {
-                         const colName = col.columnName || col.name;
-                         selectedCols.push(`[${alias}].[${colName}] AS [${alias}_${colName}]`);
-                    });
+               // از selectableColumns به جای همه ستون‌ها
+               const seen = new Set();
+               selectClauses = [];
+
+               selectableColumns.forEach(c => {
+                    // alliance یکتاست (برای multi-instance هم کار می‌کند)
+                    if (seen.has(c.alliance)) return;
+                    seen.add(c.alliance);
+
+                    const alias = resolveAlias(c.tableRef || c.tableName);
+                    selectClauses.push(`[${alias}].[${c.columnName}] AS [${c.alliance}]`);
+
+                    // ── side-effect: اگر این ستون در دیاگرام تیک نخورده، تیکش بزن
+                    //    تا دیاگرام با state همخوانی داشته باشد
+                    const tableInfo = this.selectedTables.find(t => t.boxId === c.tableRef);
+                    if (tableInfo) {
+                         const diagramCol = tableInfo.columns.find(dc => dc.columnName === c.columnName);
+                         if (diagramCol && !diagramCol.isSelected) {
+                              diagramCol.isSelected = true;
+                              // checkbox را هم بصری آپدیت کن (بدون trigger change برای جلوگیری از حلقه)
+                              $(`#${c.tableRef} [data-column-name="${c.columnName}"] .column-checkbox`)
+                                   .prop('checked', true);
+                         }
+                    }
                });
-               if (selectedCols.length === 0) return '';
-               selectClauses = selectedCols;
+
+               if (!selectClauses.length) return '';
           }
 
+          // ── FROM ───────────────────────────────────────────────────────────────
           const first = tables[0];
           const firstKey = first.boxId;
           let sql = 'SELECT\n    ' + selectClauses.join(',\n    ') + '\n';
           sql += `FROM [${first.schema}].[${first.name}] AS [${tableToAlias[firstKey]}]\n`;
 
+          // ── JOINs (بدون تغییر) ─────────────────────────────────────────────────
           const joined = new Set([firstKey]);
           let rels = relations.filter(r =>
-               (r.sourceBoxId && r.targetBoxId && tables.some(t => t.boxId === r.sourceBoxId) && tables.some(t => t.boxId === r.targetBoxId)) ||
-               (r.sourceTable && r.targetTable && tables.some(t => `${t.schema}.${t.name}` === r.sourceTable) && tables.some(t => `${t.schema}.${t.name}` === r.targetTable)));
+               (r.sourceBoxId && r.targetBoxId &&
+                    tables.some(t => t.boxId === r.sourceBoxId) &&
+                    tables.some(t => t.boxId === r.targetBoxId)) ||
+               (r.sourceTable && r.targetTable &&
+                    tables.some(t => `${t.schema}.${t.name}` === r.sourceTable) &&
+                    tables.some(t => `${t.schema}.${t.name}` === r.targetTable))
+          );
           while (rels.length) {
                let added = false;
                for (let i = 0; i < rels.length; i++) {
                     const r = rels[i];
-                    const srcBox = r.sourceBoxId || (tables.find(t => `${t.schema}.${t.name}` === r.sourceTable)?.boxId);
-                    const tgtBox = r.targetBoxId || (tables.find(t => `${t.schema}.${t.name}` === r.targetTable)?.boxId);
-                    const srcIn = joined.has(srcBox);
-                    const tgtIn = joined.has(tgtBox);
-                    if (srcIn && tgtIn) { rels.splice(i, 1); added = true; i--; continue; }
+                    const srcBox = r.sourceBoxId || tables.find(t => `${t.schema}.${t.name}` === r.sourceTable)?.boxId;
+                    const tgtBox = r.targetBoxId || tables.find(t => `${t.schema}.${t.name}` === r.targetTable)?.boxId;
+                    const srcIn = joined.has(srcBox), tgtIn = joined.has(tgtBox);
+                    if (srcIn && tgtIn) { rels.splice(i--, 1); added = true; continue; }
                     if (srcIn && !tgtIn) {
                          const t = tables.find(t => t.boxId === tgtBox);
                          if (t && tableToAlias[srcBox] && tableToAlias[tgtBox]) {
                               sql += `${getJoinKeyword(r.joinType || r.JoinType)} [${t.schema}].[${t.name}] AS [${tableToAlias[tgtBox]}]\n`;
                               sql += `    ON [${tableToAlias[srcBox]}].[${r.sourceColumn}] = [${tableToAlias[tgtBox]}].[${r.targetColumn}]\n`;
-                              joined.add(tgtBox); rels.splice(i, 1); added = true; i--;
+                              joined.add(tgtBox); rels.splice(i--, 1); added = true;
                          }
-                         continue;
-                    }
-                    if (tgtIn && !srcIn) {
+                    } else if (tgtIn && !srcIn) {
                          const t = tables.find(t => t.boxId === srcBox);
                          if (t && tableToAlias[srcBox] && tableToAlias[tgtBox]) {
                               sql += `${getJoinKeyword(r.joinType || r.JoinType)} [${t.schema}].[${t.name}] AS [${tableToAlias[srcBox]}]\n`;
                               sql += `    ON [${tableToAlias[srcBox]}].[${r.sourceColumn}] = [${tableToAlias[tgtBox]}].[${r.targetColumn}]\n`;
-                              joined.add(srcBox); rels.splice(i, 1); added = true; i--;
+                              joined.add(srcBox); rels.splice(i--, 1); added = true;
                          }
                     }
                }
                if (!added) break;
           }
 
-          if (filters.length > 0) {
+          // ── WHERE ──────────────────────────────────────────────────────────────
+          if (filters.length) {
                sql += 'WHERE\n';
-               sql += filters.map((f, i) => (i > 0 && f.logicalOperator ? `    ${f.logicalOperator} ${buildFilterClause(f)}` : `    ${buildFilterClause(f)}`)).join('\n') + '\n';
+               sql += filters.map((f, i) => i > 0 && f.logicalOperator
+                    ? `    ${f.logicalOperator} ${buildFilter(f)}`
+                    : `    ${buildFilter(f)}`
+               ).join('\n') + '\n';
           }
 
-          if (useShaping && hasGroupBy && columns.some(c => c.groupBy)) {
-               const gb = columns.filter(c => c.groupBy).map(c => `    [${resolveAlias(c.tableRef || c.tableName)}].[${c.columnName}]`).join(',\n');
+          // ── GROUP BY ───────────────────────────────────────────────────────────
+          if (useShaping && hasGroupBy) {
+               const gb = selectableColumns.filter(c => c.groupBy)
+                    .map(c => `    [${resolveAlias(c.tableRef || c.tableName)}].[${c.columnName}]`)
+                    .join(',\n');
                sql += 'GROUP BY\n' + gb + '\n';
           }
 
-          const sortCols = columns.filter(c => c.sortDirection && (c.sortDirection === 'Ascending' || c.sortDirection === 'Descending' || c.sortDirection === '0' || c.sortDirection === '1'));
-          if (sortCols.length > 0) {
+          // ── ORDER BY ───────────────────────────────────────────────────────────
+          const sortCols = selectableColumns.filter(c =>
+               ['Ascending', 'Descending', '0', '1'].includes(c.sortDirection)
+          );
+          if (sortCols.length) {
                sortCols.sort((a, b) => (a.sortOrder || 999) - (b.sortOrder || 999));
-               const dir = c => (c.sortDirection === 'Descending' || c.sortDirection === '1') ? 'DESC' : 'ASC';
+               const dir = c => (['Descending', '1'].includes(String(c.sortDirection))) ? 'DESC' : 'ASC';
                const ob = sortCols.map(c => {
                     const alias = resolveAlias(c.tableRef || c.tableName);
-                    if (c.aggregate) return `    ${getAggregateSql(c.aggregate, alias, c.columnName)} ${dir(c)}`;
-                    return `    [${alias}].[${c.columnName}] ${dir(c)}`;
+                    return c.aggregate
+                         ? `    ${getAgg(c.aggregate, alias, c.columnName)} ${dir(c)}`
+                         : `    [${alias}].[${c.columnName}] ${dir(c)}`;
                }).join(',\n');
                sql += 'ORDER BY\n' + ob;
           }
@@ -1708,7 +2841,8 @@ class QueryDesigner {
                 
                if (response.isSuccess) {
                     this.showPreviewModal(response.data);
-                    if (this.mode === 'write') {
+                    if (this.mode === 1) {
+                          
                          this._writeModePreviewed = true;
                          this._writeModeColumns = this.buildWriteModeColumnsFromPreview(response.data);
                          this.updateWriteModeColumnsTable();
@@ -1809,7 +2943,9 @@ class QueryDesigner {
           return names.map((name, i) => ({
                columnName: name,
                displayName: this.generateDisplayNameFromColumn(name),
-               systemType: this.mapDbTypeToSystemType(null, types[i] || 'nvarchar')
+               systemType: this.mapDbTypeToSystemType(null, types[i] || 'nvarchar'),
+               visible: true,
+               primaryKey: false
           }));
      }
 
@@ -1829,12 +2965,43 @@ class QueryDesigner {
                { value: 'Select', label: 'Select' }, { value: 'File', label: 'File' },
                { value: 'Decimal', label: 'Decimal' }
           ];
+
+          let thisColumns = this._writeModeColumns;
           this._writeModeColumns.forEach((col, index) => {
                const opts = systemTypeOptions.map(o =>
                     `<option value="${o.value}" ${(col.systemType === o.value) ? 'selected' : ''}>${o.label}</option>`
                ).join('');
+
+               const visibleChecked = col.visible ? 'checked' : '';
+               const primaryKeyChecked = col.primaryKey ? 'checked' : '';
+
+               let primaryKeyTd = ""
+               if (this.reportType && this.reportType == 1) {
+                    primaryKeyTd = `<td> <input type="checkbox"
+                                   data-index="${index}"
+                                   data-field="primaryKey"
+                                   ${primaryKeyChecked}/> </td>`
+               }
+
+             
+
                const $row = $(`
                     <tr>
+                 <td class="drag-handle-cell" style="cursor: grab; width: 40px;">
+                           <i class="fa fa-arrows-alt" data-handler="true" style="cursor: grab;" data-index="${index}"></i>
+                         
+                          <a href="#" data-action="setting" data-index="${index}" class="btn btn-sm btn-outline-warning" title="ویرایش">
+                               <i class="bi bi-pencil"></i>
+                         </a>
+                         
+                    </td>
+                    <td>
+                         <input type="checkbox"
+                         data-index="${index}"
+                         data-field="visible"
+                         ${visibleChecked}/>
+                    </td>
+                    ${primaryKeyTd}
                          <td>${col.columnName}</td>
                          <td><input type="text" class="form-control form-control-sm" value="${(col.displayName || '').replace(/"/g, '&quot;')}" data-index="${index}" data-field="displayName"></td>
                          <td><select class="form-select form-select-sm" data-index="${index}" data-field="systemType">${opts}</select></td>
@@ -1844,19 +3011,130 @@ class QueryDesigner {
                     const idx = $(e.target).data('index');
                     const field = $(e.target).data('field');
                     const val = $(e.target).val();
+                    const isChecked = $(e.target).is(':checked');
+
                     if (field === 'displayName') this._writeModeColumns[idx].displayName = val;
+                    else if (field === 'visible') this._writeModeColumns[idx].visible = isChecked;
+                    else if (field === 'primaryKey') {
+                         this._writeModeColumns[idx].primaryKey = isChecked;
+                    }
                     else if (field === 'systemType') this._writeModeColumns[idx].systemType = val || 'String';
                });
+
+          
+
+
+               $row.find('[data-action="setting"]').on('click', (e) => {
+                    const idx = $(e.target).data('index') ?? $(e.target).closest("tr").index();
+                    let systemType = $row.find('[data-field="systemType"]').val()
+                    let feildName = $row.find('[data-field="displayName"]').val()
+                    $.confirm({
+                         title: `تنظیمات فیلد '${feildName}'`,
+                         content: this.settingFeildContetn(systemType, thisColumns[idx]),
+                         type: 'green',
+                         columnClass: "col-md-9",
+                         typeAnimated: true,
+                         buttons: {
+                              acc: {
+                                   text: 'ثبت',
+                                   btnClass: 'btn  btn-success',
+                                   action: function () {
+                                        let $content = this.$content;
+                                        if (systemType == "Select") {
+                                            
+                                             let typeOption = $content.find("[data-action=typeOptions]").val()
+                                             let listOptions = [];
+                                             let systemTypeName = "";
+
+                                             if (typeOption === "0") {
+                                                  toastr.error("نوع گزینه ها انتخاب نشده است")
+                                                  return false;
+                                             }
+
+                                             else if (typeOption === "1") {
+                                                  let $trOptions = $content.find('[data-section="defOptions"] tbody tr');
+                                                  if ($trOptions.length === 0) {
+                                                       toastr.error("هیچ گزینه ای برای ثبت ایجاد نشده است")
+                                                       return false;
+                                                  }
+                                                  let haveError = false;
+                                                  listOptions = $trOptions.map((i, c) => {
+
+                                                       let value = $(c).find('[data-feild="value"]').val();
+                                                       if (!value || value.length === 0) {
+                                                            $(c).find('[data-feild="value"]').addClass("border border-danger");
+                                                            haveError = true;
+                                                       }
+                                                       else {
+                                                            if (isNaN(parseInt(value))) {
+                                                                 $(c).find('[data-feild="value"]').addClass("border border-danger");
+                                                                 haveError = true;
+                                                            }
+                                                            else {
+                                                                 $(c).find('[data-feild="value"]').removeClass("border border-danger")
+
+                                                            }
+                                                       }
+                                                       let name = $(c).find('[data-feild="name"]').val();
+
+                                                       if (!name || name.length === 0) {
+                                                            $(c).find('[data-feild="name"]').addClass("border border-danger");
+                                                            haveError = true;
+                                                       }
+                                                       else {
+                                                            $(c).find('[data-feild="name"]').removeClass("border border-danger")
+
+                                                       }
+
+                                                       return { value, name };
+                                                  }).get();
+
+                                                  if (haveError === true) {
+                                                       toastr.error("برای یک یا چند گزینه وارد شده اطلاعات صحیح وارد نشده است")
+                                                       return false;
+                                                  }
+                                             }
+                                             else if (typeOption === "2") {
+
+                                                  toastr.error("قابلیت پیاده سازی نشده است")
+                                                  return false;
+                                             }
+                                             else if (typeOption === "3") {
+                                                  systemTypeName = $content.find('[data-action="systemOptions"]').val();
+                                             }
+
+                                             thisColumns[idx].optionSetting = { listOptions, typeOption, systemTypeName };
+                                           
+
+                                        }
+
+                                        var newjsEditor = ace.edit($content.find("#renderCode")[0]);
+                                      
+                                    
+                                        thisColumns[idx].render = newjsEditor.getValue();;
+                                   }
+                              },
+                              close:
+                              {
+                                   text: 'بستن',
+                                   btnClass: 'btn  btn-danger',
+                                   action: function () {
+                                   }
+                              }
+                         }
+                    });
+
+               })
                $tbody.append($row);
           });
      }
 
      getQueryEditorForMode() {
-          return this.mode === 'write' ? $('#queryEditorWrite') : $('#queryEditor');
+          return this.mode === 1 ? $('#queryEditorWrite') : $('#queryEditor');
      }
 
      async validateQueryWrite() {
-          const query = $('#queryEditorWrite').val().trim();
+          const query = this.sqlEditor.getValue();
           if (!query) { this.showWarning('Query خالی است'); return; }
           try {
                const response = await $.ajax({
@@ -1882,7 +3160,7 @@ class QueryDesigner {
      }
 
      async previewQueryWrite() {
-          const query = $('#queryEditorWrite').val().trim();
+          const query = this.sqlEditor.getValue();
           if (!query) { this.showWarning('Query خالی است'); return; }
           await this.doPreviewWithParams(query);
      }
@@ -1890,7 +3168,7 @@ class QueryDesigner {
      async saveReportWrite() {
           const name = $('#reportName').val().trim();
           const title = $('#reportTitle').val().trim();
-          const query = $('#queryEditorWrite').val().trim();
+          const query = this.sqlEditor.getValue();
           if (!name) { this.showError('نام گزارش را وارد کنید'); return; }
           if (!title) { this.showError('عنوان گزارش را وارد کنید'); return; }
           if (!query) { this.showError('Query را وارد کنید'); return; }
@@ -1898,24 +3176,77 @@ class QueryDesigner {
                this.showError('قبل از ذخیره حتماً یک بار پیش‌نمایش بگیرید تا ستون‌ها تعریف شوند');
                return;
           }
+
+             const eventScriptsValidation = this.validateEventScripts();
+             if (!eventScriptsValidation.valid) {
+                 this.showError(eventScriptsValidation.error);
+                 return;
+             }
+           
           const columns = this._writeModeColumns.map(c => ({
                columnName: c.columnName,
                displayName: c.displayName || c.columnName,
-               systemType: c.systemType || 'String'
+               systemType: c.systemType || 'String',
+               visible: c.visible,
+               primaryKey: c.primaryKey,
+               optionSetting: c.optionSetting,
+               render: c.render
           }));
           try {
-               this.showLoading();
+              
                const design = {
                     name: name,
                     title: title,
                     queryDesign: { tables: [], relations: [], filters: [], customQuery: query, parameters: this.parameters },
                     columns: columns,
-                    type:this.reportType
+                    type: this.reportType,
+                    mode: this.mode,
+                    entityFullName: this.entityFullName,
+                    actionOptions: JSON.stringify(this.actionOptions),
+                    customActionButtons: JSON.stringify(this.customActionButtons),
+                    eventScripts: JSON.stringify(this.eventScripts),
+            
 
                };
                const url = this.editMode && this.reportId
                     ? `UpdateReport?id=${this.reportId}`
                     : 'SaveReport';
+
+               let haveError = false;
+               let havePrimaryKey = 0;
+               let errorMessage = "";
+               design.columns.forEach(c => {
+                    if (c.systemType === "Select") {
+                         if (!c.optionSetting) {
+                              haveError = true;
+                              errorMessage += `\n ستون '${c.displayName}' از نوع select میباشد اما تنظیمات مربوطه ثبت نشده است.`
+                         }
+                    }
+                    if (design.type == 1) {
+                         if (c.primaryKey == true) {
+                              if (c.systemType != "Long") {
+                                   haveError = true;
+                                   errorMessage += `\n کلید اصلی فقط از نوع Long میتواند باشد.`
+                              }
+                              havePrimaryKey++;
+                         }
+                    }
+
+               })
+
+               if (haveError === true) {
+                    return error2(errorMessage);
+               }
+
+               if (design.type == 1 && havePrimaryKey == 0) {
+                    return error2("برای نمایه داده کلید اصلی مشخص نشده است");
+               }
+
+               if (design.type == 1 && havePrimaryKey > 1) {
+                    return error2("فقط یک ستون به عنوان کلید اصلی باید انتخاب شود");
+               }
+
+               this.showLoading();
                const response = await $.ajax({
                     url: url,
                     method: 'POST',
@@ -1926,7 +3257,7 @@ class QueryDesigner {
                this.hideLoading();
                if (response.isSuccess) {
                     this.showSuccess('گزارش ذخیره شد');
-                    setTimeout(() => { window.location.href = ' Reports'; }, 1500);
+                    
                } else this.showError(response.message || 'خطا در ذخیره');
           } catch (error) { this.hideLoading(); this.showError('خطا در ارتباط با سرور'); console.error(error); }
      }
@@ -2002,6 +3333,7 @@ class QueryDesigner {
      }
 
      async saveReport() {
+           
           const name = $('#reportName').val().trim();
           const title = $('#reportTitle').val().trim();
 
@@ -2025,12 +3357,25 @@ class QueryDesigner {
                return;
           }
 
+          const eventScriptsValidation = this.validateEventScripts();
+          if (!eventScriptsValidation.valid) {
+               this.showError(eventScriptsValidation.error);
+               return;
+          }
+
+            
           try {
-               this.showLoading();
+               
 
                const design = {
                     name: name,
                     title: title,
+                    entityFullName :this.entityFullName ,
+                    type : this.reportType,
+                    mode: this.mode,
+                    actionOptions: JSON.stringify(this.actionOptions),
+                    customActionButtons: JSON.stringify(this.customActionButtons),
+                    eventScripts: JSON.stringify(this.eventScripts),
                     queryDesign: {
                          tables: this.selectedTables,
                          relations: this.relations,
@@ -2044,6 +3389,41 @@ class QueryDesigner {
                const url = this.editMode
                     ? `UpdateReport?id=${this.reportId}`
                     : 'SaveReport';
+               let haveError = false;
+               let havePrimaryKey = 0;
+               let errorMessage = "";
+               design.columns.forEach(c => {
+                    if (c.systemType === "Select") {
+                         if (!c.optionSetting) {
+                              haveError = true;
+                              errorMessage += `\n ستون '${c.displayName}' از نوع select میباشد اما تنظیمات مربوطه ثبت نشده است.`
+                         }
+                    }
+                    if (design.type == 1) {
+                         if (c.primaryKey == true) {
+                              if (c.systemType != "Long") {
+                                   haveError = true;
+                                   errorMessage += `\n کلید اصلی فقط از نوع Long میتواند باشد.`
+                              }
+                              havePrimaryKey++;
+                         }
+                    }
+                    
+               })
+             
+               if (haveError === true) {
+                    return error2(errorMessage);
+               }
+
+               if (design.type == 1 && havePrimaryKey == 0) {
+                    return error2("برای نمایه داده کلید اصلی مشخص نشده است");
+               }
+
+               if (design.type == 1 && havePrimaryKey > 1) {
+                    return error2("فقط یک ستون به عنوان کلید اصلی باید انتخاب شود");
+               }
+
+               this.showLoading();
 
                const response = await $.ajax({
                     url: url,
@@ -2058,9 +3438,7 @@ class QueryDesigner {
                if (response.isSuccess) {
                     this.showSuccess('گزارش با موفقیت ذخیره شد');
 
-                    setTimeout(() => {
-                         window.location.href = ' Reports';
-                    }, 1500);
+                   
                } else {
                     this.showError(response.message || 'خطا در ذخیره گزارش');
                }
@@ -2087,14 +3465,27 @@ class QueryDesigner {
 
      async loadReport(id) {
           try {
+
                this.showLoading();
 
                const response = await $.get('GetReport', { id: id });
 
+               debugger
+
                this.hideLoading();
 
                if (response.isSuccess) {
+
+                    this.applyMode(response.data.mode);
+                    this.reportType = response.data.type;
+                     
                     const design = response.data;
+                    design.columns.forEach((c) => {
+                         c.systemType = c.systemTypeName
+                    });
+                    this.entityFullName = design.entityFullName;
+                    $("#entityFullName").val(this.entityFullName)
+                     
 
                     $('#reportName').val(design.name);
                     $('#reportTitle').val(design.title);
@@ -2153,13 +3544,15 @@ class QueryDesigner {
                     this.parameters = design.queryDesign.parameters || [];
                     this.updateParametersList();
 
+                     
+
                     this.columns = (design.columns || []).map(c => {
                          const col = { ...c };
                          if (!col.tableRef) {
                               const t = this.selectedTables.find(t => `${t.schema}.${t.name}` === (c.tableName || '').trim());
                               if (t) col.tableRef = t.boxId;
                          }
-                         if (!col.systemType) {
+                         if (col.systemType == undefined || col.systemType == null) {
                               const tbl = this.selectedTables.find(t => t.boxId === col.tableRef || `${t.schema}.${t.name}` === (c.tableName || '').trim());
                               const tblCol = tbl?.columns?.find(x => (x.columnName || x.Name) === c.columnName);
                               col.systemType = this.mapDbTypeToSystemType(tblCol?.mappedSystemType, tblCol?.dataType);
@@ -2169,12 +3562,17 @@ class QueryDesigner {
 
                     if (design.queryDesign.customQuery) {
                          $('#queryEditor').val(design.queryDesign.customQuery).trigger('input');
-                         $('#queryEditorWrite').val(design.queryDesign.customQuery).trigger('input');
+                         this.initSqlEditor(design.queryDesign.customQuery)
+                       
                          if (tables.length === 0 && (design.columns || []).length > 0) {
                               this._writeModeColumns = (design.columns || []).map(c => ({
                                    columnName: c.columnName,
                                    displayName: c.displayName || c.columnName,
-                                   systemType: c.systemType || 'String'
+                                   systemType: c.systemType || 'String',
+                                   visible: c.visible === null ? true : c.visible,
+                                   primaryKey: c.primaryKey || false,
+                                   optionSetting: c.optionSetting || null,
+                                   render: c.render
                               }));
                               this._writeModePreviewed = true;
                               this.updateWriteModeColumnsTable();
@@ -2185,7 +3583,28 @@ class QueryDesigner {
                     }
 
                     this.updateColumnsTable();
+
+                    this.actionOptions = design.actionOptions ? JSON.parse(design.actionOptions) : this.actionOptionsDefualt;
+                    this.loadActionOptions();
+
+                    this.customActionButtons = design.customActionButtons
+                       ? JSON.parse(design.customActionButtons)
+                         : [];
+
+                    this.renderCustomButtonsList();
+
+                    design.eventScriptsParsed = design.eventScripts
+                         ? JSON.parse(design.eventScripts)
+                         : { onSelectedRow: '', onRowAdded: '' };
+
+                    this.eventScripts = design.eventScriptsParsed ?? { onSelectedRow: '', onRowAdded: '' };
+                    this.loadEventScripts();
+                                
+                               
+                               
+
                     this.showSuccess('گزارش بارگذاری شد');
+
 
                } else {
                     this.showError('خطا در بارگذاری گزارش');
@@ -2199,6 +3618,265 @@ class QueryDesigner {
 
      generateId() {
           return 'id_' + Math.random().toString(36).substr(2, 9);
+     }
+
+     /**
+      * بارگذاری اولیه دکمه‌های سفارشی
+      */
+     loadCustomActionButtons() {
+          if (!this.customActionButtons) this.customActionButtons = [];
+          this.renderCustomButtonsList();
+     }
+
+
+     /**
+      * رندر لیست دکمه‌های سفارشی در صفحه طراح
+      */
+     renderCustomButtonsList() {
+          const $list = $('#customButtonsList');
+          const $empty = $('#customButtonsEmpty');
+
+          // پاک کردن آیتم‌های قبلی (نه empty placeholder)
+          $list.find('.custom-btn-card').remove();
+
+          if (!this.customActionButtons.length) {
+               $empty.show();
+               return;
+          }
+
+          $empty.hide();
+
+          this.customActionButtons.forEach((btn) => {
+               const $card = this._buildCustomButtonCard(btn);
+               $list.append($card);
+          });
+     }
+
+     /**
+      * ساخت کارت نمایش یک دکمه سفارشی
+      * @param {Object} btn
+      */
+          _buildCustomButtonCard(btn) {
+               const iconHtml = btn.useHtml
+                    ? `<span class="badge bg-secondary">HTML</span>`
+                    : `<i class="${btn.iconClass || 'bi bi-lightning'} ${btn.colorClass || 'btn-color-primary'} fs-4"></i>`;
+
+               const $card = $(`
+             <div class="col-md-4 custom-btn-card" data-btn-id="${btn.id}">
+                 <div class="card border h-100">
+                     <div class="card-body p-3">
+                         <div class="d-flex align-items-start justify-content-between mb-2">
+                             <div class="d-flex align-items-center gap-2">
+                                 ${iconHtml}
+                                 <strong class="fs-6">${this._escapeHtml(btn.title || '(بدون عنوان)')}</strong>
+                                  <strong class="fs-6">${this._escapeHtml(btn.dataActionName || '(بدون dataActionName)')}</strong>
+                             </div>
+                             <div class="btn-group btn-group-sm">
+                                 <button type="button" class="btn btn-outline-warning btn-edit-custom-btn" title="ویرایش">
+                                     <i class="bi bi-pencil"></i>
+                                 </button>
+                                 <button type="button" class="btn btn-outline-danger btn-remove-custom-btn" title="حذف">
+                                     <i class="bi bi-trash"></i>
+                                 </button>
+                             </div>
+                         </div>
+                         <div class="small text-muted">
+                             ${btn.requiresSelection
+                         ? '<span class="badge bg-light text-dark border"><i class="bi bi-cursor"></i> نیاز به انتخاب ردیف</span>'
+                         : ''}
+                             ${btn.useHtml
+                         ? '<span class="badge bg-info text-white ms-1">HTML سفارشی</span>'
+                         : `<code class="small">${this._escapeHtml(btn.colorClass || '')}</code>`}
+                         </div>
+                     </div>
+                 </div>
+             </div>
+         `);
+
+               $card.find('.btn-edit-custom-btn').on('click', () => this.editCustomButton(btn.id));
+               $card.find('.btn-remove-custom-btn').on('click', () => this.removeCustomButton(btn.id));
+
+               return $card;
+     }
+
+     /**
+ * نمایش Modal افزودن / ویرایش دکمه سفارشی
+ * @param {Object|null} btn
+ */
+     showCustomButtonModal(btn = null) {
+          // reset
+          $('#customBtnEditId').val(btn ? btn.id : '');
+          $('#customButtonModalTitle').text(btn ? 'ویرایش دکمه سفارشی' : 'افزودن دکمه اکشن سفارشی');
+          $('#customBtnUseHtml').prop('checked', btn?.useHtml ?? false);
+          $('#customBtnTitle').val(btn?.title ?? '');
+          $('#dataActionName').val(btn?.dataActionName ?? '');
+          $('#customBtnColorClass').val(btn?.colorClass ?? 'btn-color-primary');
+          $('#customBtnIconClass').val(btn?.iconClass ?? '');
+          $('#customBtnRequiresSelection').prop('checked', btn?.requiresSelection ?? false);
+          $('#customBtnHtml').val(btn?.html ?? '');
+
+          var jsEditor = ace.edit('customBtnScript');
+          jsEditor.setTheme('ace/theme/chrome');
+          jsEditor.session.setMode('ace/mode/javascript');
+          jsEditor.setValue(btn?.actionScript ?? this._defaultScriptTemplate());
+          
+
+        
+
+          this._toggleCustomButtonMode();
+          this._updateButtonPreview();
+
+          new bootstrap.Modal(document.getElementById('customButtonModal')).show();
+     }
+
+     /**
+      * ذخیره یک دکمه سفارشی (افزودن یا ویرایش)
+      */
+     saveCustomButton() {
+          const editId = $('#customBtnEditId').val();
+          const useHtml = $('#customBtnUseHtml').is(':checked');
+          const title = $('#customBtnTitle').val().trim();
+          const dataActionName = $('#dataActionName').val().trim();
+          const script = ace.edit('customBtnScript').getValue(); 
+
+          // اعتبارسنجی
+          if (!useHtml && !title) {
+               this.showError('عنوان دکمه الزامی است');
+               return;
+          }
+          if (!script) {
+               this.showError('کد JavaScript الزامی است');
+               return;
+          }
+
+          // بررسی syntax ساده
+          try {
+               // eslint-disable-next-line no-new-func
+               new Function('ctx', `return (${script})(ctx)`);
+          } catch (e) {
+               this.showError(`خطای syntax در کد JavaScript: ${e.message}`);
+               return;
+          }
+
+          const btn = {
+               id: editId || this.generateId(),
+               title: title,
+               dataActionName: dataActionName,
+               colorClass: $('#customBtnColorClass').val(),
+               iconClass: $('#customBtnIconClass').val().trim(),
+               requiresSelection: $('#customBtnRequiresSelection').is(':checked'),
+               useHtml: useHtml,
+               html: useHtml ? $('#customBtnHtml').val().trim() : '',
+               actionScript: script,
+          };
+
+          const idx = editId
+               ? this.customActionButtons.findIndex(b => b.id === editId)
+               : -1;
+
+          if (idx >= 0) {
+               this.customActionButtons[idx] = btn;
+               this.showSuccess('دکمه بروزرسانی شد');
+          } else {
+               this.customActionButtons.push(btn);
+               this.showSuccess('دکمه اضافه شد');
+          }
+
+          bootstrap.Modal.getInstance(document.getElementById('customButtonModal'))?.hide();
+          this.renderCustomButtonsList();
+     }
+
+     /**
+      * ویرایش یک دکمه سفارشی بر اساس id
+      * @param {string} btnId
+      */
+     editCustomButton(btnId) {
+          const btn = this.customActionButtons.find(b => b.id === btnId);
+          if (btn) this.showCustomButtonModal(btn);
+     }
+
+     /**
+      * حذف یک دکمه سفارشی
+      * @param {string} btnId
+      */
+     removeCustomButton(btnId) {
+          const idx = this.customActionButtons.findIndex(b => b.id === btnId);
+          if (idx < 0) return;
+          this.customActionButtons.splice(idx, 1);
+          this.renderCustomButtonsList();
+          this.showInfo('دکمه حذف شد');
+     }
+
+     /**
+      * toggle بین حالت پیش‌فرض و HTML
+      * @private
+      */
+     _toggleCustomButtonMode() {
+          const useHtml = $('#customBtnUseHtml').is(':checked');
+          $('#customBtnStandardFields').toggleClass('d-none', useHtml);
+          $('#customBtnHtmlFields').toggleClass('d-none', !useHtml);
+     }
+
+     /**
+      * بروزرسانی پیش‌نمایش دکمه در Modal
+      * @private
+      */
+     _updateButtonPreview() {
+          const colorClass = $('#customBtnColorClass').val() || 'btn-color-primary';
+          const iconClass = $('#customBtnIconClass').val() || 'bi bi-star';
+          const title = $('#customBtnTitle').val() || '';
+
+          $('#customBtnPreview')
+               .attr('class', `btn-sm btn btn-icon btn-active-icon-dark ${colorClass}`)
+               .attr('title', title)
+               .html(`<i class="${iconClass} fs-2"></i>`);
+     }
+
+     /**
+      * درج قالب پیش‌فرض اسکریپت
+      * @private
+      */
+     _insertScriptTemplate() {
+          const template = this._defaultScriptTemplate();
+          const current = $('#customBtnScript').val().trim();
+          if (!current || confirm('محتوای فعلی جایگزین می‌شود. ادامه می‌دهید؟')) {
+               $('#customBtnScript').val(template);
+          }
+     }
+
+     /**
+      * قالب پیش‌فرض کد JS
+      * @returns {string}
+      * @private
+      */
+     _defaultScriptTemplate() {
+          return `function(ctx) {
+              // ctx.selectedRow  → آبجکت ردیف انتخاب شده (null اگر انتخاب نشده)
+              // ctx.table        → DataTable API
+              // ctx.tableData    → آرایه داده‌های صفحه جاری
+              // ctx.$toolbar     → jQuery نوار ابزار
+              // ctx.dataActionBtns     → دکمه های موجود بر اساس dataAction
+              // ctx.$btn         → jQuery دکمه کلیک شده
+              // ctx.draw()       → بارگذاری مجدد جدول
+ 
+              if (!ctx.selectedRow) {
+                  toastr.warning('لطفاً یک ردیف انتخاب کنید');
+                  return;
+              }
+ 
+              console.log('Selected row:', ctx.selectedRow);
+          }`;
+     }
+
+     /**
+      * escape کردن HTML برای جلوگیری از XSS در رندر کارت‌ها
+      * @param {string} text
+      * @returns {string}
+      * @private
+      */
+     _escapeHtml(text) {
+          const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+          return String(text).replace(/[&<>"']/g, m => map[m]);
      }
 
      /**
@@ -2288,4 +3966,14 @@ function toCamelCase(str) {
 
      if (!str || str.length === 0) return str;
      return str.charAt(0).toLowerCase() + str.slice(1);
+}
+
+/**
+* capitalize اول کلمه برای ساخت id textarea
+* @param {string} str
+* @returns {string}
+* @private
+*/
+function _capitalize(str) {
+     return str.charAt(0).toUpperCase() + str.slice(1);
 }

@@ -1,14 +1,15 @@
-﻿using Azure.Core;
+using Azure.Core;
 using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
+using Data.Services.QueryBuilderServices;
 using Entities.Auth;
 using Entities.Base;
 using Entities.Base.FormBuilder;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
- 
-using Services.QueryBuilderServices;
+
+using Data.Services.QueryBuilderServices;
 using System.Text.Json;
 using WebFramework.Filtters;
 using WebFramework.Page;
@@ -66,24 +67,90 @@ namespace WebFramework.Controllers
 		/// 
 		[HttpGet("[action]")]
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
-		public async Task<IActionResult> Edit(long? id)
+		public async Task<IActionResult> Edit(long? id,string? entityName)
 		{
+			if(entityName.HasValue())
+			{
+				ViewBag.EntityFullName = entityName;
+				ViewBag.ReportType = 1;
+			}
 
 			if(id != null)
 			{
 				var report = await _queryService.GetReportAsync((long)id);
 				if (report == null)
 					return NotFound();
-
-				var queryDesign = JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
-				var reportMode = !string.IsNullOrEmpty(queryDesign?.CustomQuery) ? "write" : "design";
+				 
 
 				ViewBag.ReportId = id;
-				ViewBag.ReportMode = reportMode;
+				ViewBag.ReportType = (int)report.Type;
+				ViewBag.EntityFullName = report.EntityFullName;
 				ViewBag.ReportData = report;
 			}
 			
 			return View(@"\Views\Panel\System\QueryDesigner\Edit.cshtml");
+		}
+
+		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("حذف اطلاعات", ActionAccessType.Api, ActionAccessItemType.Delete)]
+		public async Task<IActionResult> Remove( long id)
+		{
+			 
+
+			if (id != null)
+			{
+				var report = await _queryService.GetReportAsync((long)id);
+				if (report == null)
+					return NotFound();
+
+
+				var res = await _queryService.DeleteReportAsync((long)id);
+
+				if(res == false)
+				{
+					  throw new Exception("خطا در حذف نمایه داده");
+				}
+
+
+			}
+			else
+			{
+				return NotFound("هیچ نمایه داده ای با این شناسه یافت نشد."); 
+			}
+
+
+				return Ok();
+		}
+
+
+		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("کپی اطلاعات", ActionAccessType.Api, ActionAccessItemType.Custom)]
+		public async Task<IActionResult> Copy(long id)
+		{
+
+
+			if (id != null)
+			{
+				var report = await _queryService.GetReportAsync((long)id);
+				if (report == null)
+					return NotFound();
+
+				report.Name = report.Name + "new" + (report.Id + 1);
+				report.Title = report.Title + (report.Id + 1);
+
+				report.Id = null;
+				
+
+				var res = await _queryService.SaveReportAsync(report,CurrentUserId.Value);
+				  
+			}
+			else
+			{
+				return NotFound("هیچ نمایه داده ای با این شناسه یافت نشد.");
+			}
+
+
+			return Ok();
 		}
 
 		#region API Methods
@@ -96,6 +163,26 @@ namespace WebFramework.Controllers
 		{
 			var tables = await _schemaService.GetTablesAndViewsAsync();
 			return Ok(tables);
+		}
+
+		/// <summary>
+		/// دریافت لیست Stored Procedure ها
+		/// </summary>
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetStoredProcedures()
+		{
+			var procedures = await _schemaService.GetStoredProceduresAsync();
+			return Ok(procedures);
+		}
+
+		/// <summary>
+		/// دریافت پارامترهای Stored Procedure
+		/// </summary>
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetStoredProcedureParameters(string schema, string procedureName)
+		{
+			var parameters = await _schemaService.GetStoredProcedureParametersAsync(schema, procedureName);
+			return Ok(parameters);
 		}
 
 		/// <summary>
@@ -206,17 +293,20 @@ namespace WebFramework.Controllers
 				 );
 			}
 
-			// محدود کردن تعداد رکوردها برای پیش‌نمایش
-			if (!query.ToUpper().Contains("TOP "))
+			// محدود کردن تعداد رکوردها برای پیش‌نمایش (فقط برای SELECT، نه EXEC)
+			var queryUpper = query.TrimStart().ToUpperInvariant();
+			if (!queryUpper.StartsWith("EXEC") && !queryUpper.StartsWith("EXECUTE") && !queryUpper.Contains("TOP "))
 			{
-				query = query.Replace("SELECT", "SELECT TOP 100");
+				var idx = query.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
+				if (idx >= 0)
+					query = query.Substring(0, idx) + "SELECT TOP 100 " + query.Substring(idx + 6).TrimStart();
 			}
 
 			// ساخت پارامترها و اجرا
 			var paramValues = request.Parameters ?? new Dictionary<string, string>();
-			var userId = User?.Identity?.Name;
+			 
 
-			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, userId, userId);
+			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, CurrentUserId.Value.ToString(), CurrentUserName);
 			var paramsObj = new Dictionary<string, object>();
 
 			foreach (var kv in sqlParams)
@@ -231,13 +321,13 @@ namespace WebFramework.Controllers
 		/// ذخیره گزارش
 		/// </summary>
 		[HttpPost("[action]")]
-		public async Task<IActionResult> SaveReport([FromBody] ReportDesign design)
+		public async Task<IActionResult> SaveReport([FromBody] QueryDesignRequest design)
 		{
 			 
 				if (design == null)
 					throw new Exception("داده‌های گزارش ارسال نشده است. لطفاً نام و عنوان گزارش را وارد کنید و مجدداً تلاش کنید");
 
-				var userId = User.Identity.GetUserId();
+				var userId = CurrentUserId.Value;
 
 				var report = await _queryService.SaveReportAsync(design, userId);
 				return Ok(report);
@@ -249,14 +339,14 @@ namespace WebFramework.Controllers
 		/// بروزرسانی گزارش
 		/// </summary>
 		[HttpPost("[action]")]
-		public async Task<IActionResult> UpdateReport(int id, [FromBody] ReportDesign design)
+		public async Task<IActionResult> UpdateReport(int id, [FromBody] QueryDesignRequest design)
 		{
 			 
 				if (design == null)
 					throw new Exception("داده‌های گزارش ارسال نشده است. لطفاً مجدداً تلاش کنید." );
 
-				var userId = User.Identity.GetUserId();
-				var report = await _queryService.UpdateReportAsync(id, design, userId);
+				var userId = CurrentUserId.Value;
+			var report = await _queryService.UpdateReportAsync(id, design, userId);
 				return Ok(report);
 			 
 		}
@@ -285,14 +375,25 @@ namespace WebFramework.Controllers
 					throw new Exception("گزارش یافت نشد");
 
 				var queryDesign = JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
-				var columns = JsonSerializer.Deserialize<List<ReportColumn>>(report.ColumnsJson);
+				var columns = JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson);
+				
+				foreach(var column in columns)
+				{
+					column.SystemTypeName = column.SystemType.ToString();
+				}
 
-				var design = new ReportDesign
+				var design = new QueryDesignRequest
 				{
 					Name = report.Name,
 					Title = report.Title,
+					EntityFullName = report.EntityFullName,
+					Mode = report.Mode,
+					Type = report.Type,
 					QueryDesign = queryDesign,
-					Columns = columns
+					Columns = columns,
+					ActionOptions = report.ActionOptions,
+					CustomActionButtons = report.CustomActionButtonsJson,
+					EventScripts = report.EventScriptsJson
 				};
 
 				return Ok(design);
@@ -343,7 +444,7 @@ namespace WebFramework.Controllers
 					return NotFound();
 
 				var queryDesign = System.Text.Json.JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
-				var columns = System.Text.Json.JsonSerializer.Deserialize<List<ReportColumn>>(report.ColumnsJson);
+				var columns = System.Text.Json.JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson);
 
 				string query;
 				if (!string.IsNullOrEmpty(queryDesign.CustomQuery))
@@ -398,7 +499,7 @@ namespace WebFramework.Controllers
 
 	public class BuildQueryRequest : QueryDesign
 	{
-		public List<ReportColumn> Columns { get; set; }
+		public List<QueryColumn> Columns { get; set; }
 	}
 
 	public class QueryValidationRequest

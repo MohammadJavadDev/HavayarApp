@@ -8,7 +8,7 @@ using Entities.Base.FormBuilder;
 using Entities.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Services.QueryBuilderServices;
+using Data.Services.QueryBuilderServices;
 using WebFramework.Abstractions;
 using WebFramework.Filtters;
 using WebFramework.Page;

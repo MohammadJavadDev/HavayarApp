@@ -1,0 +1,620 @@
+﻿@using Common.Attributes
+@using Common.Utilities
+@using Entities.Base.ImportDefinitions
+@using WebFramework.ViewModels.ImportDefinitionsViewModels
+@model  ImportDefinitionViewModel
+@{
+     var def = Model?.Definition ?? new();
+     bool isEdit = def.Id > 0;
+     var columns = def.Columns.JsonDeserialize<ImportDefinitionColumn[]>();
+     ViewData["Title"] = isEdit ? "ویرایش تعریف" : "تعریف جدید ورود اطلاعات";
+
+     var queryString = def.SqlQuery ?? @"INSERT INTO [Schema].[Table] (CreatedById , ModifiedById , CreatedByName, ModifiedByName,ModifiedDateMiladiDateTime,ModifiedDateShamsiDateTime,CreatedOnMiladiDateTime,CreatedOnShamsiDateTime,IsActive) VALUES (@CurrentUserId, @CurrentUserId,@CurrentUserName,@CurrentUserName ,@CurrentDateTimeMiladi ,@CurrentDateTimeShamsi,@CurrentDateTimeMiladi ,@CurrentDateTimeShamsi, 1 )";
+}
+
+<style>
+     .select2-container {
+          z-index: 999999999 !important
+     }
+ 
+</style>
+
+
+<div class="container-fluid py-4" dir="rtl">
+    <div class="d-flex align-items-center mb-4">
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm me-3">
+            <i class="fas fa-arrow-right"></i>
+        </a>
+        <div>
+            <h4 class="fw-bold mb-0">@ViewData["Title"]</h4>
+            <small class="text-muted">تعریف الگوی ورود اطلاعات از اکسل</small>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger">
+            @foreach (var err in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <div><i class="fas fa-exclamation-circle me-1"></i>@err.ErrorMessage</div>
+            }
+        </div>
+    }
+
+    <div id="frmDefinition">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="Definition.Id" data-bind="id" />
+
+        <div class="row g-4">
+ 
+            <div class="col-lg-12">
+                <div class="card shadow-sm h-100">
+                         <div class="card-header bg-primary text-white p-5">
+                              <i class="fas fa-info-circle me-2 text-white"></i>اطلاعات پایه
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">نام موجودیت <span class="text-danger">*</span></label>
+                            <input asp-for="Definition.FullNameEntity"
+                                          data-bind="fullNameEntity"
+                                   class="form-control font-monospace"
+                                   placeholder="مثال: StudentImport"
+                                   dir="ltr" />
+                            <div class="form-text">نام یکتا برای این ورود اطلاعات (بدون فاصله)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">عنوان نمایشی <span class="text-danger">*</span></label>
+                                   <input asp-for="Definition.Title" class="form-control" data-bind="title"
+                                   placeholder="مثال: ورود اطلاعات دانشجویان" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">توضیحات</label>
+                            <textarea asp-for="Definition.Description" class="form-control" rows="3"
+                                             data-bind="description"
+                                      placeholder="توضیح مختصر..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                کوئری SQL <span class="text-danger">*</span>
+                                <button type="button" class="btn btn-sm btn-outline-info ms-2"
+                                        data-bs-toggle="modal" data-bs-target="#sqlHelpModal">
+                                    <i class="fas fa-question-circle"></i> راهنما
+                                </button>
+                            </label>
+                            <div  id="sqlQuery"   style="height:300px"   >
+                                   
+                                 </div>
+                                   <input type="hidden" id="sqlQueryInput" data-bind="sqlQuery" />
+                            <div class="form-text">
+                                پارامترهای SQL: <span id="detectedParams" class="text-primary fw-bold"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+ 
+            <div class="col-lg-12">
+                <div class="card shadow-sm">
+                         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-columns me-2"></i>ستون‌های ورود اطلاعات</span>
+                        <div>
+                            <button type="button" id="btnAddFromSql" class="btn btn-sm btn-light me-2">
+                                <i class="fas fa-magic me-1"></i>افزودن از SQL
+                            </button>
+                            <button type="button" id="btnAddCol" class="btn btn-sm btn-warning">
+                                <i class="fas fa-plus me-1"></i>افزودن ستون
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0" id="colTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="30"></th>
+                                        <th>نام پارامتر SQL</th>
+                                        <th>عنوان در اکسل</th>
+                                        <th>نوع</th>
+                                        <th class="text-center">سیستمی</th>
+                                        <th class="text-center">الزامی</th>
+                                        <th width="40"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="colBody" class="sortable-body">
+                                             @if (columns != null && columns.Any())
+                                    {
+                                                  @foreach (var col in columns.OrderBy(c => c.SortOrder))
+                                        {
+                                            <tr>
+                                                            <td><i class="fas fa-pen-to-square text-warning drag-handle" style="cursor:pointer" data-action='moreSetting'></i></td>
+                                                <td>
+                                                                 <input type="text" data-bind="columns.columnName"
+                                                           value="@col.ColumnName"
+                                                           class="form-control form-control-sm font-monospace"
+                                                           dir="ltr" placeholder="ParamName" />
+                                                </td>
+                                                <td>
+                                                                 <input type="text" data-bind="columns.displayName"
+                                                           value="@col.DisplayName"
+                                                           class="form-control form-control-sm"
+                                                           placeholder="عنوان اکسل" />
+                                                </td>
+                                                <td>
+                                                                 <select data-bind="columns.dataType" class="form-select form-select-sm col-type-select">
+                                                                      @foreach (var dt in EnumExtensions.GetEnumValuesWithDisplayNames<SystemType>())
+                                                        {
+                                                            <option value="@dt.Value" selected="@(col.DataType == (SystemType)dt.Value)">@dt.Text</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                                <td class="text-center">
+                                                                 <input type="checkbox" data-bind="columns.isSystemVariable"
+                                                           class="form-check-input sys-var-check"
+                                                           value="true" @(col.IsSystemVariable ? "checked" : "") />
+                                                                 <input type="hidden" data-bind="columns.optionSettings" value="@(col.OptionSettings.JsonSerialize())" />
+                                                                 <select data-bind="columns.systemVariable"
+                                                            class="form-select form-select-sm sys-var-select mt-1 @(!col.IsSystemVariable ? "d-none" : "")">
+                                                        <option value="">انتخاب...</option>
+                                                        @foreach (var sv in  SystemVariables.GetAll())
+                                                        {
+                                                            <option value="@sv.Key" selected="@(col.SystemVariable == sv.Key)">@sv.Value</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                                <td class="text-center">
+                                                                 <input type="checkbox" data-bind="columns.isRequired"
+                                                           class="form-check-input"
+                                                           value="true" @(col.IsRequired ? "checked" : "") />
+                                                    <input type="hidden" name="ColIsRequired" value="false" />
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-col">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                              <div id="noColsMsg" class='text-center py-4 text-muted @(columns != null && columns.Any() ? "d-none" : "")'>
+                            <i class="fas fa-table fa-2x mb-2 d-block"></i>
+                            ستونی تعریف نشده. از دکمه «افزودن ستون» یا «افزودن از SQL» استفاده کنید.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 d-flex gap-2 justify-content-end">
+            <a asp-action="Index" class="btn btn-outline-secondary px-4">انصراف</a>
+            <button   class="btn btn-primary px-5" id="save">
+                <i class="fas fa-save me-2"></i>ذخیره تعریف
+            </button>
+        </div>
+    </div>
+</div>
+
+ 
+<div class="modal fade" id="sqlHelpModal" tabindex="-1" dir="rtl">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">راهنمای نوشتن کوئری SQL</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>برای هر ستون اکسل یا متغیر سیستمی، از پارامتر با پیشوند <code>@@</code> استفاده کنید:</p>
+                <pre class="bg-dark text-success p-3 rounded" dir="ltr">INSERT INTO Students (FirstName, LastName, BirthDate, CreatedBy, CreatedAt)
+                         VALUES (@@FirstName, @@LastName, @@BirthDate, @@CurrentUserId, @@CurrentDateTimeMiladi)</pre>
+                <div class="alert alert-info mt-3">
+                    <strong>متغیرهای سیستمی:</strong>
+                    <ul class="mb-0 mt-1">
+                       <li><code>@@CurrentUserId</code> - شناسه کاربر لاگین‌شده</li>
+                        <li><code>@@CurrentUserName</code> - نام کاربر لاگین‌شده</li>
+                              <li><code>@@CurrentDateMiladi</code> -  تاریخ جاری میلادی</li>
+                              <li><code>@@CurrentDateTimeMiladi</code> - تاریخ و ساعت جاری میلادی</li>
+                              <li><code>@@CurrentDateShamsi</code> -  تاریخ جاری شمسی</li>
+                              <li><code>@@CurrentDateTimeShamsi</code> - تاریخ و ساعت جاری شمسی</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/panellib/plugins/custom/editor-anc/ace.js"></script>
+
+<script src="~/panellib/plugins/custom/editor-anc/ext-beautify.js"></script>
+ 
+<script>
+
+
+
+     var  sqlEditor = null;
+
+          function initSqlEditor(query = ""){
+            
+                var $sqlQuery  = $$("#sqlQuery");
+               sqlEditor = ace.edit($sqlQuery[0]);
+               sqlEditor.setTheme('ace/theme/chrome');
+                sqlEditor.session.setMode('ace/mode/sqlserver');
+
+         
+               sqlEditor.setValue(query);
+
+ 
+               sqlEditor.getSession().on('change', (e) => {
+                    const value = sqlEditor.getValue()
+
+                    $$("#sqlQueryInput").val(value)
+                    detectParams(value);
+               })
+                  detectParams(query);
+                 $$("#sqlQueryInput").val(query)
+          }
+
+          initSqlEditor(`@Html.Raw(queryString)`);
+
+     // ----------------------------------------------------------------
+      // تشخیص پارامترها از SQL
+      // ----------------------------------------------------------------
+      const systemVarNames = ['CurrentUserId', 'CurrentUserName', 'CurrentDateMiladi',  'CurrentDateTimeMiladi' , 'CurrentDateTimeShamsi','CurrentDateShamsi'];
+
+      function detectParams(sql = "") {
+           debugger
+   
+          const matches = [...sql.matchAll(/@@(\w+)/g)].map(m => m[1]);
+          const unique = [...new Set(matches)];
+          $('#detectedParams').text(unique.map(p => '@@' + p).join(', '));
+          return unique;
+      }
+       
+
+      // ----------------------------------------------------------------
+      // نمایش/مخفی‌کردن select متغیر سیستمی
+      // ----------------------------------------------------------------
+      $$().on('change', '.sys-var-check', function () {
+          const select = $(this).closest('td').find('.sys-var-select');
+          if ($(this).is(':checked')) {
+              select.removeClass('d-none');
+          } else {
+              select.addClass('d-none').val('');
+          }
+      });
+
+      let systemEnums = [];
+
+       async function loadSystemEnums() {
+
+            if(systemEnums.length > 0)
+               return ;
+          try {
+               const response = await $.get("/System/ListSystemEnums");
+               if (response.isSuccess) {
+                    systemEnums = response.data || [];
+               }
+          } catch (error) {
+               error2("خطا در بارگذاری enum های سیستم");
+               console.error(error);
+          }
+
+     }
+
+     async  function LoadSelectTypeOptions(){
+           await loadSystemEnums();
+
+           let $tpl =  $(`    <div class="row col-md-12">
+                    <div class="col-md-4">
+                         <label class="form-label">نوع تبدیل</label>
+                         <select class="form-select" data-action="typeOptions">
+                              <option value="0">انتخاب کنید</option>
+                              <option value="1">تعریف گزینه</option>
+                              <option value="2">گزینه موجود</option>
+                              <option value="3">گزینه سیستمی</option>
+                         </select>
+                    </div>
+
+                     <div class="col-md-8 d-none" data-section="existOptions">
+                         <label class="form-label" >گزینه های موجود</label>
+                         <select class="form-select w-100" data-action="existOptions">
+
+                         </select>
+                    </div>
+                    <div class="col-md-8 d-none" data-section="systemOptions">
+                       <label class="form-label" >گزینه های سیستمی</label>
+                         <select class="form-select w-100" data-action="systemOptions">
+
+                         </select> 
+                    </div>
+
+                    <div class="col-md-12 d-none mt-3" data-section="defOptions">
+                    <button class="btn btn-success" data-action="addnewOptions">افزودن گزینه جدید</button>
+                          <table class="table table-rounded table-striped border table-bordered">
+                               <thead>
+                                    <tr>
+                                          <th>
+                                         #
+                                         </th>
+                                         <th>
+                                         مقدار
+                                         </th>
+                                         <th>
+                                             عنوان
+                                          </th>
+                                    </tr>
+                               </thead>
+                               <tbody>
+                               </tbody>
+                          </table>
+                    </div>
+
+               </div>`)
+
+
+            systemEnums.forEach((c) => {
+                    let $systemEnumOption = $(`<option value="${c.type}">${c.parentEntityTypeName}.${c.name} || ${c.displayName} </option>`)
+                    $tpl.find("[data-action='systemOptions']").append($systemEnumOption)
+               });
+
+               $tpl.find(`[data-action="typeOptions"]`).change(function(){
+                    var type = $(this).val();
+                    if(type ==  1)
+                    {
+                         $tpl.find(`[data-section="defOptions"]`).removeClass("d-none")
+                         $tpl.find(`[data-section="systemOptions"]`).addClass("d-none")
+                         $tpl.find(`[data-section="existOptions"]`).addClass("d-none")
+                    }
+                    else if(type ==  2)
+                    {
+                         $tpl.find(`[data-section="defOptions"]`).addClass("d-none")
+                         $tpl.find(`[data-section="systemOptions"]`).addClass("d-none")
+                         $tpl.find(`[data-section="existOptions"]`).removeClass("d-none")
+                    }
+                    else
+                    {
+                         $tpl.find(`[data-section="defOptions"]`).addClass("d-none")
+                         $tpl.find(`[data-section="systemOptions"]`).removeClass("d-none")
+                         $tpl.find(`[data-section="existOptions"]`).addClass("d-none")
+                    }
+               })
+
+                  $tpl.find("[data-action='systemOptions']").select2({
+                         width: '100%',
+                    });
+
+
+          
+           return $tpl;
+      }
+
+      // ----------------------------------------------------------------
+      // افزودن ستون جدید (خالی)
+      // ----------------------------------------------------------------
+      function addColumnRow(colName, displayName, isSysVar, sysVar) {
+             
+          colName     = colName || '';
+          displayName = displayName || '';
+          isSysVar    = !!isSysVar;
+          sysVar      = sysVar || '';
+
+          const sysVarOptions = @Html.Raw(Json.Serialize(
+                            ((IEnumerable<KeyValuePair<string, string>>)
+                                SystemVariables.GetAll())
+                            .Select(sv => new { Value = sv.Key, Text = sv.Value })
+                    ));
+
+  
+
+          let sysVarHtml = sysVarOptions.map(o =>
+              `<option value="${o.value}" ${o.value === sysVar ? 'selected' : ''}>${o.text}</option>`
+          ).join('');
+
+          const row = $(`
+          <tr>
+              <td><i class="fas fa-pen-to-square text-warning drag-handle" style="cursor:pointer" data-action='moreSetting'></i></td>
+              <td><input type="text" data-bind="columns.columnName" value="${colName}"
+                         class="form-control form-control-sm font-monospace"
+                         dir="ltr" placeholder="ParamName"/></td>
+              <td><input type="text" data-bind="columns.displayName" value="${displayName}"
+                         class="form-control form-control-sm" placeholder="عنوان اکسل"/></td>
+              <td>
+                  <select data-bind="columns.dataType" class="form-select form-select-sm col-type-select">
+                              @foreach (var dt in EnumExtensions.GetEnumValuesWithDisplayNames<SystemType>())
+                              {
+                                        <option value="@dt.Value">@dt.Text</option>
+                              }
+                  </select>
+                  <input type="hidden" data-bind="columns.optionSettings"  />
+                
+              </td>
+              <td class="text-center">
+                  <input type="checkbox" data-bind="columns.isSystemVariable" class="form-check-input sys-var-check"
+                         value="true" ${isSysVar ? 'checked' : ''}/>
+
+                  <select data-bind="columns.systemVariable"
+                          class="form-select form-select-sm sys-var-select mt-1 ${isSysVar ? '' : 'd-none'}">
+                      <option value="">انتخاب...</option>
+                      ${sysVarHtml}
+                  </select>
+              </td>
+              <td class="text-center">
+                  <input type="checkbox" data-bind="columns.isRequired" class="form-check-input" value="true"/>
+
+              </td>
+              <td>
+                  <button type="button" class="btn btn-sm btn-outline-danger btn-remove-col">
+                      <i class="fas fa-times"></i>
+                  </button>
+              </td>
+          </tr>`);
+
+         
+        
+
+          $$('#colBody').append(row);
+          $$('#noColsMsg').addClass('d-none');
+
+          
+      }
+      debugger
+
+      $$().on("click","[data-action='moreSetting']", async function(e){
+             e.preventDefault();
+              
+             var selectOptions = await  LoadSelectTypeOptions();
+             let $tr = $(this).closest("tr");
+                   
+               $.confirm({
+                   title: 'تنظیمات ستون',
+                   columnClass: 'col-md-10',
+                   content: selectOptions,
+                   rtl: true,
+                   buttons: {
+                       save: {
+                           text: 'ذخیره',
+                           btnClass: 'btn-success',
+                           action: function() {
+                                debugger
+                               const $content = this.$content;
+                               var optionSettringJson = "";
+
+                                 let typeOption = $content.find("[data-action=typeOptions]").val()
+                                             let listOptions = [];
+                                             let systemTypeName = "";
+
+                                             if (typeOption === "0") {
+                                                  toastr.error("نوع گزینه ها انتخاب نشده است")
+                                                  return false;
+                                             }
+
+                                             else if (typeOption === "1") {
+                                                  let $trOptions = $content.find('[data-section="defOptions"] tbody tr');
+                                                  if ($trOptions.length === 0) {
+                                                       toastr.error("هیچ گزینه ای برای ثبت ایجاد نشده است")
+                                                       return false;
+                                                  }
+                                                  let haveError = false;
+                                                  listOptions = $trOptions.map((i, c) => {
+
+                                                       let value = $(c).find('[data-feild="value"]').val();
+                                                       if (!value || value.length === 0) {
+                                                            $(c).find('[data-feild="value"]').addClass("border border-danger");
+                                                            haveError = true;
+                                                       }
+                                                       else {
+                                                            if (isNaN(parseInt(value))) {
+                                                                 $(c).find('[data-feild="value"]').addClass("border border-danger");
+                                                                 haveError = true;
+                                                            }
+                                                            else {
+                                                                 $(c).find('[data-feild="value"]').removeClass("border border-danger")
+
+                                                            }
+                                                       }
+                                                       let name = $(c).find('[data-feild="name"]').val();
+
+                                                       if (!name || name.length === 0) {
+                                                            $(c).find('[data-feild="name"]').addClass("border border-danger");
+                                                            haveError = true;
+                                                       }
+                                                       else {
+                                                            $(c).find('[data-feild="name"]').removeClass("border border-danger")
+
+                                                       }
+
+                                                       return { value, name };
+                                                  }).get();
+
+                                                  if (haveError === true) {
+                                                       toastr.error("برای یک یا چند گزینه وارد شده اطلاعات صحیح وارد نشده است")
+                                                       return false;
+                                                  }
+                                             }
+                                             else if (typeOption === "2") {
+
+                                                  toastr.error("قابلیت پیاده سازی نشده است")
+                                                  return false;
+                                             }
+                                             else if (typeOption === "3") {
+                                                  systemTypeName = $content.find('[data-action="systemOptions"]').val();
+                                             }
+
+                                             optionSettringJson = JSON.stringify({ listOptions, typeOption, systemTypeName });
+
+                                          $tr.find(`[data-bind="columns.optionSettings"]`).val(optionSettringJson);
+                                
+                           }
+                       },
+                       cancel: {
+                           text: 'انصراف',
+                           btnClass: 'btn-secondary'
+                       }
+                   }
+                
+               });
+      })
+
+      $$('#btnAddCol').on('click', function () { addColumnRow(); });
+
+      // ----------------------------------------------------------------
+      // افزودن خودکار از پارامترهای SQL
+      // ----------------------------------------------------------------
+      $$('#btnAddFromSql').on('click', function () {
+          const value = sqlEditor.getValue()
+          const params = detectParams(value);
+          const existing = $$('#colBody input[data-bind="colColumnName"]')
+              .map(function () { return $(this).val(); }).get();
+
+          let added = 0;
+          params.forEach(p => {
+              if (!existing.includes(p)) {
+                  const isSys = systemVarNames.includes(p);
+                  if(!isSys)
+                     addColumnRow(p, isSys ? '' : p, isSys, isSys ? p : '');
+                  added++;
+              }
+          });
+          if (added === 0) {
+              alert('همه پارامترهای SQL قبلاً اضافه شده‌اند.');
+          }
+      });
+
+      // ----------------------------------------------------------------
+      // حذف ستون
+      // ----------------------------------------------------------------
+      $$().on('click', '.btn-remove-col', function () {
+          $(this).closest('tr').remove();
+          if ($$('#colBody tr').length === 0) $$('#noColsMsg').removeClass('d-none');
+      });
+
+      // ----------------------------------------------------------------
+      // Sort با drag & drop (اختیاری - نیاز به jQuery UI Sortable)
+      // ----------------------------------------------------------------
+      if ($.fn.sortable) {
+          $$('#colBody').sortable({ handle: '.drag-handle', axis: 'y' });
+      }
+
+      $$("#save").on("click",function(){
+          var model = $$().dataBind();
+
+          model.columns.forEach(c=>{
+               if(c.optionSettings && c.optionSettings.length > 0)
+               {
+                    c.optionSettings = JSON.parse(c.optionSettings);
+               }
+          })
+
+           model.columns = JSON.stringify(model.columns)
+           
+          $$.post("/panel/importDefinition/save",model,function(r){
+               if(!r.isSuccess)return error2(r.message);
+
+               success2("ذخیره سازی با موفقیت انجام شد.");
+               
+          })
+      })
+</script>
+ 

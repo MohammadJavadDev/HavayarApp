@@ -45,6 +45,11 @@ namespace Entities.Base.Notification
 		public List<string>? ToEmails { get; set; }
 		public List<string>? CcEmails { get; set; }
 
+		public Notification Clone()
+		{
+			return (Notification)this.MemberwiseClone();
+		}
+
 	}
 
 }

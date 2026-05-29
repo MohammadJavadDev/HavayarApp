@@ -9,90 +9,132 @@ namespace Entities.App.Edms.Enums
 {
 	public enum DocumentStatusEnums
 	{
-		 
-		[Display(Name = "Reject رد شده")]
-		Reject = 1,
 
-		[Display(Name = "Approve تایید شده")]
-		Approve = 2,
-
-		[Display(Name = "ApprovedAsNote تایید با یادداشت")]
-		ApprovedAsNote = 3,
-
-		[Display(Name = "Commented نظر داده شده")]
-		Commented = 4,
+		[Display(Name = "NotIssue صادر نشده")]
+		NotIssue = 1,
 
 		[Display(Name = "Issue صادر شده")]
-		Issue = 5,
+		Issue = 2,
 
-		[Display(Name = "ApprovedByDcc تایید توسط DCC")]
-		ApprovedByDcc = 6,
+		[Display(Name = "RejectByReviewer  رد شده بررسی کننده")]
+		RejectByReviewer = 3,
+
+		[Display(Name = "ApproveByReviewer  تایید شده بررسی کننده")]
+		ApproveByReviewer = 4,
+		 
+		[Display(Name = "CommentedByReviewer  نظر داده شده بررسی کننده")]
+		CommentedByReviewer = 5,
+
+
+		[Display(Name = "RejectByApprover  رد شده تایید کننده")]
+		RejectByApprover = 6,
+
+		[Display(Name = "ApproveByApprover  تایید شده تایید کننده")]
+		ApproveByApprover = 7,
+
+		[Display(Name = "CommentedByApprover  نظر داده شده تایید کننده")]
+		CommentedByApprover = 8 ,
+
+
+
+		[Display(Name = "ApprovedByDcc تایید DCC")]
+		ApprovedByDcc = 9,
+
+		[Display(Name = "RejectByDcc رد شده DCC")]
+		RejectByDcc = 10,
+
+		[Display(Name = "CommentedByDcc  نظر داده شده DCC")]
+		CommentedByDcc = 11,
+
 
 		[Display(Name = "RejectByEmployer رد توسط کارفرما")]
-		RejectByEmployer = 7,
+		RejectByEmployer = 12,
 
 		[Display(Name = "ApproveByEmployer تایید توسط کارفرما")]
-		ApproveByEmployer = 8,
+		ApproveByEmployer = 13,
 
 		[Display(Name = "ApprovedAsNoteByEmployer تایید با یادداشت توسط کارفرما")]
-		ApprovedAsNoteByEmployer = 9,
+		ApprovedAsNoteByEmployer = 14,
 
 		[Display(Name = "CommentedByEmployer نظر داده شده توسط کارفرما")]
-		CommentedByEmployer = 10,
+		CommentedByEmployer = 15,
 
 		[Display(Name = "Hold معلق")]
-		Hold = 11,
+		Hold = 16,
 
 		[Display(Name = "UnHold خارج از انتظار")]
-		UnHold = 12,
+		UnHold = 17,
 
 		[Display(Name = "NotReview بررسی نشده")]
-		NotReview = 13,
+		NotReview = 18,
 
 		[Display(Name = "UnHoldByEmployer خارج از انتظار توسط کارفرما")]
-		UnHoldByEmployer = 14,
+		UnHoldByEmployer = 19,
 
 		[Display(Name = "SendEmailToClient ارسال ایمیل به مشتری")]
-		SendEmailToClient = 15,
+		SendEmailToClient = 20,
 
 		[Display(Name = "ReIssued صادر مجدد")]
-		ReIssued = 16,
+		ReIssued = 21,
 
 		[Display(Name = "Commited ثبت شده")]
-		Commited = 17,
+		Commited = 22,
 
 		[Display(Name = "UnCommit لغو ثبت")]
-		UnCommit = 18,
+		UnCommit = 23,
+
 
 		[Display(Name = "ApprovedBySale تایید توسط فروش")]
-		ApprovedBySale = 19,
+		ApprovedBySale = 24,
 
 		[Display(Name = "CommentedBySale نظر داده شده توسط فروش")]
-		CommentedBySale = 20,
+		CommentedBySale = 25,
+		[Display(Name = "RejectedBySale رد توسط فروش")]
+		RejectedBySale = 26,
+
 
 		[Display(Name = "AsBuild طبق ساخت")]
-		AsBuild = 21,
+		AsBuild = 27,
 
 		[Display(Name = "ReplaySheet برگه پاسخ")]
-		ReplaySheet = 22,
+		ReplaySheet = 28,
 
 		[Display(Name = "ReplaySheetFromClient برگه پاسخ از مشتری")]
-		ReplaySheetFromClient = 23,
+		ReplaySheetFromClient = 29,
 
 		[Display(Name = "IssueForClient صادر برای مشتری")]
-		IssueForClient = 24,
+		IssueForClient = 30,
 
-		[Display(Name = "RejectedBySale رد توسط فروش")]
-		RejectedBySale = 25,
+
 
 		[Display(Name = "Archived بایگانی شده")]
-		Archived = 26,
+		Archived = 31,
 
 		[Display(Name = "HoldByProject در انتظار توسط پروژه")]
-		HoldByProject = 27,
+		HoldByProject = 32,
 
 		[Display(Name = "ConvertToGeneralPackage تبدیل به پکیج عمومی")]
-		ConvertToGeneralPackage = 29
- 
+		ConvertToGeneralPackage = 33,
+
+		[Display(Name = "CommentedInternal  نظر داده شده داخلی")]
+		CommentedInternal = 34,
+
+		[Display(Name = "ClientCommented  نظر داده شده مشتری")]
+		ClientCommented = 35,
+
+		[Display(Name = "ClientApproval  تایید مشتری")]
+		ClientApproval = 36,
+
+		[Display(Name = "ApprovalInternal  تایید داخلی")]
+		ApprovalInternal = 37,
+
+		[Display(Name = "ReviewIssuer  بررسی شده توسط صادر کننده")]
+		ReviewIssuer = 38,
+
+		 
+
+
+
+
 	}
 }

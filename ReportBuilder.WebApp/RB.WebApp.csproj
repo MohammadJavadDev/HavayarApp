@@ -7,7 +7,12 @@
 	  <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
   </PropertyGroup>
 
-  <ItemGroup>
+	<PropertyGroup>
+		<NuGetAudit>false</NuGetAudit>
+	</PropertyGroup>
+
+
+	<ItemGroup>
     <Compile Remove="wwwroot\css\**" />
     <Compile Remove="wwwroot\js\**" />
     <Content Remove="wwwroot\css\**" />

@@ -39,6 +39,9 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Add(Proposal proposal, CancellationToken cn)
 		{
 			// Add logic here
+
+			proposal.Code = GetProposalCode(proposal);
+
 			var entity = await unitOfWork.Repository<Proposal>().SaveAsync(proposal, cn, true);
 			return Ok(entity);
 		}
@@ -136,6 +139,39 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult ProposalDocumentPartial()
 		{
 			return PartialView(@"\Views\Panel\Epms\Proposal\_ProposalDocumentPartial.cshtml");
+		}
+
+		private string GetProposalCode(Proposal entity)
+		{
+			var orgUnitAlias = GetSaleDepartmentAlias(entity.RequestedOrgUnitId);
+			var orgUnitProposalsCount = unitOfWork.Repository<Proposal>().TableNoTracking.Where(p => p.Code.Contains(orgUnitAlias)).Count();
+			var proposalNumber = (orgUnitProposalsCount + 1).ToString().PadLeft(3, '0');
+			var proposalCode = string.Concat("HY-PRO-", orgUnitAlias, "-", proposalNumber);
+
+			return proposalCode;
+		}
+
+		private static string GetSaleDepartmentAlias(long orgUnitId)
+		{
+			switch (orgUnitId)
+			{
+				// فروش کمپرسورهای مهندسی
+				case 140:
+					return "EC";
+
+				// فروش تجهیزات فشرده سازی و جداسازی هوا و گاز
+				case 745:
+					return "IG";
+
+				// فروش توربو ماشین
+				case 142:
+					return "TC";
+
+				//فروش صنعتی
+				case 278:
+					return "IC";
+			}
+			return string.Empty;
 		}
 
 	}

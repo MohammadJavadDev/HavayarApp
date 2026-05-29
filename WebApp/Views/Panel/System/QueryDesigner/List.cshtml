@@ -167,10 +167,10 @@
                <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
                          <i class="bi bi-list"></i>
-                         لیست گزارش‌ها
+                         لیست پرس جو ها
                     </h5>
                     <div class="btn-group btn-group-sm" role="group">
-                         <button type="button" class="btn btn-outline-primary" onclick="location.reload();">
+                         <button type="button" class="btn btn-outline-primary" onclick="appController.refreshCurrentPage();">
                               <i class="bi bi-arrow-clockwise"></i>
                               بروزرسانی
                          </button>
@@ -246,7 +246,7 @@
                                                           title="اجرا و نمایش">
                                                        <i class="bi bi-play-circle"></i>
                                                   </button>
-                                                  <a href="/QueryDesigner/Edit/@report.Id"
+                                                  <a href="/panel/querydesigner/Edit?id=@report.Id"
                                                      class="btn btn-sm btn-outline-primary"
                                                      title="ویرایش">
                                                        <i class="bi bi-pencil"></i>
@@ -316,7 +316,7 @@
          @if (Model != null && Model.Any())
          {
                        <text>
-                       $('#reportsTable').DataTable({
+                       $$('#reportsTable').DataTable({
                            responsive: true,
                             
                            order: [[3, 'desc']], // مرتب‌سازی بر اساس تاریخ ایجاد

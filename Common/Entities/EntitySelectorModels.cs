@@ -20,12 +20,21 @@ namespace Common.Entities
 		public string Display { get; set; }
 		public Dictionary<string, object> Row { get; set; }
 	}
+
+	public class SearchColumnInfo
+	{
+		public string ColumnName { get; set; }  // مسیر C# (مثل "ProductionOrder.ProductionOrderNumber")
+		public string SqlAlias { get; set; }    // نام alias در CTE (مثل "ProductionOrderNumber")
+		public string TypeName { get; set; }     // نوع (مثل "Int32")
+		public bool IsString { get; set; }       // آیا string است؟
+	}
 	public class SelectorDefinition
 	{
 		public string Sql { get; set; }
 		public string[] ColMap { get; set; }
 		public string DisplayTemplate { get; set; }
 		public string SearchCols { get; set; }
+		public List<SearchColumnInfo> SearchColumnInfos { get; set; }
 	}
 
 	public class EntitySelectorRequest

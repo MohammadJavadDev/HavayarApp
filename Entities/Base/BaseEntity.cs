@@ -7,16 +7,16 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Entities.Base;
- 
 
-public abstract class BaseEntity 
+
+public abstract class BaseEntity<TId> where TId : struct
 {
     [Key]
     [DisplayName("شناسه")]
     [DisplayInfo(null, false, SystemType.Long, systemProprty: true)]
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-	public long? Id { get; set; }
-    [DisplayName("شناسه ایجاد کننده")]
+	public virtual TId? Id { get; set; }
+	[DisplayName("شناسه ایجاد کننده")]
     [DisplayInfo(null, false, SystemType.Long, systemProprty: true)]
 
     public	long? CreatedById { get; set; }
@@ -70,7 +70,10 @@ public abstract class BaseEntity
     [DisplayName("وضعیت فعال بودن")]
     [DisplayInfo(null, true, SystemType.Select, systemProprty: true)]
     public IsActiveEnum? IsActive { get; set; }
- 
+
+}
+public abstract class BaseEntity : BaseEntity<long>
+{
 }
 
 

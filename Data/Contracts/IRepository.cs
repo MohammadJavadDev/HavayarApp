@@ -117,6 +117,12 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	    Expression<Func<TEntity, bool>> predicate,
 	    CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// حذف با شرط (بهینه شده)
+	/// </summary>
+	int DeleteWhere(
+	    Expression<Func<TEntity, bool>> predicate);
+
 	#endregion
 
 	#region Sync CRUD Methods

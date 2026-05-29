@@ -17,15 +17,17 @@ namespace WebApp.Controllers.SystemControllers
      [ApiResultFilter]
 	[Authorize("AuthenticatedUser")]
 	[ControllerInfoAttribute("سیستم")]
-	public class PanelController(IOnlineUserService onlineUserService,
-		  IUserService service  ) : BaseController 
+	public class PanelController(ISdk sdk ) : BaseController 
 	{
   
         [HttpGet("/")]
         [HttpGet("/Panel")]
         public async Task<IActionResult> Index(CancellationToken ct)
 		{
-	
+	         if(sdk.CurrentUser is null)
+               {
+                    return Redirect("/authenticate/login");
+               }
 
 		  return View("Views/Panel/Index.cshtml");
 		}

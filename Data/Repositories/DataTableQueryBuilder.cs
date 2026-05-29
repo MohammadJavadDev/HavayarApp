@@ -287,8 +287,7 @@ namespace Data.Repositories
             return res;
 
     }
-
-    
+           
 
     public DataTableQueryBuilderResult BuildSqlServerQueryProfile(DataTableRequest request, SystemDataTableProfile systemDataTableProfile)
     {
@@ -316,6 +315,7 @@ namespace Data.Repositories
                         systemDataTableProfile
                         .SystemDataTableProfileSelectViewModels
                         .FirstOrDefault(c => c.Alliance == cl.data);
+
                     if(cl.Search.value.Any())
                          {
                               if(searchSection.Length > 0)

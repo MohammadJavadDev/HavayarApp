@@ -72,7 +72,7 @@ namespace WebFramework.Controllers.SystemControllers
 		{
 		 
 			var menus = menuBuilderService.GetMenuItems(Id, sdk);
-               var menuHtml = menuBuilderService.GetHtmlItems(menus,null);
+               var menuHtml = menuBuilderService.GetHtmlItems(menus,null,sdk);
 
 			return Ok(menuHtml);
 		}

@@ -12,128 +12,143 @@ using Services.FileServices;
 namespace App.BackgroundJob.Jobs.Inv
 {
 
-	public class PartJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork, HtsDbContext Hdb,
+	public class PartJob(ApplicationDbContext dbContext, RahkaranDbContext Rdb, IUnitOfWork unitOfWork, HtsDbContext Hdb,
 		IFileService fileService)
 	{
 		[JobHandler("افزودن اطلاعات کالا از راهکاران")]
 		public async Task AddPartsFromRahkaran(CancellationToken cn = default)
 		{
-
+		 
 			var unitData = await Rdb.RahkaranUnits.AsNoTracking().ToListAsync(cn);
 			var existUnitData = await unitOfWork.Repository<PartUnit>().Table.ToListAsync(cn);
-
 			var existUnitDict = existUnitData.ToDictionary(x => x.HamkaranId);
 
 			var newUnits = new List<PartUnit>();
-
 			foreach (var unit in unitData)
 			{
 				if (existUnitDict.TryGetValue(unit.UnitID, out var eunit))
-				{
 					eunit.Title = unit.Name;
-				}
 				else
-				{
-					newUnits.Add(new PartUnit
-					{
-						Title = unit.Name,
-						HamkaranId = unit.UnitID
-					});
-				}
+					newUnits.Add(new PartUnit { Title = unit.Name, HamkaranId = unit.UnitID });
 			}
-
 			if (newUnits.Any())
-			{
-				await unitOfWork.Repository<PartUnit>().AddRangeAsync(newUnits, cn, false); // اگر متد دارید
-			}
-
+				await unitOfWork.Repository<PartUnit>().AddRangeAsync(newUnits, cn, false);
 			await unitOfWork.SaveChangesAsync(cn);
 
-			var rahkaranParts = await Rdb.RahkaranParts.AsNoTracking().ToListAsync(cn);
-			var appParts = await unitOfWork.Repository<Part>().Table.ToListAsync(cn);
+	 
+			var rahkaranPartsSql = @"
+SELECT * FROM OPENQUERY(ERPS, '
+    SELECT 
+        PartID,
+        Code,
+        Name,
+        LatinName,
+        PropertiesComment,
+        TechnicalSpecification,
+        PartType,
+        MajorUnitRef
+    FROM Erps.LGS3.Part
+') AS r
+WHERE NOT EXISTS (SELECT 1 FROM Inv.Part p WHERE p.HamkaranId = r.PartID)
+   OR EXISTS (
+        SELECT 1 FROM Inv.Part p 
+        WHERE p.HamkaranId = r.PartID 
+        AND (
+            ISNULL(p.Code,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.Code,'''')
+            OR ISNULL(p.Name,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.Name,'''')
+            OR ISNULL(p.LatinTitle,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.LatinName,'''')
+            OR ISNULL(p.Description,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.PropertiesComment,'''')
+            OR ISNULL(p.Number,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.TechnicalSpecification,'''')
+            OR ISNULL(CAST(p.Type AS INT),-1) <> ISNULL(r.PartType,-1)
+        )
+   )
+OPTION (RECOMPILE);
+";
+			dbContext.Database.SetCommandTimeout(0);
+			var rahkaranPartsData = await dbContext.Database.SqlQueryRaw<RahkaranPartDto>(rahkaranPartsSql).ToListAsync(cn);
 
-			// Dictionary برای جستجوی سریع
-			var appPartsDict = appParts.Where(c => c.HamkaranId != null).ToDictionary(x => x.HamkaranId);
+		 
+			var appPartsDict = await unitOfWork.Repository<Part>().Table
+				.Where(c => c.HamkaranId != null)
+				.ToDictionaryAsync(x => x.HamkaranId!.Value, x => x, cn);
 
 			var newParts = new List<Part>();
-
-			foreach (var part in rahkaranParts)
+			foreach (var r in rahkaranPartsData)
 			{
-				if (!appPartsDict.TryGetValue(part.PartID, out var existPart))
+				if (!appPartsDict.TryGetValue(r.PartID, out var existPart))
 				{
-					// Insert
 					newParts.Add(new Part
 					{
-						HamkaranId = part.PartID,
-						Code = part.Code,
-						Name = part.Name,
-						LatinTitle = part.LatinName,
-						Type = (PartTypeEnum)part?.PartType,
-						Description = part.PropertiesComment,
-						Number = part.TechnicalSpecification,
-						UnitId = existUnitDict.ContainsKey(part.MajorUnitRef) ? existUnitDict[part.MajorUnitRef].Id : (long?)null
+						HamkaranId = r.PartID,
+						Code = r.Code,
+						Name = r.Name ?? "",
+						LatinTitle = r.LatinName,
+						Type = r.PartType.HasValue ? (PartTypeEnum)r.PartType.Value : null,
+						Description = r.PropertiesComment,
+						Number = r.TechnicalSpecification,
+						UnitId = existUnitDict.TryGetValue(r.MajorUnitRef ?? 0, out var u) ? u.Id : (long?)null
 					});
 				}
 				else
 				{
-
-					bool isModified = false;
-
-					if (existPart.Code != part.Code)
-					{
-						existPart.Code = part.Code;
-						isModified = true;
-					}
-
-					if (existPart.Name != part.Name)
-					{
-						existPart.Name = part.Name;
-						isModified = true;
-					}
-
-					if (existPart.LatinTitle != part.LatinName)
-					{
-						existPart.LatinTitle = part.LatinName;
-						isModified = true;
-					}
-
-					if (existPart.Type != (PartTypeEnum)part?.PartType)
-					{
-						existPart.Type = (PartTypeEnum)part.PartType;
-						isModified = true;
-					}
-
-					if (existPart.Description != part.PropertiesComment)
-					{
-						existPart.Description = part.PropertiesComment;
-						isModified = true;
-					}
-
-					if (existPart.Number != part.TechnicalSpecification)
-					{
-						existPart.Number = part.TechnicalSpecification;
-						isModified = true;
-					}
-
-					var newUnitId = existUnitDict.ContainsKey(part.MajorUnitRef) ? existUnitDict[part.MajorUnitRef].Id : (long?)null;
-					if (existPart.UnitId != newUnitId)
-					{
-						existPart.UnitId = newUnitId;
-						isModified = true;
-					}
-
-
+					existPart.Code = r.Code;
+					existPart.Name = r.Name ?? existPart.Name;
+					existPart.LatinTitle = r.LatinName;
+					existPart.Type = r.PartType.HasValue ? (PartTypeEnum)r.PartType.Value : existPart.Type;
+					existPart.Description = r.PropertiesComment;
+					existPart.Number = r.TechnicalSpecification;
+					existPart.UnitId = existUnitDict.TryGetValue(r.MajorUnitRef ?? 0, out var u) ? u.Id : (long?)null;
 				}
 			}
+
 			if (newParts.Any())
-			{
 				await unitOfWork.Repository<Part>().AddRangeAsync(newParts, cn, false);
-			}
-
-
 			await unitOfWork.SaveChangesAsync(cn);
 
+		     await SyncHtsSupplementaryInfoForParts(newParts.Select(p => p.HamkaranId!.Value).ToList(), cn);
+		}
 
+		/// <summary>
+		/// همگام‌سازی اطلاعات تکمیلی از HTS Inv_Part برای کالاهای مشخص‌شده
+		/// </summary>
+		private async Task SyncHtsSupplementaryInfoForParts(List<long> hamkaranIds, CancellationToken cn)
+		{
+			if (hamkaranIds.Count == 0) return;
+
+			var htsParts = await Hdb.Hts_Inv_Parts.AsNoTracking()
+				.Where(hp => hp.Hamkaran_Part_FK != null )
+				.ToListAsync(cn);
+
+			var appPartsByHamkaran = await unitOfWork.Repository<Part>().Table
+				.Where(p => p.HamkaranId != null  )
+				.ToDictionaryAsync(x => x.HamkaranId!.Value, x => x, cn);
+
+			foreach (var hts in htsParts)
+			{
+				if (hts.Hamkaran_Part_FK == null || !appPartsByHamkaran.TryGetValue(hts.Hamkaran_Part_FK.Value, out var appPart))
+					continue;
+
+				if (hts.DataSheetTypeId != null)
+					appPart.DataSheet = (PartDataSheetEnum)hts.DataSheetTypeId;
+				appPart.DataSheetUsage = hts.IsActiveForDataSheet ?? false;
+				appPart.BrandInDataSheet = hts.DataSheetBrand;
+				appPart.Brand = hts.Brand;
+				appPart.Dimensions = hts.Dimensions;
+				appPart.Foreign = hts?.IsExternal ?? false;
+			}
+			await unitOfWork.SaveChangesAsync(cn);
+		}
+
+		private sealed class RahkaranPartDto
+		{
+			public long PartID { get; set; }
+			public string? Code { get; set; }
+			public string? Name { get; set; }
+			public string? LatinName { get; set; }
+			public string? PropertiesComment { get; set; }
+			public string? TechnicalSpecification { get; set; }
+			public int? PartType { get; set; }
+			public long? MajorUnitRef { get; set; }
 		}
 
 		[JobHandler("افزودن اطلاعات تکمیلی کالا از Hts")]

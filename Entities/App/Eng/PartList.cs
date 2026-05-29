@@ -1,4 +1,5 @@
 using Common.Attributes;
+using Entities.App.FIN;
 using Entities.App.Inv;
 using Entities.Base;
 using System.ComponentModel;
@@ -24,8 +25,22 @@ namespace Entities.App.Eng
 
 		public long? ProductId { get; set; }
 
+        [DisplayName("تفصیل")]
+        [DisplayInfo(null, true, type: SystemType.Entity)]
+        public DL? DL { get; set; }
 
-		[DisplayName("کالا")]
+        public long? DlId { get; set; }
+
+
+
+        [DisplayName("دسته بندی محصولات")]
+        [DisplayInfo(null, true, type: SystemType.Entity)]
+        public PartListProductSection? PartListProductSection { get; set; }
+
+        public long? PartListProductSectionId { get; set; }
+
+
+        [DisplayName("کالا")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public Part? Part { get; set; }
 

@@ -1,4 +1,5 @@
 @using Entities.App.Edms;
+@using Entities.App.Epms.Enums
 @using Entities.App.Hrm
 @model ProjectActivity
 <div class="card">
@@ -61,7 +62,7 @@
 
 		<div class='col-md-6'>
 			<label class='required'>نوع فعالیت</label>
-			<select class='form-control' data-bind='type' required asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Epms.Enums.ProposalActivityActivityTypeEnum))">
+			<select class='form-control' data-bind='type' required asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(ProjectActivityTypeEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>

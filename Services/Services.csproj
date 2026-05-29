@@ -28,4 +28,10 @@
     <Folder Include="DataTableProfileServices\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="Aspose.Cells">
+      <HintPath>..\ExteraAssembiles\Aspose.Cells.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

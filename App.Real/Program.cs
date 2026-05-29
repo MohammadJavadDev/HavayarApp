@@ -5,6 +5,7 @@ using Data;
 using Data.Contracts;
 using Data.Repositories;
 using Data.Services;
+using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Services;
 using Infrastructure.CrudEventInterceptors;
@@ -133,6 +134,11 @@ builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
 builder.Services.AddSingleton<EntityMetadataCache>();
 builder.Services.AddSingleton<IMenuBuilderService, MenuBuilderService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
+builder.Services.AddScoped<IQueryService, QueryService>();
+builder.Services.AddScoped<IQueryBuilderService, QueryBuilderService>();
+builder.Services.AddScoped<IDatabaseSchemaService, DatabaseSchemaService>();
+builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>();
+ 
 
 builder.Services.AddHttpContextAccessor();
 

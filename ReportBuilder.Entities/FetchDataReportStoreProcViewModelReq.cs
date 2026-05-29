@@ -1,4 +1,4 @@
-﻿namespace ReportBuilder.Entities;
+namespace ReportBuilder.Entities;
 
 public class FetchDataReportStoreProcViewModelReq
 {
@@ -25,6 +25,16 @@ public class FetchDataReportTableViewModelReq
 
     }
     public string? TableName { get; set; }
+
+    /// <summary>
+    /// کوئری سفارشی از SavedQuery (QueryDesigner) - در صورت وجود، به جای ساخت از TableName استفاده می‌شود
+    /// </summary>
+    public string? BaseQuery { get; set; }
+
+    /// <summary>
+    /// مقادیر پارامترها برای BaseQuery - نام پارامتر به مقدار
+    /// </summary>
+    public Dictionary<string, string>? ParameterValues { get; set; }
 
     public List<FetchDataReportTableViewModelReqFilters> Filters { get; set; }
 }

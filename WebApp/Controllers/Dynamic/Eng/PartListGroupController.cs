@@ -9,7 +9,7 @@ using WebFramework.Filtters;
 using WebFramework.Page;
 using Entities.App.Eng;
 
-namespace WebApp.Controllers.Dynamic
+namespace WebApp.Controllers.Dynamic.Eng
 {
 	[Route("Panel/Eng/[controller]")]
 	[ApiController]
@@ -113,5 +113,25 @@ namespace WebApp.Controllers.Dynamic
 		{
 			return Ok(await unitOfWork.Repository<PartListGroup>().FetchDataAsync(request, cn));
 		}
-	}
+
+
+        [HttpGet]
+        public IActionResult GetByGroupId(long groupId)
+        {
+            var data = unitOfWork.Repository<PartList>().TableNoTracking
+                .Include(x => x.Part)
+                .Where(x => x.PartListGroupId == groupId)
+                .Select(x => new
+                {
+                    x.Id,
+                    partName = x.Part.Name,
+                    qty = x.Qty,
+                    order = x.Order
+                })
+                .ToList();
+
+            return Json(new { data });
+        }
+
+    }
 }

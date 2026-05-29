@@ -14,4 +14,5 @@ public interface IRoleMemoryStorage
     public bool HaveAccessByRole(string path, string roleName);
     public bool HaveAccessByRole(string path, long roleId);
 	public Role GetRoleById(long roleId);
+	 
 }

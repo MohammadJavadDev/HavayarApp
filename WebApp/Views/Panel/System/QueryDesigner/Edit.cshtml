@@ -1,13 +1,46 @@
 @{
+
      ViewData["Title"] = "طراح گزارش";
- 
+
+
+
+     var ReportType = ViewBag.ReportType != null ? ViewBag.ReportType : 0;
 }
 
 <link href="~/panellib/css/query-designer.css" rel="stylesheet" />
+<style>
+     .select2-container {
+          z-index: 999999999 !important
+     }
+
+     .dragging-mirror {
+          cursor: grabbing;
+          box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+          z-index: 9999;
+     }
+
+     .dragging-source {
+          opacity: 0.5;
+     }
+
+     .col-type-card {
+          transition: border-color .2s, box-shadow .2s;
+          border-color: #dee2e6 !important;
+     }
+
+          .col-type-card:hover {
+               border-color: #0d6efd !important;
+               box-shadow: 0 0 0 .2rem rgba(13,110,253,.15);
+          }
+
+          .col-type-card.active {
+               border-color: #0d6efd !important;
+               background: rgba(13,110,253,.06);
+          }
+</style>
 
 <script>
      window.__reportId = @(ViewBag.ReportId != null ? ViewBag.ReportId : "null");
-     window.__reportMode = "@(ViewBag.ReportMode ?? "")";
      window.__reportType = @(ViewBag.ReportType != null ? ViewBag.ReportType : 0)
 </script>
 
@@ -17,7 +50,7 @@
                <strong>نام گزارش (یکتا)</strong>
                <span class="text-danger">*</span>
           </label>
-          <input type="text" id="reportName" class="form-control form-control-sm" placeholder="مثال: rpt_users_list" required>
+          <input type="text" id="reportName" class="form-control form-control-sm ltr" data-inputmask="'regex': '[a-zA-Z_]+'" placeholder="مثال: rpt_users_list" required>
      </div>
      <div class="col-md-6">
           <label for="reportTitle" class="form-label">
@@ -26,6 +59,164 @@
           </label>
           <input type="text" id="reportTitle" class="form-control form-control-sm" placeholder="مثال: لیست کاربران" required>
      </div>
+
+     <div class="col-md-6">
+          <label for="entityFullName" class="form-label">
+               <strong>نام کامل موجودیت</strong>
+               <span class="text-danger">*</span>
+          </label>
+          <input type="text" value="@(ViewBag.EntityFullName != null ? ViewBag.EntityFullName :"")" id="entityFullName" class="form-control form-control-sm" disabled>
+     </div>
+
+    
+     <div class="col-md-12 border border-1 my-5 p-5 row" id="actionOptionsSection">
+           <h4 class="text-center mb-4"> فعال یا فعال نبودن عملیات ها </h4>
+     </div>
+
+     <div class="col-md-12 border border-1 rounded my-4 p-4" id="customButtonsSection">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+               <h5 class="mb-0">
+                    <i class="bi bi-lightning-charge-fill text-warning"></i>
+                    دکمه‌های اکشن سفارشی
+               </h5>
+               <button type="button" id="btnAddCustomButton" class="btn btn-outline btn-outline-primary btn-sm">
+                    <i class="bi bi-plus-circle"></i> افزودن دکمه
+               </button>
+          </div>
+
+          <div id="customButtonsList" class="row g-3">
+               <div id="customButtonsEmpty" class="col-12 text-center text-muted small py-3">
+                    <i class="bi bi-info-circle"></i>
+                    هیچ دکمه سفارشی تعریف نشده است
+               </div>
+          </div>
+     </div>
+     <div class="col-md-12 border border-1 rounded my-4 p-4" id="eventScriptsSection">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+               <h5 class="mb-0">
+                    <i class="bi bi-braces-asterisk text-info"></i>
+                    رویدادهای جدول
+               </h5>
+               <span class="badge bg-secondary small">
+                    کدهای JS که هنگام وقوع رویداد اجرا می‌شوند
+               </span>
+          </div>
+
+          <ul class="nav nav-tabs mb-0" id="eventScriptsTabs" role="tablist">
+               <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-onSelectedRow"
+                            data-bs-toggle="tab" data-bs-target="#pane-onSelectedRow"
+                            type="button" role="tab">
+                         <i class="bi bi-cursor-fill text-primary"></i>
+                         onSelectedRow
+                         <span id="badge-onSelectedRow" class="badge bg-primary ms-1 d-none">✓</span>
+                    </button>
+               </li>
+               <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-onRowAdded"
+                            data-bs-toggle="tab" data-bs-target="#pane-onRowAdded"
+                            type="button" role="tab">
+                         <i class="bi bi-plus-square text-success"></i>
+                         onRowAdded
+                         <span id="badge-onRowAdded" class="badge bg-success ms-1 d-none">✓</span>
+                    </button>
+               </li>
+          </ul>
+
+          <div class="tab-content border border-top-0 rounded-bottom p-4">
+
+ 
+               <div class="tab-pane fade show active" id="pane-onSelectedRow" role="tabpanel">
+                    <div class="row g-3">
+                         <div class="col-md-4">
+                              <div class="alert alert-primary py-2 small ltr mb-3" style="font-family:monospace">
+                                   <strong class="d-block mb-1">// متغیرهای در دسترس:</strong>
+                                   <span class="text-success">ctx.selectedRow</span>
+                                   <span class="text-muted"> → آبجکت ردیف انتخاب‌شده</span><br>
+                                   <span class="text-success">ctx.$row</span>
+                                   <span class="text-muted"> → jQuery المان tr</span><br>
+                                   <span class="text-success">ctx.table</span>
+                                   <span class="text-muted"> → DataTable API</span><br>
+                                   <span class="text-success">ctx.$toolbar</span>
+                                   <span class="text-muted"> → jQuery نوار ابزار</span><br>
+                                   <span class="text-success"> ctx.dataActionBtns </span>
+                                   <span class="text-muted"> → دکمه های موجود بر اساس dataAction</span><br>
+                                   <span class="text-success">ctx.isDeselect</span>
+                                   <span class="text-muted"> → true اگر ردیف deselect شد</span><br>
+                                   <span class="text-success">ctx.draw()</span>
+                                   <span class="text-muted"> → بارگذاری مجدد</span>
+                              </div>
+                              <div class="d-flex flex-column gap-2">
+                                   <button type="button" class="btn btn-sm btn-outline-secondary"
+                                           data-event="onSelectedRow" data-action="insertTemplate">
+                                        <i class="bi bi-file-code"></i> درج قالب
+                                   </button>
+                                   <button type="button" class="btn btn-sm btn-outline-danger"
+                                           data-event="onSelectedRow" data-action="clearScript">
+                                        <i class="bi bi-trash"></i> پاک کردن
+                                   </button>
+                              </div>
+                         </div>
+                         <div class="col-md-8">
+                              <div id="scriptOnSelectedRow" data-event="onSelectedRow" class="h-200px">
+                                   function(ctx) {
+                                   // هنگام انتخاب یا deselect یک ردیف اجرا می‌شود
+                                   }
+                              </div>
+                              <div class="form-text mt-1">
+                                   تابع به صورت <code>function(ctx) { ... }</code>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+            
+               <div class="tab-pane fade" id="pane-onRowAdded" role="tabpanel">
+                    <div class="row g-3">
+                         <div class="col-md-4">
+                              <div class="alert alert-success py-2 small ltr mb-3" style="font-family:monospace">
+                                   <strong class="d-block mb-1">// متغیرهای در دسترس:</strong>
+                                   <span class="text-success">ctx.rowData</span>
+                                   <span class="text-muted"> → آبجکت داده ردیف</span><br>
+                                   <span class="text-success">ctx.$row</span>
+                                   <span class="text-muted"> → jQuery المان tr</span><br>
+                                   <span class="text-success">ctx.table</span>
+                                   <span class="text-muted"> → DataTable API</span><br>
+                                   <span class="text-success">ctx.rowIndex</span>
+                                   <span class="text-muted"> → ایندکس ردیف در صفحه جاری</span><br>
+                                   <span class="text-success">ctx.draw()</span>
+                                   <span class="text-muted"> → بارگذاری مجدد</span>
+                              </div>
+                              <div class="d-flex flex-column gap-2">
+                                   <button type="button" class="btn btn-sm btn-outline-secondary"
+                                           data-event="onRowAdded" data-action="insertTemplate">
+                                        <i class="bi bi-file-code"></i> درج قالب
+                                   </button>
+                                   <button type="button" class="btn btn-sm btn-outline-danger"
+                                           data-event="onRowAdded" data-action="clearScript">
+                                        <i class="bi bi-trash"></i> پاک کردن
+                                   </button>
+                              </div>
+                         </div>
+                         <div class="col-md-8">
+                              <div id="scriptOnRowAdded"
+                                        data-event="onRowAdded"
+                                         class="h-200px"
+                                        >function(ctx) {
+                                                 // هنگام رندر هر ردیف (بعد از هر draw) اجرا می‌شود
+                                             }</div>
+                              <div class="form-text mt-1">
+                                   تابع به صورت <code>function(ctx) { ... }</code>
+                                   — برای هر ردیف یک‌بار صدا زده می‌شود
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+          </div>
+     </div>
+
+
 </div>
 
 <div class="container-fluid h-100">
@@ -34,7 +225,7 @@
           <h4 class="text-center mb-4">نوع ایجاد گزارش را انتخاب کنید</h4>
           <div class="row justify-content-center g-4">
                <div class="col-md-5">
-                    <div class="card mode-card h-100 cursor-pointer" data-mode="design">
+                    <div class="card mode-card h-100 cursor-pointer" data-mode="0">
                          <div class="card-body text-center py-5">
                               <i class="bi bi-diagram-3 display-4 text-primary mb-3"></i>
                               <h5 class="card-title">طراحی بصری</h5>
@@ -43,7 +234,7 @@
                     </div>
                </div>
                <div class="col-md-5">
-                    <div class="card mode-card h-100 cursor-pointer" data-mode="write">
+                    <div class="card mode-card h-100 cursor-pointer" data-mode="1">
                          <div class="card-body text-center py-5">
                               <i class="bi bi-code-slash display-4 text-success mb-3"></i>
                               <h5 class="card-title">نوشتن Query</h5>
@@ -169,66 +360,85 @@
                          </div>
 
                          <!-- ۲. تنظیمات ستون‌ها -->
-                         <div class="mb-3 flex-shrink-0">
+                         
+                    </div>
+               </div>
 
-                              <h6 class="mb-2">
+               <div class="col-md-12">
+                    <div class="mb-3 flex-shrink-0">
+
+                         <div class="d-flex justify-content-between align-items-center mb-2">
+                              <h6 class="mb-0">
                                    <i class="bi bi-gear"></i>
                                    تنظیمات ستون‌ها
                               </h6>
-                              <div class="table-responsive">
-                                   <table id="columnsTable" class="table table-sm table-bordered mb-0">
-                                        <thead class="table-light" style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
-                                             <tr>
-                                                  <th style="width: 18%;">ستون</th>
-                                                  <th style="width: 15%;">عنوان نمایشی</th>
-                                                  <th style="width: 12%;">نوع</th>
-                                                  <th style="width: 10%;">Group By</th>
-                                                  <th style="width: 12%;">Aggregate</th>
-                                                  <th style="width: 12%;">مرتب‌سازی</th>
-                                                  <th style="width: 8%;">ترتیب</th>
-                                             </tr>
-                                        </thead>
-                                        <tbody id="columnsTableBody">
-                                             <tr>
-                                                  <td colspan="7" class="text-center text-muted">
-                                                       ستونی انتخاب نشده است
-                                                  </td>
-                                             </tr>
-                                        </tbody>
-                                   </table>
-                              </div>
+                              <button type="button" id="btnAddColumnManual"
+                                      class="btn btn-sm btn-outline-primary">
+                                   <i class="bi bi-plus-circle"></i> افزودن ستون
+                              </button>
                          </div>
 
-                         <!-- ۳. نمایش کد SQL -->
-                         <div class="flex-grow-1 d-flex flex-column" style="min-height: 0;">
-                              <div class="mb-2 d-flex justify-content-between align-items-center">
-                                   <span class="fw-bold"><i class="bi bi-code-slash"></i> Query SQL</span>
-                                   <div class="btn-group btn-group-sm" role="group">
-                                        <button type="button" id="btnValidateQuery" class="btn btn-outline btn-outline-success">
-                                             <i class="bi bi-check-circle"></i> اعتبارسنجی
-                                        </button>
-                                        <button type="button" id="btnPreviewQuery" class="btn btn-outline btn-outline-info">
-                                             <i class="bi bi-eye"></i> پیش‌نمایش
-                                        </button>
-                                   </div>
-                              </div>
-                              <textarea id="queryEditor"
-                                        class="form-control font-monospace flex-grow-1"
-                                        dir="ltr"
-                                        placeholder="Query به صورت خودکار ساخته می‌شود یا می‌توانید دستی ویرایش کنید..."
-                                        style="min-height: 120px;"></textarea>
-                              <div class="alert alert-info py-2 mt-2 mb-0 small" role="alert">
-                                   <i class="bi bi-info-circle"></i>
-                                   Query به صورت خودکار با هر تغییر بروزرسانی می‌شود.
-                              </div>
-                              <div class="mt-3 d-flex justify-content-between">
-                                   <button type="button" id="btnCancel" class="btn btn-secondary">
-                                        <i class="bi bi-x-circle"></i> انصراف
+                         <div class="table-responsive">
+                              <table id="columnsTable" class="table table-sm table-bordered mb-0">
+                                   <thead class="table-light" style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                                        <tr>
+                                             <th style="width: 30px;"> #</th>
+                                             <th style="width: 30px;"> تنظیمات</th>
+                                             <th style="width: 30px;">نمایش</th>
+                                             @if((int)ReportType == 1)
+                                             {
+                                                  <th style="width: 30px;" action-key="primaryKey">کلید اصلی</th>
+                                             }
+                                             
+                                             <th style="width: 80px;">ستون</th>
+                                             <th style="width: 100px;">عنوان نمایشی</th>
+                                             <th style="width: 80px;">نوع</th>
+                                             <th style="width: 30px;">Group By</th>
+                                             <th style="width: 80px;">Aggregate</th>
+                                             <th style="width: 50px;">مرتب‌سازی</th>
+                                             <th style="width: 30px;">ترتیب</th>
+                                        </tr>
+                                   </thead>
+                                   <tbody id="columnsTableBody">
+                                        <tr>
+                                             <td colspan="7" class="text-center text-muted">
+                                                  ستونی انتخاب نشده است
+                                             </td>
+                                        </tr>
+                                   </tbody>
+                              </table>
+                         </div>
+                    </div>
+
+                    <!-- ۳. نمایش کد SQL -->
+                    <div class="flex-grow-1 d-flex flex-column" style="min-height: 0;">
+                         <div class="mb-2 d-flex justify-content-between align-items-center">
+                              <span class="fw-bold"><i class="bi bi-code-slash"></i> Query SQL</span>
+                              <div class="btn-group btn-group-sm" role="group">
+                                   <button type="button" id="btnValidateQuery" class="btn btn-outline btn-outline-success">
+                                        <i class="bi bi-check-circle"></i> اعتبارسنجی
                                    </button>
-                                   <button type="button" id="btnSaveReport" class="btn btn-success">
-                                        <i class="bi bi-save"></i> ذخیره گزارش
+                                   <button type="button" id="btnPreviewQuery" class="btn btn-outline btn-outline-info">
+                                        <i class="bi bi-eye"></i> پیش‌نمایش
                                    </button>
                               </div>
+                         </div>
+                         <textarea id="queryEditor"
+                                   class="form-control font-monospace flex-grow-1"
+                                   dir="ltr"
+                                   placeholder="Query به صورت خودکار ساخته می‌شود یا می‌توانید دستی ویرایش کنید..."
+                                   style="min-height: 120px;"></textarea>
+                         <div class="alert alert-info py-2 mt-2 mb-0 small" role="alert">
+                              <i class="bi bi-info-circle"></i>
+                              Query به صورت خودکار با هر تغییر بروزرسانی می‌شود.
+                         </div>
+                         <div class="mt-3 d-flex justify-content-between">
+                              <button type="button" id="btnCancel" class="btn btn-secondary">
+                                   <i class="bi bi-x-circle"></i> انصراف
+                              </button>
+                              <button type="button" id="btnSaveReport" class="btn btn-success">
+                                   <i class="bi bi-save"></i> ذخیره پرس  و جو
+                              </button>
                          </div>
                     </div>
                </div>
@@ -238,8 +448,21 @@
      <!-- محتوای حالت نوشتن Query -->
      <div id="writeModeContent" class="d-none p-4">
           <div class="mb-3">
+               <details class="mb-3">
+                    <summary class="cursor-pointer text-primary"><i class="bi bi-database-gear"></i> درج Stored Procedure</summary>
+                    <div class="mt-2 p-2 border rounded bg-light">
+                         <div class="input-group input-group-sm mb-2">
+                              <input type="text" id="spSearch" class="form-control" placeholder="جستجوی SP..." autocomplete="off">
+                         </div>
+                         <div id="storedProceduresList" class="small" style="max-height: 180px; overflow-y: auto;">
+                              <div class="text-center py-2 text-muted">در حال بارگذاری...</div>
+                         </div>
+                    </div>
+               </details>
+          </div>
+          <div class="mb-3">
                <label for="queryEditorWrite" class="form-label">Query SQL</label>
-               <textarea id="queryEditorWrite" class="form-control font-monospace" rows="12" dir="ltr" placeholder="SELECT * FROM ..."></textarea>
+               <div id="queryEditorWrite" style="height:500px" ></div>
           </div>
           <div class="btn-group mb-3">
                <button type="button" id="btnValidateQueryWrite" class="btn btn-outline btn-outline-success">اعتبارسنجی</button>
@@ -252,8 +475,15 @@
                     <table id="writeModeColumnsTable" class="table table-sm table-bordered mb-0">
                          <thead class="table-light">
                               <tr>
-                                   <th style="width: 22%;">ستون</th>
-                                   <th style="width: 25%;">عنوان نمایشی</th>
+                                    <th style="width: 5%;"> تنظیمات</th>
+                                      <th style="width: 5%;">نمایش</th>
+                                              @if ((int)ReportType == 1)
+                                   {
+                                        <th style="width: 5%;" action-key="primaryKey">کلید اصلی</th>
+                                   }
+                                   <th style="width: 12%;">ستون</th>
+                                  
+                                   <th style="width: 20%;">عنوان نمایشی</th>
                                    <th style="width: 20%;">نوع</th>
                               </tr>
                          </thead>
@@ -423,6 +653,412 @@
      </div>
 </div>
 
+<div class="modal fade" id="customButtonModal" tabindex="-1" aria-labelledby="customButtonModalLabel">
+     <div class="modal-dialog modal-xl">
+          <div class="modal-content">
+               <div class="modal-header">
+                    <h5 class="modal-title" id="customButtonModalLabel">
+                         <i class="bi bi-lightning-charge"></i>
+                         <span id="customButtonModalTitle">افزودن دکمه اکشن سفارشی</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+               </div>
+
+               <div class="modal-body">
+                    <input type="hidden" id="customBtnEditId">
+
+            
+                    <div class="mb-4 p-3 bg-light rounded border">
+                         <div class="form-check form-switch">
+                              <input class="form-check-input" type="checkbox" id="customBtnUseHtml" role="switch">
+                              <label class="form-check-label fw-bold" for="customBtnUseHtml">
+                                   استفاده از HTML سفارشی به جای دکمه پیش‌فرض
+                              </label>
+                         </div>
+                         <small class="text-muted">
+                              در حالت HTML می‌توانید هر المانی را رندر کنید. در حالت پیش‌فرض یک دکمه آیکون‌دار ساخته می‌شود.
+                         </small>
+                    </div>
+
+                    <div class="row g-4">
+
+                        
+                         <div class="col-md-12 ">
+
+                         
+                              <div id="customBtnStandardFields" class="row">
+                                   <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="bi bi-palette"></i> ظاهر دکمه
+                                   </h6>
+                                   <div class="mb-3 col-md-3">
+                                        <label for="customBtnTitle" class="form-label">
+                                             عنوان (Tooltip) <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" id="customBtnTitle" class="form-control"
+                                               placeholder="مثال: ارسال به تأیید">
+                                   </div>
+
+                                    <div class="mb-3 col-md-3">
+                                        <label for="dataActionName" class="form-label">
+                                            نام اکشن <span class="text-danger">*</span>
+                                        </label>
+                                        <input type="text" id="dataActionName" class="form-control"
+                                               placeholder="مثال: sendToApprove">
+                                   </div>
+
+
+
+                                   <div class="mb-3 col-md-3">
+                                        <label for="customBtnColorClass" class="form-label">رنگ دکمه</label>
+                                        <select id="customBtnColorClass" class="form-select">
+                                             <option value="btn-color-primary">🔵 آبی (Primary)</option>
+                                             <option value="btn-color-success">🟢 سبز (Success)</option>
+                                             <option value="btn-color-danger">🔴 قرمز (Danger)</option>
+                                             <option value="btn-color-warning">🟡 زرد (Warning)</option>
+                                             <option value="btn-color-info">🩵 آبی روشن (Info)</option>
+                                             <option value="btn-color-dark">⚫ تیره (Dark)</option>
+                                        </select>
+                                   </div>
+
+                                   <div class="mb-3 col-md-3">
+                                        <label for="customBtnIconClass" class="form-label">کلاس آیکون</label>
+                                        <input type="text" id="customBtnIconClass" class="form-control ltr"
+                                               placeholder="مثال: fa-light fa-paper-plane">
+                                        <div class="form-text">
+                                             از کلاس‌های Font Awesome یا Bootstrap Icons استفاده کنید
+                                        </div>
+                                   </div>
+
+                                   <div class="mb-3 col-md-3">
+                                        <div class="form-check">
+                                             <input class="form-check-input" type="checkbox" id="customBtnRequiresSelection">
+                                             <label class="form-check-label" for="customBtnRequiresSelection">
+                                                  نیاز به انتخاب ردیف داشته باشد
+                                                  <small class="text-muted d-block">دکمه تا زمانی که ردیفی انتخاب نشده، غیرفعال است</small>
+                                             </label>
+                                        </div>
+                                   </div>
+
+                                
+                                   <div class="mt-3 p-3 bg-white border rounded text-center col-md-3">
+                                        <span class="text-muted small d-block mb-2">پیش‌نمایش</span>
+                                        <button type="button" id="customBtnPreview"
+                                                class="btn-sm btn btn-icon btn-active-icon-dark btn-color-primary">
+                                             <i class="fa-light fa-star fs-2"></i>
+                                        </button>
+                                   </div>
+                              </div>
+
+                            
+                              <div id="customBtnHtmlFields" class="d-none">
+                                   <h6 class="border-bottom pb-2 mb-3">
+                                        <i class="bi bi-code-slash"></i> HTML سفارشی
+                                   </h6>
+                                   <div class="mb-2">
+                                        <label for="customBtnHtml" class="form-label">کد HTML</label>
+                                        <textarea id="customBtnHtml" class="form-control font-monospace ltr"
+                                                  rows="6"
+                                                  placeholder='<button class="btn btn-sm btn-primary" data-custom-action="myAction">
+                                                <i class="fa fa-star"></i> عنوان
+                                                </button>'></textarea>
+                                   </div>
+                                   <div class="alert alert-info py-2 small">
+                                        <i class="bi bi-info-circle"></i>
+                                        برای اتصال رویداد کلیک، از attribute
+                                        <code>data-custom-action="actionName"</code>
+                                        روی المان مورد نظر استفاده کنید.
+                                   </div>
+                              </div>
+                         </div>
+
+                      
+                         <div class="col-md-12">
+                              <h6 class="border-bottom pb-2 mb-3">
+                                   <i class="bi bi-code-square"></i> کد JavaScript (تابع اکشن)
+                              </h6>
+
+                              <div class="alert alert-secondary py-2 mb-3 small ltr" style="font-family: monospace;">
+                                   <strong class="text-primary">// متغیرهای در دسترس داخل تابع:</strong><br>
+                                   <span class="text-success">ctx.selectedRow</span>
+                                   <span class="text-muted">→ آبجکت ردیف انتخاب‌شده (null اگر انتخاب نشده)</span><br>
+                                   <span class="text-success">ctx.table</span>
+                                   <span class="text-muted">→ DataTable API instance</span><br>
+                                   <span class="text-success">ctx.tableData</span>
+                                   <span class="text-muted">→ آرایه داده‌های صفحه جاری</span><br>
+                                   <span class="text-success">ctx.$toolbar</span>
+                                   <span class="text-muted">→ jQuery - نوار ابزار بالای جدول</span><br>
+                                   <span class="text-success">ctx.$btn</span>
+                                   <span class="text-muted">→ jQuery - دکمه‌ای که کلیک شد</span><br>
+                                   <span class="text-success">ctx.draw()</span>
+                                   <span class="text-muted">→ بارگذاری مجدد جدول</span>
+                              </div>
+
+                              <div class="mb-1 d-flex justify-content-between align-items-center">
+                                   <label for="customBtnScript" class="form-label mb-0">تابع اکشن</label>
+                                   <button type="button" id="btnInsertScriptTemplate" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-file-code"></i> قالب
+                                   </button>
+                              </div>
+                              <div id="customBtnScript" class="form-control  ltr"
+                                   style="height: 800px;"
+                                        placeholder="function(ctx) {
+                                        // کد خود را اینجا بنویسید
+                                        var row = ctx.selectedRow;
+                                        ctx.draw();
+                                        }"></div>
+                              <div class="form-text">
+                                   تابع باید به صورت <code>function(ctx) { ... }</code> نوشته شود
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+               <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" id="btnSaveCustomButton" class="btn btn-primary">
+                         <i class="bi bi-save"></i> ذخیره دکمه
+                    </button>
+               </div>
+          </div>
+     </div>
+</div>
+
+
+
+<div class="modal fade" id="manualColumnModal" tabindex="-1">
+     <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+               <div class="modal-header">
+                    <h5 class="modal-title">
+                         <i class="bi bi-plus-square"></i>
+                         <span id="manualColumnModalTitle">افزودن ستون</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+               </div>
+
+               <div class="modal-body">
+                    <input type="hidden" id="manualColEditId">
+
+                 
+                    <div class="mb-4">
+                         <label class="form-label fw-bold">نوع ستون <span class="text-danger">*</span></label>
+                         <div class="row g-2" id="colTypeSelector">
+                              <div class="col-6 col-md-3">
+                                   <div class="card col-type-card cursor-pointer border-2 h-100"
+                                        data-col-type="data">
+                                        <div class="card-body text-center py-3">
+                                             <i class="bi bi-database fs-3 text-primary"></i>
+                                             <div class="small fw-bold mt-1">داده (Data)</div>
+                                             <div class="text-muted" style="font-size:.72rem">
+                                                  لینک به ستون جدول
+                                             </div>
+                                        </div>
+                                   </div>
+                              </div>
+                              <div class="col-6 col-md-3">
+                                   <div class="card col-type-card cursor-pointer border-2 h-100"
+                                        data-col-type="button">
+                                        <div class="card-body text-center py-3">
+                                             <i class="bi bi-hand-index fs-3 text-success"></i>
+                                             <div class="small fw-bold mt-1">دکمه (Button)</div>
+                                             <div class="text-muted" style="font-size:.72rem">
+                                                  دکمه اکشن در ردیف
+                                             </div>
+                                        </div>
+                                   </div>
+                              </div>
+                              <div class="col-6 col-md-3">
+                                   <div class="card col-type-card cursor-pointer border-2 h-100"
+                                        data-col-type="input">
+                                        <div class="card-body text-center py-3">
+                                             <i class="bi bi-input-cursor-text fs-3 text-warning"></i>
+                                             <div class="small fw-bold mt-1">ورودی (Input)</div>
+                                             <div class="text-muted" style="font-size:.72rem">
+                                                  فیلد ورودی در ردیف
+                                             </div>
+                                        </div>
+                                   </div>
+                              </div>
+                              <div class="col-6 col-md-3">
+                                   <div class="card col-type-card cursor-pointer border-2 h-100"
+                                        data-col-type="html">
+                                        <div class="card-body text-center py-3">
+                                             <i class="bi bi-code-slash fs-3 text-danger"></i>
+                                             <div class="small fw-bold mt-1">HTML آزاد</div>
+                                             <div class="text-muted" style="font-size:.72rem">
+                                                  محتوای HTML دلخواه
+                                             </div>
+                                        </div>
+                                   </div>
+                              </div>
+                         </div>
+                         <input type="hidden" id="manualColType" value="data">
+                    </div>
+
+                    <hr>
+
+                
+                    <div class="row g-3 mb-3">
+                         <div class="col-md-6">
+                              <label for="manualColDisplayName" class="form-label">
+                                   عنوان نمایشی <span class="text-danger">*</span>
+                              </label>
+                              <input type="text" id="manualColDisplayName"
+                                     class="form-control" placeholder="مثال: عملیات">
+                         </div>
+                         <div class="col-md-3">
+                              <label for="manualColVisible" class="form-label">نمایش</label>
+                              <div class="form-check form-switch mt-2">
+                                   <input class="form-check-input" type="checkbox"
+                                          id="manualColVisible" checked>
+                                   <label class="form-check-label" for="manualColVisible">فعال</label>
+                              </div>
+                         </div>
+                    </div>
+
+                 
+                    <div id="sectionData" class="col-section">
+                         <div class="alert alert-primary small py-2 mb-3">
+                              <i class="bi bi-info-circle"></i>
+                              می‌توانید چند ستون از یک فیلد داده بسازید - هر کدام تنظیمات مستقل دارند.
+                         </div>
+                         <div class="row g-3">
+                              <div class="col-md-6">
+                                   <label for="manualColTable" class="form-label">جدول</label>
+                                   <select id="manualColTable" class="form-select">
+                                        <option value="">-- بدون لینک (ستون مجازی) --</option>
+                                   </select>
+                              </div>
+                              <div class="col-md-6">
+                                   <label for="manualColColumn" class="form-label">ستون</label>
+                                   <select id="manualColColumn" class="form-select" disabled>
+                                        <option value="">-- ابتدا جدول را انتخاب کنید --</option>
+                                   </select>
+                              </div>
+                              <div class="col-md-4">
+                                   <label for="manualColSystemType" class="form-label">نوع سیستمی</label>
+                                   <select id="manualColSystemType" class="form-select">
+                                        <option value="String">String</option>
+                                        <option value="Boolean">Boolean</option>
+                                        <option value="DateTime">DateTime</option>
+                                        <option value="Date">Date</option>
+                                        <option value="DateTimeShamsi">DateTimeShamsi</option>
+                                        <option value="DateShamsi">DateShamsi</option>
+                                        <option value="Long">Long</option>
+                                        <option value="Int">Int</option>
+                                        <option value="Select">Select</option>
+                                        <option value="File">File</option>
+                                        <option value="Decimal">Decimal</option>
+                                   </select>
+                              </div>
+                         </div>
+                    </div>
+
+                  
+                    <div id="sectionButton" class="col-section d-none">
+                         <div class="row g-3">
+                              <div class="col-md-4">
+                                   <label for="btnColColorClass" class="form-label">رنگ دکمه</label>
+                                   <select id="btnColColorClass" class="form-select">
+                                        <option value="btn btn-sm btn-primary">آبی (Primary)</option>
+                                        <option value="btn btn-sm btn-success">سبز (Success)</option>
+                                        <option value="btn btn-sm btn-danger">قرمز (Danger)</option>
+                                        <option value="btn btn-sm btn-warning">زرد (Warning)</option>
+                                        <option value="btn btn-sm btn-info">آبی روشن (Info)</option>
+                                        <option value="btn btn-sm btn-secondary">خاکستری</option>
+                                        <option value="btn btn-sm btn-outline-primary">آبی (Outline)</option>
+                                        <option value="btn btn-sm btn-outline-danger">قرمز (Outline)</option>
+                                   </select>
+                              </div>
+                              <div class="col-md-4">
+                                   <label for="btnColIcon" class="form-label">آیکون (اختیاری)</label>
+                                   <input type="text" id="btnColIcon" class="form-control ltr"
+                                          placeholder="fa fa-edit">
+                              </div>
+                              <div class="col-md-4">
+                                   <label for="btnColText" class="form-label">متن دکمه</label>
+                                   <input type="text" id="btnColText" class="form-control"
+                                          placeholder="ویرایش">
+                              </div>
+                         </div>
+                    </div>
+
+             
+                    <div id="sectionInput" class="col-section d-none">
+                         <div class="row g-3">
+                              <div class="col-md-4">
+                                   <label for="inputColType" class="form-label">نوع input</label>
+                                   <select id="inputColType" class="form-select">
+                                        <option value="text">text</option>
+                                        <option value="number">number</option>
+                                        <option value="checkbox">checkbox</option>
+                                        <option value="date">date</option>
+                                   </select>
+                              </div>
+                              <div class="col-md-4">
+                                   <label for="inputColClass" class="form-label">کلاس CSS</label>
+                                   <input type="text" id="inputColClass" class="form-control ltr"
+                                          placeholder="form-control form-control-sm">
+                              </div>
+                              <div class="col-md-4">
+                                   <label for="inputColDataAttr" class="form-label">data-* attribute</label>
+                                   <input type="text" id="inputColDataAttr" class="form-control ltr"
+                                          placeholder='data-field="value"'>
+                              </div>
+                         </div>
+                    </div>
+
+              
+                    <div id="sectionHtml" class="col-section d-none">
+                         <div class="alert alert-warning small py-2 mb-2">
+                              <i class="bi bi-info-circle"></i>
+                              از <code>{value}</code> برای مقدار ستون لینک‌شده استفاده کنید.
+                              از <code>{row.fieldName}</code> برای سایر فیلدهای ردیف.
+                         </div>
+                         <div class="mb-2">
+                              <label for="manualColHtml" class="form-label">HTML</label>
+                              <textarea id="manualColHtml" class="form-control font-monospace ltr"
+                                        rows="3"
+                                        placeholder='<span class="badge bg-primary">{value}</span>'></textarea>
+                         </div>
+                    </div>
+
+                  
+                    <div class="mt-3 border-top pt-3">
+                         <div class="d-flex justify-content-between align-items-center mb-1">
+                              <label for="manualColRender" class="form-label mb-0">
+                                   <i class="bi bi-code-square"></i>
+                                   تابع render سفارشی (اختیاری)
+                              </label>
+                              <button type="button" id="btnInsertColRenderTemplate"
+                                      class="btn btn-sm btn-outline-secondary">
+                                   <i class="bi bi-file-code"></i> قالب
+                              </button>
+                         </div>
+                         <div class="alert alert-secondary py-1 small ltr mb-2" style="font-family:monospace">
+                              <strong class="text-primary">function(data, type, row, meta)</strong>
+                              <span class="text-muted ms-2">→ data: مقدار، row: کل ردیف، meta: اطلاعات ستون</span>
+                         </div>
+                         <textarea id="manualColRender" class="form-control font-monospace ltr"
+                                   rows="5"
+                                   style="font-size:0.82rem;"
+                                   placeholder="function(data, type, row, meta) {
+                                            return data;
+                                        }"></textarea>
+                    </div>
+               </div>
+
+               <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" id="btnSaveManualColumn" class="btn btn-primary">
+                         <i class="bi bi-save"></i> ذخیره ستون
+                    </button>
+               </div>
+          </div>
+     </div>
+</div>
+
+
 <!-- Templates -->
 <template id="tableBoxTemplate">
      <div class="table-box">
@@ -459,7 +1095,13 @@
      </div>
 </template>
 
+<script src="~/panelLib/plugins/custom/draggable/draggable.boundle.js"></script>
 <script src="~/panellib/js/jsplumb.min.js"></script>
+
+<script src="~/panellib/plugins/custom/editor-anc/ace.js"></script>
+ 
+<script src="~/panellib/plugins/custom/editor-anc/ext-beautify.js"></script>
+
 
  <script>
 
@@ -469,5 +1111,18 @@
           this.style.height = 'auto';
           this.style.height = this.scrollHeight + 'px';
      }).trigger('input');
+
+      
+     var entityFullName = $$("#entityFullName").val()
+
+     if(window.__reportId == null && window.__reportType == 1 &&  entityFullName.length > 0)
+     {
+
+          var entityName = entityFullName.split(".").last();
+          $$("#reportName").val(entityName+"_listinfo");
+          $$("#reportTitle").val("لیست اطلاعات");
+     }
+
+       
 
  </script>

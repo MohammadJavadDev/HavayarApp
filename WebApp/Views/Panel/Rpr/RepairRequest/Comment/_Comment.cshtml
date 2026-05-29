@@ -1,0 +1,229 @@
+@using Entities.App.Bom;
+@using Entities.App.FIN
+@using Entities.App.Gnr
+@using Entities.App.Inv
+@using Entities.App.Prp
+@using Entities.App.SLS
+@using Entities.Auth
+@using WebFramework.TagHelpers;
+@model RepairRequestContractor
+
+<div class="card">
+
+    <div class="card  card-body my-3">
+        <div class='row '>
+            <div class="col-md-6">
+                <label>پیمانکار</label>
+                @(Html.EntitySelector<Contractor>(
+                                "ContractorSelector",
+                                c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                c => new { Id = c.Id, Title = c.Title },
+                                c => new { c.Title },
+                                "{Title}",
+                                "ContractorId",
+                                Model?.ContractorId.ToString()
+                                ))
+            </div>
+
+            <div class="col-md-6">
+                <label>نام قطعه ارسالی</label>
+                @(Html.EntitySelector<Part>(
+                                "PartSelector",
+                                c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                c => new { Id = c.Id, Code = c.Code, Title = c.Name },
+                                c => new { c.Code, c.Name },
+                                "{Code} {Title}",
+                                "PartId",
+                                "Part",
+                                Model?.PartId.ToString()
+                                ))
+            </div>
+
+
+            <div class='col-md-6'>
+                <label class=''>
+                    تاریخ  ارسال
+                </label>
+                <input class='form-control' data-bind='sendPartShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.SendPartShamsiDate' />
+            </div>
+
+
+            <div class='col-md-6'>
+                <label class=''>
+                    تاریخ  اعلام هزینه تعمیر
+                </label>
+                <input class='form-control' data-bind='costAnnouncementShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.CostAnnouncementShamsiDate' />
+            </div>
+
+            <div class='col-md-6'>
+                <label class=''>
+                    مبلغ تعمیر
+                </label>
+                <input type="text" class="form-control" asp-for="Cost" />
+            </div>
+
+            <div class='col-md-6'>
+                <label class=''>
+                    تاریخ تایید به پیمانکار
+                </label>
+                <input class='form-control' data-bind='contractorAcceptShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.ContractorAcceptShamsiDate' />
+            </div>
+
+
+            <div class='col-md-6'>
+                <label class=''>
+                    تاریخ توافق با پیمانکار
+                </label>
+                <input class='form-control' data-bind='agreegmentShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.AgreegmentShamsiDate' />
+            </div>
+
+
+            <div class='col-md-6'>
+                <label class=''>
+                    تاریخ برگشت از پیمانکار
+                </label>
+                <input class='form-control' data-bind='contractorReturnShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.ContractorReturnShamsiDate' />
+            </div>
+
+
+            <div class="col-md-12">
+                <label>توضیحات</label>
+                <textarea class="form-control" asp-for="Comment" rows="5"></textarea>
+            </div>
+
+
+        </div>
+    </div>
+
+</div>
+
+<div class='card-footer row'>
+    <div class='col-md-3'>
+        <span>ایجاد کننده :</span>
+        <span>@Model?.CreatedByName</span>
+    </div>
+    <div class='col-md-3'>
+        <span>تاریخ ایجاد :</span>
+        <span>@Model?.CreatedOnShamsiDateTime</span>
+    </div>
+    <div class='col-md-3'>
+        <span>ویرایش کننده :</span>
+        <span>@Model?.ModifiedByName</span>
+    </div>
+    <div class='col-md-3'>
+        <span>تاریخ ویرایش :</span>
+        <span>@Model?.ModifiedDateShamsiDateTime</span>
+    </div>
+</div>
+
+<script>
+
+
+        page.$pageEl.on('click', '[data-action="addNewBom"]', function() {
+        openBomModal();
+    });
+
+
+    page.$pageEl.on('click', '[data-action="openBomModal"]', function() {
+        const bomId = $$(this).closest('tr').data('item-id');
+        openBomModal(bomId);
+    })
+
+            // BOM Modal Functions using jQuery Confirm
+        function openBomModal(bomId = null) {
+            const productionOrderItemId = 0;
+            // const productionOrderItemId = $$('#changeDataSection [data-bind="id"]').val();
+            // if (!productionOrderItemId) {
+            // 	toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+            // 	return;
+            // }
+
+            const url = `/Panel/Rpr/RepairRequestComment/Edit?id=${bomId}&productionOrderItemId=${productionOrderItemId}`
+
+            $$.get(url, function(result) {
+                let bodyCn = `<div style="overflow-x: hidden;">${result}</div>`
+                $.confirm({
+                    title: bomId ? 'ویرایش BOM' : 'افزودن BOM',
+                    columnClass: 'col-md-8',
+                    content: bodyCn,
+                    rtl: true,
+                    buttons: {
+                        save: {
+                            text: 'ذخیره',
+                            btnClass: 'btn-primary',
+                            action: function() {
+                                const $content = this.$content;
+
+                                if (validateError($content)) {
+                                    return false;
+                                }
+
+                                const model = $content.dataBind();
+                                const self = this;
+
+                                $$.post('/Panel/ProductionOrderItem/SaveBom', model, function(r) {
+                                    if (!r.isSuccess) {
+                                        toastr.error(`${r.message}`, 'خطا');
+                                        return false;
+                                    }
+
+                                    toastr.success('ذخیره سازی با موفقیت انجام شد');                                    
+                                    updateBomTable(r.data);
+
+                                    self.close();
+                                });
+
+                                return false;
+                            }
+                        },
+                        cancel: {
+                            text: 'انصراف',
+                            btnClass: 'btn-secondary'
+                        }
+                    },
+                    onContentReady: function () {
+                        var self = this;
+                        setTimeout(function () {
+                            initPersionDatePicker(self.$body);
+                            self.$body.find('select.select2-hidden-accessible').each(function() {
+                                const $select = $$(this);
+                                const currentData = $select.select2('data');
+                                $select.select2('destroy');
+                                $select.select2({
+                                    dropdownParent: self.$body,
+                                    width: '100%',
+                                    placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+                                });
+                                if (currentData && currentData.length > 0) {
+                                    $select.val($select.val()).trigger('change');
+                                }
+                            });
+                        }, 100);
+                    },
+                });
+
+
+            });
+        }
+
+
+
+
+
+
+
+    ;
+
+
+
+</script>

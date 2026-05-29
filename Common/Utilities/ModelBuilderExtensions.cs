@@ -56,18 +56,24 @@ namespace Common.Utilities
 			}
 		}
 
-		public static void AddSequentialGuidForIdConvention(this ModelBuilder modelBuilder)
+		public static void AddSequentialGuidForIdConvention<BaseType>(this ModelBuilder modelBuilder)
 		{
-			modelBuilder.AddDefaultValueSqlConvention("Id", typeof(Guid), "NEWSEQUENTIALID()");
+			modelBuilder.AddDefaultValueSqlConvention<BaseType>("Id", typeof(Guid), "NEWSEQUENTIALID()");
 		}
 
-		public static void AddDefaultValueSqlConvention(this ModelBuilder modelBuilder, string propertyName, Type propertyType, string defaultValueSql)
+		public static void AddDefaultValueSqlConvention<BaseType>(this ModelBuilder modelBuilder, string propertyName, Type propertyType, string defaultValueSql)
 		{
 			foreach (IMutableEntityType entityType in modelBuilder.Model.GetEntityTypes())
 			{
-				IMutableProperty property = entityType.GetProperty(propertyName);
-				if (property != null && property.ClrType == propertyType)
-					property.SetDefaultValueSql(defaultValueSql);
+
+
+				if (typeof(BaseType).IsAssignableFrom(entityType.ClrType))
+				{
+					IMutableProperty property = entityType.GetProperty(propertyName);
+					if (property != null && property.ClrType == propertyType)
+						property.SetDefaultValueSql(defaultValueSql);
+				}
+
 			}
 		}
 

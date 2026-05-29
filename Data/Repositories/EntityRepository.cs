@@ -1,22 +1,25 @@
-﻿using Data.Contracts;
-using Entities.Base.DataTable;
-using Entities.Base;
-using Microsoft.EntityFrameworkCore;
-using System.Reflection;
+﻿using Aspose.Cells;
 using Common.System;
 using Common.Utilities;
-using System.ComponentModel;
-using Microsoft.Data.SqlClient;
-using Aspose.Cells;
-using License = Aspose.Cells.License;
+using Data.Contracts;
+using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
+using Entities.Auth;
+using Entities.Base;
+using Entities.Base.DataTable;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using ReportBuilder.Entities;
+using System.ComponentModel;
+using System.Reflection;
+using License = Aspose.Cells.License;
 
 
 namespace Data.Repositories
 {
     public class EntityRepository(ApplicationDbContext dbContext, ISdk sdk   
-         , IDataTableProfileService _dataTableProfileService  
-         , IDataTableQueryBuilder _dataTableQuery) : IEntityRepository
+         , IDataTableProfileService _dataTableProfileService ,
+	    IQueryService queryService) : IEntityRepository
     {
         private DataTableRequest currentRequest { get; set; }
         private string? ConnectionString { get; } = dbContext.Database.GetDbConnection().ConnectionString;
@@ -124,35 +127,36 @@ namespace Data.Repositories
              
         }
 
-        public async Task<DataTableResponse> FetchDataProfile(DataTableRequest request)
-        {
-            var profile = _dataTableProfileService.GetDataTableProfileById((long)request.profileId!);
-            if (profile == null)
-            {
-                throw new Exception("نمایه داده انتخاب شده یافت نشد.");
-            }
-
-            currentRequest = request;
-            var resQuery = _dataTableQuery.BuildSqlServerQueryProfile(request, profile);
-
-            var items = ExecuteQuery(resQuery.MainQuery);
-            var recordsFiltered = ExecuteQuery(resQuery.CountFiltterdQuery).First()["TotalCount"];
-            var recordsTotal = ExecuteQuery(resQuery.CountTotalQuery).First()["TotalCount"];
 
 
-            var res = new DataTableResponse()
-            {
-                Data = items,
-                Draw = request.draw,
-                RecordsFiltered = recordsFiltered,
-                RecordsTotal = recordsTotal
-            };
-            return res;
-        }
+          public async Task<DataTableResponse> FetchDataProfile(DataTableRequest request, CancellationToken cn = default)
+          {
+                
+               var savedQueryId = request.profileId;
+               var paramValues = queryService.ExtractParameterValuesFromRequest(request);
+               QueryResult result;
+
+
+			result = await queryService.ExecuteReportAsync(request, paramValues, request.start, request.length, sdk.CurrentUser.Id.ToString(), sdk.CurrentUser.Username);
+
+			var response = new DataTableResponse
+               {
+                    Draw = request.draw,
+                    RecordsTotal = result.TotalRows,
+                    RecordsFiltered = result.TotalFilterdRows,
+                    Data = result.Rows
+               };
+               return response;
+          }
+
+	 
 
         public async Task ExportToExcelProfile(DataTableRequest request, Stream outputStream, string licensePath)
         {
-            var profile = _dataTableProfileService.GetDataTableProfileById((long)request.profileId!);
+
+		 
+
+		 var profile = await queryService.GetReportAsync((long)request.profileId!);
             if (profile == null)
             {
                 throw new Exception("نمایه داده انتخاب شده یافت نشد.");
@@ -172,23 +176,29 @@ namespace Data.Repositories
                 new License().SetLicense(licensePath);
 
 
-            var resQuery = _dataTableQuery.BuildSqlServerQueryProfile(request, profile);
-            var query = resQuery.WithoutPagnationQuery;
+			var savedQueryId = request.profileId;
+			var paramValues = queryService.ExtractParameterValuesFromRequest(request);
+			QueryResult result;
 
-            // Create a new workbook
+               request.start = 0;
+			request.length = 10000;
 
-            var worksheet = workbook.Worksheets[0];
-            worksheet.Name = "LargeData";
+
+			// Create a new workbook
+
+		  var worksheet = workbook.Worksheets[0];
+             worksheet.Name = "LargeData";
 
             // Retrieve data headers from the first chunk
-            var firstChunk = ExecuteQuery(query);
-            if (firstChunk == null || !firstChunk.Any())
+            var firstChunk = await queryService.ExecuteReportAsync(request, paramValues, request.start, request.length, sdk.CurrentUser.Id.ToString(), sdk.CurrentUser.Username);
+
+			if (firstChunk == null || !firstChunk.Rows.Any())
             {
                 return;
             }
 
             // Add column headers dynamically based on the first record
-            var headers = firstChunk.First().Keys.ToList();
+            var headers = firstChunk.Rows.First().Keys.ToList();
             for (int i = 0; i < headers.Count; i++)
             {
                 if (!request.columns.Any(c => c.name == headers[i]))
@@ -207,8 +217,8 @@ namespace Data.Repositories
             int row = 1; // Start adding data from the second row
 
             // Add the first chunk data to the worksheet
-            await AddChunkDataToWorksheet(worksheet, firstChunk, row, request);
-            row += firstChunk.Count();
+            await AddChunkDataToWorksheet(worksheet, firstChunk.Rows, row, request);
+            row += firstChunk.Rows.Count();
 
             // Add subsequent chunks dynamically
             //while (true)

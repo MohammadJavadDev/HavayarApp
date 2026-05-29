@@ -24,7 +24,8 @@ namespace WebFramework.Controllers.SystemControllers
 		   [FromQuery] string queryId = "",
 		   [FromQuery] string defaultParams = "",
 		   [FromQuery] string searchColumnsInfo = "",   
-		   [FromQuery] long? lastId = null)
+		   [FromQuery] long? lastId = null,
+		   [FromQuery] string extraFilters = null)
 		{
 			var request = new EntitySelectorRequest
 			{
@@ -33,11 +34,12 @@ namespace WebFramework.Controllers.SystemControllers
 				PageSize = pageSize,
 				LastId = lastId,
 				Extra = new Dictionary<string, string>
-				{
-					{ "queryId", queryId },
-					{ "defaultParams", defaultParams },
-					{ "searchColumnsInfo", searchColumnsInfo }   
-				}
+			   {
+				  { "queryId", queryId },
+				  { "defaultParams", defaultParams },
+				  { "searchColumnsInfo", searchColumnsInfo },
+				  { "extraFilters", extraFilters }    
+			   }
 			};
 
 			return Ok(await _service.QueryAsync(entityName, request));

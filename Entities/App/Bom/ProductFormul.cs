@@ -17,13 +17,7 @@ namespace Entities.App.Bom
 
 		public long ProductId { get; set; }
 
-
-		[DisplayName("قطعه")]
-		[DisplayInfo(null, false, type: SystemType.Entity)]
-		public Part? Part { get; set; }
-
-		public long? PartId { get; set; }
-
+		 
 
 		[DisplayName("گروه محصول")]
 		[DisplayInfo(null, false, type: SystemType.Entity)]
@@ -31,14 +25,10 @@ namespace Entities.App.Bom
 
 		public long? ProductNameGroupId { get; set; }
 
-
-		[DisplayName("ضریب مصرفی")]
-		[DisplayInfo(null, false, type: SystemType.Int)]
-		public int? UsingRate { get; set; }
-
+ 
 
 		[DisplayName("توضیحات")]
-		[DisplayInfo(null, true, type: SystemType.String, required: true, showInRelationData: true)]
+		[DisplayInfo(null, true, type: SystemType.String)]
 		public string Comment { get; set; }
 
 
@@ -63,9 +53,17 @@ namespace Entities.App.Bom
 		public long? PartId { get; set; }
 
 
+		[DisplayName("فرمول")]
+		[DisplayInfo(null, false, type: SystemType.Entity)]
+		public Formul? Formul { get; set; }
+
+		public long? FormulId { get; set; }
+	
+
+
 		[DisplayName("ضریب مصرفی")]
-		[DisplayInfo(null, false, type: SystemType.Int)]
-		public int? UsingRate { get; set; }
+		[DisplayInfo(null, false, type: SystemType.Decimal)]
+		public decimal? UsingRate { get; set; }
 
 
 	}

@@ -8,5 +8,7 @@ namespace Entities.App.Inv.Enums
 		Routine = 654,
 		[Display(Name = "Special")]
 		Special = 655,
+		[Display(Name = "Asme")]
+		Asme = 656,
 	}
 }

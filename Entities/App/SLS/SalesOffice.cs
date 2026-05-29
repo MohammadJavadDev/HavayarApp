@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Entities.App.SLS
 {
-	[Display(Name = "مرکز هزینه")]
+	[Display(Name = "مرکز فروش")]
 	[Table("SalesOffice", Schema = "SLS")]
 	public class SalesOffice : BaseEntity
 	{

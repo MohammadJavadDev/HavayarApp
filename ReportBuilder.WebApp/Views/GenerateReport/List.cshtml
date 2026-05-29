@@ -1,11 +1,229 @@
-﻿
+@model IEnumerable<ReportBuilder.Entities.ReportBuilderReport>
 @{
-    
+    ViewData["Title"] = "لیست گزارش‌ها";
 }
 
+<style>
+    .stats-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .stats-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    .action-buttons .btn {
+        margin: 0 2px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    .report-name {
+        font-weight: 600;
+        color: #495057;
+    }
+    .report-title {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    .badge-custom {
+        padding: 0.35rem 0.75rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f8f9fa;
+        cursor: pointer;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    .empty-state i {
+        font-size: 5rem;
+        color: #dee2e6;
+        margin-bottom: 1rem;
+    }
+</style>
 
+<div class="container">
+    @if (Model != null && Model.Any())
+    {
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="stats-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">کل گزارش‌ها</h6>
+                            <h2 class="mb-0">@Model.Count()</h2>
+                        </div>
+                        <i class="bi bi-file-earmark-bar-graph stats-icon text-primary"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="stats-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">جدولی</h6>
+                            <h2 class="mb-0">@Model.Count(r => r.Type == ReportBuilder.Entities.ReportType.Table)</h2>
+                        </div>
+                        <i class="bi bi-table stats-icon text-success"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="stats-card">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">طراحی (StimulSoft)</h6>
+                            <h2 class="mb-0">@Model.Count(r => r.Type == ReportBuilder.Entities.ReportType.StimulSoft)</h2>
+                        </div>
+                        <i class="bi bi-file-earmark-ruled stats-icon text-info"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 
-<datatableprofile entity-name="ReportBuilderReport" new-button="true" new-entity-path="/System/ReportBuilder/Report/Edit" edit-entity-path="/System/ReportBuilder/Report/Edit" delete-entity-path="/System/ReportBuilder/Report/Delete"></datatableprofile>
+    <div class="card shadow-sm">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0">
+                    <i class="bi bi-list"></i>
+                    لیست گزارش‌ها
+                </h5>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="location.reload();">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        بروزرسانی
+                    </button>
+                    <a href="/System/ReportBuilder/Report/Edit?id=0" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i>
+                        گزارش جدید
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            @if (Model == null || !Model.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-inbox"></i>
+                    <h4 class="text-muted">گزارشی یافت نشد</h4>
+                    <p class="text-muted mb-4">هنوز گزارشی ایجاد نشده است</p>
+                    <a href="/System/ReportBuilder/Report/Edit?id=0" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i>
+                        ایجاد گزارش جدید
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table id="reportsTable" class="table table-hover" style="width:100%">
+                        <thead class="table-light">
+                            <tr>
+                                <th>نام</th>
+                                <th>عنوان</th>
+                                <th>نوع</th>
+                                <th>ایجاد کننده</th>
+                                <th>تاریخ ایجاد</th>
+                                <th>آخرین ویرایش</th>
+                                <th style="width: 220px;">عملیات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var report in Model)
+                            {
+                                <tr>
+                                    <td>
+                                        <span class="report-name">@report.Name</span>
+                                    </td>
+                                    <td>
+                                        <span class="report-title">@report.Title</span>
+                                    </td>
+                                    <td>
+                                        @if (report.Type == ReportBuilder.Entities.ReportType.Table)
+                                        {
+                                            <span class="badge badge-custom bg-success text-white">جدولی</span>
+                                        }
+                                        else
+                                        {
+                                                       <span class="badge badge-custom bg-info text-white">طراحی</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-custom bg-secondary">
+                                            <i class="bi bi-person"></i>
+                                            @(report.CreatedByName ?? "-")
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar3"></i>
+                                            @(report.CreatedOnMiladiDateTime?.ToString("yyyy/MM/dd HH:mm") ?? "-")
+                                        </small>
+                                    </td>
+                                    <td>
+                                        @if (report.ModifiedDateMiladiDateTime.HasValue)
+                                        {
+                                            <small class="text-muted">
+                                                <i class="bi bi-pencil"></i>
+                                                @report.ModifiedDateMiladiDateTime.Value.ToString("yyyy/MM/dd HH:mm")
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td class="action-buttons">
+                                        <a href="/System/ReportBuilder/ViewReport/@report.Id"
+                                           class="btn btn-sm btn-outline-primary"
+                                           title="مشاهده گزارش">
+                                            <i class="bi bi-eye"></i>
+                                            مشاهده
+                                        </a>
+                                        <a href="/System/ReportBuilder/Report/Edit?id=@report.Id"
+                                           class="btn btn-sm btn-outline-secondary"
+                                           title="ویرایش">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
 
-
- 
+@section Scripts {
+<script>
+    $(document).ready(function() {
+        @if (Model != null && Model.Any())
+        {
+            <text>
+            $('#reportsTable').DataTable({
+                responsive: true,
+                order: [[4, 'desc']],
+                pageLength: 25,
+                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'همه']],
+                columnDefs: [
+                    { orderable: false, targets: 6 }
+                ]
+            });
+            </text>
+        }
+    });
+</script>
+}

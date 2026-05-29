@@ -1802,8 +1802,8 @@ body[class*=jconfirm-no-scroll-] {
      }
 
           #tabsContainer .page_tab:hover {
-               background: var(--bs-purple, rgba(0, 0, 0, .05));
-               border-color: var(--bs-purple);
+               background: var(--bs-text-info, rgba(0, 0, 0, .05));
+               border-color: var(--bs-text-info);
                transform: translateY(-1px);
                color: #fff;
           }
@@ -1895,8 +1895,81 @@ body[class*=jconfirm-no-scroll-] {
 .form-action-buttons {
  
      margin-bottom: 5px;
-     padding:5px
+     padding:5px;
+
 }
+
+     /* ===== حالت پیش‌فرض: آیکن کوچک ===== */
+     .form-action-buttons .btn-icon {
+          transition: all 0.2s ease;
+     }
+
+          /* ===== hover حالت کوچک ===== */
+          .form-action-buttons .btn-icon:hover {
+               transform: translateY(-2px);
+               box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+          }
+
+          .form-action-buttons .btn-icon:active {
+               transform: translateY(0px);
+               box-shadow: none;
+          }
+
+/* ===== حالت بزرگ ===== */
+html.btn-display-large .form-action-buttons .btn-icon {
+     display: inline-flex !important;
+     flex-direction: column;
+     align-items: center;
+     justify-content: center;
+     width: auto !important;
+     height: 55px !important;
+     min-width: 60px;
+     padding: 8px 10px 6px;
+     border-radius: 8px;
+     border: 1.5px solid currentColor !important;
+     gap: 10px;
+     line-height: 1;
+     background-color: transparent;
+     transition: all 0.2s ease;
+     margin: 0px 1.7px;
+}
+
+html.btn-display-large .form-action-buttons {
+     padding: 1.7px;
+     margin: 0;
+}
+
+html.btn-display-large .form-action-buttons .btn-icon i {
+     font-size: 1.6rem !important;
+ 
+     transition: transform 0.2s ease;
+}
+
+     html.btn-display-large .form-action-buttons .btn-icon::after {
+          content: attr(title);
+          font-size: 10px;
+          font-weight: 500;
+          line-height: 1;
+          white-space: nowrap;
+          transition: opacity 0.2s ease;
+     }
+
+     /* ===== hover حالت بزرگ ===== */
+     html.btn-display-large .form-action-buttons .btn-icon:hover {
+          background-color: color-mix(in srgb, currentColor 10%, transparent);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px color-mix(in srgb, currentColor 25%, transparent);
+     }
+
+          html.btn-display-large .form-action-buttons .btn-icon:hover i {
+               transform: scale(1.15);
+          }
+
+     html.btn-display-large .form-action-buttons .btn-icon:active {
+          transform: translateY(0px);
+          box-shadow: none;
+          background-color: color-mix(in srgb, currentColor 18%, transparent);
+     }
 
 .datatabel-action-btns {
      border-bottom: 1px solid var(--bs-card-border-color);
@@ -1950,6 +2023,7 @@ body[class*=jconfirm-no-scroll-] {
      align-items: center;
      user-select: none;
      color: #fff !important;
+     margin: 0px 1px;
 }
 
      .entity-chip .remove-chip {
@@ -2206,3 +2280,6 @@ body[class*=jconfirm-no-scroll-] {
 .card-custom-header {
      border-bottom: 1px solid var(--bs-gray-300);
 }
+
+
+ 

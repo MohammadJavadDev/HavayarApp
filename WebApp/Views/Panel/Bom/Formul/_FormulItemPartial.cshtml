@@ -13,7 +13,7 @@
 				Id = c.Id, Code = c.Code, Name = c.Name
 			},
 			c => new { c.Code, c.Name },
-			"{Code} {Name}",
+			"{Code} || {Name}",
 			"items.PartId",
 			null,
 			Model?.PartId?.ToString())

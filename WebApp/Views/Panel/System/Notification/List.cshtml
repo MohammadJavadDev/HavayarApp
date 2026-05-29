@@ -94,7 +94,7 @@
           background: rgba(0, 0, 0, 0.3);
      }
 
-     .notification-item {
+     .notification-item-content {
           background: var(--bs-body-bg);
           border-radius: 0.625rem;
           padding: 0;
@@ -107,7 +107,7 @@
           cursor: pointer;
      }
 
-     .notification-item::before {
+     .notification-item-content::before {
           content: '';
           position: absolute;
           right: 0;
@@ -118,27 +118,27 @@
           transition: width 0.3s ease;
      }
 
-     .notification-item:hover {
+     .notification-item-content:hover {
           transform: translateY(-0.125rem);
           box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.12);
           border-color: rgba(0, 0, 0, 0.2);
      }
 
-     .notification-item.unread {
+     .notification-item-content.unread {
           border-right: 0.25rem solid var(--bs-primary);
           background: linear-gradient(to left, rgba(var(--bs-primary-rgb), 0.03), var(--bs-body-bg));
      }
 
-     .notification-item.unread::before {
+     .notification-item-content.unread::before {
           background: var(--bs-primary);
           width: 0.25rem;
      }
 
-     .notification-item.read {
+     .notification-item-content.read {
           opacity: 0.92;
      }
 
-     .notification-item.read::before {
+     .notification-item-content.read::before {
           background: rgba(0, 0, 0, 0.1);
      }
 
@@ -388,12 +388,12 @@
                border-color: var(--bs-border-color);
           }
 
-          [data-bs-theme="dark"] .notification-item {
+          [data-bs-theme="dark"] .notification-item-content {
                background: var(--bs-body-bg);
                border-color: var(--bs-border-color);
           }
 
-          [data-bs-theme="dark"] .notification-item.unread {
+          [data-bs-theme="dark"] .notification-item-content.unread {
                background: linear-gradient(to left, rgba(var(--bs-primary-rgb), 0.1), var(--bs-body-bg));
           }
 
@@ -419,15 +419,15 @@
                background: rgba(255, 255, 255, 0.3);
           }
 
-          [data-bs-theme="dark"] .notification-item::before {
+          [data-bs-theme="dark"] .notification-item-content::before {
                background: rgba(255, 255, 255, 0.1);
           }
 
-          [data-bs-theme="dark"] .notification-item.read::before {
+          [data-bs-theme="dark"] .notification-item-content.read::before {
                background: rgba(255, 255, 255, 0.1);
           }
 
-          [data-bs-theme="dark"] .notification-item:hover {
+          [data-bs-theme="dark"] .notification-item-content:hover {
                border-color: rgba(255, 255, 255, 0.2);
           }
 
@@ -627,7 +627,7 @@
                : '';
 
           const cardHtml = `
-            <div class="notification-item ${readClass}" data-id="${notification.id}" ${notification.viewPath && notification.viewPath.trim() !== '' ? 'data-view-path="' + escapeHtml(notification.viewPath) + '"' : ''}>
+            <div class="notification-item-content ${readClass}" data-id="${notification.id}" ${notification.viewPath && notification.viewPath.trim() !== '' ? 'data-view-path="' + escapeHtml(notification.viewPath) + '"' : ''}>
                 <div class="notification-content">
                     <div class="notification-header-row">
                         <div class="notification-title-section">
@@ -672,14 +672,20 @@
           $$.post('/System/Notify/MarkAsRead', notificationId,
                function (r) {
 
+                    debugger
                     if (!r.isSuccess) return error2(r.message);
 
-                    const card = $$(`.notification-item[data-id="${notificationId}"]`);
+                    const card = $$(`.notification-item-content[data-id="${notificationId}"]`);
                     card.removeClass('unread').addClass('read');
                     card.find('.notification-badge').removeClass('new').addClass('read').text('خوانده شده');
                     card.find('.btn-mark-read').prop('disabled', true).html('<i class="fas fa-check-double"></i> خوانده شده');
 
                     success2('اعلان به عنوان خوانده شده علامت‌گذاری شد');
+
+                         if($(`[data-action="readNotification"][data-id="${notificationId}"]`).length >0)
+                    {
+                        $(`[data-action="readNotification"][data-id="${notificationId}"]`).closest("[data-row=notification]").remove();
+                    }
                     if (window.CalculationCountUnreadNotifications) {
                          window.CalculationCountUnreadNotifications();
                     }
@@ -696,12 +702,12 @@
                function (r) {
                     if (!r.isSuccess) return error2(r.message);
 
-                    const card = $$(`.notification-item[data-id="${notificationId}"]`);
+                    const card = $$(`.notification-item-content[data-id="${notificationId}"]`);
                     card.fadeOut(300, function () {
                          card.remove();
 
                          // اگر لیست خالی شد، پیام خالی نمایش بده
-                         if ($$('#notificationsContainer .notification-item').length === 0) {
+                         if ($$('#notificationsContainer .notification-item-content').length === 0) {
                               $$('#notificationsContainer').html(`
                                    <div class="empty-state">
                                        <i class="fas fa-inbox"></i>
@@ -712,6 +718,11 @@
                     });
 
                     success2('اعلان با موفقیت حذف شد');
+
+                       if($(`[data-action="readNotification"][data-id="${notificationId}"]`).length >0)
+                    {
+                        $(`[data-action="readNotification"][data-id="${notificationId}"]`).closest("[data-row=notification]").remove();
+                    }
                     if (window.CalculationCountUnreadNotifications) {
                          window.CalculationCountUnreadNotifications();
                     }
@@ -734,7 +745,7 @@
      });
 
      // Handle notification card click (navigate to ViewPath if exists)
-     $(document).on('click', '.notification-item', function (e) {
+     $(document).on('click', '.notification-item-content', function (e) {
           // Don't navigate if clicking on buttons or links
           if ($$(e.target).closest('button, a').length > 0) {
                return;

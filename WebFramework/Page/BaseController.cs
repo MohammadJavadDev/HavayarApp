@@ -22,10 +22,10 @@ public class BaseController : Controller
 	#endregion
 
 	#region Role Checking Methods - Delegating to SDK
-	protected bool HasRole(string roleName) => sdk?.HasRole(roleName) ?? false;
-	protected bool HasRole(long roleId) => sdk?.HasRole(roleId) ?? false;
-	protected bool HasAnyRole(params string[] roleNames) => sdk?.HasAnyRole(roleNames) ?? false;
-	protected bool HasAllRoles(params string[] roleNames) => sdk?.HasAllRoles(roleNames) ?? false;
+	protected bool CurrentUserHasRole(string roleName) => sdk?.HasRole(roleName) ?? false;
+	protected bool CurrentUserHasRole(long roleId) => sdk?.HasRole(roleId) ?? false;
+	protected bool CurrentUserHasAnyRole(params string[] roleNames) => sdk?.HasAnyRole(roleNames) ?? false;
+	protected bool CurrentUserHasAllRoles(params string[] roleNames) => sdk?.HasAllRoles(roleNames) ?? false;
 	#endregion
 
 	#region View Methods

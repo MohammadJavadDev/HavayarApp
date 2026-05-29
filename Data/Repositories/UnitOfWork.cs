@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Data.Repositories
 {
-    public class UnitOfWork(ApplicationDbContext context,  ISdk? sdk , IDataTableQueryBuilder queryBuilder , IAuditService _auditService) : IUnitOfWork
+    public class UnitOfWork(ApplicationDbContext context,  ISdk? sdk  , IAuditService _auditService) : IUnitOfWork
     {
         private readonly IDictionary<Type, object> _repositories = new Dictionary<Type, object>();
         private IDbContextTransaction _transaction;
@@ -20,7 +20,7 @@ namespace Data.Repositories
                 return (IRepository<TEntity>)repository;
             }
 
-            var newRepository = new Repository<TEntity>(context , sdk, queryBuilder, _auditService);
+            var newRepository = new Repository<TEntity>(context , sdk, _auditService);
             _repositories[typeof(TEntity)] = newRepository;
             return newRepository;
         }

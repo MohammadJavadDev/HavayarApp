@@ -122,7 +122,7 @@
      })
 
      $$("#send").click(function(){
-          debugger
+           
           var model = {};
 
           model.allUsers = $$("#allUsers")[0].checked
@@ -131,6 +131,12 @@
 
            model.title = $$("#title").val();
            model.description = $$("#description").val();
+           model.ownerIds= $$("#selecetUser").val();
+ 
+                   if( model.ownerIds &&  model.ownerIds.length > 0)
+                   model.ownerIds= [...model.ownerIds.split(",").map(c=>parseInt(c))]
+        
+ 
 
            $$.post("/panel/SendNotification",model,function(r){
                if(!r.isSuccess) return error2(r.message);

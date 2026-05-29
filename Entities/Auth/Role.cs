@@ -257,6 +257,25 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
 
 
 		#endregion
+
+		#region Sup.OpenOrderRequest Role Seed 
+
+		builder.HasData(new Role()
+		{
+			Id = 200000,
+			Name = "Edms.Documents.DccUsers",
+			Title = "مهندسی -مدارک - کاربران DCC",
+			CreatedById = 1,
+			CreatedByName = "admin",
+			ModifiedById = 1,
+			ModifiedByName = "admin",
+			CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+			ModifiedDateShamsiDateTime = now.ToShamsiDateTime(),
+			CreatedOnMiladiDateTime = now,
+			ModifiedDateMiladiDateTime = now,
+			IsActive = IsActiveEnum.Active
+		});
+		#endregion
 	}
 }
 
