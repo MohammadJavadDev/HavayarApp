@@ -1,0 +1,291 @@
+@inject ISdk sdk;
+@using Data.SystemAuth
+@using Entities.App.Inv;
+@using Entities.App.Pln;
+@using Entities.App.Sale;
+@model ProductionOrderItemDeficit
+@{
+
+	var accessToIndustriesEdit = sdk.HasRole("Pln.ProductionOrerItemDeficit.IndustriesEdit");
+
+	var accessToSupplierEdit = sdk.HasRole("Pln.ProductionOrerItemDeficit.SupplierEdit");
+	
+
+}
+
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductionOrderItemDeficit)"></form-action-buttons></div>
+
+</div>
+<div class="card my-3">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+	 
+
+		<div class="col-md-6">
+			<label class='required'>قلم سفارش ساخت</label>
+			@(
+			Html.EntitySelector<ProductionOrderItem>(
+				"ProductionOrderItemSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsDeleted == false,
+				c => new
+				{
+					Id = c.Id,
+					ProductionOrderNumber = (long)c.ProductionOrder.ProductionOrderNumber,
+					c.Serial,
+					PartName = c.Part.Name,
+					PartCode = c.Part.Code,
+					PartId = c.PartId,
+					c.ProductionOrderId
+				},
+						c => new { c.ProductionOrder.ProductionOrderNumber },
+											"{ProductionOrderNumber}  || {Serial} || {PartCode} || {PartName}",
+				"ProductionOrderItemId",
+				"ProductionOrderItemName",
+				Model?.ProductionOrderItemId?.ToString(),
+				false,
+				false,
+				false,
+			     !accessToIndustriesEdit
+			)
+			)
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class='required'>کالا</label>
+			@(
+						Html.EntitySelector<Part>(
+						"PartSelector",
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active ,
+						c => new
+						{
+							Id = c.Id,
+							 c.Name,
+							 c.Code
+						},
+						c => new { c.Code , c.Name },
+						"{Code}  || {Name} ",
+						"PartId",
+						"PartName",
+						Model?.PartId?.ToString(),
+						false,
+						false,
+						false,
+						!accessToIndustriesEdit
+						)
+						)
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+ 
+
+		<div class='col-md-6'>
+			<label class='required'>سریال</label>
+			<input class='form-control' data-bind='serial' asp-for='Serial' required />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تعداد کسری</label>
+			<input class='form-control'  data-bind='deficitCount'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DeficitCount' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+ 
+			<div class="col-md-6">
+				<label for="deviceProgressRange" class="">درصد پیشرفت دستگاه</label>
+
+				<div class="d-flex align-items-center gap-3">
+	 
+					<input type="range"
+					  class="form-range flex-grow-1 ltr"
+						  id="deviceProgressRange"
+						  min="0"
+						  max="100"
+						  step="1"
+				    	  data-bind="deviceProgressPercentage" 
+					  asp-for="DeviceProgressPercentage" />
+ 
+					<span class="fw-bold text-primary"
+						 style="min-width: 45px; text-align: center;"
+					 id="deviceProgressPercentageNumber">
+					 0
+					</span>
+				</div>
+		</div>
+	 
+
+		<div class='col-md-6'>
+			<label class=''>اولویت دستگاه</label>
+			<input class='form-control'  data-bind='devicePriority'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DevicePriority' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+		<div class='col-md-6'>
+			<label class=''>واحد اجرایی</label>
+			<input class='form-control' data-bind='executiveUnit' asp-for='ExecutiveUnit' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+		<div class='col-md-6'>
+			<label class=''>تعداد خرید در راه</label>
+			<input class='form-control' data-bind='onWayPurchasedCount' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='OnWayPurchasedCount' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>متولی خرید</label>
+			<input class='form-control' data-bind='purchaseExpert' asp-for='PurchaseExpert' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+		<div class='col-md-6'>
+			<label class=''>توضیحات تامین کننده</label>
+			<input class='form-control' data-bind='supplierDescription' asp-for='SupplierDescription' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>توضیحات</label>
+			<input class='form-control' data-bind='description' asp-for='Description' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-1">
+			<div class="card-body row">
+				<div class="col-12 mb-4">
+					<h3 class="fw-bold text-dark">تاریخ ها</h3>
+				</div>
+
+		<div class='col-md-4'>
+			<label class=''>تاریخ   تحویل استاندارد</label>
+			<input class='form-control ltr' data-bind='standardDeliveryMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.StandardDeliveryMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+ 
+
+		
+
+		<div class='col-md-4'>
+			<label class=''>تاریخ   صدور درخواست خرید</label>
+			<input class='form-control ltr' data-bind='purchaseRequestIssuanceMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PurchaseRequestIssuanceMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+ 
+
+		<div class='col-md-4'>
+			<label class=''>تاریخ   تایید درخواست خرید</label>
+			<input class='form-control ltr' data-bind='purchaseRequestConfirmationMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PurchaseRequestConfirmationMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+ 
+
+		<div class='col-md-4'>
+			<label class=''>تاریخ   تایید درخواست خرید</label>
+			<input class='form-control ltr' data-bind='purchaseRequestNeedMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PurchaseRequestNeedMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+ 
+
+		
+
+		<div class='col-md-4'>
+			<label class=''>تاریخ   پیش بینی تامین واحد تامین کننده-گزارش قبل</label>
+			<input class='form-control ltr' data-bind='preReportSupplierUnitForecastMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PreReportSupplierUnitForecastMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	 
+
+		<div class='col-md-4'>
+			<label class=''>تاریخ    پیش بینی تامین واحد تامین کننده-گزارش دو هفته قبل</label>
+			<input class='form-control ltr' data-bind='lastTwoWeeksForecastSupplierUnitMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.LastTwoWeeksForecastSupplierUnitMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+ 
+
+			<div class='col-md-4'>
+				<label class=''>تاریخ پیش بینی تامین واحد تامین کننده</label>
+				<input class='form-control ltr' data-bind='supplierUnitForecastDateUnitMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.SupplierUnitForecastDateUnitMiladiDate' />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			</div>
+		</div>
+		 
+
+		 
+
+ 
+
+<div class="card   my-3">
+	<div class="card-body row">
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+	 
+</div>
+
+<script>
+
+	 
+	if(AppSdk.hasRole("Pln.ProductionOrerItemDeficit.IndustriesEdit")){
+
+	}
+	else if(AppSdk.hasRole("Pln.ProductionOrerItemDeficit.SupplierEdit"))
+	{
+		$$('[data-bind]:not([data-bind="supplierUnitForecastDateUnitMiladiDate"])').disabled(true);
+	}
+	else
+	{
+	    $$('[data-bind]').disabled(true);
+	}
+
+	var deviceProgressRangeValue = @(Model?.DeviceProgressPercentage ?? 0)
+
+	$$("#deviceProgressRange").val(deviceProgressRangeValue).change(function(){
+		var tval = $(this).val();
+
+		$$("#deviceProgressPercentageNumber").text(tval+"%")
+	}).change();
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+
+		model.deviceProgressPercentage = $$("#deviceProgressRange").val();
+
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

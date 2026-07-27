@@ -1,12 +1,12 @@
 ﻿using Common.Attributes;
 using Entities.App.Hrm;
-using Entities.App.Prp.Enums;
+using Entities.App.Rpr.Enums;
 using Entities.Base;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
     [Display(Name = "سفارش پیمانکاران")]
     [Table("ContractorOrder", Schema = "Rpr")]

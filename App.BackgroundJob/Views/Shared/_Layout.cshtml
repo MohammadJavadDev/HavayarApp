@@ -5,122 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - App.BackgroundJob</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/App.BackgroundJob.styles.css" asp-append-version="true" />
-     <style>
-          * {
-               margin: 0;
-               padding: 0;
-               box-sizing: border-box;
-          }
-
-          body {
- 
-               background-color: #f5f7fa;
-               min-height: 100vh;
-          }
-
-          .navbar-custom {
-               background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-               box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-               padding: 0;
-          }
-
-          .navbar-brand {
-               font-size: 22px;
-               font-weight: 600;
-               color: white !important;
-               padding: 20px 0;
-          }
-
-          .navbar-nav .nav-link {
-               color: rgba(255,255,255,0.85) !important;
-               padding: 20px 20px;
-               transition: all 0.3s;
-               border-bottom: 3px solid transparent;
-          }
-
-               .navbar-nav .nav-link:hover {
-                    color: white !important;
-                    background-color: rgba(255,255,255,0.1);
-               }
-
-               .navbar-nav .nav-link.active {
-                    color: white !important;
-                    background-color: rgba(255,255,255,0.15);
-                    border-bottom-color: #3498db;
-               }
-
-          .main-container {
-               max-width: 1600px;
-               margin: 0 auto;
-               padding: 30px 20px;
-          }
-
-          .page-header {
-               background: white;
-               padding: 30px;
-               border-radius: 8px;
-               box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-               margin-bottom: 30px;
-               border-left: 4px solid #3498db;
-          }
-
-               .page-header h1 {
-                    font-size: 28px;
-                    font-weight: 600;
-                    color: #2c3e50;
-                    margin: 0;
-               }
-
-               .page-header p {
-                    color: #7f8c8d;
-                    margin: 8px 0 0 0;
-                    font-size: 14px;
-               }
-
-          .card {
-               border-radius: 8px;
-               box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-               border: 1px solid #e1e8ed;
-               background: white;
-          }
-
-          .card-header {
-               background-color: #fff;
-               color: #2c3e50;
-               border-bottom: 2px solid #e1e8ed;
-               padding: 20px 24px;
-               border-radius: 8px 8px 0 0;
-          }
-
-               .card-header h5 {
-                    font-size: 18px;
-                    font-weight: 600;
-                    margin: 0;
-                    color: #2c3e50;
-               }
-
-          .card-body {
-               padding: 24px;
-          }
-
-          footer {
-               background-color: white;
-               border-top: 1px solid #e1e8ed;
-               padding: 20px 0;
-               margin-top: 50px;
-               text-align: center;
-               color: #7f8c8d;
-               font-size: 14px;
-          }
-     </style>
-     @await RenderSectionAsync("Styles", required: false)
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
      <nav class="navbar navbar-expand-lg navbar-custom">
           <div class="container-fluid main-container">
-               <a class="navbar-brand" href="/">
+               <a class="navbar-brand js-soft-nav" href="/" data-title="ابزارهای توسعه">
                     <i class="fas fa-tools me-2"></i>
                     ابزارهای توسعه
                </a>
@@ -130,64 +23,51 @@
                <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav ms-auto">
                          <li class="nav-item">
-                              <a class="nav-link" asp-controller="Home" asp-action="Index">
-                                   <i class="fas fa-home me-1"></i>
+                              <a class="nav-link js-soft-nav" asp-controller="Home" asp-action="Index" data-title="تولید کلاس از دیتابیس">
+                                   <i class="fas fa-database me-1"></i>
                                    اطلاعات جداول
                               </a>
                          </li>
-                      
                          <li class="nav-item">
-                              <a class="nav-link" asp-controller="Jobs" asp-action="Index">
-                                   <i class="fas fa-plug me-1"></i>
-                                 زمانبندی ها
+                              <a class="nav-link js-soft-nav" asp-controller="Jobs" asp-action="Index" data-title="مدیریت سرویس‌های پس‌زمینه">
+                                   <i class="fas fa-cogs me-1"></i>
+                                   زمانبندی ها
                               </a>
                          </li>
                          <li class="nav-item">
-                              <a class="nav-link" asp-controller="JobLogs" asp-action="Index">
-                                   <i class="fas fa-plug me-1"></i>
+                              <a class="nav-link js-soft-nav" asp-controller="JobLogs" asp-action="Index" data-title="تاریخچه زمان‌بندی‌ها">
+                                   <i class="fas fa-history me-1"></i>
                                    تاریخچه زمانبندی ها
                               </a>
                          </li>
-                         
                     </ul>
                </div>
           </div>
      </nav>
-     <div class="main-container">
-          <div class="page-header">
-               <h1>
-                    <i class="fas fa-@(ViewData["Icon"] ?? "cog") me-3"></i>
-                    @ViewData["Title"]
-               </h1>
-               @if (ViewData["Description"] != null)
-               {
-                    <p>@ViewData["Description"]</p>
-               }
-          </div>
 
-          @RenderBody()
+     <div class="main-container">
+          <div id="app-content">
+               @RenderBody()
+          </div>
      </div>
+
+     <div id="toast-container" class="toast-container position-fixed bottom-0 start-0 p-3" style="z-index: 1090;"></div>
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2025 - App.BackgroundJob - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2025 - App.BackgroundJob
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-     <script>
-          // فعال کردن لینک فعال در منو
-          $(document).ready(function() {
-              var currentPath = window.location.pathname;
-              $('.navbar-nav .nav-link').each(function() {
-                  var href = $(this).attr('href');
-                  if (currentPath.indexOf(href) === 0 && href !== '/') {
-                      $(this).addClass('active');
-                  }
-              });
-          });
-     </script>
+    <script src="~/js/app-toast.js" asp-append-version="true"></script>
+    <script src="~/js/soft-nav.js" asp-append-version="true"></script>
+    <script src="~/js/job-realtime.js" asp-append-version="true"></script>
+    <script src="~/js/jobs-page.js" asp-append-version="true"></script>
+    <script src="~/js/joblogs-page.js" asp-append-version="true"></script>
+    <script src="~/js/home-page.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

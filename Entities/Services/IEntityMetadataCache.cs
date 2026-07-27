@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -22,12 +22,15 @@ namespace Entities.Services
 		EntityMetadata? Get(string entityName);
 		IReadOnlyCollection<EntityMetadata> GetAll();
 		IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums();
-		void Refresh();  
+		void Refresh();
+		void SetDynamicMetadata(EntityMetadata metadata);
+		void RemoveDynamicMetadata(string entityFullName);
 	}
 
 	public class EntityMetadataCache : IEntityMetadataCache
 	{
 		private readonly ConcurrentDictionary<string, EntityMetadata> _cache = new(StringComparer.OrdinalIgnoreCase);
+		private readonly ConcurrentDictionary<string, EntityMetadata> _dynamicCache = new(StringComparer.OrdinalIgnoreCase);
 		private readonly object _buildLock = new();
 
 		private bool _isInitialized = false;
@@ -159,6 +162,9 @@ namespace Entities.Services
 		{
  
 			EnsureCacheBuilt();
+			if (_dynamicCache.TryGetValue(entityName.ToLower(), out var dynamicMeta))
+				return dynamicMeta;
+
 			_cache.TryGetValue(entityName.ToLower(), out var meta);
 			return meta;
 		}
@@ -166,7 +172,12 @@ namespace Entities.Services
 		public IReadOnlyCollection<EntityMetadata> GetAll()
 		{
 			EnsureCacheBuilt();
-			return (IReadOnlyCollection<EntityMetadata>)_cache.Values;
+			var merged = new Dictionary<string, EntityMetadata>(StringComparer.OrdinalIgnoreCase);
+			foreach (var item in _cache.Values)
+				merged[item.EntityFullName.ToLower()] = item;
+			foreach (var item in _dynamicCache.Values)
+				merged[item.EntityFullName.ToLower()] = item;
+			return merged.Values.ToList();
 		}
 
 		public IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums()
@@ -197,9 +208,27 @@ namespace Entities.Services
 		{
 			lock (_buildLock)
 			{
+				_cache.Clear();
+				_isInitialized = false;
 				BuildCache();
 				_isInitialized = true;
 			}
+		}
+
+		public void SetDynamicMetadata(EntityMetadata metadata)
+		{
+			if (string.IsNullOrWhiteSpace(metadata.EntityFullName))
+				return;
+
+			_dynamicCache[metadata.EntityFullName.ToLower()] = metadata;
+		}
+
+		public void RemoveDynamicMetadata(string entityFullName)
+		{
+			if (string.IsNullOrWhiteSpace(entityFullName))
+				return;
+
+			_dynamicCache.TryRemove(entityFullName.ToLower(), out _);
 		}
 	}
 

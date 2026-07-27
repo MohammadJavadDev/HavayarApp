@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
- 
+
 
 namespace Services.Job
 {
@@ -15,11 +15,16 @@ namespace Services.Job
 	{
 		private readonly IServiceProvider _services;
 		private readonly ILogger<JobWorkerWithLogging> _logger;
+		private readonly IJobRealtimeNotifier _realtimeNotifier;
 
-		public JobWorkerWithLogging(IServiceProvider services, ILogger<JobWorkerWithLogging> logger)
+		public JobWorkerWithLogging(
+			IServiceProvider services,
+			ILogger<JobWorkerWithLogging> logger,
+			IJobRealtimeNotifier realtimeNotifier)
 		{
 			_services = services;
 			_logger = logger;
+			_realtimeNotifier = realtimeNotifier;
 		}
 
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -66,12 +71,19 @@ namespace Services.Job
 					LogOutput = "Job started"
 				};
 				db.JobHistories.Add(history);
-				await db.SaveChangesAsync();
+				await db.SaveChangesAsync(stoppingToken);
+
+				await _realtimeNotifier.NotifyStatusChangedAsync(
+					schedule.Id,
+					JobStatus.Running.ToString(),
+					schedule.LastRunTime,
+					schedule.NextRunTime,
+					stoppingToken);
 
 				_ = Task.Run(async () =>
 				{
 					await ExecuteJobAsync(schedule.Id, history.Id, stoppingToken);
-				});
+				}, stoppingToken);
 			}
 		}
 
@@ -81,15 +93,16 @@ namespace Services.Job
 			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 			var _unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 			var _jobLogger = scope.ServiceProvider.GetRequiredService<IJobLogger>();
-			
-			var schedule = await db.JobSchedules.FindAsync(scheduleId);
-			var history = await db.JobHistories.FindAsync(historyId);
-			var jobDef = await db.JobDefinitions.FirstOrDefaultAsync(c => c.Id == schedule.JobId);
+			var realtimeNotifier = scope.ServiceProvider.GetRequiredService<IJobRealtimeNotifier>();
+
+			var schedule = await db.JobSchedules.FindAsync(new object[] { scheduleId }, stoppingToken);
+			var history = await db.JobHistories.FindAsync(new object[] { historyId }, stoppingToken);
+			var jobDef = await db.JobDefinitions.FirstOrDefaultAsync(c => c.Id == schedule.JobId, stoppingToken);
 
 			try
 			{
 				// Set current history ID for job logging context
-				_jobLogger.SetCurrentHistoryId(historyId);
+				_jobLogger.SetCurrentHistoryId(historyId, scheduleId);
 
 				// Log job start
 				await _jobLogger.LogInfoAsync($"Job '{jobDef.DisplayName}' started execution", historyId, stoppingToken);
@@ -109,7 +122,7 @@ namespace Services.Job
 				bool hasLoggerParameter = parameters.Any(p => p.ParameterType == typeof(IJobLogger));
 
 				object result;
-				
+
 				if (hasLoggerParameter)
 				{
 					// If method accepts logger, pass it (it will automatically use the current history ID)
@@ -172,11 +185,26 @@ VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDa
 			{
 				// 4. پایان کار و محاسبه زمان بعدی
 				history.EndTime = DateTime.Now;
-				
+
 				// محاسبه زمان بعدی بر اساس نوع زمان‌بندی
 				schedule.NextRunTime = CalculateNextRunTime(schedule);
 
-				await db.SaveChangesAsync();
+				await db.SaveChangesAsync(stoppingToken);
+
+				var finalStatus = schedule.LastStatus.ToString();
+				await realtimeNotifier.NotifyStatusChangedAsync(
+					schedule.Id,
+					finalStatus,
+					schedule.LastRunTime,
+					schedule.NextRunTime,
+					stoppingToken);
+
+				await realtimeNotifier.NotifyHistoryCompletedAsync(
+					historyId,
+					scheduleId,
+					history.IsSuccess,
+					history.EndTime.Value,
+					stoppingToken);
 			}
 		}
 
@@ -194,36 +222,36 @@ VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDa
 					// محاسبه زمان بعدی برای زمان‌بندی روزانه با فاصله
 					var nextDailyTime = schedule.DailyTime ?? TimeSpan.Zero;
 					var nextDate = now.Date.AddDays(schedule.DailyIntervalDays);
-					
+
 					// اگر زمان مشخص شده امروز گذشته است، به روز بعد برو
 					if (now.TimeOfDay >= nextDailyTime)
 					{
 						nextDate = nextDate.AddDays(schedule.DailyIntervalDays);
 					}
-					
+
 					return nextDate.Add(nextDailyTime);
 
 				case ScheduleType.Weekly:
 					// محاسبه زمان بعدی برای زمان‌بندی هفتگی
 					if (string.IsNullOrEmpty(schedule.WeeklyDays))
 						return now.AddDays(1); // اگر روزی انتخاب نشده، فردا اجرا کن
-					
+
 					var weeklyDays = schedule.WeeklyDays.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
 					var nextWeeklyDate = now.Date;
-					
+
 					// پیدا کردن نزدیک‌ترین روز هفته که بعد از امروز باشد
 					for (int i = 1; i <= 7; i++)
 					{
 						var testDate = nextWeeklyDate.AddDays(i);
 						var dayName = testDate.DayOfWeek.ToString();
-						
+
 						if (weeklyDays.Contains(dayName))
 						{
 							var dailyTime = schedule.DailyTime ?? TimeSpan.Zero;
 							return testDate.Add(dailyTime);
 						}
 					}
-					
+
 					// اگر هیچ روزی پیدا نشد، 7 روز بعد اجرا کن
 					return now.AddDays(7);
 

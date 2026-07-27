@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Services.Auth;
 using Services.NotificationServices;
+using System.Linq;
 using System.Threading.Tasks;
 using WebApp.Hubs;
 using WebApp.ViewModels.NotificationViewModels;
@@ -22,20 +23,9 @@ namespace WebApp.Controllers.SystemControllers
 	[ApiController]
 	[ApiResultFilter]
 	[Route("System/[controller]")]
-	public class NotifyController : BaseController
+	public class NotifyController(IHubContext<NotificationHub> _hubContext, IUnitOfWork _unitOfWork , INotificationService _notificationService) : BaseController
 	{
-		private readonly IHubContext<NotificationHub> _hubContext;
-		private readonly IUnitOfWork _unitOfWork;
-		private readonly INotificationService _notificationService;
-
-		public NotifyController(IHubContext<NotificationHub> hubContext, IUnitOfWork unitOfWork , INotificationService notificationService)
-		{
-			_hubContext = hubContext;
-			_unitOfWork = unitOfWork;
-			_notificationService = notificationService;
-
-
-		}
+	 
 		[HttpPost("Send")]
 		[Authorize("admin")]
 		public async Task<IActionResult> SendMessage(string message)
@@ -118,20 +108,47 @@ namespace WebApp.Controllers.SystemControllers
 
 			var userId = User.Identity.GetUserId();
 
-			var notification = await _unitOfWork.Repository<Notification>()
-				.Table
-				.FirstOrDefaultAsync(n => n.Id == id && n.OwnerId == userId, cancellationToken);
+			var notificationsQuery = _unitOfWork.Repository<Notification>()
+			    .Table
+			    .Where(n => n.Id == id && n.OwnerId == userId);
 
-			if (notification == null)
-			{
-				return NotFound(new { message = "اعلان یافت نشد" });
-			}
+			 
+			var updatedCount = await notificationsQuery.ExecuteUpdateAsync(
+			    setters => setters.SetProperty(n => n.IsRead, true),
+			    cancellationToken);
 
-			notification.IsRead = true;
-			await _unitOfWork.SaveChangesAsync(cancellationToken);
+		 
+			if (updatedCount == 0)
+				return Ok();
 
 			return Ok();
 		}
+		[Authorize("AuthenticatedUser")]
+		[HttpPost("[action]")]
+		[ActionDisplayName("علامت‌گذاری همه به عنوان خوانده شده", ActionAccessType.Api)]
+		public async Task<IActionResult> MarkAllAsRead( CancellationToken cancellationToken)
+		{
+ 			if (User?.Identity is null  || User.Identity.GetUserId() == 0)
+				return Unauthorized();
+
+			var userId = User.Identity.GetUserId();
+
+			var notificationsQuery = _unitOfWork.Repository<Notification>()
+			    .Table
+			    .Where(n => n.OwnerId == userId);
+
+		 
+			if (!await notificationsQuery.AnyAsync(cancellationToken))
+				return Ok();
+
+
+			await notificationsQuery.ExecuteUpdateAsync(
+			    setters => setters.SetProperty(n => n.IsRead, true),
+			    cancellationToken);
+
+			return Ok();
+		}
+		 
 
 		[Authorize("AuthenticatedUser")]
 		[HttpPost("[action]")]
@@ -143,19 +160,43 @@ namespace WebApp.Controllers.SystemControllers
 
 			var userId = User.Identity.GetUserId();
 
-			var notification = await _unitOfWork.Repository<Notification>()
-				.Table
-				.FirstOrDefaultAsync(n => n.Id == id && n.OwnerId == userId, cancellationToken);
+			var notificationsQuery = _unitOfWork.Repository<Notification>()
+			    .Table
+			    .Where(n => n.Id == id && n.OwnerId == userId);
 
-			if (notification == null)
-			{
+ 			var deletedCount = await notificationsQuery.ExecuteDeleteAsync(cancellationToken);
+
+ 			if (deletedCount == 0)
 				return NotFound(new { message = "اعلان یافت نشد" });
-			}
-
-			await _unitOfWork.Repository<Notification>().DeleteAsync(notification, cancellationToken);
 
 			return Ok();
 		}
+
+		[Authorize("AuthenticatedUser")]
+		[HttpPost("[action]")]
+		[ActionDisplayName("حذف تمامی اعلان ها", ActionAccessType.Api)]
+		public async Task<IActionResult> DeleteAll(CancellationToken cancellationToken)
+		{
+			if (User?.Identity == null)
+				return Unauthorized();
+
+			var userId = User.Identity.GetUserId();
+			var notificationRepo = _unitOfWork.Repository<Notification>();
+
+ 
+			var notificationsQuery = notificationRepo.Table
+			    .Where(n => n.OwnerId == userId);
+
+ 
+			if (!await notificationsQuery.AnyAsync(cancellationToken))
+				return Ok();
+
+			var deletedCount = await notificationsQuery.ExecuteDeleteAsync(cancellationToken);
+
+			return Ok();
+		}
+
+		
 
 		[Authorize("admin")]
 		[HttpGet("/panel/{action}")]

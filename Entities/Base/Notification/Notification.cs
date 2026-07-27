@@ -34,16 +34,17 @@ namespace Entities.Base.Notification
 
 		public string? ViewPath { get; set; }
 		public bool IsRead { get; set; } = false;
-	
+
 		public long OwnerId { get; set; }
- 
-		public User Owner {  get; set; }
+
+		public User Owner { get; set; }
 
 		public NotificationType Type { get; set; } = NotificationType.Appliaction;
 		public bool IsSend { get; set; } = false;
 		public DateTime? SendDateTime { get; set; }
 		public List<string>? ToEmails { get; set; }
 		public List<string>? CcEmails { get; set; }
+		public string? ErrorMessage { get; set; }
 
 		public Notification Clone()
 		{

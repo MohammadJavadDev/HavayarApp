@@ -78,12 +78,12 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// ذخیره (Add یا Update بسته به وضعیت)
 	/// </summary>
-	Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true);
+	Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true, bool InvokeAction =true);
 
 	/// <summary>
 	/// اضافه کردن یک Entity
 	/// </summary>
-	Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true);
+	Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true);
 
 	/// <summary>
 	/// اضافه کردن لیست Entity
@@ -93,7 +93,7 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// آپدیت یک Entity
 	/// </summary>
-	Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true);
+	Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true);
 
 	/// <summary>
 	/// آپدیت لیست Entity
@@ -103,7 +103,7 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// حذف یک Entity
 	/// </summary>
-	Task DeleteAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true);
+	Task DeleteAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true,  bool InvokeAction = true);
 
 	/// <summary>
 	/// حذف لیست Entity
@@ -135,12 +135,12 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// ذخیره (Add یا Update بسته به وضعیت) - Sync
 	/// </summary>
-	TEntity Save(TEntity entity, bool saveAudit = true, bool saveNow = true);
+	TEntity Save(TEntity entity, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true);
 
 	/// <summary>
 	/// اضافه کردن یک Entity (Sync)
 	/// </summary>
-	TEntity Add(TEntity entity, bool saveAudit = true, bool saveNow = true);
+	TEntity Add(TEntity entity, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true);
 
 	/// <summary>
 	/// اضافه کردن یک Entity (Sync)
@@ -151,7 +151,7 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// آپدیت یک Entity (Sync)
 	/// </summary>
-	TEntity Update(TEntity entity, bool saveAudit = true, bool saveNow = true);
+	TEntity Update(TEntity entity, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true);
 
 
 	/// <summary>
@@ -162,7 +162,7 @@ public interface IRepository<TEntity> where TEntity : BaseEntity, new()
 	/// <summary>
 	/// حذف یک Entity (Sync)
 	/// </summary>
-	void Delete(TEntity entity, bool saveNow = true);
+	void Delete(TEntity entity, bool saveNow = true, bool InvokeAction = true);
 
 	#endregion
 

@@ -1,7 +1,9 @@
 @using Common.Utilities
+@using Data.SystemAuth
 @using Entities.App.Edms;
 @using Entities.App.Edms.Enums
 @using Entities.Auth
+@inject ISdk sdk;
 @model Document
 
 @{
@@ -22,10 +24,18 @@
 		DocumentStatusEnums.Archived => "badge-light-dark",
 		_ => "badge-light"
 	};
+
+	var canDelteFiels = sdk.HasRole("Edms.Document.EditRev");
+
+	var isNewDoc = Model.Id == null  ||  Model?.Status == DocumentStatusEnums.NotIssue;
+
+	if (canDelteFiels == false && isNewDoc)
+	{
+		canDelteFiels = true;
+	}
 }
 <div id="DocumentRevisionEditor">
-
-
+	 
      <div class="card shadow-sm my-1">
 		<div class="card-body row g-4">
 			<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
@@ -80,41 +90,41 @@
 			<div class="col-md-6">
 				<label class="form-label">بررسی کننده</label>
 				@(Html.EntitySelector<User>
-											(
-											"ReviewerSelector",
-											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-											c => new
-											{
-													Id = c.Id,
-													Name = c.Name,
+					(
+					"ReviewerSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new
+					{
+							Id = c.Id,
+							Name = c.Name,
 
-											},
-											c => new { c.Username, c.Name },
-											"{Name}",
-											"reviewerId",
-											null,
-											Model?.ReviewerId?.ToString()
-											))
+					},
+					c => new { c.Username, c.Name },
+					"{Name}",
+					"reviewerId",
+					null,
+					Model?.ReviewerId?.ToString()
+					))
 			</div>
 
 			<div class="col-md-6">
 				<label class="form-label">تایید کننده</label>
 				@(Html.EntitySelector<User>
-											(
-											"ApproverSelector",
-											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-											c => new
-											{
-													Id = c.Id,
-													Name = c.Name,
+				(
+				"ApproverSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+						Id = c.Id,
+						Name = c.Name,
 
-											},
-											c => new { c.Username, c.Name },
-											"{Name}",
-											"approverId",
-											null,
-											Model?.ApproverId?.ToString()
-											))
+				},
+				c => new { c.Username, c.Name },
+				"{Name}",
+				"approverId",
+				null,
+				Model?.ApproverId?.ToString()
+				))
 			</div>
 
 			<div class='col-md-12'>
@@ -126,25 +136,25 @@
 			<div class='col-md-6'>
 				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
 						    label="فایل اصلی" entity-type="@typeof(Document).FullName" entity-prop-name="MainFile" bindid="mainFile"
-						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
+						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="motherFileId" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
 						    label="فایل مادر" entity-type="@typeof(Document).FullName" entity-prop-name="MotherFile" bindid="motherFile"
-						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
+						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="secondaryFileId" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
 						    label="فایل ثانوی" entity-type="@typeof(Document).FullName" entity-prop-name="SecondaryFile" bindid="secondaryFile"
-						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
+						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
 						    label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" bindid="replySheet"
-						    max-file-size="10" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"></fileuploader>
+						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
@@ -185,7 +195,4 @@
 	</div>
  
 </div>
-
-	<script>
-		debugger
-	</script>
+ 

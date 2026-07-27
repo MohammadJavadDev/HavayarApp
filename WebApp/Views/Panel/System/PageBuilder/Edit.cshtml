@@ -1,0 +1,125 @@
+@using Entities.Base.System
+@using Entities.Base.System.Enums
+@using Common.Utilities
+@model PageDefinition
+@{
+	var isEdit = Model?.Id != null && Model.Id > 0;
+	var isFormBuilder = Model?.SourceType == PageSourceTypeEnum.FormBuilder;
+	ViewData["Title"] = isEdit ? "ویرایش صفحه" : "صفحه جدید";
+}
+
+<div class="card">
+	<div class="card-header">
+		<h3 class="fw-bold mb-0">@ViewData["Title"]</h3>
+	</div>
+	<div class="card-body row g-4">
+		<input type="hidden" id="pageId" value="@Model?.Id" />
+
+		<div class="col-md-6">
+			<label class="form-label required">عنوان نمایشی</label>
+			<input type="text" id="displayName" class="form-control" value="@Model?.DisplayName" />
+		</div>
+
+		<div class="col-md-6">
+			<label class="form-label required">مسیر View</label>
+			<input type="text" id="viewPath" class="form-control ltr" value="@Model?.ViewPath"
+				   @(isFormBuilder ? "readonly" : "") placeholder="Views/Panel/Gnr/MyPage/List.cshtml" />
+			<div class="form-text">فرمت: Views/Panel/Module/Entity/Action.cshtml</div>
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">نوع صفحه</label>
+			<select id="pageKind" class="form-select" @(isFormBuilder ? "disabled" : "")>
+				@foreach (PageKindEnum kind in Enum.GetValues<PageKindEnum>())
+				{
+					<option value="@((int)kind)" selected="@(Model?.PageKind == kind)">@kind</option>
+				}
+			</select>
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">منبع</label>
+			<input type="text" class="form-control" readonly value="@Model?.SourceType" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">ماژول</label>
+			<input type="text" id="module" class="form-control" value="@Model?.Module" @(isFormBuilder ? "readonly" : "") />
+		</div>
+
+		@if (Model?.FormDefinitionId != null)
+		{
+			<div class="col-12">
+				<div class="alert alert-light border">
+					این صفحه توسط فرم‌ساز ایجاد شده (FormDefinitionId: @Model.FormDefinitionId)
+				</div>
+			</div>
+		}
+
+		<div class="col-12">
+			<label class="form-label required">محتوای Razor</label>
+			<textarea id="content" class="form-control ltr font-monospace" rows="24">@Model?.Content</textarea>
+		</div>
+
+		<div class="col-12 d-flex gap-2">
+			<button type="button" class="btn btn-primary" id="btnSavePage">ذخیره</button>
+			<a href="/Panel/System/PageBuilder/List" class="btn btn-light">بازگشت</a>
+			@if (isEdit)
+			{
+				<button type="button" class="btn btn-danger ms-auto" id="btnDeletePage">حذف</button>
+			}
+		</div>
+	</div>
+</div>
+
+<script>
+(function () {
+	const saveUrl = '/Panel/System/PageBuilder/Save';
+	const deleteUrl = '/Panel/System/PageBuilder/Delete';
+	const listUrl = '/Panel/System/PageBuilder/List';
+
+	document.getElementById('btnSavePage')?.addEventListener('click', async function () {
+		const payload = {
+			id: document.getElementById('pageId')?.value || null,
+			displayName: document.getElementById('displayName')?.value,
+			viewPath: document.getElementById('viewPath')?.value,
+			pageKind: parseInt(document.getElementById('pageKind')?.value || '0'),
+			module: document.getElementById('module')?.value,
+			content: document.getElementById('content')?.value
+		};
+
+		const res = await fetch(saveUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+
+		const data = await res.json();
+		if (!res.ok || data.success === false) {
+			alert(data.message || 'خطا در ذخیره صفحه');
+			return;
+		}
+
+		alert(data.message || 'ذخیره شد');
+		if (data.id) {
+			window.location.href = '/Panel/System/PageBuilder/Edit?id=' + data.id;
+		}
+	});
+
+	document.getElementById('btnDeletePage')?.addEventListener('click', async function () {
+		if (!confirm('صفحه حذف شود؟')) return;
+		const id = document.getElementById('pageId')?.value;
+		const res = await fetch(deleteUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ id: parseInt(id) })
+		});
+		const data = await res.json();
+		if (!res.ok || data.success === false) {
+			alert(data.message || 'خطا در حذف');
+			return;
+		}
+		window.location.href = listUrl;
+	});
+})();
+</script>

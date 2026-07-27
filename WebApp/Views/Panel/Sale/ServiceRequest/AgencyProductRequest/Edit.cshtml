@@ -1,0 +1,259 @@
+@using Entities.App.Gnr
+@using Entities.App.Inv
+@using Entities.App.Sale
+@model ServiceRequestPartAgency
+
+<div class="card shadow-sm border-0">
+
+    <div class="form-action-buttons border-bottom p-3">
+        <form-action-buttons entity-type="typeof(ServiceRequestPartAgency)"></form-action-buttons>
+    </div>
+
+    <div class="card-body">
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <h4 class="fw-bold text-dark mb-0">
+                    درخواست کالا-نمایندگان
+                </h4>
+            </div>
+        </div>
+
+        <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+        <div class="row g-3">
+
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">شماره سند</label>
+                <input class="form-control"
+                       data-bind="voucherNumber"
+                       asp-for="VoucherNumber" />
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">تاریخ</label>
+
+                <input class='form-control' data-bind='voucherShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.VoucherMiladiDate' />
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">قطعه</label>
+                @(Html.EntitySelector<Part>(
+                    "PartIdSelector",
+                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                    c => new
+                    {
+                        Id = c.Id,
+                        Code = c.Code,
+                        Title = c.Name,
+                    },
+                    c => new { c.Name },
+                    "{Title}",
+                    "PartId",
+                    Model?.Part?.Name,
+                    Model?.PartId?.ToString()
+                ))
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">مقدار</label>
+                <input class="form-control"
+                       data-bind="mount"
+                       asp-for="Mount" />
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+         
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">محصول مرتبط</label>
+
+                <input class="form-control"
+                       data-bind="relatedProducts"
+                       asp-for="RelatedProducts" />
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">قطعه جایگزین</label>
+                @(Html.EntitySelector<Part>(
+                    "ReplacePartSelector",
+                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                    c => new
+                    {
+                        Id = c.Id,
+                        GetHashCode = c.Code,
+                        Title = c.Name,
+                    },
+                    c => new { c.Name },
+                    "{Title}",
+                    "ReplacePartId",
+                    Model?.ReplacePart?.Name,
+                    Model?.ReplacePartId?.ToString()
+                ))
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">مبلغ</label>
+                <input class="form-control"
+                       data-bind="unitPrice"
+                       asp-for="UnitPrice" />
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+
+            <div class='col-md-3'>
+                <label class='fw-bold'>نوع خدمات</label>
+                <select class='form-control' data-bind='serviceTypes' asp-for='ServiceTypes' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ServiceTypesEnum))">
+                </select>
+                <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">مرکز هزینه</label>
+                @(Html.EntitySelector<CostCenter>(
+                    "CostCenterSelector",
+                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                    c => new
+                    {
+                        Id = c.Id,
+                        Code = c.Number,
+                        Title = c.Title,
+                    },
+                    c => new { c.Title },
+                    "{Title}",
+                    "CostCenterId",
+                    Model?.CostCenter?.Title,
+                    Model?.CostCenterId?.ToString()
+                ))
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">سایر مراکز هزینه</label>
+                @(Html.EntitySelector<Supplier>(
+                    "CostCenterSelector",
+                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                    c => new
+                    {
+                        Id = c.Id,
+                        Code = c.Party.Number,
+                        Title = c.Party.FullName,
+                    },
+                    c => new { c.Party.FullName },
+                    "{Title}",
+                    "SupplierId",
+                    Model?.Supplier?.Party.FullName,
+                    Model?.SupplierId?.ToString()
+                ))
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class='col-md-4 align-content-center'>
+                <div class="d-flex gap-3">
+                    <div class="form-check">
+                        <input data-bind='hasReturn_DamagedPart' class="form-check-input" type="checkbox" asp-for='HasReturn_DamagedPart' />
+                        <label class="form-check-label fw-bold" asp-for='HasReturn_DamagedPart'>
+                            داغی دارد ؟
+                        </label>
+                    </div>
+
+                    <div class="form-check">
+                        <input data-bind='returnLicence' class="form-check-input" type="checkbox" asp-for='ReturnLicence' />
+                        <label class="form-check-label fw-bold" asp-for='ReturnLicence'>
+                            مجوز برگشت دارد ؟
+                        </label>
+                    </div>
+
+                </div>
+            </div>
+            
+
+            <div class="col-md-12">
+                <label class="form-label fw-bold">توضیحات</label>
+                <textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+    <div class="card-body">
+        <div class="row text-muted">
+
+            <div class="col-md-3">
+                <span class="fw-bold">ایجاد کننده :</span>
+                <span data-bind="createdByName">@Model?.CreatedByName</span>
+            </div>
+
+            <div class="col-md-3">
+                <span class="fw-bold">تاریخ ایجاد :</span>
+                <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+            </div>
+
+            <div class="col-md-3">
+                <span class="fw-bold">ویرایش کننده :</span>
+                <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+            </div>
+
+            <div class="col-md-3">
+                <span class="fw-bold">تاریخ ویرایش :</span>
+                <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+            </div>
+
+        </div>
+    </div>
+</div>
+<script>
+     const serviceRequestId = sessionStorage.getItem("ServiceRequestId");
+        function savefn($btnAction) {
+        if (validateError(page.$pageEl)) { return; }
+        var model = page.$pageEl.dataBind();
+        model.ServiceRequestId = sessionStorage.getItem("ServiceRequestId");
+        const $btn = $(this.element).block();
+        $$.post('save',
+            model,
+            function (r) {
+                $btn.block(false);
+                if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+                toastr.success('ذخیره سازی با موفقیت انجام شد .');
+                page.$pageEl.dataBind(r.data);
+                $btnAction.baseaction();
+            })
+    }
+
+    self.FormActionButtons.save.onclick(function () { savefn(this) })
+    self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+    self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>
+

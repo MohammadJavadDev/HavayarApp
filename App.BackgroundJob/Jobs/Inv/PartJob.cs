@@ -67,27 +67,39 @@ OPTION (RECOMPILE);
 			dbContext.Database.SetCommandTimeout(0);
 			var rahkaranPartsData = await dbContext.Database.SqlQueryRaw<RahkaranPartDto>(rahkaranPartsSql).ToListAsync(cn);
 
-		 
-			var appPartsDict = await unitOfWork.Repository<Part>().Table
+
+			var existParts = await unitOfWork.Repository<Part>().Table
+				.ToArrayAsync(cn);
+
+
+			var appPartsDict = existParts
 				.Where(c => c.HamkaranId != null)
-				.ToDictionaryAsync(x => x.HamkaranId!.Value, x => x, cn);
+				.ToDictionary(x => x.HamkaranId!.Value, x => x );
 
 			var newParts = new List<Part>();
 			foreach (var r in rahkaranPartsData)
 			{
 				if (!appPartsDict.TryGetValue(r.PartID, out var existPart))
 				{
-					newParts.Add(new Part
+					var existByCode = existParts.FirstOrDefault(c => c.Code == r.Code);
+					if (existByCode is null)
 					{
-						HamkaranId = r.PartID,
-						Code = r.Code,
-						Name = r.Name ?? "",
-						LatinTitle = r.LatinName,
-						Type = r.PartType.HasValue ? (PartTypeEnum)r.PartType.Value : null,
-						Description = r.PropertiesComment,
-						Number = r.TechnicalSpecification,
-						UnitId = existUnitDict.TryGetValue(r.MajorUnitRef ?? 0, out var u) ? u.Id : (long?)null
-					});
+						newParts.Add(new Part
+						{
+							HamkaranId = r.PartID,
+							Code = r.Code,
+							Name = r.Name ?? "",
+							LatinTitle = r.LatinName,
+							Type = r.PartType.HasValue ? (PartTypeEnum)r.PartType.Value : null,
+							Description = r.PropertiesComment,
+							Number = r.TechnicalSpecification,
+							UnitId = existUnitDict.TryGetValue(r.MajorUnitRef ?? 0, out var u) ? u.Id : (long?)null
+						});
+					}
+					else
+					{
+						existByCode.HamkaranId = r.PartID;
+					}
 				}
 				else
 				{

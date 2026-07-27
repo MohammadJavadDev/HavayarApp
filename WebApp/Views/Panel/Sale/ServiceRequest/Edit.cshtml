@@ -1,0 +1,700 @@
+@using Entities.App.Gnr
+@using Entities.App.Hcm
+@using Entities.App.Rpr
+@using Entities.App.SLS
+@using Entities.App.Sale
+@model ServiceRequest
+
+<div class="card shadow-sm border-0">
+
+    <div class="form-action-buttons border-bottom p-3">
+        <form-action-buttons entity-type="typeof(ServiceRequest)">
+        </form-action-buttons>
+    </div>
+
+    <div class="card-body">
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <h4 class="fw-bold text-dark mb-0">
+                    اطلاعات اصلی
+                </h4>
+            </div>
+        </div>
+
+        <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+        <div class="row g-3">
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">مشتری</label>
+
+                @(Html.EntitySelector<Customer>(
+                    "CustomerSelector",
+                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                    c => new
+                    {
+                        Id = c.Id,
+                        Title = c.Party.FullName
+                    },
+                    c => new { c.Party.FullName },
+                    "{Title}",
+                    "CustomerId",
+                    Model?.Customer?.Party?.FullName,
+                    Model?.CustomerId?.ToString()
+                ))
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">سایت مشتری</label>
+
+                @(Html.EntitySelector<Customer>(
+                    "CustomerAgencySelector",
+                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                    c => new
+                    {
+                        Id = c.Id,
+                        Title = c.Party.FullName
+                    },
+                    c => new { c.Party.FullName },
+                    "{Title}",
+                    "CustomerAgencyId",
+                    Model?.CustomerAgency?.Party?.FullName,
+                    Model?.CustomerAgencyId?.ToString()
+                ))
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">نام نماینده مشتری</label>
+
+                <input class="form-control"
+                       data-bind="customerAgentName"
+                       asp-for="CustomerAgentName" />
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">سمت نماینده مشتری</label>
+
+                <input class="form-control"
+                       data-bind="customerAgentJobPosition"
+                       asp-for="CustomerAgentJobPosition" />
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">شماره همراه نماینده مشتری</label>
+
+                <input class="form-control"
+                       data-bind="customerAgentMobile"
+                       asp-for="CustomerAgentMobile" />
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">آدرس ایمیل نماینده مشتری</label>
+
+                <input class="form-control"
+                       data-bind="customerAgentEmailAddress"
+                       asp-for="CustomerAgentEmailAddress" />
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class='col-md-3'>
+                <label class='form-label fw-bold'>
+                    تاریخ تماس
+                </label>
+                <input class='form-control' data-bind='contactShamsiDate' data-persionDatePicker="true"
+                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                       value='@Model?.ContactMiladiDate' />
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label fw-bold">شماره شناسنامه‌های تعمیرات</label>
+
+                @(Html.EntitySelector<RepairRequest>(
+                  "RepairRequestIdSelector",
+                  r => r.IsActive == Entities.Base.IsActiveEnum.Active,
+                  r => new
+                  {
+                      Id = r.Id,
+                      CustomerTitle = r.Customer.Party.FullName,
+                  },
+                 r => new { r.Id },
+             "{Id} - {CustomerTitle} ",
+             "RepairRequestId",
+             Model?.RepairRequest != null
+             ? Model.RepairRequest.Customer.Party.FullName + " - " + Model.RepairRequest.Id
+            : "",
+            Model?.RepairRequestId?.ToString()
+            ))
+
+                <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="col-md-2 d-flex align-items-center mt-4">
+                <div class="form-check">
+                    <input data-bind="unreal"
+                           class="form-check-input"
+                           type="checkbox"
+                           asp-for="Unreal" />
+
+                    <label class="form-check-label fw-bold form-label fw-bold"
+                           asp-for="Unreal">
+                        غیر واقعی
+                    </label>
+                </div>
+            </div>
+
+            <div class='col-md-12'>
+                <label class='form-label fw-bold'>علت اعزام کارشناس</label>
+                <textarea class='form-control' data-bind='reasonSendingExpert' asp-for="ReasonSendingExpert" rows="4"></textarea>
+                <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+            </div>
+
+        </div>
+
+        <div class="card border mt-5">
+            <div class="card-body">
+
+                <div class="row g-3 align-items-end mb-4">
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">مسئول منطقه</label>
+                        @(Html.EntitySelector<Personel>(
+                            "ResponsibleZoneSelector",
+                            c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                            c => new
+                            {
+                                Id = c.Id,
+                                Name = c.Name + " " + c.Family,
+                                Code = c.Code
+                            },
+                            c => new { c.Name, c.Family },
+                            "{Name}",
+                            "ResponsibleZoneId",
+                            Model?.ResponsibleZone != null
+                                ? Model.ResponsibleZone.Name + " " + Model.ResponsibleZone.Family
+                                : "",
+                            Model?.ResponsibleZoneId?.ToString()
+                        ))
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">نام منطقه</label>
+                        @(Html.EntitySelector<Region>(
+                            "DispachZoneSelector",
+                            c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                            c => new
+                            {
+                                Id = c.Id,
+                                Name = c.Name,
+                                Code = c.Code
+                            },
+                            c => new { c.Name },
+                            "{Name}",
+                            "DispachZoneId",
+                            Model?.DispachZone?.Name,
+                            Model?.DispachZoneId?.ToString()
+                        ))
+                    </div>
+
+                    <div class='col-md-4'>
+                        <label class="form-label fw-bold">نام کارشناس</label>
+
+                        @(Html.EntitySelector<Personel>
+                                    (
+                                    "ExpertNameIdSelector",
+                                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                    c => new
+                                    {
+                                        Id = c.Id,
+                                        Name = c.Name + " " + c.Family,
+
+                                    },
+                                    c => new { c.Id, c.Name, c.Family },
+                                    "{Name}",
+                                    "ExpertNameId",
+                                    "ExpertName",
+                                    string.Join(',', Model?.ExpertNameId),
+                                    false,
+                                    true
+                                    ))
+
+                        <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+                    </div>
+
+
+
+
+                </div>
+
+                <div style="width:100%; text-align:right; margin-bottom:10px;">
+                    <button type="button"
+                            class="btn btn-primary btn-sm"
+                            data-action="addNewContractor">
+
+                        <i class="fa fa-plus ms-1"></i>
+                        جدید
+
+                    </button>
+                </div>
+
+
+                <div class="table-responsive">
+
+                    <table id="contractorTable"
+                           class="table table-bordered table-hover align-middle text-center">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th>عملیات</th>
+                                <th>شناسه</th>
+                                <th>نوع درخواست</th>
+                                <th>کد کالا</th>
+                                <th>نام کالا</th>
+                                <th>سریال</th>
+                                <th>شماره سفارش ساخت</th>
+                                <th>تاریخ ابلاغ</th>
+                                <th>ساعت ابلاغ</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="contractorTableBody">
+                            <tr id="contractorLoadingRow">
+                                <td colspan="9" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">در حال بارگذاری...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+    <div class="card-body">
+        <div class="row text-muted">
+
+            <div class="col-md-3">
+                <span class="fw-bold">ایجاد کننده :</span>
+                <span data-bind="createdByName">@Model?.CreatedByName</span>
+            </div>
+
+            <div class="col-md-3">
+                <span class="fw-bold">تاریخ ایجاد :</span>
+                <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+            </div>
+
+            <div class="col-md-3">
+                <span class="fw-bold">ویرایش کننده :</span>
+                <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+            </div>
+
+            <div class="col-md-3">
+                <span class="fw-bold">تاریخ ویرایش :</span>
+                <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+            </div>
+
+        </div>
+    </div>
+</div>
+<script>
+
+     var customerId = $('[data-bind="customerId"]').val();
+ 
+
+    function getServiceRequestId() {
+        return $('[data-bind="id"]').val();
+    }
+
+
+    function loadServiceRequestDetails(serviceRequestId) {
+
+        if (!serviceRequestId || serviceRequestId === '0') {
+            $('#contractorTableBody').html(`
+                <tr>
+                    <td colspan="13" class="text-center text-warning">
+                        شناسه معتبر نیست
+                    </td>
+                </tr>
+            `);
+            return;
+        }
+
+        $.ajax({
+            url: '/Panel/Sale/ServiceRequest/GetServiceRequest',
+            type: 'GET',
+            data: { serviceRequestId: serviceRequestId },
+            dataType: 'json',
+            success: function (res) {
+                debugger
+                if (res && res.isSuccess === true && Array.isArray(res.data.data)) {
+                    renderServiceRequestDetails(res.data.data);
+                    debugger
+                }
+                else {
+                    $('#contractorTableBody').html(`
+                        <tr>
+                            <td colspan="13" class="text-center text-warning">
+                                اطلاعاتی یافت نشد
+                            </td>
+                        </tr>
+                    `);
+                }
+            },
+
+            error: function () {
+
+                $('#contractorTableBody').html(`
+                    <tr>
+                        <td colspan="13" class="text-center text-danger">
+                            خطا در دریافت اطلاعات
+                        </td>
+                    </tr>
+                `);
+            }
+        });
+    }
+
+
+        function renderServiceRequestDetails(list) {
+        const SaleRequestTypeEnum = {
+            1: 'آموزش',
+            2: 'اورهال',
+            3: 'بازدید و مشاوره',
+            4: 'تعمیرات گارانتی',
+            5: 'تعمیرات وارانتی',
+            6: 'راه اندازی اولیه',
+            7: 'پایپینگ',
+            8: 'سرویس دوره ای',
+            9: 'سایر موارد',
+            10: 'OPI',
+            11: 'راه اندازی تجهیز تعمیری',
+            12: 'پیش راه اندازی',
+            13: 'نصب'
+        };
+
+        const tbody = $('#contractorTableBody');
+        tbody.empty();
+
+        list.forEach((item, index) => {
+            const requestTypeName = SaleRequestTypeEnum[item.requestType] || 'نامشخص';
+
+            const row = `
+                <tr data-id="${item.id || 0}">
+                    <td class="text-center">
+                        <button class="btn btn-warning btn-sm" data-action="editDetail" data-id="${item.id}">
+                            <i class="fa fa-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" data-action="deleteDetail" data-id="${item.id}">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                    <td>${index + 1}</td>
+
+                    <td>${requestTypeName}</td>
+
+                    <td>${item.part?.code || '-'}</td>
+                    <td>${item.part?.name || '-'}</td>
+                    <td>${item.part?.code || '-'}</td>
+                    <td>${item.contractorAcceptShamsiDate || '-'}</td>
+                    <td>${item.noticeShamsiDate || '-'}</td>
+                    <td>${item.noticeTime || '-'}</td>
+                </tr>`;
+
+            tbody.append(row);
+        });
+    }
+
+
+    function refreshServiceRequestDetails() {
+
+        const serviceRequestId = getServiceRequestId();
+
+        if (!serviceRequestId)
+        return;
+
+        $('#contractorTableBody').html(`
+            <tr>
+                <td colspan="13" class="text-center py-4">
+                    <div class="spinner-border text-primary"></div>
+                </td>
+            </tr>
+        `);
+
+        loadServiceRequestDetails(serviceRequestId);
+    }
+
+
+    $(document).on('click', '[data-action="addNewContractor"]', function () {
+
+        const serviceRequestId = getServiceRequestId();
+
+        if (!serviceRequestId) {
+            toastr.error('ابتدا اطلاعات را ذخیره کنید');
+            return;
+        }
+
+        const url =
+            `/Panel/Sale/ServiceRequest/ShowProductDetailForm?serviceRequestId=${serviceRequestId}`;
+
+        $$.get(url, function (html) {
+
+             const bodyCn =
+                $(`<div style="overflow-y:auto;max-height:70vh;">${html}</div>`);
+
+            initPersionDatePicker(bodyCn);
+
+            $.confirm({
+
+                title: 'افزودن آیتم',
+                columnClass: 'col-md-6',
+                content: bodyCn,
+                rtl: true,
+
+                buttons: {
+
+                    save: {
+
+                        text: 'ذخیره',
+                        btnClass: 'btn-success',
+
+                        action: function () {
+
+                            const $content = this.$content;
+
+                            if (validateError($content))
+                                return false;
+
+                            const model = $content.dataBind();
+                            model.ServiceRequestId = serviceRequestId;
+
+                            const self = this;
+
+                            $$.post(
+                                '/Panel/Sale/ServiceRequest/AddRepairProductDetail',
+                                model,
+                                function (r) {
+
+                                    if (!r.isSuccess) {
+                                        toastr.error(r.message || 'خطا در ذخیره');
+                                        return;
+                                    }
+
+                                    toastr.success('با موفقیت ذخیره شد');
+
+                                    refreshServiceRequestDetails();
+
+                                    self.close();
+                                }
+                            );
+
+                            return false;
+                        }
+                    },
+
+                    cancel: {
+                        text: 'انصراف',
+                        btnClass: 'btn-secondary'
+                    }
+                }
+            });
+        });
+    });
+
+    $(document).on('click', '[data-action="editDetail"]', function () {
+
+        const selectedRow = $(this).data('id');
+        const serviceRequestId = getServiceRequestId();
+
+        const url = selectedRow
+            ? `/Panel/Sale/ServiceRequest/EditServiceRequest?id=${selectedRow}&serviceRequestId=${serviceRequestId}`
+            : `/Panel/Sale/ServiceRequest/EditServiceRequest?serviceRequestId=${serviceRequestId}`;
+
+        $$.get(url, function (html) {
+
+            const bodyCn =
+                $(`<div style="overflow-y:auto;max-height:70vh;">${html}</div>`);
+
+            initPersionDatePicker(bodyCn);
+
+            $.confirm({
+
+                title: selectedRow ? 'ویرایش' : 'افزودن',
+                columnClass: 'col-md-6',
+                content: bodyCn,
+                rtl: true,
+
+                buttons: {
+
+                    save: {
+
+                        text: 'ذخیره',
+                        btnClass: 'btn-success',
+
+                        action: function () {
+
+                            const $content = this.$content;
+
+                            if (validateError($content))
+                                return false;
+
+                            const model = $content.dataBind();
+                                if (model.noticeTime) {
+                                model.NoticeTime = model.noticeTime;
+                            }
+                                delete model.noticetime;
+                                delete model.noticeTime;
+                            model.ServiceRequestId = serviceRequestId;
+
+                            if (selectedRow)
+                                model.Id = selectedRow;
+
+                            const self = this;
+                            debugger
+                            $$.post(
+                                '/Panel/Sale/ServiceRequest/AddRepairProductDetail',
+                                model,
+                                function (r) {
+
+                                    if (!r.isSuccess) {
+                                        toastr.error(r.message || 'خطا');
+                                        return;
+                                    }
+
+                                    toastr.success(selectedRow ? 'ویرایش انجام شد' : 'با موفقیت ثبت شد');
+
+                                    refreshServiceRequestDetails();
+
+                                    self.close();
+                                }
+                            );
+
+                            return false;
+                        }
+                    },
+
+                    cancel: {
+                        text: 'انصراف'
+                    }
+                }
+            });
+        });
+    });
+
+    $(document).on('click', '[data-action="deleteDetail"]', function () {
+        const id = $(this).data('id');
+
+        Swal.fire({
+
+            title: 'آیا از حذف مطمئن هستید؟',
+            text: 'این عملیات قابل بازگشت نیست',
+            icon: 'warning',
+
+            showCancelButton: true,
+
+            confirmButtonText: 'حذف',
+            cancelButtonText: 'انصراف'
+
+        }).then((result) => {
+
+            if (!result.isConfirmed)
+                return;
+
+            $.ajax({
+
+                url: `/Panel/Sale/ServiceRequest/DeleteServiceRequest?id=${id}`,
+                type: 'DELETE',
+
+                success: function (res) {
+                    debugger
+                    if (res && res.data.data.success === true) {
+
+                        toastr.success(res.data.data.message || 'حذف شد');
+
+                        refreshServiceRequestDetails();
+                    }
+                    else {
+
+                        toastr.error(res.data.data.message || 'خطا در حذف');
+                    }
+                },
+
+                error: function () {
+
+                    toastr.error('خطا در حذف رکورد');
+                }
+            });
+        });
+    });
+
+    $(document).ready(function () {
+
+        const serviceRequestId = getServiceRequestId();
+
+        if (serviceRequestId && serviceRequestId !== '0') {
+
+            loadServiceRequestDetails(serviceRequestId);
+        }
+    });
+
+        function savefn($btnAction) {
+
+        if (validateError(page.$pageEl)) return;
+
+        const model = page.$pageEl.dataBind();
+        const $btn = $(this.element).block();
+
+        $$.post('save', model, function (r) {
+
+            $btn.block(false);
+
+            if (!r.isSuccess) {
+                toastr.error(r.message, 'خطا');
+                return;
+            }
+
+            toastr.success('ذخیره سازی با موفقیت انجام شد');
+
+            page.$pageEl.dataBind(r.data);
+
+            $btnAction.baseaction();
+        });
+    }
+
+    self.FormActionButtons.save.onclick(function () { savefn(this); });
+    self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+    self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+</script>

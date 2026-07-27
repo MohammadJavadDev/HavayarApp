@@ -314,15 +314,39 @@ namespace Data.Services.QueryBuilderServices
 
 		private string BuildQueryWhere(QueryDesign design, Dictionary<string, string> tableToAlias)
 		{
-			if (design.Filters == null || !design.Filters.Any()) return "";
+			var whereLines = new List<string>();
+
+			if (design.Filters != null)
+			{
+				for (int i = 0; i < design.Filters.Count; i++)
+				{
+					var filter = design.Filters[i];
+					var clause = BuildFilterClause(filter, tableToAlias);
+					whereLines.Add(i > 0 && !string.IsNullOrEmpty(filter.LogicalOperator)
+						? $"    {filter.LogicalOperator} {clause}"
+						: $"    {clause}");
+				}
+			}
+
+			if (design.CustomConditions != null)
+			{
+				foreach (var condition in design.CustomConditions)
+				{
+					var expression = condition.Expression?.Trim();
+					if (string.IsNullOrEmpty(expression)) continue;
+
+					whereLines.Add(whereLines.Count > 0
+						? $"    {(string.IsNullOrEmpty(condition.LogicalOperator) ? "AND" : condition.LogicalOperator)} {expression}"
+						: $"    {expression}");
+				}
+			}
+
+			if (!whereLines.Any()) return "";
+
 			var sb = new StringBuilder();
 			sb.AppendLine("WHERE");
-			for (int i = 0; i < design.Filters.Count; i++)
-			{
-				var filter = design.Filters[i];
-				var clause = BuildFilterClause(filter, tableToAlias);
-				sb.AppendLine(i > 0 && !string.IsNullOrEmpty(filter.LogicalOperator) ? $"    {filter.LogicalOperator} {clause}" : $"    {clause}");
-			}
+			foreach (var line in whereLines)
+				sb.AppendLine(line);
 			return sb.ToString();
 		}
 

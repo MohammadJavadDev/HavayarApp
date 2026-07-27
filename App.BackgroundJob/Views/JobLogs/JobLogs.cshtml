@@ -1,135 +1,84 @@
 @using Services.Job
 @model IEnumerable<JobLog>
 @{
-    ViewData["Title"] = "Job Specific Logs";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = ViewData["Title"] ?? "لاگ‌های جاب";
+    ViewData["Icon"] = ViewData["Icon"] ?? "list";
     var schedule = ViewBag.Schedule as Entities.Base.Job.JobSchedule;
 }
 
-<h2>Logs for @schedule?.JobDefinition?.DisplayName</h2>
+@await Html.PartialAsync("_PageHeader")
 
 <div class="card mb-4">
-   
     <div class="card-body">
-        <dl class="row">
-            <dt class="col-sm-3">Job Name:</dt>
+        <dl class="row mb-0">
+            <dt class="col-sm-3">نام جاب</dt>
             <dd class="col-sm-9">@(schedule?.JobDefinition?.DisplayName ?? "Unknown Job")</dd>
-
-            <dt class="col-sm-3">Schedule ID:</dt>
+            <dt class="col-sm-3">Schedule ID</dt>
             <dd class="col-sm-9">@schedule?.Id</dd>
-
-            <dt class="col-sm-3">Description:</dt>
-            <dd class="col-sm-9">@(schedule?.JobDefinition?.Description ?? "No description")</dd>
-
-            <dt class="col-sm-3">Status:</dt>
+            <dt class="col-sm-3">توضیحات</dt>
+            <dd class="col-sm-9">@(schedule?.JobDefinition?.Description ?? "—")</dd>
+            <dt class="col-sm-3">وضعیت</dt>
             <dd class="col-sm-9">
                 @if (schedule != null)
                 {
-                    <span class="badge @GetStatusBadgeClass(schedule.LastStatus)">@schedule.LastStatus</span>
+                    var status = schedule.LastStatus.ToString();
+                    if (status == "Running")
+                    {
+                        <span class="badge bg-warning text-dark status-running"><span class="status-pulse"></span>@status</span>
+                    }
+                    else if (status == "Error")
+                    {
+                        <span class="badge bg-danger">@status</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">@status</span>
+                    }
                 }
             </dd>
         </dl>
     </div>
     <div class="card-footer">
-        <a href="@Url.Action("Index")" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to All Jobs
+        <a href="@Url.Action("Index", "JobLogs")" class="btn btn-secondary js-soft-nav">
+            <i class="fas fa-arrow-right me-1"></i> بازگشت
         </a>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h4>All Logs for This Job</h4>
+        <h5 class="mb-0">همه لاگ‌های این جاب</h5>
     </div>
-    <div class="card-body">
-        <div class="log-container" style="max-height: 600px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background-color: #f8f9fa;">
+    <div class="card-body p-0">
+        <div class="live-log-stream">
             @if (Model.Any())
             {
                 @foreach (var log in Model)
                 {
-                    <div class="log-entry mb-3 p-3 @GetLogLevelClass(log.LogLevel)" style="border-left: 4px solid @GetLogLevelColor(log.LogLevel); background-color: white; border-radius: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <span class="badge @GetLogLevelBadgeClass(log.LogLevel)">@log.LogLevel</span>
-                                <strong class="ml-2">@log.Message</strong>
-                            </div>
-                            <small class="text-muted">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")</small>
-                        </div>
-                        
+                    var level = (log.LogLevel ?? "Info").ToLowerInvariant();
+                    <div class="log-line log-level-@level" data-level="@level">
+                        <span class="log-time" dir="ltr">@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")</span>
+                        <span class="log-level">[@log.LogLevel]</span>
+                        <span class="log-msg">@log.Message</span>
                         @if (!string.IsNullOrEmpty(log.Details))
                         {
-                            <div class="mt-2 text-muted small">
-                                <pre style="background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto;">@log.Details</pre>
-                            </div>
+                            <pre class="log-details">@log.Details</pre>
                         }
-                        
                         @if (!string.IsNullOrEmpty(log.ExceptionType) || !string.IsNullOrEmpty(log.StackTrace))
                         {
-                            <div class="mt-2 text-danger small">
-                                <strong>@log.ExceptionType</strong>
-                                <pre style="background-color: #fff5f5; padding: 10px; border-radius: 3px; overflow-x: auto;">@log.StackTrace</pre>
-                            </div>
+                            <pre class="log-exception">@log.ExceptionType
+@log.StackTrace</pre>
                         }
                     </div>
                 }
             }
             else
             {
-                <div class="text-center text-muted py-4">
-                    <i class="fas fa-info-circle fa-3x mb-3"></i>
-                    <p>No logs found for this job.</p>
+                <div class="text-center text-muted py-4 empty-logs">
+                    <i class="fas fa-info-circle fa-2x mb-2"></i>
+                    <p class="mb-0">لاگی برای این جاب یافت نشد.</p>
                 </div>
             }
         </div>
     </div>
 </div>
-
-@functions {
-    private string GetLogLevelClass(string logLevel)
-    {
-        switch (logLevel.ToLower())
-        {
-            case "error": return "log-error";
-            case "warning": return "log-warning";
-            case "info": return "log-info";
-            case "debug": return "log-debug";
-            default: return "log-info";
-        }
-    }
-
-    private string GetLogLevelColor(string logLevel)
-    {
-        switch (logLevel.ToLower())
-        {
-            case "error": return "#dc3545";
-            case "warning": return "#ffc107";
-            case "info": return "#17a2b8";
-            case "debug": return "#6c757d";
-            default: return "#17a2b8";
-        }
-    }
-
-    private string GetLogLevelBadgeClass(string logLevel)
-    {
-        switch (logLevel.ToLower())
-        {
-            case "error": return "badge-danger";
-            case "warning": return "badge-warning";
-            case "info": return "badge-info";
-            case "debug": return "badge-secondary";
-            default: return "badge-info";
-        }
-    }
-
-    private string GetStatusBadgeClass(Entities.Base.Job.JobStatus status)
-    {
-        switch (status)
-        {
-            case Entities.Base.Job.JobStatus.Idle: return "badge-success";
-            case Entities.Base.Job.JobStatus.Running: return "badge-primary";
-            case Entities.Base.Job.JobStatus.Waiting: return "badge-warning";
-            case Entities.Base.Job.JobStatus.Error: return "badge-danger";
-            default: return "badge-secondary";
-        }
-    }
-}

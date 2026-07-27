@@ -1,4 +1,5 @@
 using Common.Attributes;
+using Common.Auth.Enums;
 using Common.Utilities;
 using Data;
 using Data.SystemAuth;
@@ -25,8 +26,18 @@ namespace Data.Services.QueryBuilderServices
 		Task<SavedQuery> GetReportAsync(long id);
 		Task<SavedQuery> GetReportByNameAsync(string name);
 		Task<List<SavedQuery>> GetAllReportsAsync();
+		Task<List<SavedQuery>> GetAllSavedQueriesForReportsAsync();
+		Task<List<SavedQuery>> GetAllSavedQueriesForReportsFillterByRoleAsync();
 		Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null);
 		Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null);
+
+		/// <summary>
+		/// اجرای یک گزارش ذخیره‌شده که ممکن است شامل چند دستور SELECT باشد (حالت نوشتن Query)؛
+		/// یک QueryResult به‌ازای هر SELECT به‌همراه اطلاعات نام‌گذاری آن (QuerySelectInfo) برگردانده می‌شود.
+		/// برای گزارش‌های تک-Select، خروجی همیشه دقیقاً یک ResultSet دارد.
+		/// </summary>
+		Task<QueryMultiResult> ExecuteReportMultiAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null);
+
 		Task<bool> IsNameUniqueAsync(string name, long? excludeId = null);
 		List<SavedQuery> GetDataTableProfileListByEntityName(string? entityName);
 		List<SavedQuery> GetDataTableProfileById(List<long?> ids , string? entityName);
@@ -44,17 +55,20 @@ namespace Data.Services.QueryBuilderServices
 		private readonly IQueryBuilderService _queryBuilder;
 		private readonly IDatabaseSchemaService _schemaService;
 		private readonly IParameterResolverService _parameterResolver;
+		private readonly ISdk _sdk;
 
 		public QueryService(
 		    ApplicationDbContext context,
 		    IQueryBuilderService queryBuilder,
 		    IDatabaseSchemaService schemaService,
-		    IParameterResolverService parameterResolver)
+		    IParameterResolverService parameterResolver,
+		    ISdk sdk)
 		{
 			_context = context;
 			_queryBuilder = queryBuilder;
 			_schemaService = schemaService;
 			_parameterResolver = parameterResolver;
+			_sdk = sdk;
 		}
 
 		/// <summary>
@@ -74,8 +88,10 @@ namespace Data.Services.QueryBuilderServices
 				Tables = tablesForStorage,
 				Relations = design.QueryDesign.Relations,
 				Filters = design.QueryDesign.Filters,
+				CustomConditions = design.QueryDesign.CustomConditions,
 				CustomQuery = design.QueryDesign.CustomQuery,
-				Parameters = design.QueryDesign.Parameters
+				Parameters = design.QueryDesign.Parameters,
+				Selects = design.QueryDesign.Selects
 			};
 
 			var report = new SavedQuery
@@ -140,8 +156,10 @@ namespace Data.Services.QueryBuilderServices
 				Tables = tablesForStorage,
 				Relations = design.QueryDesign.Relations,
 				Filters = design.QueryDesign.Filters,
+				CustomConditions = design.QueryDesign.CustomConditions,
 				CustomQuery = design.QueryDesign.CustomQuery,
-				Parameters = design.QueryDesign.Parameters
+				Parameters = design.QueryDesign.Parameters,
+				Selects = design.QueryDesign.Selects
 			};
 
 			report.Name = design.Name;
@@ -205,6 +223,42 @@ namespace Data.Services.QueryBuilderServices
 		}
 
 		/// <summary>
+		/// دریافت تمام گزارش‌ها
+		/// </summary>
+		public async Task<List<SavedQuery>> GetAllSavedQueriesForReportsAsync()
+		{
+			return await _context.SavedQueries
+			    .Where(r => r.IsActive == IsActiveEnum.Active && r.Type ==TypeQuery.Report)
+			    .OrderByDescending(r => r.CreatedOnMiladiDateTime)
+			    .ToListAsync();
+		}
+
+		/// <summary>
+		///  دریافت تمام گزارش‌ها با دسترسی
+		/// </summary>
+		public async Task<List<SavedQuery>> GetAllSavedQueriesForReportsFillterByRoleAsync()
+		{
+			if(_sdk.IsAdministrator)
+				return await _context.SavedQueries
+						    .Where(r => r.IsActive == IsActiveEnum.Active && r.Type == TypeQuery.Report)
+						    .OrderByDescending(r => r.CreatedOnMiladiDateTime)
+						    .ToListAsync();
+
+
+			var saveQueryIds = _sdk.CurrentUser.RoleAccess
+				.Where(c => c.ActionAccessItemType == ActionAccessItemType.ReportItem)
+				.Select(c => c.RowId);
+
+			return await _context.SavedQueries
+			    .Where(r => r.IsActive == IsActiveEnum.Active
+			    && r.Type == TypeQuery.Report
+			    && saveQueryIds.Contains(r.Id) 
+			    )
+			    .OrderByDescending(r => r.CreatedOnMiladiDateTime)
+			    .ToListAsync();
+		}
+
+		/// <summary>
 		/// اجرای گزارش (بدون صفحه‌بندی - کل داده)
 		/// </summary>
 		public async Task<QueryResult> ExecuteReportAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null)
@@ -223,6 +277,61 @@ namespace Data.Services.QueryBuilderServices
 		public async Task<QueryResult> ExecuteReportAsync(DataTableRequest request , IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null)
 		{
 			return await ExecuteReportInternalAsync(request, parameterValues, offset, limit, userId, username);
+		}
+
+		/// <summary>
+		/// اجرای گزارش با پشتیبانی از چند SELECT (حالت نوشتن Query)
+		/// </summary>
+		public async Task<QueryMultiResult> ExecuteReportMultiAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null)
+		{
+			var report = await GetReportAsync(id);
+			if (report == null)
+				throw new KeyNotFoundException("گزارش مورد نظر یافت نشد");
+
+			var queryDesign = JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
+			var columns = JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson);
+
+			// ادغام مقادیر پارامترهای داینامیک با مقادیر پیش‌فرض
+			var paramValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var p in queryDesign.Parameters ?? Enumerable.Empty<QueryParameter>())
+			{
+				if (!string.IsNullOrEmpty(p.Name) && !paramValues.ContainsKey(p.Name))
+					paramValues[p.Name] = p.DefaultValue ?? "";
+			}
+			if (parameterValues != null)
+			{
+				foreach (var kv in parameterValues)
+					paramValues[kv.Key] = kv.Value ?? "";
+			}
+
+			// برای IN/NOT IN که نمی‌توان از پارامتر استفاده کرد - resolve در filter value
+			_parameterResolver.ResolveFiltersForInOperator(queryDesign.Filters ?? new List<FilterCondition>(), paramValues, userId, username);
+
+			// ساخت Query (بدون replace - پارامترها در query باقی می‌مانند)
+			string query;
+			if (!string.IsNullOrEmpty(queryDesign.CustomQuery))
+			{
+				query = queryDesign.CustomQuery;
+			}
+			else if (columns != null && columns.Any())
+			{
+				query = _queryBuilder.BuildQueryWithShaping(queryDesign, columns);
+			}
+			else
+			{
+				query = _queryBuilder.BuildQuery(queryDesign, columns);
+			}
+
+			// ساخت Dictionary پارامترها
+			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, userId, username);
+
+			var resultSets = await _schemaService.ExecuteMultiResultQueryAsync(query, sqlParams);
+
+			return new QueryMultiResult
+			{
+				ResultSets = resultSets,
+				Selects = queryDesign.Selects ?? new List<QuerySelectInfo>()
+			};
 		}
 
 		private async Task<QueryResult> ExecuteReportInternalAsync(DataTableRequest request, IReadOnlyDictionary<string, string> parameterValues, int? offset, int? limit, string userId, string username)
@@ -267,19 +376,21 @@ namespace Data.Services.QueryBuilderServices
 			// ساخت Dictionary پارامترها
 			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, userId, username);
 
-			var criteriaQuery = BuildSearchQueryProfile(request,columns);
-			 
-			// Add search searchBuilder conditions
-			if (request.searchBuilder is { criteria.Count: > 0 })
-			{
+			var columnSearchQuery = BuildSearchQueryProfile(request, columns);
+			var searchBuilderQuery = request.searchBuilder is { criteria.Count: > 0 }
+				? BuildCriteriaQueryProfile(request.searchBuilder.criteria, request.searchBuilder.logic, request, columns)
+				: string.Empty;
 
-				criteriaQuery = " Where " + criteriaQuery +  BuildCriteriaQueryProfile(request.searchBuilder.criteria, request.searchBuilder.logic, request, columns);
-		 
-			}
-			else if(criteriaQuery.HasValue())
-			{
-				criteriaQuery = " Where " + criteriaQuery;
-			}
+			// فیلتر سرستون و جستجوی پیشرفته باید با AND ترکیب شوند
+			var whereParts = new List<string>();
+			if (columnSearchQuery.HasValue())
+				whereParts.Add($"({columnSearchQuery})");
+			if (searchBuilderQuery.HasValue())
+				whereParts.Add($"({searchBuilderQuery})");
+
+			var criteriaQuery = whereParts.Count > 0
+				? " Where " + string.Join(" AND ", whereParts)
+				: string.Empty;
 
 
 				var orderByQuery = "";
@@ -294,8 +405,9 @@ namespace Data.Services.QueryBuilderServices
 			}
 			else
 			{
+				var colForSort = columns.FirstOrDefault(c => c.Sortable == true);
 
-				orderByQuery = $"[{columns[0]?.Alliance ?? columns[0].ColumnName}] DESC";
+				orderByQuery = $"[{colForSort?.Alliance ?? colForSort.ColumnName}] DESC";
 			}
 
 			   
@@ -304,60 +416,180 @@ namespace Data.Services.QueryBuilderServices
 			 
 		}
 
+		private static bool IsDateColumnType(string? type)
+		{
+			var t = (type ?? "").ToLowerInvariant();
+			return t is "datetime" or "date" or "shamsidatetime" or "datetimeshamsi" or "shamsidate" or "dateshamsi";
+		}
+
+		private static string EscapeSqlLiteral(string? value)
+		{
+			return (value ?? string.Empty).Replace("'", "''");
+		}
+
+		private static string EscapeLikeLiteral(string? value)
+		{
+			return EscapeSqlLiteral(value)
+				.Replace("[", "[[]")
+				.Replace("%", "[%]")
+				.Replace("_", "[_]");
+		}
+
+		private static string StripDatePrefix(string? value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return string.Empty;
+
+			var v = value.Trim();
+			if (v.StartsWith("from ", StringComparison.OrdinalIgnoreCase))
+				return v.Substring(5).Trim();
+			if (v.StartsWith("to ", StringComparison.OrdinalIgnoreCase))
+				return v.Substring(3).Trim();
+			if (v.StartsWith("from", StringComparison.OrdinalIgnoreCase))
+				return v.Substring(4).Trim();
+			if (v.StartsWith("to", StringComparison.OrdinalIgnoreCase))
+				return v.Substring(2).Trim();
+			return v;
+		}
+
+		private static string? ResolveDefaultSearchCondition(string? type, string[] values)
+		{
+			if (IsDateColumnType(type))
+			{
+				if (values.Length >= 2)
+					return "between";
+				if (values.Length == 1)
+				{
+					var first = values[0] ?? "";
+					if (first.Contains("from", StringComparison.OrdinalIgnoreCase))
+						return ">";
+					if (first.Contains("to", StringComparison.OrdinalIgnoreCase))
+						return "<";
+				}
+				return "between";
+			}
+
+			return "contains";
+		}
+
+		private static string? BuildColumnSearchClause(string path, string? type, string condition, string[] values)
+		{
+			var bracketPath = $"[{path}]";
+
+			switch (condition)
+			{
+				case "null":
+					return $"{bracketPath} IS NULL";
+				case "!null":
+					return $"{bracketPath} IS NOT NULL";
+				case "=":
+					return values.Length < 1 ? null : $"{bracketPath} = N'{EscapeSqlLiteral(StripDatePrefix(values[0]))}'";
+				case "!=":
+					return values.Length < 1 ? null : $"{bracketPath} <> N'{EscapeSqlLiteral(StripDatePrefix(values[0]))}'";
+				case ">":
+					return values.Length < 1 ? null : $"{bracketPath} > N'{EscapeSqlLiteral(StripDatePrefix(values[0]))}'";
+				case "<":
+					return values.Length < 1 ? null : $"{bracketPath} < N'{EscapeSqlLiteral(StripDatePrefix(values[0]))}'";
+				case ">=":
+					return values.Length < 1 ? null : $"{bracketPath} >= N'{EscapeSqlLiteral(StripDatePrefix(values[0]))}'";
+				case "<=":
+					return values.Length < 1 ? null : $"{bracketPath} <= N'{EscapeSqlLiteral(StripDatePrefix(values[0]))}'";
+				case "contains":
+					return values.Length < 1 ? null : $"{bracketPath} LIKE N'%{EscapeLikeLiteral(values[0])}%'";
+				case "!contains":
+					return values.Length < 1 ? null : $"{bracketPath} NOT LIKE N'%{EscapeLikeLiteral(values[0])}%'";
+				case "starts":
+					return values.Length < 1 ? null : $"{bracketPath} LIKE N'{EscapeLikeLiteral(values[0])}%'";
+				case "!starts":
+					return values.Length < 1 ? null : $"{bracketPath} NOT LIKE N'{EscapeLikeLiteral(values[0])}%'";
+				case "ends":
+					return values.Length < 1 ? null : $"{bracketPath} LIKE N'%{EscapeLikeLiteral(values[0])}'";
+				case "!ends":
+					return values.Length < 1 ? null : $"{bracketPath} NOT LIKE N'%{EscapeLikeLiteral(values[0])}'";
+				case "between":
+					{
+						if (values.Length >= 2)
+						{
+							var fromVal = EscapeSqlLiteral(StripDatePrefix(values[0]));
+							var toVal = EscapeSqlLiteral(StripDatePrefix(values[1]));
+							return $"{bracketPath} BETWEEN N'{fromVal}' AND N'{toVal}'";
+						}
+						if (values.Length == 1)
+						{
+							var first = values[0] ?? "";
+							if (first.Contains("from", StringComparison.OrdinalIgnoreCase))
+								return $"{bracketPath} > N'{EscapeSqlLiteral(StripDatePrefix(first))}'";
+							if (first.Contains("to", StringComparison.OrdinalIgnoreCase))
+								return $"{bracketPath} < N'{EscapeSqlLiteral(StripDatePrefix(first))}'";
+						}
+						return null;
+					}
+				default:
+					// سازگاری با رفتار قبلی
+					if (IsDateColumnType(type))
+					{
+						if (values.Length >= 2)
+						{
+							var fromVal = EscapeSqlLiteral(StripDatePrefix(values[0]));
+							var toVal = EscapeSqlLiteral(StripDatePrefix(values[1]));
+							return $"{bracketPath} BETWEEN N'{fromVal}' AND N'{toVal}'";
+						}
+						if (values.Length == 1)
+						{
+							var first = values[0] ?? "";
+							if (first.Contains("from", StringComparison.OrdinalIgnoreCase))
+								return $"{bracketPath} > N'{EscapeSqlLiteral(StripDatePrefix(first))}'";
+							return $"{bracketPath} < N'{EscapeSqlLiteral(StripDatePrefix(first))}'";
+						}
+						return null;
+					}
+					return values.Length < 1 ? null : $"{bracketPath} LIKE N'%{EscapeLikeLiteral(values[0])}%'";
+			}
+		}
+
 		private string BuildSearchQueryProfile(DataTableRequest request, List<QueryColumn> column)
 		{
-			StringBuilder searchSection = new StringBuilder();
-			if (request.columns is { Count: > 0 })
+			var searchSection = new StringBuilder();
+			if (request.columns is not { Count: > 0 })
+				return searchSection.ToString();
+
+			foreach (var cl in request.columns)
 			{
-				foreach (var cl in request.columns)
-				{
-					var pc = column
-					    .FirstOrDefault(c => c.Alliance == cl.data || c.ColumnName.ToCamelCase() == cl.data);
+				if (cl.Search == null)
+					continue;
 
-					var path = pc?.Alliance ?? pc.ColumnName.ToCamelCase();
+				var values = (cl.Search.value ?? Array.Empty<string>())
+					.Where(v => !string.IsNullOrWhiteSpace(v))
+					.ToArray();
 
-					if (cl.Search.value.Any())
-					{
-						if (searchSection.Length > 0)
-						{
-							searchSection.Append(" and ");
+				var condition = string.IsNullOrWhiteSpace(cl.Search.condition)
+					? null
+					: cl.Search.condition.Trim();
 
-						}
+				if (string.Equals(condition, "none", StringComparison.OrdinalIgnoreCase))
+					continue;
 
-						//if (cl.type == "shamsidatetime" || cl.type == "datetimeshamsi" || cl.type == "shamsidate" || cl.type == "dateshamsi")
-						//{
+				condition ??= ResolveDefaultSearchCondition(cl.type, values);
 
-						//	if (cl.Search.value.Length == 1 && cl.Search.value[0].Contains("from"))
-						//	{
-						//		var dateFilter = cl.Search.value[0].Replace("from ", "");
-						//		searchSection.Append($"[{pc.Label}].[{pc.PropName.Replace("Shamsi", "Miladi")}] > '{dateFilter}'");
-						//	}
-						//	else if (cl.Search.value.Length == 1 && cl.Search.value[0].Contains("to"))
-						//	{
-						//		var dateFilter = cl.Search.value[0].Replace("to ", "");
-						//		searchSection.Append($"[{pc.Label}].[{pc.PropName.Replace("Shamsi", "Miladi")}] < '{dateFilter}'");
-						//	}
-						//	else if (cl.Search.value.Length == 2)
-						//	{
-						//		var dateFilterFrom = cl.Search.value.First(c => c.Contains("from")).Replace("from ", "");
-						//		var dateFilterTo = cl.Search.value.First(c => c.Contains("to")).Replace("to ", "");
-						//		searchSection.Append($"[{pc.Label}].[{pc.PropName.Replace("Shamsi", "Miladi")}] BETWEEN '{dateFilterFrom}' AND '{dateFilterTo}'");
-						//	}
+				var needsValue = condition is not ("null" or "!null");
+				if (needsValue && values.Length == 0)
+					continue;
 
-						//}
-						 if (cl.Search.value.Length == 1)
-						{
-							searchSection.Append($"[{path}] Like N'%{cl.Search.value[0]}%'");
-						}
-						else if (cl.Search.value.Length == 2)
-						{
-							searchSection.Append($"[{path}]  BETWEEN '{cl.Search.value[0]}' AND '{cl.Search.value[1]}'");
-						}
-					}
+				var pc = column.FirstOrDefault(c =>
+					c.Alliance == cl.data || c.ColumnName.ToCamelCase() == cl.data);
+				if (pc == null)
+					continue;
 
-				}
+				var path = pc.Alliance ?? pc.ColumnName.ToCamelCase();
+				var clause = BuildColumnSearchClause(path, cl.type, condition, values);
+				if (string.IsNullOrEmpty(clause))
+					continue;
 
+				if (searchSection.Length > 0)
+					searchSection.Append(" and ");
+				searchSection.Append(clause);
 			}
+
 			return searchSection.ToString();
 		}
 

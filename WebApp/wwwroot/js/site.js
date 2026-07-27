@@ -1638,6 +1638,7 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
 									</div>`);
 
 
+									destroyPersianDatepickersIn(place);
 									$(place).empty();
 
 
@@ -1677,6 +1678,7 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
 									<div class="col-md-6" date-action="to"></div>
 									</div>`);
 
+									destroyPersianDatepickersIn(place);
 									$(place).empty();
 
 
@@ -1722,12 +1724,12 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
 										.append(options.map(c => {
 											return `<option value=${c.value}>${c.name}</option>`
 										}))
-										.appendTo($(place).empty())
+										.appendTo((destroyPersianDatepickersIn(place), $(place).empty()))
 
 									break;
 								default:
 									$('<input type="text" class="form-control" placeholder="جستجو ' + title + '" />')
-										.appendTo($(place).empty())
+										.appendTo((destroyPersianDatepickersIn(place), $(place).empty()))
 
 									break;
 							}
@@ -1825,7 +1827,7 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
 						if (c.options && c.options.length > 0) {
 							json.data.forEach(d => {
 								let v = d[c.data]
-								d[c.name] = c.options.firstOrDefault(z => z.value === v?.toString())?.name ?? v
+								d[c.name] = c.options.firstOrDefault(z => z.value === v?.toString())?.name ?? ''
 							})
 						}
 					}
@@ -1854,7 +1856,7 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
           fixedColumns: true,
           scrollCollapse: true,
           scrollX: true,
-		scrollY: '50vh'
+		scrollY: '70vh'
 	});
 	 
  
@@ -1983,6 +1985,68 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	 
 	var columns = dataTable.columns;
 
+	if (!columns.some(c => c.type === 'rowNumber')) {
+		columns.unshift({
+			title: "#",
+			data: "_rowNumber",
+			name: "_rowNumber",
+			type: "rowNumber",
+			orderable: false,
+			searchable: false,
+			className: "text-center dt-col-no-resize",
+			width: "45px",
+			defaultContent: "",
+			render: function (data, type, row, meta) {
+				return meta.settings._iDisplayStart + meta.row + 1;
+			}
+		});
+	}
+
+	if (!columns.some(c => c.type === 'rowSelect')) {
+		columns.unshift({
+			title: '<input type="checkbox" class="form-check-input dt-select-all" title="انتخاب همه صفحه" />',
+			data: "_rowSelect",
+			name: "_rowSelect",
+			type: "rowSelect",
+			orderable: false,
+			searchable: false,
+			visible: false,
+			className: "text-center dt-col-no-resize dt-row-select-col",
+			width: "40px",
+			defaultContent: "",
+			render: function () {
+				return '<input type="checkbox" class="form-check-input dt-row-select" />';
+			}
+		});
+	}
+
+	// عرض / فیلتر / sort / className از نمایه داده
+	columns.forEach(c => {
+		if (c.type === 'rowNumber' || c.type === 'rowSelect') return;
+		const parsed = parseInt(c.width, 10);
+		const profileWidth = (!isNaN(parsed) && parsed >= 40) ? Math.min(parsed, 2000) : 200;
+		c.profileWidth = profileWidth;
+		c.width = profileWidth;
+		c.filterable = c.filterable !== false;
+		c.sortable = c.sortable !== false;
+		c.searchable = c.filterable;
+		c.orderable = c.sortable;
+
+		const cls = (c.className == null ? '' : String(c.className))
+			.trim()
+			.replace(/[^a-zA-Z0-9_\-\s]/g, '')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (cls) {
+			c.className = cls;
+		} else {
+			delete c.className;
+		}
+	});
+
+	/** @type {Map<string, string>} key = column.data, value = filter condition */
+	const columnFilterConditions = new Map();
+
 	let currentTable;
 	let fetchUrl = "/System/FetchDataProfile";
 	let exportPath = "/System/ExportToExcelProfile";
@@ -2006,12 +2070,36 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	let canExportExcell = !!(exportPath && exportPath.length > 0);
 	let selectedRow = null;
 	let $selectedRowEl = null;
+	let multiSelectMode = false;
+	/** @type {Map<string, Object>} key = primaryKey string */
+	const selectedRowsMap = new Map();
 	let dataTableRequest = {};
 	let tableApi = null;
 	const rowRenderCallbacks = [];
 
+	const _getPkName = () =>
+		tableApi?.getPrimaryKeyName()
+		?? columns.find(c => c.primaryKey === true)?.data
+		?? null;
+
+	const _rowKey = (row) => {
+		const pk = _getPkName();
+		if (!pk || !row || row[pk] == null) return null;
+		return String(row[pk]);
+	};
+
+	const getSelectedRows = () => Array.from(selectedRowsMap.values());
+
+	const getPrimaryKeyValues = () => {
+		const pk = _getPkName();
+		if (!pk) return [];
+		return getSelectedRows()
+			.map(r => r?.[pk])
+			.filter(v => v != null && v !== '');
+	};
+
 	let $editBtn, $deleteBtn, $newBtn, $exportEcellBtn, $drawBtn,
-		$notificationbuilder, $reStyleTableBtn;
+		$notificationbuilder, $reStyleTableBtn, $clearFiltersBtn, $multiSelectBtn;
 
 
 
@@ -2021,22 +2109,28 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
     * @param {boolean}     isDeselect
     * @returns {Object}
     */
-	const buildRowSelectContext = (row, $row, isDeselect) => { 
+	const buildRowSelectContext = (row, $row, isDeselect) => {
 		let dataActionBtns = {};
 		top1startBtns.find("[data-action]").each((c, i) => {
-			var dataActionName = $(i).data("action")
-			dataActionBtns[dataActionName] = $(i)
-		})
+			var dataActionName = $(i).data("action");
+			dataActionBtns[dataActionName] = $(i);
+		});
+		const pkName = _getPkName();
 		return {
 			selectedRow: row,
+			selectedRows: getSelectedRows(),
+			primaryKeyValues: getPrimaryKeyValues(),
+			multiSelectMode: multiSelectMode,
 			$row: $row,
 			table: tableApi,
 			$toolbar: top1startBtns,
 			dataActionBtns,
 			isDeselect: isDeselect,
 			draw: () => table.draw(),
-		}
-	}
+			primaryKeyName: pkName,
+			primaryKeyValue: (pkName && row) ? (row[pkName] ?? null) : null,
+		};
+	};
 
 	/**
 	* @param {Object} rowData
@@ -2044,13 +2138,18 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	* @param {number} rowIndex
 	* @returns {Object}
 	*/
-	const buildRowAddedContext = (rowData, $row, rowIndex) => ({
-		rowData: rowData,
-		$row: $row,
-		rowIndex: rowIndex,
-		table: tableApi,
-		draw: () => table.draw(),
-	});
+	const buildRowAddedContext = (rowData, $row, rowIndex) => {
+		const pkName = _getPkName();
+		return {
+			rowData: rowData,
+			$row: $row,
+			rowIndex: rowIndex,
+			table: tableApi,
+			draw: () => table.draw(),
+			primaryKeyName: pkName,
+			primaryKeyValue: (pkName && rowData) ? (rowData[pkName] ?? null) : null,
+		};
+	};
 
 	/**
 	* اجرای امن یک تابع رویداد
@@ -2088,16 +2187,26 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	 * @param {jQuery} $btn - دکمه کلیک شده
 	 * @returns {Object}
 	 */
-	const buildActionContext = ($btn) => ({
-		selectedRow: selectedRow || null,
-		table: tableApi,
-		tableData: tableApi
-			? tableApi.rows({ page: 'current' }).data().toArray()
-			: [],
-		$toolbar: top1startBtns,
-		$btn: $btn,
-		draw: () => table.draw(),
-	});
+	const buildActionContext = ($btn) => {
+		const pkName = _getPkName();
+		const rows = getSelectedRows();
+		return {
+			selectedRow: selectedRow || (rows.length === 1 ? rows[0] : null),
+			selectedRows: rows,
+			primaryKeyValues: getPrimaryKeyValues(),
+			multiSelectMode: multiSelectMode,
+			table: tableApi,
+			tableData: tableApi
+				? tableApi.rows({ page: 'current' }).data().toArray()
+				: [],
+			$toolbar: top1startBtns,
+			$btn: $btn,
+			draw: () => table.draw(),
+			primaryKeyName: pkName,
+			primaryKeyValue: (pkName && selectedRow) ? (selectedRow[pkName] ?? null)
+				: (pkName && rows.length === 1 ? (rows[0][pkName] ?? null) : null),
+		};
+	};
 
 	/**
 	 * اجرای امن تابع اکشن
@@ -3434,13 +3543,30 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
                     data-bs-toggle="tooltip" data-bs-placement="top" title="بازنشانی تنظیمات جدول">
                 <i class="la-reply la fs-1"></i>
             </button>
+
+            <button class='btn-sm btn btn-icon btn-active-icon-dark btn-color-danger'
+                    data-action='clearFilters'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="حذف فیلترها">
+                <i class="fs-2 fa-light fa-filter-slash"></i>
+            </button>
+
+            <button class='btn-sm btn btn-icon btn-active-icon-dark btn-color-info'
+                    data-action='multiSelect'
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="انتخاب چندتایی">
+                <i class="fs-2 fa-light fa-list-check"></i>
+            </button>
         </div>
     `);
 	 
+	let defaultMultiSelectEnabled = false;
 	if (dataTable.actionOptions && dataTable.actionOptions.length>0) {
 		var actionOptions = JSON.parse(dataTable.actionOptions);
 
 		actionOptions.forEach(c => {
+			if (c.dataActionName === 'defaultMultiSelect') {
+				defaultMultiSelectEnabled = c.enable === true;
+				return;
+			}
 			if (top1startBtns.find(`[data-action=${c.dataActionName}]`).length > 0) {
 				if (c.enable === false) {
 					top1startBtns.find(`[data-action=${c.dataActionName}]`).prop("disabled", "disabled")
@@ -3480,7 +3606,8 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
                         data-bs-toggle="tooltip"
                         data-bs-placement="top"
                         title="${title}"
-                        ${btnDef.requiresSelection ? 'disabled data-requires-selection="true"' : ''}>
+                        ${btnDef.requiresSelection ? 'disabled data-requires-selection="true"' : ''}
+                        ${btnDef.requiresMultiSelection ? 'disabled data-requires-multi-selection="true"' : ''}>
                     <i class="${iconClass} fs-2"></i>
                 </button>
             `);
@@ -3493,17 +3620,32 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		top1startBtns.append($customBtn);
 	});
 
-	const updateSelectionDependentButtons = (hasSelection) => {
- 
-		// دکمه‌های پیش‌فرض (edit / delete)
+	const updateSelectionDependentButtons = (hasSingleSelection) => {
+		const multiCount = selectedRowsMap.size;
+		const hasMultiSelection = multiCount > 0;
+
+		// دکمه‌های پیش‌فرض (edit / delete) — در حالت چندانتخابی فقط با دقیقاً یک انتخاب
+		const editDeleteEnabled = multiSelectMode
+			? multiCount === 1
+			: !!hasSingleSelection;
+
 		if (canEdit && $editBtn.attr("forcedisabled") !== "true")
-			$editBtn.prop("disabled", !hasSelection).toggleClass("btn-color-warning", hasSelection);
+			$editBtn.prop("disabled", !editDeleteEnabled).toggleClass("btn-color-warning", editDeleteEnabled);
 
 		if (canDelete && $deleteBtn.attr("forcedisabled") !== "true")
-			$deleteBtn.prop("disabled", !hasSelection).toggleClass("btn-color-danger", hasSelection);
+			$deleteBtn.prop("disabled", !editDeleteEnabled).toggleClass("btn-color-danger", editDeleteEnabled);
 
-		// دکمه‌های سفارشی با requiresSelection
-		top1startBtns.find('[data-requires-selection="true"]').prop("disabled", !hasSelection);
+		// دکمه‌های سفارشی با requiresSelection (تک‌انتخابی یا هر انتخاب)
+		top1startBtns.find('[data-requires-selection="true"]').each(function () {
+			const needsMulti = $(this).is('[data-requires-multi-selection="true"]');
+			if (needsMulti) return;
+			const enabled = multiSelectMode ? hasMultiSelection : !!hasSingleSelection;
+			$(this).prop("disabled", !enabled);
+		});
+
+		// دکمه‌های سفارشی مخصوص چندانتخابی
+		top1startBtns.find('[data-requires-multi-selection="true"]')
+			.prop("disabled", !multiSelectMode || !hasMultiSelection);
 	};
 
 	$editBtn = top1startBtns.find("[data-action=edit]");
@@ -3513,11 +3655,13 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	$drawBtn = top1startBtns.find("[data-action=draw]");
 	$notificationbuilder = top1startBtns.find("[data-action=notificationbuilder]");
 	$reStyleTableBtn = top1startBtns.find("[data-action='reStyleTable']");
+	$clearFiltersBtn = top1startBtns.find("[data-action=clearFilters]");
+	$multiSelectBtn = top1startBtns.find("[data-action=multiSelect]");
 
 	 
 	 
 	let order = [];
-	columns.filter(c => c.sortOrder).forEach(c => {
+	columns.filter(c => c.sortOrder && c.sortable !== false).forEach(c => {
 		order.push({ name: c.name, dir: c.sortOrder === 1 ? 'DESC' : 'ASC' });
 	});
 
@@ -3559,9 +3703,34 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 			};
 			table.onRowRender = api.onRowRender;
 
-			// Filter icons setup (بدون تغییر)
-			_initColumnFilterIcons(api, columns);
-			
+			/**
+				  * نام ستونی که primaryKey === true دارد را برمی‌گرداند
+				  * @returns {string|null}
+				  */
+				api.getPrimaryKeyName = function () {
+					return table.columns().context[0].aoColumns
+						.find(c => c.primaryKey === true)?.data ?? null;
+				};
+
+				/**
+				 * مقدار کلید اصلی یک ردیف را برمی‌گرداند
+				 * @param {Object} row - داده ردیف (مثلاً از selectedRow یا rowData)
+				 * @returns {*|null}
+				 */
+				api.getPrimaryKeyValue = function (row) {
+					const pkName = api.getPrimaryKeyName();
+					if (!pkName || !row) return null;
+					return row[pkName] ?? null;
+				};
+
+				// اتصال به شیء table برای دسترسی مستقیم
+				table.getPrimaryKeyName = api.getPrimaryKeyName;
+				table.getPrimaryKeyValue = api.getPrimaryKeyValue;
+
+			// Filter icons setup
+			_initColumnFilterIcons(api, columns, columnFilterConditions, searchBuilderCollapseId);
+			table.clearAllColumnFilters = api.clearAllColumnFilters;
+
 			// searchBuilder container
 			const sb = api.searchBuilder.container();
 			$('body').find(`#${searchBuilderCollapseId}`).append(sb);
@@ -3603,12 +3772,40 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 							? [col.search.value]
 							: [];
 					}
+
+					// ستون بدون فیلتر: جستجو ارسال نشود
+					if (match?.filterable === false) {
+						col.search.value = [];
+						col.searchable = false;
+						return;
+					}
+
+					const condition = columnFilterConditions.get(col.data)
+						|| getDefaultFilterCondition(col.type);
+					col.search.condition = condition;
+
+					// برای null/!null مقدار سنتینل کلاینتی به سرور ارسال نشود
+					if (condition === 'null' || condition === '!null') {
+						col.search.value = [];
+					} else if (Array.isArray(col.search.value)) {
+						col.search.value = col.search.value.filter(v => v !== '__op__');
+					}
 				});
 
 				d.order = d.order.map(o => ({
-					column: d.columns[o.column].data,
+					column: d.columns[o.column]?.data,
 					dir: o.dir
-				}));
+				})).filter(o => {
+					if (!o.column || o.column === '_rowNumber' || o.column === '_rowSelect') return false;
+					const match = columns.find(c => c.data === o.column);
+					return match?.sortable !== false;
+				});
+
+				// ستون‌های کلاینتی نباید به سرور ارسال شوند
+				d.columns = d.columns.filter(col =>
+					col.type !== 'rowNumber' && col.data !== '_rowNumber'
+					&& col.type !== 'rowSelect' && col.data !== '_rowSelect'
+				);
 
 				d.profileId = profileId;
 				d.search.value = [];
@@ -3649,7 +3846,7 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		scrollX: true,
 		autoWidth: false,
 		pageLength:50,
-		scrollY: '50vh',
+		scrollY: '70vh',
 		colResize: {
 			isEnabled: true,
 			resize: true,   
@@ -3698,37 +3895,140 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	});
 
 
+	const setRowMultiSelected = ($row, rowData, selected) => {
+		const key = _rowKey(rowData);
+		if (!key) {
+			toastr.warning('کلید اصلی ردیف مشخص نیست؛ امکان انتخاب چندتایی وجود ندارد.');
+			return;
+		}
+		const $cb = $row.find('.dt-row-select');
+		if (selected) {
+			selectedRowsMap.set(key, rowData);
+			$row.addClass('selected');
+			$cb.prop('checked', true);
+		} else {
+			selectedRowsMap.delete(key);
+			$row.removeClass('selected');
+			$cb.prop('checked', false);
+		}
+		if (selectedRowsMap.size === 1) {
+			selectedRow = getSelectedRows()[0];
+			$selectedRowEl = $row.hasClass('selected') ? $row : null;
+		} else {
+			selectedRow = null;
+			$selectedRowEl = null;
+		}
+		updateSelectionDependentButtons(selectedRowsMap.size > 0);
+		syncSelectAllCheckbox();
+	};
+
+	const toggleRowMultiSelected = ($row, rowData) => {
+		const key = _rowKey(rowData);
+		const isSelected = key ? selectedRowsMap.has(key) : $row.hasClass('selected');
+		setRowMultiSelected($row, rowData, !isSelected);
+	};
+
+	const syncSelectAllCheckbox = () => {
+		const $container = $(table.table().container());
+		const $pageRows = $(table.rows({ page: 'current' }).nodes());
+		const $checks = $pageRows.find('.dt-row-select');
+		const total = $checks.length;
+		const checked = $checks.filter(':checked').length;
+		$container.find('thead .dt-select-all').prop({
+			checked: total > 0 && checked === total,
+			indeterminate: checked > 0 && checked < total
+		});
+	};
+
+	const restoreMultiSelectUi = () => {
+		if (!multiSelectMode) return;
+		const pk = _getPkName();
+		table.rows({ page: 'current' }).every(function () {
+			const data = this.data();
+			const node = this.node();
+			if (!node || !data) return;
+			const key = pk ? String(data[pk] ?? '') : '';
+			const selected = key && selectedRowsMap.has(key);
+			$(node).toggleClass('selected', !!selected);
+			$(node).find('.dt-row-select').prop('checked', !!selected);
+		});
+		syncSelectAllCheckbox();
+		updateSelectionDependentButtons(selectedRowsMap.size > 0);
+	};
+
+	const setMultiSelectMode = (on) => {
+		multiSelectMode = !!on;
+		$multiSelectBtn
+			.toggleClass('btn-color-primary active', multiSelectMode)
+			.attr('title', multiSelectMode ? 'خروج از انتخاب چندتایی' : 'انتخاب چندتایی');
+
+		const selectColIdx = columns.findIndex(c => c.type === 'rowSelect');
+		if (selectColIdx >= 0) {
+			table.column(selectColIdx).visible(multiSelectMode, false);
+			if (multiSelectMode) {
+				const $container = $(table.table().container());
+				const $heads = $container.find(`.dt-scroll-head th[data-dt-column="${selectColIdx}"]`)
+					.add($(table.column(selectColIdx).header()));
+				$heads.each(function () {
+					const $th = $(this);
+					if (!$th.find('.dt-select-all').length) {
+						$th.html('<input type="checkbox" class="form-check-input dt-select-all" title="انتخاب همه صفحه" />');
+					}
+				});
+			}
+			table.columns.adjust().draw(false);
+		}
+
+		selectedRowsMap.clear();
+		selectedRow = null;
+		$selectedRowEl = null;
+		$(table.rows().nodes()).removeClass('selected').find('.dt-row-select').prop('checked', false);
+		$(table.table().container()).find('thead .dt-select-all')
+			.prop({ checked: false, indeterminate: false });
+		updateSelectionDependentButtons(false);
+		appController.createBootstrapTooltips();
+	};
+
 	table.on('click', 'tbody tr', (e) => {
+		if ($(e.target).closest('a, button, .btn, input, select, textarea, label').length) {
+			if (!$(e.target).closest('.dt-row-select').length) return;
+		}
+
 		const classList = e.currentTarget.classList;
 		const $row = $(e.currentTarget);
 		const rowData = table.row(e.currentTarget).data();
+		if (!rowData) return;
+
+		if (multiSelectMode) {
+			if ($(e.target).closest('.dt-row-select').length) return;
+			const wasSelected = classList.contains('selected');
+			toggleRowMultiSelected($row, rowData);
+			fireEvent(
+				eventScripts.onSelectedRow,
+				buildRowSelectContext(rowData, $row, wasSelected),
+				'onSelectedRow'
+			);
+			return;
+		}
+
 		const wasSelected = classList.contains('selected');
 
 		if (wasSelected) {
-			// ── deselect ────────────────────────────────────────────────
 			classList.remove('selected');
 			$selectedRowEl = null;
 			selectedRow = null;
-
 			updateSelectionDependentButtons(false);
-
-			// اجرای onSelectedRow با isDeselect = true
 			fireEvent(
 				eventScripts.onSelectedRow,
 				buildRowSelectContext(rowData, $row, true),
 				'onSelectedRow'
 			);
-
 		} else {
-			// ── select ──────────────────────────────────────────────────
 			table.rows('.selected').nodes().each(r => r.classList.remove('selected'));
 			classList.add('selected');
 			$selectedRowEl = $row;
 			selectedRow = rowData;
-
 			updateSelectionDependentButtons(true);
-
-			// اجرای onSelectedRow با isDeselect = false
 			fireEvent(
 				eventScripts.onSelectedRow,
 				buildRowSelectContext(rowData, $row, false),
@@ -3737,8 +4037,29 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		}
 	});
 
+	table.on('change', 'tbody .dt-row-select', function (e) {
+		e.stopPropagation();
+		if (!multiSelectMode) return;
+		const $row = $(this).closest('tr');
+		const rowData = table.row($row).data();
+		if (!rowData) return;
+		const checked = $(this).prop('checked');
+		const wasSelected = !checked;
+		setRowMultiSelected($row, rowData, checked);
+		fireEvent(
+			eventScripts.onSelectedRow,
+			buildRowSelectContext(rowData, $row, wasSelected),
+			'onSelectedRow'
+		);
+	});
+
+	table.on('draw', function () {
+		restoreMultiSelectUi();
+	});
+
 	table.on('dblclick', 'tbody tr', (e) => {
 		e.preventDefault();
+		if (multiSelectMode) return;
 		if ($editBtn.attr("forcedisabled") === "true") return;
 		if (!canEdit) return;
 
@@ -3812,6 +4133,32 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 		$notificationbuilder.on('click', (e) => openNotifictionBuilder(e, profileId));
 		$reStyleTableBtn.on('click', () => $.fn.dataTable.ColManager.clearSettings(profileId));
+		$clearFiltersBtn.on('click', () => {
+			const clearFn = table.clearAllColumnFilters || tableApi?.clearAllColumnFilters;
+			if (typeof clearFn === 'function') {
+				clearFn.call(table);
+			}
+		});
+
+		$multiSelectBtn.on('click', () => {
+			setMultiSelectMode(!multiSelectMode);
+		});
+
+		$(table.table().container()).on('change.dtSelectAll', 'thead .dt-select-all', function (e) {
+			e.stopPropagation();
+			if (!multiSelectMode) return;
+			const checked = $(this).prop('checked');
+			table.rows({ page: 'current' }).every(function () {
+				const data = this.data();
+				const node = this.node();
+				if (!node || !data) return;
+				setRowMultiSelected($(node), data, checked);
+			});
+		});
+
+		if (defaultMultiSelectEnabled) {
+			setMultiSelectMode(true);
+		}
 
 		$drawBtn.parent().parent().parent().addClass("datatabel-action-btns");
 		appController.createBootstrapTooltips();
@@ -3823,12 +4170,216 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	return table;
 }
+function getTableFilterMode() {
+	try {
+		if (typeof SiteSettings !== 'undefined') {
+			const mode = SiteSettings.load()?.tableFilterMode;
+			if (mode === 'popup' || mode === 'inline') return mode;
+		}
+	} catch (_) { /* ignore */ }
+	return 'inline';
+}
+
+/**
+ * نابود کردن نمونهٔ persian-datepicker روی inputهای داخل scope
+ * (کانتینرهای body توسط picker.destroy() حذف می‌شوند)
+ * @param {JQuery|Element|string} root
+ * @returns {number}
+ */
+function destroyPersianDatepickersIn(root) {
+	const $root = root ? $(root) : $();
+	if (!$root.length) return 0;
+
+	let count = 0;
+	$root.find('input').addBack('input').each(function () {
+		const $input = $(this);
+		if (!$input.is('input')) return;
+
+		const picker = $input.data('datepicker');
+		if (!picker) return;
+
+		try {
+			if (typeof picker.destroy === 'function') {
+				picker.destroy();
+				count++;
+			}
+		} catch (e) {
+			console.warn('persian datepicker destroy failed:', e);
+		}
+		$input.removeData('datepicker');
+	});
+
+	return count;
+}
+
+/**
+ * علامت‌گذاری کانتینر datepicker مربوط به فیلتر نمایه (برای پاکسازی یتیم‌ها)
+ * @param {JQuery} $input
+ */
+function markProfilePersianDatepicker($input) {
+	if (!$input || !$input.length) return;
+	const picker = $input.data('datepicker');
+	const $container = picker?.model?.view?.$container;
+	if ($container && $container.length) {
+		$container.addClass('dt-profile-datepicker');
+	}
+}
+
+/**
+ * حذف کانتینرهای یتیم persian-datepicker که به نمایه داده تعلق دارند
+ */
+function cleanupOrphanProfileDatepickers() {
+	$('body > .datepicker-container.dt-profile-datepicker, body > .datepicker-container-inline.dt-profile-datepicker').remove();
+}
+
+/**
+ * پاکسازی کامل datepickerهای مرتبط با یک DataTable profile
+ * @param {Object} api - DataTable API
+ * @param {string} [searchBuilderCollapseId]
+ */
+function destroyProfilePersianDatepickers(api, searchBuilderCollapseId) {
+	try {
+		if (api && typeof api.table === 'function') {
+			const $container = $(api.table().container());
+			destroyPersianDatepickersIn($container);
+
+			const $card = $container.closest('.card');
+			destroyPersianDatepickersIn($card);
+
+			if (!searchBuilderCollapseId) {
+				searchBuilderCollapseId = $card.find('[data-place=searchBuilderCollapse]').attr('id')
+					|| $card.parent().find('[data-place=searchBuilderCollapse]').attr('id')
+					|| null;
+			}
+		}
+	} catch (_) { /* ignore */ }
+
+	if (searchBuilderCollapseId) {
+		const $sbHost = $(document.getElementById(searchBuilderCollapseId));
+		if ($sbHost.length) {
+			destroyPersianDatepickersIn($sbHost);
+			// SearchBuilder از جدول جدا و داخل collapse منتقل شده؛ با تعویض نمایه حذف شود
+			$sbHost.find('.dtsb-searchBuilder').remove();
+		}
+	}
+
+	// popoverهای فیلتر که ممکن است هنوز در body باشند
+	$('body > .popover').each(function () {
+		const $pop = $(this);
+		if ($pop.find('.filter-date-input, .filter-datetime-input, .dt-inline-filter-input').length) {
+			destroyPersianDatepickersIn($pop);
+			$pop.remove();
+		}
+	});
+
+	cleanupOrphanProfileDatepickers();
+}
+
+function getDefaultFilterCondition(columnType) {
+	const t = (columnType || 'string').toLowerCase();
+	if (t === 'select' || t === 'boolean' || t === 'bool' || t === 'entity')
+		return '=';
+	if (t === 'date' || t === 'datetime' || t === 'shamsidate' || t === 'dateshamsi'
+		|| t === 'datetimeshamsi' || t === 'shamsidatetime')
+		return '=';
+	return 'contains';
+}
+
+function getFilterOperatorsForType(columnType) {
+	const t = (columnType || 'string').toLowerCase();
+	const none = { value: 'none', label: 'بدون فیلتر' };
+
+	if (t === 'select' || t === 'boolean' || t === 'bool' || t === 'entity') {
+		return [
+			none,
+			{ value: '=', label: 'مساوی با' },
+			{ value: '!=', label: 'نامساوی با' },
+			{ value: 'null', label: 'تهی' },
+			{ value: '!null', label: 'پر' }
+		];
+	}
+
+	// persian-datepicker پشتیبانی انتخاب بازه روی یک input ندارد؛ حالت «بین» حذف شده
+	if (t === 'date' || t === 'datetime' || t === 'shamsidate' || t === 'dateshamsi'
+		|| t === 'datetimeshamsi' || t === 'shamsidatetime') {
+		return [
+			none,
+			{ value: '=', label: 'مساوی با' },
+			{ value: '>', label: 'بزرگتر از' },
+			{ value: '<', label: 'کوچکتر از' },
+			{ value: '>=', label: 'بزرگتر یا مساوی' },
+			{ value: '<=', label: 'کوچکتر یا مساوی' },
+			{ value: 'null', label: 'تهی' },
+			{ value: '!null', label: 'پر' }
+		];
+	}
+
+	return [
+		none,
+		{ value: 'contains', label: 'شامل' },
+		{ value: '!contains', label: 'بدون' },
+		{ value: 'starts', label: 'شروع با' },
+		{ value: 'ends', label: 'مختوم به' },
+		{ value: '=', label: 'مساوی با' },
+		{ value: '!=', label: 'نامساوی با' },
+		{ value: '>', label: 'بزرگتر از' },
+		{ value: '<', label: 'کوچکتر از' },
+		{ value: '>=', label: 'بزرگتر یا مساوی' },
+		{ value: '<=', label: 'کوچکتر یا مساوی' },
+		{ value: 'null', label: 'تهی' },
+		{ value: '!null', label: 'پر' }
+	];
+}
+
+function getFilterOperatorLabel(columnType, condition) {
+	const ops = getFilterOperatorsForType(columnType);
+	const op = ops.find(o => o.value === condition);
+	if (op) return op.label;
+	const def = getDefaultFilterCondition(columnType);
+	return ops.find(o => o.value === def)?.label || 'شامل';
+}
+
+function buildFilterOperatorToolbarHtml(columnIndex, columnType, currentCondition) {
+	const operators = getFilterOperatorsForType(columnType);
+	const label = getFilterOperatorLabel(columnType, currentCondition);
+	const items = operators.map(op =>
+		`<li><button type="button" class="dropdown-item filter-operator-item ${op.value === currentCondition ? 'active' : ''}" data-condition="${op.value}">${op.label}</button></li>`
+	).join('');
+
+	return `
+		<div class="d-flex align-items-center gap-2 mb-3 filter-operator-toolbar">
+			<div class="dropdown">
+				<button type="button" class="btn btn-sm btn-light border filter-operator-btn"
+						data-bs-toggle="dropdown" aria-expanded="false"
+						data-column-index="${columnIndex}" data-condition="${currentCondition}">
+					<i class="fa-light fa-sliders me-1"></i>
+					<span class="filter-operator-label">${label}</span>
+				</button>
+				<ul class="dropdown-menu dropdown-menu-end filter-operator-menu shadow">
+					${items}
+				</ul>
+			</div>
+		</div>
+	`;
+}
+
+function filterConditionNeedsValue(condition) {
+	return condition !== 'null' && condition !== '!null' && condition !== 'none';
+}
+
+function updateFilterValueInputsVisibility($popup, columnType, condition) {
+	const needsValue = filterConditionNeedsValue(condition);
+	$popup.find('.filter-value-section').toggle(needsValue);
+}
+
 /**
  * راه‌اندازی آیکون‌های فیلتر ستون‌ها
  * @param {Object} api - DataTable API
  * @param {Array}  columns
+ * @param {Map<string, string>} columnFilterConditions
+ * @param {string} [searchBuilderCollapseId]
  */
-function _initColumnFilterIcons(api, columns) {
+function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map(), searchBuilderCollapseId) {
 
 
 	// Store filter popups for each column (using Map for better performance)
@@ -3845,6 +4396,30 @@ function _initColumnFilterIcons(api, columns) {
 
 	const table = api;
 
+	const getColumnDataKey = (columnIndex) => columns[columnIndex]?.data;
+
+	const getColumnCondition = (columnIndex, columnType) => {
+		const key = getColumnDataKey(columnIndex);
+		let condition = columnFilterConditions.get(key) || getDefaultFilterCondition(columnType);
+		const typeLower = (columnType || '').toLowerCase();
+		// datepicker پروژه بازه ندارد؛ between قدیمی را به مساوی تبدیل کن
+		if (typeLower.includes('date') && (condition === 'between' || condition === '!between')) {
+			condition = '=';
+			if (key) columnFilterConditions.set(key, condition);
+		}
+		return condition;
+	};
+
+	const setColumnCondition = (columnIndex, condition) => {
+		const key = getColumnDataKey(columnIndex);
+		if (!key) return;
+		if (!condition || condition === 'none') {
+			columnFilterConditions.delete(key);
+		} else {
+			columnFilterConditions.set(key, condition);
+		}
+	};
+
 	/**
 	 * Closes all open popovers when clicking outside
 	 */
@@ -3860,6 +4435,8 @@ function _initColumnFilterIcons(api, columns) {
 			// Check if click is on filter icon or inside popover
 			const isClickOnFilterIcon = $target.closest('.filter-icon').length > 0;
 			const isClickInsidePopover = $target.closest('.popover').length > 0;
+			const isClickOnOperatorMenu = $target.closest('.filter-operator-menu').length > 0
+				|| $target.closest('.dropdown-menu').length > 0;
 
 			// Check if click is on datepicker calendar (Persian Datepicker)
 			const isClickOnDatepicker = $target.closest('.datepicker-container').length > 0 ||
@@ -3871,7 +4448,7 @@ function _initColumnFilterIcons(api, columns) {
 				$target.closest('.pwt-datepicker').length > 0;
 
 			// Only close if click is outside icon, popover, and datepicker calendars
-			if (!isClickOnFilterIcon && !isClickInsidePopover && !isClickOnDatepicker && !isClickOnOtherDatepicker) {
+			if (!isClickOnFilterIcon && !isClickInsidePopover && !isClickOnOperatorMenu && !isClickOnDatepicker && !isClickOnOtherDatepicker) {
 				// Close all open popovers
 				columnFilterPopups.forEach(function (popoverInstance) {
 					if (popoverInstance && popoverInstance._element) {
@@ -3897,29 +4474,33 @@ function _initColumnFilterIcons(api, columns) {
 	function createFilterPopupContent(column, columnIndex, columnType) {
 
 		const columnData = columns[columnIndex];
-		const filterId = `filter-popup-${columnIndex}`;
 		let content = '';
+		const currentCondition = getColumnCondition(columnIndex, columnType);
+		const operatorToolbar = buildFilterOperatorToolbarHtml(columnIndex, columnType, currentCondition);
+		const valueSectionStyle = filterConditionNeedsValue(currentCondition) ? '' : 'style="display:none"';
 
 		// Get current filter values
 		const currentSearch = column ? column.search() : null;
 		let stringValue = '';
 		let selectValue = 'null';
 		let booleanValue = 'null';
-		let fromDateValue = '';
-		let toDateValue = '';
-		let fromDateTimeValue = '';
-		let toDateTimeValue = '';
+		let dateValue = '';
+		let dateTimeValue = '';
 
 		// Parse current filter values
 		if (currentSearch && currentSearch.length > 0) {
 			const typeLower = columnType.toLowerCase();
-			if (typeLower === 'string') {
-				stringValue = currentSearch[0] || '';
-			} else if (typeLower === 'select') {
-				selectValue = currentSearch[0] || 'null';
+			const searchVals = typeof currentSearch.toArray === 'function'
+				? currentSearch.toArray()
+				: (Array.isArray(currentSearch) ? currentSearch : [currentSearch]);
+
+			if (typeLower === 'string' || typeLower === 'long' || typeLower === 'int'
+				|| typeLower === 'decimal' || typeLower === 'autonumber') {
+				stringValue = (searchVals[0] === '__op__' ? '' : searchVals[0]) || '';
+			} else if (typeLower === 'select' || typeLower === 'entity') {
+				selectValue = (searchVals[0] === '__op__' ? 'null' : searchVals[0]) || 'null';
 			} else if (typeLower === 'boolean' || typeLower === 'bool') {
-				const boolVal = currentSearch[0];
-				// Convert 1/0 or true/false to 'true'/'false' for select
+				const boolVal = searchVals[0];
 				if (boolVal === '1' || boolVal === 1 || boolVal === 'true' || boolVal === true) {
 					booleanValue = 'true';
 				} else if (boolVal === '0' || boolVal === 0 || boolVal === 'false' || boolVal === false) {
@@ -3927,46 +4508,35 @@ function _initColumnFilterIcons(api, columns) {
 				} else {
 					booleanValue = 'null';
 				}
-			} else if (typeLower === 'date' || typeLower === 'shamsidate' || typeLower === 'dateshamsi' ||
-				typeLower === 'datetime' || typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
-
-				currentSearch.toArray().forEach(function (val) {
-					if (typeof val === 'string') {
-						if (val.includes('from ')) {
-							const dateStr = val.replace('from ', '');
-							try {
-								const date = new Date(dateStr);
-								if (!isNaN(date.getTime())) {
-									if (typeLower.includes('datetime')) {
-										fromDateTimeValue = MJUtil.miladiToShamsi(date.toISOString());
-									} else {
-										fromDateValue = MJUtil.miladiToShamsi(date.toISOString());
-									}
-								}
-							} catch (e) {
-								console.warn('Error parsing from date:', e);
-							}
-						} else if (val.includes('to ')) {
-							const dateStr = val.replace('to ', '');
-							try {
-								const date = new Date(dateStr);
-								if (!isNaN(date.getTime())) {
-									if (typeLower.includes('datetime')) {
-										toDateTimeValue = MJUtil.miladiToShamsi(date.toISOString());
-									} else {
-										toDateValue = MJUtil.miladiToShamsi(date.toISOString());
-									}
-								}
-							} catch (e) {
-								console.warn('Error parsing to date:', e);
-							}
+			} else if (typeLower === 'date' || typeLower === 'datetime') {
+				const raw = searchVals.find(v => typeof v === 'string' && v !== '__op__');
+				if (raw) {
+					const dateStr = raw.replace(/^from\s+/i, '').replace(/^to\s+/i, '');
+					try {
+						const date = new Date(dateStr);
+						if (!isNaN(date.getTime())) {
+							const shamsi = MJUtil.miladiToShamsi(date.toISOString());
+							if (typeLower.includes('datetime')) dateTimeValue = shamsi;
+							else dateValue = shamsi;
 						}
+					} catch (e) {
+						console.warn('Error parsing date filter:', e);
 					}
-				});
+				}
+			}
+			else if (typeLower === 'shamsidate' || typeLower === 'dateshamsi' ||
+				typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
+				const raw = searchVals.find(v => typeof v === 'string' && v !== '__op__');
+				if (raw) {
+					const dateStr = raw.replace(/^from\s+/i, '').replace(/^to\s+/i, '');
+					if (typeLower.includes('datetime')) dateTimeValue = dateStr;
+					else dateValue = dateStr;
+				}
+			} else {
+				stringValue = (searchVals[0] === '__op__' ? '' : searchVals[0]) || '';
 			}
 		}
 
-		// Escape HTML to prevent XSS
 		const escapeHtml = (str) => {
 			if (!str) return '';
 			const div = document.createElement('div');
@@ -3974,19 +4544,26 @@ function _initColumnFilterIcons(api, columns) {
 			return div.innerHTML;
 		};
 
+		const actionsHtml = `
+			<div class="d-flex gap-2 justify-content-end">
+				<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
+				<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
+			</div>
+		`;
+
 		switch (columnType.toLowerCase()) {
 			case 'string':
-				const escapedStringValue = escapeHtml(stringValue);
+			case 'long':
+			case 'int':
+			case 'decimal':
+			case 'autonumber':
 				content = `
-					<div class="p-3">
-						<div class="mb-3">
-						 
-							<input type="text" class="form-control filter-input" data-column-index="${columnIndex}" placeholder="مقدار را وارد کنید" value="${escapedStringValue}" />
+					<div class="p-3" data-filter-condition="${currentCondition}">
+						${operatorToolbar}
+						<div class="filter-value-section mb-3" ${valueSectionStyle}>
+							<input type="text" class="form-control filter-input" data-column-index="${columnIndex}" placeholder="مقدار را وارد کنید" value="${escapeHtml(stringValue)}" />
 						</div>
-						<div class="d-flex gap-2 justify-content-end">
-							<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-							<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
-						</div>
+						${actionsHtml}
 					</div>
 				`;
 				break;
@@ -3994,22 +4571,13 @@ function _initColumnFilterIcons(api, columns) {
 			case 'date':
 			case 'shamsidate':
 			case 'dateshamsi':
-				const escapedFromDateValue = escapeHtml(fromDateValue);
-				const escapedToDateValue = escapeHtml(toDateValue);
 				content = `
-					<div class="p-3">
-						<div class="mb-3">
-				 
-							<input type="text" class="form-control filter-date-from" data-column-index="${columnIndex}" placeholder="از تاریخ" value="${escapedFromDateValue}" />
+					<div class="p-3" data-filter-condition="${currentCondition}">
+						${operatorToolbar}
+						<div class="filter-value-section mb-3" ${valueSectionStyle}>
+							<input type="text" class="form-control filter-date-input" data-column-index="${columnIndex}" placeholder="انتخاب تاریخ" value="${escapeHtml(dateValue)}" />
 						</div>
-						<div class="mb-3">
-							 
-							<input type="text" class="form-control filter-date-to" data-column-index="${columnIndex}" placeholder="تا تاریخ" value="${escapedToDateValue}" />
-						</div>
-						<div class="d-flex gap-2 justify-content-end">
-							<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-							<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
-						</div>
+						${actionsHtml}
 					</div>
 				`;
 				break;
@@ -4017,91 +4585,79 @@ function _initColumnFilterIcons(api, columns) {
 			case 'datetime':
 			case 'datetimeshamsi':
 			case 'shamsidatetime':
-				const escapedFromDateTimeValue = escapeHtml(fromDateTimeValue);
-				const escapedToDateTimeValue = escapeHtml(toDateTimeValue);
 				content = `
-					<div class="p-3">
-						<div class="mb-3">
-						 
-							<input type="text" class="form-control filter-datetime-from" data-column-index="${columnIndex}" placeholder="از تاریخ و زمان" value="${escapedFromDateTimeValue}" />
+					<div class="p-3" data-filter-condition="${currentCondition}">
+						${operatorToolbar}
+						<div class="filter-value-section mb-3" ${valueSectionStyle}>
+							<input type="text" class="form-control filter-datetime-input" data-column-index="${columnIndex}" placeholder="انتخاب تاریخ و زمان" value="${escapeHtml(dateTimeValue)}" />
 						</div>
-						<div class="mb-3">
- 
-							<input type="text" class="form-control filter-datetime-to" data-column-index="${columnIndex}" placeholder="تا تاریخ و زمان" value="${escapedToDateTimeValue}" />
-						</div>
-						<div class="d-flex gap-2 justify-content-end">
-							<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-							<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
-						</div>
+						${actionsHtml}
 					</div>
 				`;
 				break;
 
 			case 'select':
-				const options = columnData.options || [];
-				const optionsHtml = options.map(opt => {
-					const value = escapeHtml(String(opt.value || ''));
-					const name = escapeHtml(String(opt.name || ''));
-					const selected = (value === selectValue) ? 'selected' : '';
-					return `<option value="${value}" ${selected}>${name}</option>`;
-				}).join('');
-				const selectedNull = (selectValue === 'null') ? 'selected' : '';
-				content = `
-					<div class="p-3">
-						<div class="mb-3">
-							<label class="form-label">انتخاب کنید:</label>
-							<select class="form-control filter-select" data-column-index="${columnIndex}">
-								<option value="null" ${selectedNull}>انتخاب کنید</option>
-								${optionsHtml}
-							</select>
+			case 'entity':
+				{
+					const options = columnData.options || [];
+					const optionsHtml = options.map(opt => {
+						const value = escapeHtml(String(opt.value || ''));
+						const name = escapeHtml(String(opt.name || ''));
+						const selected = (value === selectValue) ? 'selected' : '';
+						return `<option value="${value}" ${selected}>${name}</option>`;
+					}).join('');
+					const selectedNull = (selectValue === 'null') ? 'selected' : '';
+					content = `
+						<div class="p-3" data-filter-condition="${currentCondition}">
+							${operatorToolbar}
+							<div class="filter-value-section mb-3" ${valueSectionStyle}>
+								<label class="form-label">انتخاب کنید:</label>
+								<select class="form-control filter-select" data-column-index="${columnIndex}">
+									<option value="null" ${selectedNull}>انتخاب کنید</option>
+									${optionsHtml}
+								</select>
+							</div>
+							${actionsHtml}
 						</div>
-						<div class="d-flex gap-2 justify-content-end">
-							<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-							<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
-						</div>
-					</div>
-				`;
+					`;
+				}
 				break;
 
 			case 'boolean':
 			case 'bool':
-				const selectedTrue = (booleanValue === 'true') ? 'selected' : '';
-				const selectedFalse = (booleanValue === 'false') ? 'selected' : '';
-				const selectedBoolNull = (booleanValue === 'null') ? 'selected' : '';
-				content = `
-					<div class="p-3">
-						<div class="mb-3">
-							<label class="form-label">انتخاب کنید:</label>
-							<select class="form-control filter-boolean" data-column-index="${columnIndex}">
-								<option value="null" ${selectedBoolNull}>انتخاب کنید</option>
-								<option value="true" ${selectedTrue}>بله</option>
-								<option value="false" ${selectedFalse}>خیر</option>
-							</select>
+				{
+					const selectedTrue = (booleanValue === 'true') ? 'selected' : '';
+					const selectedFalse = (booleanValue === 'false') ? 'selected' : '';
+					const selectedBoolNull = (booleanValue === 'null') ? 'selected' : '';
+					content = `
+						<div class="p-3" data-filter-condition="${currentCondition}">
+							${operatorToolbar}
+							<div class="filter-value-section mb-3" ${valueSectionStyle}>
+								<label class="form-label">انتخاب کنید:</label>
+								<select class="form-control filter-boolean" data-column-index="${columnIndex}">
+									<option value="null" ${selectedBoolNull}>انتخاب کنید</option>
+									<option value="true" ${selectedTrue}>بله</option>
+									<option value="false" ${selectedFalse}>خیر</option>
+								</select>
+							</div>
+							${actionsHtml}
 						</div>
-						<div class="d-flex gap-2 justify-content-end">
-							<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-							<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
-						</div>
-					</div>
-				`;
+					`;
+				}
 				break;
 
 			case 'button':
-				// No filter for button columns
+			case 'rownumber':
 				return '';
 
 			default:
-				const escapedDefaultStringValue = escapeHtml(stringValue);
 				content = `
-					<div class="p-3">
-						<div class="mb-3">
-						 
-							<input type="text" class="form-control filter-input" data-column-index="${columnIndex}" placeholder="مقدار را وارد کنید" value="${escapedDefaultStringValue}" />
+					<div class="p-3" data-filter-condition="${currentCondition}">
+						${operatorToolbar}
+						<div class="filter-value-section mb-3" ${valueSectionStyle}>
+							<input type="text" class="form-control filter-input" data-column-index="${columnIndex}" placeholder="مقدار را وارد کنید" value="${escapeHtml(stringValue)}" />
 						</div>
-						<div class="d-flex gap-2 justify-content-end">
-							<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-							<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
-						</div>
+						${actionsHtml}
 					</div>
 				`;
 		}
@@ -4113,183 +4669,341 @@ function _initColumnFilterIcons(api, columns) {
 	 * Updates filter icon color based on active filters
 	 */
 	function updateFilterIcon(columnIndex, hasFilter, column) {
-		 
-		const $icon = $(column.header()).find(".filter-icon");
+		const $inlineOp = findInlineFilterWrap(columnIndex, column).find('.dt-inline-filter-op');
+		const $popupIcon = column ? $(column.header()).find('.filter-icon') : $();
+		const $icons = $inlineOp.add($popupIcon);
 
-		if ($icon.length) {
+		if ($icons.length) {
 			if (hasFilter) {
-
-				$icon.removeClass('text-muted').addClass('text-warning');
+				$icons.removeClass('text-muted').addClass('text-warning');
 			} else {
-				$icon.removeClass('text-warning').addClass('text-muted');
+				$icons.removeClass('text-warning').addClass('text-muted');
 			}
 		}
+	}
+
+	function closeFilterOperatorMenus() {
+		$(document).off('.dtFilterOpMenu');
+		$('.dt-filter-op-menu').remove();
+	}
+
+	function showFilterOperatorMenu($anchor, columnType, currentCondition, onSelect) {
+		closeFilterOperatorMenus();
+		const ops = getFilterOperatorsForType(columnType);
+		if (!ops.length || !$anchor?.length) return;
+
+		const $menu = $('<div class="dt-filter-op-menu dropdown-menu show shadow"></div>');
+		ops.forEach(op => {
+			const $item = $(`<button type="button" class="dropdown-item ${op.value === currentCondition ? 'active' : ''}" data-condition="${op.value}">${op.label}</button>`);
+			$item.on('click', function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				closeFilterOperatorMenus();
+				onSelect(op.value);
+			});
+			$menu.append($item);
+		});
+
+		$('body').append($menu);
+		const rect = $anchor[0].getBoundingClientRect();
+		const menuWidth = $menu.outerWidth();
+		const menuHeight = $menu.outerHeight();
+		let top = rect.bottom + 4;
+		let left = rect.left;
+		if (left + menuWidth > window.innerWidth - 8) {
+			left = Math.max(8, window.innerWidth - menuWidth - 8);
+		}
+		if (top + menuHeight > window.innerHeight - 8) {
+			top = Math.max(8, rect.top - menuHeight - 4);
+		}
+		$menu.css({ position: 'fixed', top, left, zIndex: 10050, display: 'block', maxHeight: '320px', overflowY: 'auto' });
+
+		// تأخیر کوتاه تا همان کلیک بازکننده، منو را نببندد
+		setTimeout(function () {
+			$(document).on('mousedown.dtFilterOpMenu', function (ev) {
+				if (!$(ev.target).closest('.dt-filter-op-menu, .dt-inline-filter-op, .filter-operator-btn').length) {
+					closeFilterOperatorMenus();
+				}
+			});
+		}, 50);
+	}
+
+	function getCurrentSearchDisplayValue(column, columnType) {
+		const searchValue = column.search();
+		if (!searchValue || searchValue.length === 0) return '';
+		const vals = typeof searchValue.toArray === 'function'
+			? searchValue.toArray()
+			: (Array.isArray(searchValue) ? searchValue : [searchValue]);
+		const first = vals.find(v => v != null && v !== '__op__');
+		if (first == null) return '';
+		const typeLower = (columnType || '').toLowerCase();
+		if (typeLower.includes('date') && typeof first === 'string') {
+			return first.replace(/^from\s+/i, '').replace(/^to\s+/i, '');
+		}
+		return String(first);
+	}
+
+	function findInlineFilterWrap(columnIndex, column) {
+		const $container = $(api.table().container());
+		let $wrap = $container
+			.find(`.dt-scroll-head tr.dt-inline-filter-row .dt-inline-filter-wrap[data-column-index="${columnIndex}"]`)
+			.first();
+		if (!$wrap.length) {
+			$wrap = $container
+				.find(`.dt-scroll-head .dt-inline-filter-wrap[data-column-index="${columnIndex}"]`)
+				.first();
+		}
+		if (!$wrap.length && column) {
+			$wrap = $(column.header()).find(`.dt-inline-filter-wrap[data-column-index="${columnIndex}"]`).first();
+		}
+		return $wrap;
+	}
+
+	function applyInlineColumnFilter(columnIndex, column, columnType) {
+		const $wrap = findInlineFilterWrap(columnIndex, column);
+		if (!$wrap.length) return;
+
+		const condition = $wrap.attr('data-condition') || getColumnCondition(columnIndex, columnType);
+		if (condition === 'none') {
+			clearColumnFilter(columnIndex, column);
+			syncInlineFilterUi(columnIndex, column, columnType);
+			return;
+		}
+
+		setColumnCondition(columnIndex, condition);
+
+		if (condition === 'null' || condition === '!null') {
+			column.search(['__op__']);
+			updateFilterIcon(columnIndex, true, column);
+			$wrap.find('.dt-inline-filter-input, .dt-inline-filter-select').prop('disabled', true).val('');
+			table.draw();
+			return;
+		}
+
+		$wrap.find('.dt-inline-filter-input, .dt-inline-filter-select').prop('disabled', false);
+		const typeLower = (columnType || 'string').toLowerCase();
+
+		if (typeLower === 'select' || typeLower === 'entity') {
+			const selectValue = $wrap.find('.dt-inline-filter-select').val();
+			column.search(selectValue && selectValue !== 'null' ? [selectValue] : []);
+		} else if (typeLower === 'boolean' || typeLower === 'bool') {
+			const boolVal = $wrap.find('.dt-inline-filter-select').val();
+			if (boolVal && boolVal !== 'null') {
+				column.search([(boolVal === 'true') ? '1' : '0']);
+			} else {
+				column.search([]);
+			}
+		} else if (typeLower === 'date' || typeLower === 'datetime' || typeLower === 'shamsidate'
+			|| typeLower === 'dateshamsi' || typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
+			const raw = ($wrap.find('.dt-inline-filter-input').val() || '').trim();
+			const isShamsi = typeLower.includes('shamsi') || typeLower === 'shamsidate' || typeLower === 'shamsidatetime';
+			const normalize = (v) => isShamsi ? MJUtil.toEnglishNumbers(v) : v;
+			const values = [];
+			if (raw) {
+				const normalized = normalize(raw);
+				if (condition === '<' ) values.push(`to ${normalized}`);
+				else if (condition === '>') values.push(`from ${normalized}`);
+				else values.push(normalized);
+			}
+			column.search(values);
+		} else {
+			const stringValue = ($wrap.find('.dt-inline-filter-input').val() || '').trim();
+			column.search(stringValue ? [stringValue] : []);
+		}
+
+		updateFilterIcon(columnIndex, hasActiveFilter(column), column);
+		table.draw();
+	}
+
+	function syncInlineFilterUi(columnIndex, column, columnType) {
+		const $wrap = findInlineFilterWrap(columnIndex, column);
+		if (!$wrap.length) return;
+		const condition = getColumnCondition(columnIndex, columnType);
+		const needsValue = filterConditionNeedsValue(condition);
+		$wrap.attr('data-condition', condition);
+		$wrap.find('.dt-inline-filter-input, .dt-inline-filter-select')
+			.prop('disabled', !needsValue);
+		if (!needsValue) {
+			$wrap.find('.dt-inline-filter-input').val('');
+			$wrap.find('.dt-inline-filter-select').val('null');
+		}
+		updateFilterIcon(columnIndex, hasActiveFilter(column), column);
 	}
 
 	/**
 	 * Checks if column has active filter
 	 */
 	function hasActiveFilter(column) {
-		 
 		if (!column) {
 			return false;
 		}
 
 		try {
-			const searchValue = column.search();
+			const columnIndex = column.index();
+			const columnType = columns[columnIndex]?.type || 'string';
+			const condition = getColumnCondition(columnIndex, columnType);
+			if (condition === 'null' || condition === '!null') {
+				return true;
+			}
 
-			// If searchValue is null, undefined, or empty string, no filter
+			const searchValue = column.search();
 			if (!searchValue || searchValue.length === 0) {
 				return false;
 			}
 
-			// If it's a string, check if it's not empty
-			const strValue = searchValue[0].toString().trim();
-			return strValue.length > 0;
+			const vals = typeof searchValue.toArray === 'function'
+				? searchValue.toArray()
+				: (Array.isArray(searchValue) ? searchValue : [searchValue]);
+
+			return vals.some(v => v != null && v.toString().trim().length > 0 && v !== '__op__')
+				|| vals.some(v => v === '__op__');
 		} catch (e) {
 			console.warn('Error checking active filter:', e);
 			return false;
 		}
 	}
 
+	function parseMiladiDateFromPopup($input, fallbackVal) {
+		try {
+			const el = $input[0];
+			if (!el) return null;
+			let date;
+			if (el.model && el.model.selected) {
+				date = new Date(el.model.selected);
+			} else if (fallbackVal) {
+				date = new Date(MJUtil.shamsiToMiladi(fallbackVal));
+			}
+			if (date && !isNaN(date.getTime())) {
+				return moment(date).format('yyyy-MM-DD HH:mm:ss');
+			}
+		} catch (e) {
+			console.warn('Error parsing date:', e);
+		}
+		return null;
+	}
+
 	/**
 	 * Applies filter to column
 	 */
 	function applyColumnFilter(columnIndex, column, columnType) {
-		const columnData = columns[columnIndex];
 		const $popup = $(`.filter-popup[data-column-index="${columnIndex}"]`);
+		const condition = $popup.find('.filter-operator-btn').attr('data-condition')
+			|| getColumnCondition(columnIndex, columnType);
 
-		switch (columnType.toLowerCase()) {
+		if (condition === 'none') {
+			clearColumnFilter(columnIndex, column);
+			return;
+		}
+
+		setColumnCondition(columnIndex, condition);
+
+		if (condition === 'null' || condition === '!null') {
+			column.search(['__op__']);
+			updateFilterIcon(columnIndex, true, column);
+			table.draw();
+			return;
+		}
+
+		const typeLower = columnType.toLowerCase();
+
+		switch (typeLower) {
 			case 'string':
-				const stringValue = $popup.find('.filter-input').val()?.trim() || '';
-				if (stringValue) {
-					column.search([stringValue]);
-				} else {
-					column.search([]);
+			case 'long':
+			case 'int':
+			case 'decimal':
+			case 'autonumber':
+				{
+					const stringValue = $popup.find('.filter-input').val()?.trim() || '';
+					column.search(stringValue ? [stringValue] : []);
 				}
 				break;
 
 			case 'date':
-			case 'shamsidate':
-			case 'dateshamsi':
-				const fromDate = $popup.find('.filter-date-from').val()?.trim() || '';
-				const toDate = $popup.find('.filter-date-to').val()?.trim() || '';
-				const dateValues = [];
-				if (fromDate) {
-					try {
-						const fromInput = $popup.find('.filter-date-from')[0];
-						if (fromInput) {
-							let date;
-							if (fromInput.model && fromInput.model.selected) {
-								date = new Date(fromInput.model.selected);
-							} else {
-								// Try parsing the value directly
-								date = new Date(MJUtil.shamsiToMiladi(fromDate));
-							}
-							if (!isNaN(date.getTime())) {
-								dateValues.push(`from ${moment(date).format('yyyy-MM-DD HH:mm:ss')}`);
-							}
+				{
+					const dateVal = $popup.find('.filter-date-input').val()?.trim() || '';
+					const dateValues = [];
+					if (dateVal) {
+						const parsed = parseMiladiDateFromPopup($popup.find('.filter-date-input'), dateVal);
+						if (parsed) {
+							if (condition === '<') dateValues.push(`to ${parsed}`);
+							else if (condition === '>') dateValues.push(`from ${parsed}`);
+							else dateValues.push(parsed);
 						}
-					} catch (e) {
-						console.warn('Error parsing from date:', e);
 					}
+					column.search(dateValues);
 				}
-				if (toDate) {
-					try {
-						const toInput = $popup.find('.filter-date-to')[0];
-						if (toInput) {
-							let date;
-							if (toInput.model && toInput.model.selected) {
-								date = new Date(toInput.model.selected);
-							} else {
-								// Try parsing the value directly
-								date = new Date(MJUtil.shamsiToMiladi(toDate));
-							}
-							if (!isNaN(date.getTime())) {
-								dateValues.push(`to ${moment(date).format('yyyy-MM-DD HH:mm:ss')}`);
-							}
-						}
-					} catch (e) {
-						console.warn('Error parsing to date:', e);
-					}
-				}
-				column.search(dateValues);
 				break;
 
 			case 'datetime':
+				{
+					const dateTimeVal = $popup.find('.filter-datetime-input').val()?.trim() || '';
+					const datetimeValues = [];
+					if (dateTimeVal) {
+						const parsed = parseMiladiDateFromPopup($popup.find('.filter-datetime-input'), dateTimeVal);
+						if (parsed) {
+							if (condition === '<') datetimeValues.push(`to ${parsed}`);
+							else if (condition === '>') datetimeValues.push(`from ${parsed}`);
+							else datetimeValues.push(parsed);
+						}
+					}
+					column.search(datetimeValues);
+				}
+				break;
+
+			case 'shamsidate':
+			case 'dateshamsi':
+				{
+					const dateShamsi = $popup.find('.filter-date-input').val()?.trim() || '';
+					const dateValuesShamsi = [];
+					if (dateShamsi) {
+						const normalized = MJUtil.toEnglishNumbers(dateShamsi);
+						if (condition === '<') dateValuesShamsi.push(`to ${normalized}`);
+						else if (condition === '>') dateValuesShamsi.push(`from ${normalized}`);
+						else dateValuesShamsi.push(normalized);
+					}
+					column.search(dateValuesShamsi);
+				}
+				break;
+
 			case 'datetimeshamsi':
 			case 'shamsidatetime':
-				const fromDateTime = $popup.find('.filter-datetime-from').val()?.trim() || '';
-				const toDateTime = $popup.find('.filter-datetime-to').val()?.trim() || '';
-				const datetimeValues = [];
-				if (fromDateTime) {
-					try {
-						const fromInput = $popup.find('.filter-datetime-from')[0];
-						if (fromInput) {
-							let date;
-							if (fromInput.model && fromInput.model.selected) {
-								date = new Date(fromInput.model.selected);
-							} else {
-								// Try parsing the value directly
-								date = new Date(MJUtil.shamsiToMiladi(fromDateTime));
-							}
-							if (!isNaN(date.getTime())) {
-								datetimeValues.push(`from ${moment(date).format('yyyy-MM-DD HH:mm:ss')}`);
-							}
-						}
-					} catch (e) {
-						console.warn('Error parsing from datetime:', e);
+				{
+					const dateTimeShamsi = $popup.find('.filter-datetime-input').val()?.trim() || '';
+					const datetimeshamsiValues = [];
+					if (dateTimeShamsi) {
+						const normalized = MJUtil.toEnglishNumbers(dateTimeShamsi);
+						if (condition === '<') datetimeshamsiValues.push(`to ${normalized}`);
+						else if (condition === '>') datetimeshamsiValues.push(`from ${normalized}`);
+						else datetimeshamsiValues.push(normalized);
 					}
+					column.search(datetimeshamsiValues);
 				}
-				if (toDateTime) {
-					try {
-						const toInput = $popup.find('.filter-datetime-to')[0];
-						if (toInput) {
-							let date;
-							if (toInput.model && toInput.model.selected) {
-								date = new Date(toInput.model.selected);
-							} else {
-								// Try parsing the value directly
-								date = new Date(MJUtil.shamsiToMiladi(toDateTime));
-							}
-							if (!isNaN(date.getTime())) {
-								datetimeValues.push(`to ${moment(date).format('yyyy-MM-DD HH:mm:ss')}`);
-							}
-						}
-					} catch (e) {
-						console.warn('Error parsing to datetime:', e);
-					}
-				}
-				column.search(datetimeValues);
 				break;
 
 			case 'select':
-				const selectValue = $popup.find('.filter-select').val();
-				if (selectValue && selectValue !== 'null') {
-					column.search([selectValue]);
-				} else {
-					column.search([]);
+			case 'entity':
+				{
+					const selectValue = $popup.find('.filter-select').val();
+					column.search(selectValue && selectValue !== 'null' ? [selectValue] : []);
 				}
 				break;
 
 			case 'boolean':
 			case 'bool':
-				const booleanSelectValue = $popup.find('.filter-boolean').val();
-				if (booleanSelectValue && booleanSelectValue !== 'null') {
-					// Convert 'true'/'false' to 1/0 for server
-					const boolValue = (booleanSelectValue === 'true') ? '1' : '0';
-					column.search([boolValue]);
-				} else {
-					column.search([]);
+				{
+					const booleanSelectValue = $popup.find('.filter-boolean').val();
+					if (booleanSelectValue && booleanSelectValue !== 'null') {
+						column.search([(booleanSelectValue === 'true') ? '1' : '0']);
+					} else {
+						column.search([]);
+					}
 				}
 				break;
 
 			default:
-				const defaultValue = $popup.find('.filter-input').val()?.trim() || '';
-				if (defaultValue) {
-					column.search([defaultValue]);
-				} else {
-					column.search([]);
+				{
+					const defaultValue = $popup.find('.filter-input').val()?.trim() || '';
+					column.search(defaultValue ? [defaultValue] : []);
 				}
 		}
 
@@ -4299,20 +5013,31 @@ function _initColumnFilterIcons(api, columns) {
 
 	/**
 	 * Clears filter for column
+	 * @param {number} columnIndex
+	 * @param {Object} column
+	 * @param {{ skipDraw?: boolean }} [options]
 	 */
-	function clearColumnFilter(columnIndex, column) {
-		// Mark this column as being cleared
+	function clearColumnFilter(columnIndex, column, options = {}) {
+		const skipDraw = options.skipDraw === true;
 		columnsBeingCleared.add(columnIndex);
+		setColumnCondition(columnIndex, 'none');
+		const columnType = columns[columnIndex]?.type || 'string';
+		const defaultCondition = getDefaultFilterCondition(columnType);
 
-		// Clear popup inputs first
 		const $popup = $(`.filter-popup[data-column-index="${columnIndex}"]`);
 		if ($popup.length) {
 			$popup.find('input').val('');
 			$popup.find('select').val('null');
 			$popup.find('.filter-boolean').val('null');
+			$popup.find('.filter-operator-btn')
+				.attr('data-condition', defaultCondition)
+				.find('.filter-operator-label')
+				.text(getFilterOperatorLabel(columnType, defaultCondition));
+			$popup.find('.filter-operator-item').removeClass('active');
+			$popup.find(`.filter-operator-item[data-condition="${defaultCondition}"]`).addClass('active');
+			updateFilterValueInputsVisibility($popup, columnType, defaultCondition);
 
-			// Clear datepicker values if they exist
-			$popup.find('.filter-date-from, .filter-date-to, .filter-datetime-from, .filter-datetime-to').each(function () {
+			$popup.find('.filter-date-input, .filter-datetime-input').each(function () {
 				const $input = $(this);
 				if ($input[0] && $input[0].model) {
 					$input[0].model.selected = null;
@@ -4321,20 +5046,29 @@ function _initColumnFilterIcons(api, columns) {
 			});
 		}
 
-		// Clear the search - use empty array to ensure filter is cleared
+		const $inline = findInlineFilterWrap(columnIndex, column);
+		if ($inline.length) {
+			$inline.attr('data-condition', defaultCondition);
+			$inline.find('.dt-inline-filter-input').each(function () {
+				const $input = $(this);
+				if ($input[0] && $input[0].model) {
+					$input[0].model.selected = null;
+				}
+				$input.val('').prop('disabled', false);
+			});
+			$inline.find('.dt-inline-filter-select').val('null').prop('disabled', false);
+		}
+
 		if (column) {
 			column.search([]);
 		}
 
-		// Force update icon immediately to reflect cleared state
 		updateFilterIcon(columnIndex, false, column);
+		if (!skipDraw) {
+			table.draw();
+		}
 
-		// Draw table - the draw event will verify the icon state
-		table.draw();
-
-		// Remove from cleared set after draw completes and ensure icon stays cleared
 		setTimeout(function () {
-			// Double-check that filter is actually cleared
 			if (column) {
 				const searchValue = column.search();
 				const isActuallyCleared = !searchValue ||
@@ -4345,17 +5079,92 @@ function _initColumnFilterIcons(api, columns) {
 					updateFilterIcon(columnIndex, false, column);
 				}
 			} else {
-				// If column reference is lost, just set to inactive
 				updateFilterIcon(columnIndex, false, column);
 			}
 
-			// Remove from cleared set after a delay to allow draw event to complete
 			setTimeout(function () {
 				columnsBeingCleared.delete(columnIndex);
 			}, 200);
 		}, 150);
 	}
 
+	/** پاک‌کردن همه فیلترهای ستون (inline / popup) با یک بار draw */
+	function clearAllColumnFilters() {
+		closeFilterOperatorMenus();
+		columnFilterPopups.forEach(function (popoverInstance) {
+			if (popoverInstance && popoverInstance._element) {
+				try {
+					if ($(popoverInstance._element).attr('aria-describedby')) {
+						popoverInstance.hide();
+					}
+				} catch (_) { /* ignore */ }
+			}
+		});
+
+		api.columns().every(function () {
+			const columnIndex = this.index();
+			const typeLower = (columns[columnIndex]?.type || '').toLowerCase();
+			if (typeLower === 'button' || typeLower === 'rownumber' || typeLower === 'rowselect') return;
+			clearColumnFilter(columnIndex, this, { skipDraw: true });
+		});
+
+		columnFilterConditions.clear();
+
+		const $container = $(api.table().container());
+		$container.find('.dt-scroll-head .filter-icon, .dt-scroll-head .dt-inline-filter-op, tr.dt-inline-filter-row .dt-inline-filter-op')
+			.removeClass('text-warning')
+			.addClass('text-muted');
+
+		table.draw();
+	}
+
+	api.clearAllColumnFilters = clearAllColumnFilters;
+
+	const instanceNs = '.dtColFilter_' + Math.random().toString(36).slice(2, 9);
+	let currentFilterMode = getTableFilterMode();
+
+	function destroyPopupModeUi() {
+		columnFilterPopups.forEach(function (popoverInstance) {
+			try {
+				if (popoverInstance && popoverInstance._element) {
+					const tipId = $(popoverInstance._element).attr('aria-describedby');
+					if (tipId) destroyPersianDatepickersIn(document.getElementById(tipId));
+				}
+				if (popoverInstance) popoverInstance.dispose();
+			} catch (_) { /* ignore */ }
+		});
+		columnFilterPopups.clear();
+		try {
+			$(api.table().header()).find('.filter-icon').each(function () {
+				const pop = bootstrap.Popover.getInstance(this);
+				if (pop) {
+					const tipId = $(this).attr('aria-describedby');
+					if (tipId) destroyPersianDatepickersIn(document.getElementById(tipId));
+					pop.dispose();
+				}
+				$(this).remove();
+			});
+		} catch (_) { /* ignore */ }
+	}
+
+	function destroyInlineModeUi() {
+		closeFilterOperatorMenus();
+		const $container = $(api.table().container());
+		destroyPersianDatepickersIn($container.find('.dt-inline-filter-wrap, tr.dt-inline-filter-row'));
+		const containerEl = $container[0];
+		if (containerEl && containerEl._dtInlineFilterCapture) {
+			containerEl.removeEventListener('click', containerEl._dtInlineFilterCapture, true);
+			containerEl.removeEventListener('mousedown', containerEl._dtInlineFilterCapture, true);
+			delete containerEl._dtInlineFilterCapture;
+		}
+		$container.off('.dtInlineFilterDelegated');
+		$container.find('.dt-inline-filter-wrap').remove();
+		$container.find('tr.dt-inline-filter-row').remove();
+		$container.find('th.dt-has-inline-filter').removeClass('dt-has-inline-filter');
+		cleanupOrphanProfileDatepickers();
+	}
+
+	function initPopupMode() {
 	api.columns().every(function () {
 		const column = this;
 		const columnIndex = column.index();
@@ -4368,9 +5177,15 @@ function _initColumnFilterIcons(api, columns) {
 
 		 
 		const $header = $(columnHeader);
-		const title = $header.text().trim();
+		if ($header.find('.filter-icon').length) return;
+		const title = $header.clone().children('.dt-inline-filter-wrap, .filter-icon').remove().end().text().trim();
 
-		if (title.length === 0 || columnType.toLowerCase() === 'button') {
+		if (title.length === 0 || columnType.toLowerCase() === 'button' || columnType.toLowerCase() === 'rownumber' || columnType.toLowerCase() === 'rowselect') {
+			return;
+		}
+
+		// فیلتر غیرفعال در تنظیمات نمایه
+		if (columns[columnIndex]?.filterable === false || columns[columnIndex]?.searchable === false) {
 			return;
 		}
 
@@ -4430,136 +5245,78 @@ function _initColumnFilterIcons(api, columns) {
 
 						// Get column type
 						const typeLower = columnType.toLowerCase();
+						const currentCondition = getColumnCondition(columnIndex, columnType);
+						updateFilterValueInputsVisibility($popup, columnType, currentCondition);
 
-						// Initialize date pickers based on type (values are already in HTML)
+						// Prevent popover close when opening operator dropdown
+						$popoverContent.off('click', '.filter-operator-btn').on('click', '.filter-operator-btn', function (e) {
+							e.stopPropagation();
+						});
+
+						// Operator menu selection
+						$popoverContent.off('click', '.filter-operator-item').on('click', '.filter-operator-item', function (e) {
+							e.preventDefault();
+							e.stopPropagation();
+
+							const selected = $(this).attr('data-condition');
+							if (selected === 'none') {
+								clearColumnFilter(columnIndex, column);
+								if (popover) popover.hide();
+								return;
+							}
+
+							$popup.find('.filter-operator-btn')
+								.attr('data-condition', selected)
+								.find('.filter-operator-label')
+								.text(getFilterOperatorLabel(columnType, selected));
+							$popup.find('.filter-operator-item').removeClass('active');
+							$(this).addClass('active');
+							$popup.attr('data-filter-condition', selected);
+							updateFilterValueInputsVisibility($popup, columnType, selected);
+
+							// برای null/!null بلافاصله اعمال شود
+							if (selected === 'null' || selected === '!null') {
+								applyColumnFilter(columnIndex, column, columnType);
+								if (popover) popover.hide();
+							}
+						});
+
+						// Initialize single datepicker (persian-datepicker بازه روی یک input ندارد)
+						const initSingleDatePicker = ($input, withTime) => {
+							if (!$input.length || $input.data('datepicker')) return;
+							const currentVal = $input.val();
+							$input.pDatepicker({
+								format: withTime ? 'YYYY/MM/DD HH:mm:ss' : 'YYYY/MM/DD',
+								autoClose: true,
+								initialValue: false,
+								timePicker: withTime ? { enabled: true } : { enabled: false },
+								onSelect: function () { }
+							});
+							markProfilePersianDatepicker($input);
+							if (currentVal) {
+								try {
+									const miladi = MJUtil.shamsiToMiladi
+										? MJUtil.shamsiToMiladi(currentVal)
+										: currentVal;
+									const date = new Date(miladi);
+									if (!isNaN(date.getTime())) {
+										setTimeout(function () {
+											const picker = $input.data('datepicker');
+											if (picker && typeof picker.setDate === 'function') {
+												picker.setDate(date.getTime());
+											}
+										}, 50);
+									}
+								} catch (e) {
+									console.warn('Error setting date filter value:', e);
+								}
+							}
+						};
+
 						if (typeLower === 'date' || typeLower === 'shamsidate' || typeLower === 'dateshamsi') {
-							const $fromInput = $popup.find('.filter-date-from');
-							const $toInput = $popup.find('.filter-date-to');
-
-							// Initialize from datepicker if not already initialized
-							if ($fromInput.length && !$fromInput.data('pDatepicker')) {
-								// Get value from input (already set in HTML)
-								const fromValue = $fromInput.val();
-
-								$fromInput.pDatepicker({
-									format: 'YYYY/MM/DD',
-									autoClose: true,
-									initialValue: false,
-									onSelect: function () { }
-								});
-
-								// Set date value if exists
-								if (fromValue) {
-									try {
-										const date = new Date(fromValue);
-										if (!isNaN(date.getTime())) {
-											setTimeout(function () {
-												const fromPicker = $fromInput.data('pDatepicker');
-												if (fromPicker && typeof fromPicker.setDate === 'function') {
-													fromPicker.setDate(date.getTime());
-												}
-											}, 50);
-										}
-									} catch (e) {
-										console.warn('Error setting from date:', e);
-									}
-								}
-							}
-
-							// Initialize to datepicker if not already initialized
-							if ($toInput.length && !$toInput.data('pDatepicker')) {
-								// Get value from input (already set in HTML)
-								const toValue = $toInput.val();
-
-								$toInput.pDatepicker({
-									format: 'YYYY/MM/DD',
-									autoClose: true,
-									initialValue: false,
-									onSelect: function () { }
-								});
-
-								// Set date value if exists
-								if (toValue) {
-									try {
-										const date = new Date(toValue);
-										if (!isNaN(date.getTime())) {
-											setTimeout(function () {
-												const toPicker = $toInput.data('pDatepicker');
-												if (toPicker && typeof toPicker.setDate === 'function') {
-													toPicker.setDate(date.getTime());
-												}
-											}, 50);
-										}
-									} catch (e) {
-										console.warn('Error setting to date:', e);
-									}
-								}
-							}
+							initSingleDatePicker($popup.find('.filter-date-input'), false);
 						} else if (typeLower === 'datetime' || typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
-							const $fromInput = $popup.find('.filter-datetime-from');
-							const $toInput = $popup.find('.filter-datetime-to');
-
-							// Initialize from datetime picker if not already initialized
-							if ($fromInput.length && !$fromInput.data('pDatepicker')) {
-								// Get value from input (already set in HTML)
-								const fromValue = $fromInput.val();
-
-								$fromInput.pDatepicker({
-									format: 'YYYY/MM/DD HH:mm:ss',
-									autoClose: true,
-									initialValue: false,
-									timePicker: { enabled: true },
-									onSelect: function () { }
-								});
-
-								// Set datetime value if exists
-								if (fromValue) {
-									try {
-										const date = new Date(fromValue);
-										if (!isNaN(date.getTime())) {
-											setTimeout(function () {
-												const fromPicker = $fromInput.data('pDatepicker');
-												if (fromPicker && typeof fromPicker.setDate === 'function') {
-													fromPicker.setDate(date.getTime());
-												}
-											}, 50);
-										}
-									} catch (e) {
-										console.warn('Error setting from datetime:', e);
-									}
-								}
-							}
-
-							// Initialize to datetime picker if not already initialized
-							if ($toInput.length && !$toInput.data('pDatepicker')) {
-								// Get value from input (already set in HTML)
-								const toValue = $toInput.val();
-
-								$toInput.pDatepicker({
-									format: 'YYYY/MM/DD HH:mm:ss',
-									autoClose: true,
-									initialValue: false,
-									timePicker: { enabled: true },
-									onSelect: function () { }
-								});
-
-								// Set datetime value if exists
-								if (toValue) {
-									try {
-										const date = new Date(toValue);
-										if (!isNaN(date.getTime())) {
-											setTimeout(function () {
-												const toPicker = $toInput.data('pDatepicker');
-												if (toPicker && typeof toPicker.setDate === 'function') {
-													toPicker.setDate(date.getTime());
-												}
-											}, 50);
-										}
-									} catch (e) {
-										console.warn('Error setting to datetime:', e);
-									}
-								}
-							}
+							initSingleDatePicker($popup.find('.filter-datetime-input'), true);
 						}
 
 						// Prevent clicks inside popover from closing it and triggering sort
@@ -4574,7 +5331,7 @@ function _initColumnFilterIcons(api, columns) {
 						});
 
 						// Prevent clicks on datepicker inputs from closing popover
-						$popoverContent.on('click', '.filter-date-from, .filter-date-to, .filter-datetime-from, .filter-datetime-to', function (e) {
+						$popoverContent.on('click', '.filter-date-input, .filter-datetime-input', function (e) {
 							e.stopPropagation();
 						});
 
@@ -4618,10 +5375,16 @@ function _initColumnFilterIcons(api, columns) {
 			return false; // Additional prevention
 		}, true); // Use capture phase
 
-		// Append icon to header
-		$header.append($filterIcon);
-		  
-		$header.wrapInner(`<div style="display: flex;align-content: flex-start;flex-direction: row;justify-content: space-between;"></div>`)
+		// Append icon to header (avoid double-wrap when switching modes)
+		const $existingTitleWrap = $header.children('.dt-header-title-wrap');
+		if ($existingTitleWrap.length) {
+			$existingTitleWrap.append($filterIcon);
+		} else {
+			$header.append($filterIcon);
+			$header.contents().wrapAll(
+				`<div class="dt-header-title-wrap" style="display: flex;align-content: flex-start;flex-direction: row;justify-content: space-between; width:100%;"></div>`
+			);
+		}
 
 		// Initialize popover with proper configuration
 		// Content will be generated dynamically when popover is shown
@@ -4652,6 +5415,317 @@ function _initColumnFilterIcons(api, columns) {
 		// Update filter icon on initial load
 		updateFilterIcon(columnIndex, hasActiveFilter(column), column);
 	});
+	} // end initPopupMode
+
+	function getScrollHeadThead() {
+		const $container = $(api.table().container());
+		const $scrollHead = $container.find('.dt-scroll-head thead');
+		if ($scrollHead.length) return $scrollHead;
+		const header = api.table().header();
+		return header ? $(header).closest('thead') : $();
+	}
+
+	function getTitleHeaderTh(columnIndex) {
+		const $thead = getScrollHeadThead();
+		if ($thead.length) {
+			const $th = $thead.children('tr').not('.dt-inline-filter-row').first()
+				.find(`th[data-dt-column="${columnIndex}"], td[data-dt-column="${columnIndex}"]`).first();
+			if ($th.length) return $th;
+		}
+		const col = api.column(columnIndex);
+		return col.header() ? $(col.header()) : $();
+	}
+
+	/** ردیف جدا برای فیلترها — بدون sort (data-dt-order=disable) */
+	function ensureInlineFilterRow() {
+		const $thead = getScrollHeadThead();
+		if (!$thead.length) return $();
+
+		const $titleRow = $thead.children('tr').not('.dt-inline-filter-row').first();
+		if (!$titleRow.length) return $();
+
+		const titleCols = [];
+		$titleRow.children('th, td').each(function () {
+			titleCols.push(String($(this).attr('data-dt-column') ?? ''));
+		});
+
+		let $filterRow = $thead.children('tr.dt-inline-filter-row');
+		if (!$filterRow.length) {
+			$filterRow = $('<tr class="dt-inline-filter-row" data-dt-order="disable"></tr>');
+			$thead.append($filterRow);
+		}
+
+		const filterCols = [];
+		$filterRow.children('th, td').each(function () {
+			filterCols.push(String($(this).attr('data-dt-column') ?? ''));
+		});
+
+		$filterRow.attr('data-dt-order', 'disable');
+
+		if (titleCols.join('|') === filterCols.join('|') && filterCols.length) {
+			return $filterRow;
+		}
+
+		destroyPersianDatepickersIn($filterRow);
+		$filterRow.empty();
+		titleCols.forEach(function (colIdx) {
+			const $cell = $(`<th rowspan="1" colspan="1" data-dt-column="${colIdx}" data-dt-order="disable"
+				class="dt-orderable-none dt-inline-filter-cell"></th>`);
+			$filterRow.append($cell);
+		});
+
+		return $filterRow;
+	}
+
+	function getFilterRowTh(columnIndex) {
+		const $thead = getScrollHeadThead();
+		return $thead.find(`tr.dt-inline-filter-row th[data-dt-column="${columnIndex}"]`).first();
+	}
+
+	/** حذف فیلترهای کلون‌شده در thead اسکرول‌بادی و تکراری‌ها */
+	function cleanupInlineFilterClones() {
+		const $container = $(api.table().container());
+		$container.find('.dt-scroll-body thead .dt-inline-filter-wrap').remove();
+		$container.find('.dt-scroll-body thead tr.dt-inline-filter-row').remove();
+		$container.find('.dt-scroll-head tr.dt-inline-filter-row th').each(function () {
+			const $wraps = $(this).children('.dt-inline-filter-wrap');
+			if ($wraps.length > 1) {
+				$wraps.slice(1).remove();
+			}
+		});
+		// فیلترهایی که هنوز روی ردیف عنوان مانده‌اند را بردار
+		$container.find('.dt-scroll-head tr').not('.dt-inline-filter-row')
+			.find('> th > .dt-inline-filter-wrap, > td > .dt-inline-filter-wrap').remove();
+	}
+
+	function bindInlineFilterContainerGuards() {
+		const $container = $(api.table().container());
+		const containerEl = $container[0];
+		if (!containerEl) return;
+
+		if (containerEl._dtInlineFilterCapture) {
+			containerEl.removeEventListener('click', containerEl._dtInlineFilterCapture, true);
+			delete containerEl._dtInlineFilterCapture;
+		}
+
+		// فقط دکمه نوع فیلتر را در capture بگیر تا قبل از sort هندل شود
+		const captureOpClick = function (e) {
+			const opBtn = e.target && e.target.closest && e.target.closest('.dt-inline-filter-op');
+			if (!opBtn || !containerEl.contains(opBtn)) return;
+			if (!opBtn.closest('.dt-scroll-head')) return;
+
+			e.preventDefault();
+			e.stopPropagation();
+			e.stopImmediatePropagation();
+
+			const $btn = $(opBtn);
+			const $wrap = $btn.closest('.dt-inline-filter-wrap');
+			const columnIndex = parseInt($wrap.attr('data-column-index'), 10);
+			if (isNaN(columnIndex)) return;
+
+			const column = columnReferences.get(columnIndex) || api.column(columnIndex);
+			const columnType = columns[columnIndex]?.type || 'string';
+			const current = $wrap.attr('data-condition') || getDefaultFilterCondition(columnType);
+
+			showFilterOperatorMenu($btn, columnType, current, function (selected) {
+				if (selected === 'none') {
+					clearColumnFilter(columnIndex, column);
+					syncInlineFilterUi(columnIndex, column, columnType);
+					$wrap.attr('data-condition', getDefaultFilterCondition(columnType));
+					return;
+				}
+				$wrap.attr('data-condition', selected);
+				setColumnCondition(columnIndex, selected);
+				syncInlineFilterUi(columnIndex, column, columnType);
+				if (selected === 'null' || selected === '!null') {
+					applyInlineColumnFilter(columnIndex, column, columnType);
+				} else {
+					const hasVal = ($wrap.find('.dt-inline-filter-input').val() || '').trim()
+						|| ($wrap.find('.dt-inline-filter-select').val() || 'null') !== 'null';
+					if (hasVal) {
+						applyInlineColumnFilter(columnIndex, column, columnType);
+					}
+				}
+			});
+		};
+		containerEl._dtInlineFilterCapture = captureOpClick;
+		containerEl.addEventListener('click', captureOpClick, true);
+
+		$container.off('.dtInlineFilterDelegated');
+
+		// select بلافاصله اعمال می‌شود؛ input فقط با Enter
+		$container.on('change.dtInlineFilterDelegated', '.dt-scroll-head .dt-inline-filter-select', function () {
+			const $wrap = $(this).closest('.dt-inline-filter-wrap');
+			const columnIndex = parseInt($wrap.attr('data-column-index'), 10);
+			if (isNaN(columnIndex)) return;
+			const column = columnReferences.get(columnIndex) || api.column(columnIndex);
+			const columnType = columns[columnIndex]?.type || 'string';
+			applyInlineColumnFilter(columnIndex, column, columnType);
+		});
+
+		$container.on('keydown.dtInlineFilterDelegated', '.dt-scroll-head .dt-inline-filter-input', function (e) {
+			if (e.key !== 'Enter') return;
+			e.preventDefault();
+			e.stopPropagation();
+			const $wrap = $(this).closest('.dt-inline-filter-wrap');
+			const columnIndex = parseInt($wrap.attr('data-column-index'), 10);
+			if (isNaN(columnIndex)) return;
+			const column = columnReferences.get(columnIndex) || api.column(columnIndex);
+			const columnType = columns[columnIndex]?.type || 'string';
+			applyInlineColumnFilter(columnIndex, column, columnType);
+		});
+	}
+
+	function initInlineMode() {
+		cleanupInlineFilterClones();
+		const $filterRow = ensureInlineFilterRow();
+		if (!$filterRow.length) return;
+
+		bindInlineFilterContainerGuards();
+
+		api.columns().every(function () {
+			const column = this;
+			const columnIndex = column.index();
+			const columnType = columns[columnIndex]?.type || 'string';
+			const typeLower = columnType.toLowerCase();
+
+			if (!column.visible()) return;
+
+			const $filterTh = getFilterRowTh(columnIndex);
+			if (!$filterTh.length) return;
+
+			const $titleTh = getTitleHeaderTh(columnIndex);
+			const title = $titleTh.length
+				? $titleTh.clone().children('.dt-inline-filter-wrap, .filter-icon, .dt-colmanager-handle, .dt-scroll-sizing').remove().end().text().trim()
+				: '';
+			if (title.length === 0 || typeLower === 'button' || typeLower === 'rownumber' || typeLower === 'rowselect') {
+				destroyPersianDatepickersIn($filterTh);
+				$filterTh.empty();
+				return;
+			}
+
+			// فیلتر غیرفعال در تنظیمات نمایه
+			if (columns[columnIndex]?.filterable === false || columns[columnIndex]?.searchable === false) {
+				destroyPersianDatepickersIn($filterTh);
+				$filterTh.empty();
+				return;
+			}
+
+			if ($filterTh.find('.dt-inline-filter-wrap').length) return;
+
+			columnReferences.set(columnIndex, column);
+
+			const condition = getColumnCondition(columnIndex, columnType);
+			const needsValue = filterConditionNeedsValue(condition);
+			const displayValue = getCurrentSearchDisplayValue(column, columnType);
+			const active = hasActiveFilter(column);
+			const columnData = columns[columnIndex] || {};
+
+			let valueControlHtml = '';
+			if (typeLower === 'select' || typeLower === 'entity') {
+				const options = columnData.options || [];
+				const optionsHtml = options.map(opt => {
+					const value = String(opt.value ?? '');
+					const name = String(opt.name ?? '');
+					const selected = value === displayValue ? 'selected' : '';
+					return `<option value="${value.replace(/"/g, '&quot;')}" ${selected}>${name}</option>`;
+				}).join('');
+				valueControlHtml = `
+					<select class="form-control form-control-sm dt-inline-filter-select" ${needsValue ? '' : 'disabled'}>
+						<option value="null">...</option>
+						${optionsHtml}
+					</select>`;
+			} else if (typeLower === 'boolean' || typeLower === 'bool') {
+				const boolDisp = displayValue === '1' || displayValue === 'true' ? 'true'
+					: (displayValue === '0' || displayValue === 'false' ? 'false' : 'null');
+				valueControlHtml = `
+					<select class="form-control form-control-sm dt-inline-filter-select" ${needsValue ? '' : 'disabled'}>
+						<option value="null" ${boolDisp === 'null' ? 'selected' : ''}>...</option>
+						<option value="true" ${boolDisp === 'true' ? 'selected' : ''}>بله</option>
+						<option value="false" ${boolDisp === 'false' ? 'selected' : ''}>خیر</option>
+					</select>`;
+			} else {
+				const isDate = typeLower.includes('date');
+				valueControlHtml = `
+					<input type="text" class="form-control form-control-sm dt-inline-filter-input"
+						   placeholder="${isDate ? 'تاریخ' : ''}"
+						   value="${(displayValue || '').replace(/"/g, '&quot;')}"
+						   ${needsValue ? '' : 'disabled'} />`;
+			}
+
+			const $wrap = $(`
+				<div class="dt-inline-filter-wrap" data-column-index="${columnIndex}" data-condition="${condition}">
+					<button type="button" class="btn btn-sm btn-light border dt-inline-filter-op ${active ? 'text-warning' : 'text-muted'}"
+							title="نوع فیلتر">
+						<i class="fa-light fa-filter"></i>
+					</button>
+					<div class="dt-inline-filter-values">
+						${valueControlHtml}
+					</div>
+				</div>
+			`);
+
+			destroyPersianDatepickersIn($filterTh);
+			$filterTh.empty().append($wrap);
+			$titleTh.removeClass('dt-has-inline-filter');
+
+			// datepicker تکی برای ستون‌های تاریخ — اعمال فقط با Enter
+			if (typeLower.includes('date')) {
+				const $dateInput = $wrap.find('.dt-inline-filter-input');
+				if ($dateInput.length && !$dateInput.data('datepicker') && typeof $dateInput.pDatepicker === 'function') {
+					const withTime = typeLower.includes('datetime');
+					$dateInput.pDatepicker({
+						format: withTime ? 'YYYY/MM/DD HH:mm:ss' : 'YYYY/MM/DD',
+						autoClose: true,
+						initialValue: false,
+						timePicker: withTime ? { enabled: true } : { enabled: false }
+					});
+					markProfilePersianDatepicker($dateInput);
+				}
+			}
+
+			updateFilterIcon(columnIndex, active, column);
+		});
+
+		cleanupInlineFilterClones();
+
+		api.off('columns-reordered.dtInlineFilter column-sizing.dtInlineFilter draw.dtInlineFilter order.dtInlineFilter');
+		api.on('draw.dtInlineFilter order.dtInlineFilter', function () {
+			cleanupInlineFilterClones();
+		});
+		api.on('columns-reordered.dtInlineFilter column-sizing.dtInlineFilter', function () {
+			requestAnimationFrame(function () {
+				initInlineMode();
+			});
+		});
+	} // end initInlineMode
+
+	function applyFilterMode(mode) {
+		const next = mode === 'popup' ? 'popup' : 'inline';
+		destroyPopupModeUi();
+		destroyInlineModeUi();
+		api.off('columns-reordered.dtInlineFilter column-sizing.dtInlineFilter draw.dtInlineFilter order.dtInlineFilter');
+		currentFilterMode = next;
+		if (next === 'popup') {
+			initPopupMode();
+		} else {
+			initInlineMode();
+		}
+	}
+
+	applyFilterMode(currentFilterMode);
+
+	$(document).on('site:tableFilterModeChanged' + instanceNs, function (_e, mode) {
+		applyFilterMode(mode || getTableFilterMode());
+	});
+
+	api.on('destroy.dt' + instanceNs, function () {
+		$(document).off('site:tableFilterModeChanged' + instanceNs);
+		destroyProfilePersianDatepickers(api, searchBuilderCollapseId);
+		destroyPopupModeUi();
+		destroyInlineModeUi();
+		closeFilterOperatorMenus();
+	});
 }
 
 /**
@@ -4664,6 +5738,7 @@ function _processRows(rows, columns) {
 	return rows.map(row => {
 		const processed = { ...row };
 		columns.forEach(col => {
+			if (!col.data || col.type === 'rowNumber') return;
 			const val = processed[col.data];
 			switch ((col.sType || '').toLowerCase()) {
 				case 'boolean':
@@ -4673,7 +5748,7 @@ function _processRows(rows, columns) {
 				case 'select':
 					if (col.options?.length > 0) {
 						processed[col.name || col.data] =
-							col.options.find(o => o.value === val)?.name ?? val;
+							col.options.find(o => o.value === val)?.name ?? "";
 					}
 					break;
 				case 'datetime':
@@ -4682,6 +5757,16 @@ function _processRows(rows, columns) {
 							const d = new Date(val);
 							if (!isNaN(d.getTime())) {
 								processed[col.data] = d.toISOString().replace('T', ' ').split('.')[0];
+							}
+						} catch (_) { }
+					}
+					break;
+				case 'date':
+					if (val) {
+						try {
+							const d = new Date(val);
+							if (!isNaN(d.getTime())) {
+								processed[col.data] = d.toISOString().split('T')[0];
 							}
 						} catch (_) { }
 					}
@@ -5139,54 +6224,71 @@ function isFileTypeAllowed(fileName, allowedTypes) {
 }
 
 
-
 post = function (url, data, callback) {
-
-	$.ajax({
-		url: url,
-		type: "POST",
-		data: JSON.stringify(data),
-		contentType: 'application/json',
-		crossDomain: true,
-		xhrFields: {
-			withCredentials: true
-		},
-		success: function (response) {
-			if (response.isSuccess === undefined)
-				response.isSuccess = true;
-
-			callback(response)
-		},
-		error: function (xhr) {
-			if (xhr.responseJSON)
-				return callback(xhr.responseJSON)
-			let errorModel = {
-				message: `خطا با کد ${xhr.status} ${xhr?.responseText}`,
-				isSuccess: false
+	const promise = new Promise((resolve, reject) => {
+		$.ajax({
+			url: url,
+			type: "POST",
+			data: JSON.stringify(data),
+			contentType: 'application/json',
+			crossDomain: true,
+			xhrFields: {
+				withCredentials: true
+			},
+			success: function (response) {
+				if (response.isSuccess === undefined)
+					response.isSuccess = true;
+				resolve(response);
+			},
+			error: function (xhr) {
+				if (xhr.responseJSON)
+					return resolve(xhr.responseJSON);
+				resolve({
+					message: `خطا با کد ${xhr.status} ${xhr?.responseText}`,
+					isSuccess: false
+				});
 			}
-
-			callback(errorModel)
-		}
+		});
 	});
 
+	if (typeof callback === 'function') {
+		promise.then(callback);
+		return;
+	}
+
+	return promise;
 }
 
 get = function (url, callback) {
-	$.ajax({
-		url: url,
-		type: "GET",
-		contentType: 'application/json',
-		crossDomain: true,
-		xhrFields: {
-			withCredentials: true
-		},
-		success: function (response) {
-			callback(response)
-		},
-		error: function (xhr) {
-			callback(xhr.responseJSON)
-		}
+	const promise = new Promise((resolve) => {
+		$.ajax({
+			url: url,
+			type: "GET",
+			contentType: 'application/json',
+			crossDomain: true,
+			xhrFields: {
+				withCredentials: true
+			},
+			success: function (response) {
+				resolve(response);
+			},
+			error: function (xhr) {
+				if (xhr.responseJSON)
+					return resolve(xhr.responseJSON);
+				resolve({
+					message: `خطا با کد ${xhr.status} ${xhr?.responseText}`,
+					isSuccess: false
+				});
+			}
+		});
 	});
+
+	if (typeof callback === 'function') {
+		promise.then(callback);
+		return;
+	}
+
+	return promise;
 }
 
 
@@ -5485,7 +6587,7 @@ var MJUtil = function () {
 			gm = gm < 10 ? "0" + gm : gm;
 			gd = gd < 10 ? "0" + gd : gd;
 
-			if (timeSplit.length > 1) {
+			if (timeSplit.length > 1 && timeSplit[1].trim().length > 0) {
 				return `${gy}/${gm}/${gd} ${MJUtil.toEnglishNumbers(timeSplit[1])}`;
 			}
 
@@ -5507,7 +6609,27 @@ var MJUtil = function () {
 
 			return  "0:00";
 		
+		},
+	    formatMoney(value) {
+		// بررسی مقدار ورودی
+		if (value === null || value === undefined || isNaN(value)) {
+			return "0";
 		}
+
+		// تبدیل به عدد
+		let num = typeof value === 'number' ? value : parseFloat(value);
+
+		// جدا کردن قسمت صحیح و اعشار
+		let parts = num.toString().split('.');
+		let integerPart = parts[0];
+		let decimalPart = parts[1] ? '.' + parts[1] : '';
+
+		// فرمت کردن قسمت صحیح (اضافه کردن کاما بین هر ۳ رقم)
+		let formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+		// برگرداندن عدد فرمت شده
+		return formattedInteger + decimalPart;
+	}
 
 	}
 }()
@@ -5975,11 +7097,18 @@ $.fn.dataBind = function (model) {
             else if ($el.is('span') || $el.is("label")) {
                 $el.text(value);
             }
-            else {
+		  else {
 			  $el.val(value).change();
-
-			  if ($el.is("input") && $el.attr("data-persiondatepicker") != undefined) {
+			  if ($el.is("input") && $el.attr("persion-datetimepicker") != undefined) {
 				  let optionsDataPicker = JSON.parse($el.attr("persion-datetimepicker"))
+				  if (value && value.length > 0) {
+					  if (key.toLowerCase().includes("shamsi")) {
+						  var miladi = MJUtil.shamsiToMiladi(value);
+						  $el.val(miladi).change();
+					  }
+					  optionsDataPicker.initialValue = true
+				  }
+	
 				  $el.persianDatepicker(optionsDataPicker)
 			  }
             }
@@ -6032,10 +7161,15 @@ $.fn.dataBind = function (model) {
             let v = extractValue($(this));
             result[path] = v;
 			 
-			if ($(this).is("input") && $(this).attr("data-persiondatepicker") != undefined) {
-				result[path.toLowerCase().replace("shamsi", "miladi")] = MJUtil.shamsiToMiladi(v);
-				result[path] = MJUtil.toEnglishNumbers(v)
-			}
+		   if ($(this).is("input") && $(this).attr("data-persiondatepicker") != undefined) {
+			   if (path.toLowerCase().includes("shamsi")) {
+				   result[path.toLowerCase().replace("shamsi", "miladi")] = MJUtil.shamsiToMiladi(v);
+			   }
+		   }
+		   if (typeof v == "string") {
+			   result[path] = MJUtil.toEnglishNumbers(v)
+		   }
+		   
             return;
         }
 
@@ -6073,8 +7207,9 @@ $.fn.dataBind = function (model) {
                 // Persian date support
                 if (el && el.attr("data-persionDatePicker")) {
 					 
-                    obj[p] = val;
-                    obj[p.replace("shamsi", "miladi")] = MJUtil.shamsiToMiladi(val);
+				 obj[p] = val;
+				 if (path.toLowerCase().includes("shamsi"))
+					 obj[p.replace("shamsi", "miladi")] = MJUtil.shamsiToMiladi(val);
                 } else {
                     obj[p] = val;
                 }
@@ -6324,19 +7459,31 @@ function isSameOrigin(url) {
 // ==========================
 class AppController {
 	constructor($pagesContainer, $tabsContainer, $loader, firstPageAddress) {
-		this.pages = [];
-		this.activePage = null;
+
+		 
 		this.$pagesContainer = $pagesContainer;
 		this.$tabsContainer = $tabsContainer;
 		this.$loader = $loader;
+
+		var dashbord = new Page("dashbord", $("#dashbordContent"), $("#dashbordTab"));
+
+		this.pages = [dashbord];
+		this.activePage = dashbord;
+
+		$("#dashbordTab").on("click", () => this.setActivePage(dashbord));
+		 
 
 		// In-app tab activation history management
 		this.activationHistory = [];
 		this.historyPointer = -1;
 
+
 		this.initPopState();
-		if (window.location.pathname !== '/')
-		 this.addPage(firstPageAddress);
+		if (window.location.pathname !== '/' && window.location.pathname !== "/dashbord")
+			this.addPage(firstPageAddress);
+		else {
+			this.setActivePage(dashbord, true);
+		}
 	}
 
 	initPopState() {
@@ -6400,6 +7547,138 @@ class AppController {
 		try { } catch (err) { }
 	}
 
+	decodePartialResponse(resp) {
+		function tryDecodeV1(r) {
+			if (!r || r.v !== 1 || !r.p || r.q === undefined) return null;
+			try {
+				const salt = [13, 71, 99, 201, 54, 11, 222, 39];
+				const key = (r.q ^ 0xA5) & 0xFF;
+				const raw = window.atob(r.p);
+				const bytes = new Uint8Array(raw.length);
+				for (let i = 0; i < raw.length; i++) {
+					const ob = raw.charCodeAt(i);
+					bytes[i] = (ob ^ key) ^ salt[i % salt.length];
+				}
+				let utf8str;
+				if (window.TextDecoder) {
+					utf8str = new TextDecoder("utf-8").decode(bytes);
+				} else {
+					let tmp = "";
+					const chunkSize = 8192;
+					for (let i = 0; i < bytes.length; i += chunkSize) {
+						tmp += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+					}
+					utf8str = decodeURIComponent(escape(tmp));
+				}
+				const payload = JSON.parse(utf8str);
+				return {
+					html: payload?.h || "",
+					scripts: payload?.s || [],
+					title: payload?.p?.t || "تب جدید"
+				};
+			} catch (err) {
+				console.warn("Failed to decode obfuscated payload", err);
+				return null;
+			}
+		}
+
+		function tryDecodeLegacy(r) {
+			const isBase64 = r?.isBase64 === true;
+			const decodePayload = function (val) {
+				if (!isBase64 || typeof val !== "string") return val;
+				try {
+					return decodeURIComponent(escape(window.atob(val)));
+				} catch (err) {
+					try { return window.atob(val); } catch (e) { return val; }
+				}
+			};
+			return {
+				html: decodePayload(r?.html) || r?.html || "",
+				scripts: Array.isArray(r?.scripts) ? r.scripts.map(decodePayload) : (r?.scripts || []),
+				title: r?.pageInfo?.title || "تب جدید"
+			};
+		}
+
+		return tryDecodeV1(resp) || tryDecodeLegacy(resp) || { html: "", scripts: [], title: "تب جدید" };
+	}
+
+	getDashboardLoadingHtml() {
+		return `<div class="d-flex flex-column align-items-center justify-content-center py-15" id="dashbordLoadingIndicator">
+			<div class="spinner-border text-primary" role="status">
+				<span class="visually-hidden">در حال بارگذاری...</span>
+			</div>
+			<span class="text-muted mt-4">در حال بارگذاری داشبورد...</span>
+		</div>`;
+	}
+
+	loadDashboardContent(url, type) {
+		const $area = $("#dashbordRenderArea");
+		if (!$area.length) return;
+
+		if (!url || url === "0") {
+			$area.empty();
+			return;
+		}
+
+		$area.html(this.getDashboardLoadingHtml());
+
+		if (type === "stimulsoft") {
+			const $iframe = $(`<iframe src="${url}" style="width:100%;min-height:1125px;border:none;display:none;"></iframe>`);
+			$area.append($iframe);
+			$iframe.on("load", function () {
+				$area.find("#dashbordLoadingIndicator").remove();
+				$iframe.show();
+			});
+			return;
+		}
+
+		const address = String(url).toLowerCase();
+		const page = new Page(address, $area, $());
+
+		$.ajax({
+			url: address,
+			type: "GET",
+			contentType: "application/json",
+			crossDomain: true,
+			xhrFields: {
+				withCredentials: true
+			},
+			headers: { "X-Requested-With": "XMLHttpRequest", "X-Partial-Request": "true" },
+			success: (r) => {
+				const decoded = this.decodePartialResponse(r);
+				$area.html(decoded.html);
+				page.script = decoded.scripts;
+				page.title = decoded.title === "-" ? "داشبورد" : (decoded.title || "داشبورد");
+
+				const formActionButtonsApi = this.initFormActionButtons($area, page);
+				if (formActionButtonsApi) {
+					page.self.FormActionButtons = formActionButtonsApi;
+				}
+				const tabItemManagersApi = this.initTabItemManager($area, page);
+				if (tabItemManagersApi) {
+					page.self.TabItemManagers = tabItemManagersApi;
+				}
+
+				const hasDataTable = $area.find("[data-action='dataProfile']").length > 0;
+				if (hasDataTable) {
+					this.initDataTableAndWait($area, page).then((tableApi) => {
+						if (tableApi) {
+							page.self.table = tableApi;
+						}
+					}).catch((err) => {
+						console.warn("Error initializing dashboard table:", err);
+					});
+				}
+
+				page.execScripts();
+				this.initPage($area);
+			},
+			error: (xhr) => {
+				$area.html(`<h4>خطا در بارگذاری داشبورد ${xhr.status}</h4>`);
+			}
+		});
+	}
+
 	addPage(address, pushState = true , tabTitle = null) {
 		address = address.toLowerCase();
 		if (address === "#") return;
@@ -6450,63 +7729,7 @@ class AppController {
 			},
 			headers: { "X-Requested-With": "XMLHttpRequest", "X-Partial-Request": "true" },
 			success: function (r) {
- 				function tryDecodeV1(resp) {
-					if (!resp || resp.v !== 1 || !resp.p || resp.q === undefined) return null;
-					try {
-						const salt = [13, 71, 99, 201, 54, 11, 222, 39];
-						const key = (resp.q ^ 0xA5) & 0xFF;
-						const raw = window.atob(resp.p);
-						const bytes = new Uint8Array(raw.length);
-						for (let i = 0; i < raw.length; i++) {
-							const ob = raw.charCodeAt(i);
-							bytes[i] = (ob ^ key) ^ salt[i % salt.length];
-						}
-						// Use TextDecoder to avoid stack overflow on large payloads
-						let utf8str;
-						if (window.TextDecoder) {
-							utf8str = new TextDecoder("utf-8").decode(bytes);
-						} else {
-							// Fallback, chunked to avoid call stack overflow
-							let tmp = "";
-							const chunkSize = 8192;
-							for (let i = 0; i < bytes.length; i += chunkSize) {
-								tmp += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-							}
-							utf8str = decodeURIComponent(escape(tmp));
-						}
-						const payload = JSON.parse(utf8str);
-						return {
-							html: payload?.h || "",
-							scripts: payload?.s || [],
-							title: payload?.p?.t || "تب جدید"
-						};
-					} catch (err) {
-						console.warn("Failed to decode obfuscated payload", err);
-						return null;
-					}
-				}
-
-			 
-				function tryDecodeLegacy(resp) {
-					const isBase64 = resp?.isBase64 === true;
-					const decodePayload = function (val) {
-						if (!isBase64 || typeof val !== "string") return val;
-						try {
-							return decodeURIComponent(escape(window.atob(val)));
-						} catch (err) {
-							try { return window.atob(val); } catch (e) { return val; }
-						}
-					};
-					return {
-						html: decodePayload(resp?.html) || resp?.html || "",
-						scripts: Array.isArray(resp?.scripts) ? resp.scripts.map(decodePayload) : (resp?.scripts || []),
-						title: resp?.pageInfo?.title || "تب جدید"
-					};
-				}
-
-				 
-
-				const decoded = tryDecodeV1(r) || tryDecodeLegacy(r) || { html: "", scripts: [], title: "تب جدید" };
+				const decoded = appController.decodePartialResponse(r);
 				if (tabTitle) {
 
 					$tab.find("span").text(tabTitle);
@@ -9482,6 +10705,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 									</div>`);
 
 
+									destroyPersianDatepickersIn(place);
 									$(place).empty();
 
 
@@ -9521,6 +10745,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 									<div class="col-md-6" date-action="to"></div>
 									</div>`);
 
+									destroyPersianDatepickersIn(place);
 									$(place).empty();
 
 
@@ -9566,12 +10791,12 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 										.append(options.map(c => {
 											return `<option value=${c.value}>${c.name}</option>`
 										}))
-										.appendTo($(place).empty())
+										.appendTo((destroyPersianDatepickersIn(place), $(place).empty()))
 
 									break;
 								default:
 									$('<input type="text" class="form-control" placeholder="جستجو ' + title + '" />')
-										.appendTo($(place).empty())
+										.appendTo((destroyPersianDatepickersIn(place), $(place).empty()))
 
 									break;
 							}
@@ -9669,7 +10894,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 						if (c.options && c.options.length > 0) {
 							json.data.forEach(d => {
 								let v = d[c.data]
-								d[c.name] = c.options.firstOrDefault(z => z.value === v?.toString())?.name ?? v
+								d[c.name] = c.options.firstOrDefault(z => z.value === v?.toString())?.name ?? ''
 							})
 						}
 					}
@@ -9698,7 +10923,7 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 		fixedColumns: true,
 		scrollCollapse: true,
 		scrollX: true,
-		scrollY: '50vh'
+		scrollY: '70vh'
 	});
 
 
@@ -9834,16 +11059,20 @@ function initDataTableProflie(page) {
 				 
 
 				if (currentTable) {
+					try { destroyProfilePersianDatepickers(currentTable); } catch (_) { /* ignore */ }
 					$(currentTable.context[0].nTableWrapper).parent().append(`<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%"></table>`)
 					currentTable.destroy(true);
 					currentTable = undefined;
 				}
 				else {
 					currentTable = page.find('#itemsTable').DataTable();
+					try { destroyProfilePersianDatepickers(currentTable); } catch (_) { /* ignore */ }
 					$(currentTable.context[0].nTableWrapper).parent().append(`<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%"></table>`)
 					currentTable.destroy(true);
 					currentTable = undefined;
 				}
+
+				cleanupOrphanProfileDatepickers();
 
 				var id = $(this).val();
 				if (!id) {
@@ -9887,11 +11116,11 @@ function initDataTableProflie(page) {
 		});
 
 		page.find("[data-action='newDataProfile']").click(function () {
-			let entityNam = page.find("[data-action='dataProfile']").attr("data-entityName");
-			if (!entityNam) {
+			let entityName = page.find("[data-action='dataProfile']").attr("data-entityName");
+			if (!entityName) {
 				return toastr.error(`موجودیت برای ایجاد نمایه داده یافت نشد .`, 'خطا');
 			}
-			appController.addPage("/panel/querydesigner/edit?entityName=" + entityNam);
+			appController.addPage("/panel/querydesigner/edit?entityName=" + entityName);
 		})
 
 		page.find("[data-action='removeDataProfile']").click(function () {
@@ -9925,10 +11154,13 @@ function initDataTableProflie(page) {
 			.change(function () {
 
 				if (currentTable) {
+					try { destroyProfilePersianDatepickers(currentTable); } catch (_) { /* ignore */ }
 					$(currentTable.containers()[0]).parent().append(`<table id="itemsTable" class="table table-row-bordered nowrap table-hover" style="width: 100%"></table>`)
 					currentTable.destroy(true);
 					currentTable = undefined;
 				}
+
+				cleanupOrphanProfileDatepickers();
 
 				var id = $(this).val();
 				if (!id) {
@@ -10449,18 +11681,19 @@ function initItemsForms($el) {
 }
 const initPersionDatePicker = function ($el) {
 	 
-
 	$el.find("[data-persionDatePicker=true]").each((c, i) => {
 		 
 		let objOptionsStr = $(i).attr("data-persionDatePickerOption") ?? $(i).attr("persion-datetimepicker");
 		if (objOptionsStr) {
-
+			 
 			let objOptions = JSON.parse(objOptionsStr);
+
+			if ($(i).val() && $(i).val().length > 0) {
+				objOptions.initialValue = true
+			}
 			$(i).persianDatepicker(objOptions)
 			$(i).attr("data-persionDatePicker", "false");
 		}
-
-
 
 	})
 }
@@ -11131,6 +12364,18 @@ $(document).ready(function () {
 		window.location.pathname + window.location.search
 	);
 
+	$("#selectDashbords").on("change", function () {
+		const $opt = $(this).find("option:selected");
+		const value = $opt.val();
+		if (!value || value === "0") {
+			appController.loadDashboardContent(null, null);
+			return;
+		}
+		const type = $opt.attr("data-type") || "";
+		const url = $opt.attr("data-url") || "";
+		appController.loadDashboardContent(url, type);
+	});
+
 
 	$(document).on("click", "a", function (e) {
 		
@@ -11140,12 +12385,14 @@ $(document).ready(function () {
 		
 		if (!isSameOrigin(href)) return;
 
+		if (!href || href.startsWith("javascript:") || href.startsWith("#") || $a.closest("#pageMenuBuilder").length > 0) return;
+
 		if (href && href.startsWith("/File/download") || href.startsWith("/panel/importData/downloadSample") ) {
 
 			return;
 		}
 		e.preventDefault();
-		if (!href || href.startsWith("javascript:") || href.startsWith("#") || $a.closest("#pageMenuBuilder").length > 0) return;
+		
 
 
 		if (e.ctrlKey || e.metaKey || e.shiftKey || $a.attr("target") === "_blank") return;
@@ -12233,8 +13480,9 @@ var SiteSettings = (function () {
 		fontFamily: 'IRANSansWeb, Tahoma, sans-serif',
 		fontWeight: 400,
 		lineHeight: 1.7,
-		buttonDisplayMode: 'compact' 
-
+		buttonDisplayMode: 'compact',
+		/** حالت فیلتر جداول: 'inline' = ردیف زیر هدر | 'popup' = پاپ‌اور */
+		tableFilterMode: 'inline'
 	};
 
 	function load() {
@@ -12746,6 +13994,7 @@ $(function () {
 			.removeClass('btn-outline-secondary').addClass('active btn-primary');
 
 		loadButtonDisplayUI(s.buttonDisplayMode || 'compact');
+		loadTableFilterModeUI(s.tableFilterMode || 'inline');
 
 		updatePreview(s);
 	}
@@ -12767,6 +14016,15 @@ $(function () {
 			.addClass('border-primary');
 	}
 
+	function loadTableFilterModeUI(mode) {
+		mode = mode || 'inline';
+		$('.table-filter-mode-opt').removeClass('border-primary')
+			.addClass('border-light');
+		$('.table-filter-mode-opt[data-mode="' + mode + '"]')
+			.removeClass('border-light')
+			.addClass('border-primary');
+	}
+
 	// رویداد کلیک روی حالت‌ها
 	$(document).on('click', '.btn-display-opt', function () {
 		var mode = $(this).data('mode');
@@ -12780,6 +14038,12 @@ $(function () {
 		}
 
 		loadButtonDisplayUI(mode);
+	});
+
+	$(document).on('click', '.table-filter-mode-opt', function () {
+		var mode = $(this).data('mode');
+		current.tableFilterMode = mode === 'popup' ? 'popup' : 'inline';
+		loadTableFilterModeUI(current.tableFilterMode);
 	});
 
 	function renderThemeCards() {
@@ -12839,6 +14103,8 @@ $(function () {
 			SiteThemes.save(window._pendingTheme);
 			window._pendingTheme = null;
 		}
+
+		$(document).trigger('site:tableFilterModeChanged', [current.tableFilterMode || 'inline']);
 	 
 		$(this).html('<i class="fa fa-check me-1"></i> ذخیره شد!')
 			.addClass('btn-success').removeClass('btn-primary');
@@ -12852,6 +14118,7 @@ $(function () {
 	$('#btnResetSettings').on('click', function () {
 		current = SiteSettings.reset();
 		loadUI(current);
+		$(document).trigger('site:tableFilterModeChanged', [current.tableFilterMode || 'inline']);
 	});
 
  

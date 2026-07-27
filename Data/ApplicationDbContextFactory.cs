@@ -40,7 +40,7 @@ public class ApplicationDbContextFactory() : IDesignTimeDbContextFactory<Applica
 		var metadataCache = new EntityMetadataCache();
 
 		// ایجاد DbContext بدون dependencies (ISdk null می‌شود)
-		return new ApplicationDbContext(optionsBuilder.Options , metadataCache);
+		return new ApplicationDbContext(optionsBuilder.Options, metadataCache, NullDynamicTypeRegistry.Instance);
     }
 }
 

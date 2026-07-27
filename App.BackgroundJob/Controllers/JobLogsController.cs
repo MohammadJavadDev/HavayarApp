@@ -49,7 +49,10 @@ namespace App.BackgroundJob.Controllers
                         .OrderByDescending(h => h.StartTime)
                         .ToListAsync();
 
-                    return View(histories);
+                    ViewData["Title"] = "تاریخچه زمان‌بندی‌ها";
+                    ViewData["Icon"] = "history";
+                    ViewData["Description"] = "مشاهده و فیلتر تاریخچه اجرای جاب‌ها";
+                    return this.SoftView(histories);
                 }
 
                 // Load all histories with related data for filtering
@@ -59,12 +62,19 @@ namespace App.BackgroundJob.Controllers
                     .OrderByDescending(h => h.StartTime)
                     .ToListAsync();
 
-                return View(allHistories);
+                ViewData["Title"] = "تاریخچه زمان‌بندی‌ها";
+                ViewData["Icon"] = "history";
+                ViewData["Description"] = "مشاهده و فیلتر تاریخچه اجرای جاب‌ها";
+                return this.SoftView(allHistories);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in JobLogs Index action");
-                return View(new List<JobHistory>());
+                ViewBag.Schedules = new List<JobSchedule>();
+                ViewBag.SelectedScheduleId = 0;
+                ViewData["Title"] = "تاریخچه زمان‌بندی‌ها";
+                ViewData["Icon"] = "history";
+                return this.SoftView(new List<JobHistory>());
             }
         }
 
@@ -95,7 +105,12 @@ namespace App.BackgroundJob.Controllers
                 var logs = await _jobLogger.GetLogsByJobHistoryIdAsync(id);
 
                 ViewBag.JobHistory = history;
-                return View(logs);
+                ViewData["Title"] = "جزئیات لاگ";
+                ViewData["Icon"] = "file-alt";
+                ViewData["Description"] = history.JobSchedule?.JobDefinition?.DisplayName ?? $"History #{id}";
+                ViewData["HistoryId"] = history.Id;
+                ViewData["IsRunning"] = !history.EndTime.HasValue;
+                return this.SoftView(logs);
             }
             catch (Exception ex)
             {
@@ -137,7 +152,10 @@ namespace App.BackgroundJob.Controllers
                 var logs = await _jobLogger.GetLogsByJobScheduleIdAsync(scheduleId);
 
                 ViewBag.Schedule = schedule;
-                return View(logs); // Use the dedicated JobLogs view
+                ViewData["Title"] = "لاگ‌های جاب";
+                ViewData["Icon"] = "list";
+                ViewData["Description"] = schedule.JobDefinition?.DisplayName ?? $"Schedule #{scheduleId}";
+                return this.SoftView(logs);
             }
             catch (Exception ex)
             {
@@ -197,13 +215,18 @@ namespace App.BackgroundJob.Controllers
                     .Take(100)
                     .ToListAsync();
 
-                return View("Search", results);
+                ViewData["Title"] = "جستجوی لاگ‌ها";
+                ViewData["Icon"] = "search";
+                ViewData["Description"] = "جستجو در پیام‌ها، جزئیات و استثناها";
+                return this.SoftView("Search", results);
             }
             catch (Exception ex)
             {
                 // Log the error
                 _logger.LogError(ex, "Error in JobLogs Search action");
-                return View("Search", new List<Entities.Base.Job.JobLog>());
+                ViewData["Title"] = "جستجوی لاگ‌ها";
+                ViewData["Icon"] = "search";
+                return this.SoftView("Search", new List<Entities.Base.Job.JobLog>());
             }
         }
     }

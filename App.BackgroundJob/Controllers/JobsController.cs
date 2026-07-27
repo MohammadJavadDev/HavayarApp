@@ -3,6 +3,7 @@ using Entities.Base.Job;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Services.Job;
 using System;
 
 namespace App.BackgroundJob.Controllers
@@ -11,23 +12,51 @@ namespace App.BackgroundJob.Controllers
 	public class JobsController : Controller
 	{
 		private readonly ApplicationDbContext _db;
+		private readonly IJobRealtimeNotifier _realtimeNotifier;
 
-		public JobsController(ApplicationDbContext db)
+		public JobsController(ApplicationDbContext db, IJobRealtimeNotifier realtimeNotifier)
 		{
 			_db = db;
+			_realtimeNotifier = realtimeNotifier;
 		}
 
 		// نمایش لیست جاب‌ها
 		public async Task<IActionResult> Index()
 		{
-			// دریافت همه تعریف‌های جاب
-			var allDefinitions = await _db.JobDefinitions.ToListAsync();
+			var jobs = await BuildJobViewModelsAsync();
 
-			// دریافت همه زمان‌بندی‌های جاب
+			ViewData["Title"] = "مدیریت سرویس‌های پس‌زمینه";
+			ViewData["Icon"] = "cogs";
+			ViewData["Description"] = "فعال‌سازی، زمان‌بندی و اجرای فوری سرویس‌های پس‌زمینه";
+
+			return this.SoftView(jobs);
+		}
+
+		// خلاصه وضعیت‌ها برای sync اولیه / reconnect (بدون polling مداوم)
+		[HttpGet]
+		public async Task<IActionResult> GetStatuses()
+		{
+			var schedules = await _db.JobSchedules
+				.AsNoTracking()
+				.Select(s => new
+				{
+					scheduleId = s.Id,
+					status = s.LastStatus.ToString(),
+					lastRun = s.LastRunTime,
+					nextRun = s.NextRunTime,
+					isActive = s.IsActive
+				})
+				.ToListAsync();
+
+			return Json(schedules);
+		}
+
+		private async Task<List<JobViewModel>> BuildJobViewModelsAsync()
+		{
+			var allDefinitions = await _db.JobDefinitions.ToListAsync();
 			var allSchedules = await _db.JobSchedules.ToListAsync();
 
-			// ایجاد لیست کامل جاب‌ها (حتی آنهایی که زمان‌بندی ندارند)
-			var jobs = allDefinitions.Select(def =>
+			return allDefinitions.Select(def =>
 			{
 				var schedule = allSchedules.FirstOrDefault(s => s.JobId == def.Id);
 
@@ -51,11 +80,6 @@ namespace App.BackgroundJob.Controllers
 					HourlyMinute = schedule?.HourlyMinute ?? 0
 				};
 			}).ToList();
-
-			// Debug information
-			ViewBag.DebugInfo = $"Found {jobs.Count} job definitions. Schedules: {allSchedules.Count}, Definitions: {allDefinitions.Count}";
-
-			return View(jobs);
 		}
 
 		// متد ایجاد زمان‌بندی برای جاب‌های بدون زمان‌بندی
@@ -113,7 +137,16 @@ namespace App.BackgroundJob.Controllers
 			}
 
 			await _db.SaveChangesAsync();
-			return Ok(new { success = true, message = "تنظیمات با موفقیت ذخیره شد." });
+			return Ok(new
+			{
+				success = true,
+				message = "تنظیمات با موفقیت ذخیره شد.",
+				scheduleId = schedule.Id,
+				status = schedule.LastStatus.ToString(),
+				lastRun = schedule.LastRunTime,
+				nextRun = schedule.NextRunTime,
+				isActive = schedule.IsActive
+			});
 		}
 
 		// متد کمکی برای محاسبه زمان اجرای بعدی بر اساس نوع زمان‌بندی
@@ -184,7 +217,22 @@ namespace App.BackgroundJob.Controllers
 			schedule.NextRunTime = DateTime.Now.AddSeconds(5); // اجرا در 5 ثانیه آینده
 			schedule.LastStatus = JobStatus.Waiting;
 			await _db.SaveChangesAsync();
-			return Ok(new { success = true, message = "سرویس با موفقیت برای اجرا فوری برنامه‌ریزی شد." });
+
+			await _realtimeNotifier.NotifyStatusChangedAsync(
+				schedule.Id,
+				schedule.LastStatus.ToString(),
+				schedule.LastRunTime,
+				schedule.NextRunTime);
+
+			return Ok(new
+			{
+				success = true,
+				message = "سرویس با موفقیت برای اجرا فوری برنامه‌ریزی شد.",
+				scheduleId = schedule.Id,
+				status = schedule.LastStatus.ToString(),
+				lastRun = schedule.LastRunTime,
+				nextRun = schedule.NextRunTime
+			});
 		}
 
 		// دریافت تاریخچه لاگ‌ها (AJAX برای Modal)

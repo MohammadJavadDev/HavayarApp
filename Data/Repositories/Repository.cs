@@ -299,22 +299,22 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return await Entities.FindAsync(ids, cancellationToken);
 	}
 
-	public virtual async Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true)
+	public virtual async Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true)
 	{
 		var isNew = entity.Id == 0 || entity.Id == null || !await TableNoTracking.AnyAsync(c => c.Id == entity.Id, cancellationToken);
-
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeSave, cancellationToken);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeSave, cancellationToken);
 
 		entity = isNew
-			? await AddAsync(entity, cancellationToken, saveAudit, saveNow)
-			: await UpdateAsync(entity, cancellationToken, saveAudit, saveNow);
-
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterSave, cancellationToken); 
+			? await AddAsync(entity, cancellationToken, saveAudit, saveNow, InvokeAction)
+			: await UpdateAsync(entity, cancellationToken, saveAudit, saveNow, InvokeAction);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterSave, cancellationToken); 
 		
 		return entity;
 	}
 
-	public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true)
+	public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true , bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
@@ -322,6 +322,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		SetEntityUser(entity, isNew: true);
 		entity.IsActive = IsActiveEnum.Active;
 
+		if(InvokeAction)
 		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeAdd, cancellationToken);
 
 		await Entities.AddAsync(entity, cancellationToken);
@@ -335,7 +336,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 				await _auditService.SaveAuditAsync(entity, null, AuditLogType.Add, cancellationToken);
 			}
 		}
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterAdd, cancellationToken);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterAdd, cancellationToken);
 
 		return entity;
 	}
@@ -355,7 +357,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return entities;
 	}
 
-	public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true)
+	public virtual async Task<TEntity> UpdateAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
@@ -369,7 +371,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		SetEntityUser(entity, isNew: false);
 		PreserveCreationInfo(entity, oldEntity);
 
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeUpdate, cancellationToken);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeUpdate, cancellationToken);
 		Entities.Update(entity);
 
 		if (saveNow)
@@ -381,7 +384,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 				await _auditService.SaveAuditAsync(entity, oldEntity, AuditLogType.Update, cancellationToken);
 			}
 		}
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterUpdate, cancellationToken);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterUpdate, cancellationToken);
 
 		return entity;
 	}
@@ -411,13 +415,14 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return entities;
 	}
 
-	public virtual async Task DeleteAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true)
+	public virtual async Task DeleteAsync(TEntity entity, CancellationToken cancellationToken, bool saveNow = true, bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
 		var entityForAudit = await TableNoTracking.FirstOrDefaultAsync(c => c.Id == entity.Id, cancellationToken);
 
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeDelete, cancellationToken);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeDelete, cancellationToken);
 
 		Entities.Remove(entity);
 
@@ -431,7 +436,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			}
 		}
 
-		await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterDelete, cancellationToken);
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterDelete, cancellationToken);
 	}
 
 	public virtual async Task DeleteRangeAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken, bool saveNow = true)
@@ -582,24 +588,24 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return Entities.Find(ids);
 	}
 
-	public virtual TEntity Save(TEntity entity, bool saveAudit = true, bool saveNow = true)
+	public virtual TEntity Save(TEntity entity, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true)
 	{
 		var isNew = entity.Id == 0 || entity.Id == null || !TableNoTracking.Any(c => c.Id == entity.Id);
 
 		return isNew
-			? Add(entity, saveAudit, saveNow)
-			: Update(entity, saveAudit, saveNow);
+			? Add(entity, saveAudit, saveNow, InvokeAction)
+			: Update(entity, saveAudit, saveNow, InvokeAction);
 	}
 
-	public virtual TEntity Add(TEntity entity, bool saveAudit = true, bool saveNow = true)
+	public virtual TEntity Add(TEntity entity, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
 		SetEntityDates(entity, isNew: true);
 		SetEntityUser(entity, isNew: true);
 		entity.IsActive = IsActiveEnum.Active;
-
-		_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeAdd);
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeAdd);
 
 		Entities.Add(entity);
 
@@ -612,8 +618,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 				_auditService.SaveAuditAsync(entity, null, AuditLogType.Add).GetAwaiter().GetResult();
 			}
 		}
-
-		_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterAdd);
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterAdd);
 
 		return entity;
 	}
@@ -633,7 +639,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return entities;
 	}
 
-	public virtual TEntity Update(TEntity entity, bool saveAudit = true, bool saveNow = true)
+	public virtual TEntity Update(TEntity entity, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
@@ -646,8 +652,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		SetEntityDates(entity, isNew: false);
 		SetEntityUser(entity, isNew: false);
 		PreserveCreationInfo(entity, oldEntity);
-
-		_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeUpdate);
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeUpdate);
 
 		Entities.Update(entity);
 
@@ -660,8 +666,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 				_auditService.SaveAuditAsync(entity, oldEntity, AuditLogType.Update).GetAwaiter().GetResult();
 			}
 		}
-
-		_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterUpdate);
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterUpdate);
 
 		return entity;
 	}
@@ -692,13 +698,13 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		return entities;
 	}
 
-	public virtual void Delete(TEntity entity, bool saveNow = true)
+	public virtual void Delete(TEntity entity, bool saveNow = true, bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
 
 		var entityForAudit = TableNoTracking.FirstOrDefault(c => c.Id == entity.Id);
-
-		_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeDelete);
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeDelete);
 
 		Entities.Remove(entity);
 
@@ -711,8 +717,8 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 				_auditService.SaveAuditAsync(entityForAudit, null, AuditLogType.Delete).GetAwaiter().GetResult();
 			}
 		}
-
-		_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterDelete);
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterDelete);
 	}
 
 	public virtual int ExecuteCommand(string query, object? parameters = null)

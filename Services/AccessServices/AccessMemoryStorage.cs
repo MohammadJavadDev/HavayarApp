@@ -1,4 +1,5 @@
-﻿using Entities.Auth;
+﻿using Common.Utilities;
+using Entities.Auth;
 using Microsoft.Extensions.Caching.Distributed;
 using Services.AccessServices.DTOs;
 using System.Text.Json;
@@ -48,17 +49,25 @@ public class AccessMemoryStorage : IAccessMemoryStorage
             .Select(c=>c.Path).ToList();
     }
 
-    public bool ExistPath(string path)
-    {
-
-		return _accessPaths.Any(c => string.Equals(c, path, StringComparison.OrdinalIgnoreCase));
+	// ExistPath — از pattern matching استفاده می‌کنه
+	public bool ExistPath(string path)
+	{
+		return GetMatchingTemplate(path) != null;
 	}
 
-    public AccessAction? GetAccessAction(string path)
-    {
-  
-        return _accessAction.FirstOrDefault(x => x.Path.ToLower().Equals(path.ToLower()));
-    }
+	// GetMatchingTemplate — مسیر تمپلیت متناظر رو برمی‌گردونه (برای normalization کش)
+	public string? GetMatchingTemplate(string path)
+	{
+		return _accessPaths.FirstOrDefault(
+		    template => RoutePatternHelper.IsMatch(path, template));
+	}
+
+	// GetAccessAction — از pattern matching استفاده می‌کنه
+	public AccessAction? GetAccessAction(string path)
+	{
+		return _accessAction.FirstOrDefault(
+		    x => RoutePatternHelper.IsMatch(path, x.Path));
+	}
 
 	AccessController? IAccessMemoryStorage.GetAccessControllerBy(Type type)
 	{
@@ -67,7 +76,7 @@ public class AccessMemoryStorage : IAccessMemoryStorage
 
 	AccessController? IAccessMemoryStorage.GetAccessControllerBy(string fullName)
 	{
-		return _accessControllers.FirstOrDefault(x => x.EntityType.FullName == fullName);
+		return _accessControllers.FirstOrDefault(x => x.EntityType?.FullName == fullName);
 	}
 
 
@@ -122,29 +131,27 @@ public class AccessMemoryStorage : IAccessMemoryStorage
 		_redis.SetString(_pathsKey, pathsJson, cacheOptions);
 	}
 
+	// ExistPathRedis — از pattern matching استفاده می‌کنه
 	public bool ExistPathRedis(string path)
 	{
 		var json = _redis.GetString(_pathsKey);
-		if (string.IsNullOrEmpty(json))
-			return false;
+		if (string.IsNullOrEmpty(json)) return false;
 
 		var paths = JsonSerializer.Deserialize<List<string>>(json, JsonOptions);
-		return paths?.Any(c => c == path) ?? false;
+		return paths?.Any(template => RoutePatternHelper.IsMatch(path, template)) ?? false;
 	}
 
 	public AccessAction? GetAccessActionRedis(string path)
 	{
 		var json = _redis.GetString(_actionsKey);
-		if (string.IsNullOrEmpty(json))
-			return null;
+		if (string.IsNullOrEmpty(json)) return null;
 
 		var actionDtos = JsonSerializer.Deserialize<List<AccessActionDto>>(json, JsonOptions);
-		var actionDto = actionDtos?.FirstOrDefault(x => x.Path.ToLower().Equals(path.ToLower()));
+		var actionDto = actionDtos?.FirstOrDefault(
+		    x => RoutePatternHelper.IsMatch(path, x.Path));
 
-		if (actionDto == null)
-			return null;
+		if (actionDto == null) return null;
 
-		// تبدیل DTO به entity
 		return new AccessAction
 		{
 			Id = actionDto.Id,

@@ -117,10 +117,21 @@
             </div>
 
           
-            <div class="d-grid" id="divImportBtn" style="opacity:.5;pointer-events:none">
-                <button id="btnImport" class="btn btn-primary btn-lg py-3">
-                    <i class="fas fa-play-circle me-2"></i>شروع ورود اطلاعات
-                </button>
+            <div id="divImportBtn" style="opacity:.5;pointer-events:none">
+                    <div class="form-check mb-3 px-10 py-3 bg-light rounded border">
+                    <input class="form-check-input" type="checkbox" id="chkRollbackOnError" />
+                    <label class="form-check-label fw-semibold" for="chkRollbackOnError">
+                        عدم بارگذاری رکوردها در صورت خطا
+                    </label>
+                    <div class="form-text small text-muted mt-1">
+                        در صورت فعال بودن، با بروز خطا در هر ردیف، کل تغییرات برگشت داده می‌شود و عملیات متوقف می‌گردد.
+                    </div>
+                </div>
+                <div class="d-grid">
+                    <button id="btnImport" class="btn btn-primary btn-lg py-3">
+                        <i class="fas fa-play-circle me-2"></i>شروع ورود اطلاعات
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -198,6 +209,12 @@
                 </div>
 
  
+                <div id="rRollbackAlert" class="alert alert-warning d-none mb-4">
+                    <i class="fas fa-undo me-2"></i>
+                    <strong>عملیات لغو شد:</strong>
+                    به دلیل بروز خطا، تمام تغییرات برگشت داده شد و بارگذاری متوقف گردید.
+                </div>
+
                 <div id="rErrorSection" class="d-none">
                     <h6 class="fw-bold text-danger mb-3">
                         <i class="fas fa-exclamation-triangle me-2"></i>خطاهای رخ داده
@@ -407,6 +424,7 @@
         fd.append('excelFile', selectedFile);
         fd.append('importDefinitionId', defId);
         fd.append('columnMappingJson', JSON.stringify(mapping));
+        fd.append('rollbackOnError', $$('#chkRollbackOnError').is(':checked'));
 
         showLoading(true);
 
@@ -448,6 +466,12 @@
             .removeClass('bg-success bg-warning bg-danger')
             .addClass(successPct === 100 ? 'bg-success'
                      : successPct > 50  ? 'bg-warning' : 'bg-danger');
+
+        if (res.rolledBack) {
+            $$('#rRollbackAlert').removeClass('d-none');
+        } else {
+            $$('#rRollbackAlert').addClass('d-none');
+        }
 
         if (res.failedRows > 0 && res.failedDetails && res.failedDetails.length > 0) {
             $$('#rErrorSection').removeClass('d-none');

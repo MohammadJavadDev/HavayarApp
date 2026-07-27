@@ -7,65 +7,69 @@ namespace Entities.App.Sale.Enums
 {
     public enum ProductionOrderItemProductionStatusEnum
     {
+
+		[Display(Name = "نامشخص")]
+		NotDetermined = 0,
+
 		[Display(Name = "پایان تولید")]
 		ProductionCompleted = 1789,
     
-    [Display(Name = "شروع بازرسی نهایی")]
+          [Display(Name = "شروع بازرسی نهایی")]
 		FinalInspectionStarted = 1790,
     
-    [Display(Name = "پایان بسته بندی")]
-		PackagingCompleted = 1791,
+          [Display(Name = "پایان بسته بندی")]
+	 	PackagingCompleted = 1791,
     
-    [Display(Name = "شروع توقف در مرحله تولید")]
+          [Display(Name = "شروع توقف در مرحله تولید")]
 		ProductionStageStopStarted = 1795,
     
-    [Display(Name = "شروع توقف در مرحله بازرسی نهایی")]
+          [Display(Name = "شروع توقف در مرحله بازرسی نهایی")]
 		FinalInspectionStageStopStarted = 1796,
     
-    [Display(Name = "پایان توقف در مرحله بازرسی نهایی")]
+          [Display(Name = "پایان توقف در مرحله بازرسی نهایی")]
 		FinalInspectionStageStopEnded = 1842,
     
-    [Display(Name = "پایان بازرسی نهایی")]
+          [Display(Name = "پایان بازرسی نهایی")]
 		FinalInspectionCompleted = 1843,
     
-    [Display(Name = "پایان توقف در مرحله تولید")]
+          [Display(Name = "پایان توقف در مرحله تولید")]
 		ProductionStageStopEnded = 1844,
     
-    [Display(Name = "شروع تست تولید")]
+          [Display(Name = "شروع تست تولید")]
 		ProductionTestStarted = 2209,
     
-    [Display(Name = "پایان تست تولید")]
+          [Display(Name = "پایان تست تولید")]
 		ProductionTestCompleted = 2210,
     
-    [Display(Name = "شروع توقف در مرحله تست تولید")]
+          [Display(Name = "شروع توقف در مرحله تست تولید")]
 		ProductionTestStageStopStarted = 2226,
     
-    [Display(Name = "پایان توقف در مرحله تست تولید")]
+          [Display(Name = "پایان توقف در مرحله تست تولید")]
 		ProductionTestStageStopEnded = 2227,
     
-    [Display(Name = "پایان توقف بازدید کارفرما")]
+          [Display(Name = "پایان توقف بازدید کارفرما")]
 		ClientVisitStopEnded = 3166,
     
-    [Display(Name = "شروع توقف به دلیل بازدید کارفرما")]
+          [Display(Name = "شروع توقف به دلیل بازدید کارفرما")]
 		ClientVisitStopStarted = 3167,
     
     // Committee/approval statuses (ExtraData: 254)
-    [Display(Name = "در کارتابل صنایع (داخلی)")]
+          [Display(Name = "در کارتابل صنایع (داخلی)")]
 		InIndustriesInternalInbox = 1904,
     
-    [Display(Name = "در کارتابل صنایع (خارجی)")]
+          [Display(Name = "در کارتابل صنایع (خارجی)")]
 		InIndustriesExternalInbox = 1905,
     
-    [Display(Name = "نیاز به استعلام")]
+          [Display(Name = "نیاز به استعلام")]
 		NeedsInquiry = 1906,
     
-    [Display(Name = "نیاز به بررسی وزارت صنایع")]
+          [Display(Name = "نیاز به بررسی وزارت صنایع")]
 		NeedsMinistryOfIndustriesReview = 1908,
     
-    [Display(Name = "ارسال به رئیس کمیته تامین")]
+          [Display(Name = "ارسال به رئیس کمیته تامین")]
 		SentToProcurementCommitteeHead = 1909,
     
-    [Display(Name = "در انتظار تایید مهندسی (مکانیک)")]
+          [Display(Name = "در انتظار تایید مهندسی (مکانیک)")]
 		AwaitingMechanicalEngineeringApproval = 2195,
     
     [Display(Name = "در انتظار تایید مهندسی (برق)")]

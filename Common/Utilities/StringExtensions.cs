@@ -20,6 +20,10 @@ namespace Common.Utilities
 
         public static long ToLong(this string value)
         {
+               if(!value.HasValue())
+               {
+                    return 0;
+               }
             return Convert.ToInt64(value);
         }
 

@@ -3,685 +3,300 @@
 @model List<JobViewModel>
 
 @{
-     ViewData["Title"] = "مدیریت سرویس‌های پس‌زمینه";
+    ViewData["Title"] = ViewData["Title"] ?? "مدیریت سرویس‌های پس‌زمینه";
+    ViewData["Icon"] = ViewData["Icon"] ?? "cogs";
 }
 
-<div class="container mt-4 card ">
- 
-     
-     <!-- Debug Info - Remove in production -->
-     @if (ViewBag.DebugInfo != null)
-     {
-         <div class="alert alert-secondary small">
-             Debug: @ViewBag.DebugInfo
-         </div>
-     }
-     
-     <style>
-         .scheduling-options {
-             min-width: 250px;
-         }
-         .schedule-config > div {
-             margin-bottom: 8px;
-         }
-         .input-group-sm {
-             font-size: 0.875rem;
-         }
-         
-         .btn-run-now {
-             margin-top: 5px;
-         }
-     </style>
+@await Html.PartialAsync("_PageHeader")
 
-     @if (Model == null || !Model.Any())
-     {
-         <div class="alert alert-warning">
-             <i class="bi bi-exclamation-triangle"></i> هیچ سرویس پس‌زمینه‌ای یافت نشد. لطفاً بررسی کنید که سرویس‌های پس‌زمینه در سیستم ثبت شده باشند.
-         </div>
-     }
-     else
-     {
-         <div class="alert alert-success">
-             <i class="bi bi-check-circle"></i> @Model.Count سرویس پس‌زمینه پیدا شد. می‌توانید تنظیمات زمان‌بندی هر سرویس را به دلخواه تغییر دهید.
-         </div>
-          <div class="card-body ">
+@{
+    var runningCount = Model?.Count(j => j.HasSchedule && j.LastStatus == "Running") ?? 0;
+    var errorCount = Model?.Count(j => j.HasSchedule && (j.LastStatus == "Error" || j.LastStatus == "Failed")) ?? 0;
+    var waitingCount = Model?.Count(j => j.HasSchedule && j.LastStatus == "Waiting") ?? 0;
+    var idleCount = Model?.Count(j => j.HasSchedule && j.LastStatus != "Running" && j.LastStatus != "Error" && j.LastStatus != "Failed" && j.LastStatus != "Waiting") ?? 0;
+}
 
-               <table class="table table-bordered table-hover align-middle w-100" style="table-layout: fixed;">
-          <thead class="table-dark">
-               <tr>
-                     <th style="width:20%">نام سرویس</th>
+<div class="status-summary mb-3" id="jobsStatusSummary">
+    <div class="status-summary-item">
+        <span class="status-summary-label">در حال اجرا</span>
+        <span class="status-summary-value text-warning" id="summary-running">@runningCount</span>
+    </div>
+    <div class="status-summary-item">
+        <span class="status-summary-label">خطا</span>
+        <span class="status-summary-value text-danger" id="summary-error">@errorCount</span>
+    </div>
+    <div class="status-summary-item">
+        <span class="status-summary-label">در صف</span>
+        <span class="status-summary-value text-info" id="summary-waiting">@waitingCount</span>
+    </div>
+    <div class="status-summary-item">
+        <span class="status-summary-label">آماده‌باش</span>
+        <span class="status-summary-value text-secondary" id="summary-idle">@idleCount</span>
+    </div>
+</div>
+
+@if (Model != null && Model.Any())
+{
+    <div class="mb-3" id="jobsSearchWrap">
+        <input type="search" id="jobsSearch" class="form-control search-box"
+               placeholder="جستجوی نام سرویس..."
+               autocomplete="off" />
+    </div>
+}
+
+<div class="card jobs-card">
+@if (Model == null || !Model.Any())
+{
+    <div class="alert alert-warning m-3 mb-0">
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        هیچ سرویس پس‌زمینه‌ای یافت نشد. لطفاً بررسی کنید که سرویس‌های پس‌زمینه در سیستم ثبت شده باشند.
+    </div>
+}
+else
+{
+    <div class="card-body">
+        <table class="table table-bordered table-hover align-middle w-100 jobs-table" style="table-layout: fixed;">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width:20%">نام سرویس</th>
                     <th style="width:10%">وضعیت</th>
                     <th style="width:30%">تنظیمات زمان‌بندی</th>
                     <th style="width:10%">آخرین اجرا</th>
                     <th style="width:10%">اجرای بعدی</th>
                     <th style="width:20%">عملیات</th>
-               </tr>
-          </thead>
-          <tbody>
-               @foreach (var job in Model)
-               {
-                    <tr id="row-@job.ScheduleId">
-                         <td>
-                              <strong>@job.DisplayName</strong>
-                              <p class="text-muted small mb-0">@job.Description</p>
-                              
-                              @if (!job.HasSchedule)
-                              {
-                                   <span class="badge bg-warning text-dark ms-2">بدون زمان‌بندی</span>
-                              }
-                         </td>
-                         <td>
-                              @if (!job.HasSchedule)
-                              {
-                                   <span class="badge bg-dark">بدون زمان‌بندی</span>
-                              }
-                              else if (job.LastStatus == "Running")
-                              {
-                                        <span class="badge bg-warning text-dark">در حال اجرا...</span>
-                                   }
-                                   else if (job.LastStatus == "Error")
-                                   {
-                                            <span class="badge bg-danger">خطا</span>
-                                   }
+                </tr>
+            </thead>
+            <tbody id="jobsTableBody">
+            @foreach (var job in Model)
+            {
+                <tr id="@(job.HasSchedule ? $"row-{job.ScheduleId}" : $"row-def-{job.Id}")"
+                    data-status="@(job.HasSchedule ? job.LastStatus : "NoSchedule")"
+                    data-job-def-id="@job.Id"
+                    data-search="@($"{job.DisplayName} {job.Description}")">
+                    <td>
+                        <strong>@job.DisplayName</strong>
+                        <p class="text-muted small mb-0">@job.Description</p>
+                        @if (!job.HasSchedule)
+                        {
+                            <span class="badge bg-warning text-dark mt-1">بدون زمان‌بندی</span>
+                        }
+                    </td>
+                    <td class="js-status-cell">
+                        @if (!job.HasSchedule)
+                        {
+                            <span class="badge bg-dark status-badge">بدون زمان‌بندی</span>
+                        }
+                        else if (job.LastStatus == "Running")
+                        {
+                            <span class="badge bg-warning text-dark status-badge status-running"><span class="status-pulse"></span>در حال اجرا...</span>
+                        }
+                        else if (job.LastStatus == "Waiting")
+                        {
+                            <span class="badge bg-info text-dark status-badge">در صف اجرا</span>
+                        }
+                        else if (job.LastStatus == "Error" || job.LastStatus == "Failed")
+                        {
+                            <span class="badge bg-danger status-badge">خطا</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary status-badge">آماده‌باش</span>
+                        }
+                    </td>
+                    <td>
+                        @if (job.HasSchedule)
+                        {
+                            <div class="scheduling-options">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input job-active" type="checkbox"
+                                               data-id="@job.ScheduleId" @(job.IsActive ? "checked" : "")>
+                                    </div>
+                                    <span>فعال/غیرفعال</span>
+                                </div>
 
-                              else if (job.LastStatus == "Failed")
-                              {
-                                   <span class="badge bg-danger">خطا</span>
-                              }
-                              else
-                              {
-                                   <span class="badge bg-secondary">آماده‌باش</span>
-                              }
-                         </td>
-                         <td>
-                              @if (job.HasSchedule)
-                              {
-                                   <div class="scheduling-options">
-                                   <div class="d-flex align-items-center gap-2 mb-2">
-                                        <div class="form-check form-switch">
-                                             <input class="form-check-input job-active" type="checkbox"
-                                                    data-id="@job.ScheduleId" @(job.IsActive ? "checked" : "")>
+                                <div class="schedule-type-selector mb-2">
+                                    <select class="form-select form-select-sm schedule-type" data-id="@job.ScheduleId">
+                                        <option value="interval" selected="@(job.ScheduleType == ScheduleType.Interval)">فاصله زمانی</option>
+                                        <option value="daily" selected="@(job.ScheduleType == ScheduleType.Daily)">روزانه با فاصله</option>
+                                        <option value="weekly" selected="@(job.ScheduleType == ScheduleType.Weekly)">هفتگی</option>
+                                        <option value="hourly" selected="@(job.ScheduleType == ScheduleType.Hourly)">ساعتی</option>
+                                        <option value="custom" selected="@(job.IntervalSeconds <= 0)">سایر</option>
+                                    </select>
+                                </div>
+
+                                <div class="schedule-config">
+                                    <div class="interval-config" style="@(job.ScheduleType == ScheduleType.Interval && job.IntervalSeconds > 0 ? "" : "display:none")">
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control job-interval" value="@job.IntervalSeconds" min="1" />
+                                            <span class="input-group-text">ثانیه</span>
                                         </div>
-                                        <span>فعال/غیرفعال</span>
-                                   </div>
-                                   
-                                   <div class="schedule-type-selector mb-2">
-                                        <select class="form-select form-select-sm schedule-type" data-id="@job.ScheduleId">
-                                             <option value="interval" selected="@(job.ScheduleType == ScheduleType.Interval)">فاصله زمانی</option>
-                                             <option value="daily" selected="@(job.ScheduleType == ScheduleType.Daily)">روزانه با فاصله</option>
-                                             <option value="weekly" selected="@(job.ScheduleType == ScheduleType.Weekly)">هفتگی</option>
-                                             <option value="hourly" selected="@(job.ScheduleType == ScheduleType.Hourly)">ساعتی</option>
-                                             <option value="custom" selected="@(job.IntervalSeconds <= 0)">سایر</option>
-                                        </select>
-                                   </div>
-                                   
-                                   <div class="schedule-config">
-                                        <div class="interval-config" style="@(job.IntervalSeconds > 0 && job.IntervalSeconds != 86400 && job.IntervalSeconds != 3600 ? "" : "display:none")">
-                                             <div class="input-group input-group-sm">
-                                                  <input type="number" class="form-control job-interval"
-                                                         value="@job.IntervalSeconds" min="1" />
-                                                  <span class="input-group-text">ثانیه</span>
-                                             </div>
+                                    </div>
+
+                                    <div class="hourly-config" style="@(job.ScheduleType == ScheduleType.Hourly ? "" : "display:none")">
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control job-hourly-minute" value="@job.HourlyMinute" min="0" max="59" />
+                                            <span class="input-group-text">دقیقه پس از هر ساعت</span>
                                         </div>
-                                        
-                                        <div class="daily-config" style="@(job.IntervalSeconds == 86400 ? "" : "display:none")">
-                                             <div class="input-group input-group-sm">
-                                                  <input type="time" class="form-control job-daily-time"
-                                                         value="@(job.NextRunTime?.ToString("HH:mm") ?? "00:00")" />
-                                                  <span class="input-group-text">هر روز در این ساعت</span>
-                                             </div>
+                                    </div>
+
+                                    <div class="daily-config" style="@(job.ScheduleType == ScheduleType.Daily ? "" : "display:none")">
+                                        <div class="input-group input-group-sm mb-2">
+                                            <input type="number" class="form-control job-daily-interval" value="@job.DailyIntervalDays" min="1" max="30" />
+                                            <span class="input-group-text">هر چند روز یکبار</span>
                                         </div>
-                                        
-                                        <div class="hourly-config" style="@(job.ScheduleType == ScheduleType.Hourly ? "" : "display:none")">
-                                             <div class="input-group input-group-sm">
-                                                  <input type="number" class="form-control job-hourly-minute"
-                                                         value="@job.HourlyMinute" min="0" max="59" />
-                                                  <span class="input-group-text">دقیقه پس از هر ساعت</span>
-                                             </div>
+                                        <div class="input-group input-group-sm">
+                                            <input type="time" class="form-control job-daily-time"
+                                                   value="@(job.DailyTime?.ToString(@"hh\:mm") ?? "00:00")" />
+                                            <span class="input-group-text">زمان اجرا</span>
                                         </div>
-                                         
-                                        <div class="daily-config" style="@(job.ScheduleType == ScheduleType.Daily ? "" : "display:none")">
-                                             <div class="input-group input-group-sm mb-2">
-                                                  <input type="number" class="form-control job-daily-interval"
-                                                         value="@job.DailyIntervalDays" min="1" max="30" />
-                                                  <span class="input-group-text">هر چند روز یکبار</span>
-                                             </div>
-                                             <div class="input-group input-group-sm">
-                                                  <input type="time" class="form-control job-daily-time"
-                                                         value="@(job.DailyTime?.ToString(@"hh\:mm\:ss") ?? "00:00")" />
-                                                  <span class="input-group-text">زمان اجرا</span>
-                                             </div>
+                                    </div>
+
+                                    <div class="weekly-config" style="@(job.ScheduleType == ScheduleType.Weekly ? "" : "display:none")">
+                                        <div class="mb-2 weekly-days">
+                                            @foreach (var day in new[] {
+                                                ("Saturday", "شنبه"), ("Sunday", "یکشنبه"), ("Monday", "دوشنبه"),
+                                                ("Tuesday", "سه‌شنبه"), ("Wednesday", "چهارشنبه"), ("Thursday", "پنجشنبه"), ("Friday", "جمعه")
+                                            })
+                                            {
+                                                <div class="form-check form-check-inline">
+                                                    <input class="form-check-input job-weekly-day" type="checkbox" value="@day.Item1"
+                                                           @(job.WeeklyDays?.Contains(day.Item1) == true ? "checked" : "") />
+                                                    <label class="form-check-label">@day.Item2</label>
+                                                </div>
+                                            }
                                         </div>
-                                         
-                                        <div class="weekly-config" style="@(job.ScheduleType == ScheduleType.Weekly ? "" : "display:none")">
-                                             <div class="mb-2">
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Saturday" 
-                                                              @(job.WeeklyDays?.Contains("Saturday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">شنبه</label>
-                                                  </div>
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Sunday"
-                                                              @(job.WeeklyDays?.Contains("Sunday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">یکشنبه</label>
-                                                  </div>
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Monday"
-                                                              @(job.WeeklyDays?.Contains("Monday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">دوشنبه</label>
-                                                  </div>
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Tuesday"
-                                                              @(job.WeeklyDays?.Contains("Tuesday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">سه‌شنبه</label>
-                                                  </div>
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Wednesday"
-                                                              @(job.WeeklyDays?.Contains("Wednesday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">چهارشنبه</label>
-                                                  </div>
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Thursday"
-                                                              @(job.WeeklyDays?.Contains("Thursday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">پنجشنبه</label>
-                                                  </div>
-                                                  <div class="form-check form-check-inline">
-                                                       <input class="form-check-input job-weekly-day" type="checkbox" value="Friday"
-                                                              @(job.WeeklyDays?.Contains("Friday") == true ? "checked" : "") />
-                                                       <label class="form-check-label">جمعه</label>
-                                                  </div>
-                                             </div>
-                                             <div class="input-group input-group-sm">
-                                                  <input type="time" class="form-control job-weekly-time"
-                                                         value="@(job.DailyTime?.ToString(@"hh\:mm\:ss") ?? "00:00")" />
-                                                  <span class="input-group-text">زمان اجرا</span>
-                                             </div>
+                                        <div class="input-group input-group-sm">
+                                            <input type="time" class="form-control job-weekly-time"
+                                                   value="@(job.DailyTime?.ToString(@"hh\:mm") ?? "00:00")" />
+                                            <span class="input-group-text">زمان اجرا</span>
                                         </div>
-                                        
-                                        <div class="custom-config" style="@(job.IntervalSeconds <= 0 ? "" : "display:none")">
-                                             <div class="input-group input-group-sm">
-                                                  <input type="number" class="form-control job-custom-interval"
-                                                         value="@Math.Max(1, job.IntervalSeconds)" min="1" />
-                                                  <select class="form-select job-custom-unit">
-                                                       <option value="seconds" selected>ثانیه</option>
-                                                       <option value="minutes">دقیقه</option>
-                                                       <option value="hours">ساعت</option>
-                                                       <option value="days">روز</option>
-                                                  </select>
-                                             </div>
+                                    </div>
+
+                                    <div class="custom-config" style="@(job.IntervalSeconds <= 0 ? "" : "display:none")">
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" class="form-control job-custom-interval" value="@Math.Max(1, job.IntervalSeconds)" min="1" />
+                                            <select class="form-select job-custom-unit">
+                                                <option value="seconds" selected>ثانیه</option>
+                                                <option value="minutes">دقیقه</option>
+                                                <option value="hours">ساعت</option>
+                                                <option value="days">روز</option>
+                                            </select>
                                         </div>
-                                   </div>
-                              </div>
-                              }
-                              else
-                              {
-                                   <div class="alert alert-info mb-0 p-2">
-                                        این جاب هنوز زمان‌بندی ندارد. برای ایجاد زمان‌بندی از دکمه زیر استفاده کنید.
-                                   </div>
-                              }
-                         </td>
-                              <td dir="ltr">@job.LastRunTime?.ToShamsiDateTime()</td>
-                              <td dir="ltr">@job.NextRunTime?.ToShamsiDateTime()</td>
-                         <td>
-                              @if (job.HasSchedule)
-                              {
-                                   <button class="btn btn-primary btn-sm btn-save" data-id="@job.ScheduleId">
-                                        ذخیره تغییرات
-                                   </button>
-                                   <button class="btn btn-info btn-sm btn-logs" data-id="@job.ScheduleId" data-bs-toggle="modal" data-bs-target="#logModal">
-                                        مشاهده لاگ
-                                   </button>
-                                   <button class="btn btn-success btn-sm btn-run-now" data-id="@job.ScheduleId">
-                                        اجرا فوری
-                                   </button>
-                              }
-                              else
-                              {
-                                   <button class="btn btn-primary btn-sm btn-create-schedule" data-id="@job.Id">
-                                        ایجاد زمان‌بندی
-                                   </button>
-                              }
-                         </td>
-                    </tr>
-               }
-          </tbody>
-     </table>
-          </div>
-     }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info mb-0 p-2">این جاب هنوز زمان‌بندی ندارد.</div>
+                        }
+                    </td>
+                    <td class="js-last-run" dir="ltr">@(job.LastRunTime.HasValue ? job.LastRunTime.Value.ToShamsiDateTime() : "—")</td>
+                    <td class="js-next-run" dir="ltr">@(job.NextRunTime.HasValue ? job.NextRunTime.Value.ToShamsiDateTime() : "—")</td>
+                    <td class="job-actions">
+                        @if (job.HasSchedule)
+                        {
+                            <button class="btn btn-primary btn-sm btn-save" data-id="@job.ScheduleId">ذخیره</button>
+                            <button class="btn btn-outline-secondary btn-sm btn-logs" data-id="@job.ScheduleId" data-bs-toggle="modal" data-bs-target="#logModal">لاگ</button>
+                            <button class="btn btn-success btn-sm btn-run-now" data-id="@job.ScheduleId">اجرا فوری</button>
+                            <a class="btn btn-outline-info btn-sm js-soft-nav" href="@Url.Action("Index", "JobLogs", new { scheduleId = job.ScheduleId })">تاریخچه</a>
+                        }
+                        else
+                        {
+                            <button class="btn btn-primary btn-sm btn-create-schedule" data-id="@job.Id">ایجاد زمان‌بندی</button>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 </div>
 
-<!-- Modal برای ایجاد زمان‌بندی جدید -->
 <div class="modal fade" id="createScheduleModal" tabindex="-1">
-     <div class="modal-dialog">
-          <div class="modal-content">
-               <div class="modal-header">
-                    <h5 class="modal-title">ایجاد زمان‌بندی جدید</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-               </div>
-               <div class="modal-body">
-                    <input type="hidden" id="newScheduleJobId" />
-                    
-                    <div class="mb-3">
-                         <label class="form-label">نوع زمان‌بندی</label>
-                         <select class="form-select" id="newScheduleType">
-                              <option value="interval">فاصله زمانی (ثانیه)</option>
-                              <option value="daily">روزانه با فاصله</option>
-                              <option value="weekly">هفتگی</option>
-                              <option value="hourly">ساعتی</option>
-                         </select>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ایجاد زمان‌بندی جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="newScheduleJobId" />
+                <div class="mb-3">
+                    <label class="form-label">نوع زمان‌بندی</label>
+                    <select class="form-select" id="newScheduleType">
+                        <option value="interval">فاصله زمانی (ثانیه)</option>
+                        <option value="daily">روزانه با فاصله</option>
+                        <option value="weekly">هفتگی</option>
+                        <option value="hourly">ساعتی</option>
+                    </select>
+                </div>
+                <div class="mb-3" id="intervalConfig">
+                    <label class="form-label">فاصله زمانی (ثانیه)</label>
+                    <input type="number" class="form-control" id="newScheduleInterval" value="60" min="1" />
+                </div>
+                <div class="mb-3 d-none" id="hourlyConfig">
+                    <label class="form-label">دقیقه پس از هر ساعت</label>
+                    <input type="number" class="form-control" id="newScheduleHourlyMinute" value="0" min="0" max="59" />
+                </div>
+                <div class="mb-3 d-none" id="dailyConfig">
+                    <label class="form-label">هر چند روز یکبار</label>
+                    <input type="number" class="form-control" id="newScheduleDailyInterval" value="1" min="1" max="30" />
+                    <label class="form-label mt-2">زمان اجرا</label>
+                    <input type="time" class="form-control" id="newScheduleDailyTime" value="00:00" />
+                </div>
+                <div class="mb-3 d-none" id="weeklyConfig">
+                    <label class="form-label">روزهای هفته</label>
+                    <div class="mb-2">
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Saturday" /><label class="form-check-label">شنبه</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Sunday" /><label class="form-check-label">یکشنبه</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Monday" /><label class="form-check-label">دوشنبه</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Tuesday" /><label class="form-check-label">سه‌شنبه</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Wednesday" /><label class="form-check-label">چهارشنبه</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Thursday" /><label class="form-check-label">پنجشنبه</label></div>
+                        <div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" value="Friday" /><label class="form-check-label">جمعه</label></div>
                     </div>
-                    
-                    <div class="mb-3" id="intervalConfig">
-                         <label class="form-label">فاصله زمانی (ثانیه)</label>
-                         <input type="number" class="form-control" id="newScheduleInterval" value="60" min="1" />
-                    </div>
-                    
-                    <div class="mb-3 d-none" id="dailyConfig">
-                         <label class="form-label">زمان اجرا روزانه</label>
-                         <input type="time" class="form-control" id="newScheduleDailyTime" value="00:00" />
-                    </div>
-                    
-                    <div class="mb-3 d-none" id="hourlyConfig">
-                         <label class="form-label">دقیقه پس از هر ساعت</label>
-                         <input type="number" class="form-control" id="newScheduleHourlyMinute" value="0" min="0" max="59" />
-                    </div>
-                    
-                    <div class="mb-3 d-none" id="dailyConfig">
-                         <label class="form-label">هر چند روز یکبار</label>
-                         <input type="number" class="form-control" id="newScheduleDailyInterval" value="1" min="1" max="30" />
-                         <label class="form-label mt-2">زمان اجرا</label>
-                         <input type="time" class="form-control" id="newScheduleDailyTime" value="00:00" />
-                    </div>
-                    
-                    <div class="mb-3 d-none" id="weeklyConfig">
-                         <label class="form-label">روزهای هفته</label>
-                         <div class="mb-2">
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklySaturday" value="Saturday" />
-                                   <label class="form-check-label">شنبه</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklySunday" value="Sunday" />
-                                   <label class="form-check-label">یکشنبه</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyMonday" value="Monday" />
-                                   <label class="form-check-label">دوشنبه</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyTuesday" value="Tuesday" />
-                                   <label class="form-check-label">سه‌شنبه</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyWednesday" value="Wednesday" />
-                                   <label class="form-check-label">چهارشنبه</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyThursday" value="Thursday" />
-                                   <label class="form-check-label">پنجشنبه</label>
-                              </div>
-                              <div class="form-check form-check-inline">
-                                   <input class="form-check-input" type="checkbox" id="newScheduleWeeklyFriday" value="Friday" />
-                                   <label class="form-check-label">جمعه</label>
-                              </div>
-                         </div>
-                         <label class="form-label">زمان اجرا</label>
-                         <input type="time" class="form-control" id="newScheduleWeeklyTime" value="00:00" />
-                    </div>
-                    
-                    <div class="mb-3 form-check form-switch">
-                         <input class="form-check-input" type="checkbox" id="newScheduleIsActive" checked>
-                         <label class="form-check-label">فعال کردن زمان‌بندی</label>
-                    </div>
-               </div>
-               <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-                    <button type="button" class="btn btn-primary" id="btnConfirmCreateSchedule">ایجاد زمان‌بندی</button>
-               </div>
-          </div>
-     </div>
+                    <label class="form-label">زمان اجرا</label>
+                    <input type="time" class="form-control" id="newScheduleWeeklyTime" value="00:00" />
+                </div>
+                <div class="mb-3 form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="newScheduleIsActive" checked>
+                    <label class="form-check-label">فعال کردن زمان‌بندی</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmCreateSchedule">ایجاد زمان‌بندی</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="modal fade" id="logModal" tabindex="-1">
-     <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-               <div class="modal-header">
-                    <h5 class="modal-title">تاریخچه اجرا</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-               </div>
-               <div class="modal-body">
-                    <table class="table table-sm table-striped text-center">
-                         <thead>
-                              <tr>
-                                   <th>زمان شروع</th>
-                                   <th>زمان پایان</th>
-                                   <th>وضعیت</th>
-                                   <th>پیام/خطا</th>
-                              </tr>
-                         </thead>
-                         <tbody id="logTableBody">
-                         </tbody>
-                    </table>
-                    <div id="loadingLogs" class="text-center" style="display:none;">
-                         <div class="spinner-border text-primary" role="status"></div>
-                    </div>
-               </div>
-          </div>
-     </div>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">تاریخچه اجرا</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm table-striped text-center">
+                    <thead>
+                        <tr>
+                            <th>زمان شروع</th>
+                            <th>زمان پایان</th>
+                            <th>وضعیت</th>
+                            <th>پیام/خطا</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody"></tbody>
+                </table>
+                <div id="loadingLogs" class="text-center" style="display:none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
-
-@section Scripts {
-     <script>
-          $(document).ready(function () {
-
-              // 1. مدیریت تغییر نوع زمان‌بندی
-              $(document).on('change', '.schedule-type', function() {
-                  var scheduleType = $(this).val();
-                  var row = $(this).closest('tr');
-                  var configContainer = row.find('.schedule-config');
-                  
-                  // مخفی کردن همه تنظیمات
-                  configContainer.find('> div').hide();
-                  
-                  // نمایش تنظیمات مربوطه
-                  switch(scheduleType) {
-                      case 'interval':
-                          configContainer.find('.interval-config').show();
-                          break;
-                      case 'daily':
-                          configContainer.find('.daily-config').show();
-                          break;
-                      case 'weekly':
-                          configContainer.find('.weekly-config').show();
-                          break;
-                      case 'hourly':
-                          configContainer.find('.hourly-config').show();
-                          break;
-                      case 'custom':
-                          configContainer.find('.custom-config').show();
-                          break;
-                  }
-              });
-
-              // Initialize schedule type selectors on page load
-              $('.schedule-type').each(function() {
-                  $(this).trigger('change');
-              });
-
-              // مدیریت تغییر نوع زمان‌بندی در مودال ایجاد
-              $('#newScheduleType').change(function() {
-                  var scheduleType = $(this).val();
-                  
-                  // مخفی کردن همه تنظیمات
-                  $('#intervalConfig, #dailyConfig, #weeklyConfig, #hourlyConfig').addClass('d-none');
-                  
-                  // نمایش تنظیمات مربوطه
-                  switch(scheduleType) {
-                      case 'interval':
-                          $('#intervalConfig').removeClass('d-none');
-                          break;
-                      case 'daily':
-                          $('#dailyConfig').removeClass('d-none');
-                          break;
-                      case 'weekly':
-                          $('#weeklyConfig').removeClass('d-none');
-                          break;
-                      case 'hourly':
-                          $('#hourlyConfig').removeClass('d-none');
-                          break;
-                  }
-              });
-
-              // مدیریت کلیک روی دکمه ایجاد زمان‌بندی
-              $(document).on('click', '.btn-create-schedule', function() {
-                  var jobId = $(this).data('id');
-                  $('#newScheduleJobId').val(jobId);
-                  $('#createScheduleModal').modal('show');
-              });
-
-              // مدیریت ایجاد زمان‌بندی جدید
-              $('#btnConfirmCreateSchedule').click(function() {
-                  var jobId = $('#newScheduleJobId').val();
-                  var scheduleType = $('#newScheduleType').val();
-                  var isActive = $('#newScheduleIsActive').is(':checked');
-                  var intervalSeconds = 0;
-                  var dailyIntervalDays = 1;
-                  var weeklyDays = "";
-                  var dailyTime = "00:00:00";
-                  var hourlyMinute = 0;
-
-                  // محاسبه پارامترهای زمان‌بندی بر اساس نوع زمان‌بندی
-                  switch(scheduleType) {
-                      case 'interval':
-                          intervalSeconds = parseInt($('#newScheduleInterval').val()) || 60;
-                          break;
-                      case 'daily':
-                          dailyIntervalDays = parseInt($('#newScheduleDailyInterval').val()) || 1;
-                          dailyTime = convertTimeToTimeSpan($('#newScheduleDailyTime').val());
-                          intervalSeconds = dailyIntervalDays * 86400; // برای سازگاری با سیستم قدیمی
-                          break;
-                      case 'weekly':
-                          // جمع‌آوری روزهای هفته انتخاب شده
-                          var selectedDays = [];
-                          $('input[name="weeklyDay"]:checked').each(function() {
-                              selectedDays.push($(this).val());
-                          });
-                          weeklyDays = selectedDays.join(',');
-                          dailyTime = convertTimeToTimeSpan($('#newScheduleWeeklyTime').val());
-                          intervalSeconds = 604800; // 7 روز برای سازگاری با سیستم قدیمی
-                          break;
-                      case 'hourly':
-                          hourlyMinute = parseInt($('#newScheduleHourlyMinute').val()) || 0;
-                          intervalSeconds = 3600; // 1 ساعت برای سازگاری با سیستم قدیمی
-                          break;
-                  }
-
-                  // ایجاد زمان‌بندی جدید
-                  $.post('/Jobs/CreateSchedule', { 
-                      jobId: jobId, 
-                      isActive: isActive, 
-                      interval: intervalSeconds,
-                      scheduleType: scheduleType,
-                      dailyIntervalDays: dailyIntervalDays,
-                      weeklyDays: weeklyDays,
-                      dailyTime: dailyTime,
-                      hourlyMinute: hourlyMinute
-                  })
-                  .done(function (response) {
-                      $('#createScheduleModal').modal('hide');
-                      alert(response.message);
-                      location.reload(); // رفرش صفحه برای نمایش زمان‌بندی جدید
-                  })
-                  .fail(function (xhr) {
-                      var errorMessage = xhr.responseText;
-                      if (xhr.responseJSON && xhr.responseJSON.message) {
-                          errorMessage = xhr.responseJSON.message;
-                      }
-                      alert('خطا در ایجاد زمان‌بندی: ' + errorMessage);
-                  });
-              });
-
-              // 2. ذخیره تنظیمات (فعال/غیرفعال و زمان‌بندی)
-              $('.btn-save').click(function () {
-                  var btn = $(this);
-                  var id = btn.data('id');
-                  var row = $('#row-' + id);
-
-                  var isActive = row.find('.job-active').is(':checked');
-                  var scheduleType = row.find('.schedule-type').val();
-                  var intervalSeconds = 0;
-                  var dailyIntervalDays = 1;
-                  var weeklyDays = "";
-                  var dailyTime = null;
-                  var hourlyMinute = 0;
-
-                  // محاسبه پارامترهای زمان‌بندی بر اساس نوع زمان‌بندی
-                  switch(scheduleType) {
-                      case 'interval':
-                          intervalSeconds = parseInt(row.find('.job-interval').val()) || 0;
-                          break;
-                      case 'daily':
-                          dailyIntervalDays = parseInt(row.find('.job-daily-interval').val()) || 1;
-                          var dailyTimeValue = row.find('.job-daily-time').val();
-                          dailyTime = dailyTimeValue ? convertTimeToTimeSpan(dailyTimeValue) : "00:00:00";
-                          intervalSeconds = dailyIntervalDays * 86400; // برای سازگاری با سیستم قدیمی
-                          break;
-                      case 'weekly':
-                          // جمع‌آوری روزهای هفته انتخاب شده
-                          var selectedDays = [];
-                          row.find('.job-weekly-day:checked').each(function() {
-                              selectedDays.push($(this).val());
-                          });
-                          weeklyDays = selectedDays.join(',');
-                          var weeklyTimeValue = row.find('.job-weekly-time').val();
-                          dailyTime = weeklyTimeValue ? convertTimeToTimeSpan(weeklyTimeValue) : "00:00:00";
-                          intervalSeconds = 604800; // 7 روز برای سازگاری با سیستم قدیمی
-                          break;
-                      case 'hourly':
-                          hourlyMinute = parseInt(row.find('.job-hourly-minute').val()) || 0;
-                          intervalSeconds = 3600; // 1 ساعت برای سازگاری با سیستم قدیمی
-                          break;
-                      case 'custom':
-                          var customInterval = parseInt(row.find('.job-custom-interval').val()) || 0;
-                          var customUnit = row.find('.job-custom-unit').val();
-                          
-                          // تبدیل واحدهای زمانی به ثانیه
-                          switch(customUnit) {
-                              case 'seconds':
-                                  intervalSeconds = customInterval;
-                                  break;
-                              case 'minutes':
-                                  intervalSeconds = customInterval * 60;
-                                  break;
-                              case 'hours':
-                                  intervalSeconds = customInterval * 3600;
-                                  break;
-                              case 'days':
-                                  intervalSeconds = customInterval * 86400;
-                                  break;
-                          }
-                          break;
-                  }
-
-                  // اعتبارسنجی
-                  if (isActive && intervalSeconds <= 0) {
-                      alert('لطفا یک فاصله زمانی معتبر وارد کنید.');
-                      return;
-                  }
-
-                  // تغییر متن دکمه برای فیدبک
-                  var originalText = btn.text();
-                  btn.text('در حال ذخیره...').prop('disabled', true);
-
-                  $.post('/Jobs/UpdateSettings', { 
-                      scheduleId: id, 
-                      isActive: isActive, 
-                      interval: intervalSeconds,
-                      scheduleType: scheduleType,
-                      dailyIntervalDays: dailyIntervalDays,
-                      weeklyDays: weeklyDays,
-                      dailyTime: dailyTime,
-                      hourlyMinute: hourlyMinute
-                  })
-                      .done(function (response) {
-                          alert(response.message);
-                          // به‌روزرسانی صفحه پس از ذخیره موفقیت‌آمیز
-                          location.reload();
-                      })
-                      .fail(function () {
-                          alert('خطا در ذخیره تنظیمات');
-                      })
-                      .always(function () {
-                          btn.text(originalText).prop('disabled', false);
-                      });
-              });
-
-              // متد کمکی برای تبدیل زمان به فرمت TimeSpan برای ارسال به سرور
-              function convertTimeToTimeSpan(timeString) {
-                  // فرمت: HH:mm
-                  var parts = timeString.split(':');
-                  var hours = parseInt(parts[0]) || 0;
-                  var minutes = parseInt(parts[1]) || 0;
-                  return hours + ':' + minutes + ':00';
-              }
-
-              // 3. اجرا فوری سرویس
-              $('.btn-run-now').click(function () {
-                  var btn = $(this);
-                  var id = btn.data('id');
-                  
-                  if (!confirm('آیا مطمئن هستید که می‌خواهید این سرویس را فوراً اجرا کنید؟')) {
-                      return;
-                  }
-                  
-                  var originalText = btn.text();
-                  btn.text('در حال اجرا...').prop('disabled', true);
-                  
-                  $.post('/Jobs/RunNow', { scheduleId: id })
-                      .done(function (response) {
-                          alert(response.message);
-                          location.reload();
-                      })
-                      .fail(function () {
-                          alert('خطا در اجرای سرویس');
-                      })
-                      .always(function () {
-                          btn.text(originalText).prop('disabled', false);
-                      });
-              });
-
-              // 4. لود کردن لاگ‌ها در مودال
-              $('.btn-logs').click(function () {
-                  var id = $(this).data('id');
-                  var tbody = $('#logTableBody');
-                  var loader = $('#loadingLogs');
-
-                  tbody.empty(); // پاک کردن لاگ‌های قبلی
-                  loader.show();
-
-                  $.get('/Jobs/GetHistory', { scheduleId: id })
-                      .done(function (data) {
-             
-                          loader.hide();
-                          if (data.length === 0) {
-                              tbody.append('<tr><td colspan="4" class="text-center">هیچ لاگی یافت نشد.</td></tr>');
-                              return;
-                          }
-
-                          $.each(data, function (i, item) {
-                              var statusBadge = '<span class="badge bg-warning">تکمیل نشده</span>';
-
-                              if(item.isSuccess)
-                              {
-                                    statusBadge ='<span class="badge bg-success">موفق</span>';
-                              }
-                              else if(!item.isSuccess && item.endTime)
-                              {
-                                statusBadge=   '<span class="badge bg-danger">شکست</span>'
-                              }
-                  
-                              
-                                 var startTime = moment(new Date(item.startTime)).format("jYYYY/jMM/jDD  HH:mm:ss");
-                                 var endTime =item.endTime ? moment(new Date(item.endTime)).format("jYYYY/jMM/jDD  HH:mm:ss") : '-';
-
-                              var row = `<tr>
-                                  <td dir="ltr">${startTime}</td>
-                                  <td dir="ltr">${endTime}</td>
-                                  <td>${statusBadge}</td>
-                                  <td class="text-wrap" style="max-width: 300px;">${item.message}</td>
-                              </tr>`;
-                              tbody.append(row);
-                          });
-                      })
-                      .fail(function() {
-                          loader.hide();
-                          tbody.append('<tr><td colspan="4" class="text-danger">خطا در دریافت اطلاعات.</td></tr>');
-                      });
-              });
-
-              // 5. رفرش خودکار صفحه (اختیاری) برای دیدن وضعیت زنده
-              // اگر نمی‌خواهید صفحه کامل رفرش شود، باید یک اندپوینت برای گرفتن وضعیت‌ها بسازید
-              // setTimeout(function(){ location.reload(); }, 10000); // هر ۱۰ ثانیه رفرش
-          });
-     </script>
-}

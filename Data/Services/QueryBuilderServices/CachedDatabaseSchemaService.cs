@@ -83,6 +83,11 @@ namespace Data.Services.QueryBuilderServices
 			return _innerService.ExecuteQueryAsync(query, parameters);
 		}
 
+		public Task<List<QueryResult>> ExecuteMultiResultQueryAsync(string query, Dictionary<string, object> parameters = null)
+		{
+			return _innerService.ExecuteMultiResultQueryAsync(query, parameters);
+		}
+
 		public Task<QueryResult> ExecuteQueryWithPaginationAsync(string query, Dictionary<string, object> parameters, int offset, int limit)
 		{
 			return _innerService.ExecuteQueryWithPaginationAsync(query, parameters, offset, limit);

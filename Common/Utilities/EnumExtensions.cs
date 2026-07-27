@@ -41,8 +41,8 @@ namespace Common.Utilities
         {
             Assert.NotNull(value, nameof(value));
 
-            var attribute = value.GetType().GetField(value.ToString())
-                .GetCustomAttributes(false)
+            var attribute = value.GetType()?.GetField(value.ToString())
+                ?.GetCustomAttributes(false)
                 .OfType<DisplayAttribute>()
                 .FirstOrDefault();
 

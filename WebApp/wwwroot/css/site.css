@@ -1916,7 +1916,7 @@ body[class*=jconfirm-no-scroll-] {
           }
 
 /* ===== حالت بزرگ ===== */
-html.btn-display-large .form-action-buttons .btn-icon {
+html.btn-display-large .form-action-buttons .btn-icon:not(.d-none) {
      display: inline-flex !important;
      flex-direction: column;
      align-items: center;
@@ -1931,7 +1931,7 @@ html.btn-display-large .form-action-buttons .btn-icon {
      line-height: 1;
      background-color: transparent;
      transition: all 0.2s ease;
-     margin: 0px 1.7px;
+     margin: 1px 1.7px;
 }
 
 html.btn-display-large .form-action-buttons {
@@ -1975,6 +1975,36 @@ html.btn-display-large .form-action-buttons .btn-icon i {
      border-bottom: 1px solid var(--bs-card-border-color);
      margin-bottom: 15px !important;
      padding-bottom: 5px;
+}
+
+/* ===== جلوگیری از wrap و اعمال اسکرول افقی ===== */
+.form-action-buttons,
+.dt-layout-start > div {
+     display: flex !important;
+     flex-wrap: nowrap !important;
+     overflow-x: auto;
+     overflow-y: visible;
+     padding-bottom: 4px; /* فضا برای scrollbar */
+     /* مخفی کردن scrollbar در همه مرورگرها ولی قابل اسکرول */
+     scrollbar-width: none; /* Firefox */
+     -ms-overflow-style: none; /* IE/Edge */
+}
+
+     .form-action-buttons::-webkit-scrollbar,
+     .dt-layout-start > div::-webkit-scrollbar {
+          display: none; /* Chrome/Safari */
+     }
+
+     /* جلوگیری از shrink شدن دکمه‌ها */
+     .form-action-buttons .btn-icon,
+     .dt-layout-start .btn-icon {
+          flex-shrink: 0;
+     }
+
+/* در حالت large هم دکمه‌ها کوچک نشن */
+html.btn-display-large .form-action-buttons .btn-icon,
+html.btn-display-large .dt-layout-start .btn-icon {
+     flex-shrink: 0;
 }
 /* Multi-Select Container (Looks like a Bootstrap Input) */
 .entity-selector-multi-container {
@@ -2283,3 +2313,233 @@ html.btn-display-large .form-action-buttons .btn-icon i {
 
 
  
+/* -- DataTable column filter modes --------------------------- */
+
+/* آیکن sort سمت چپ عنوان ستون */
+table.dataTable thead > tr > th.dt-orderable-asc,
+table.dataTable thead > tr > th.dt-orderable-desc,
+table.dataTable thead > tr > th.dt-ordering-asc,
+table.dataTable thead > tr > th.dt-ordering-desc,
+table.dataTable thead > tr > td.dt-orderable-asc,
+table.dataTable thead > tr > td.dt-orderable-desc,
+table.dataTable thead > tr > td.dt-ordering-asc,
+table.dataTable thead > tr > td.dt-ordering-desc {
+	padding-right: 8px !important;
+	padding-left: 28px !important;
+}
+
+table.dataTable thead > tr > th.dt-orderable-asc span.dt-column-order,
+table.dataTable thead > tr > th.dt-orderable-desc span.dt-column-order,
+table.dataTable thead > tr > th.dt-ordering-asc span.dt-column-order,
+table.dataTable thead > tr > th.dt-ordering-desc span.dt-column-order,
+table.dataTable thead > tr > td.dt-orderable-asc span.dt-column-order,
+table.dataTable thead > tr > td.dt-orderable-desc span.dt-column-order,
+table.dataTable thead > tr > td.dt-ordering-asc span.dt-column-order,
+table.dataTable thead > tr > td.dt-ordering-desc span.dt-column-order {
+	right: auto !important;
+	left: 8px !important;
+	top: 8px !important;
+	bottom: auto !important;
+	height: 18px;
+	width: 12px;
+}
+
+/* ستون ردیف: باریک و بدون resize */
+table.dataTable th.dt-col-no-resize,
+table.dataTable td.dt-col-no-resize {
+	width: 45px !important;
+	min-width: 45px !important;
+	max-width: 45px !important;
+	box-sizing: border-box !important;
+	overflow: hidden !important;
+	text-overflow: ellipsis;
+	white-space: nowrap !important;
+	padding-left: 4px !important;
+	padding-right: 4px !important;
+}
+
+table.dataTable th.dt-col-no-resize {
+	align-content: center;
+	vertical-align: middle !important;
+}
+
+table.dataTable th.dt-col-no-resize .dt-colmanager-handle {
+	display: none !important;
+}
+
+/*
+ * thead داخل scroll-body فقط برای اندازه‌گیری عرض ستون است.
+ * باید کاملاً جمع شود؛ در غیر این صورت آیکن sort روی ردیف اول دیده می‌شود.
+ * specificity باید از padding/order iconهای عمومی th بالاتر باشد.
+ */
+div.dt-scroll-body > table.dataTable > thead,
+div.dt-scroll-body > table.dataTable > thead > tr {
+	height: 0 !important;
+	border: 0 !important;
+	line-height: 0 !important;
+	font-size: 0 !important;
+}
+
+div.dt-scroll-body > table.dataTable > thead > tr > th,
+div.dt-scroll-body > table.dataTable > thead > tr > td,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-orderable-asc,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-orderable-desc,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-ordering-asc,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-ordering-desc,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-orderable-none,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-col-no-resize,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-has-inline-filter {
+	height: 0 !important;
+	max-height: 0 !important;
+	min-height: 0 !important;
+	padding: 0 !important;
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+	padding-left: 0 !important;
+	padding-right: 0 !important;
+	border-width: 0 !important;
+	border-top-width: 0 !important;
+	border-bottom-width: 0 !important;
+	overflow: hidden !important;
+	line-height: 0 !important;
+	font-size: 0 !important;
+	color: transparent !important;
+	background: transparent !important;
+	vertical-align: top !important;
+	outline: none !important;
+}
+
+div.dt-scroll-body > table.dataTable > thead .dt-inline-filter-wrap,
+div.dt-scroll-body > table.dataTable > thead tr.dt-inline-filter-row,
+div.dt-scroll-body > table.dataTable > thead .dt-colmanager-handle,
+div.dt-scroll-body > table.dataTable > thead span.dt-column-order,
+div.dt-scroll-body > table.dataTable > thead span.dt-column-title,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-orderable-asc span.dt-column-order,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-orderable-desc span.dt-column-order,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-ordering-asc span.dt-column-order,
+div.dt-scroll-body > table.dataTable > thead > tr > th.dt-ordering-desc span.dt-column-order {
+	display: none !important;
+	visibility: hidden !important;
+	position: static !important;
+	height: 0 !important;
+	width: 0 !important;
+	overflow: hidden !important;
+	pointer-events: none !important;
+}
+
+div.dt-scroll-body > table.dataTable > thead tr th div.dt-scroll-sizing,
+div.dt-scroll-body > table.dataTable > thead tr td div.dt-scroll-sizing {
+	height: 0 !important;
+	max-height: 0 !important;
+	overflow: hidden !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	border: 0 !important;
+	visibility: hidden !important;
+}
+
+/* ردیف جداگانه فیلتر — خارج از th عنوان تا با sort تداخل نکند */
+div.dt-scroll-head table.dataTable tr.dt-inline-filter-row > th,
+div.dt-scroll-head table.dataTable tr.dt-inline-filter-row > td {
+	padding: 4px 6px !important;
+	vertical-align: middle !important;
+	overflow: visible !important;
+	white-space: nowrap !important;
+	background: var(--bs-body-bg, #fff) !important;
+	border-top: 1px solid var(--bs-border-color, #dee2e6) !important;
+	font-size: inherit !important;
+	line-height: normal !important;
+	color: inherit !important;
+	height: auto !important;
+	max-height: none !important;
+}
+
+div.dt-scroll-head table.dataTable tr.dt-inline-filter-row > th.dt-inline-filter-cell {
+	cursor: default !important;
+}
+
+.dt-inline-filter-wrap {
+	position: relative;
+	left: auto;
+	right: auto;
+	bottom: auto;
+	display: flex;
+	align-items: center;
+	gap: 3px;
+	margin-top: 0;
+	padding-top: 0;
+	border-top: none;
+	background: transparent;
+	min-width: 0;
+	width: 100%;
+	z-index: 2;
+}
+
+.dt-inline-filter-wrap .dt-inline-filter-op {
+	flex: 0 0 28px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	line-height: 1;
+}
+
+.dt-inline-filter-values {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.dt-inline-filter-wrap .form-control,
+.dt-inline-filter-wrap .form-select,
+.dt-inline-filter-wrap select.form-control {
+	min-width: 0;
+	width: 100%;
+	font-size: 0.8rem;
+	padding: 0.15rem 0.35rem;
+	height: 28px;
+}
+
+.dt-filter-op-menu {
+	min-width: 180px;
+	padding: 0.25rem 0;
+}
+
+.dt-filter-op-menu .dropdown-item.active,
+.dt-filter-op-menu .dropdown-item:active {
+	background-color: var(--bs-warning);
+	color: #000;
+}
+
+.table-filter-mode-opt.border-primary {
+	border-width: 2px !important;
+}
+
+/* ستون چک‌باکس انتخاب چندتایی */
+table.dataTable th.dt-row-select-col,
+table.dataTable td.dt-row-select-col {
+	width: 40px !important;
+	min-width: 40px !important;
+	max-width: 40px !important;
+	padding-left: 4px !important;
+	padding-right: 4px !important;
+	vertical-align: middle !important;
+	text-align: center !important;
+}
+
+table.dataTable .dt-row-select,
+table.dataTable .dt-select-all {
+	cursor: pointer;
+	width: 1.1rem;
+	height: 1.1rem;
+	margin: 0;
+}
+
+button[data-action="multiSelect"].active {
+	background-color: var(--bs-info) !important;
+	color: #fff !important;
+}

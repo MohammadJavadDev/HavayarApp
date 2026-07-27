@@ -14,15 +14,17 @@ using ReportBuilder.Services;
 using ReportBuilder.Services.Contracts;
 using ReportBuilder.WebApp.ViewModels;
 using Stimulsoft.Base;
-using Stimulsoft.Data.Extensions;
+ 
 using Stimulsoft.Report;
 using Stimulsoft.Report.Dictionary;
 using Stimulsoft.Report.Mvc;
 using System.Data;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using static Stimulsoft.Report.Help.StiHelpProvider;
+ 
+ 
 
 namespace ReportBuilder.WebApp.Controllers
 {
@@ -39,36 +41,87 @@ namespace ReportBuilder.WebApp.Controllers
     {
         
         public static string reportJsonData = "";
+		public static string dashboardJsonData = "";
 
-         
-        public static List<ReportBuilderReportFonts> Fonts= new ()
-        {
-           new (){Name = "IRANSansWeb.ttf",Type = StiResourceType.FontTtf},
-           new (){Name = "IRANSansWeb.eot",Type = StiResourceType.FontEot},
-           new (){Name = "IRANSansWeb.woff",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb.woff2",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb_Bold.ttf",Type = StiResourceType.FontTtf},
-           new (){Name = "IRANSansWeb_Bold.woff",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb_Bold.woff2",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb_Light.eot",Type = StiResourceType.FontEot},
-           new (){Name = "IRANSansWeb_Light.ttf",Type = StiResourceType.FontTtf},
-           new (){Name = "IRANSansWeb_Light.woff2",Type = StiResourceType.FontTtf},
-           new (){Name = "IRANSansWeb_Medium.eot",Type = StiResourceType.FontEot},
-           new (){Name = "IRANSansWeb_Medium.ttf",Type = StiResourceType.FontTtf},
-           new (){Name = "IRANSansWeb_Medium.woff",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb_Medium.woff2",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb_UltraLight.eot",Type = StiResourceType.FontEot},
-           new (){Name = "IRANSansWeb_UltraLight.ttf",Type = StiResourceType.FontTtf},
-           new (){Name = "IRANSansWeb_UltraLight.woff",Type = StiResourceType.FontWoff},
-           new (){Name = "IRANSansWeb_UltraLight.woff2",Type = StiResourceType.FontWoff}
-        };
+
+		/// <summary>
+		/// فقط فایل‌های TTF — برای لیست فونت Designer و رندر Viewer لازم است با StiFontCollection هم ثبت شوند.
+		/// نام واقعی خانواده داخل فایل‌ها: IRANSansWeb(FaNum)
+		/// </summary>
+		public static List<ReportBuilderReportFonts> Fonts = new()
+		{
+			new() { Name = "IRANSansWeb.ttf", Type = StiResourceType.FontTtf },
+			new() { Name = "IRANSansWeb_Bold.ttf", Type = StiResourceType.FontTtf },
+			new() { Name = "IRANSansWeb_Medium.ttf", Type = StiResourceType.FontTtf },
+			new() { Name = "IRANSansWeb_Light.ttf", Type = StiResourceType.FontTtf },
+			new() { Name = "IRANSansWeb_UltraLight.ttf", Type = StiResourceType.FontTtf },
+		};
+
+		private static bool _stimulsoftFontsRegistered;
+
+		static ReportBuilderController()
+		{
+			RegisterStimulsoftFonts();
+		}
+
+		/// <summary>
+		/// ثبت فونت‌ها در StiFontCollection تا در Font Picker طراح ظاهر شوند و در Viewer/Export قابل استفاده باشند.
+		/// </summary>
+		private static void RegisterStimulsoftFonts()
+		{
+			if (_stimulsoftFontsRegistered) return;
+
+			foreach (var f in Fonts)
+			{
+				if (!f.Name.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase))
+					continue;
+
+				var path = ResolveFontFilePath(f.Name);
+				if (path == null) continue;
+
+				try
+				{
+					// alias کوتاه برای سازگاری با گزارش‌هایی که Font=IRANSansWeb دارند
+					var alias = f.Name.StartsWith("IRANSansWeb_", StringComparison.OrdinalIgnoreCase)
+						? null
+						: "IRANSansWeb";
+					if (alias != null)
+						StiFontCollection.AddFontFile(path, alias);
+					else
+						StiFontCollection.AddFontFile(path);
+				}
+				catch
+				{
+					// اگر قبلاً ثبت شده باشد، نادیده بگیر
+				}
+			}
+
+			_stimulsoftFontsRegistered = true;
+		}
+
+		private static string? ResolveFontFilePath(string fileName)
+		{
+			var candidates = new[]
+			{
+				Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "panelLib", "fonts", fileName),
+				Path.Combine(AppContext.BaseDirectory, "wwwroot", "panelLib", "fonts", fileName),
+			};
+
+			foreach (var path in candidates)
+			{
+				if (System.IO.File.Exists(path))
+					return path;
+			}
+
+			return null;
+		}
 
         [HttpGet("{action}")]
         [ActionDisplayName("لیست آیتم ها", ActionAccessType.View)]
         public async Task<IActionResult> List()
         {
 
-			var reports = await _queryService.GetAllReportsAsync();
+			var reports = await _queryService.GetAllSavedQueriesForReportsAsync();
 
 		 
 			return View("Views/GenerateItem/List.cshtml", reports);
@@ -130,26 +183,42 @@ namespace ReportBuilder.WebApp.Controllers
 
 		[HttpGet("{action}")]
         [ActionDisplayName("لیست گزارش ها", ActionAccessType.View)]
-        public async Task<IActionResult> ReportList()
+		public async Task<IActionResult> ReportList()
 		{
+			// نکته: ستون Content می‌تواند حاوی Resource های حجیمی باشد که کاربر در طراح گزارش اضافه کرده
+			// (مثل فایل اکسل/JSON/CSV به‌صورت Base64 embedded). برای جلوگیری از بارگذاری غیرضروری این حجم
+			// در لیست گزارش‌ها (که اصلاً از Content استفاده نمی‌کند)، فقط فیلدهای لازم Select می‌شوند.
 			var reports = await unitOfWork.Repository<ReportBuilderReport>()
 				.TableNoTracking
 				.OrderByDescending(c => c.ModifiedDateMiladiDateTime ?? c.CreatedOnMiladiDateTime)
+				.Select(c => new ReportBuilderReport
+				{
+					Id = c.Id,
+					Name = c.Name,
+					Title = c.Title,
+					Type = c.Type,
+					ObjectType = c.ObjectType,
+					SavedQueryId = c.SavedQueryId,
+					IsActive = c.IsActive,
+					CreatedByName = c.CreatedByName,
+					CreatedOnMiladiDateTime = c.CreatedOnMiladiDateTime,
+					ModifiedDateMiladiDateTime = c.ModifiedDateMiladiDateTime
+				})
 				.ToListAsync();
 			return View("Views/GenerateReport/List.cshtml", reports);
 		}
-        [HttpGet("Report/{action}")]
-        [ActionDisplayName("ویرایش گزارش ها", ActionAccessType.View)]
-        public async Task<IActionResult> Edit(long id)
-        {
-            var model = await unitOfWork.Repository<ReportBuilderReport>()
-                .TableNoTracking.FirstOrDefaultAsync(c=>c.Id == id);
+          [HttpGet("Report/{action}")]
+          [ActionDisplayName("ویرایش گزارش ها", ActionAccessType.View)]
+          public async Task<IActionResult> Edit(long id)
+          {
+               var model = await unitOfWork.Repository<ReportBuilderReport>()
+                   .TableNoTracking.FirstOrDefaultAsync(c => c.Id == id);
                TempData["reportId"] = id;
 
+			ViewBag.SavedQueries = await _queryService.GetAllSavedQueriesForReportsFillterByRoleAsync();
+                
 
-		  ViewBag.SavedQueries = await _queryService.GetAllReportsAsync();
-
-            return View("Views/GenerateReport/Edit.cshtml" , model);
+			return View("Views/GenerateReport/Edit.cshtml", model);
         }
 
         [HttpGet("{action}")]
@@ -312,6 +381,7 @@ namespace ReportBuilder.WebApp.Controllers
                 .Include(c => c.ReportBuilderReportFilters)
                 .Include(c => c.ReportBuilderReportSelects)
                 .ThenInclude(c => c.ReportBuilderReportItems)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (report == null)
@@ -720,11 +790,11 @@ namespace ReportBuilder.WebApp.Controllers
 					report.LoadFromJson(existReport.Content);
 			}
 
-			report.DataSources.Clear();
-			report.Dictionary.Databases.Clear();
-			report.Dictionary.Clear();
-			report.Dictionary.Synchronize();
-
+			// نکته مهم: اینجا دیگر Dictionary/DataSources/Databases به‌صورت کامل پاک نمی‌شوند.
+			// این کار قبلاً باعث می‌شد هر Resource ای که کاربر خودش در طراح اضافه کرده (مثل فایل اکسل/JSON/CSV/XML
+			// که به‌صورت StiExcelDatabase/StiJsonDatabase/... و DataSource مرتبط با آن در Dictionary ذخیره شده)
+			// در هر بار باز شدن گزارش در طراح از بین برود. RegData به‌صورت خودکار DataSource هایی که هم‌نام باشند
+			// (مثل "Report"/"Select1"/...) را به‌روزرسانی می‌کند، نه این‌که تکراری اضافه کند؛ پس نیازی به پاک کردن نیست.
 			DataSet dataSet;
 
 			if (fromSavedQuery && itemId > 0)
@@ -763,33 +833,129 @@ namespace ReportBuilder.WebApp.Controllers
 
 		private async Task<DataSet> BuildDataSetFromSavedQueryAsync(long savedQueryId , Dictionary<string,string> defualtParams)
         {
-            var dataSet = new DataSet();
             try
             {
                 var userName = User?.Identity?.Name ?? string.Empty;
-                var result = await _queryService.ExecuteReportAsync(savedQueryId, defualtParams, userName, userName);
-                if (result?.Rows == null || !result.Rows.Any())
-                    return dataSet;
-
-                var dt = new DataTable("Report");
-                var headers = result.Rows.First().Keys.ToList();
-                foreach (var col in headers)
-                    dt.Columns.Add(col);
-
-                foreach (var record in result.Rows.Take(100))
-                {
-                    var row = dt.NewRow();
-                    foreach (var kv in record)
-                        row[kv.Key] = kv.Value ?? DBNull.Value;
-                    dt.Rows.Add(row);
-                }
-                dataSet.Tables.Add(dt);
+                // از ExecuteReportMultiAsync استفاده می‌شود تا وقتی Query چند SELECT دارد (حالت نوشتن Query)،
+                // dataset مربوط به هر SELECT به‌صورت جداگانه به DataSources/Dictionary طراح اضافه شود.
+                var multiResult = await _queryService.ExecuteReportMultiAsync(savedQueryId, defualtParams, userName, userName);
+                return BuildDataSetFromMultiResults(multiResult.ResultSets, multiResult.Selects, maxRowsPerTable: 100);
             }
             catch
             {
                 // در صورت خطا، DataSet خالی بازگردانده می‌شود
+                return new DataSet();
+            }
+        }
+
+        /// <summary>
+        /// ساخت DataSet از نتیجهٔ اجرای یک SavedQuery که ممکن است چند SELECT داشته باشد.
+        /// وقتی فقط یک result-set وجود دارد (رفتار قبلی/رایج)، دقیقاً مثل قبل یک DataTable به نام "Report" ساخته می‌شود
+        /// تا گزارش‌های موجود که با این نام طراحی شده‌اند دچار مشکل نشوند.
+        /// وقتی چند result-set وجود دارد، برای هرکدام یک DataTable مجزا (با نام برگرفته از QuerySelectInfo، یا Select{n} به‌صورت پیش‌فرض) ساخته می‌شود.
+        /// </summary>
+        private static DataSet BuildDataSetFromMultiResults(
+            List<QueryResult> resultSets,
+            List<QuerySelectInfo> selects,
+            int? maxRowsPerTable,
+            List<ReportBuilderReportItem> filtersForDateFormatting = null)
+        {
+            var dataSet = new DataSet();
+            if (resultSets == null || resultSets.Count == 0)
+                return dataSet;
+
+            if (resultSets.Count == 1)
+            {
+                var dt = BuildDataTableFromQueryResult(resultSets[0], "Report", maxRowsPerTable, filtersForDateFormatting);
+                if (dt.Columns.Count > 0)
+                    dataSet.Tables.Add(dt);
+                return dataSet;
+            }
+
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < resultSets.Count; i++)
+            {
+                var meta = selects?.FirstOrDefault(s => s.Index == i);
+                var baseName = SanitizeTableName(meta?.Name, $"Select{i + 1}");
+                var uniqueName = MakeUniqueTableName(baseName, usedNames);
+                usedNames.Add(uniqueName);
+
+                var dt = BuildDataTableFromQueryResult(resultSets[i], uniqueName, maxRowsPerTable, filtersForDateFormatting);
+                if (dt.Columns.Count > 0)
+                    dataSet.Tables.Add(dt);
             }
             return dataSet;
+        }
+
+        private static DataTable BuildDataTableFromQueryResult(
+            QueryResult result,
+            string tableName,
+            int? maxRows,
+            List<ReportBuilderReportItem> filtersForDateFormatting)
+        {
+            var dt = new DataTable(tableName);
+            if (result?.ColumnNames == null || result.ColumnNames.Count == 0)
+                return dt;
+
+            foreach (var col in result.ColumnNames)
+            {
+                if (!dt.Columns.Contains(col))
+                    dt.Columns.Add(col);
+            }
+
+            if (result.Rows == null || result.Rows.Count == 0)
+                return dt;
+
+            var rows = maxRows.HasValue ? result.Rows.Take(maxRows.Value) : result.Rows;
+            foreach (var record in rows)
+            {
+                var row = dt.NewRow();
+                foreach (var kv in record)
+                {
+                    if (!dt.Columns.Contains(kv.Key)) continue;
+
+                    var value = kv.Value;
+                    if (filtersForDateFormatting != null && value != null && value != DBNull.Value)
+                    {
+                        var colType = filtersForDateFormatting
+                            .FirstOrDefault(c => c.ColumnName?.Equals(kv.Key, StringComparison.OrdinalIgnoreCase) == true)?.DataType;
+                        if (colType is "datetime" or "datetime2")
+                        {
+                            try { value = DateTime.Parse(value.ToString()!).ToShamsiDateTime(); }
+                            catch { /* در صورت خطا مقدار اصلی حفظ می‌شود */ }
+                        }
+                    }
+                    row[kv.Key] = value ?? DBNull.Value;
+                }
+                dt.Rows.Add(row);
+            }
+            return dt;
+        }
+
+        private static string SanitizeTableName(string name, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return fallback;
+
+            var sanitized = Regex.Replace(name.Trim(), @"[^A-Za-z0-9_\u0600-\u06FF]", "_");
+            if (sanitized.Length == 0)
+                return fallback;
+            if (char.IsDigit(sanitized[0]))
+                sanitized = "_" + sanitized;
+
+            return sanitized;
+        }
+
+        private static string MakeUniqueTableName(string baseName, HashSet<string> usedNames)
+        {
+            var candidate = baseName;
+            var suffix = 1;
+            while (usedNames.Contains(candidate))
+            {
+                candidate = $"{baseName}_{suffix}";
+                suffix++;
+            }
+            return candidate;
         }
 
         private DataSet BuildDataSetFromReportBuilderTable(ReportBuilderTable dataObject)
@@ -878,34 +1044,54 @@ namespace ReportBuilder.WebApp.Controllers
 
         private static void AddFontResourcesToReport(StiReport report)
         {
+			RegisterStimulsoftFonts();
+
             foreach (var f in Fonts)
             {
+				// فقط TTF معتبر است؛ eot/woff قبلاً اشتباه به‌عنوان FontTtf ثبت می‌شدند.
+				if (f.Type != StiResourceType.FontTtf)
+					continue;
+
                 byte[] fileContent;
-                string resourceName;
+                string resourceName = Path.GetFileNameWithoutExtension(f.Name);
                 if (!f.Loaded)
                 {
-                    var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "panelLib", "fonts", f.Name);
-                    if (!System.IO.File.Exists(path)) continue;
+                    var path = ResolveFontFilePath(f.Name);
+                    if (path == null) continue;
                     fileContent = System.IO.File.ReadAllBytes(path);
-                    resourceName = f.Name.Split(".")[0];
                     f.Loaded = true;
                     f.Bytes = fileContent;
                 }
                 else
                 {
                     fileContent = f.Bytes ?? Array.Empty<byte>();
-                    resourceName = f.Name.Split(".")[0];
                 }
-                if (fileContent.Length > 0)
-                {
-                    var resource = new StiResource(resourceName, resourceName, false, StiResourceType.FontTtf, fileContent, false);
-                    report.Dictionary.Resources.Add(resource);
-                }
+
+				if (fileContent.Length == 0)
+					continue;
+
+				// availableInTheViewer=true ضروری است تا Viewer فونت را به کلاینت بفرستد.
+				// اگر Resource از قبل در Content ذخیره شده (گاهی با AvailableInTheViewer=false یا بایت خراب)،
+				// آن را با فایل TTF درست به‌روزرسانی می‌کنیم.
+				if (report.Dictionary.Resources.Contains(resourceName))
+				{
+					var existing = report.Dictionary.Resources[resourceName];
+					existing.Type = f.Type;
+					existing.Content = fileContent;
+					existing.AvailableInTheViewer = true;
+					if (string.IsNullOrWhiteSpace(existing.Alias))
+						existing.Alias = resourceName;
+				}
+				else
+				{
+					var resource = new StiResource(resourceName, resourceName, false, f.Type, fileContent, true);
+					report.Dictionary.Resources.Add(resource);
+				}
             }
         }
 
         [HttpPost("[action]")]
-        public IActionResult GetViewReport()
+        public async Task<IActionResult> GetViewReport()
         {
             var reportId = TempData.ContainsKey("reportId") ? (TempData["reportId"]?.ToString() ?? "0").ToLong() : 0L;
             var paramsQuery = TempData.ContainsKey("queryString")
@@ -940,15 +1126,12 @@ namespace ReportBuilder.WebApp.Controllers
             var report = StiReport.CreateNewReport();
             report.LoadFromJson(existReport.Content);
 
-
-
-            report.DataSources.Clear();
-            report.Dictionary.Databases.Clear();
-
-  
+            // نکته مهم: Dictionary/DataSources/Databases اینجا دیگر پاک نمی‌شوند تا Resource هایی که کاربر
+            // خودش در طراح اضافه کرده (مثلاً فایل اکسل/JSON/CSV/XML) از بین نروند. RegData به‌صورت خودکار
+            // DataSource های هم‌نام (مثل "Report"/"Select1"/...) را با داده جدید به‌روزرسانی می‌کند.
             DataSet dataSet = existReport.ObjectType == "Store_Procedures"
                 ? BuildDataSetFromStoreProc(existReport, filters)
-                : BuildDataSetFromTableOrQuery(existReport, filters);
+                : await BuildDataSetFromTableOrQuery(existReport, filters);
 
 			report.RegData(dataSet);
 			AddFontResourcesToReport(report);
@@ -994,9 +1177,32 @@ namespace ReportBuilder.WebApp.Controllers
             return dataSet;
         }
 
-        private DataSet BuildDataSetFromTableOrQuery(ReportBuilderReport existReport, Dictionary<string, FilterParamter> paramsQuery)
+        private async Task<DataSet> BuildDataSetFromTableOrQuery(ReportBuilderReport existReport, Dictionary<string, FilterParamter> paramsQuery)
         {
             var filters = existReport.ReportBuilderReportFilters ?? new List<ReportBuilderReportItem>();
+
+            var paramValues = paramsQuery.ToDictionary(
+                x => x.Key,
+                x => x.Value?.values?.FirstOrDefault() ?? "",
+                StringComparer.OrdinalIgnoreCase);
+
+            // گزارش‌های ساخته‌شده از SavedQuery (QueryDesigner) ممکن است چند SELECT داشته باشند؛
+            // برای این‌که همهٔ dataset های آن به‌درستی به Dictionary/DataSources استیمول‌سافت اضافه شوند
+            // مستقیماً از طریق QueryService (که از NextResultAsync پشتیبانی می‌کند) اجرا می‌شوند.
+            if (existReport.SavedQueryId.HasValue && existReport.SavedQueryId.Value > 0)
+            {
+                try
+                {
+                    var userName = User?.Identity?.Name ?? string.Empty;
+                    var multiResult = await _queryService.ExecuteReportMultiAsync(existReport.SavedQueryId.Value, paramValues, userName, userName);
+                    return BuildDataSetFromMultiResults(multiResult.ResultSets, multiResult.Selects, maxRowsPerTable: null, filters);
+                }
+                catch
+                {
+                    return new DataSet();
+                }
+            }
+
             var tempFilters = new List<FetchDataReportTableViewModelReq.FetchDataReportTableViewModelReqFilters>();
             foreach (var x in paramsQuery)
             {
@@ -1010,11 +1216,6 @@ namespace ReportBuilder.WebApp.Controllers
                     Condition = x.Value?.condition ?? "="
                 });
             }
-
-            var paramValues = paramsQuery.ToDictionary(
-                x => x.Key,
-                x => x.Value?.values?.FirstOrDefault() ?? "",
-                StringComparer.OrdinalIgnoreCase);
 
             var tmpData = reportBuilderService.FetchTableDataStimilSoft(new FetchDataReportTableViewModelReq
             {
@@ -1097,5 +1298,8 @@ namespace ReportBuilder.WebApp.Controllers
         }
 
 
-    }
+ 
+
+
+	}
 }

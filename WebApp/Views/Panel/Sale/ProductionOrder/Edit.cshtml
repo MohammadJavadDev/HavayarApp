@@ -3,409 +3,726 @@
 @using Entities.App.Sale;
 @using Entities.App.SLS;
 @using Entities.App.Sale.Enums
+@using Entities.App.Pln;
 @using Entities.Auth;
+@using Common.Utilities
+@using Data.SystemAuth
+@inject ISdk sdk
 @model ProductionOrder
+@{
+	var isAdmin = sdk.IsAdministrator;
+
+	//Seed Role => Sale.ProductionOrder.FinancialConfirm => سفارش ساخت - تایید مالی
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد مالی را به آن انتساب بده
+	var canFinancialConfirm = isAdmin || sdk.HasRole("Sale.ProductionOrder.FinancialConfirm");
+
+	//Seed Role => Sale.ProductionOrder.Obsolete => سفارش ساخت - منسوخ‌سازی
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران مجاز به منسوخ‌سازی سفارش ساخت را به آن انتساب بده
+	var canObsolete = isAdmin || sdk.HasRole("Sale.ProductionOrder.Obsolete");
+
+	var delays = ViewBag.ProductionOrderDelayViewData as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
+}
 <div class="card">
-		<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductionOrder)"></form-action-buttons></div>
-
-</div>
-<div class="card">
-	<div class="card-body row">
-		<div class="col-12 mb-4">
-			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
-		</div>
-		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		 
-		
-		<div class='col-md-6'>
-						<label class='required'>وضعیت</label>
-			<select class='form-control' data-bind='state'  asp-for='State' asp-items="Html.GetEnumSelectList(typeof(ProductionOrderStateEnum))">
-			</select>
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-			<div class='col-md-3'>
-			<label class='required'>شماره سفارش ساخت</label>
-			<input class='form-control' data-bind='number' required asp-for='Number' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-		<div class='col-md-3'>
-			<label class=''>نسخه</label>
-			<input class='form-control'  data-bind='revision'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-
-		<div class="col-md-3">
-			<label class=''>قرارداد</label>
-			@(Html.EntitySelector<Contract>(
-				"ContractSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Title = c.Title
-				},
-				c => new { c.Title },
-				"{Title}",
-				"ContractId",
-				"ContractName",
-				Model?.ContractId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>تفصیل پروژه</label>
-			@(Html.EntitySelector<DL>(
-				"ProjectDlSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Title = c.Title
-				},
-				c => new { c.Title },
-				"{Title}",
-				"ProjectDlId",
-				"ProjectDlName",
-				Model?.ProjectDlId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-			<div class='col-md-3'>
-			<label class=''>کد تفصیل پروژه</label>
-			<input class='form-control'  data-bind='projectDlCode'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProjectDlCode' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-12 my-3">
-
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>کاربر نهایی</label>
-			<input class='form-control' data-bind='endUser'  asp-for='EndUser' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>تاریخ شروع پروژه</label>
-			<input class='form-control'  data-bind='projectStartDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.ProjectStartDate' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>تاریخ متره</label>
-			<input class='form-control'  data-bind='metreDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.MetreDate' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>شماره متر</label>
-			<input class='form-control' data-bind='metreNumber'  asp-for='MetreNumber' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>تاریخ تحویل موافقت‌شده</label>
-			<input class='form-control'  data-bind='agreedDeliveryDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD ","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.AgreedDeliveryDate' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>مدیر فروش</label>
-			@(Html.EntitySelector<User>(
-				"SalesManagerSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"SalesManagerId",
-				"SalesManagerName",
-				Model?.SalesManagerId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>مدیر پروژه</label>
-			@(Html.EntitySelector<User>(
-				"ProjectManagerSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"ProjectManagerId",
-				"ProjectManagerName",
-				Model?.ProjectManagerId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>کارشناس فروش جایگزین</label>
-			@(Html.EntitySelector<User>(
-				"AlternativeExpertSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"AlternativeExpertId",
-				"AlternativeExpertName",
-				Model?.AlternativeExpertId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>نمایندگی فروش</label>
-			@(Html.EntitySelector<Customer>(
-				"SalesAgencySelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Party_FullName = c.Party.FullName
-				},
-				c => new { c.Party },
-				"{Party.FullName}",
-				"SalesAgencyId",
-				"SalesAgencyName",
-				Model?.SalesAgencyId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>شهر نصب</label>
-			@(Html.EntitySelector<Region>(
-				"InstallationCitySelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"InstallationCityId",
-				"InstallationCityName",
-				Model?.InstallationCityId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='isNeedInspectionBeforePacking' class="form-check-input" type="checkbox" asp-for='IsNeedInspectionBeforePacking' />
-				<label class="form-check-label" asp-for='IsNeedInspectionBeforePacking'>
-					نیاز به بازرسی قبل از بسته‌بندی
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='hasContractor' class="form-check-input" type="checkbox" asp-for='HasContractor' />
-				<label class="form-check-label" asp-for='HasContractor'>
-					دارای پیمانکار
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='compressorHouseIsReady' class="form-check-input" type="checkbox" asp-for='CompressorHouseIsReady' />
-				<label class="form-check-label" asp-for='CompressorHouseIsReady'>
-					کمپرسورخانه آماده است
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='installationIsByHy' class="form-check-input" type="checkbox" asp-for='InstallationIsByHy' />
-				<label class="form-check-label" asp-for='InstallationIsByHy'>
-					نصب بعهده هوایار
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='hasFinancialGuarantee' class="form-check-input" type="checkbox" asp-for='HasFinancialGuarantee' />
-				<label class="form-check-label" asp-for='HasFinancialGuarantee'>
-					دارای تعهدات مالی
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>توضیحات فروش</label>
-			<input class='form-control' data-bind='salesComment'  asp-for='SalesComment' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>توضیحات </label>
-			<input class='form-control' data-bind='comment'  asp-for='Comment' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='centrifugeHasCompressor' class="form-check-input" type="checkbox" asp-for='CentrifugeHasCompressor' />
-				<label class="form-check-label" asp-for='CentrifugeHasCompressor'>
-					کمپرسور سانتریفیوژ دارد
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>تعداد</label>
-			<input class='form-control'  data-bind='centrifugeCompressorCount'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CentrifugeCompressorCount' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>ولتاژ الکتروموتور</label>
-			<input class='form-control'  data-bind='centrifugeElectromotorVoltage'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CentrifugeElectromotorVoltage' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
- 
-  
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='hasGA' class="form-check-input" type="checkbox" asp-for='HasGA' />
-				<label class="form-check-label" asp-for='HasGA'>
-					GA
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>نوع بسته بندی</label>
-			<input class='form-control'  data-bind='packingType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PackingType' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>نحوه تحویل</label>
-			<input class='form-control'  data-bind='deliveryType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DeliveryType' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>نوع محصول</label>
-			<input class='form-control'  data-bind='productType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProductType' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>نحوه راه اندازی</label>
-			<input class='form-control'  data-bind='centrifugeSetupType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CentrifugeSetupType' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3 align-content-center'>
-			<div class="form-check">
-				<input data-bind='isNeedProjectManager' class="form-check-input" type="checkbox" asp-for='IsNeedProjectManager' />
-				<label class="form-check-label" asp-for='IsNeedProjectManager'>
-					نیاز به مدیر پروژه
-				</label>
-			</div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>شماره سفارش ساخت</label>
-			<input class='form-control'  data-bind='productionOrderNumber'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProductionOrderNumber' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		
-
-		<div class="col-md-3">
-
-			<label class=''>کاربر کارشناس فروش</label>
-			@(Html.EntitySelector<User>(
-				"SalesExpertSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"SalesExpertId",
-				"SalesExpertName",
-				Model?.SalesExpertId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-3'>
-			<label class=''>صنعت مشتری</label>
-			<input class='form-control' data-bind='customerIndustry'  asp-for='CustomerIndustry' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-	
-
-		<div class='col-md-3'>
-			<label class=''>پروژه مهندسی</label>
-			<input class='form-control'  data-bind='edmsProject'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='EdmsProject' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-3">
-			<label class=''>کارشناس معرف</label>
-			@(Html.EntitySelector<User>(
-				"IntroducerExpertSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"IntroducerExpertId",
-				"IntroducerExpertName",
-				Model?.IntroducerExpertId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(ProductionOrder)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check-circle"
+				action-name="financialConfirm" title="تایید مالی"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-dark" icon-class="fa fa-ban"
+				action-name="obsolete" title="منسوخ کردن"></form-action-button>
+		</form-action-buttons>
 	</div>
 </div>
+<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 
-<div class="card">
- 
-	<div class='card-body row'>
-		<div class='col-md-3'>
-			<span>ایجاد کننده :</span>
-			<span data-bind="createdByName">@Model?.CreatedByName</span>
+<div class="row">
+	<div class="col-12 mb-2">
+		<label class="form-label text-muted small">وضعیت</label>
+		<div>
+			<span class="badge badge-light-primary fs-6 px-3 py-2" data-bind="stateDisplay">@(Model?.State.ToDisplay() ?? "-")</span>
 		</div>
-		<div class='col-md-3'>
-			<span>تاریخ ایجاد :</span>
-			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+	</div>
+
+	<!-- Tab Navigation -->
+	<div class="col-12">
+		<div class="card border-0 shadow-sm">
+			<div class="card-body p-3">
+				<ul class="nav nav-tabs nav-line-tabs nav-stretch fs-6 border-0 px-4 pt-4 justify-content-between" role="tablist">
+					<li class="nav-item">
+						<a class="nav-link active" data-bs-toggle="tab" href="#tab_general_@Model.Id">
+							<i class="bi bi-info-circle me-2"></i>اطلاعات کلی
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#tab_history_@Model.Id">
+							<i class="bi bi-chat-dots me-2"></i>تاریخچه
+							<span class="badge-circle badge badge-light-primary mx-1">@(Model?.Comments.Count ?? 0)</span>
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#tab_attachments_@Model.Id">
+							<i class="bi bi-paperclip me-2"></i>پیوست‌ها
+						</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" data-bs-toggle="tab" href="#tab_delays_@Model.Id">
+							<i class="bi bi-clock-history me-2"></i>تاخیرات
+							<span class="badge-circle badge badge-light-warning mx-1">@delays.Count</span>
+						</a>
+					</li>
+				</ul>
+			</div>
 		</div>
-		<div class='col-md-3'>
-			<span>ویرایش کننده :</span>
-			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
-		</div>
-		<div class='col-md-3'>
-			<span>تاریخ ویرایش :</span>
-			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+	</div>
+
+	<div class="col-md-12 my-1">
+		<div class="tab-content p-3" id="myTabContent">
+
+			<!-- Tab 1: اطلاعات کلی -->
+			<div class="tab-pane fade show active" id="tab_general_@Model.Id" role="tabpanel">
+				<div class="card">
+					<div class="card-body row">
+						<div class="col-12 mb-4">
+							<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+						</div>
+
+						<div class='col-md-6'>
+							<label class='required'>وضعیت</label>
+							<select class='form-control' data-bind='state' disabled asp-for='State' asp-items="Html.GetEnumSelectList(typeof(ProductionOrderStateEnum))">
+							</select>
+							<div class="form-text text-muted">
+								<!-- وضعیت گردش‌کار فقط از طریق دکمه‌های «تایید مالی»/«منسوخ کردن» بالا تغییر می‌کند -->
+								تغییر وضعیت صرفاً از طریق دکمه‌های عملیات بالا امکان‌پذیر است
+							</div>
+						</div>
+						<div class='col-md-3'>
+							<label class='required'>شماره سفارش ساخت</label>
+							<input class='form-control' data-bind='number' required asp-for='Number' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+						<div class='col-md-3'>
+							<label class=''>نسخه</label>
+							<input class='form-control'  data-bind='revision'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+
+						<div class="col-md-3">
+							<label class=''>قرارداد</label>
+							@(Html.EntitySelector<Contract>(
+								"ContractSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Title = c.Title
+								},
+								c => new { c.Title },
+								"{Title}",
+								"ContractId",
+								"ContractName",
+								Model?.ContractId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>تفصیل پروژه</label>
+							@(Html.EntitySelector<DL>(
+								"ProjectDlSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Title = c.Title
+								},
+								c => new { c.Title },
+								"{Title}",
+								"ProjectDlId",
+								"ProjectDlName",
+								Model?.ProjectDlId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+						<div class='col-md-3'>
+							<label class=''>کد تفصیل پروژه</label>
+							<input class='form-control'  data-bind='projectDlCode'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProjectDlCode' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-12 my-3">
+
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>کاربر نهایی</label>
+							<input class='form-control' data-bind='endUser'  asp-for='EndUser' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>تاریخ شروع پروژه</label>
+							<input class='form-control'  data-bind='projectStartDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.ProjectStartDate' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>تاریخ متره</label>
+							<input class='form-control'  data-bind='metreDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.MetreDate' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>شماره متر</label>
+							<input class='form-control' data-bind='metreNumber'  asp-for='MetreNumber' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>تاریخ تحویل موافقت‌شده</label>
+							<input class='form-control'  data-bind='agreedDeliveryDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD ","autoClose": true,"initialValue": true,"timePicker":{"enabled": true}}' value='@Model?.AgreedDeliveryDate' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>مدیر فروش</label>
+							@(Html.EntitySelector<User>(
+								"SalesManagerSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Name = c.Name
+								},
+								c => new { c.Name },
+								"{Name}",
+								"SalesManagerId",
+								"SalesManagerName",
+								Model?.SalesManagerId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>مدیر پروژه</label>
+							@(Html.EntitySelector<User>(
+								"ProjectManagerSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Name = c.Name
+								},
+								c => new { c.Name },
+								"{Name}",
+								"ProjectManagerId",
+								"ProjectManagerName",
+								Model?.ProjectManagerId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>کارشناس فروش جایگزین</label>
+							@(Html.EntitySelector<User>(
+								"AlternativeExpertSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Name = c.Name
+								},
+								c => new { c.Name },
+								"{Name}",
+								"AlternativeExpertId",
+								"AlternativeExpertName",
+								Model?.AlternativeExpertId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>نمایندگی فروش</label>
+							@(Html.EntitySelector<Customer>(
+								"SalesAgencySelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Party_FullName = c.Party.FullName
+								},
+								c => new { c.Party },
+								"{Party.FullName}",
+								"SalesAgencyId",
+								"SalesAgencyName",
+								Model?.SalesAgencyId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>شهر نصب</label>
+							@(Html.EntitySelector<Region>(
+								"InstallationCitySelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Name = c.Name
+								},
+								c => new { c.Name },
+								"{Name}",
+								"InstallationCityId",
+								"InstallationCityName",
+								Model?.InstallationCityId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='isNeedInspectionBeforePacking' class="form-check-input" type="checkbox" asp-for='IsNeedInspectionBeforePacking' />
+								<label class="form-check-label" asp-for='IsNeedInspectionBeforePacking'>
+									نیاز به بازرسی قبل از بسته‌بندی
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='hasContractor' class="form-check-input" type="checkbox" asp-for='HasContractor' />
+								<label class="form-check-label" asp-for='HasContractor'>
+									دارای پیمانکار
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='compressorHouseIsReady' class="form-check-input" type="checkbox" asp-for='CompressorHouseIsReady' />
+								<label class="form-check-label" asp-for='CompressorHouseIsReady'>
+									کمپرسورخانه آماده است
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='installationIsByHy' class="form-check-input" type="checkbox" asp-for='InstallationIsByHy' />
+								<label class="form-check-label" asp-for='InstallationIsByHy'>
+									نصب بعهده هوایار
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='hasFinancialGuarantee' class="form-check-input" type="checkbox" asp-for='HasFinancialGuarantee' />
+								<label class="form-check-label" asp-for='HasFinancialGuarantee'>
+									دارای تعهدات مالی
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>توضیحات فروش</label>
+							<input class='form-control' data-bind='salesComment'  asp-for='SalesComment' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>توضیحات </label>
+							<input class='form-control' data-bind='comment'  asp-for='Comment' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='centrifugeHasCompressor' class="form-check-input" type="checkbox" asp-for='CentrifugeHasCompressor' />
+								<label class="form-check-label" asp-for='CentrifugeHasCompressor'>
+									کمپرسور سانتریفیوژ دارد
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>تعداد</label>
+							<input class='form-control'  data-bind='centrifugeCompressorCount'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CentrifugeCompressorCount' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>ولتاژ الکتروموتور</label>
+							<input class='form-control'  data-bind='centrifugeElectromotorVoltage'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CentrifugeElectromotorVoltage' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='hasGA' class="form-check-input" type="checkbox" asp-for='HasGA' />
+								<label class="form-check-label" asp-for='HasGA'>
+									GA
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>نوع بسته بندی</label>
+							<input class='form-control'  data-bind='packingType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='PackingType' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>نحوه تحویل</label>
+							<input class='form-control'  data-bind='deliveryType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DeliveryType' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>نوع محصول</label>
+							<input class='form-control'  data-bind='productType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProductType' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>نحوه راه اندازی</label>
+							<input class='form-control'  data-bind='centrifugeSetupType'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='CentrifugeSetupType' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3 align-content-center'>
+							<div class="form-check">
+								<input data-bind='isNeedProjectManager' class="form-check-input" type="checkbox" asp-for='IsNeedProjectManager' />
+								<label class="form-check-label" asp-for='IsNeedProjectManager'>
+									نیاز به مدیر پروژه
+								</label>
+							</div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>شماره سفارش ساخت</label>
+							<input class='form-control'  data-bind='productionOrderNumber'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='ProductionOrderNumber' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+
+
+						<div class="col-md-3">
+
+							<label class=''>کاربر کارشناس فروش</label>
+							@(Html.EntitySelector<User>(
+								"SalesExpertSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Name = c.Name
+								},
+								c => new { c.Name },
+								"{Name}",
+								"SalesExpertId",
+								"SalesExpertName",
+								Model?.SalesExpertId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class='col-md-3'>
+							<label class=''>صنعت مشتری</label>
+							<input class='form-control' data-bind='customerIndustry'  asp-for='CustomerIndustry' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+
+
+						<div class='col-md-3'>
+							<label class=''>پروژه مهندسی</label>
+							<input class='form-control'  data-bind='edmsProject'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='EdmsProject' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+						<div class="col-md-3">
+							<label class=''>کارشناس معرف</label>
+							@(Html.EntitySelector<User>(
+								"IntroducerExpertSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Name = c.Name
+								},
+								c => new { c.Name },
+								"{Name}",
+								"IntroducerExpertId",
+								"IntroducerExpertName",
+								Model?.IntroducerExpertId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
+					</div>
+				</div>
+
+				<div class="card">
+
+					<div class='card-body row'>
+						<div class='col-md-3'>
+							<span>ایجاد کننده :</span>
+							<span data-bind="createdByName">@Model?.CreatedByName</span>
+						</div>
+						<div class='col-md-3'>
+							<span>تاریخ ایجاد :</span>
+							<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+						</div>
+						<div class='col-md-3'>
+							<span>ویرایش کننده :</span>
+							<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+						</div>
+						<div class='col-md-3'>
+							<span>تاریخ ویرایش :</span>
+							<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Tab 2: تاریخچه -->
+			<div class="tab-pane fade card card-body" id="tab_history_@Model.Id" role="tabpanel">
+				<h6 class="fw-bold text-dark mb-4"><i class="bi bi-chat-dots me-2"></i>تاریخچه وضعیت سفارش ساخت</h6>
+				@if (Model?.Comments != null && Model.Comments.Any())
+				{
+					<div class="table-responsive">
+						<table class="table table-striped table-bordered table-hover">
+							<thead>
+								<tr>
+									<th>وضعیت قبلی</th>
+									<th>وضعیت جدید</th>
+									<th>کامنت</th>
+									<th>کاربر</th>
+									<th>تاریخ</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var comment in Model.Comments.OrderByDescending(c => c.CreatedOnMiladiDateTime))
+								{
+									<tr>
+										<td>@(comment.PreviousState?.ToDisplay() ?? "-")</td>
+										<td>@(comment.NewState?.ToDisplay() ?? "-")</td>
+										<td>@comment.Comment</td>
+										<td>@comment.CreatedByName</td>
+										<td style="direction: ltr; text-align: right;">@comment.CreatedOnShamsiDateTime</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+				else
+				{
+					<div class="alert alert-info"><i class="fa fa-info-circle"></i> تاریخچه‌ای ثبت نشده است</div>
+				}
+			</div>
+
+			<!-- Tab 3: پیوست‌ها -->
+			<div class="tab-pane fade card card-body" id="tab_attachments_@Model.Id" role="tabpanel">
+				<h6 class="fw-bold text-dark mb-4"><i class="bi bi-paperclip me-2"></i>پیوست‌ها</h6>
+				<div class="row g-4">
+					<div class="col-md-6">
+						<fileuploader bind="managementConfirmationAttachmentId" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+							file-id="@Model?.ManagementConfirmationAttachmentId"
+							file-entity="@Model?.ManagementConfirmationAttachmentFile"
+							entity-prop-name="ManagementConfirmationAttachmentFile"
+							entity-type="@typeof(ProductionOrder).FullName"
+							max-file-size="10" label="پیوست تایید مدیریت">
+						</fileuploader>
+					</div>
+					<div class="col-md-6">
+						<fileuploader bind="depositFactorAttachmentId" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+							file-id="@Model?.DepositFactorAttachmentId"
+							file-entity="@Model?.DepositFactorAttachmentFile"
+							entity-prop-name="DepositFactorAttachmentFile"
+							entity-type="@typeof(ProductionOrder).FullName"
+							max-file-size="10" label="پیوست فاکتور پیش پرداخت">
+						</fileuploader>
+					</div>
+					<div class="col-md-6">
+						<fileuploader bind="preFactorAttachmentId" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+							file-id="@Model?.PreFactorAttachmentId"
+							file-entity="@Model?.PreFactorAttachmentFile"
+							entity-prop-name="PreFactorAttachmentFile"
+							entity-type="@typeof(ProductionOrder).FullName"
+							max-file-size="10" label="پیوست پیش فاکتور">
+						</fileuploader>
+					</div>
+					<div class="col-md-6">
+						<fileuploader bind="contractAttachmentId" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+							file-id="@Model?.ContractAttachmentId"
+							file-entity="@Model?.ContractAttachmentFile"
+							entity-prop-name="ContractAttachmentFile"
+							entity-type="@typeof(ProductionOrder).FullName"
+							max-file-size="10" label="پیوست قرارداد">
+						</fileuploader>
+					</div>
+				</div>
+			</div>
+
+			<!-- Tab 4: تاخیرات -->
+			<div class="tab-pane fade card card-body" id="tab_delays_@Model.Id" role="tabpanel">
+				<div class="d-flex justify-content-between align-items-center mb-4">
+					<h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history me-2"></i>تاخیرات</h6>
+					<button type="button" class="btn btn-sm btn-primary" data-action="addNewDelay">
+						<i class="fa fa-plus me-1"></i>افزودن تاخیر
+					</button>
+				</div>
+				@if (delays.Any())
+				{
+					<div class="table-responsive">
+						<table class="table table-striped table-bordered table-hover">
+							<thead>
+								<tr>
+									<th>عملیات</th>
+									<th>قلم سفارش ساخت</th>
+									<th>تعداد روز تاخیر</th>
+									<th>تاریخ شروع</th>
+									<th>تاریخ پایان</th>
+									<th>علت تاخیر</th>
+									<th>توضیحات</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var delay in delays)
+								{
+									<tr data-item-id="@(delay.Id ?? 0)">
+										<td>
+											<button class="btn btn-icon btn-warning btn-sm" data-action="openDelayModal">
+												<i class="fa fa-pencil"></i>
+											</button>
+										</td>
+										<td>@(delay.ProductionOrderItem != null ? $"{delay.ProductionOrderItem.Serial} - {delay.ProductionOrderItem.Part?.Name}" : "-")</td>
+										<td>@(delay.DelayDays?.ToString() ?? "-")</td>
+										<td>@(delay.DelayStartShamsiDate ?? "-")</td>
+										<td>@(delay.DelayEndShamsiDate ?? "-")</td>
+										<td>@delay.DelayReason</td>
+										<td>@delay.Description</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+				else
+				{
+					<div class="alert alert-info"><i class="fa fa-info-circle"></i> تاخیری ثبت نشده است</div>
+				}
+			</div>
+
 		</div>
 	</div>
 </div>
 
 <script>
+	// TODO(Role): Sale.ProductionOrder.FinancialConfirm / Sale.ProductionOrder.Obsolete - نگاه کن به بالای فایل Razor
+	var permissions = @Html.Raw(Json.Serialize(new {
+		   canFinancialConfirm,
+		   canObsolete
+	   }));
+	var productionOrder = @Html.Raw(Json.Serialize(Model));
+
+	function initializePage(){
+		for(let btn in self.FormActionButtons)
+		{
+			self.FormActionButtons[btn].element.disabled = true;
+		}
+
+		self.FormActionButtons.save.element.disabled = false;
+		self.FormActionButtons.saveandclose.element.disabled = false;
+		self.FormActionButtons.history.element.disabled = false;
+
+		// وضعیت‌های ProductionOrderStateEnum: Submit=1, FinancialUnitReview=2, FinancialApproval=3, Obsolete=4
+		if (permissions.canFinancialConfirm && (productionOrder.state == 1 || productionOrder.state == 2)) {
+			self.FormActionButtons.financialConfirm.element.disabled = false;
+		}
+
+		if (permissions.canObsolete && productionOrder.state == 3) {
+			self.FormActionButtons.obsolete.element.disabled = false;
+		}
+	}
+
+	initializePage()
+
+	//#region Financial Confirm
+	self.FormActionButtons.financialConfirm.onclick(function () {
+		const id = page.$pageEl.find('[data-bind="id"]').val();
+		if (!id || id == '0') {
+			toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canFinancialConfirm) {
+			toastr.error('شما دسترسی تایید مالی سفارش ساخت را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید مالی',
+			content: 'آیا از تایید مالی این سفارش ساخت اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-success',
+					action: function () {
+						$$.post('/Panel/ProductionOrder/DoFinancialConfirm/' + id, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('تایید مالی با موفقیت انجام شد');
+							appController.refreshCurrentPage();
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	});
+	//#endregion
+
+	//#region Obsolete
+	self.FormActionButtons.obsolete.onclick(function () {
+		const id = page.$pageEl.find('[data-bind="id"]').val();
+		if (!id || id == '0') {
+			toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canObsolete) {
+			toastr.error('شما دسترسی منسوخ‌سازی سفارش ساخت را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'منسوخ کردن',
+			content: 'آیا از منسوخ کردن این سفارش ساخت و تمام اقلام آن اطمینان دارید؟ این عملیات قابل بازگشت نیست.',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله، منسوخ شود',
+					btnClass: 'btn-danger',
+					action: function () {
+						$$.post('/Panel/ProductionOrder/DoObsolete/' + id, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('سفارش ساخت با موفقیت منسوخ شد');
+							appController.refreshCurrentPage();
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	});
+	//#endregion
+
 	function savefn($btnAction) {
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
@@ -424,4 +741,93 @@
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+	//#region Delay Modal
+	function openDelayModal(delayId = null) {
+		const productionOrderId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!productionOrderId || productionOrderId == '0') {
+			toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		const url = delayId
+			? `/Panel/ProductionOrder/ProductionOrderDelayPartial?id=${delayId}&productionOrderId=${productionOrderId}`
+			: `/Panel/ProductionOrder/ProductionOrderDelayPartial?productionOrderId=${productionOrderId}`;
+
+		$$.get(url, function (result) {
+			let bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
+			$.confirm({
+				title: delayId ? 'ویرایش تاخیر' : 'افزودن تاخیر',
+				columnClass: 'col-md-8',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							const self = this;
+
+							$$.post('/Panel/ProductionOrder/SaveProductionOrderDelay', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(`${r.message}`, 'خطا');
+									return false;
+								}
+
+								toastr.success('تاخیر با موفقیت ذخیره شد');
+								self.close();
+								appController.refreshCurrentPage();
+							});
+
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					var self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						self.$body.find('select.select2-hidden-accessible').each(function () {
+							const $select = $$(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: self.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="addNewDelay"]', function () {
+		openDelayModal();
+	});
+
+	page.$pageEl.on('click', '[data-action="openDelayModal"]', function () {
+		const delayId = $$(this).closest('tr').data('item-id');
+		openDelayModal(delayId);
+	});
+	//#endregion
+
+	// توجه: مدال «تاییدکننده تجهیز» قبلی از این صفحه حذف شد؛ این تنظیم دیگر به‌ازای هر سفارش ساخت
+	// نیست، بلکه یک تنظیم سراسری بر اساس نوع دستگاه است. برای مدیریت آن به
+	// Panel/ProductionOrderEquipmentConfirmer مراجعه کنید.
 </script>

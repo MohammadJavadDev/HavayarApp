@@ -51,7 +51,7 @@ namespace App.BackgroundJob.Jobs.Sls
 				await jobLogger?.LogInfoAsync($"تعداد {appCustomers.Count} مشتری در پایگاه داده برنامه موجود است", cn);
 
 				var appCustomersDict = appCustomers
-					.ToDictionary(x => x.PartyId);
+					.ToDictionary(x => x.HamkaranId);
 
 				var newCustomers = new List<Customer>();
 				int updatedCustomersCount = 0;
@@ -67,7 +67,7 @@ namespace App.BackgroundJob.Jobs.Sls
 						continue;
 					}
 
-					if (!appCustomersDict.TryGetValue((long)partyId, out var existCustomer))
+					if (!appCustomersDict.TryGetValue((long)rahkaranData.CustomerID, out var existCustomer))
 					{
 						// ایجاد رکورد جدید
 						newCustomers.Add(new Customer

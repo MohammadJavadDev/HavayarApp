@@ -2,8 +2,52 @@
 @{
 	Layout = null;
 }
-
-
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<style>
+		/* فونت‌ها باید روی خود صفحه Viewer باشند تا هنگام تعویض صفحه داشبورد هم اعمال شوند.
+		   نام واقعی خانواده داخل TTF: IRANSansWeb(FaNum) */
+		@@font-face {
+			font-family: "IRANSansWeb(FaNum)";
+			src: url("/panelLib/fonts/IRANSansWeb.woff2") format("woff2"),
+				 url("/panelLib/fonts/IRANSansWeb.woff") format("woff"),
+				 url("/panelLib/fonts/IRANSansWeb.ttf") format("truetype");
+			font-weight: 400;
+			font-style: normal;
+			font-display: swap;
+		}
+		@@font-face {
+			font-family: "IRANSansWeb(FaNum)";
+			src: url("/panelLib/fonts/IRANSansWeb_Bold.woff2") format("woff2"),
+				 url("/panelLib/fonts/IRANSansWeb_Bold.woff") format("woff"),
+				 url("/panelLib/fonts/IRANSansWeb_Bold.ttf") format("truetype");
+			font-weight: 700;
+			font-style: normal;
+			font-display: swap;
+		}
+		@@font-face {
+			font-family: "IRANSansWeb";
+			src: url("/panelLib/fonts/IRANSansWeb.woff2") format("woff2"),
+				 url("/panelLib/fonts/IRANSansWeb.woff") format("woff"),
+				 url("/panelLib/fonts/IRANSansWeb.ttf") format("truetype");
+			font-weight: 400;
+			font-style: normal;
+			font-display: swap;
+		}
+		@@font-face {
+			font-family: "IRANSansWeb";
+			src: url("/panelLib/fonts/IRANSansWeb_Bold.woff2") format("woff2"),
+				 url("/panelLib/fonts/IRANSansWeb_Bold.woff") format("woff"),
+				 url("/panelLib/fonts/IRANSansWeb_Bold.ttf") format("truetype");
+			font-weight: 700;
+			font-style: normal;
+			font-display: swap;
+		}
+	</style>
+</head>
+<body>
 <div style="direction: ltr">
 	@Html.StiNetCoreViewer(new StiNetCoreViewerOptions()
 	{
@@ -11,7 +55,13 @@
 		{
 			GetReport = "GetViewReport",
 			ViewerEvent = "ViewerEvent"
+		},
+		Server =
+		{
+			// ارسال فونت‌های سفارشی به کلاینت و تبدیل به CSS @font-face برای نمایش HTML داشبورد
+			AllowLoadingCustomFontsToClientSide = true
 		}
-
 	})
 </div>
+</body>
+</html>

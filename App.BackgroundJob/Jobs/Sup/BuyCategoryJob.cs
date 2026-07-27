@@ -40,8 +40,9 @@ namespace App.BackgroundJob.Jobs.Sup
 					.ToDictionaryAsync(x => x.Code, x => x.Id, cn);
 
 				var usersDict = await dbContext.Users
-					.Where(u => u.HamkaranId != null)
-					.Select(u => new { Id = u.Id!.Value, HamkaranId = u.HamkaranId!.Value })
+					.Include(c=>c.Party)
+					.Where(u => u.Party != null && u.Party.HamkaranId != null)
+					.Select(u => new { Id = u.Id!.Value, HamkaranId = u.Party.HamkaranId!.Value })
 					.ToDictionaryAsync(x => x.HamkaranId, x => x.Id, cn);
 
 				// 4. Sync BuyCategories

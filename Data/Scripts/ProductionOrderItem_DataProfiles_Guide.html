@@ -1,0 +1,1417 @@
+﻿<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>راهنمای نمایه داده اقلام سفارش ساخت — SavedQuery / RoleAccess</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --panel2: #243044;
+      --line: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --chip: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(160deg, #0b1220, #152238 50%, #0f1419);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    h2 { font-size: 1.25rem; margin: 36px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px; color: var(--accent); }
+    h3 { font-size: 1.05rem; margin: 20px 0 8px; color: #7dd3fc; }
+    .lead { color: var(--muted); margin-bottom: 20px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin: 12px 0;
+    }
+    .grid { display: grid; gap: 12px; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; text-align: right; }
+    th { background: var(--panel2); color: #bae6fd; white-space: nowrap; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    code, .mono {
+      font-family: Consolas, "Courier New", monospace;
+      background: #0b1220;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: 0.85em;
+      direction: ltr;
+      unicode-bidi: embed;
+    }
+    pre {
+      background: #0b1220;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      overflow: auto;
+      direction: ltr;
+      text-align: left;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+    .chip {
+      display: inline-block;
+      background: rgba(14,165,233,.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(14,165,233,.35);
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 0.8rem;
+      margin: 2px;
+    }
+    .chip.ok { background: rgba(52,211,153,.12); color: var(--ok); border-color: rgba(52,211,153,.35); }
+    .chip.warn { background: rgba(251,191,36,.12); color: var(--warn); border-color: rgba(251,191,36,.35); }
+    .chip.danger { background: rgba(248,113,113,.12); color: var(--danger); border-color: rgba(248,113,113,.35); }
+    details { margin: 8px 0; }
+    summary {
+      cursor: pointer;
+      background: var(--panel2);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      font-weight: 600;
+    }
+    details[open] summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    details .body {
+      border: 1px solid var(--line);
+      border-top: 0;
+      border-radius: 0 0 8px 8px;
+      padding: 12px;
+      background: var(--panel);
+    }
+    .members { columns: 2; gap: 12px; font-size: 0.88rem; }
+    @media (max-width: 700px) { .members { columns: 1; } }
+    .members li { margin: 2px 0; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc li { margin: 4px 0; }
+    .step { counter-increment: s; }
+    .steps { counter-reset: s; }
+    .step::before {
+      content: counter(s);
+      display: inline-flex;
+      width: 24px; height: 24px;
+      align-items: center; justify-content: center;
+      background: var(--chip);
+      color: #082f49;
+      border-radius: 50%;
+      font-weight: 700;
+      margin-left: 8px;
+      font-size: 0.8rem;
+    }
+    .badge-role { color: #fde68a; }
+    .note { color: var(--muted); font-size: 0.9rem; }
+    .filter-box { margin-top: 8px; }
+    nav.sticky {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(15,20,25,.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+      padding: 10px 20px;
+    }
+    nav.sticky a { color: #93c5fd; margin-left: 14px; font-size: 0.88rem; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav class="sticky">
+    <a href="#overview">مرور</a>
+    <a href="#status">وضعیت‌ها</a>
+    <a href="#profiles">نمایه‌ها</a>
+    <a href="#header">سرفصل</a>
+    <a href="#roles">Roleها</a>
+    <a href="#groups">گروه‌ها HTS</a>
+    <a href="#history">پیشینه</a>
+    <a href="#mycartable">کارتابل من</a>
+    <a href="#ops">عملیات</a>
+    <a href="#checklist">چک‌لیست</a>
+  </nav>
+
+  <div class="wrap">
+    <h1>راهنمای پیاده‌سازی نمایه داده — اقلام سفارش ساخت</h1>
+    <p class="lead">
+      این فایل مرجع ساخت <code>SavedQuery</code> از نوع <code>DataProfile</code>
+      برای موجودیت <code>Entities.App.Sale.ProductionOrderItem</code>
+      (و در صورت نیاز سرفصل <code>Entities.App.Sale.ProductionOrder</code>)
+      و اختصاص دسترسی از طریق <code>RoleAccess</code> است.
+      منطق کارتابل‌ها از HTS (<code>BuyStatus</code> / <code>GetOriginalGridData</code>)
+      و کنترلرهای سیستم جدید استخراج شده است.
+      Roleها و نمایه‌ها از طریق اسکریپت <code>Data/Scripts/Seed_ProductionOrderItem_DataProfiles.sql</code> Seed شده‌اند (ایدمپوتنت؛ قابل اجرای مجدد). شناسه‌های واقعی SavedQuery و اعضای گروه‌های HTS در همین سند آمده است.
+    </p>
+
+    <div class="card" id="seed-status" style="border-color:rgba(52,211,153,.45)">
+      <h3>وضعیت Seed (اجرا شده روی HavayarApp)</h3>
+      <p>
+        <span class="chip ok">Seeded</span>
+        اسکریپت: <code>Data/Scripts/Seed_ProductionOrderItem_DataProfiles.sql</code>
+        — کپی از SavedQuery <code>Id=104</code> + تزریق Filters + RoleAccess + تخصیص کاربران HTS.
+      </p>
+      <table>
+        <thead><tr><th>Profile Name</th><th>SavedQuery Id</th><th>Role</th><th>Role Id</th></tr></thead>
+        <tbody>
+          <tr><td><code>POI_All_Active</code></td><td><code>107</code></td><td><code>Sale.ProductionOrder.ShowAll</code></td><td><code>200020</code></td></tr>
+          <tr><td><code>POI_Cartable_Industrial</code></td><td><code>110</code></td><td><code>Sale.ProductionOrderItem.AcceptIndustrial</code></td><td><code>200023</code></td></tr>
+          <tr><td><code>POI_Cartable_Engineering_Mechanical</code></td><td><code>109</code></td><td><code>Sale.ProductionOrderItem.AcceptEngineeringMechanical</code></td><td><code>200024</code></td></tr>
+          <tr><td><code>POI_Cartable_Engineering_Electrical</code></td><td><code>108</code></td><td><code>Sale.ProductionOrderItem.AcceptEngineeringElectrical</code></td><td><code>200025</code></td></tr>
+          <tr><td><code>POI_Cartable_ProjectManager</code></td><td><code>113</code></td><td><code>Sale.ProductionOrderItem.AcceptProjectManager</code></td><td><code>200026</code></td></tr>
+          <tr><td><code>POI_Cartable_Inquiry</code></td><td><code>111</code></td><td><code>Sale.ProductionOrderItem.Inquirer</code></td><td><code>200027</code></td></tr>
+          <tr><td><code>POI_Cartable_Ministry</code></td><td><code>112</code></td><td><code>Sale.ProductionOrderItem.MinistryOfIndustryInquirer</code></td><td><code>200028</code></td></tr>
+          <tr><td><code>POI_Cartable_SupplyCommittee</code></td><td><code>114</code></td><td><code>Sale.ProductionOrderItem.SupplyCommitteeBoss</code></td><td><code>200029</code></td></tr>
+          <tr><td><code>POI_Sales_Related_Active</code></td><td><code>116</code></td><td><code>Sale.ProductionOrderItem.ViewRelated</code></td><td><code>200030</code></td></tr>
+          <tr><td><code>POI_History_Deleted</code></td><td><code>115</code></td><td><code>History (200031) + ShowAll (200020)</code></td><td>—</td></tr>
+          <tr><td><code>POI_ViewActive</code></td><td><code>117</code></td><td><code>Sale.ProductionOrderItem.ViewActive</code></td><td><code>200032</code></td></tr>
+        </tbody>
+      </table>
+      <p class="note">Roles کمکی هدر: <code>Sale.ProductionOrder.FinancialConfirm=200021</code>، <code>Sale.ProductionOrder.Obsolete=200022</code> (بدون تخصیص کاربر از گروه HTS).</p>
+    </div>
+    <section id="overview">
+      <h2>۱) مرور معماری در سیستم جدید</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>SavedQuery (نمایه)</h3>
+          <ul>
+            <li><code>Type = DataProfile</code></li>
+            <li><code>EntityFullName = Entities.App.Sale.ProductionOrderItem</code></li>
+            <li>فیلترها داخل <code>QueryJson → Filters[]</code></li>
+            <li>ستون‌ها در <code>ColumnsJson</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>RoleAccess (دسترسی نمایه)</h3>
+          <ul>
+            <li><code>ActionAccessType = DataProfile</code> (مقدار عددی enum: <code>3</code>)</li>
+            <li><code>EntityName</code> = همان FullName موجودیت</li>
+            <li><code>RowId</code> = Id نمایه SavedQuery</li>
+            <li><code>RoleId</code> = Role مربوطه</li>
+          </ul>
+          <p class="note">ادمین همه نمایه‌ها را می‌بیند؛ بقیه فقط نمایه‌هایی که RoleAccess دارند.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>اولویت تشخیص نقش / کارتابل (معادل HTS + کد جدید)</h3>
+        <ol>
+          <li>Admin / <code>Sale.ProductionOrder.ShowAll</code> → همه اقلام</li>
+          <li>صنایع (<code>AcceptIndustrial</code>) → کارتابل صنایع (۱۹۰۴ / ۱۹۰۵)</li>
+          <li>مهندسی مکانیک / برق → کارتابل مهندسی (۲۱۹۵) با تفکیک DeviceType</li>
+          <li>مدیر پروژه (<code>AcceptProjectManager</code>) → کارتابل PM (۲۲۵۸)</li>
+          <li>استعلام / وزارت صنایع / کمیته تامین → کارتابل‌های جانبی (۱۹۰۶ / ۱۹۰۸ / ۱۹۰۹+۲۲۰۲)</li>
+          <li>برنامه‌ریزی HTS (<code>HasPlanningPermission</code>) → صنایع داخلی/خارجی (۱۹۰۴/۱۹۰۵)</li>
+          <li>سایر (فروش/مرتبط) → اقلام فعال مرتبط با سفارش خود کاربر (Row Security)</li>
+        </ol>
+        <p class="note">
+          در HTS فیلتر سرور در <code>GetOriginalGridData</code> عمدتاً برای برنامه‌ریزی/استعلام/کمیته/ShowAll بود؛
+          کارتابل مهندسی و PM در UI سرفصل/اکشن‌ها کنترل می‌شد.
+          در سیستم جدید، برای DataProfile کارتابل‌های جدا پیشنهاد می‌شود.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>نگاشت فیلد HTS → HavayarApp</h3>
+        <table>
+          <thead>
+            <tr><th>HTS</th><th>HavayarApp</th><th>توضیح</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>BuyStatusId</code></td><td><code>CheckStatus</code></td><td>همان کدهای عددی (۱۹۰۳…۲۲۶۱)</td></tr>
+            <tr><td><code>ProductionStepId</code></td><td><code>ProductionStep</code></td><td>مرحله ساخت فیزیکی</td></tr>
+            <tr><td><code>IsDeleted</code></td><td><code>IsDeleted</code></td><td>پیشینه / حذف‌شده</td></tr>
+            <tr><td><code>IsLatestVersion</code></td><td><code>IsLatestVersion</code></td><td>آخرین نسخه قلم</td></tr>
+            <tr><td><code>IsRoutine</code></td><td><code>IsRoutine</code></td><td>مسیریابی مستقیم به صنایع</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="status">
+      <h2>۱-ب) مقادیر واقعی CheckStatus / ProductionStep</h2>
+      <div class="card">
+        <h3>ProductionOrderItemCheckStatusEnum (کارتابل)</h3>
+        <table>
+          <thead><tr><th>مقدار</th><th>نام enum</th><th>عنوان</th><th>کارتابل / نقش</th></tr></thead>
+          <tbody>
+            <tr><td><code>1903</code></td><td>InitialRegistration</td><td>ثبت اولیه</td><td>قبل از مسیریابی Job</td></tr>
+            <tr><td><code>1904</code></td><td>IndustrialDashboardInternal</td><td>در کارتابل صنایع (داخلی)</td><td>AcceptIndustrial</td></tr>
+            <tr><td><code>1905</code></td><td>ForeignIndustryCatalog</td><td>در کارتابل صنایع (خارجی)</td><td>AcceptIndustrial</td></tr>
+            <tr><td><code>1906</code></td><td>InquiryNeeded</td><td>نیاز به استعلام</td><td>Inquirer</td></tr>
+            <tr><td><code>1908</code></td><td>IndustrialMinistryReviewRequired</td><td>نیاز به بررسی وزارت صنایع</td><td>MinistryOfIndustryInquirer</td></tr>
+            <tr><td><code>1909</code></td><td>SendToSupplyCommitteeChair</td><td>ارسال به رئیس کمیته تامین</td><td>SupplyCommitteeBoss</td></tr>
+            <tr><td><code>2195</code></td><td>MechanicalEngineeringApprovalPending</td><td>در انتظار تایید مهندسی</td><td>مهندسی مکانیک/برق (تشخیص از DeviceType)</td></tr>
+            <tr><td><code>2197</code></td><td>EngineeringConfirmationMechanical</td><td>تایید مهندسی</td><td>پس از تایید</td></tr>
+            <tr><td><code>2198</code></td><td>MechanicalEngineeringNotApproved</td><td>عدم تایید مهندسی</td><td>—</td></tr>
+            <tr><td><code>2201</code></td><td>EngineeringReassessmentNeeded</td><td>نیاز به بازنگری مهندسی</td><td>—</td></tr>
+            <tr><td><code>2202</code></td><td>CommitteeHeadReviewPending</td><td>در انتظار بررسی رئیس کمیته</td><td>SupplyCommitteeBoss</td></tr>
+            <tr><td><code>2208</code></td><td>Deprecated</td><td>منسوخ شده</td><td>—</td></tr>
+            <tr><td><code>2258</code></td><td>AwaitingProjectManagerApproval</td><td>در انتظار تایید مدیر پروژه</td><td>AcceptProjectManager</td></tr>
+            <tr><td><code>2259</code></td><td>ProjectManagerApproval</td><td>تایید مدیر پروژه</td><td>—</td></tr>
+            <tr><td><code>2260</code></td><td>ProjectManagerUnapproved</td><td>عدم تایید مدیر پروژه</td><td>—</td></tr>
+            <tr><td><code>2261</code></td><td>ProjectManagerApprovalPending</td><td>نیاز به بازنگری PM</td><td>—</td></tr>
+          </tbody>
+        </table>
+        <p class="note">
+          نکته سازگاری: در HTS برای برق کدهای ۲۱۹۶/۲۱۹۹/۲۲۰۰ جدا بود؛ در HavayarApp فیلد
+          <code>CheckStatus</code> برای هر دو رشته از ۲۱۹۵/۲۱۹۷/۲۱۹۸ استفاده می‌کند و تشخیص رشته از
+          <code>DeviceType</code> است (تابلو کنترل ۲۴۰۳، تابلو برق ۲۴۰۴، اینورتر ۲۲۱۲، سکوئنسر ۲۲۱۱).
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>ProductionOrder.State (سرفصل)</h3>
+        <table>
+          <thead><tr><th>مقدار</th><th>enum</th><th>عنوان</th></tr></thead>
+          <tbody>
+            <tr><td><code>1</code></td><td>Submit</td><td>ثبت اولیه</td></tr>
+            <tr><td><code>2</code></td><td>FinancialUnitReview</td><td>بررسی واحد مالی</td></tr>
+            <tr><td><code>3</code></td><td>FinancialApproval</td><td>تایید مالی و آغاز فرآیند</td></tr>
+            <tr><td><code>4</code></td><td>Obsolete</td><td>منسوخ شده</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="profiles">
+      <h2>۲) نمایه‌های داده ProductionOrderItem</h2>
+      <p class="note">برای هر نمایه: در DataProfile Builder بسازید → فیلترها را ست کنید → Id را در RoleAccess ثبت کنید.
+        فیلتر پایه پیشنهادی همه کارتابل‌ها: <code>IsDeleted = false</code> و <code>IsLatestVersion = true</code>
+        (معادل شاخه‌های HTS برای کمیته/استعلام).</p>
+
+      <!-- P1 -->
+      <details open>
+        <summary>
+          <span class="chip ok">P1</span>
+          <code>POI_All_Active</code> —
+          همه اقلام فعال (آخرین نسخه)
+          <span class="chip">ShowAll / برنامه‌ریزی</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_All_Active</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>107</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>اقلام سفارش ساخت — همه فعال</td></tr>
+            <tr><th>Entity</th><td><code>Entities.App.Sale.ProductionOrderItem</code></td></tr>
+            <tr><th>فیلتر</th><td><code>IsDeleted = false</code> AND <code>IsLatestVersion = true</code></td></tr>
+            <tr><th>Roleهای دسترسی</th><td>
+              <span class="badge-role">Sale.ProductionOrder.ShowAll</span>
+              (و در صورت نیاز نقش مشاهده کلی برنامه‌ریزی)
+            </td></tr>
+            <tr><th>معادل HTS</th><td>Admin / <code>PermissionType.ShowAll</code> → <code>GetModel()</code> بدون فیلتر کارتابل</td></tr>
+          </table>
+          <div class="filter-box">
+            <strong>Filters JSON (نمونه)</strong>
+            <pre>[
+  {
+    "Id": "f1",
+    "TableName": "Sale.ProductionOrderItem",
+    "ColumnName": "IsDeleted",
+    "DataType": "bool",
+    "Operator": "equals",
+    "Value": "false",
+    "LogicalOperator": "AND"
+  },
+  {
+    "Id": "f2",
+    "TableName": "Sale.ProductionOrderItem",
+    "ColumnName": "IsLatestVersion",
+    "DataType": "bool",
+    "Operator": "equals",
+    "Value": "true",
+    "LogicalOperator": "AND"
+  }
+]</pre>
+          </div>
+        </div>
+      </details>
+
+      <!-- P2 Industrial -->
+      <details>
+        <summary>
+          <span class="chip ok">P2</span>
+          <code>POI_Cartable_Industrial</code> —
+          کارتابل صنایع (۱۹۰۴ / ۱۹۰۵)
+          <span class="chip">AcceptIndustrial</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_Industrial</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>110</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل صنایع — اقلام سفارش ساخت</td></tr>
+            <tr><th>فیلتر</th><td>
+              <code>IsDeleted = false</code>
+              AND <code>IsLatestVersion = true</code>
+              AND <code>CheckStatus IN (1904, 1905)</code>
+            </td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.AcceptIndustrial</span></td></tr>
+            <tr><th>اکشن مجاز</th><td>AcceptIndustrial، SendToInquiry، SendToMinistryReview، SendToSupplyCommittee</td></tr>
+            <tr><th>معادل HTS</th><td>
+              <code>BuyStatus Internal=1904 / External=1905</code>؛
+              پرمیشن <code>Accept_Industrial</code> و شاخه پیش‌فرض / <code>HasPlanningPermission</code>
+            </td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "in", "Value": "1904,1905", "LogicalOperator": "AND" }
+]</pre>
+          <p class="note">اگر اپراتور <code>in</code> در Builder پشتیبانی نمی‌شود، دو نمایه جدا برای ۱۹۰۴ و ۱۹۰۵ بسازید یا با OR دو فیلتر equals.</p>
+        </div>
+      </details>
+
+      <!-- P3 Engineering Mechanical -->
+      <details>
+        <summary>
+          <span class="chip ok">P3</span>
+          <code>POI_Cartable_Engineering_Mechanical</code> —
+          کارتابل مهندسی مکانیک (۲۱۹۵)
+          <span class="chip">AcceptEngineeringMechanical</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_Engineering_Mechanical</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>109</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل مهندسی مکانیک</td></tr>
+            <tr><th>فیلتر</th><td>
+              پایه فعال + <code>CheckStatus = 2195</code>
+              AND DeviceType <strong>نیست</strong> در مجموعه برقی:
+              <code>2403, 2404, 2212, 2211</code>
+              (ControlPanel / ElectricalPanel / InverterPanel / Sequencer)
+            </td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.AcceptEngineeringMechanical</span></td></tr>
+            <tr><th>اکشن</th><td>AcceptEngineering (Approve / Reject / ReviseNeeded)</td></tr>
+            <tr><th>معادل HTS</th><td><code>SeenToMechanicalEngineering = 2195</code>؛ OrgUnit مهندسی ۱۷، ۱۴۳، ۳۰ یا <code>Accept_Engineering</code></td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "equals", "Value": "2195", "LogicalOperator": "AND" },
+  { "ColumnName": "DeviceType", "Operator": "notIn", "Value": "2403,2404,2212,2211", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P4 Engineering Electrical -->
+      <details>
+        <summary>
+          <span class="chip ok">P4</span>
+          <code>POI_Cartable_Engineering_Electrical</code> —
+          کارتابل مهندسی برق (۲۱۹۵ + DeviceType برقی)
+          <span class="chip">AcceptEngineeringElectrical</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_Engineering_Electrical</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>108</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل مهندسی برق</td></tr>
+            <tr><th>فیلتر</th><td>
+              پایه فعال + <code>CheckStatus = 2195</code>
+              AND <code>DeviceType IN (2403, 2404, 2212, 2211)</code>
+            </td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.AcceptEngineeringElectrical</span></td></tr>
+            <tr><th>معادل HTS</th><td>قبلاً <code>SeenToElectricalEngineering = 2196</code>؛ در سیستم جدید همان ۲۱۹۵ + DeviceType</td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "equals", "Value": "2195", "LogicalOperator": "AND" },
+  { "ColumnName": "DeviceType", "Operator": "in", "Value": "2403,2404,2212,2211", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P5 PM -->
+      <details>
+        <summary>
+          <span class="chip ok">P5</span>
+          <code>POI_Cartable_ProjectManager</code> —
+          کارتابل مدیر پروژه (۲۲۵۸)
+          <span class="chip">AcceptProjectManager</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_ProjectManager</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>113</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل مدیر پروژه</td></tr>
+            <tr><th>فیلتر</th><td>پایه فعال + <code>CheckStatus = 2258</code></td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.AcceptProjectManager</span></td></tr>
+            <tr><th>اکشن</th><td>AcceptProjectManager</td></tr>
+            <tr><th>معادل HTS</th><td><code>SendToProjectManager = 2258</code>؛ معمولاً کاربر = <code>ProjectManagerId</code> سرفصل</td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "equals", "Value": "2258", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P6 Inquiry -->
+      <details>
+        <summary>
+          <span class="chip ok">P6</span>
+          <code>POI_Cartable_Inquiry</code> —
+          نیاز به استعلام (۱۹۰۶)
+          <span class="chip">Inquirer</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_Inquiry</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>111</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل استعلام</td></tr>
+            <tr><th>فیلتر</th><td>پایه فعال + <code>CheckStatus = 1906</code></td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.Inquirer</span></td></tr>
+            <tr><th>معادل HTS</th><td>
+              <code>NeedToInquiry</code> + <code>PermissionType.Pln_Inquirer</code>؛
+              گروه کاربری <strong>۳۸۱</strong>
+            </td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "equals", "Value": "1906", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P7 Ministry -->
+      <details>
+        <summary>
+          <span class="chip ok">P7</span>
+          <code>POI_Cartable_Ministry</code> —
+          بررسی وزارت صنایع (۱۹۰۸)
+          <span class="chip">MinistryOfIndustryInquirer</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_Ministry</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>112</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل وزارت صنایع</td></tr>
+            <tr><th>فیلتر</th><td>پایه فعال + <code>CheckStatus = 1908</code></td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.MinistryOfIndustryInquirer</span></td></tr>
+            <tr><th>معادل HTS</th><td>
+              <code>NeedToMinistryOfIndustryInquiry</code> + <code>Pln_MinistryOfIndustryInquirer</code>؛
+              گروه <strong>۳۸۲</strong>
+            </td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "equals", "Value": "1908", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P8 Committee -->
+      <details>
+        <summary>
+          <span class="chip ok">P8</span>
+          <code>POI_Cartable_SupplyCommittee</code> —
+          کمیته تامین (۱۹۰۹ / ۲۲۰۲)
+          <span class="chip">SupplyCommitteeBoss</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Cartable_SupplyCommittee</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>114</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>کارتابل رئیس کمیته تامین</td></tr>
+            <tr><th>فیلتر</th><td>
+              پایه فعال + <code>CheckStatus IN (1909, 2202)</code>
+            </td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sale.ProductionOrderItem.SupplyCommitteeBoss</span></td></tr>
+            <tr><th>اکشن</th><td>CommitteeAccept، CommitteeReject (و SendToSupplyCommittee)</td></tr>
+            <tr><th>معادل HTS</th><td>
+              <code>SendToSupplyCommitteeBoss</code> + <code>WaitingToCheckingSupplyCommitteeBoss</code>؛
+              گروه <strong>۳۸۰</strong> — کارشناسان رئیس کمیته تامین
+            </td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "IsLatestVersion", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "CheckStatus", "Operator": "in", "Value": "1909,2202", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P9 Sales related -->
+      <details>
+        <summary>
+          <span class="chip ok">P9</span>
+          <code>POI_Sales_Related_Active</code> —
+          اقلام فعال مرتبط با فروش/پروژه
+          <span class="chip">مشاهده‌گر فروش</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Sales_Related_Active</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>116</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>اقلام سفارش ساخت — مرتبط با من</td></tr>
+            <tr><th>فیلتر</th><td>
+              <code>IsDeleted = false</code> AND <code>IsLatestVersion = true</code>
+              (محدودسازی کاربر از طریق Row Security کنترلر:
+              CreatedBy / SalesExpert / SalesManager / AlternativeExpert / ProjectManager سرفصل)
+            </td></tr>
+            <tr><th>Role پیشنهادی</th><td>
+              می‌توانید Role جدید
+              <code>Sale.ProductionOrderItem.ViewRelated</code>
+              بسازید، یا فقط دسترسی List کنترلر + این نمایه را بدهید.
+            </td></tr>
+            <tr><th>معادل HTS</th><td>
+              شاخه else در GetOriginalGridData:
+              صنایع ۱۹۰۴/۱۹۰۵ <strong>یا</strong> CreatedUser/UpdatedUser/OrgUnit سرفصل
+            </td></tr>
+          </table>
+        </div>
+      </details>
+
+      <!-- P10 History -->
+      <details>
+        <summary>
+          <span class="chip warn">P10</span>
+          <code>POI_History_Deleted</code> —
+          پیشینه حذف‌شده‌ها
+          <span class="chip warn">History</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_History_Deleted</code></td></tr>
+            <tr><th>SavedQuery Id</th><td><code>115</code> <span class="chip ok">seeded</span></td></tr>
+            <tr><th>Title</th><td>پیشینه اقلام سفارش ساخت (حذف‌شده)</td></tr>
+            <tr><th>فیلتر</th><td><code>IsDeleted = true</code></td></tr>
+            <tr><th>معادل HTS</th><td>
+              فیلتر رنگی قرمز در <code>_ProductionOrderItemOriginal</code>:
+              <code>IsDeleted = true</code>
+            </td></tr>
+            <tr><th>Role پیشنهادی</th><td>
+              <code>Sale.ProductionOrderItem.History</code>
+              (جدید) — یا ShowAll
+            </td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- P11 Admin -->
+      <details>
+        <summary>
+          <span class="chip warn">P11</span>
+          <code>POI_Admin_IncludingDeleted</code> —
+          همه شامل حذف‌شده‌ها
+          <span class="chip warn">فقط Admin</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>POI_Admin_IncludingDeleted</code></td></tr>
+            <tr><th>Title</th><td>اقلام سفارش ساخت — همه (شامل حذف‌شده)</td></tr>
+            <tr><th>فیلتر</th><td>بدون شرط</td></tr>
+            <tr><th>دسترسی</th><td>فقط Administrator — نیازی به RoleAccess نیست</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <h3>نمایه‌های کمکی (اختیاری)</h3>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Title</th><th>فیلتر</th><th>کاربرد</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>POI_Initial_PendingRoute</code></td>
+            <td>ثبت اولیه — منتظر مسیریابی</td>
+            <td><code>CheckStatus = 1903</code> + فعال</td>
+            <td>مانیتور Job مسیریابی پس از تایید مالی</td>
+          </tr>
+          <tr>
+            <td><code>POI_Awaiting_Production</code></td>
+            <td>منتظر تولید</td>
+            <td><code>ProductionStep = 214</code> + فعال</td>
+            <td>پس از تایید صنایع/مهندسی/PM</td>
+          </tr>
+          <tr>
+            <td><code>POI_All_ReadyForShipping</code> <span class="chip ok">Id=123 — پیاده‌سازی‌شده</span></td>
+            <td>آماده به ارسال</td>
+            <td>
+              <code>Status = 579</code> (NotCompleted) و <strong>هیچ</strong> قلم هم‌سفارش دیگری با
+              <code>Status = 579</code> که <code>ProductionStep &lt;&gt; 221</code> باشد وجود نداشته باشد
+              (یعنی کل اقلامِ ناتمام همان سفارش ساخت آماده ارسال باشند)
+            </td>
+            <td>
+              معادل دقیق HTS <code>ProductionOrderItemController.GetNewGridData(loadReadyToSendItems: true)</code>
+              (L296-L338): <code>GroupBy(ProductionOrder) → فقط اقلام Status=579 → فقط اگر همه آن‌ها
+              ProductionStep=221 باشند</code>. صرفاً <code>ProductionStep=221</code> کافی نیست چون سفارش‌های
+              با ارسال جزئی (بعضی اقلام آماده، بعضی نه) نباید نمایش داده شوند.
+            </td>
+          </tr>
+          <tr>
+            <td><code>POI_Deprecated</code></td>
+            <td>منسوخ‌شده‌های قلم</td>
+            <td><code>CheckStatus = 2208</code></td>
+            <td>رد کمیته / منسوخ</td>
+          </tr>
+          <tr>
+            <td><code>POI_Cartable_Engineering_All</code></td>
+            <td>مهندسی (هر دو رشته)</td>
+            <td><code>CheckStatus = 2195</code> + فعال</td>
+            <td>اگر تفکیک مکانیک/برق لازم نیست</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card">
+        <h3>جزئیات <code>POI_All_ReadyForShipping</code> (Id=123)</h3>
+        <pre>WHERE
+    [t1].[IsDeleted] = 0
+    AND [t1].[IsLatestVersion] = 1
+    AND [t1].[Status] = 579                       -- NotCompleted (وضعیت 0 در HTS)
+    AND NOT EXISTS (                              -- هیچ قلم هم‌سفارشِ ناتمامِ غیر-آماده‌ای نباشد
+        SELECT 1 FROM [Sale].[ProductionOrderItem] AS [sib]
+        WHERE [sib].[ProductionOrderId] = [t1].[ProductionOrderId]
+          AND [sib].[IsDeleted] = 0
+          AND [sib].[IsLatestVersion] = 1
+          AND [sib].[Status] = 579
+          AND [sib].[ProductionStep] &lt;&gt; 221        -- ReadyForShipping
+    )</pre>
+        <p class="note">
+          تست روی داده واقعی: از ۱۲۴ قلم با <code>Status=579 AND ProductionStep=221</code>، فقط
+          <strong>۱۶ قلم</strong> این شرط را برآورده می‌کنند (یعنی متعلق به سفارش‌هایی هستند که
+          <em>تمام</em> اقلام ناتمام‌شان آماده ارسال است). این تفاوت (۱۲۴ در برابر ۱۶) دقیقاً همان
+          چیزی است که فرمول HTS با <code>GroupBy + Items.Count(ready) == Items.Count</code> هدفش بود.
+        </p>
+      </div>
+    </section>
+
+    <section id="header">
+      <h2>۳) نمایه‌های سرفصل ProductionOrder (اختیاری — صفحات Manage)</h2>
+      <p class="note">Entity: <code>Entities.App.Sale.ProductionOrder</code></p>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Title</th><th>فیلتر</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>PO_All</code></td>
+            <td>همه سفارش‌های ساخت</td>
+            <td>بدون فیلتر (یا IsActive)</td>
+            <td><span class="badge-role">Sale.ProductionOrder.ShowAll</span></td>
+          </tr>
+          <tr>
+            <td><code>PO_Financial_Pending</code></td>
+            <td>منتظر تایید مالی</td>
+            <td><code>State = 2</code> (FinancialUnitReview)</td>
+            <td><span class="badge-role">Sale.ProductionOrder.FinancialConfirm</span></td>
+          </tr>
+          <tr>
+            <td><code>PO_In_Process</code></td>
+            <td>تایید مالی شده / در جریان</td>
+            <td><code>State = 3</code> (FinancialApproval)</td>
+            <td>ShowAll / مشاهده‌گر</td>
+          </tr>
+          <tr>
+            <td><code>PO_Obsolete</code></td>
+            <td>منسوخ‌شده‌ها</td>
+            <td><code>State = 4</code></td>
+            <td>ShowAll / Obsolete viewers</td>
+          </tr>
+          <tr>
+            <td><code>PO_My_Related</code></td>
+            <td>سفارش‌های مرتبط با من</td>
+            <td>بدون فیلتر فیلدی — Row Security کنترلر</td>
+            <td>کاربران فروش/پروژه</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="card">
+        <strong>معادل HTS هدر:</strong>
+        <ul>
+          <li><code>Accept_Financial</code> → همه سفارش‌ها (برای تایید)</li>
+          <li><code>Accept_OfficeManagement</code> → فقط <code>Financial_Approval</code></li>
+          <li><code>Accept_Industrial</code> → <code>OfficeManagement_Approval AND Financial_Approval</code></li>
+          <li>غیر ادمین معمولاً فقط سفارش‌های تایید مالی+اداری را می‌بینند</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="roles">
+      <h2>۴) Roleها <span class="chip ok">Seeded 200020–200032</span></h2>
+      <p class="note">
+        Roleهای زیر در DB ساخته شده‌اند (<code>Seed_ProductionOrderItem_DataProfiles.sql</code>).
+        HasData در <code>Role.cs</code> اضافه نشد تا با نقش‌های موجود بازه ۲۰۰xxx تداخل EF ندهد.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Role (HavayarApp)</th>
+            <th>پرمیشن / شرط HTS</th>
+            <th>نمایه پیشنهادی</th>
+            <th>اکشن کنترلر</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Sale.ProductionOrder.ShowAll</code></td>
+            <td><code>PermissionType.ShowAll</code></td>
+            <td>P1 + PO_All</td>
+            <td>رد شدن از Row Security</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrder.FinancialConfirm</code></td>
+            <td><code>Accept_Financial</code></td>
+            <td>PO_Financial_Pending</td>
+            <td>DoFinancialConfirm</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrder.Obsolete</code></td>
+            <td>منسوخ‌سازی هدر</td>
+            <td>PO_In_Process / PO_All</td>
+            <td>DoObsolete</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.AcceptIndustrial</code></td>
+            <td><code>Accept_Industrial</code> / HasPlanning (۱۹۰۴–۱۹۰۵)</td>
+            <td>P2</td>
+            <td>AcceptIndustrial</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.AcceptEngineeringMechanical</code></td>
+            <td><code>Accept_Engineering</code> + OrgUnit ۱۷/۱۴۳/۳۰</td>
+            <td>P3</td>
+            <td>AcceptEngineering (مکانیک)</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.AcceptEngineeringElectrical</code></td>
+            <td>مهندسی برق (قبلاً BuyStatus ۲۱۹۶)</td>
+            <td>P4</td>
+            <td>AcceptEngineering (برق)</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.AcceptProjectManager</code></td>
+            <td>کاربر = ProjectManagerId سرفصل</td>
+            <td>P5</td>
+            <td>AcceptProjectManager</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.Inquirer</code></td>
+            <td><code>Pln_Inquirer</code> — گروه ۳۸۱</td>
+            <td>P6</td>
+            <td>SendToInquiry (+ SendToSupplyCommittee)</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.MinistryOfIndustryInquirer</code></td>
+            <td><code>Pln_MinistryOfIndustryInquirer</code> — گروه ۳۸۲</td>
+            <td>P7</td>
+            <td>SendToMinistryReview (+ SendToSupplyCommittee)</td>
+          </tr>
+          <tr>
+            <td><code>Sale.ProductionOrderItem.SupplyCommitteeBoss</code></td>
+            <td><code>Pln_SupplyCommitteeBoss</code> — گروه ۳۸۰</td>
+            <td>P8</td>
+            <td>CommitteeAccept / CommitteeReject / SendToSupplyCommittee</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card">
+        <strong>نمونه RoleAccess بعد از ساخت نمایه:</strong>
+        <pre>INSERT INTO system.RoleAccess
+  (Path, ActionAccessType, EntityName, DisplayName, RowId, RoleId, IsActive, CreatedOnMiladiDateTime, CreatedByName)
+VALUES
+  (NULL,
+   3, /* ActionAccessType.DataProfile */
+   N'Entities.App.Sale.ProductionOrderItem',
+   N'کارتابل صنایع',
+   @SavedQueryId_P2,
+   @RoleId_AcceptIndustrial,
+   1, GETDATE(), N'seed');</pre>
+        <p class="note">مقدار عددی <code>ActionAccessType.DataProfile = 3</code> (پس از EntityAction=0، View=1، Api=2).</p>
+      </div>
+    </section>
+
+    <section id="groups">
+      <h2>۵) گروه‌های HTS مرتبط با سفارش ساخت</h2>
+      <p class="note">
+        منبع: کامنت‌های <code>ProductionOrderItemInquiryService</code> و کنترلر HTS.
+        اتصال MCP به TotalSystem در زمان تهیه این سند در دسترس نبود؛ لیست اعضا را از
+        <code>Gnr_UserGroup</code> / <code>Gnr_UserGroupMember</code> بگیرید و با
+        <code>system.User.Username</code> مپ کنید.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>گروه</th><th>عنوان (از کد)</th><th>Role پیشنهادی</th><th>نمایه</th></tr>
+        </thead>
+        <tbody>
+                    <tr>
+            <td><strong>۳۰۲</strong></td>
+            <td>کارشناسان مشاهده کلی اقلام سفارش ساخت (۹۸ نفر)</td>
+            <td><code>Sale.ProductionOrder.ShowAll</code> (200020)</td>
+            <td>P1 / Id=107</td>
+          </tr>
+          <tr>
+            <td><strong>۲۶</strong></td>
+            <td>مدیر سیستم برنامه‌ریزی (۲ نفر)</td>
+            <td><code>Sale.ProductionOrder.ShowAll</code></td>
+            <td>P1</td>
+          </tr>
+          <tr>
+            <td><strong>۸۱</strong></td>
+            <td>کارشناسان صنایع (سفارش ساخت) — ۱۰ نفر</td>
+            <td><code>Sale.ProductionOrderItem.AcceptIndustrial</code> (200023)</td>
+            <td>P2 / Id=110</td>
+          </tr>
+          <tr>
+            <td><strong>۲۸</strong></td>
+            <td>کارشناسان صنایع (مشترک با OOR) — ۱۱ نفر</td>
+            <td><code>Sale.ProductionOrderItem.AcceptIndustrial</code></td>
+            <td>P2</td>
+          </tr>
+          <tr>
+            <td><strong>۴۱۲</strong></td>
+            <td>کارشناسان مهندسی (سفارش ساخت) — ۲۲ نفر → هر دو نقش مکانیک+برق</td>
+            <td><code>AcceptEngineeringMechanical</code> / <code>Electrical</code> (200024/200025)</td>
+            <td>P3/P4 Ids 109/108</td>
+          </tr>
+          <tr>
+            <td><strong>۳۸۰</strong></td>
+            <td>کارشناسان رئیس کمیته تامین (سفارش ساخت) — ۱ نفر</td>
+            <td><code>Sale.ProductionOrderItem.SupplyCommitteeBoss</code> (200029)</td>
+            <td>P8 / Id=114</td>
+          </tr>
+          <tr>
+            <td><strong>۳۸۱</strong></td>
+            <td>کارشناسان استعلام‌کننده (سفارش ساخت) — <span class="chip warn">خالی</span></td>
+            <td><code>Sale.ProductionOrderItem.Inquirer</code> (200027)</td>
+            <td>P6 / Id=111</td>
+          </tr>
+          <tr>
+            <td><strong>۳۸۲</strong></td>
+            <td>کارشناسان استعلام وزارت صنایع — <span class="chip warn">خالی</span></td>
+            <td><code>Sale.ProductionOrderItem.MinistryOfIndustryInquirer</code> (200028)</td>
+            <td>P7 / Id=112</td>
+          </tr>
+          <tr>
+            <td><strong>۵۳۸</strong></td>
+            <td>دریافت‌کنندگان ایمیل ارسال به انبار (بازرسی ورودی)</td>
+            <td>اعلان — نه فیلتر لیست</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><strong>۵۴۰</strong></td>
+            <td>ایمیل شروع تست سفارش ساخت غیرروتین</td>
+            <td>اعلان</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><strong>۵۹۱</strong></td>
+            <td>StaticNotificationReceivers در صفحه اقلام</td>
+            <td>اعلان</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <details open>
+        <summary>گروه ۳۸۰ — کمیته تامین (۱ نفر) → SupplyCommitteeBoss — seeded</summary>
+        <div class="body members"><ul>
+          <li>shirazi.m — محمود شیرازی</li>
+        </ul></div>
+      </details>
+
+      <details>
+        <summary>گروه ۳۸۱ / ۳۸۲ — استعلام / وزارت صنایع — بدون عضو فعال</summary>
+        <div class="body"><p class="note">در TotalSystem عضو فعال ندارند؛ Roleها ساخته شده‌اند ولی کاربری تخصیص داده نشده.</p></div>
+      </details>
+
+      <details>
+        <summary>گروه ۲۶ — مدیر سیستم برنامه‌ریزی (۲ نفر) → ShowAll</summary>
+        <div class="body members"><ul>
+          <li>khalili.aa — امید خلیلی</li>
+          <li>salim.sh — امیرشاهین محمد سلیم</li>
+        </ul></div>
+      </details>
+
+      <details>
+        <summary>گروه ۸۱ — کارشناسان صنایع سفارش ساخت (۱۰ نفر) → AcceptIndustrial</summary>
+        <div class="body members"><ul>
+          <li>Ahmadi.sh — شهره بابااحمدی</li>
+          <li>Asadi.re — رضا اسدی</li>
+          <li>Azadbakhsh.s — سپیده آزاد بخش</li>
+          <li>Azadbakhsh.sh — شیما آزادبخش</li>
+          <li>eezi.a — افسانه ایزی</li>
+          <li>khalili.aa — امید خلیلی</li>
+          <li>kian.r — رسول کیان</li>
+          <li>mehrabi.s — سعید محرابی</li>
+          <li>Moradmand.a — آرش مرادمند</li>
+          <li>Saemian.r — رضا صائمیان</li>
+        </ul></div>
+      </details>
+
+      <details>
+        <summary>گروه ۴۱۲ — کارشناسان مهندسی سفارش ساخت (۲۲ نفر) → Mechanical + Electrical</summary>
+        <div class="body members"><ul>
+          <li>bagheri.m — مجید باقری</li>
+          <li>Bamimohammadi.gh — غلامرضا بامی محمدی <span class="chip warn">missing in Havayar</span></li>
+          <li>Bosaghzadeh.e — احسان اله بساق زاده <span class="chip warn">missing in Havayar</span></li>
+          <li>Erfani.m — محمدجواد عرفانی</li>
+          <li>esmaillian.r — رمانا اسماعیلیان</li>
+          <li>Farahmand.m — محمدرضا فرهمند <span class="chip warn">missing in Havayar</span></li>
+          <li>goudarzi.h — حسین گودرزی <span class="chip warn">missing in Havayar</span></li>
+          <li>habibi.m — محمدعلی حبیبی</li>
+          <li>javadian.p — پژمان جوادیان <span class="chip warn">missing in Havayar</span></li>
+          <li>kadkhodaei.v — وحید کدخدائی</li>
+          <li>Kazemzadeh.h — حمید کاظم زاده</li>
+          <li>khalaj.m — مهرداد خلج</li>
+          <li>khodakarami.f — فرهاد خداکرمی</li>
+          <li>Khorshidi.m — محسن خورشیدی</li>
+          <li>Mirlohi.a — امیر میرلوحی</li>
+          <li>Mohammadi.a — علی محمدی</li>
+          <li>Neysari.n — نیما نیساری</li>
+          <li>Rajabi.m — مسعود رجبی</li>
+          <li>sabermanesh.s — سعید صابرمنش</li>
+          <li>Saeedi.m — میرمحسن سعیدی</li>
+          <li>Samii.m — محمد سمیعی</li>
+          <li>taheran.f — فرید طاهران</li>
+        </ul>
+        <p class="note">۱۷ کاربر در Havayar تخصیص یافتند؛ ۵ نفر در system.User نبودند.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۳۰۲ — مشاهده کلی اقلام (۹۸ نفر) → ShowAll — ۸۴ تخصیص‌یافته در Havayar</summary>
+        <div class="body">
+          <p class="note">۱۶ Username در HavayarApp یافت نشد: allahverdi.s، Bamimohammadi.gh، Beigi.s، Bosaghzadeh.e، Farahmand.m، Farokhi.m، habibollah.m، javadian.p، Mohammadian.mo، Nikoosefat.m، Raman.f، ramezani.y، salahi.m، Shaghaghi.m، Sharafi.z، Tabatabaei.z. Seed برای موجودها Role <code>200020</code> را اضافه کرد.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۲۸ — کارشناسان صنایع (مرجع مشترک OOR — ۱۱ نفر) → AcceptIndustrial — seeded</summary>
+        <div class="body members">
+          <ul>
+            <li>Moradmand.a — آرش مرادمند</li>
+            <li>eezi.a — افسانه ایزی</li>
+            <li>khalili.aa — امید خلیلی</li>
+            <li>kian.r — رسول کیان</li>
+            <li>Asadi.re — رضا اسدی</li>
+            <li>Saemian.r — رضا صائمیان</li>
+            <li>Azadbakhsh.s — سپیده آزاد بخش</li>
+            <li>mehrabi.s — سعید محرابی</li>
+            <li>Ahmadi.sh — شهره بابااحمدی</li>
+            <li>Azadbakhsh.sh — شیما آزادبخش</li>
+            <li>golestaneh.a — علی گلستانه</li>
+          </ul>
+        </div>
+      </details>
+
+      <div class="card">
+        <strong>کوئری TotalSystem برای اعضا (اسکیمای واقعی):</strong>
+        <pre>SELECT g.UserGroup_ID, g.UserGroup_Title, u.Username, u.FullName
+FROM Gnr_UserGroup g
+JOIN Gnr_UserGroupMember m ON m.UserGroup_FK = g.UserGroup_ID
+JOIN Gnr_User u ON u.User_ID = m.User_FK
+WHERE g.UserGroup_ID IN (302, 81, 412, 380, 381, 382, 26, 28)
+  AND u.IsActive = 1
+ORDER BY g.UserGroup_ID, u.Username;</pre>
+      </div>
+    </section>
+
+    <section id="history">
+      <h2>۶) پیشینه / حذف‌شده‌ها (IsDeleted)</h2>
+      <div class="card">
+        <h3>رفتار HTS</h3>
+        <p>
+          در گرید <code>_ProductionOrderItemOriginal</code> فیلتر رنگی:
+        </p>
+        <ul>
+          <li><strong>سبز</strong>: <code>IsLatestVersion = true</code> و <code>IsDeleted = false</code></li>
+          <li><strong>قرمز</strong>: <code>IsDeleted = true</code> (پیشینه)</li>
+        </ul>
+        <p class="note">برخلاف OOR، صفحه History جدا با فیلتر نقش سخت‌گیرانه در سرور برای اقلام تعریف نشده؛
+          فیلتر حذف در کلاینت/Query اعمال می‌شود. در سیستم جدید نمایه P10 پیشنهاد می‌شود.</p>
+      </div>
+      <div class="card">
+        <h3>نمایه</h3>
+        <p>از <code>POI_History_Deleted</code> (P10) استفاده کنید و RoleAccess بدهید به ShowAll یا Role جدید History.</p>
+      </div>
+    </section>
+
+    <section id="mycartable">
+      <h2>۷) کارتابل من — نمایه تجمیعی «منتظر اقدام من» <span class="chip ok">SavedQuery Id=118</span></h2>
+      <p class="note">
+        برخلاف نمایه‌های P1..P11 (که هرکدام فقط یک وضعیت/نقش را نشان می‌دهند)، این نمایه با
+        <strong>Query دستی</strong> (Mode = Query، نه Filter Builder) ساخته شده تا بتواند برای
+        <em>هر کاربر لاگین‌شده</em>، تجمیع تمام ردیف‌هایی را نشان دهد که با توجه به نقش‌های همان
+        کاربر — دقیقاً منتظر اقدام اوست؛ معادل کارتابل ترکیبی HTS.
+        اسکریپت سازنده: <code>Data/Scripts/Seed_ProductionOrderItem_MyCartable_DataProfile.sql</code>
+        (Idempotent؛ نمایه‌های P1..P11 و ۱۰۴ را دست نمی‌زند).
+      </p>
+
+      <div class="card">
+        <h3>چرا Query دستی به‌جای Filter Builder؟</h3>
+        <p>
+          بررسی کد نشان داد وقتی <code>QueryDesign.CustomQuery</code> پر باشد،
+          <code>QueryService</code> (در هر دو مسیر Preview و رندر DataTable) مستقیماً همان
+          متن را اجرا می‌کند و لیست <code>Filters</code> اصلاً به WHERE تبدیل نمی‌شود؛ بنابراین
+          منطق شرطی پیچیده (OR بین چند Role) فقط با نوشتن WHERE داخل خودِ CustomQuery ممکن است.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>متغیرهای واقعاً در دسترس داخل Query</h3>
+        <p>
+          <code>ParameterResolverService</code> فقط دو مقدار کاربر جاری را واقعاً Resolve می‌کند:
+          <code>@CurrentUserId</code> و <code>@CurrentUserName</code>. مقادیر
+          <code>@CurrentUserRole(s)</code> و <code>@CurrentUserOrganizationId/Name</code> در کد
+          فعلی صرفاً Placeholder هستند و همیشه <code>NULL</code> برمی‌گردانند (پیاده‌سازی نشده‌اند).
+          به همین دلیل، Role/واحد سازمانی کاربر جاری با یک Join به <code>system.[User]</code>
+          روی <code>@CurrentUserId</code> و خواندن ستون‌های <code>RoleIds</code>/<code>Roles</code>
+          (آرایه JSON) با <code>OPENJSON</code> استخراج می‌شود؛ نه از پارامترهای از‌پیش‌تعریف‌شده.
+        </p>
+        <pre>DECLARE @CuId BIGINT = TRY_CAST(@CurrentUserId AS BIGINT);
+DECLARE @CuRoles NVARCHAR(MAX), @CuRoleIds NVARCHAR(MAX);
+SELECT @CuRoles = Roles, @CuRoleIds = RoleIds FROM system.[User] WHERE Id = @CuId;
+
+DECLARE @HasIndustrial BIT = CASE WHEN EXISTS (
+    SELECT 1 FROM OPENJSON(@CuRoleIds) WHERE TRY_CAST([value] AS BIGINT) = 200023
+) THEN 1 ELSE 0 END;
+-- ... به همین شکل برای بقیه نقش‌ها ...
+--!--mainsection   &lt;-- Marker داخلی DatabaseSchemaService؛ جدا می‌کند بخش DECLARE را از SELECT
+SELECT ... FROM Sale.ProductionOrderItem t1 LEFT JOIN Sale.ProductionOrder t2 ON ... WHERE (...)</pre>
+        <p class="note">
+          Marker <code>--!--mainsection</code> برای این لازم است که در رندر صفحه‌بندی‌شده،
+          <code>DatabaseSchemaService.ExecuteQueryWithPaginationAsync</code> عبارت SELECT را داخل
+          <code>SELECT * FROM (...) AS [__t]</code> می‌پیچد؛ DECLARE نمی‌تواند داخل این زیرکوئری
+          باشد، پس باید قبل از Marker (خارج از پرانتز) بماند.
+        </p>
+      </div>
+
+      <h3>نگاشت شاخه‌های WHERE ↔ اکشن‌های واقعی کنترلر</h3>
+      <table>
+        <thead>
+          <tr><th>شاخه</th><th>شرط CheckStatus/State</th><th>Roleهای مجاز اقدام (OR)</th><th>مرجع کد</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>صنایع (داخلی/خارجی)</td>
+            <td>
+              <code>CheckStatus IN (1904,1905)</code> <strong>و</strong>
+              <code>ProductionStep IN (0, 2744)</code>
+            </td>
+            <td>AcceptIndustrial، Inquirer، MinistryOfIndustryInquirer، SupplyCommitteeBoss</td>
+            <td>AcceptIndustrial / SendToInquiry / SendToMinistryReview / SendToSupplyCommittee</td>
+          </tr>
+          <tr>
+            <td>مهندسی مکانیک</td>
+            <td><code>CheckStatus=2195</code> و DeviceType غیر برقی</td>
+            <td>AcceptEngineeringMechanical</td>
+            <td>AcceptEngineering</td>
+          </tr>
+          <tr>
+            <td>مهندسی برق</td>
+            <td><code>CheckStatus=2195</code> و DeviceType برقی</td>
+            <td>AcceptEngineeringElectrical</td>
+            <td>AcceptEngineering</td>
+          </tr>
+          <tr>
+            <td>مدیر پروژه</td>
+            <td><code>CheckStatus=2258</code></td>
+            <td>AcceptProjectManager <strong>یا</strong> <code>ProductionOrder.ProjectManagerId = شناسه کاربر جاری</code></td>
+            <td>AcceptProjectManager</td>
+          </tr>
+          <tr>
+            <td>استعلام</td>
+            <td><code>CheckStatus=1906</code></td>
+            <td>Inquirer، MinistryOfIndustryInquirer، SupplyCommitteeBoss</td>
+            <td>SendToMinistryReview / SendToSupplyCommittee</td>
+          </tr>
+          <tr>
+            <td>وزارت صنایع</td>
+            <td><code>CheckStatus=1908</code></td>
+            <td>MinistryOfIndustryInquirer، Inquirer، SupplyCommitteeBoss</td>
+            <td>SendToSupplyCommittee</td>
+          </tr>
+          <tr>
+            <td>رئیس کمیته تامین</td>
+            <td><code>CheckStatus IN (1909,2202)</code></td>
+            <td>SupplyCommitteeBoss (فقط)</td>
+            <td>CommitteeAccept / CommitteeReject</td>
+          </tr>
+          <tr>
+            <td>سرفصل — تایید مالی (منتقل‌شده از صفحه سفارش ساخت)</td>
+            <td><code>ProductionOrder.State = 2</code> (FinancialUnitReview)</td>
+            <td>Sale.ProductionOrder.FinancialConfirm</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><strong>Admin / ShowAll</strong></td>
+            <td colspan="2">اجتماع (Union) دقیقاً همان ۷ شاخه بالا — نه کل اقلام فعال</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card">
+        <h3>نکات طراحی مهم (تصمیم‌های عمدی)</h3>
+        <ul>
+          <li>
+            <strong>چرا <code>ProductionStep IN (0, 2744)</code> برای صنایع؟</strong>
+            چون <code>AcceptIndustrial</code> هیچ‌وقت CheckStatus را عوض نمی‌کند (فقط
+            ProductionStep را به ۲۱۴ می‌برد)، دیتای واقعی نشان داد ۲٬۴۴۰ قلم با
+            <code>CheckStatus=1904</code> سال‌ها پیش تحویل‌شده‌اند (<code>ProductionStep=223</code>)
+            و فقط ۱۰۰ قلم واقعاً دست‌نخورده‌اند (۰ یا ۲۷۴۴). بدون این شرط، کارتابل صنایع
+            نمایش هزاران رکورد بی‌ربط می‌داد.
+          </li>
+          <li>
+            <strong>چرا مدیر پروژه هم با Role هم با شناسه؟</strong>
+            چون فعلاً هیچ کاربری Role مربوطه (200026) را ندارد؛ افزودن
+            <code>ProjectManagerId = شناسه کاربر جاری</code> باعث می‌شود مدیر پروژه واقعیِ سفارش
+            (بدون نیاز به انتساب Role) نیز قلم خودش را ببیند — همان «شناسه شخص جاری» که در
+            درخواست اشاره شد.
+          </li>
+          <li>
+            <strong>«واحد سازمانی» (OrgUnit) عمداً در فیلتر استفاده نشد</strong>؛ چون در کد فعلی
+            (<code>ProductionOrderItemController</code>) هیچ مجوزی بر مبنای OrgUnit بررسی
+            نمی‌شود (برخلاف HTS که OrgUnit ۱۷/۱۴۳/۳۰ Hardcode بود). افزودن آن بدون پشتوانه در
+            Authorization واقعی، ریسک نمایش/عدم‌نمایش نادرست ایجاد می‌کرد.
+          </li>
+          <li>
+            <code>Sale.ProductionOrder.Obsolete</code> عمداً شاخه‌ای در این کارتابل ندارد؛ چون
+            یک صف «منتظر اقدام» با CheckStatus مشخص نیست، بلکه یک مجوز همیشه-در-دسترس است.
+          </li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Roleهای دارای RoleAccess به این نمایه</h3>
+        <p>ShowAll، FinancialConfirm، AcceptIndustrial، AcceptEngineeringMechanical،
+          AcceptEngineeringElectrical، AcceptProjectManager، Inquirer،
+          MinistryOfIndustryInquirer، SupplyCommitteeBoss (۹ Role — همگی از قبل در
+          <code>Seed_ProductionOrderItem_DataProfiles.sql</code> ساخته شده بودند؛ این اسکریپت
+          Role جدید نمی‌سازد، فقط RoleAccess اضافه می‌کند).</p>
+      </div>
+
+      <div class="card">
+        <h3>نتایج تست روی داده واقعی (۲۶ تیر ۱۴۰۵)</h3>
+        <table>
+          <thead><tr><th>کاربر نمونه</th><th>Roleهای کارتابلی</th><th>تعداد ردیف کارتابل من</th></tr></thead>
+          <tbody>
+            <tr><td>admin (Id=1)</td><td>Admin (Bypass)</td><td>۱٬۳۲۴</td></tr>
+            <tr><td>khodakarami.f (Id=9)</td><td>ShowAll + EngMech + EngElec</td><td>۱٬۳۲۴ (چون ShowAll دارد)</td></tr>
+            <tr><td>shirazi.m (Id=130)</td><td>SupplyCommitteeBoss فقط</td><td>۱۰۰ (شاخه مشترک صنایع)</td></tr>
+            <tr><td>کاربر بدون هیچ Role کارتابلی</td><td>—</td><td>۰</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Inquirer/Ministry/SupplyCommittee فعلاً چون CheckStatus=1906/1908/1909/2202 در دیتای
+          فعلی صفر است، خالی نمایش داده می‌شوند تا اولین قلم به آن مرحله برسد — این خالی بودن،
+          Bug نیست.</p>
+      </div>
+
+      <div class="card">
+        <h3>به‌روزرسانی: مسیریابی مهندسی بر اساس Pln.ProductionOrderEquipmentConfirmer</h3>
+        <p>
+          پس از اصلاح جدول <code>Pln.ProductionOrderEquipmentConfirmer</code> (به‌ازای هر
+          <code>DeviceType</code>، یک تاییدکننده مکانیک و یک تاییدکننده برق مشخص)، شاخه‌های
+          مهندسی مکانیک/برق در <code>POI_MyCartable</code> اصلاح شدند تا به‌جای نمایش همه اقلام
+          به هر کسی که Role عمومی <code>AcceptEngineeringMechanical</code>/<code>AcceptEngineeringElectrical</code>
+          دارد، فقط اقلامی را نشان دهند که <strong>خودِ همان کاربر</strong> به‌عنوان تاییدکننده همان
+          <code>DeviceType</code> در جدول تنظیمات ثبت شده است.
+        </p>
+        <pre>-- شاخه مهندسی مکانیک (شاخه برق مشابه با ElectricalUserId)
+[t1].[CheckStatus] = 2195
+AND ([t1].[DeviceType] IS NULL OR [t1].[DeviceType] NOT IN (2403,2404,2212,2211))
+AND (
+    @HasShowAll = 1
+    OR EXISTS ( -- کاربر جاری تاییدکننده اختصاصی همین DeviceType است
+        SELECT 1 FROM [Pln].[ProductionOrderEquipmentConfirmer] pec
+        WHERE pec.[DeviceType] = [t1].[DeviceType] AND pec.[MechanicalUserId] = @CuId
+    )
+    OR ( -- fallback: اگر برای این DeviceType هیچ تاییدکننده معتبری تعریف نشده، نقش عمومی کافی است
+        @HasEngMech = 1
+        AND NOT EXISTS (
+            SELECT 1 FROM [Pln].[ProductionOrderEquipmentConfirmer] pec2
+            WHERE pec2.[DeviceType] = [t1].[DeviceType] AND pec2.[MechanicalUserId] IS NOT NULL
+        )
+    )
+)</pre>
+        <p class="note">
+          Fallback عمداً اضافه شد چون برخی DeviceType ها (مثل ۲۴۵۵/نامشخص یا ۲۴۰۶ که کاربر
+          تاییدکننده‌اش هنوز در هوایار حساب ندارد) بدون تاییدکننده معتبر هستند؛ بدون Fallback این
+          اقلام برای هیچ‌کس (جز ShowAll) دیده نمی‌شدند. تست شد: <code>Saeedi.m</code> (تاییدکننده
+          مکانیک ۹ نوع دستگاه) فقط ۱۱۰۳ قلم مربوط به همان ۹ نوع را می‌بیند؛ کاربر بدون تخصیص
+          شخصی فقط ۳۵ قلم Fallback (نوع‌های بدون تاییدکننده معتبر) را می‌بیند.
+        </p>
+      </div>
+    </section>
+
+    <section id="ops">
+      <h2>۷) عملیات (جدا از فیلتر لیست)</h2>
+      <p class="note">این Roleها دکمه/اکشن Edit.cshtml و API را کنترل می‌کنند؛ لزوماً نمایه جدا نمی‌خواهند — ولی کارتابل متناظر باید دیده شود.</p>
+      <table>
+        <thead>
+          <tr><th>عملیات</th><th>Role</th><th>وضعیت مجاز CheckStatus</th><th>نمایه کارتابل</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>تایید/رد مهندسی</td>
+            <td>AcceptEngineeringMechanical / Electrical</td>
+            <td>۲۱۹۵</td>
+            <td>P3 / P4</td>
+          </tr>
+          <tr>
+            <td>تایید صنایع</td>
+            <td>AcceptIndustrial</td>
+            <td>۱۹۰۴ یا ۱۹۰۵</td>
+            <td>P2</td>
+          </tr>
+          <tr>
+            <td>تایید/رد مدیر پروژه</td>
+            <td>AcceptProjectManager</td>
+            <td>۲۲۵۸</td>
+            <td>P5</td>
+          </tr>
+          <tr>
+            <td>ارسال به استعلام</td>
+            <td>Inquirer</td>
+            <td>از ۱۹۰۴/۱۹۰۵ → ۱۹۰۶</td>
+            <td>P2 → P6</td>
+          </tr>
+          <tr>
+            <td>ارسال به وزارت صنایع</td>
+            <td>MinistryOfIndustryInquirer</td>
+            <td>از ۱۹۰۴/۱۹۰۵/۱۹۰۶ → ۱۹۰۸</td>
+            <td>P2/P6 → P7</td>
+          </tr>
+          <tr>
+            <td>ارسال به کمیته تامین</td>
+            <td>Inquirer یا Ministry یا SupplyCommitteeBoss</td>
+            <td>از ۱۹۰۴/۱۹۰۵/۱۹۰۶/۱۹۰۸ → ۱۹۰۹</td>
+            <td>→ P8</td>
+          </tr>
+          <tr>
+            <td>تایید کمیته</td>
+            <td>SupplyCommitteeBoss</td>
+            <td>۱۹۰۹ یا ۲۲۰۲ → ۱۹۰۴ + ProductionStep منتظر تولید</td>
+            <td>P8</td>
+          </tr>
+          <tr>
+            <td>رد کمیته</td>
+            <td>SupplyCommitteeBoss</td>
+            <td>۱۹۰۹ یا ۲۲۰۲ → ۲۲۰۸ + Canceled</td>
+            <td>P8</td>
+          </tr>
+          <tr>
+            <td>تایید مالی سرفصل</td>
+            <td>Sale.ProductionOrder.FinancialConfirm</td>
+            <td>State → ۳</td>
+            <td>PO_Financial_Pending</td>
+          </tr>
+          <tr>
+            <td>منسوخ سرفصل</td>
+            <td>Sale.ProductionOrder.Obsolete</td>
+            <td>State → ۴</td>
+            <td>PO_In_Process</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card">
+        <h3>مسیریابی خودکار Job (پس از تایید مالی)</h3>
+        <ol>
+          <li>اگر <code>IsRoutine</code> یا DeviceType ∈ {CNG=2232, SparePart=2235} → کارتابل صنایع (۱۹۰۴) / مرحله منتظر تولید</li>
+          <li>وگرنه اگر سرفصل <code>ProjectManagerId</code> دارد → کارتابل PM (۲۲۵۸)</li>
+          <li>وگرنه → کارتابل مهندسی (۲۱۹۵)</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="checklist" class="steps">
+      <h2>۸) چک‌لیست پیاده‌سازی</h2>
+      <div class="card step">
+        Roleها و تخصیص کاربران از Seed انجام شده است (<code>Seed_ProductionOrderItem_DataProfiles.sql</code>). در صورت نیاز فقط کاربران جدید را به Role اضافه کنید.
+      </div>
+      <div class="card step">
+        نمایه‌های اصلی Seed شده‌اند (Ids در جدول وضعیت Seed). در صورت تغییر فیلتر، Builder یا اسکریپت را به‌روز کنید. نمایه‌ها:
+        <code>POI_All_Active</code>،
+        <code>POI_Cartable_Industrial</code>،
+        <code>POI_Cartable_Engineering_Mechanical</code>،
+        <code>POI_Cartable_Engineering_Electrical</code>،
+        <code>POI_Cartable_ProjectManager</code>،
+        <code>POI_Cartable_Inquiry</code>،
+        <code>POI_Cartable_Ministry</code>،
+        <code>POI_Cartable_SupplyCommittee</code>،
+        <code>POI_Sales_Related_Active</code>،
+        <code>POI_History_Deleted</code>
+        با EntityFullName صحیح.
+      </div>
+      <div class="card step">
+        در صورت نیاز صفحات Manage سرفصل: نمایه‌های
+        <code>PO_All</code>،
+        <code>PO_Financial_Pending</code>،
+        <code>PO_In_Process</code>،
+        <code>PO_Obsolete</code>.
+      </div>
+      <div class="card step">
+        برای هر Role در <code>system.RoleAccess</code> ردیف
+        <code>ActionAccessType = 3 (DataProfile)</code> با
+        <code>RowId = SavedQuery.Id</code> و
+        <code>EntityName = Entities.App.Sale.ProductionOrderItem</code> ثبت کنید.
+      </div>
+      <div class="card step">
+        تست سناریو: کاربر صنایع فقط P2؛ مهندسی مکانیک فقط P3؛ برق فقط P4؛ PM فقط P5؛
+        استعلام P6؛ وزارت P7؛ کمیته P8؛ ShowAll همه P1؛ ادمین همه + حذف‌شده‌ها.
+      </div>
+      <div class="card step">
+        دکمه تایید روی Edit فقط وقتی فعال است که CheckStatus دقیقاً با کارتابل نقش هم‌خوان باشد
+        (منطق موجود در Edit.cshtml + کنترلر).
+      </div>
+    </section>
+
+    <section>
+      <h2>۹) خلاصه سریع ماتریس فیلتر</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>نقش</th>
+            <th>IsDeleted</th>
+            <th>IsLatestVersion</th>
+            <th>CheckStatus</th>
+            <th>DeviceType</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Admin</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>ShowAll</td><td>false</td><td>true</td><td>—</td><td>—</td></tr>
+          <tr><td>صنایع</td><td>false</td><td>true</td><td>۱۹۰۴, ۱۹۰۵</td><td>—</td></tr>
+          <tr><td>مهندسی مکانیک</td><td>false</td><td>true</td><td>۲۱۹۵</td><td>نه برقی</td></tr>
+          <tr><td>مهندسی برق</td><td>false</td><td>true</td><td>۲۱۹۵</td><td>برقی</td></tr>
+          <tr><td>مدیر پروژه</td><td>false</td><td>true</td><td>۲۲۵۸</td><td>—</td></tr>
+          <tr><td>استعلام</td><td>false</td><td>true</td><td>۱۹۰۶</td><td>—</td></tr>
+          <tr><td>وزارت صنایع</td><td>false</td><td>true</td><td>۱۹۰۸</td><td>—</td></tr>
+          <tr><td>کمیته تامین</td><td>false</td><td>true</td><td>۱۹۰۹, ۲۲۰۲</td><td>—</td></tr>
+          <tr><td>فروش مرتبط</td><td>false</td><td>true</td><td>—</td><td>+ Row Security</td></tr>
+          <tr><td>پیشینه</td><td>true</td><td>—</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="note" style="margin-top:32px">
+      فایل: <code>Data/Scripts/ProductionOrderItem_DataProfiles_Guide.html</code> —
+      منابع: HavayarApp Controllers/Enums/Views + HTS ProductionOrderItemController /
+      ProductionOrderItemBuyStatus / ProductionOrderWorkflow.html /
+      ProductionOrderItemInquiryService (گروه‌های ۳۸۰–۳۸۲).
+      Seed: <code>Data/Scripts/Seed_ProductionOrderItem_DataProfiles.sql</code> — اعضای گروه‌ها از TotalSystem زنده خوانده و در این سند ثبت شده‌اند.
+    </p>
+  </div>
+</body>
+</html>

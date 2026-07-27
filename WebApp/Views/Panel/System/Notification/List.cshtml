@@ -358,6 +358,8 @@
                text-align: center;
                box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.06);
                border: 1px solid var(--bs-border-color);
+          place-items: center;
+
           }
 
           .empty-state i {
@@ -503,6 +505,17 @@
                <i class="fas fa-envelope-open"></i>
                <span>خوانده شده</span>
           </label>
+          <button id="deleteAll" class="btn btn-danger">
+               حذف همه <i class="fas fa-trash ps-1"></i>
+          </button>
+
+          <button id="markAllAsRead" class="btn btn-success">
+               خوانده شدن همه اعلان ها <i class="ki-duotone ki-eye fs-3 ">
+                                        <span class="path1"></span>
+                                        <span class="path2"></span>
+                                        <span class="path3"></span>
+                                   </i>
+          </button>
      </div>
 
      <div id="alertContainer"></div>
@@ -693,6 +706,26 @@
           );
      }
 
+          function markAllAsRead() {
+          $$.post('/System/Notify/MarkAllAsRead', null,
+               function (r) {
+                     
+                    if (!r.isSuccess) return error2(r.message);
+
+                    const card = $$(`.notification-item-content`);
+                    card.removeClass('unread').addClass('read');
+                    card.find('.notification-badge').removeClass('new').addClass('read').text('خوانده شده');
+                    card.find('.btn-mark-read').prop('disabled', true).html('<i class="fas fa-check-double"></i> خوانده شده');
+
+                    success2('تمامی اعلان ها به عنوان خوانده شده علامت‌گذاری شد');
+                     
+                    if (window.CalculationCountUnreadNotifications) {
+                         window.CalculationCountUnreadNotifications();
+                    }
+               }
+          );
+     }
+
      function deleteNotification(notificationId) {
           if (!confirm('آیا از حذف این اعلان اطمینان دارید؟')) {
                return;
@@ -768,6 +801,30 @@
      $$('#filterUnread, #filterRead').on('change', function () {
           loadNotifications(true);
      });
+
+     $$("#deleteAll").on("click",function(){
+
+           $$.post('/System/Notify/DeleteAll', null,
+               function (r) {
+                    if (!r.isSuccess) return error2(r.message);
+                     
+                      $$('#notificationsContainer').html(`
+                                   <div class="empty-state">
+                                       <i class="fas fa-inbox"></i>
+                                       <p>اعلانی برای نمایش وجود ندارد</p>
+                                   </div>
+                              `);
+
+                    success2('تمامی اعلان ها حذف شدن');
+                     
+                    if (window.CalculationCountUnreadNotifications) {
+                         window.CalculationCountUnreadNotifications();
+                    }
+               }
+          );
+     })
+
+     $$("#markAllAsRead").on("click", markAllAsRead);
 
      // Initial load
      loadNotifications();

@@ -1,8 +1,9 @@
-﻿using Common.System;
+using Common.System;
 using Data;
 using Data.Contracts;
 using Data.Repositories;
 using Data.Services;
+using Data.Services.Edms;
 using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Auth;
@@ -43,6 +44,7 @@ using WebFramework.Initializes;
 using WebFramework.Middlewares;
 using WebFramework.Services;
 using WebFramework.TagHelpers;
+using WebFramework.Views;
 using Z.EntityFramework.Extensions;
 
 
@@ -60,11 +62,13 @@ builder.Services.AddControllersWithViews()
     }).AddMvcOptions(o =>
     {
         o.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
-    }).AddRazorRuntimeCompilation()
+    })
+    .AddRazorRuntimeCompilation()
     .AddApplicationPart(typeof(WebFramework.Controllers.DataTableProfileBuilderController).Assembly)
 	 .AddApplicationPart(typeof(ReportBuilderController).Assembly)
     .AddControllersAsServices();
 
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Controllers.IControllerActivator, DynamicFallbackControllerActivator>();
 
  
 
@@ -75,6 +79,13 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
     {
         sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
     }).AddInterceptors(sp.GetRequiredService<CrudEventInterceptor>()));
+
+builder.Services.AddDbContext<RahkaranDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Rahkaran")));
+
+builder.Services.AddDbContext<HtsDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Hts")));
+
 
 builder.Services.AddSingleton<IEnvironmentService, EnvironmentService>();
 
@@ -118,6 +129,31 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<ISdk, Sdk>();
 builder.Services.AddScoped<IFormBuilderCodeGenerator,FormBuilderCodeGenerator>();
+builder.Services.AddScoped<IFormBuilderSchemaService, FormBuilderSchemaService>();
+builder.Services.AddScoped<IFormBuilderPublishService, FormBuilderPublishService>();
+builder.Services.AddScoped<IPageBuilderSchemaService, PageBuilderSchemaService>();
+builder.Services.AddScoped<IPageBuilderService, PageBuilderService>();
+builder.Services.AddScoped<IPageBuilderViewRenderService, PageBuilderViewRenderService>();
+builder.Services.AddSingleton<IPageBuilderCache, PageBuilderCache>();
+
+
+//builder.Services.AddSingleton<DiskThenDatabaseFileProvider>();
+//builder.Services.AddOptions<Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation.MvcRazorRuntimeCompilationOptions>()
+//	.Configure<DiskThenDatabaseFileProvider>((options, provider) =>
+//	{
+//		options.FileProviders.Remove(provider);
+//		options.FileProviders.Insert(0, provider);
+//	});
+
+builder.Services.AddSingleton<DynamicActionDescriptorChangeProvider>();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Infrastructure.IActionDescriptorChangeProvider>(
+	sp => sp.GetRequiredService<DynamicActionDescriptorChangeProvider>());
+builder.Services.AddSingleton<IDynamicTypeRegistry, Services.DynamicCompilation.DynamicTypeRegistry>();
+builder.Services.AddSingleton<Services.DynamicCompilation.IDynamicCompilationService, Services.DynamicCompilation.DynamicCompilationService>();
+builder.Services.AddSingleton<Services.DynamicCompilation.IFormDefinitionMetadataBuilder, Services.DynamicCompilation.FormDefinitionMetadataBuilder>();
+builder.Services.AddSingleton<IDynamicControllerRegistrar, DynamicControllerRegistrar>();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Abstractions.IActionDescriptorProvider, ExcludeShadowedFormControllersProvider>();
+builder.Services.AddSingleton<Microsoft.EntityFrameworkCore.Infrastructure.IModelCacheKeyFactory, DynamicModelCacheKeyFactory>();
 builder.Services.AddScoped<IDatabaseSchemaService, DatabaseSchemaService>();
 builder.Services.AddHttpClient();
 // Redis Distributed Cache
@@ -174,6 +210,8 @@ builder.Services.AddScoped<IQueryBuilderService, QueryBuilderService>();
 
 // سرویس مدیریت گزارش‌ها
 builder.Services.AddScoped<IQueryService, QueryService>();
+
+builder.Services.AddScoped<IEdmsMdrReportService, EdmsMdrReportService>();
 
 // سرویس جایگزینی پارامترها
 builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>();
@@ -378,12 +416,24 @@ void InitializeApplication(WebApplication app)
 
 		initializeDataBase.InitAdminUser();
 
+		//var schemaService = scope.ServiceProvider.GetRequiredService<IFormBuilderSchemaService>();
+		//schemaService.EnsureFormDefinitionPublishColumnsAsync().GetAwaiter().GetResult();
+
+		//var pageBuilderSchemaService = scope.ServiceProvider.GetRequiredService<IPageBuilderSchemaService>();
+		//pageBuilderSchemaService.EnsureTableAsync().GetAwaiter().GetResult();
+
+		//var pageBuilderService = scope.ServiceProvider.GetRequiredService<IPageBuilderService>();
+		//pageBuilderService.WarmCacheAsync().GetAwaiter().GetResult();
+
 		var initializeProgram = scope.ServiceProvider.GetRequiredService<IInitializeProgram>();
 		initializeProgram.InitializeDataProfiles();
 		initializeProgram.InitializeMenu();
 		initializeProgram.InitializeRoles();
 		initializeProgram.InitializeAccessControllers();
 		initializeProgram.InitializeEntityMetadataCache();
+
+		//var publishService = scope.ServiceProvider.GetRequiredService<IFormBuilderPublishService>();
+		//publishService.LoadAllPublishedFormsAsync().GetAwaiter().GetResult();
 
 		// Initialize notification rules cache
 		var notificationService = scope.ServiceProvider.GetRequiredService<INotifitactionBuilderService>();

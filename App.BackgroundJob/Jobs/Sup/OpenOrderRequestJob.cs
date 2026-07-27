@@ -7,9 +7,11 @@ using Entities.App.FIN;
 using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sup;
+using Entities.App.Sup.Enums;
 using Entities.Base.Notification;
 using Entities.Auth;
 using Microsoft.EntityFrameworkCore;
+using Services.FileServices;
 using Services.Job;
 using System.Data;
 using System.Globalization;
@@ -19,7 +21,12 @@ using Entities.Base.Enums;
 
 namespace App.BackgroundJob.Jobs.Sup
 {
-    public class OpenOrderRequestJob(ApplicationDbContext dbContext, RahkaranDbContext rdb, IUnitOfWork unitOfWork)
+    public class OpenOrderRequestJob(
+        ApplicationDbContext dbContext,
+        RahkaranDbContext rdb,
+        IUnitOfWork unitOfWork,
+        HtsDbContext htsDb,
+        IFileService fileService)
     {
         [JobHandler("هماهنگ کردن اطلاعات درخواست های باز از راهکاران")]
         public async Task SyncOpenOrderRequestJobFromRahkaran(IJobLogger? jobLogger = null, CancellationToken cn = default)
@@ -290,7 +297,9 @@ namespace App.BackgroundJob.Jobs.Sup
 
                                 if (remoteOrder.FinalVoucherDate.HasValue)
                                     localOrder.FinalInventoryVoucherShamsiDate = remoteOrder.FinalVoucherDate.Value.ToShamsiDate();
-                                localOrder.Comment += "|| بروزرسانی سیستمی";
+
+                                if(localOrder.Comment == null || !localOrder.Comment.Contains("|| بروزرسانی سیستمی"))
+                                     localOrder.Comment += "|| بروزرسانی سیستمی";
                             }
                         }
                     }
@@ -1111,6 +1120,228 @@ WHERE
             public decimal RequestItemQuantity { get; set; }
             public decimal? OrderItemQuantity { get; set; }
         }
+
+        #region Attachment Migration From HTS
+
+        [JobHandler("انتقال پیوست‌های درخواست‌های باز فعال از HTS")]
+        public async Task SyncOpenOrderRequestAttachmentsFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
+        {
+            try
+            {
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync("شروع انتقال پیوست‌های درخواست‌های باز از HTS...", cn);
+
+                var htsAttachmentsMeta = await (
+                    from a in htsDb.Hts_Sup_OpenOrderRequest_Attachments.AsNoTracking()
+                    join o in htsDb.Hts_Sup_OpenOrderRequests.AsNoTracking()
+                        on a.OpenOrderRequest_FK equals o.OpenOrderRequest_ID
+                    where !o.IsDeleted
+                    select new
+                    {
+                        a.OpenOrderRequest_Attachment_ID,
+                        a.OpenOrderRequest_FK,
+                        a.Attachment_FileName,
+                        a.AttachmentFilePath,
+                        a.Attachment_Comment,
+                        a.DocumentTypeId,
+                        HasDbContent = a.Attachment_FileContent != null,
+                        o.PurchaseRequestItemId,
+                        o.OrderRowId
+                    }).ToListAsync(cn);
+
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync($"تعداد پیوست‌های کاندید در HTS: {htsAttachmentsMeta.Count}", cn);
+
+                if (htsAttachmentsMeta.Count == 0)
+                    return;
+
+                var localOrders = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+                    .Where(o => !o.IsDeleted)
+                    .Select(o => new
+                    {
+                        Id = o.Id!.Value,
+                        o.PurchaseRequestItemId,
+                        o.OrderRowId
+                    })
+                    .ToListAsync(cn);
+
+                var localByPrAndOrder = localOrders
+                    .Where(o => o.OrderRowId.HasValue)
+                    .GroupBy(o => (o.PurchaseRequestItemId, o.OrderRowId!.Value))
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+
+                var localByPrOnly = localOrders
+                    .Where(o => !o.OrderRowId.HasValue)
+                    .GroupBy(o => o.PurchaseRequestItemId)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+
+                var localByPrAny = localOrders
+                    .GroupBy(o => o.PurchaseRequestItemId)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+
+                var existingAttachments = await unitOfWork.Repository<OpenOrderRequestAttachment>().Table
+                    .Where(a => a.HtsId != 0)
+                    .ToListAsync(cn);
+                var existingByHtsId = existingAttachments.ToDictionary(a => a.HtsId);
+
+                var migrated = 0;
+                var skipped = 0;
+                var failed = 0;
+                var updated = 0;
+
+                foreach (var pa in htsAttachmentsMeta)
+                {
+                    try
+                    {
+                        var localOrderId = ResolveLocalOpenOrderRequestId(
+                            pa.PurchaseRequestItemId,
+                            pa.OrderRowId,
+                            localByPrAndOrder,
+                            localByPrOnly,
+                            localByPrAny);
+
+                        if (localOrderId == null)
+                        {
+                            skipped++;
+                            continue;
+                        }
+
+                        var fileType = MapDocumentType(pa.DocumentTypeId);
+                        var fileName = string.IsNullOrWhiteSpace(pa.Attachment_FileName)
+                            ? $"attachment_{pa.OpenOrderRequest_Attachment_ID}"
+                            : pa.Attachment_FileName;
+
+                        if (existingByHtsId.TryGetValue(pa.OpenOrderRequest_Attachment_ID, out var existing))
+                        {
+                            existing.Comment = pa.Attachment_Comment;
+                            existing.FileType = fileType;
+                            existing.OpenOrderRequestId = localOrderId.Value;
+                            updated++;
+                            continue;
+                        }
+
+                        var fileBytes = await ReadHtsAttachmentBytesAsync(
+                            pa.OpenOrderRequest_Attachment_ID,
+                            pa.AttachmentFilePath,
+                            pa.HasDbContent,
+                            cn);
+
+                        if (fileBytes == null || fileBytes.Length == 0)
+                        {
+                            skipped++;
+                            if (jobLogger != null)
+                                await jobLogger.LogWarningAsync(
+                                    $"فایل پیوست HTS یافت نشد. AttachmentId={pa.OpenOrderRequest_Attachment_ID}, Path={pa.AttachmentFilePath}",
+                                    0,
+                                    cn);
+                            continue;
+                        }
+
+                        var uploaded = await fileService.UploadAsync(
+                            fileBytes,
+                            fileName,
+                            null,
+                            typeof(OpenOrderRequestAttachment).FullName,
+                            nameof(OpenOrderRequestAttachment.Attachment),
+                            null,
+                            cn);
+
+                        var newAttachment = new OpenOrderRequestAttachment
+                        {
+                            OpenOrderRequestId = localOrderId.Value,
+                            AttachmentId = uploaded.Id,
+                            Comment = pa.Attachment_Comment,
+                            FileType = fileType,
+                            HtsId = pa.OpenOrderRequest_Attachment_ID
+                        };
+
+                        await unitOfWork.Repository<OpenOrderRequestAttachment>().AddAsync(newAttachment, cn);
+                        existingByHtsId[pa.OpenOrderRequest_Attachment_ID] = newAttachment;
+                        migrated++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        if (jobLogger != null)
+                            await jobLogger.LogErrorAsync(
+                                $"خطا در انتقال پیوست HTS Id={pa.OpenOrderRequest_Attachment_ID}: {ex.Message}",
+                                0,
+                                cn);
+                    }
+                }
+
+                await unitOfWork.SaveChangesAsync(cn);
+
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync(
+                        $"پایان انتقال پیوست‌ها. Migrated={migrated}, Updated={updated}, Skipped={skipped}, Failed={failed}",
+                        cn);
+            }
+            catch (Exception ex)
+            {
+                if (jobLogger != null)
+                    await jobLogger.LogErrorAsync($"خطای کلی SyncOpenOrderRequestAttachmentsFromHts: {ex.Message}", 0, cn);
+                throw;
+            }
+        }
+
+        private static long? ResolveLocalOpenOrderRequestId(
+            long purchaseRequestItemId,
+            long? orderRowId,
+            Dictionary<(long PurchaseRequestItemId, long OrderRowId), long> localByPrAndOrder,
+            Dictionary<long, long> localByPrOnly,
+            Dictionary<long, long> localByPrAny)
+        {
+            if (orderRowId.HasValue)
+            {
+                if (localByPrAndOrder.TryGetValue((purchaseRequestItemId, orderRowId.Value), out var byBoth))
+                    return byBoth;
+
+                if (localByPrOnly.TryGetValue(purchaseRequestItemId, out var byPrNullOrder))
+                    return byPrNullOrder;
+
+                return null;
+            }
+
+            if (localByPrOnly.TryGetValue(purchaseRequestItemId, out var byPr))
+                return byPr;
+
+            if (localByPrAny.TryGetValue(purchaseRequestItemId, out var byAny))
+                return byAny;
+
+            return null;
+        }
+
+        private static OpenOrderRequestAttachmentFileTypeEnum? MapDocumentType(short? documentTypeId)
+        {
+            if (!documentTypeId.HasValue)
+                return null;
+
+            var value = (int)documentTypeId.Value;
+            return Enum.IsDefined(typeof(OpenOrderRequestAttachmentFileTypeEnum), value)
+                ? (OpenOrderRequestAttachmentFileTypeEnum)value
+                : null;
+        }
+
+        private async Task<byte[]?> ReadHtsAttachmentBytesAsync(
+            int attachmentId,
+            string? attachmentFilePath,
+            bool hasDbContent,
+            CancellationToken cn)
+        {
+            if (!string.IsNullOrWhiteSpace(attachmentFilePath) && File.Exists(attachmentFilePath))
+                return await File.ReadAllBytesAsync(attachmentFilePath, cn);
+
+            if (!hasDbContent)
+                return null;
+
+            return await htsDb.Hts_Sup_OpenOrderRequest_Attachments.AsNoTracking()
+                .Where(a => a.OpenOrderRequest_Attachment_ID == attachmentId)
+                .Select(a => a.Attachment_FileContent)
+                .FirstOrDefaultAsync(cn);
+        }
+
+        #endregion
 
         #region VPIS Revision Check
 

@@ -1,0 +1,109 @@
+@using Entities.App.Pln;
+@using Entities.Auth;
+@model ProductionOrderEquipmentConfirmer
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductionOrderEquipmentConfirmer)"></form-action-buttons></div>
+</div>
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+			<p class="text-muted fs-7">
+				این تنظیم سراسری است (نه به‌ازای هر سفارش ساخت) و کاربر انتخاب‌شده به‌عنوان تاییدکننده
+				مهندسی مکانیک/برق همان نوع دستگاه در تمام سفارش‌های ساخت شناخته می‌شود. هر نوع دستگاه
+				می‌تواند <strong>چند ردیف</strong> (چند تاییدکننده هم‌زمان) داشته باشد؛ برای افزودن
+				تاییدکننده دیگر برای همان نوع دستگاه، یک ردیف جدید بسازید. این تنظیم برای مسیریابی
+				کارتابل من و اطلاع‌رسانی اقلام معطل‌مانده در کارتابل مهندسی استفاده می‌شود.
+			</p>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+
+		<div class="col-md-12">
+			<label class=''>نوع دستگاه</label>
+			<select class="form-select" data-bind="deviceType" asp-for="DeviceType"
+				asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemDeviceTypeEnum))">
+			</select>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>تاییدکننده مهندسی مکانیک</label>
+			@(Html.EntitySelector<User>(
+				"MechanicalUserSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.NameFa },
+				c => new { c.NameFa },
+				"{Name}",
+				"MechanicalUserId",
+				"MechanicalUserName",
+				Model?.MechanicalUserId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>تاییدکننده مهندسی برق</label>
+			@(Html.EntitySelector<User>(
+				"ElectricalUserSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.NameFa },
+				c => new { c.NameFa },
+				"{Name}",
+				"ElectricalUserId",
+				"ElectricalUserName",
+				Model?.ElectricalUserId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>کامنت</label>
+			<textarea class='form-control' data-bind='comment' rows="3">@Model?.Comment</textarea>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card">
+
+	<div class='card-body row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

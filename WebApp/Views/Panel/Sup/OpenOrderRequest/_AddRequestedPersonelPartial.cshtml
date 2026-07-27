@@ -1,4 +1,5 @@
 ﻿@using Entities.Auth
+ 
 
 <div class="row">
 	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
@@ -55,7 +56,7 @@
 <script>
 	$("#addStaticPersonel").click(function(){
 				var staticPersonel = @Html.Raw(Json.Serialize(ViewBag.StaticPersonels));
-				$("#requestedPersonelIdsSelector").data("entitySelectorInstance").addByIds(staticPersonel[0].id)
-				debugger
+				$("#requestedPersonelIdsSelector").data("entitySelectorInstance").addByIds(staticPersonel)
+				 
 			})
 </script>

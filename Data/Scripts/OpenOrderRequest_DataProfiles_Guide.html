@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>راهنمای نمایه داده درخواست‌های باز — SavedQuery / RoleAccess</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --panel2: #243044;
+      --line: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --chip: #0ea5e9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(160deg, #0b1220, #152238 50%, #0f1419);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    h2 { font-size: 1.25rem; margin: 36px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 8px; color: var(--accent); }
+    h3 { font-size: 1.05rem; margin: 20px 0 8px; color: #7dd3fc; }
+    .lead { color: var(--muted); margin-bottom: 20px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin: 12px 0;
+    }
+    .grid { display: grid; gap: 12px; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { border: 1px solid var(--line); padding: 8px 10px; vertical-align: top; text-align: right; }
+    th { background: var(--panel2); color: #bae6fd; white-space: nowrap; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    code, .mono {
+      font-family: Consolas, "Courier New", monospace;
+      background: #0b1220;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: 0.85em;
+      direction: ltr;
+      unicode-bidi: embed;
+    }
+    pre {
+      background: #0b1220;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      overflow: auto;
+      direction: ltr;
+      text-align: left;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+    .chip {
+      display: inline-block;
+      background: rgba(14,165,233,.15);
+      color: #7dd3fc;
+      border: 1px solid rgba(14,165,233,.35);
+      border-radius: 999px;
+      padding: 2px 10px;
+      font-size: 0.8rem;
+      margin: 2px;
+    }
+    .chip.ok { background: rgba(52,211,153,.12); color: var(--ok); border-color: rgba(52,211,153,.35); }
+    .chip.warn { background: rgba(251,191,36,.12); color: var(--warn); border-color: rgba(251,191,36,.35); }
+    .chip.danger { background: rgba(248,113,113,.12); color: var(--danger); border-color: rgba(248,113,113,.35); }
+    details { margin: 8px 0; }
+    summary {
+      cursor: pointer;
+      background: var(--panel2);
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      font-weight: 600;
+    }
+    details[open] summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    details .body {
+      border: 1px solid var(--line);
+      border-top: 0;
+      border-radius: 0 0 8px 8px;
+      padding: 12px;
+      background: var(--panel);
+    }
+    .members { columns: 2; gap: 12px; font-size: 0.88rem; }
+    @media (max-width: 700px) { .members { columns: 1; } }
+    .members li { margin: 2px 0; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc li { margin: 4px 0; }
+    .step { counter-increment: s; }
+    .steps { counter-reset: s; }
+    .step::before {
+      content: counter(s);
+      display: inline-flex;
+      width: 24px; height: 24px;
+      align-items: center; justify-content: center;
+      background: var(--chip);
+      color: #082f49;
+      border-radius: 50%;
+      font-weight: 700;
+      margin-left: 8px;
+      font-size: 0.8rem;
+    }
+    .badge-role { color: #fde68a; }
+    .note { color: var(--muted); font-size: 0.9rem; }
+    .filter-box { margin-top: 8px; }
+    nav.sticky {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(15,20,25,.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+      padding: 10px 20px;
+    }
+    nav.sticky a { color: #93c5fd; margin-left: 14px; font-size: 0.88rem; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <nav class="sticky">
+    <a href="#overview">مرور</a>
+    <a href="#profiles">نمایه‌ها</a>
+    <a href="#roles">Roleها</a>
+    <a href="#groups">گروه‌ها و اعضا</a>
+    <a href="#history">پیشینه</a>
+    <a href="#ops">عملیات</a>
+    <a href="#checklist">چک‌لیست</a>
+  </nav>
+
+  <div class="wrap">
+    <h1>راهنمای پیاده‌سازی نمایه داده — درخواست‌های باز</h1>
+    <p class="lead">
+      این فایل مرجع ساخت <code>SavedQuery</code> از نوع <code>DataProfile</code>
+      برای موجودیت <code>Entities.App.Sup.OpenOrderRequest</code>
+      و اختصاص دسترسی از طریق <code>RoleAccess</code> است.
+      منطق فیلترها از سیستم قدیم HTS استخراج شده است.
+    </p>
+
+    <section id="overview">
+      <h2>۱) مرور معماری در سیستم جدید</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>SavedQuery (نمایه)</h3>
+          <ul>
+            <li><code>Type = DataProfile</code></li>
+            <li><code>EntityFullName = Entities.App.Sup.OpenOrderRequest</code></li>
+            <li>فیلترها داخل <code>QueryJson → Filters[]</code></li>
+            <li>ستون‌ها در <code>ColumnsJson</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>RoleAccess (دسترسی نمایه)</h3>
+          <ul>
+            <li><code>ActionAccessType = DataProfile</code></li>
+            <li><code>EntityName</code> = همان FullName موجودیت</li>
+            <li><code>RowId</code> = Id نمایه SavedQuery</li>
+            <li><code>RoleId</code> = Role مربوطه</li>
+          </ul>
+          <p class="note">ادمین همه نمایه‌ها را می‌بیند؛ بقیه فقط نمایه‌هایی که RoleAccess دارند.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>اولویت تشخیص نقش (عین HTS)</h3>
+        <ol>
+          <li>Admin → همه داده</li>
+          <li>صنایع (<code>Industrial</code>)</li>
+          <li>مهندسی (<code>EngineeringAccept</code> / <code>HasEngineering</code>)</li>
+          <li>پروژه/فروش (<code>SalesOrProjectAccept</code>)</li>
+          <li>تأمین و خرید (<code>Supply</code>)</li>
+          <li>ShowAll</li>
+          <li>سایر کاربران مشاهده‌گر</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="profiles">
+      <h2>۲) نمایه‌های داده که باید ساخته شوند</h2>
+      <p class="note">برای هر نمایه: در DataProfile Builder بسازید → فیلترها را ست کنید → Id را در RoleAccess ثبت کنید.</p>
+
+      <!-- Profile 1 -->
+      <details open>
+        <summary>
+          <span class="chip ok">P1</span>
+          <code>OOR_All_Active</code> —
+          همه درخواست‌های فعال
+          <span class="chip">صنایع / مهندسی / ShowAll</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>OOR_All_Active</code></td></tr>
+            <tr><th>Title</th><td>درخواست‌های باز — همه فعال</td></tr>
+            <tr><th>Entity</th><td><code>Entities.App.Sup.OpenOrderRequest</code></td></tr>
+            <tr><th>فیلتر</th><td><code>IsDeleted = false</code></td></tr>
+            <tr><th>Roleهای دسترسی</th><td>
+              <span class="badge-role">Sup.OpenOrderRequest.Industrial</span>،
+              <span class="badge-role">Sup.OpenOrderRequest.EngineeringAccept</span>،
+              <span class="badge-role">Sup.OpenOrderRequest.HasEngineering</span>،
+              <span class="badge-role">Sup.OpenOrderRequest.ShowAll</span>
+            </td></tr>
+            <tr><th>معادل HTS</th><td>isIndustrial / isEngineering / ShowAll → <code>!IsDeleted</code></td></tr>
+          </table>
+          <div class="filter-box">
+            <strong>Filters JSON (نمونه)</strong>
+            <pre>[
+  {
+    "Id": "f1",
+    "TableName": "Sup.OpenOrderRequest",
+    "ColumnName": "IsDeleted",
+    "DataType": "bool",
+    "Operator": "equals",
+    "Value": "false",
+    "LogicalOperator": "AND"
+  }
+]</pre>
+          </div>
+        </div>
+      </details>
+
+      <!-- Profile 2 -->
+      <details>
+        <summary>
+          <span class="chip ok">P2</span>
+          <code>OOR_EngineeringAccepted</code> —
+          فقط تأیید مهندسی‌شده
+          <span class="chip">تأمین / پروژه-فروش</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>OOR_EngineeringAccepted</code></td></tr>
+            <tr><th>Title</th><td>درخواست‌های باز — تأیید مهندسی شده</td></tr>
+            <tr><th>فیلتر</th><td>
+              <code>IsDeleted = false</code>
+              AND
+              <code>EngineeringAccept = true</code>
+            </td></tr>
+            <tr><th>Roleهای دسترسی</th><td>
+              <span class="badge-role">Sup.OpenOrderRequest.Supply</span>،
+              <span class="badge-role">Sup.OpenOrderRequest.SalesOrProjectAccept</span>
+            </td></tr>
+            <tr><th>معادل HTS</th><td>isSupply / isProjectOrSalesUnit</td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "EngineeringAccept", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- Profile 3 -->
+      <details>
+        <summary>
+          <span class="chip ok">P3</span>
+          <code>OOR_Other_View</code> —
+          سایر کاربران (دارای ذینفع + تأیید مهندسی)
+          <span class="chip">مشاهده‌گرها</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>OOR_Other_View</code></td></tr>
+            <tr><th>Title</th><td>درخواست‌های باز — مشاهده عمومی</td></tr>
+            <tr><th>فیلتر</th><td>
+              <code>IsDeleted = false</code>
+              AND <code>EngineeringAccept = true</code>
+              AND <code>RequestedPersonel IS NOT NULL</code>
+              (یا <code>RequestedPersonel != ''</code>)
+            </td></tr>
+            <tr><th>Role پیشنهادی</th><td>
+              نقش مشاهده‌گر عمومی — اگر جدا ندارید از دسترسی View کنترلر + این نمایه برای گروه‌های
+              <code>442 / 172 / 44 (Read)</code> استفاده کنید.
+              می‌توانید Role جدید
+              <code>Sup.OpenOrderRequest.View</code> بسازید.
+            </td></tr>
+            <tr><th>معادل HTS</th><td>شاخه else در GetOpenOrderRequestGridData</td></tr>
+          </table>
+          <pre>[
+  { "ColumnName": "IsDeleted", "Operator": "equals", "Value": "false", "LogicalOperator": "AND" },
+  { "ColumnName": "EngineeringAccept", "Operator": "equals", "Value": "true", "LogicalOperator": "AND" },
+  { "ColumnName": "RequestedPersonel", "Operator": "isNotNull", "Value": "", "LogicalOperator": "AND" }
+]</pre>
+        </div>
+      </details>
+
+      <!-- Profile 4 -->
+      <details>
+        <summary>
+          <span class="chip ok">P4</span>
+          <code>OOR_Config</code> —
+          تنظیمات درخواست باز
+          <span class="chip">ConfigManage</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>OOR_Config</code></td></tr>
+            <tr><th>Title</th><td>تنظیمات درخواست‌های باز</td></tr>
+            <tr><th>فیلتر</th><td><code>IsDeleted = false</code></td></tr>
+            <tr><th>Role</th><td><span class="badge-role">Sup.OpenOrderRequest.ConfigManage</span></td></tr>
+            <tr><th>معادل HTS</th><td>صفحه OpenOrderRequest_Config — فقط واحد تأمین/پشتیبانی کارخانه</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <!-- Profile 5 Admin -->
+      <details>
+        <summary>
+          <span class="chip warn">P5</span>
+          <code>OOR_Admin_IncludingDeleted</code> —
+          همه شامل حذف‌شده‌ها
+          <span class="chip warn">فقط Admin</span>
+        </summary>
+        <div class="body">
+          <table>
+            <tr><th>Name</th><td><code>OOR_Admin_IncludingDeleted</code></td></tr>
+            <tr><th>Title</th><td>درخواست‌های باز — همه (شامل حذف‌شده)</td></tr>
+            <tr><th>فیلتر</th><td>بدون شرط (یا فقط IsActive)</td></tr>
+            <tr><th>دسترسی</th><td>فقط Administrator — نیازی به RoleAccess نیست</td></tr>
+          </table>
+        </div>
+      </details>
+
+      <h3>نمایه‌های کمکی (فیلتر رنگی UI — اختیاری)</h3>
+      <p class="note">در HTS این‌ها فیلتر کلاینت بودند. می‌توانید به‌صورت نمایه جدا یا SearchBuilder روی Grid پیاده کنید.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Title</th>
+            <th>فیلتر</th>
+            <th>رنگ HTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>OOR_Color_SalesConfirmed</code></td>
+            <td>تأیید پروژه/فروش</td>
+            <td><code>HasSalesUnitConfirmation = true</code> (+ پایه P1 یا P2)</td>
+            <td>نارنجی</td>
+          </tr>
+          <tr>
+            <td><code>OOR_Color_Stopped</code></td>
+            <td>متوقف‌شده‌ها</td>
+            <td><code>IsStop = true</code></td>
+            <td>قرمز</td>
+          </tr>
+          <tr>
+            <td><code>OOR_Color_Changed</code></td>
+            <td>تغییر یافته</td>
+            <td><code>Changed = true</code></td>
+            <td>بنفش</td>
+          </tr>
+          <tr>
+            <td><code>OOR_Color_SupplyWindow</code></td>
+            <td>نزدیک تاریخ تأمین</td>
+            <td><code>SupplyMiladiDate</code> در بازه + <code>IsStop = false</code></td>
+            <td>آبی</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="roles">
+      <h2>۳) Roleهای سیستم جدید ↔ گروه HTS ↔ نمایه</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Role (HavayarApp)</th>
+            <th>Id Seed</th>
+            <th>گروه/شرط HTS</th>
+            <th>نمایه پیشنهادی</th>
+            <th>تعداد عضو فعال HTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.Industrial</code></td>
+            <td>100009</td>
+            <td>گروه ۲۸ صنایع / OrgUnit=۱۲</td>
+            <td>P1</td>
+            <td>۱۱</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.EngineeringAccept</code></td>
+            <td>100000</td>
+            <td>گروه ۷۰ تأیید مهندسی</td>
+            <td>P1</td>
+            <td>۶۲</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.HasEngineering</code></td>
+            <td>100007</td>
+            <td>گروه ۷۰ + ۴۶۲ ارتباط پروژه</td>
+            <td>P1</td>
+            <td>۶۲ + ۲۶</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.Supply</code></td>
+            <td>100010</td>
+            <td>گروه ۲۷ تدارکات / OrgUnit ۵۱،۶۳</td>
+            <td>P2</td>
+            <td>۱۸</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.SalesOrProjectAccept</code></td>
+            <td>100001</td>
+            <td>گروه ۵۳۶ پروژه/فروش</td>
+            <td>P2</td>
+            <td>۶</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.ShowAll</code></td>
+            <td>100008</td>
+            <td>گروه ۴۴ عمومی تدارکات</td>
+            <td>P1</td>
+            <td>۹۷</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.ConfigManage</code></td>
+            <td>100011</td>
+            <td>گروه ۴۳۰ تنظیمات</td>
+            <td>P4</td>
+            <td>۱۶</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.ConfigManageStaticPersonel</code></td>
+            <td>100012</td>
+            <td>لیست hardcode صنایع در Config</td>
+            <td>—</td>
+            <td>۱۲ نفر ثابت</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.Stop</code></td>
+            <td>100002</td>
+            <td>گروه ۲۷، ۴۴، ۵۹۳</td>
+            <td>عملیات (نه فیلتر لیست)</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.Start</code></td>
+            <td>100003</td>
+            <td>گروه ۲۸ صنایع</td>
+            <td>عملیات</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.Terminate</code></td>
+            <td>100006</td>
+            <td>گروه ۲۳۳ خاتمه</td>
+            <td>عملیات</td>
+            <td>۵</td>
+          </tr>
+          <tr>
+            <td><code>Sup.OpenOrderRequest.Sending</code> / <code>Query</code></td>
+            <td>100004 / 100005</td>
+            <td>پرمیشن Sending/Query سیستم تدارکات</td>
+            <td>عملیات</td>
+            <td>—</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card">
+        <strong>نمونه RoleAccess بعد از ساخت نمایه:</strong>
+        <pre>INSERT INTO system.RoleAccess
+  (Path, ActionAccessType, EntityName, DisplayName, RowId, RoleId, IsActive, CreatedOnMiladiDateTime, CreatedByName)
+VALUES
+  (NULL,  /* DataProfile enum value */ ,
+   N'Entities.App.Sup.OpenOrderRequest',
+   N'نمایه همه فعال',
+   @SavedQueryId_P1,
+   100009, /* Industrial */
+   1, GETDATE(), N'seed');</pre>
+        <p class="note">مقدار عددی <code>ActionAccessType.DataProfile</code> را از Enum پروژه بگیرید (در کد: <code>ActionAccessType.DataProfile</code>).</p>
+      </div>
+    </section>
+
+    <section id="groups">
+      <h2>۴) گروه‌های HTS و اعضای فعال</h2>
+      <p class="note">منبع: TotalSystem — <code>Gnr_UserGroup</code> / <code>Gnr_UserGroupMember</code> — کاربران فعال. Username همان کلید مپ به <code>system.User</code> است.</p>
+
+      <details open>
+        <summary>گروه ۲۸ — کارشناسان صنایع (۱۱) → Role: Industrial + Start + EngineeringAccept</summary>
+        <div class="body members">
+          <ul>
+            <li>Moradmand.a — آرش مرادمند</li>
+            <li>eezi.a — افسانه ایزی</li>
+            <li>khalili.aa — امید خلیلی</li>
+            <li>kian.r — رسول کیان</li>
+            <li>Asadi.re — رضا اسدی</li>
+            <li>Saemian.r — رضا صائمیان</li>
+            <li>Azadbakhsh.s — سپیده آزاد بخش</li>
+            <li>mehrabi.s — سعید محرابی</li>
+            <li>Ahmadi.sh — شهره بابااحمدی</li>
+            <li>Azadbakhsh.sh — شیما آزادبخش</li>
+            <li>golestaneh.a — علی گلستانه</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۲۷ — کارشناسان تدارکات (۱۸) → Role: Supply + Stop + Edit</summary>
+        <div class="body members">
+          <ul>
+            <li>Rajablou.a — احمد رجب لو</li>
+            <li>Zamani.ar — امیررضا زمانی</li>
+            <li>sharifi.b — بهرام شریفی</li>
+            <li>sarmadi.p — پدیده سرمدی</li>
+            <li>bagheri.h — حامد باقری</li>
+            <li>sohrabi.za — زهرا سهرابی</li>
+            <li>Razaghmanesh.z — زهراء رزاق منش</li>
+            <li>sohrabi.z — زهره سهرابی</li>
+            <li>Momenirad.s — سارا مومنی راد</li>
+            <li>Zabihian.s — سبحان ذبیحیان</li>
+            <li>parhizkari.s — سعید پرهیزکاری</li>
+            <li>Shahpordeli.s — سلیمان شاه پردلی</li>
+            <li>Ashrafi.m — سیدمحمدامین اشرفی</li>
+            <li>Ramezani.sh — شهروز رمضانی</li>
+            <li>golestaneh.a — علی گلستانه</li>
+            <li>Khoshdel.f — فرشید خوشدل سخن ور</li>
+            <li>yaltaghian.f — فرشید یلتقیان</li>
+            <li>dordab.y — یاسر درداب</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۱۷ — مدیر سیستم تدارکات (۷) → FullAccess / Admin تدارکات</summary>
+        <div class="body members">
+          <ul>
+            <li>Kiani.a — احمدرضا کیانی</li>
+            <li>khalili.aa — امید خلیلی</li>
+            <li>mehrsadeghi — علیرضا مهرصادقی</li>
+            <li>khodakarami.f — فرهاد خداکرمی</li>
+            <li>Naghdi.f — فرهاد نقدی</li>
+            <li>mohammadian.m — مصطفی محمدیان</li>
+            <li>mehrabi.h — هاشم مهرابی</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۵۳۶ — پروژه/فروش (۶) → SalesOrProjectAccept → نمایه P2</summary>
+        <div class="body members">
+          <ul>
+            <li>esmaillian.r — رمانا اسماعیلیان</li>
+            <li>taheran.fa — فرشاد طاهران</li>
+            <li>taheran.f — فرید طاهران</li>
+            <li>habibi.m — محمدعلی حبیبی</li>
+            <li>Rajabi.m — مسعود رجبی</li>
+            <li>khalaj.m — مهرداد خلج</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۵۹۳ — توقف تدارکات (۳) → Stop</summary>
+        <div class="body members">
+          <ul>
+            <li>javadian.p — پژمان جوادیان</li>
+            <li>abdolmaleki.h — حمید عبدالملکی</li>
+            <li>habibi.m — محمدعلی حبیبی</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۲۳۳ — خاتمه/حذف (۵) → Terminate</summary>
+        <div class="body members">
+          <ul>
+            <li>Moradmand.a — آرش مرادمند</li>
+            <li>Saemian.r — رضا صائمیان</li>
+            <li>Azadbakhsh.s — سپیده آزاد بخش</li>
+            <li>Ahmadi.sh — شهره بابااحمدی</li>
+            <li>Azadbakhsh.sh — شیما آزادبخش</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۴۳۰ — تنظیمات (۱۶) → ConfigManage → نمایه P4</summary>
+        <div class="body members">
+          <ul>
+            <li>Rajablou.a — احمد رجب لو</li>
+            <li>Zamani.ar — امیررضا زمانی</li>
+            <li>sharifi.b — بهرام شریفی</li>
+            <li>sarmadi.p — پدیده سرمدی</li>
+            <li>bagheri.h — حامد باقری</li>
+            <li>sohrabi.za — زهرا سهرابی</li>
+            <li>Razaghmanesh.z — زهراء رزاق منش</li>
+            <li>Zabihian.s — سبحان ذبیحیان</li>
+            <li>parhizkari.s — سعید پرهیزکاری</li>
+            <li>Shahpordeli.s — سلیمان شاه پردلی</li>
+            <li>Sepehrnejad.s — سوین سپهرنژاد</li>
+            <li>Ashrafi.m — سیدمحمدامین اشرفی</li>
+            <li>Ramezani.sh — شهروز رمضانی</li>
+            <li>yaltaghian.f — فرشید یلتقیان</li>
+            <li>Mosayebi.m — مونا مسیبی</li>
+            <li>dordab.y — یاسر درداب</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۷۰ — تأیید مهندسی (۶۲) → EngineeringAccept / HasEngineering → نمایه P1</summary>
+        <div class="body members">
+          <ul>
+            <li>amirifar.e — الهام امیری فر</li>
+            <li>zamani.o — امیدرضا زمانی</li>
+            <li>raoufi.a — امیر رئوفی</li>
+            <li>Mirlohi.a — امیر میرلوحی</li>
+            <li>mahani.b — بابک ماهانی</li>
+            <li>EbneAli.b — بهنوش ابن علی</li>
+            <li>javadian.p — پژمان جوادیان</li>
+            <li>Moradi.p — پوریا مرادی</li>
+            <li>Sadeghpour.j — جعفر صادقپور</li>
+            <li>bagheri.h — حامد باقری</li>
+            <li>Asadpour.h — حسین اسدپور</li>
+            <li>goudarzi.h — حسین گودرزی</li>
+            <li>abdolmaleki.h — حمید عبدالملکی</li>
+            <li>Kazemzadeh.h — حمید کاظم زاده</li>
+            <li>Samarzadeh.r — رسا ثمرزاده</li>
+            <li>dehghan.r — رضا دهقان فارسی</li>
+            <li>sohrabi.z — زهره سهرابی</li>
+            <li>Mirani.s — سپهر میرانی</li>
+            <li>Vahedian.s — سپیده واحدیان مطلبی</li>
+            <li>Azami.sa — سعید اعظمی</li>
+            <li>sabermanesh.s — سعید صابرمنش</li>
+            <li>mohammadi.sam — سمیرا محمدی</li>
+            <li>Ahmadpour.s — سهیل احمدپور</li>
+            <li>cheraghi.h — سیدهادی چراغی</li>
+            <li>Tahmasebizadeh.sh — شادی طهماسبی زاده</li>
+            <li>Sardashti.s — شایان سردشتی</li>
+            <li>Kashani.sh — شایان کاشانی</li>
+            <li>khederzadeh.s — شیرین خدرزاده</li>
+            <li>Amiri.a — علی امیری</li>
+            <li>Mohammadi.a — علی محمدی</li>
+            <li>Ranjbarian.a — علیرضا رنجبریان</li>
+            <li>Bamimohammadi.gh — غلامرضا بامی محمدی</li>
+            <li>Raman.f — فرزاد رمن</li>
+            <li>khodabandeh.f — فرزانه خدابنده لو</li>
+            <li>khodakarami.f — فرهاد خداکرمی</li>
+            <li>masoudi.l — لیلا مسعودی نژاد</li>
+            <li>kargar.m — مجید کارگر</li>
+            <li>Khorshidi.m — محسن خورشیدی</li>
+            <li>Samii.m — محمد سمیعی</li>
+            <li>shevidi.m — محمد شویدی</li>
+            <li>golestaneh.m — محمد علی گلستانه</li>
+            <li>Erfani.m — محمدجواد عرفانی</li>
+            <li>norouzi.m — محمدعلی نوروزی</li>
+            <li>salahi.m — محمدمهدی صلاحی عز</li>
+            <li>bayat.m — مریم بیات</li>
+            <li>Mohammadi.ma — مریم محمدی</li>
+            <li>azami.m — مسعود اعظمی</li>
+            <li>bateni.m — مسعود باطنی</li>
+            <li>Farokhi.m — مسعود فرخی</li>
+            <li>m.nikpour — مشهود نیک پور</li>
+            <li>Daneshmandi.m — معصومه دانشمندی</li>
+            <li>marashi.m — معین مرعشی</li>
+            <li>maranaki.m — مهدی مرانکی</li>
+            <li>Kamandar.m — مهدیه کماندار</li>
+            <li>khalaj.m — مهرداد خلج</li>
+            <li>Sazvar.m — مهرداد سازور</li>
+            <li>hasani.m — میثم حسنی</li>
+            <li>Shaghaghi.m — میثم شقاقی</li>
+            <li>Saeedi.m — میرمحسن سعیدی</li>
+            <li>Neysari.n — نیما نیساری</li>
+            <li>kadkhodaei.v — وحید کدخدائی</li>
+            <li>Kondori.v — وحید کندری</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۴۶۲ — ارتباط درخواست باز و پروژه (۲۶) → HasEngineering</summary>
+        <div class="body members">
+          <ul>
+            <li>Mirlohi.a — امیر میرلوحی</li>
+            <li>mahani.b — بابک ماهانی</li>
+            <li>javadian.p — پژمان جوادیان</li>
+            <li>abdolmaleki.h — حمید عبدالملکی</li>
+            <li>Kazemzadeh.h — حمید کاظم زاده</li>
+            <li>Samarzadeh.r — رسا ثمرزاده</li>
+            <li>Ahmadpour.s — سهیل احمدپور</li>
+            <li>Ghasemi.r — سیدرضا قاسمی</li>
+            <li>Sardashti.s — شایان سردشتی</li>
+            <li>Amiri.a — علی امیری</li>
+            <li>Bamimohammadi.gh — غلامرضا بامی محمدی</li>
+            <li>Raman.f — فرزاد رمن</li>
+            <li>khodakarami.f — فرهاد خداکرمی</li>
+            <li>Samii.m — محمد سمیعی</li>
+            <li>shevidi.m — محمد شویدی</li>
+            <li>Erfani.m — محمدجواد عرفانی</li>
+            <li>norouzi.m — محمدعلی نوروزی</li>
+            <li>salahi.m — محمدمهدی صلاحی عز</li>
+            <li>bateni.m — مسعود باطنی</li>
+            <li>khalaj.m — مهرداد خلج</li>
+            <li>Sazvar.m — مهرداد سازور</li>
+            <li>Shaghaghi.m — میثم شقاقی</li>
+            <li>Saeedi.m — میرمحسن سعیدی</li>
+            <li>Neysari.n — نیما نیساری</li>
+            <li>kadkhodaei.v — وحید کدخدائی</li>
+            <li>Kondori.v — وحید کندری</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۱۷۲ — خدمات پس از فروش (۲۸) → نمایه P3 (مشاهده)</summary>
+        <div class="body members">
+          <ul>
+            <li>Ahsani.e — احسان احسنی</li>
+            <li>zamani.o — امیدرضا زمانی</li>
+            <li>barmaki.a — اکبر برمکی</li>
+            <li>mahani.b — بابک ماهانی</li>
+            <li>Nazmi.b — بهنام نظمی</li>
+            <li>bagheri.h — حامد باقری</li>
+            <li>Asadpour.h — حسین اسدپور</li>
+            <li>moeini.r — رامین معینی</li>
+            <li>sohrabi.z — زهره سهرابی</li>
+            <li>ghasemi.s — سارا قاسمی</li>
+            <li>Mirani.s — سپهر میرانی</li>
+            <li>Vahedian.s — سپیده واحدیان مطلبی</li>
+            <li>mohammadi.sam — سمیرا محمدی</li>
+            <li>Tahmasebizadeh.sh — شادی طهماسبی زاده</li>
+            <li>khederzadeh.s — شیرین خدرزاده</li>
+            <li>khodabandeh.f — فرزانه خدابنده لو</li>
+            <li>masoudi.l — لیلا مسعودی نژاد</li>
+            <li>shourmeyj.m — مجتبی شورمیج</li>
+            <li>kargar.m — مجید کارگر</li>
+            <li>golestaneh.m — محمد علی گلستانه</li>
+            <li>bayat.m — مریم بیات</li>
+            <li>Mohammadi.ma — مریم محمدی</li>
+            <li>kalhor.m — مریم کلهر</li>
+            <li>azami.m — مسعود اعظمی</li>
+            <li>Daneshmandi.m — معصومه دانشمندی</li>
+            <li>maranaki.m — مهدی مرانکی</li>
+            <li>Kamandar.m — مهدیه کماندار</li>
+            <li>ramezani.y — یونس رمضان خانلو</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۳۹۵ — مشاهده پیشینه (۲۶)</summary>
+        <div class="body members">
+          <ul>
+            <li>Bosaghzadeh.e — احسان اله بساق زاده</li>
+            <li>Kiani.a — احمدرضا کیانی</li>
+            <li>estaki.a — ارمغان استکی</li>
+            <li>eezi.a — افسانه ایزی</li>
+            <li>Eftekhari.a — امیر افتخاری مجد</li>
+            <li>Mirlohi.a — امیر میرلوحی</li>
+            <li>Moradi.p — پوریا مرادی</li>
+            <li>abdolmaleki.h — حمید عبدالملکی</li>
+            <li>esmaillian.r — رمانا اسماعیلیان</li>
+            <li>Azami.sa — سعید اعظمی</li>
+            <li>Tahmasebizadeh.sh — شادی طهماسبی زاده</li>
+            <li>Khaleghinejad.a — عاطفه خالقی نژاد</li>
+            <li>mehrsadeghi — علیرضا مهرصادقی</li>
+            <li>Bamimohammadi.gh — غلامرضا بامی محمدی</li>
+            <li>Raman.f — فرزاد رمن</li>
+            <li>Erfani.m — محمدجواد عرفانی</li>
+            <li>Farahmand.m — محمدرضا فرهمند</li>
+            <li>habibi.m — محمدعلی حبیبی</li>
+            <li>salahi.m — محمدمهدی صلاحی عز</li>
+            <li>kalhor.m — مریم کلهر</li>
+            <li>azami.m — مسعود اعظمی</li>
+            <li>Shaghaghi.m — میثم شقاقی</li>
+            <li>Neysari.n — نیما نیساری</li>
+            <li>mehrabi.h — هاشم مهرابی</li>
+            <li>shams.h — هومن شمس</li>
+            <li>Kondori.v — وحید کندری</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه‌های پرتعداد (فقط آمار — اعضا از DB)</summary>
+        <div class="body">
+          <table>
+            <tr><th>گروه</th><th>عنوان</th><th>تعداد</th><th>نقش پیشنهادی</th></tr>
+            <tr><td>44</td><td>عمومی تدارکات (ShowAll)</td><td>۹۷</td><td>ShowAll + Stop</td></tr>
+            <tr><td>442</td><td>مشاهده درخواست‌های باز</td><td>۸۷</td><td>View / نمایه P3</td></tr>
+            <tr><td>256</td><td>خرید خارجی</td><td>۲۸</td><td>ماژول جدا (بازرگانی)</td></tr>
+          </table>
+          <p class="note">برای انتقال کامل اعضا: Username گروه را با <code>system.User.Username</code> جوین کنید و به Role مربوطه اضافه کنید.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>لیست ثابت ذینفعان صنایع (ConfigManageStaticPersonel)</summary>
+        <div class="body">
+          <table>
+            <tr><th>Username</th><th>نام</th><th>Personel_ID قدیم</th></tr>
+            <tr><td>khalili.aa</td><td>امید خلیلی</td><td>100</td></tr>
+            <tr><td>kian.r</td><td>رسول کیان</td><td>248</td></tr>
+            <tr><td>mehrabi.s</td><td>سعید محرابی</td><td>823</td></tr>
+            <tr><td>Azadbakhsh.s</td><td>سپیده آزاد بخش</td><td>882</td></tr>
+            <tr><td>HesarKoushki.b</td><td>بیتا حصارکوشکی</td><td>16500</td></tr>
+            <tr><td>Azadbakhsh.sh</td><td>شیما آزادبخش</td><td>16511</td></tr>
+            <tr><td>Moradmand.a</td><td>آرش مرادمند</td><td>16513</td></tr>
+            <tr><td>kaboli.f</td><td>فاطمه کابلی</td><td>16439</td></tr>
+            <tr><td>zamani.z</td><td>زهرا زمانی</td><td>16464</td></tr>
+            <tr><td>eezi.a</td><td>افسانه ایزی</td><td>16518</td></tr>
+            <tr><td>Ahmadi.sh</td><td>شهره بابااحمدی</td><td>16627</td></tr>
+            <tr><td>Saemian.r</td><td>رضا صائمیان</td><td>16607</td></tr>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <section id="history">
+      <h2>۵) پیشینه درخواست‌های باز (History)</h2>
+      <div class="card">
+        <h3>فیلتر داده (سرور)</h3>
+        <p>برخلاف صفحه Manage، اینجا <strong>تفکیک نقش برای فیلتر لیست وجود ندارد</strong>.</p>
+        <p>تنها شرط سرور:</p>
+        <pre>GetOpenOrderRequestModelAsQueryable(p => p.IsDeleted, UserId)
+// یعنی: IsDeleted = true</pre>
+        <p class="note">
+          یعنی فقط درخواست‌های <strong>حذف‌شده / خاتمه‌یافته</strong> (پیشینه).
+          فیلتر <code>Inv_Part_Permission</code> هم مثل Manage روی کالا اعمال می‌شود.
+          فیلتر رنگی کلاینتی مثل صفحه اصلی ندارد.
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>نمایه پیشنهادی SavedQuery</h3>
+        <table>
+          <tr><th>Name</th><td><code>OOR_History_Deleted</code></td></tr>
+          <tr><th>Title</th><td>پیشینه درخواست‌های باز (حذف‌شده)</td></tr>
+          <tr><th>Entity</th><td><code>Entities.App.Sup.OpenOrderRequest</code></td></tr>
+          <tr><th>فیلتر</th><td><code>IsDeleted = true</code></td></tr>
+        </table>
+        <pre>[
+  {
+    "ColumnName": "IsDeleted",
+    "Operator": "equals",
+    "Value": "true",
+    "LogicalOperator": "AND"
+  }
+]</pre>
+      </div>
+
+      <h3>دسترسی صفحه History (HTS Page 77)</h3>
+      <table>
+        <thead>
+          <tr><th>پرمیشن</th><th>گروه</th><th>عنوان</th><th>تعداد فعال</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>FullAccess</td><td>17</td><td>مدیر سیستم تدارکات</td><td>۷</td></tr>
+          <tr><td>FullAccess</td><td>27</td><td>کارشناسان تدارکات</td><td>۱۸</td></tr>
+          <tr><td>FullAccess</td><td>33</td><td>کارشناسان کنترل کیفیت</td><td>۵</td></tr>
+          <tr><td>FullAccess</td><td>227</td><td>مدیر سیستم بازرگانی</td><td>۴</td></tr>
+          <tr><td>Read</td><td>28</td><td>کارشناسان صنایع</td><td>۱۱</td></tr>
+          <tr><td>Read</td><td>44</td><td>عمومی تدارکات (درخواست باز)</td><td>۹۷</td></tr>
+          <tr><td>Read</td><td>60</td><td>دسترسی مشاهده-سیستم تدارکات</td><td>۱۹</td></tr>
+          <tr><td>Read</td><td>70</td><td>تأیید مهندسی</td><td>۶۲</td></tr>
+          <tr><td>Read</td><td>303</td><td>مدیران پروژه در تدارکات</td><td>۱</td></tr>
+          <tr><td>Read</td><td>350</td><td>مشاهده کلی HTS</td><td>۱۱</td></tr>
+          <tr><td>Read + Attachment</td><td>395</td><td>مشاهده پیشینه درخواست‌های باز</td><td>۲۶</td></tr>
+          <tr><td>Read + Export</td><td>488</td><td>مهندسی — دسترسی‌های عمومی مهندسی</td><td>۲۰</td></tr>
+          <tr><td>ExportToExcel</td><td>60, 488</td><td>—</td><td>—</td></tr>
+          <tr><td>Attachment</td><td>28, 60, 395</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+
+      <details>
+        <summary>گروه ۳۹۵ — کارشناسان مشاهده پیشینه (۲۶) — اختصاصی History</summary>
+        <div class="body members">
+          <ul>
+            <li>Bosaghzadeh.e — احسان اله بساق زاده</li>
+            <li>Kiani.a — احمدرضا کیانی</li>
+            <li>estaki.a — ارمغان استکی</li>
+            <li>eezi.a — افسانه ایزی</li>
+            <li>Eftekhari.a — امیر افتخاری مجد</li>
+            <li>Mirlohi.a — امیر میرلوحی</li>
+            <li>Moradi.p — پوریا مرادی</li>
+            <li>abdolmaleki.h — حمید عبدالملکی</li>
+            <li>esmaillian.r — رمانا اسماعیلیان</li>
+            <li>Azami.sa — سعید اعظمی</li>
+            <li>Tahmasebizadeh.sh — شادی طهماسبی زاده</li>
+            <li>Khaleghinejad.a — عاطفه خالقی نژاد</li>
+            <li>mehrsadeghi — علیرضا مهرصادقی</li>
+            <li>Bamimohammadi.gh — غلامرضا بامی محمدی</li>
+            <li>Raman.f — فرزاد رمن</li>
+            <li>Erfani.m — محمدجواد عرفانی</li>
+            <li>Farahmand.m — محمدرضا فرهمند</li>
+            <li>habibi.m — محمدعلی حبیبی</li>
+            <li>salahi.m — محمدمهدی صلاحی عز</li>
+            <li>kalhor.m — مریم کلهر</li>
+            <li>azami.m — مسعود اعظمی</li>
+            <li>Shaghaghi.m — میثم شقاقی</li>
+            <li>Neysari.n — نیما نیساری</li>
+            <li>mehrabi.h — هاشم مهرابی</li>
+            <li>shams.h — هومن شمس</li>
+            <li>Kondori.v — وحید کندری</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۳۳ — کنترل کیفیت (۵)</summary>
+        <div class="body members">
+          <ul>
+            <li>salim.sh — امیرشاهین محمد سلیم</li>
+            <li>Khodaei.r — رامین خدایی</li>
+            <li>naderi.r — رسول نادری</li>
+            <li>badrkhani.s — سبحان بدرخانی</li>
+            <li>maroufkhani.m — مریم معروفخانی</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۶۰ — مشاهده تدارکات (۱۹)</summary>
+        <div class="body members">
+          <ul>
+            <li>Ahsani.e — احسان احسنی</li>
+            <li>Kiani.a — احمدرضا کیانی</li>
+            <li>Ahrarnejad.h — امیدرضا احرارنژاد</li>
+            <li>barmaki.a — اکبر برمکی</li>
+            <li>Nazmi.b — بهنام نظمی</li>
+            <li>sarmadi.p — پدیده سرمدی</li>
+            <li>javadian.p — پژمان جوادیان</li>
+            <li>givehchi.h — حسین گیوه چی</li>
+            <li>Momenirad.s — سارا مومنی راد</li>
+            <li>noroozi.s — ساره نوروزی</li>
+            <li>mehrsadeghi — علیرضا مهرصادقی</li>
+            <li>amjadi.h — عماد امجدی</li>
+            <li>Khoshdel.f — فرشید خوشدل</li>
+            <li>shirazi.m — محمود شیرازی</li>
+            <li>maranaki.m — مهدی مرانکی</li>
+            <li>hashemi.n — نرگس هاشمی</li>
+            <li>mehrabi.h — هاشم مهرابی</li>
+            <li>drghoroori — هوتن غروری</li>
+            <li>ramezani.y — یونس رمضان خانلو</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۳۵۰ — مشاهده کلی HTS (۱۱)</summary>
+        <div class="body members">
+          <ul>
+            <li>Saadat.a — احمد سعادت</li>
+            <li>Kiani.a — احمدرضا کیانی</li>
+            <li>akbari.a — امیرحسین اکبری</li>
+            <li>hesabres1 — حسابرس</li>
+            <li>Azimzadeh.kh — خورشید عظیم زاده</li>
+            <li>Momenirad.s — سارا مومنی راد</li>
+            <li>mehrsadeghi — علیرضا مهرصادقی</li>
+            <li>Khoshdel.f — فرشید خوشدل</li>
+            <li>Naghdi.f — فرهاد نقدی</li>
+            <li>hashemi.n — نرگس هاشمی</li>
+            <li>mehrabi.h — هاشم مهرابی</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۴۸۸ — مهندسی عمومی (۲۰) + Export</summary>
+        <div class="body members">
+          <ul>
+            <li>Mirlohi.a — امیر میرلوحی</li>
+            <li>EbneAli.b — بهنوش ابن علی</li>
+            <li>javadian.p — پژمان جوادیان</li>
+            <li>abdolmaleki.h — حمید عبدالملکی</li>
+            <li>ghorbani.z — زهره قربانی</li>
+            <li>sabermanesh.s — سعید صابرمنش</li>
+            <li>Khaleghinejad.a — عاطفه خالقی نژاد</li>
+            <li>Bamimohammadi.gh — غلامرضا بامی محمدی</li>
+            <li>Raman.f — فرزاد رمن</li>
+            <li>khodakarami.f — فرهاد خداکرمی</li>
+            <li>bagheri.m — مجید باقری</li>
+            <li>Samii.m — محمد سمیعی</li>
+            <li>Erfani.m — محمدجواد عرفانی</li>
+            <li>salahi.m — محمدمهدی صلاحی عز</li>
+            <li>Rajabi.m — مسعود رجبی</li>
+            <li>Shaghaghi.m — میثم شقاقی</li>
+            <li>Saeedi.m — میرمحسن سعیدی</li>
+            <li>Neysari.n — نیما نیساری</li>
+            <li>kadkhodaei.v — وحید کدخدائی</li>
+            <li>Kondori.v — وحید کندری</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>گروه ۲۲۷ — مدیر بازرگانی (۴) + FullAccess</summary>
+        <div class="body members">
+          <ul>
+            <li>shirnejad.a — افسانه شیرنژاد</li>
+            <li>khalili.aa — امید خلیلی</li>
+            <li>sabermanesh.s — سعید صابرمنش</li>
+            <li>sh.abed — شقایق عابد</li>
+          </ul>
+        </div>
+      </details>
+
+      <div class="card">
+        <strong>پیشنهاد Role جدید در HavayarApp:</strong>
+        <code>Sup.OpenOrderRequest.History</code>
+        — اختصاص به اعضای گروه ۳۹۵ (+ در صورت نیاز ۶۰، ۳۵۰، ۳۳، ۴۸۸) و RoleAccess روی نمایه
+        <code>OOR_History_Deleted</code>.
+      </div>
+    </section>
+
+    <section id="ops">
+      <h2>۶) عملیات (جدا از فیلتر لیست)</h2>
+      <p class="note">این Roleها دکمه/اکشن را کنترل می‌کنند؛ لزوماً نمایه جدا نمی‌خواهند.</p>
+      <table>
+        <thead>
+          <tr><th>عملیات</th><th>Role</th><th>گروه HTS</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>تأیید مهندسی</td><td>EngineeringAccept</td><td>۷۰، ۲۸</td></tr>
+          <tr><td>تأیید فروش/پروژه</td><td>SalesOrProjectAccept</td><td>۵۳۶</td></tr>
+          <tr><td>ثبت توقف</td><td>Stop</td><td>۲۷، ۴۴، ۵۹۳</td></tr>
+          <tr><td>راه‌اندازی</td><td>Start</td><td>۲۸</td></tr>
+          <tr><td>در راه</td><td>Sending</td><td>بر اساس پرمیشن سیستم</td></tr>
+          <tr><td>استعلام</td><td>Query</td><td>بر اساس پرمیشن سیستم</td></tr>
+          <tr><td>خاتمه</td><td>Terminate</td><td>۲۳۳</td></tr>
+          <tr><td>قابلیت مهندسی / VPIS</td><td>HasEngineering</td><td>۷۰، ۴۶۲</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="checklist" class="steps">
+      <h2>۶) چک‌لیست پیاده‌سازی</h2>
+      <div class="card step">
+        در Query/DataProfile Builder چهار نمایه اصلی بسازید:
+        <code>OOR_All_Active</code>،
+        <code>OOR_EngineeringAccepted</code>،
+        <code>OOR_Other_View</code>،
+        <code>OOR_Config</code>
+        با EntityFullName صحیح.
+      </div>
+      <div class="card step">
+        فیلترهای هر نمایه را طبق بخش ۲ ست کنید و یک‌بار با کاربر تست اجرا کنید.
+      </div>
+      <div class="card step">
+        برای هر Role مربوطه در <code>system.RoleAccess</code> ردیف
+        <code>ActionAccessType = DataProfile</code> با
+        <code>RowId = SavedQuery.Id</code> ثبت کنید.
+      </div>
+      <div class="card step">
+        اعضای گروه‌های بالا را با Username به Userهای سیستم جدید مپ کنید و Role بدهید
+        (مثلاً همه گروه ۲۸ → Industrial + Start).
+      </div>
+      <div class="card step">
+        Roleهای عملیاتی (Stop/Terminate/…) را جداگانه به همان افراد طبق جدول بخش ۵ بدهید.
+      </div>
+      <div class="card step">
+        تست سناریو: یک کاربر صنایع باید P1 ببیند؛ یک کاربر تأمین فقط P2؛ یک کاربر پروژه/فروش فقط P2؛ ادمین همه.
+      </div>
+    </section>
+
+    <section>
+      <h2>۷) خلاصه سریع ماتریس فیلتر</h2>
+      <table>
+        <thead>
+          <tr><th>نقش</th><th>IsDeleted</th><th>EngineeringAccept</th><th>RequestedPersonel</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Admin</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>صنایع / مهندسی / ShowAll</td><td>false</td><td>—</td><td>—</td></tr>
+          <tr><td>تأمین / پروژه-فروش</td><td>false</td><td>true</td><td>—</td></tr>
+          <tr><td>سایر</td><td>false</td><td>true</td><td>NOT NULL</td></tr>
+          <tr><td>تنظیمات</td><td>false</td><td>—</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p class="note" style="margin-top:32px">
+      فایل: <code>Data/Scripts/OpenOrderRequest_DataProfiles_Guide.html</code> —
+      تاریخ استخراج داده گروه‌ها از TotalSystem: ۱۴۰۵/۰۴/۲۲
+    </p>
+  </div>
+</body>
+</html>

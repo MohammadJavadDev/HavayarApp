@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Entities.App.Prp.Enums
+namespace Entities.App.Rpr.Enums
 {
     public enum RepairRequestDestinationAfterRepairEnum
     {
@@ -22,6 +22,8 @@ namespace Entities.App.Prp.Enums
 
     public enum RepairRequestStatusEnum
     {
+        [Display(Name = "انتخاب نمایید")]
+        Selected = 300,
         [Display(Name = "در حال انجام")]
         InProgress = 301,
 

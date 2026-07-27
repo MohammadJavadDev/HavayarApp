@@ -6,21 +6,17 @@ using Data.Contracts;
 using Data.SystemAuth;
 using Entities.App.Bom;
 using Entities.App.Bom.Enums;
-using Entities.App.Bom.Views;
 using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sale.Enums;
 using Entities.Base;
 using Entities.Base.DataTable;
-using Microsoft.AspNetCore.JsonPatch.Operations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using NUglify.Helpers;
-using Stimulsoft.System.Windows.Forms;
 using System.Text;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using static Stimulsoft.Report.StiRecentConnections;
+
 
 namespace WebApp.Controllers.Dynamic
 {

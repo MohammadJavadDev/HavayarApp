@@ -1,5 +1,50 @@
-﻿@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+﻿@using Common.Auth.Enums
+@using Data.SystemAuth
+@using ReportBuilder.Entities
+@using ReportBuilder.Services.Contracts
+@using Services.AccessServices
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@inject IReportBuilderService _reportBuilderService
+@inject IAccessMemoryStorage _accessMemoryStorage
+@inject ISdk _sdk
+@{
+	IgnoreBody();
 
+	var dashbords = _reportBuilderService.GetDashboardSelectItemsByRole();
+
+	if (_sdk.IsAdministrator)
+	{
+		var pageDashboards = _accessMemoryStorage.GetAllAccessControllers()
+			.SelectMany(c => c.Actions ?? Enumerable.Empty<Entities.Auth.AccessAction>())
+			.Where(a => a.ActionAccessItemType == ActionAccessItemType.Dashbord
+				&& a.ActionAccessType == ActionAccessType.View
+				&& !string.IsNullOrWhiteSpace(a.Path)
+				&& a.Path.StartsWith("/"))
+			.Select(a => new DashboardSelectItem
+			{
+				Title = string.IsNullOrWhiteSpace(a.DisplayName) ? a.Name : a.DisplayName,
+				Url = a.Path,
+				Type = "page"
+			});
+
+		dashbords = dashbords.Concat(pageDashboards).ToList();
+	}
+	else
+	{
+		var pageDashboards = (_sdk.CurrentUser?.RoleAccess ?? new List<RoleAccessDto>())
+			.Where(c => c.ActionAccessItemType == ActionAccessItemType.Dashbord
+				&& !string.IsNullOrWhiteSpace(c.Path)
+				&& c.Path.StartsWith("/"))
+			.Select(c => new DashboardSelectItem
+			{
+				Title = string.IsNullOrWhiteSpace(c.DisplayName) ? c.Path! : c.DisplayName!,
+				Url = c.Path!,
+				Type = "page"
+			});
+
+		dashbords = dashbords.Concat(pageDashboards).ToList();
+	}
+}
 <!DOCTYPE html>
 <html direction="rtl" dir="rtl" style="direction: rtl">
 
@@ -41,9 +86,30 @@
 				@await Html.PartialAsync("~/Views/Panel/Shared/_AdminSidebar.cshtml")
 				<div class="app-main flex-column flex-row-fluid" id="kt_app_main">
 					<div class="" id="tabsContainer">
+						<li class="page_tab active_page_tab" id="dashbordTab">
+							<span>داشبورد</span>
+						</li>
 					</div>
 					<div id="pagesContainer">
-						@RenderBody()
+						 <div class="tab-pane fade " data-sys="system-tab"  id="dashbordContent">
+							<div class="row mb-4">
+								<div class="col-md-6">
+									<select class="form-select" id="selectDashbords">
+										<option value="0">
+											انتخاب کنید
+										</option>
+										@foreach(var r in dashbords)
+										{
+											var optionValue = r.Type == "stimulsoft" ? $"stimulsoft:{r.Id}" : $"page:{r.Url}";
+											<option value="@optionValue" data-type="@r.Type" data-url="@r.Url">
+												@r.Title
+											</option>
+										}
+									</select>
+								</div>
+							</div>
+							<div id="dashbordRenderArea"></div>
+						</div> 
 					</div>
 				</div>
 			</div>

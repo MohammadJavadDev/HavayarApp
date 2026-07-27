@@ -1,17 +1,49 @@
 @using Common.Utilities
-@using Entities.App.Sale
-@model List<ProductionOrderItemComment>
+@using WebApp.Models.Sale
+@model ProductionOrderItemHistoryViewModel
 
 @{
-	DateTime? lastChangeDate = null;
+	var tabId = $"poiHistory_{Model.ProductionOrderItemId}";
 }
 
-<div class="row">
-	<div class="col-md-12">
-		@if (Model != null && Model.Any())
+<ul class="nav nav-tabs nav-line-tabs mb-3" id="@tabId" role="tablist">
+	<li class="nav-item" role="presentation">
+		<button class="nav-link active" id="@(tabId)_order_tab" data-bs-toggle="tab"
+			data-bs-target="#@(tabId)_order" type="button" role="tab">
+			وضعیت سفارش ساخت
+			<span class="badge badge-light-primary ms-1">@Model.OrderStatusComments.Count</span>
+		</button>
+	</li>
+	<li class="nav-item" role="presentation">
+		<button class="nav-link" id="@(tabId)_inquiry_tab" data-bs-toggle="tab"
+			data-bs-target="#@(tabId)_inquiry" type="button" role="tab">
+			وضعیت استعلام
+			<span class="badge badge-light-info ms-1">@Model.InquiryHistory.Count</span>
+		</button>
+	</li>
+	<li class="nav-item" role="presentation">
+		<button class="nav-link" id="@(tabId)_production_tab" data-bs-toggle="tab"
+			data-bs-target="#@(tabId)_production" type="button" role="tab">
+			وضعیت تولید
+			<span class="badge badge-light-warning ms-1">@Model.ProductionStatusComments.Count</span>
+		</button>
+	</li>
+	<li class="nav-item" role="presentation">
+		<button class="nav-link" id="@(tabId)_step_tab" data-bs-toggle="tab"
+			data-bs-target="#@(tabId)_step" type="button" role="tab">
+			مرحله ساخت
+			<span class="badge badge-light-success ms-1">@Model.ProductionStepComments.Count</span>
+		</button>
+	</li>
+</ul>
+
+<div class="tab-content">
+	<!-- تب ۱: وضعیت سفارش ساخت -->
+	<div class="tab-pane fade show active" id="@(tabId)_order" role="tabpanel">
+		@if (Model.OrderStatusComments.Any())
 		{
 			<div class="table-responsive">
-				<table class="table table-striped table-bordered table-hover">
+				<table class="table table-striped table-bordered table-hover align-middle">
 					<thead>
 						<tr>
 							<th>وضعیت</th>
@@ -23,52 +55,34 @@
 						</tr>
 					</thead>
 					<tbody>
-						@foreach (var comment in Model.OrderBy(c => c.CreatedOnMiladiDateTime))
+						@{
+							DateTime? lastOrderChange = null;
+						}
+						@foreach (var comment in Model.OrderStatusComments)
 						{
-							string TimePeriod = "0";
-							if (lastChangeDate == null)
+							string timePeriod = "0";
+							if (lastOrderChange == null)
 							{
-								lastChangeDate = comment.CreatedOnMiladiDateTime;
+								lastOrderChange = comment.CreatedOnMiladiDateTime;
 							}
 							else
 							{
-								var difference = comment.CreatedOnMiladiDateTime - lastChangeDate;
-								TimePeriod = $"{(int)difference.Value.TotalHours}:{difference.Value.Minutes:D2}";
+								var difference = comment.CreatedOnMiladiDateTime - lastOrderChange;
+								timePeriod = $"{(int)difference.Value.TotalHours}:{difference.Value.Minutes:D2}";
+								lastOrderChange = comment.CreatedOnMiladiDateTime;
 							}
-
 							<tr>
-
-								<td>
-									<span class="badge badge-primary">@comment.ProductionStatus.ToDisplay()</span>
-									
-								</td>
-
+								<td><span class="badge badge-primary">@comment.ProductionStatus.ToDisplay()</span></td>
 								<td>@comment.Comment</td>
 								<td>
 									@if (!string.IsNullOrWhiteSpace(comment.FailureTypeNames))
 									{
-										<div class="mt-1">
-											<span class="badge badge-danger">@comment.FailureTypeNames</span>
-										</div>
+										<span class="badge badge-danger">@comment.FailureTypeNames</span>
 									}
 								</td>
-
-								<td style="white-space: nowrap;">
-									<i class="fa fa-user"></i> @comment.CreatedByName
-								</td>
-							
+								<td style="white-space: nowrap;"><i class="fa fa-user"></i> @comment.CreatedByName</td>
 								<td style="direction: ltr; text-align: right;">@comment.CreatedOnShamsiDateTime</td>
-
-
-							
-								<td>
-									@TimePeriod 
-									 
-								</td>
-							
-							 
-							
-								
+								<td>@timePeriod</td>
 							</tr>
 						}
 					</tbody>
@@ -77,9 +91,148 @@
 		}
 		else
 		{
-			<div class="alert alert-info">
-				<i class="fa fa-info-circle"></i> هیچ کامنتی ثبت نشده است
+			<div class="alert alert-info mb-0"><i class="fa fa-info-circle"></i> هیچ رکوردی برای وضعیت سفارش ساخت ثبت نشده است</div>
+		}
+	</div>
+
+	<!-- تب ۲: وضعیت استعلام -->
+	<div class="tab-pane fade" id="@(tabId)_inquiry" role="tabpanel">
+		@if (Model.InquiryHistory.Any())
+		{
+			<div class="table-responsive">
+				<table class="table table-striped table-bordered table-hover align-middle">
+					<thead>
+						<tr>
+							<th>وضعیت</th>
+							<th>مسئول</th>
+							<th>پیوست</th>
+							<th>توضیحات</th>
+							<th>کاربر ثبت‌کننده</th>
+							<th>تاریخ ثبت</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var inquiry in Model.InquiryHistory)
+						{
+							<tr>
+								<td><span class="badge badge-info">@inquiry.Status.ToDisplay()</span></td>
+								<td>@(inquiry.ResponsibleName ?? "-")</td>
+								<td>
+									@if (inquiry.AttachmentFileId.HasValue)
+									{
+										<a href="/File/download/@inquiry.AttachmentFileId" target="_blank" class="btn btn-sm btn-light-primary">
+											<i class="fa fa-download"></i> دانلود
+										</a>
+									}
+									else
+									{
+										<span class="text-muted">-</span>
+									}
+								</td>
+								<td>@inquiry.Comment</td>
+								<td style="white-space: nowrap;"><i class="fa fa-user"></i> @inquiry.CreatedByName</td>
+								<td style="direction: ltr; text-align: right;">@inquiry.CreatedOnShamsiDateTime</td>
+							</tr>
+						}
+					</tbody>
+				</table>
 			</div>
+		}
+		else
+		{
+			<div class="alert alert-info mb-0"><i class="fa fa-info-circle"></i> هیچ رکوردی برای وضعیت استعلام ثبت نشده است</div>
+		}
+	</div>
+
+	<!-- تب ۳: وضعیت تولید -->
+	<div class="tab-pane fade" id="@(tabId)_production" role="tabpanel">
+		@if (Model.ProductionStatusComments.Any())
+		{
+			<div class="table-responsive">
+				<table class="table table-striped table-bordered table-hover align-middle">
+					<thead>
+						<tr>
+							<th>وضعیت</th>
+							<th>تاریخ شروع</th>
+							<th>ساعت شروع</th>
+							<th>تاریخ پایان</th>
+							<th>ساعت پایان</th>
+							<th>توضیحات</th>
+							<th>انواع خرابی</th>
+							<th>شناسه توقف</th>
+							<th>کاربر ثبت‌کننده</th>
+							<th>تاریخ ثبت</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var comment in Model.ProductionStatusComments)
+						{
+							<tr>
+								<td><span class="badge badge-warning">@comment.ProductionStatus.ToDisplay()</span></td>
+								<td style="direction: ltr; text-align: right;">@(comment.StartShamsiDate ?? "-")</td>
+								<td style="direction: ltr; text-align: right;">
+									@(comment.StartMiladiDateTime.HasValue ? comment.StartMiladiDateTime.Value.ToString("HH:mm") : "-")
+								</td>
+								<td style="direction: ltr; text-align: right;">@(comment.EndShamsiDate ?? "-")</td>
+								<td style="direction: ltr; text-align: right;">
+									@(comment.EndMiladiDateTime.HasValue ? comment.EndMiladiDateTime.Value.ToString("HH:mm") : "-")
+								</td>
+								<td>@comment.Comment</td>
+								<td>
+									@if (!string.IsNullOrWhiteSpace(comment.FailureTypeNames))
+									{
+										<span class="badge badge-danger">@comment.FailureTypeNames</span>
+									}
+								</td>
+								<td>@(comment.StopRequestId?.ToString() ?? "-")</td>
+								<td style="white-space: nowrap;"><i class="fa fa-user"></i> @comment.CreatedByName</td>
+								<td style="direction: ltr; text-align: right;">@comment.CreatedOnShamsiDateTime</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		else
+		{
+			<div class="alert alert-info mb-0"><i class="fa fa-info-circle"></i> هیچ رکوردی برای وضعیت تولید ثبت نشده است</div>
+		}
+	</div>
+
+	<!-- تب ۴: مرحله ساخت -->
+	<div class="tab-pane fade" id="@(tabId)_step" role="tabpanel">
+		@if (Model.ProductionStepComments.Any())
+		{
+			<div class="table-responsive">
+				<table class="table table-striped table-bordered table-hover align-middle">
+					<thead>
+						<tr>
+							<th>وضعیت</th>
+							<th>توضیحات</th>
+							<th>کاربر ثبت‌کننده</th>
+							<th>تاریخ ثبت</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var comment in Model.ProductionStepComments)
+						{
+							var stepTitle = comment.ProductionStep.HasValue
+								? comment.ProductionStep.Value.ToDisplay()
+								: comment.ProductionStatus.ToDisplay();
+							<tr>
+								<td><span class="badge badge-success">@stepTitle</span></td>
+								<td>@comment.Comment</td>
+								<td style="white-space: nowrap;"><i class="fa fa-user"></i> @comment.CreatedByName</td>
+								<td style="direction: ltr; text-align: right;">@comment.CreatedOnShamsiDateTime</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		else
+		{
+			<div class="alert alert-info mb-0"><i class="fa fa-info-circle"></i> هیچ رکوردی برای مرحله ساخت ثبت نشده است</div>
 		}
 	</div>
 </div>

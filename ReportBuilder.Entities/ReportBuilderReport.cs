@@ -28,7 +28,8 @@ namespace ReportBuilder.Entities
     public enum ReportType
     {
         Table,
-        StimulSoft
-    }
+        StimulSoft,
+	   Dashboard
+	}
 
 }

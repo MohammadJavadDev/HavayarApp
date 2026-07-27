@@ -1,11 +1,53 @@
+@using Common.Utilities
+@using Data.SystemAuth
 @using Entities.App.Inv;
 @using Entities.App.Sale;
 @using Entities.App.Sale.Enums;
 @using WebApp.Controllers.Dynamic
+@inject ISdk sdk
 @model ProductionOrderItem
 @{
 
 	var newMode = Model.Id == null;
+
+	var listProductionOrderItemBomProductionStepEnum = EnumExtensions.GetEnumValuesWithDisplayNames<ProductionOrderItemBomProductionStepEnum>();
+	var listProductionOrderItemStatusEnum = EnumExtensions.GetEnumValuesWithDisplayNames<ProductionOrderItemStatusEnum>();
+
+	var isAdmin = sdk.IsAdministrator;
+
+	// فاز ۶ - رابط کاربری: رشته مهندسی (مکانیک/برق) این قلم توسط ProductionOrderItemController.Edit محاسبه و
+	// از طریق ViewBag تامین می‌شود تا منطق تشخیص DeviceType در دو جا (سرور/کلاینت) تکرار نشود
+	var isElectricalDiscipline = ViewBag.IsElectricalDiscipline as bool? ?? false;
+
+	//Seed Role => Sale.ProductionOrderItem.AcceptEngineeringMechanical => سفارش ساخت - تایید مهندسی مکانیک
+	//Seed Role => Sale.ProductionOrderItem.AcceptEngineeringElectrical => سفارش ساخت - تایید مهندسی برق
+	// TODO(Role): Role های بالا را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد مهندسی مکانیک/برق را متناظر انتساب بده
+	var canAcceptEngineering = isAdmin || (isElectricalDiscipline
+		? sdk.HasRole("Sale.ProductionOrderItem.AcceptEngineeringElectrical")
+		: sdk.HasRole("Sale.ProductionOrderItem.AcceptEngineeringMechanical"));
+
+	//Seed Role => Sale.ProductionOrderItem.AcceptIndustrial => سفارش ساخت - تایید صنایع
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد صنایع را به آن انتساب بده
+	var canAcceptIndustrial = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.AcceptIndustrial");
+
+	//Seed Role => Sale.ProductionOrderItem.AcceptProjectManager => سفارش ساخت - تایید مدیر پروژه
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و مدیران پروژه را به آن انتساب بده
+	var canAcceptProjectManager = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.AcceptProjectManager");
+
+	//Seed Role => Sale.ProductionOrderItem.Inquirer => سفارش ساخت - استعلام
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران مسئول استعلام را به آن انتساب بده
+	var canInquiry = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.Inquirer");
+
+	//Seed Role => Sale.ProductionOrderItem.MinistryOfIndustryInquirer => سفارش ساخت - استعلام وزارت صنایع
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران مسئول بررسی وزارت صنایع را به آن انتساب بده
+	var canMinistryReview = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.MinistryOfIndustryInquirer");
+
+	//Seed Role => Sale.ProductionOrderItem.SupplyCommitteeBoss => سفارش ساخت - رئیس کمیته تامین
+	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و رئیس کمیته تامین را به آن انتساب بده
+	var canSupplyCommitteeBoss = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.SupplyCommitteeBoss");
+
+	// مطابق دقیق منطق ProductionOrderItemController.SendToSupplyCommittee: هر یک از سه نقش زیر کافی است
+	var canSendToSupplyCommittee = canInquiry || canMinistryReview || canSupplyCommitteeBoss;
 }
 
 <div class="card">
@@ -19,13 +61,30 @@
 				action-name="addStopRequest" title="ثبت توقف"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-clock"
 				action-name="viewStopRequests" title="لیست توقفات"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-file-xls"
+							action-name="exportBomExcell" title="خروجی اکسل Bom"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-cog"
+				action-name="acceptEngineering" title="تایید/رد مهندسی"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-industry"
+				action-name="acceptIndustrial" title="تایید صنایع"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-tie"
+				action-name="acceptProjectManager" title="تایید/رد مدیر پروژه"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-question-circle"
+				action-name="sendToInquiry" title="ارسال به استعلام"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-landmark"
+				action-name="sendToMinistryReview" title="ارسال به صنایع"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-users"
+				action-name="sendToSupplyCommittee" title="ارسال به کمیته تامین"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check-double"
+				action-name="committeeAccept" title="تایید کمیته تامین"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-times-circle"
+				action-name="committeeReject" title="رد کمیته تامین"></form-action-button>
 		</form-action-buttons>
 	</div>
 
 </div>
 
-
-
+ 
 <div class="row my-3">
 	<div class="col-md-12">
 		<div class="card ">
@@ -104,7 +163,8 @@
 										Model?.PartId?.ToString(),
 										true
 										))
-										}
+					
+					}
 					else
 					{
 								@(Html.EntitySelector<Part>(
@@ -135,14 +195,15 @@
 				@if (newMode)
 				{
 					<div class='col-md-3'>
-						<label class=''>وضعیت تولید</label>
+						<label class=''>نوع دستگاه</label>
 						<select class='form-control' data-bind='deviceType' asp-for='DeviceType'
 							   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemDeviceTypeEnum))">
 						</select>
 						<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 					</div>
 
-								}
+				
+				}
 				else
 				{
 						<div class='col-md-2'>
@@ -152,7 +213,27 @@
 					</div>
 				</div>
 				}
-			
+
+				@if (newMode)
+				{
+				
+			<div class='col-md-2'>
+				<div class="mb-3">
+					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تعداد / مقدار</label>
+						<input class='form-control' data-bind='amount' data-invalidMessage='فقط عداد'
+						data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+						asp-for='Amount' />
+				</div>
+			</div>
+			}else {
+				<div class='col-md-2'>
+					<div class="mb-3">
+						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تعداد / مقدار</label>
+						<span class='fw-semibold fs-6' data-bind='amount'>@(Model?.Amount?.ToString() ?? "-")</span>
+					</div>
+				</div>
+
+				}
 
 
 				<div class='col-md-2'>
@@ -179,12 +260,6 @@
 				</div>
 			 
 
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تعداد / مقدار</label>
-					<span class='fw-semibold fs-6' data-bind='amount'>@(Model?.Amount?.ToString() ?? "-")</span>
-				</div>
-			</div>
 
 			<div class='col-md-2'>
 				<div class="mb-3">
@@ -216,8 +291,15 @@
 
 			<div class='col-md-2'>
 				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">وضعیت بررسی</label>
-					<span class='fw-semibold fs-6' data-bind='checkStatus'>@(Model?.CheckStatus?.ToString() ?? "-")</span>
+					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">وضعیت بررسی (کارتابل)</label>
+					<span class='badge badge-light-primary fs-6 px-3 py-2' data-bind='checkStatus'>@(Model?.CheckStatus?.ToDisplay() ?? "-")</span>
+				</div>
+			</div>
+
+			<div class='col-md-2'>
+				<div class="mb-3">
+					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">مرحله ساخت (فعلی)</label>
+					<span class='badge badge-light-info fs-6 px-3 py-2'>@(Model?.ProductionStep.ToDisplay() ?? "-")</span>
 				</div>
 			</div>
 
@@ -413,6 +495,38 @@
 				</div>
 
 				<div class='col-md-3'>
+					<label class=''>تاریخ اخذ</label>
+					<input class='form-control' data-bind='sendToIndustrialShamsiDate' data-persionDatePicker="true"
+						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+						value='@Model?.SendToIndustrialMiladiDate' readonly disabled />
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-3'>
+					<label class=''>تاریخ اولین تغییر صنایع</label>
+					<input class='form-control' data-bind='firstIndustrialChangeShamsiDate' data-persionDatePicker="true"
+						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+						value='@Model?.FirstIndustrialChangeMiladiDate' readonly disabled />
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-3'>
+					<label class=''>تاریخ آماده‌سازی مدارک</label>
+					<input class='form-control' data-bind='documentPreparationShamsiDate' data-persionDatePicker="true"
+						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+						value='@Model?.DocumentPreparationMiladiDate' />
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-3'>
+					<label class=''>تاریخ تحویل استاندارد</label>
+					<input class='form-control' data-bind='standardDeliveryShamsiDate' data-persionDatePicker="true"
+						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+						value='@Model?.StandardDeliveryMiladiDate' />
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-3'>
 					<label class=''>وضعیت</label>
 					<select class='form-control' data-bind='status' asp-for='Status'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemStatusEnum))">
@@ -427,10 +541,41 @@
 					</select>
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
+
+				<div class='col-md-3'>
+					<label class=''>نوع سریال</label>
+					<select class='form-control' data-bind='serialType' asp-for='SerialType'
+						   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemSerialTypeEnum))">
+					</select>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-3'>
+					<label class=''>روتین</label>
+					<div class="form-check form-switch mt-2">
+						<input class="form-check-input" type="checkbox" data-bind='isRoutine' asp-for='IsRoutine' />
+					</div>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
 				<div class='col-md-8'>
 					<label class=''>ملاحظات</label>
 					<textarea class='form-control' data-bind='salesConsideration'
 						asp-for='SalesConsideration'>@Model?.SalesConsideration</textarea>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-8'>
+					<label class=''>ملاحظات مهندسی</label>
+					<textarea class='form-control' data-bind='engineeringConsideration'
+						asp-for='EngineeringConsideration'>@Model?.EngineeringConsideration</textarea>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
+
+				<div class='col-md-8'>
+					<label class=''>ملاحظات صنایع</label>
+					<textarea class='form-control' data-bind='planningConsideration'
+						asp-for='PlanningConsideration'>@Model?.PlanningConsideration</textarea>
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
@@ -467,6 +612,10 @@
 					<th class="min-w-150px">توضیحات</th>
 					<th class="min-w-300px">توضیحات واحد فروش</th>
 					<th class="min-w-150px">نیاز به AVL</th>
+					<th class="min-w-150px">زمان ایجاد</th>
+					<th class="min-w-150px">ایجاد کننده</th>
+					<th class="min-w-150px">زمان ویرایش</th>
+					<th class="min-w-150px">ویرایش کننده</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -474,7 +623,11 @@
 				{
 					int counter = 1;
 					@foreach (var item in (List<ProductionOrderItemBomViewModel>)ViewBag.ProductionOrderItemBomViewData)
-					{
+						{
+
+						 var ProductionStepStr = item?.ProductionStep == null || item?.ProductionStep == 0 ? "" : item?.ProductionStep.ToString();
+							var StatusStr = item?.Status == null || item?.Status == 0 ? "" : item?.Status.ToString();
+
 						<tr data-item-id="@(item.Id ?? 0)">
 							<td>
 								<button class="btn btn-icon btn-warning btn-sm" data-action="openBomModal">
@@ -502,9 +655,9 @@
 									<span class="badge badge-secondary">خیر</span>
 								}
 							</td>
-							<td>@item?.ProductionStep</td>
+								<td>@ProductionStepStr</td>
 							<td>@(item?.NumberSupplied?.ToString() ?? "-")</td>
-							<td>@item?.Status</td>
+							<td>@StatusStr</td>
 							<td>@item?.Description</td>
 							<td>@item?.SaleUnitDetails</td>
 							<td>
@@ -517,6 +670,10 @@
 									<span class="badge badge-secondary">ندارد</span>
 								}
 							</td>
+							<td class="rtl">@item?.CreatedOnShamsiDateTime</td>
+							<td>@item?.CreatedByName</td>
+							<td class="rtl">@item?.ModifiedDateShamsiDateTime</td>
+							<td>@item?.ModifiedByName</td>
 						</tr>
 						counter++;
 					}
@@ -552,9 +709,328 @@
 </div>
 
 <script>
+	 
+	var listProductionOrderItemBomProductionStepEnum = @Html.Raw(listProductionOrderItemBomProductionStepEnum.JsonSerialize());
+	var listProductionOrderItemStatusEnum = @Html.Raw(listProductionOrderItemStatusEnum.JsonSerialize());
+
+	// TODO(Role): نگاه کن به بالای فایل Razor برای فهرست کامل Roleهای مورد نیاز هر پرچم زیر
+	var permissions = @Html.Raw(Json.Serialize(new {
+		   canAcceptEngineering,
+		   canAcceptIndustrial,
+		   canAcceptProjectManager,
+		   canInquiry,
+		   canMinistryReview,
+		   canSendToSupplyCommittee,
+		   canSupplyCommitteeBoss
+	   }));
+	var productionOrderItem = @Html.Raw(Json.Serialize(Model));
+
+	// مقادیر عددی دقیقاً منطبق بر Entities.App.Sale.Enums.ProductionOrderItemCheckStatusEnum
+	var CHECK_STATUS = {
+		IndustrialDashboardInternal: 1904,
+		ForeignIndustryCatalog: 1905,
+		InquiryNeeded: 1906,
+		IndustrialMinistryReviewRequired: 1908,
+		SendToSupplyCommitteeChair: 1909,
+		MechanicalEngineeringApprovalPending: 2195,
+		CommitteeHeadReviewPending: 2202,
+		AwaitingProjectManagerApproval: 2258
+	};
+
+	function initializePage() {
+		for (let btn in self.FormActionButtons) {
+			self.FormActionButtons[btn].element.disabled = true;
+		}
+
+		self.FormActionButtons.save.element.disabled = false;
+		self.FormActionButtons.saveandclose.element.disabled = false;
+		self.FormActionButtons.history.element.disabled = false;
+		self.FormActionButtons.addComment.element.disabled = false;
+		self.FormActionButtons.viewComments.element.disabled = false;
+		self.FormActionButtons.addStopRequest.element.disabled = false;
+		self.FormActionButtons.viewStopRequests.element.disabled = false;
+		self.FormActionButtons.exportBomExcell.element.disabled = false;
+
+		const checkStatus = productionOrderItem.checkStatus;
+
+		// TODO(Role): دکمه تایید/رد مهندسی صرفاً بر اساس permissions.canAcceptEngineering فعال می‌شود که سرور
+		// (Razor) بر اساس رشته مکانیک/برق این قلم و نقش متناظر محاسبه کرده است؛ سرور در اکشن AcceptEngineering
+		// دوباره همین بررسی را انجام می‌دهد
+		if (permissions.canAcceptEngineering && checkStatus == CHECK_STATUS.MechanicalEngineeringApprovalPending) {
+			self.FormActionButtons.acceptEngineering.element.disabled = false;
+		}
+
+		if (permissions.canAcceptIndustrial && (checkStatus == CHECK_STATUS.IndustrialDashboardInternal || checkStatus == CHECK_STATUS.ForeignIndustryCatalog)) {
+			self.FormActionButtons.acceptIndustrial.element.disabled = false;
+		}
+
+		if (permissions.canAcceptProjectManager && checkStatus == CHECK_STATUS.AwaitingProjectManagerApproval) {
+			self.FormActionButtons.acceptProjectManager.element.disabled = false;
+		}
+
+		if (permissions.canInquiry && (checkStatus == CHECK_STATUS.IndustrialDashboardInternal || checkStatus == CHECK_STATUS.ForeignIndustryCatalog)) {
+			self.FormActionButtons.sendToInquiry.element.disabled = false;
+		}
+
+		if (permissions.canMinistryReview && [CHECK_STATUS.IndustrialDashboardInternal, CHECK_STATUS.ForeignIndustryCatalog, CHECK_STATUS.InquiryNeeded].includes(checkStatus)) {
+			self.FormActionButtons.sendToMinistryReview.element.disabled = false;
+		}
+
+		if (permissions.canSendToSupplyCommittee && [CHECK_STATUS.IndustrialDashboardInternal, CHECK_STATUS.ForeignIndustryCatalog, CHECK_STATUS.InquiryNeeded, CHECK_STATUS.IndustrialMinistryReviewRequired].includes(checkStatus)) {
+			self.FormActionButtons.sendToSupplyCommittee.element.disabled = false;
+		}
+
+		if (permissions.canSupplyCommitteeBoss && [CHECK_STATUS.SendToSupplyCommitteeChair, CHECK_STATUS.CommitteeHeadReviewPending].includes(checkStatus)) {
+			self.FormActionButtons.committeeAccept.element.disabled = false;
+			self.FormActionButtons.committeeReject.element.disabled = false;
+		}
+	}
+
+	initializePage()
+
+	function currentProductionOrderItemId() {
+		return $$("#changeDataSection [data-bind='id']").val();
+	}
+
+	//#region Accept/Reject Engineering
+	self.FormActionButtons.acceptEngineering.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') {
+			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canAcceptEngineering) {
+			toastr.error('شما دسترسی تایید/رد مهندسی این قلم را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید/رد مهندسی',
+			content: `
+				<div class="row">
+					<div class="col-12 mb-3">
+						<label class="required">تصمیم</label>
+						<select class="form-control" id="engineeringDecisionSelect">
+							<option value="1">تایید</option>
+							<option value="2">رد</option>
+							<option value="3">نیاز به بازنگری</option>
+						</select>
+					</div>
+					<div class="col-12">
+						<label>توضیحات</label>
+						<textarea class="form-control" id="engineeringDecisionComment" rows="3"></textarea>
+					</div>
+				</div>`,
+			rtl: true,
+			buttons: {
+				submit: {
+					text: 'ثبت',
+					btnClass: 'btn-success',
+					action: function () {
+						const decision = this.$content.find('#engineeringDecisionSelect').val();
+						const comment = this.$content.find('#engineeringDecisionComment').val() || '';
+						$$.post(`/Panel/ProductionOrderItem/AcceptEngineering/${id}?decision=${decision}&comment=${encodeURIComponent(comment)}`, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('تصمیم مهندسی با موفقیت ثبت شد');
+							appController.refreshCurrentPage();
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	});
+	//#endregion
+
+	//#region Accept Industrial
+	self.FormActionButtons.acceptIndustrial.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') {
+			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canAcceptIndustrial) {
+			toastr.error('شما دسترسی تایید صنایع را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید صنایع',
+			content: 'آیا از تایید صنایع و ارسال این قلم به تولید اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-success',
+					action: function () {
+						$$.post('/Panel/ProductionOrderItem/AcceptIndustrial/' + id, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('تایید صنایع با موفقیت انجام شد');
+							appController.refreshCurrentPage();
+						});
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	});
+	//#endregion
+
+	//#region Accept/Reject Project Manager
+	self.FormActionButtons.acceptProjectManager.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') {
+			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canAcceptProjectManager) {
+			toastr.error('شما دسترسی تایید/رد مدیر پروژه را ندارید');
+			return;
+		}
+
+		$.confirm({
+			title: 'تایید/رد مدیر پروژه',
+			content: `
+				<div class="row">
+					<div class="col-12">
+						<label class="required">تصمیم</label>
+						<select class="form-control" id="pmDecisionSelect">
+							<option value="1">تایید</option>
+							<option value="2">رد</option>
+							<option value="3">نیاز به بازنگری</option>
+						</select>
+					</div>
+				</div>`,
+			rtl: true,
+			buttons: {
+				submit: {
+					text: 'ثبت',
+					btnClass: 'btn-success',
+					action: function () {
+						const decision = this.$content.find('#pmDecisionSelect').val();
+						$$.post(`/Panel/ProductionOrderItem/AcceptProjectManager/${id}?decision=${decision}`, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('تصمیم مدیر پروژه با موفقیت ثبت شد');
+							appController.refreshCurrentPage();
+						});
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	});
+	//#endregion
+
+	//#region Send To Inquiry / Ministry Review / Supply Committee / Committee Accept / Reject
+	function postSimpleWorkflowAction(actionName, id, successMessage) {
+		$$.post(`/Panel/ProductionOrderItem/${actionName}/${id}`, null, function (r) {
+			if (!r.isSuccess) {
+				toastr.error(`${r.message}`, 'خطا');
+				return;
+			}
+			toastr.success(successMessage);
+			appController.refreshCurrentPage();
+		});
+	}
+
+	function confirmSimpleWorkflowAction(title, content, btnClass, actionName, id, successMessage) {
+		$.confirm({
+			title: title,
+			content: content,
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: btnClass,
+					action: function () {
+						postSimpleWorkflowAction(actionName, id, successMessage);
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	}
+
+	self.FormActionButtons.sendToInquiry.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
+		if (!permissions.canInquiry) { toastr.error('شما دسترسی ارسال به استعلام را ندارید'); return; }
+		confirmSimpleWorkflowAction('ارسال به استعلام', 'آیا از ارسال این قلم به استعلام اطمینان دارید؟', 'btn-info', 'SendToInquiry', id, 'با موفقیت به استعلام ارسال شد');
+	});
+
+	self.FormActionButtons.sendToMinistryReview.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
+		if (!permissions.canMinistryReview) { toastr.error('شما دسترسی ارسال به بررسی وزارت صنایع را ندارید'); return; }
+		confirmSimpleWorkflowAction('ارسال به بررسی وزارت صنایع', 'آیا از ارسال این قلم به بررسی وزارت صنایع اطمینان دارید؟', 'btn-info', 'SendToMinistryReview', id, 'با موفقیت به بررسی وزارت صنایع ارسال شد');
+	});
+
+	self.FormActionButtons.sendToSupplyCommittee.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
+		if (!permissions.canSendToSupplyCommittee) { toastr.error('شما دسترسی ارسال به کمیته تامین را ندارید'); return; }
+		confirmSimpleWorkflowAction('ارسال به کمیته تامین', 'آیا از ارسال این قلم به رئیس کمیته تامین اطمینان دارید؟', 'btn-warning', 'SendToSupplyCommittee', id, 'با موفقیت به کمیته تامین ارسال شد');
+	});
+
+	self.FormActionButtons.committeeAccept.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
+		if (!permissions.canSupplyCommitteeBoss) { toastr.error('شما دسترسی تایید کمیته تامین را ندارید'); return; }
+		confirmSimpleWorkflowAction('تایید کمیته تامین', 'آیا از تایید رئیس کمیته تامین و بازگشت این قلم به روند اصلی اطمینان دارید؟', 'btn-success', 'CommitteeAccept', id, 'تایید کمیته تامین با موفقیت ثبت شد');
+	});
+
+	self.FormActionButtons.committeeReject.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
+		if (!permissions.canSupplyCommitteeBoss) { toastr.error('شما دسترسی رد کمیته تامین را ندارید'); return; }
+		confirmSimpleWorkflowAction('رد کمیته تامین', 'آیا از رد رئیس کمیته تامین اطمینان دارید؟ این عملیات وضعیت را به «منسوخ شده» تغییر می‌دهد.', 'btn-danger', 'CommitteeReject', id, 'رد کمیته تامین با موفقیت ثبت شد');
+	});
+	//#endregion
+
 	function savefn($btnAction) {
-		if (validateError($$("#changeDataSection"))) { return; }
+		debugger
+		var id = $$("[data-bind='id']").val();
+		 
+
 		var model = $$("#changeDataSection").dataBind();
+		  
+		if(!id || id == 0)
+		{
+			model.PartId =  $$("[data-bind=PartId]").val();
+
+			if(!model.PartId )
+			{
+				toastr.error(`کالا برای ایجاد قلم سفارش ثبت نشده .`, 'خطا');
+				return;
+			}
+			model.DeviceType =   $$("[data-bind=DeviceType]").val();
+
+			model.amount = $$("[data-bind=amount]").val();
+
+			if(!model.amount || model.amount == 0 )
+			{
+				toastr.error(`تعداد/مقدار به درستی وارد نشده است`, 'خطا');
+				return;
+			}
+			model.ProductionOrderId  = $$("[data-bind=ProductionOrderId]").val();
+		}
+		if (validateError($$("#changeDataSection"))) { return; }
+		
 		const $btn = $(this.element).block();
 		$$.post('save',
 			model,
@@ -580,7 +1056,6 @@
 		"scrollX": true,
 		scrollCollapse: true,
 		paging: false,
-
 		info: false,
 		lengthChange: false,
 		dom: '<"top">rt<"bottom"f><"clear">',
@@ -631,7 +1106,7 @@
 								
 								// افزودن یا به‌روزرسانی رکورد در جدول
 								updateBomTable(r.data);
-								
+					 
 								self.close();
 							});
 							
@@ -693,6 +1168,14 @@
 			const row = table.row($existingRow);
 			const currentRowNumber = $existingRow.find('td:eq(1)').text(); // حفظ شماره ردیف فعلی
 			
+			let productionStepEnum = listProductionOrderItemBomProductionStepEnum.firstOrDefault(c=>c.value == bomData.productionStep);
+			let productionStepStr = productionStepEnum?.exteraData || "";
+
+
+			 let productionOrderItemStatusEnum = listProductionOrderItemStatusEnum.firstOrDefault(c=>c.value == bomData.status);
+			let productionOrderItemStatusStr = productionOrderItemStatusEnum?.exteraData || "";
+	 
+			
 			row.data([
 				editBtn,
 				currentRowNumber,
@@ -702,12 +1185,17 @@
 				bomData.amount || '',
 				bomData.partUnitName || '',
 				isLatestBadge,
-				bomData.productionStep || '',
+				productionStepStr,
 				bomData.numberSupplied !== null ? bomData.numberSupplied : '-',
-				bomData.status || '',
+				productionOrderItemStatusStr,
 				bomData.description || '',
 				bomData.saleUnitDetails || '',
-				needsAVLBadge
+				needsAVLBadge,
+				bomData.createdOnShamsiDateTime || '',
+				bomData.createdByName || '',
+				 bomData.modifiedDateShamsiDateTime || '',
+				bomData.modifiedByName || '',
+		
 			]).draw(false);
 		} else {
 			// افزودن ردیف جدید
@@ -726,7 +1214,12 @@
 				bomData.status || '',
 				bomData.description || '',
 				bomData.saleUnitDetails || '',
-				needsAVLBadge
+				needsAVLBadge,
+				bomData.createdOnShamsiDateTime || '',
+				bomData.createdByName || '',
+					bomData.modifiedDateShamsiDateTime || '',
+				bomData.modifiedByName || '',
+			
 			]).draw(false);
 			
 			$$(newRow.node()).attr('data-item-id', bomData.id);
@@ -764,6 +1257,8 @@
 	self.FormActionButtons.viewStopRequests.onclick(function () {
 		viewStopRequestsList();
 	});
+
+	debugger
 
 	// Stop Request Functions
 	function openStopRequestModal(stopRequestId = null) {
@@ -825,6 +1320,7 @@
 								}
 								
 								toastr.success('درخواست توقف با موفقیت ذخیره شد');
+								appController.closeCurrentPage()
 								self.close();
 							});
 							
@@ -948,6 +1444,7 @@
 								.change()
 								
 								toastr.success('تغییر وضعیت با موفقیت انجام شد');
+								appController.closeCurrentPage()
 								self.close();
 							});
 							
@@ -1033,10 +1530,10 @@
 		const url = `/Panel/ProductionOrderItem/ProductionOrderItemCommentListPartial?productionOrderItemId=${productionOrderItemId}`;
 		
 		$$.get(url, function(result) {
-			let bodyCn = `<div style="overflow-x: hidden; max-height: 500px; overflow-y: auto;">${result}</div>`;
+			let bodyCn = `<div style="overflow-x: auto; max-height: 70vh; overflow-y: auto;">${result}</div>`;
 			$.confirm({
 				title: 'تاریخچه تغییر وضعیت',
-				columnClass: 'col-md-10',
+				columnClass: 'col-md-12',
 				content: bodyCn,
 				rtl: true,
 				buttons: {
@@ -1044,8 +1541,108 @@
 						text: 'بستن',
 						btnClass: 'btn-secondary'
 					}
+				},
+				onContentReady: function () {
+					// اطمینان از کارکرد تب‌های Bootstrap داخل jquery-confirm
+					const $tabs = this.$content.find('[data-bs-toggle="tab"]');
+					$tabs.off('click.poiHistory').on('click.poiHistory', function (e) {
+						e.preventDefault();
+						const target = $$(this).attr('data-bs-target');
+						const $root = $$(this).closest('.jconfirm-content');
+						$root.find('.nav-link').removeClass('active');
+						$$(this).addClass('active');
+						$root.find('.tab-pane').removeClass('show active');
+						$root.find(target).addClass('show active');
+					});
 				}
 			});
 		});
 	}
+
+ 
+
+		 self.FormActionButtons.exportBomExcell.onclick(function () {
+			  
+		  var items = [];
+
+		  $$("#bomTable tbody tr").each(function () {
+
+			var rec =   $($(this).find("td")[1]).text()
+			var rev =   $($(this).find("td")[2]).text()
+			var partCode =   $($(this).find("td")[3]).text()
+			var partName =   $($(this).find("td")[4]).text()
+			var qty =   $($(this).find("td")[5]).text()
+			var unitName =   $($(this).find("td")[6]).text()
+			var lastVerion =   $($(this).find("td")[7]).text()
+			var produtionStep =   $($(this).find("td")[8]).text()
+			var numberSupplied =   $($(this).find("td")[9]).text()
+			var status =   $($(this).find("td")[10]).text()
+			var description =   $($(this).find("td")[11]).text()
+			var saleDescription =   $($(this).find("td")[12]).text()
+			var needsAVL =   $($(this).find("td")[13]).text()
+
+			var createdOn =   $($(this).find("td")[14]).text()
+			var createdBy =   $($(this).find("td")[15]).text()
+			var modifiedOn =   $($(this).find("td")[16]).text()
+			var modifiedBy =   $($(this).find("td")[17]).text()
+			 
+			 
+
+			  items.push({
+				 "ردیف": rec,
+				 "نسخه": rev,
+				 "کدکالا": partCode,
+				 "نام کالا": partName,
+				 "تعداد/مقدار": formatNumber(qty),
+				 "واحد": unitName,
+				 "آخرین نسخه": lastVerion,
+				 "مرحله ساخت": produtionStep,
+				 "تعداد تامین شده": numberSupplied,
+				 "وضعیت": status,
+				 "توضیحات": description,
+				 "توضیحات واحد فروش": saleDescription,
+				 "نیاز به AVL": needsAVL,
+
+				 "زمان ایجاد":createdOn ,
+				 "ایجاد کننده":createdBy ,
+				 "زمان ویرایش": modifiedOn,
+				 "ویرایش کننده": modifiedBy,
+			 });
+
+
+		  });
+
+		  if (items.length === 0) {
+			 return toastr.warning("هیچ قلمی برای خروجی اکسل یافت نشد");
+		  }
+		    
+		  var worksheet = XLSX.utils.json_to_sheet(items);
+		  var workbook = XLSX.utils.book_new();
+		  worksheet['!rightToLeft'] = true;
+
+			  var range = XLSX.utils.decode_range(worksheet['!ref']);
+			for (var C = range.s.c; C <= range.e.c; ++C) {
+			  var cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: C });
+			  if (!worksheet[cellAddress]) continue;
+			  worksheet[cellAddress].s = {
+			    font: { bold: true },
+			    fill: { fgColor: { rgb: "FFD9D9D9" } } // رنگ پس‌زمینه خاکستری روشن
+			  };
+			}
+
+		  XLSX.utils.book_append_sheet(workbook, worksheet, "ProductionOrderItemBom");
+
+		  var productionOrderName = $$("[data-bind=ProductionOrderName]").val();
+
+		  XLSX.writeFile(workbook, `ProductionOrderItemBom${productionOrderName}.xlsx`);
+	   });
+
+	   function formatNumber(input) {
+ 
+		  const num = parseFloat(input);
+ 
+		  if (isNaN(num)) return input;
+ 
+		  return num.toString();
+		}
 </script>

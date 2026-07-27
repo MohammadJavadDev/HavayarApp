@@ -1,6 +1,6 @@
 using Common.Attributes;
-using Entities.App.Epms.Enums;
-using Entities.App.Hrm;
+using Entities.App.Edms.Enums;
+ using Entities.App.Hrm;
 using Entities.Base;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;

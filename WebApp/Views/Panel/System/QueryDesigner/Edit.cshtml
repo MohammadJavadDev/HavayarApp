@@ -71,6 +71,9 @@
     
      <div class="col-md-12 border border-1 my-5 p-5 row" id="actionOptionsSection">
            <h4 class="text-center mb-4"> فعال یا فعال نبودن عملیات ها </h4>
+           <p class="text-muted small text-center mb-3">
+                گزینه «انتخاب چندتایی پیش‌فرض» باعث می‌شود هنگام باز شدن جدول، حالت چندانتخابی از ابتدا فعال باشد.
+           </p>
      </div>
 
      <div class="col-md-12 border border-1 rounded my-4 p-4" id="customButtonsSection">
@@ -133,6 +136,12 @@
                                    <strong class="d-block mb-1">// متغیرهای در دسترس:</strong>
                                    <span class="text-success">ctx.selectedRow</span>
                                    <span class="text-muted"> → آبجکت ردیف انتخاب‌شده</span><br>
+                                   <span class="text-success">ctx.selectedRows</span>
+                                   <span class="text-muted"> → آرایه ردیف‌های انتخاب‌شده (چندانتخابی)</span><br>
+                                   <span class="text-success">ctx.primaryKeyValues</span>
+                                   <span class="text-muted"> → آرایه PKهای انتخاب‌شده</span><br>
+                                   <span class="text-success">ctx.multiSelectMode</span>
+                                   <span class="text-muted"> → true در حالت چندانتخابی</span><br>
                                    <span class="text-success">ctx.$row</span>
                                    <span class="text-muted"> → jQuery المان tr</span><br>
                                    <span class="text-success">ctx.table</span>
@@ -292,6 +301,26 @@
                               </div>
                          </div>
                     </div>
+                    <div class="sidebar-conditions p-3 border-top bg-light">
+                         <div class="d-flex justify-content-between align-items-center mb-2">
+                              <h6 class="mb-0">
+                                   <i class="bi bi-braces"></i>
+                                   شرط‌های Query
+                              </h6>
+                              <button type="button" id="btnAddCustomCondition" class="btn btn-outline btn-outline-primary btn-sm" title="افزودن شرط">
+                                   <i class="bi bi-plus"></i>
+                              </button>
+                         </div>
+                         <p class="small text-muted mb-2">عبارت SQL دلخواه برای بخش WHERE — مثال: <code class="ltr">[t1].[NeedCount] = [t2].[BuyCount]</code></p>
+                         <div id="customConditionsListContainer" class="filters-list-container">
+                              <div id="customConditionsList" class="filters-list">
+                                   <!-- شرط‌ها به صورت دینامیک -->
+                              </div>
+                              <div id="customConditionsEmpty" class="text-muted small text-center py-2">
+                                   شرطی اضافه نشده
+                              </div>
+                         </div>
+                    </div>
                     <div class="sidebar-parameters p-3 border-top bg-light" style="max-height: 28vh; overflow-y: auto;">
                          <h6 class="mb-2">
                               <i class="bi bi-input-cursor-text"></i>
@@ -372,10 +401,17 @@
                                    <i class="bi bi-gear"></i>
                                    تنظیمات ستون‌ها
                               </h6>
-                              <button type="button" id="btnAddColumnManual"
-                                      class="btn btn-sm btn-outline-primary">
-                                   <i class="bi bi-plus-circle"></i> افزودن ستون
-                              </button>
+                              <div class="d-flex gap-2">
+                                   <button type="button" id="btnBulkEditColumnsJson"
+                                           class="btn btn-sm btn-outline-secondary"
+                                           title="ویرایش دسته‌جمعی تنظیمات ستون‌ها به‌صورت JSON">
+                                        <i class="bi bi-braces"></i> ویرایش JSON ستون‌ها
+                                   </button>
+                                   <button type="button" id="btnAddColumnManual"
+                                           class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-plus-circle"></i> افزودن ستون
+                                   </button>
+                              </div>
                          </div>
 
                          <div class="table-responsive">
@@ -468,34 +504,68 @@
                <button type="button" id="btnValidateQueryWrite" class="btn btn-outline btn-outline-success">اعتبارسنجی</button>
                <button type="button" id="btnPreviewQueryWrite" class="btn btn-outline btn-outline-info">پیش‌نمایش</button>
           </div>
-          <div id="writeModeColumnsSection" class="mb-3 d-none">
-               <h6 class="mb-2"><i class="bi bi-gear"></i> تنظیمات ستون‌ها (پس از پیش‌نمایش)</h6>
-               <p class="text-muted small mb-2">پس از گرفتن پیش‌نمایش، نوع و عنوان نمایشی هر ستون را مشخص کنید.</p>
-               <div class="table-responsive">
-                    <table id="writeModeColumnsTable" class="table table-sm table-bordered mb-0">
-                         <thead class="table-light">
-                              <tr>
-                                    <th style="width: 5%;"> تنظیمات</th>
-                                      <th style="width: 5%;">نمایش</th>
-                                              @if ((int)ReportType == 1)
-                                   {
-                                        <th style="width: 5%;" action-key="primaryKey">کلید اصلی</th>
-                                   }
-                                   <th style="width: 12%;">ستون</th>
-                                  
-                                   <th style="width: 20%;">عنوان نمایشی</th>
-                                   <th style="width: 20%;">نوع</th>
-                              </tr>
-                         </thead>
-                         <tbody id="writeModeColumnsTableBody"></tbody>
-                    </table>
-               </div>
+     <div id="writeModeColumnsSection" class="mb-3 d-none">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+               <h6 class="mb-0"><i class="bi bi-gear"></i> تنظیمات ستون‌ها (پس از پیش‌نمایش)</h6>
+               <button type="button" id="btnBulkEditColumnsJsonWrite"
+                       class="btn btn-sm btn-outline-secondary"
+                       title="ویرایش دسته‌جمعی تنظیمات ستون‌ها به‌صورت JSON">
+                    <i class="bi bi-braces"></i> ویرایش JSON ستون‌ها
+               </button>
           </div>
+          <p class="text-muted small mb-2">
+               پس از گرفتن پیش‌نمایش، نوع و عنوان نمایشی هر ستون را مشخص کنید.
+               اگر Query شما بیش از یک دستور SELECT داشته باشد، ستون‌های هر SELECT به‌صورت جداگانه نمایش داده می‌شود
+               و می‌توانید برای هرکدام یک نام مجزا (برای استفاده در طراح گزارش/داشبورد) تعیین کنید.
+          </p>
+          <div id="writeModeColumnsGroups"></div>
+     </div>
           <div class="mt-3">
                <button type="button" id="btnSaveReportWrite" class="btn btn-success btn-lg">
                     <i class="bi bi-save"></i> ذخیره گزارش
                </button>
                <button type="button" id="btnChangeMode" class="btn btn-outline btn-outline-secondary ms-2">تغییر حالت</button>
+          </div>
+     </div>
+</div>
+
+<!-- Modal: Custom Query Condition (Visual Design only) -->
+<div class="modal fade" id="customConditionModal" tabindex="-1">
+     <div class="modal-dialog modal-lg">
+          <div class="modal-content">
+               <div class="modal-header">
+                    <h5 class="modal-title">
+                         <i class="bi bi-braces"></i>
+                         <span id="customConditionModalTitle">افزودن شرط Query</span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+               </div>
+               <div class="modal-body">
+                    <input type="hidden" id="customConditionEditId" value="">
+                    <div class="mb-3">
+                         <label for="customConditionExpression" class="form-label">عبارت شرط <span class="text-danger">*</span></label>
+                         <textarea id="customConditionExpression" class="form-control font-monospace ltr" rows="3"
+                                   placeholder="[t1].[NeedCount] = [t2].[BuyCount]"></textarea>
+                         <div class="form-text">
+                              از alias جداول در دیاگرام استفاده کنید: t1، t2، ... — می‌توانید از <code>@@ParamName</code> هم استفاده کنید.
+                         </div>
+                    </div>
+                    <div class="mb-3">
+                         <label for="customConditionLogicalOperator" class="form-label">عملگر منطقی:</label>
+                         <select id="customConditionLogicalOperator" class="form-select">
+                              <option value="AND">و (AND)</option>
+                              <option value="OR">یا (OR)</option>
+                         </select>
+                         <div class="form-text">برای اولین شرط (پس از فیلترها یا شرط‌های قبلی) تاثیری ندارد</div>
+                    </div>
+               </div>
+               <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                    <button type="button" id="btnSaveCustomCondition" class="btn btn-primary">
+                         <i class="bi bi-plus-circle"></i>
+                         <span id="btnSaveCustomConditionText">افزودن</span>
+                    </button>
+               </div>
           </div>
      </div>
 </div>
@@ -739,6 +809,16 @@
                                         </div>
                                    </div>
 
+                                   <div class="mb-3 col-md-3">
+                                        <div class="form-check">
+                                             <input class="form-check-input" type="checkbox" id="customBtnRequiresMultiSelection">
+                                             <label class="form-check-label" for="customBtnRequiresMultiSelection">
+                                                  نیاز به انتخاب چندتایی داشته باشد
+                                                  <small class="text-muted d-block">فقط در حالت چندانتخابی و پس از انتخاب حداقل یک ردیف فعال می‌شود</small>
+                                             </label>
+                                        </div>
+                                   </div>
+
                                 
                                    <div class="mt-3 p-3 bg-white border rounded text-center col-md-3">
                                         <span class="text-muted small d-block mb-2">پیش‌نمایش</span>
@@ -780,7 +860,17 @@
                               <div class="alert alert-secondary py-2 mb-3 small ltr" style="font-family: monospace;">
                                    <strong class="text-primary">// متغیرهای در دسترس داخل تابع:</strong><br>
                                    <span class="text-success">ctx.selectedRow</span>
-                                   <span class="text-muted">→ آبجکت ردیف انتخاب‌شده (null اگر انتخاب نشده)</span><br>
+                                   <span class="text-muted">→ آبجکت ردیف انتخاب‌شده (تک‌انتخابی؛ null اگر انتخاب نشده)</span><br>
+                                   <span class="text-success">ctx.selectedRows</span>
+                                   <span class="text-muted">→ آرایه ردیف‌های انتخاب‌شده در حالت چندانتخابی</span><br>
+                                   <span class="text-success">ctx.primaryKeyValues</span>
+                                   <span class="text-muted">→ آرایه مقادیر کلید اصلی ردیف‌های انتخاب‌شده</span><br>
+                                   <span class="text-success">ctx.primaryKeyName</span>
+                                   <span class="text-muted">→ نام ستون کلید اصلی</span><br>
+                                   <span class="text-success">ctx.primaryKeyValue</span>
+                                   <span class="text-muted">→ مقدار کلید اصلی ردیف تک‌انتخابی</span><br>
+                                   <span class="text-success">ctx.multiSelectMode</span>
+                                   <span class="text-muted">→ true اگر جدول در حالت انتخاب چندتایی باشد</span><br>
                                    <span class="text-success">ctx.table</span>
                                    <span class="text-muted">→ DataTable API instance</span><br>
                                    <span class="text-success">ctx.tableData</span>
@@ -1122,6 +1212,16 @@
           $$("#reportName").val(entityName+"_listinfo");
           $$("#reportTitle").val("لیست اطلاعات");
      }
+
+       $(document).on('keydown', function(event) {
+ 
+                  if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'S')) {
+                      event.preventDefault();
+
+                          $$("#btnSaveReport").click();
+                     
+                  }
+              });
 
        
 

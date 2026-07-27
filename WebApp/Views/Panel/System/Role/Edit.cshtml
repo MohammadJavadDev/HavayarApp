@@ -50,6 +50,10 @@
 
      var importsWithoutFullEntityName = allImports.Where(c => !accessControllers.Any(z => c.FullNameEntity != null && c.FullNameEntity.ToLower() == (z?.EntityType?.FullName.ToLower() ?? z.Name.ToLower())));
 
+     var allEntityNames = accessControllers.Select(z => z?.EntityType?.FullName.ToLower() ?? z.Name.ToLower());
+
+     var allDataProfilesWithUniqName = allDataProfiles.Where(c => !allEntityNames.Contains(c.EntityFullName) && c.Type ==Entities.Base.TypeQuery.DataProfile);
+     var allReportItems = allDataProfiles.Where(c => c.Type == Entities.Base.TypeQuery.Report);
 }
 
 
@@ -253,6 +257,89 @@
 
                                    </div>
                               }
+                              }
+                         </div>
+
+                         <div class="row">
+
+                              @if (allDataProfilesWithUniqName.Any())
+                              {
+                                   <span>نمایه داده ها با نام یکتا </span>
+                                   <div class="separator separator-dashed mb-4"></div>
+                                   @foreach (var action in allDataProfilesWithUniqName)
+                                   {
+                                        var path = "dataProfile_" + action.Id.ToString();
+                                        <div class="col-md-4 mb-3">
+                                             <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
+                                                  <input class="form-check-input" type="checkbox" data-accessActionType="@((int)ActionAccessType.DataProfile)" data-accessesActionItemtype="@((int)@ActionAccessItemType.DataProfile)" value=""
+                                                         id="@path"
+                                                         rowId="@action.Id"
+                                                         @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                         data-entityname="@action.EntityFullName" />
+                                                  <label class="form-check-label" for="path">
+                                                       @action.Title (@action.EntityFullName)
+                                                  </label>
+                                             </div>
+
+                                        </div>
+                                   }
+                              }
+                         </div>
+
+                         <div class="row">
+
+                              @if (allReportItems.Any())
+                              {
+                                   <span>آیتم گزارشات </span>
+                                   <div class="separator separator-dashed mb-4"></div>
+                                   @foreach (var action in allReportItems)
+                                   {
+                                        var path = "reportItem_" + action.Id.ToString();
+                                        <div class="col-md-4 mb-3">
+                                             <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
+                                                  <input class="form-check-input" type="checkbox" data-accessActionType="@((int)ActionAccessType.ReportItem)" data-accessesActionItemtype="@((int)@ActionAccessItemType.ReportItem)" value=""
+                                                         id="@path"
+                                                         rowId="@action.Id"
+                                                         @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "")
+                                                         data-entityname="@action.EntityFullName" />
+                                                  <label class="form-check-label" for="path">
+                                                       @action.Title (@action.EntityFullName)
+                                                  </label>
+                                             </div>
+
+                                        </div>
+                                   }
+                              }
+                         </div>
+
+                         <div class="row">
+                              @{
+                                   var allStimulsoftDashboards = reportBuilderService.GetListReports()
+                                        .Where(c => c.Type == ReportBuilder.Entities.ReportType.Dashboard)
+                                        .ToList();
+                              }
+                              @if (allStimulsoftDashboards.Any())
+                              {
+                                   <span>داشبوردها (Stimulsoft)</span>
+                                   <div class="separator separator-dashed mb-4"></div>
+                                   @foreach (var action in allStimulsoftDashboards)
+                                   {
+                                        var path = "dashbord_" + action.Id.ToString();
+                                        <div class="col-md-4 mb-3">
+                                             <div class="form-check form-switch form-check-custom form-check-success form-check-solid">
+                                                  <input class="form-check-input" type="checkbox"
+                                                         data-accessActionType="@((int)ActionAccessType.Other)"
+                                                         data-accessesActionItemtype="@((int)ActionAccessItemType.Dashbord)"
+                                                         value=""
+                                                         id="@path"
+                                                         rowId="@action.Id"
+                                                         @(Model?.RoleAccesses?.Any(c => c.Path == path) == true ? "checked" : "") />
+                                                  <label class="form-check-label" for="@path">
+                                                       @action.Title
+                                                  </label>
+                                             </div>
+                                        </div>
+                                   }
                               }
                          </div>
                  </div>

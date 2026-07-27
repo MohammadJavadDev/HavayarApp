@@ -33,7 +33,13 @@ namespace Common.Auth.Enums
 		DataProfileDelete,
 		[Display(Name = "ورود اطلاعات")]
 		ImportData,
-		
+
+		[Display(Name = "آیتم گزارش")]
+		ReportItem,
+
+		[Display(Name = "داشبورد")]
+		Dashbord,
+
 		[Display(Name = "سایر")]
 		Custom = 1000
 	}

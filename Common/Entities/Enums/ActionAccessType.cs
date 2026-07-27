@@ -20,6 +20,8 @@ namespace Common.Auth.Enums
 		DataProfile,
 		[Display(Name = "ورود اطلاعات")]
 		ImportData,
+		[Display(Name = "آیتم گزارش")]
+		ReportItem,
 		[Display(Name = "سایر")]
 		Other = 1000
 	}

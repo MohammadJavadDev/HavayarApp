@@ -11,6 +11,14 @@
 					class="path3"></span></i>
 			پیش‌نمایش کد
 		</button>
+		<button type="button" class="btn btn-success" id="btnPublish">
+			<i class="ki-duotone ki-rocket fs-2"><span class="path1"></span><span class="path2"></span></i>
+			انتشار آنلاین
+		</button>
+		<button type="button" class="btn btn-warning d-none" id="btnUnpublish">
+			<i class="ki-duotone ki-cross-circle fs-2"><span class="path1"></span><span class="path2"></span></i>
+			لغو انتشار
+		</button>
 		<button type="button" class="btn btn-success" id="btnSaveFiles">
 			<i class="ki-duotone ki-file-down fs-2"><span class="path1"></span><span class="path2"></span></i>
 			ذخیره فایل‌ها
@@ -23,6 +31,11 @@
 
 	<div class="card-body">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+		<div class="mb-4" id="publishStatusContainer">
+			<span class="badge badge-light-secondary fs-6" id="publishStatusBadge">وضعیت: پیش‌نویس</span>
+			<span class="text-muted ms-3 d-none" id="publishStatusUrl"></span>
+			<div class="text-danger mt-2 d-none" id="publishStatusError"></div>
+		</div>
 
 		<!-- Section A: Entity Information -->
 		<div class="row mb-5">

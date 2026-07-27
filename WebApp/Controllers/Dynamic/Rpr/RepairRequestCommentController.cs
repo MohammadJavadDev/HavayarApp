@@ -1,7 +1,7 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
-using Entities.App.Prp;
+using Entities.App.Rpr;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -229,59 +229,6 @@ namespace WebApp.Controllers.Dynamic.Rpr
                 return StatusCode(500, "خطا در ثبت اطلاعات: " + ex.Message);
             }
         }
-
-
-        //[HttpGet("[action]")]
-        //[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
-        //public IActionResult Edit(long? id)
-        //{
-        //    if (id != null && id != 0)
-        //    {
-        //        var entity = unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
-        //            .Include(c => c.ProductionOrder)
-        //            .Include(c => c.Part)
-        //            .FirstOrDefault(c => c.Id == id);
-
-
-        //        ViewBag.ProductionOrderItemBomViewData = unitOfWork
-        //            .Repository<ProductionOrderItemBom>()
-        //            .TableNoTracking
-        //            .Include(c => c.Part)
-        //            .ThenInclude(c => c.Unit)
-        //            .Where(c => c.ProductionOrderItemId == id)
-        //            .Select(c => new ProductionOrderItemBomViewModel()
-        //            {
-        //                ProductionOrderItemId = c.ProductionOrderItemId,
-        //                Amount = c.Amount,
-        //                CreatedByName = c.CreatedByName,
-        //                CreatedOnMiladiDateTime = c.CreatedOnMiladiDateTime,
-        //                CreatedOnShamsiDateTime = c.CreatedOnShamsiDateTime,
-        //                Description = c.Description,
-        //                Id = c.Id,
-        //                IsLatest = c.IsLatest,
-        //                IsActive = c.IsActive,
-        //                ModifiedByName = c.ModifiedByName,
-        //                ModifiedDateMiladiDateTime = c.ModifiedDateMiladiDateTime,
-        //                ModifiedDateShamsiDateTime = c.ModifiedDateShamsiDateTime,
-        //                NeedsAVL = c.NeedsAVL,
-        //                PartId = c.PartId,
-        //                PartName = c.Part.Name,
-        //                PartCode = c.Part.Code,
-        //                Revision = c.Revision,
-        //                SaleUnitDetails = c.SaleUnitDetails,
-        //                PartUnitName = c.Part.Unit.Title,
-        //                ProductionStep = c.ProductionStep,
-        //                NumberSupplied = c.NumberSupplied,
-        //                Status = c.Status
-        //            }).ToList();
-
-        //        return View(@"\Views\Panel\Sale\ProductionOrderItem\Edit.cshtml", entity);
-        //    }
-        //    var newEntity = new ProductionOrderItem();
-        //    return View(@"\Views\Panel\Sale\ProductionOrderItem\Edit.cshtml", newEntity);
-        //}
-
-
 
     }
 

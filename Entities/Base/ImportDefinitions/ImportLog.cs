@@ -16,6 +16,9 @@ namespace Entities.Base.ImportDefinitions
 		public int SuccessRows { get; set; }
 		public int FailedRows { get; set; }
 
+		[NotMapped]
+		public bool RolledBack { get; set; }
+
 		public long ImportDefinitionId { get; set; }
 		public ImportDefinition ImportDefinition { get; set; }
 		public List<ImportLogDetail> Details { get; set; } = new List<ImportLogDetail>();

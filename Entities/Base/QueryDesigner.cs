@@ -146,6 +146,16 @@ namespace Entities.Base
 	}
 
 	/// <summary>
+	/// شرط سفارشی WHERE (فقط حالت طراحی بصری)
+	/// </summary>
+	public class CustomQueryCondition
+	{
+		public string Id { get; set; }
+		public string Expression { get; set; }
+		public string LogicalOperator { get; set; } // AND, OR
+	}
+
+	/// <summary>
 	/// تنظیمات ستون در گزارش
 	/// </summary>
 	public class QueryColumn
@@ -156,6 +166,10 @@ namespace Entities.Base
 		public string Alliance { get; set; }
 		public string Address { get; set; }
 		public string? SystemTypeName { get; set; }
+		/// <summary>
+		/// اندیس SELECT مربوطه در حالت نوشتن Query که چند دستور SELECT دارد (پیش‌فرض ۰ برای سازگاری با گزارش‌های تک-Select قدیمی)
+		/// </summary>
+		public int SelectIndex { get; set; } = 0;
 		public bool Visible { get; set; } = true;
 		public bool PrimaryKey { get; set; } = false;
 		public SystemType? SystemType { get; set; }
@@ -171,6 +185,14 @@ namespace Entities.Base
 		public string? HtmlTemplate { get; set; }
 		public BtnConfig? BtnConfig { get; set; }
 		public InputConfig? InputConfig { get; set; }
+		/// <summary>عرض ستون به پیکسل؛ اگر خالی باشد در UI و ColManager مقدار پیش‌فرض 200 اعمال می‌شود</summary>
+		public int? Width { get; set; }
+		/// <summary>آیا فیلتر ستونی (inline/popup) برای این ستون نمایش داده شود</summary>
+		public bool Filterable { get; set; } = true;
+		/// <summary>آیا مرتب‌سازی با کلیک روی هدر برای این ستون فعال باشد</summary>
+		public bool Sortable { get; set; } = true;
+		/// <summary>کلاس CSS اعمال‌شده روی th/td ستون (معادل className در DataTables)</summary>
+		public string? ClassName { get; set; }
 	}
 
 	public class BtnConfig
@@ -245,8 +267,25 @@ namespace Entities.Base
 		public List<TableInfo> Tables { get; set; }
 		public List<TableRelation> Relations { get; set; }
 		public List<FilterCondition> Filters { get; set; }
+		public List<CustomQueryCondition> CustomConditions { get; set; }
 		public string CustomQuery { get; set; }
 		public List<QueryParameter> Parameters { get; set; }
+		/// <summary>
+		/// اطلاعات هر SELECT وقتی CustomQuery در حالت نوشتن Query شامل چند دستور SELECT است (اختیاری - null/خالی یعنی تک-Select)
+		/// </summary>
+		public List<QuerySelectInfo> Selects { get; set; }
+	}
+
+	/// <summary>
+	/// اطلاعات نام‌گذاری یک SELECT در یک Query چند-دستوری (حالت نوشتن Query)
+	/// </summary>
+	public class QuerySelectInfo
+	{
+		public int Index { get; set; }
+		/// <summary>نام معتبر برای استفاده به‌عنوان نام DataTable/DataSource در Stimulsoft</summary>
+		public string Name { get; set; }
+		/// <summary>عنوان نمایشی</summary>
+		public string Title { get; set; }
 	}
 
 	/// <summary>
@@ -284,6 +323,21 @@ namespace Entities.Base
 		public int TotalRows { get; set; }
 		public int TotalFilterdRows { get; set; }
 		public string GeneratedQuery { get; set; }
+		/// <summary>
+		/// وقتی Query شامل چند دستور SELECT باشد، نتیجهٔ هر SELECT به‌صورت یک آیتم اینجا هم قرار می‌گیرد
+		/// (فیلدهای بالا همیشه معادل اولین آیتم این لیست هستند - برای سازگاری با مصرف‌کنندگان قدیمی).
+		/// برای Query تک-Select این لیست همیشه دقیقاً یک عضو دارد.
+		/// </summary>
+		public List<QueryResult> ResultSets { get; set; }
+	}
+
+	/// <summary>
+	/// نتیجهٔ اجرای یک گزارش ذخیره‌شده که ممکن است چند SELECT داشته باشد، به‌همراه اطلاعات نام‌گذاری هر Select
+	/// </summary>
+	public class QueryMultiResult
+	{
+		public List<QueryResult> ResultSets { get; set; } = new();
+		public List<QuerySelectInfo> Selects { get; set; } = new();
 	}
 
 	public enum JoinType

@@ -64,7 +64,6 @@ FROM [TMS].[TotalSystem].[dbo].[Bom_ProductGroup];
     Id,
     ProductId,
     ProductNameGroupId,
-    UsingRate,
     Comment,
     CreatedById,
     ModifiedById,
@@ -80,7 +79,6 @@ SELECT
     CAST(pf.ProductFormul_ID AS BIGINT)  AS Id,
     p_product.Id                          AS ProductId, /* Part_FK → ProductId تطبیق با Code */
     CAST(pf.ProductGroup_FK AS BIGINT)    AS ProductNameGroupId,
-    NULL                                  AS UsingRate,
     ISNULL(pf.Comment, N'')               AS Comment,
     NULL                                  AS CreatedById,
     NULL                                  AS ModifiedById,

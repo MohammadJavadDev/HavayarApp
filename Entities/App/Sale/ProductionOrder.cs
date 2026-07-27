@@ -89,6 +89,14 @@ namespace Entities.App.Sale
 		public long? SalesAgencyId { get; set; }
 
 
+		[DisplayName("دپارتمان فروش")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public Branch? Branch { get; set; }
+
+		public long? BranchId { get; set; }
+
+		
+
 		[DisplayName("شهر نصب")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public Region? InstallationCity { get; set; }
@@ -148,19 +156,29 @@ namespace Entities.App.Sale
 		public decimal? CentrifugeElectromotorVoltage { get; set; }
 
 
-		[DisplayName("ManagementConfirmationAttachment")]
-		[DisplayInfo(null, true, type: SystemType.Long)]
-		public long? ManagementConfirmationAttachment { get; set; }
+		[DisplayName("پیوست تایید مدیریت")]
+		[DisplayInfo(null, true, type: SystemType.File)]
+
+		[ForeignKey(nameof(ManagementConfirmationAttachmentId))]
+		public FileEntity? ManagementConfirmationAttachmentFile { get; set; }
+
+		public long? ManagementConfirmationAttachmentId { get; set; }
 
 
-		[DisplayName("DepositFactorAttachment")]
-		[DisplayInfo(null, true, type: SystemType.Long)]
-		public long? DepositFactorAttachment { get; set; }
+		[DisplayName("پیوست فاکتور پیش پرداخت")]
+		[DisplayInfo(null, true, type: SystemType.File)]
+		[ForeignKey(nameof(DepositFactorAttachmentId))]
+		public FileEntity? DepositFactorAttachmentFile { get; set; }
+
+		public long? DepositFactorAttachmentId { get; set; }
 
 
-		[DisplayName("PreFactorAttachment")]
-		[DisplayInfo(null, true, type: SystemType.Long)]
-		public long? PreFactorAttachment { get; set; }
+		[DisplayName("پیوست پیش فاکتور")]
+		[DisplayInfo(null, true, type: SystemType.File)]
+		[ForeignKey(nameof(PreFactorAttachmentId))]
+		public FileEntity? PreFactorAttachmentFile { get; set; }
+
+		public long? PreFactorAttachmentId { get; set; }
 
 
 		[DisplayName("شماره سفارش ساخت")]
@@ -169,9 +187,12 @@ namespace Entities.App.Sale
 		public string Number { get; set; }
 
 
-		[DisplayName("ContractAttachment")]
-		[DisplayInfo(null, true, type: SystemType.Long)]
-		public long? ContractAttachment { get; set; }
+		[DisplayName("پیوست قرارداد")]
+		[DisplayInfo(null, true, type: SystemType.File)]
+		[ForeignKey(nameof(ContractAttachmentId))]
+		public FileEntity? ContractAttachmentFile { get; set; }
+
+		public long? ContractAttachmentId { get; set; }
 
 
 		[DisplayName("GA")]
@@ -205,13 +226,13 @@ namespace Entities.App.Sale
 
 
 		[DisplayName("شماره سفارش ساخت")]
-		[DisplayInfo(null, true, type: SystemType.Decimal)]
-		public decimal? ProductionOrderNumber { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Long)]
+		public long? ProductionOrderNumber { get; set; }
 
 
 		[DisplayName("نسخه")]
-		[DisplayInfo(null, true, type: SystemType.Decimal)]
-		public decimal? Revision { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Int)]
+		public int? Revision { get; set; }
 
 
 		[DisplayName("کاربر کارشناس فروش")]
@@ -244,6 +265,80 @@ namespace Entities.App.Sale
 		public long? IntroducerExpertId { get; set; }
 		public long? HamkaranId { get; set; }
 
+
+		[DisplayName("تایید کننده مالی")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public User? FinancialConfirmedBy { get; set; }
+
+		public long? FinancialConfirmedById { get; set; }
+
+
+		[DisplayName("تاریخ میلادی تایید مالی")]
+		[DisplayInfo(null, false, SystemType.DateTime, systemProprty: true)]
+		public DateTime? FinancialConfirmedOnMiladiDate { get; set; } = null;
+
+		[DisplayName("تاریخ شمسی تایید مالی")]
+		[MaxLength(30)]
+		[DisplayInfo("FinancialConfirmedOnMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? FinancialConfirmedOnShamsiDate { get; set; } = null;
+
+
+		[DisplayName("منسوخ کننده")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public User? ObsoletedBy { get; set; }
+
+		public long? ObsoletedById { get; set; }
+
+
+		[DisplayName("تاریخ میلادی منسوخ‌سازی")]
+		[DisplayInfo(null, false, SystemType.DateTime, systemProprty: true)]
+		public DateTime? ObsoletedOnMiladiDate { get; set; } = null;
+
+		[DisplayName("تاریخ شمسی منسوخ‌سازی")]
+		[MaxLength(30)]
+		[DisplayInfo("ObsoletedOnMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? ObsoletedOnShamsiDate { get; set; } = null;
+
+
+		[DisplayName("غیرفعال برای گزارش تحویل به‌موقع")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool IsDisableForTimelyDeliveryReport { get; set; } = false;
+
+
+		[DisplayName("توضیح غیرفعال‌سازی گزارش تحویل به‌موقع")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? DisableForTimelyDeliveryReportComment { get; set; }
+
+
+		[DisplayName("کامنت های سفارش ساخت")]
+		[DisplayInfo(null, true, type: SystemType.ListEntity)]
+		public List<ProductionOrderComment> Comments { get; set; } = new();
+
+
+	}
+
+	[Display(Name = "کامنت های سفارش ساخت")]
+	[Table("ProductionOrderComment", Schema = "Sale")]
+	public class ProductionOrderComment : BaseEntity
+	{
+		public long ProductionOrderId { get; set; }
+		public ProductionOrder ProductionOrder { get; set; }
+
+		[DisplayName("وضعیت قبلی")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public ProductionOrderStateEnum? PreviousState { get; set; }
+
+
+		[DisplayName("وضعیت جدید")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public ProductionOrderStateEnum? NewState { get; set; }
+
+
+		[DisplayName("کامنت")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(2048)]
+		public string? Comment { get; set; }
 
 	}
 }

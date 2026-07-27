@@ -7,7 +7,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
     [Display(Name = "هزینه تخمینی")]
     [Table("EstimatedCost", Schema = "Rpr")]

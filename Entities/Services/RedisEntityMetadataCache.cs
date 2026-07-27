@@ -104,7 +104,39 @@ public sealed class RedisEntityMetadataCache : IEntityMetadataCache
 		}
 	}
 
-    public IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums()
+	public void RemoveDynamicMetadata(string entityFullName)
+	{
+		_fallback.RemoveDynamicMetadata(entityFullName);
+
+		if (string.IsNullOrWhiteSpace(entityFullName))
+			return;
+
+		_redis.Remove($"{_keyPrefix}{entityFullName.ToLower()}");
+	}
+
+	public void SetDynamicMetadata(EntityMetadata metadata)
+	{
+		_fallback.SetDynamicMetadata(metadata);
+
+		if (string.IsNullOrWhiteSpace(metadata.EntityFullName))
+			return;
+
+		var key = $"{_keyPrefix}{metadata.EntityFullName.ToLower()}";
+		var json = JsonSerializer.Serialize(metadata, JsonOptions);
+		_redis.SetString(key, json, new DistributedCacheEntryOptions
+		{
+			AbsoluteExpirationRelativeToNow = _expiration
+		});
+
+		var all = _fallback.GetAll();
+		var allJson = JsonSerializer.Serialize(all.ToList(), JsonOptions);
+		_redis.SetString(_allEntitiesKey, allJson, new DistributedCacheEntryOptions
+		{
+			AbsoluteExpirationRelativeToNow = _expiration
+		});
+	}
+
+	public IReadOnlyCollection<PropertyMetadata> GetAllSystemEnums()
     {
 
 		return _fallback.GetAllSystemEnums();

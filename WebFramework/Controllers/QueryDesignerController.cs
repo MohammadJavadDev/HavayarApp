@@ -293,29 +293,37 @@ namespace WebFramework.Controllers
 				 );
 			}
 
-			// محدود کردن تعداد رکوردها برای پیش‌نمایش (فقط برای SELECT، نه EXEC)
-			var queryUpper = query.TrimStart().ToUpperInvariant();
-			if (!queryUpper.StartsWith("EXEC") && !queryUpper.StartsWith("EXECUTE") && !queryUpper.Contains("TOP "))
-			{
-				var idx = query.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase);
-				if (idx >= 0)
-					query = query.Substring(0, idx) + "SELECT TOP 100 " + query.Substring(idx + 6).TrimStart();
-			}
+			// محدود کردن تعداد رکوردها برای پیش‌نمایش (فقط برای SELECT، نه EXEC) - روی هر دستور SELECT به‌صورت مجزا
+			var statements = SqlStatementHelper.SplitTopLevelStatements(query);
+			var previewQuery = statements.Count > 0
+				? SqlStatementHelper.JoinStatements(statements.Select(s => SqlStatementHelper.InjectTopN(s, 100)))
+				: query;
 
 			// ساخت پارامترها و اجرا
 			var paramValues = request.Parameters ?? new Dictionary<string, string>();
-			 
 
-			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, CurrentUserId.Value.ToString(), CurrentUserName);
+
+			var sqlParams = _parameterResolver.BuildParameters(previewQuery, paramValues, CurrentUserId.Value.ToString(), CurrentUserName);
 			var paramsObj = new Dictionary<string, object>();
 
 			foreach (var kv in sqlParams)
 				paramsObj[kv.Key] = kv.Value;
 
-			 
-				var result = await _schemaService.ExecuteQueryAsync(query, paramsObj);
-				return Ok(result);
-			 
+			var resultSets = await _schemaService.ExecuteMultiResultQueryAsync(previewQuery, paramsObj);
+			var first = resultSets.First();
+
+	 
+			var response = new QueryResult
+			{
+				ColumnNames = first.ColumnNames,
+				ColumnTypes = first.ColumnTypes,
+				Rows = first.Rows,
+				TotalRows = first.TotalRows,
+				TotalFilterdRows = first.TotalFilterdRows,
+				GeneratedQuery = first.GeneratedQuery,
+				ResultSets = resultSets
+			};
+			return Ok(response);
 		}
 		/// <summary>
 		/// ذخیره گزارش

@@ -5541,8 +5541,8 @@
 			var $target = $(target);
 			
 			// Check if clicking on elements that should not trigger sort
-			// (like filter icons, buttons, etc.)
-			if ($target.closest('.filter-icon, [data-bs-toggle="popover"], button, .dt-colmanager-handle').length) {
+			// (like filter icons, buttons, inline filters, etc.)
+			if ($target.closest('.filter-icon, [data-bs-toggle="popover"], button, .dt-colmanager-handle, .dt-inline-filter-wrap, .dt-inline-filter-row, input, select, textarea').length) {
 				return;
 			}
 			
@@ -20700,8 +20700,8 @@
     ColManager.defaults = {
         resize: true,
         reorder: true,
-        minWidth: 100,
-        defaultWidth: 100,
+        minWidth: 50,
+        defaultWidth: 200,
         handleWidth: 10,
 	    hoverColor: 'var(--bs-primary)',
         rtl: null,
@@ -20880,7 +20880,8 @@
             var isRtl = this._isRtl();
             var headerContainer = dt.nScrollHead ? $(dt.nScrollHead).find('thead') : $(dt.nTHead);
 
-            $(headerContainer).find('tr').last().find('th, td').each(function () {
+            // ردیف فیلتر اینلاین نباید handle تغییر عرض بگیرد
+            $(headerContainer).find('tr').not('.dt-inline-filter-row').last().find('th, td').each(function () {
                 var th = $(this);
                 if (th.find('.dt-colmanager-handle').length === 0 && that.opts.resize) {
                     var handle = $('<div class="dt-colmanager-handle"></div>');
@@ -21310,7 +21311,11 @@
                     var initIdx = colDef._ColMgr_InitIdx;
                     var w = that.state.widths[initIdx];
                     
-                    if (!w) w = that.opts.defaultWidth;
+                    // اولویت: عرض ذخیره‌شده کاربر → عرض نمایه (profileWidth) → پیش‌فرض 200
+                    if (!w) {
+                        var profileW = parseInt(colDef.profileWidth != null ? colDef.profileWidth : colDef.width, 10);
+                        w = (!isNaN(profileW) && profileW > 0) ? profileW : that.opts.defaultWidth;
+                    }
                     
                     colgroupHtml += '<col style="width:' + w + 'px">';
                     totalWidth += parseInt(w);
@@ -21542,10 +21547,128 @@ ColManager.prototype._setupInstanceEvents = function() {
         e.stopPropagation();
         var handle = $(this);
         var th = handle.parent();
+        if (th.hasClass('dt-col-no-resize')) return;
         var visualIndex = th.index();
         var actualIndex = that._visualToActualIndex(visualIndex);
         that._autoSizeColumn(visualIndex, actualIndex);
     });
+};
+
+/** ستون‌هایی مثل ردیف که نباید resize شوند */
+ColManager.prototype._isNoResizeColumn = function(colDef) {
+    if (!colDef) return false;
+    var cls = colDef.className || colDef.sClass || '';
+    if (String(cls).indexOf('dt-col-no-resize') !== -1) return true;
+    if (colDef.name === '_rowNumber' || colDef.mData === '_rowNumber' || colDef.data === '_rowNumber') return true;
+    if (colDef.name === '_rowSelect' || colDef.mData === '_rowSelect' || colDef.data === '_rowSelect') return true;
+    if (String(colDef.type || '').toLowerCase() === 'rowselect') return true;
+    return false;
+};
+
+ColManager.prototype._getFixedNoResizeWidth = function(colDef) {
+    var w = parseInt(colDef.sWidth || colDef.width || 45, 10);
+    return (!w || isNaN(w)) ? 45 : w;
+};
+
+var originalEnsureHandles = ColManager.prototype._ensureHandles;
+ColManager.prototype._ensureHandles = function() {
+    if (originalEnsureHandles) originalEnsureHandles.call(this);
+    var dt = this.settings;
+    var headerContainer = dt.nScrollHead ? $(dt.nScrollHead).find('thead') : $(dt.nTHead);
+    headerContainer.find('th.dt-col-no-resize .dt-colmanager-handle').remove();
+};
+
+var originalRestoreWidths = ColManager.prototype._restoreWidths;
+ColManager.prototype._restoreWidths = function() {
+    var that = this;
+    var dt = this.settings;
+    // عرض ثابت ستون‌های no-resize را قبل از restore تحمیل کن
+    $.each(dt.aoColumns, function(i, col) {
+        if (that._isNoResizeColumn(col) && col._ColMgr_InitIdx !== undefined) {
+            that.state.widths[col._ColMgr_InitIdx] = that._getFixedNoResizeWidth(col);
+        }
+    });
+    if (originalRestoreWidths) originalRestoreWidths.call(this);
+};
+
+var originalDistributeRemainingWidth = ColManager.prototype._distributeRemainingWidth;
+ColManager.prototype._distributeRemainingWidth = function() {
+    var that = this;
+    var dt = this.settings;
+    if (dt.bDestroying) return;
+
+    var api = new DataTable.Api(dt);
+    var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
+    var $container = dt.nScrollBody ? $(dt.nScrollBody) : $(dt.nTableWrapper);
+
+    var availableWidth = $container.width();
+    if (dt.oScroll.sX !== '' || dt.oScroll.sY !== '') {
+        availableWidth = $(dt.nScrollBody).width();
+    }
+    if (!availableWidth || availableWidth <= 0) return;
+
+    var resizableCols = [];
+    var fixedWidthTotal = 0;
+    api.columns(':visible').every(function(idx) {
+        var colDef = dt.aoColumns[idx];
+        if (that._isNoResizeColumn(colDef)) {
+            var fixedW = that._getFixedNoResizeWidth(colDef);
+            fixedWidthTotal += fixedW;
+            // اطمینان از عرض ثابت
+            var thFixed = $(this.header());
+            var visualIdxFixed = that._actualToVisualIndex(idx);
+            thFixed.css({ width: fixedW + 'px', minWidth: fixedW + 'px', maxWidth: fixedW + 'px' });
+            $headerTable.find('colgroup col').eq(visualIdxFixed).css('width', fixedW + 'px');
+            if (dt.nScrollBody) {
+                $(dt.nScrollBody).find('table colgroup col').eq(visualIdxFixed).css('width', fixedW + 'px');
+            }
+            if (colDef._ColMgr_InitIdx !== undefined) {
+                that.state.widths[colDef._ColMgr_InitIdx] = fixedW;
+            }
+        } else {
+            resizableCols.push(idx);
+        }
+    });
+
+    if (resizableCols.length === 0) return;
+
+    var totalCurrent = fixedWidthTotal;
+    resizableCols.forEach(function(colIdx) {
+        totalCurrent += $(api.column(colIdx).header()).outerWidth();
+    });
+
+    if (totalCurrent < availableWidth - 2) {
+        var diff = availableWidth - totalCurrent;
+        var addPerCol = Math.floor(diff / resizableCols.length);
+        var remainder = diff % resizableCols.length;
+
+        resizableCols.forEach(function(colIdx, index) {
+            var th = $(api.column(colIdx).header());
+            var currentWidth = th.outerWidth();
+            var newWidth = currentWidth + addPerCol + (index < remainder ? 1 : 0);
+            newWidth = Math.max(that.opts.minWidth, newWidth);
+
+            var storageId = dt.aoColumns[colIdx]._ColMgr_InitIdx;
+            that.state.widths[storageId] = newWidth;
+
+            var visualIdx = that._actualToVisualIndex(colIdx);
+            var $headerCol = $headerTable.find('colgroup col').eq(visualIdx);
+            th.css({ width: newWidth + 'px', minWidth: newWidth + 'px' });
+            if ($headerCol.length) $headerCol.css('width', newWidth + 'px');
+
+            if (dt.nScrollBody) {
+                var $bodyCol = $(dt.nScrollBody).find('table colgroup col').eq(visualIdx);
+                if ($bodyCol.length) $bodyCol.css('width', newWidth + 'px');
+            }
+        });
+
+        that._restoreWidths();
+        that._saveState();
+    } else if (originalDistributeRemainingWidth) {
+        // اگر فضای اضافی نبود، رفتار قبلی را برای ستون‌های معمولی اجرا نکن —
+        // فقط عرض‌های no-resize را تثبیت کرده‌ایم
+        that._restoreWidths();
+    }
 };
 
 
@@ -21609,28 +21732,39 @@ ColManager.prototype._setupInstanceEvents = function() {
             localStorage.removeItem(storageKey);
         }
 
-        // 4. بازگرداندن عرض پیش‌فرض به همه ستون‌ها
+        // 4. بازگرداندن عرض نمایه / پیش‌فرض به همه ستون‌ها
+        var thatReset = this;
         var defaultWidth = this.opts.defaultWidth;
+        var totalWidth = 0;
         api.columns().every(function(idx) {
             var col = dt.aoColumns[idx];
+            var profileW = parseInt(col.profileWidth != null ? col.profileWidth : col.width, 10);
+            var colWidth = thatReset._isNoResizeColumn(col)
+                ? thatReset._getFixedNoResizeWidth(col)
+                : ((!isNaN(profileW) && profileW > 0) ? profileW : defaultWidth);
+            if (col._ColMgr_InitIdx !== undefined) {
+                thatReset.state.widths[col._ColMgr_InitIdx] = colWidth;
+            }
             var th = $(this.header());
             th.css({
-                'width': defaultWidth + 'px',
-                'min-width': defaultWidth + 'px',
-                'max-width': defaultWidth + 'px'
+                'width': colWidth + 'px',
+                'min-width': colWidth + 'px',
+                'max-width': colWidth + 'px'
             });
             // آپدیت colgroup
             var visualIdx = this.index();
             var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
             var $bodyTable = dt.nScrollBody ? $(dt.nScrollBody).find('table') : $(dt.nTable);
-            $headerTable.find('colgroup col').eq(visualIdx).css('width', defaultWidth + 'px');
+            $headerTable.find('colgroup col').eq(visualIdx).css('width', colWidth + 'px');
             if (dt.nScrollBody) {
-                $bodyTable.find('colgroup col').eq(visualIdx).css('width', defaultWidth + 'px');
+                $bodyTable.find('colgroup col').eq(visualIdx).css('width', colWidth + 'px');
+            }
+            if (col.bVisible !== false) {
+                totalWidth += colWidth;
             }
         });
 
         // 5. بازنشانی عرض کلی جدول
-        var totalWidth = api.columns(':visible').count() * defaultWidth;
         var $headerTable = dt.nScrollHead ? $(dt.nScrollHead).find('table') : $(dt.nTable);
         $headerTable.css('width', totalWidth + 'px');
         if (dt.nScrollBody) {

@@ -18,8 +18,12 @@ using System.Text.Json;
 
 namespace Data;
 
-public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, IEntityMetadataCache _entityMetadataCache) : DbContext(options)
+public class ApplicationDbContext(
+	DbContextOptions<ApplicationDbContext> options,
+	IEntityMetadataCache _entityMetadataCache,
+	IDynamicTypeRegistry _dynamicTypeRegistry) : DbContext(options)
 {
+	public long DynamicModelVersion => _dynamicTypeRegistry.Version;
 	private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
 	{
 		Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
@@ -97,6 +101,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.RegisterAllEntities<BaseEntity>(entitiesAssembly, reportBuilderAssembly);
         modelBuilder.AddSequentialGuidForIdConvention<BaseEntity>();
         modelBuilder.RegisterEntityTypeConfiguration(entitiesAssembly);
+
+		foreach (var dynamicEntityType in _dynamicTypeRegistry.GetEntityTypes())
+		{
+			if (modelBuilder.Model.FindEntityType(dynamicEntityType) == null)
+				modelBuilder.Entity(dynamicEntityType);
+		}
 
 		var listStringConverter = new ValueConverter<List<string>, string>(
 			 v => SerializeList(v),

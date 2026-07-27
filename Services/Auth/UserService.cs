@@ -182,6 +182,11 @@ public class UserService(
 		oldUser.RoleIds = userObj.RoleIds;
 		oldUser.AuthorizationType = userObj.AuthorizationType;
           oldUser.NameFa = userObj.NameFa;
+          oldUser.ModifiedById = sdk.CurrentUser.Id;
+          oldUser.ModifiedByName = sdk.CurrentUser.Username;
+          oldUser.ModifiedDateMiladiDateTime = DateTime.Now;
+          oldUser.ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime();
+          oldUser.PartyId = userObj.PartyId;
  
 
 		oldUser.ProfileUrl = userObj.ProfileUrl;
@@ -247,6 +252,7 @@ public class UserService(
           user.Roles = userObj.Roles;
           user.Email = userObj.Email;
           user.NameFa = userObj.FName;
+          user.PartyId = userObj.PartyId;
 
           user.ProfileUrl = userObj.ProfileUrl;
           return await AddUserAsync(user, cn);
@@ -266,10 +272,11 @@ public class UserService(
           user.Roles = userObj.Roles;
           user.AuthorizationType = userObj.AuthorizationType;
           user.RoleIds = userObj?.RoleIds ?? [];
-          user.Email = userObj.Email;   
+          user.Email = userObj.Email;
+		user.PartyId = userObj.PartyId;
 
 
-          user.ProfileUrl = userObj.ProfileUrl;
+		user.ProfileUrl = userObj.ProfileUrl;
           return AddUser(user);
 
      }
@@ -336,7 +343,9 @@ public class UserService(
 		user.RoleIds = userObj?.RoleIds ?? [];
 		user.Id = (long)userObj.Id;
 
-          user.ProfileUrl = userObj.ProfileUrl;
+		user.PartyId = userObj.PartyId;
+
+		user.ProfileUrl = userObj.ProfileUrl;
           return await UpdateUserAsync(user, cn);
 
      }

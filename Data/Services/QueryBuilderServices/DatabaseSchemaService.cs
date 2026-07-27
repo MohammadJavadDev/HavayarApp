@@ -23,6 +23,13 @@ namespace Data.Services.QueryBuilderServices
 
 		Task<List<TableRelation>> GetTableRelationsAsync(string tableName, string schema = "dbo");
 		Task<QueryResult> ExecuteQueryAsync(string query, Dictionary<string, object> parameters = null);
+
+		/// <summary>
+		/// اجرای Query که ممکن است شامل چند دستور SELECT (جدا شده با ;) باشد و برگرداندن یک
+		/// QueryResult به‌ازای هر result-set (با ترتیب همان دستورات).
+		/// </summary>
+		Task<List<QueryResult>> ExecuteMultiResultQueryAsync(string query, Dictionary<string, object> parameters = null);
+
 		/// <summary>
 		/// اجرای Query با صفحه‌بندی
 		/// </summary>
@@ -322,6 +329,92 @@ namespace Data.Services.QueryBuilderServices
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// اجرای Query چند-دستوری (چند SELECT جدا شده با ;) و برگرداندن یک QueryResult به‌ازای هر result-set
+		/// </summary>
+		public async Task<List<QueryResult>> ExecuteMultiResultQueryAsync(string query, Dictionary<string, object> parameters = null)
+		{
+			var results = new List<QueryResult>();
+
+			using (var connection = new SqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+				using (var command = new SqlCommand(query, connection))
+				{
+					command.CommandTimeout = 300; // ۵ دقیقه
+
+					if (parameters != null)
+					{
+						foreach (var param in parameters)
+						{
+							command.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value);
+						}
+					}
+
+					using (var reader = await command.ExecuteReaderAsync())
+					{
+						do
+						{
+							var result = new QueryResult
+							{
+								ColumnNames = new List<string>(),
+								ColumnTypes = new List<string>(),
+								Rows = new List<Dictionary<string, object>>(),
+								GeneratedQuery = query
+							};
+
+							for (int i = 0; i < reader.FieldCount; i++)
+							{
+								result.ColumnNames.Add(reader.GetName(i));
+								result.ColumnTypes.Add(reader.GetDataTypeName(i) ?? "nvarchar");
+							}
+
+							while (await reader.ReadAsync())
+							{
+								var row = new Dictionary<string, object>();
+								for (int i = 0; i < reader.FieldCount; i++)
+								{
+									row[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+								}
+								result.Rows.Add(row);
+							}
+
+							result.TotalRows = result.Rows.Count;
+
+							// اگر هیچ دیتایی برنگشت، یک ردیف موقت با مقادیر پیش‌فرض بساز (مثلاً برای درگ‌کردن فیلدها در طراح گزارش)
+							if (result.Rows.Count == 0 && result.ColumnNames.Count > 0)
+							{
+								var tempRow = new Dictionary<string, object>();
+								for (int i = 0; i < result.ColumnNames.Count; i++)
+								{
+									tempRow[result.ColumnNames[i]] = GetDefaultValueBySqlType(result.ColumnTypes[i]);
+								}
+								result.Rows.Add(tempRow);
+								result.TotalRows = 0; // مهم: هنوز صفره
+							}
+
+							results.Add(result);
+						}
+						while (await reader.NextResultAsync());
+					}
+				}
+			}
+
+			// اگر هیچ result-set ای برنگشت (مثلاً Query خالی بود)، یک نتیجه خالی برگردان تا مصرف‌کننده خطا نگیرد
+			if (results.Count == 0)
+			{
+				results.Add(new QueryResult
+				{
+					ColumnNames = new List<string>(),
+					ColumnTypes = new List<string>(),
+					Rows = new List<Dictionary<string, object>>(),
+					GeneratedQuery = query
+				});
+			}
+
+			return results;
 		}
 
 		private object GetDefaultValueBySqlType(string sqlType)

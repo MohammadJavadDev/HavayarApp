@@ -801,6 +801,10 @@ var FormBuilderApp = (function () {
 		// Save files
 		$$('#btnSaveFiles, #btnSaveFilesFromPreview').on('click', saveFiles);
 
+		// Publish online
+		$$('#btnPublish').on('click', publishForm);
+		$$('#btnUnpublish').on('click', unpublishForm);
+
 		// Show JSON preview
 		$$('#btnShowJson').on('click', showJsonPreview);
 		
@@ -2498,6 +2502,7 @@ var FormBuilderApp = (function () {
 		get(`/Panel/FormBuilder/GetById?id=${id}`, function (response) {
 			if (response.isSuccess && response.data) {
 				populateFormFromDefinition(response.data);
+				loadPublishStatus(id);
 			} else {
 				toastr.error('خطا در بارگذاری اطلاعات فرم', 'خطا');
 				initializeSections();
@@ -3012,6 +3017,129 @@ var FormBuilderApp = (function () {
 		});
 	}
 
+	function collectFormModel() {
+		collectPropertiesData();
+		var model = $$('.card').dataBind();
+		model.Properties = $$('#formBuilderCard').data('properties');
+		var sectionsData = $$('#formBuilderCard').data('sections');
+		if (!sectionsData && typeof getSectionsData === 'function') {
+			sectionsData = getSectionsData();
+		}
+		model.Sections = sectionsData || [];
+		return model;
+	}
+
+	function loadPublishStatus(formDefinitionId) {
+		if (!formDefinitionId || formDefinitionId === '0') {
+			updatePublishStatusUI(null);
+			return;
+		}
+
+		get(`/Panel/FormBuilder/PublishStatus?id=${formDefinitionId}`, function (response) {
+			if (response.isSuccess && response.data) {
+				updatePublishStatusUI(response.data);
+			}
+		});
+	}
+
+	function updatePublishStatusUI(status) {
+		const $badge = $$('#publishStatusBadge');
+		const $url = $$('#publishStatusUrl');
+		const $error = $$('#publishStatusError');
+		const $btnUnpublish = $$('#btnUnpublish');
+
+		if (!status || !status.isPublished) {
+			$badge.removeClass('badge-light-success badge-light-danger').addClass('badge-light-secondary');
+			$badge.text(status && status.lastPublishError ? 'وضعیت: خطا در انتشار' : 'وضعیت: پیش‌نویس');
+			$url.addClass('d-none').empty();
+			$btnUnpublish.addClass('d-none');
+
+			if (status && status.lastPublishError) {
+				$error.removeClass('d-none').text(status.lastPublishError);
+				$badge.removeClass('badge-light-secondary').addClass('badge-light-danger');
+			} else {
+				$error.addClass('d-none').empty();
+			}
+			return;
+		}
+
+		$badge.removeClass('badge-light-secondary badge-light-danger').addClass('badge-light-success');
+		$badge.text('وضعیت: منتشر شده');
+		$error.addClass('d-none').empty();
+		$btnUnpublish.removeClass('d-none');
+
+		if (status.listUrl) {
+			$url.removeClass('d-none').html(`<a href="${status.listUrl}" target="_blank">باز کردن فرم منتشرشده</a>`);
+		} else {
+			$url.addClass('d-none').empty();
+		}
+	}
+
+	function publishForm() {
+		if (validateError($$('.card'))) {
+			return;
+		}
+
+		if (!confirm('فرم ذخیره و به صورت آنلاین منتشر شود؟')) {
+			return;
+		}
+
+		const $btn = $$('#btnPublish').block();
+		const model = collectFormModel();
+
+		post('/Panel/FormBuilder/Save', model, function (saveResponse) {
+			if (!saveResponse.isSuccess) {
+				$btn.block(false);
+				toastr.error(saveResponse.message || 'خطا در ذخیره فرم', 'خطا');
+				return;
+			}
+
+			$$('.card').dataBind(saveResponse.data);
+			const formDefinitionId = saveResponse.data.id;
+
+			post('/Panel/FormBuilder/Publish', { formDefinitionId: formDefinitionId }, function (publishResponse) {
+				$btn.block(false);
+
+				if (!publishResponse.isSuccess) {
+					const errors = publishResponse.data && publishResponse.data.errors
+						? publishResponse.data.errors.join('\n')
+						: (publishResponse.message || 'خطا در انتشار فرم');
+					toastr.error(errors, 'خطا');
+					loadPublishStatus(formDefinitionId);
+					return;
+				}
+
+				toastr.success(publishResponse.data.message || 'فرم با موفقیت منتشر شد', 'موفق');
+				loadPublishStatus(formDefinitionId);
+			});
+		});
+	}
+
+	function unpublishForm() {
+		const formDefinitionId = $$('#formBuilderCard input[data-bind="id"]').val();
+		if (!formDefinitionId || formDefinitionId === '0') {
+			toastr.error('لطفا ابتدا فرم را ذخیره کنید', 'خطا');
+			return;
+		}
+
+		if (!confirm('آیا از لغو انتشار این فرم اطمینان دارید؟')) {
+			return;
+		}
+
+		const $btn = $$('#btnUnpublish').block();
+		post('/Panel/FormBuilder/Unpublish', { formDefinitionId: parseInt(formDefinitionId) }, function (response) {
+			$btn.block(false);
+
+			if (!response.isSuccess) {
+				toastr.error(response.message || 'خطا در لغو انتشار', 'خطا');
+				return;
+			}
+
+			toastr.success(response.data.message || 'انتشار فرم لغو شد', 'موفق');
+			loadPublishStatus(formDefinitionId);
+		});
+	}
+
 	/**
 	 * Load entity fields for display template builder (Tree View)
 	 */
@@ -3332,8 +3460,12 @@ var FormBuilderApp = (function () {
 		addProperty: addProperty,
 		previewCode: previewCode,
 		saveFiles: saveFiles,
+		publishForm: publishForm,
+		unpublishForm: unpublishForm,
+		loadPublishStatus: loadPublishStatus,
 		getSectionsData: getSectionsData,
 		loadFormDefinitionById: loadFormDefinitionById,
+		populateFormFromDefinition: populateFormFromDefinition,
 		translateToFarsi: translateToFarsi,
 		translatePropertyName: translatePropertyName
 	};

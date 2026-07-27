@@ -1,0 +1,544 @@
+@using Entities.App.Inv
+@{
+    var hasAddPermission = (bool)(ViewBag.HasAddPermission ?? false);
+}
+<link href="~/panelLib/plugins/custom/jstree/jstree.bundle.rtl.css" rel="stylesheet" type="text/css" />
+<style>
+    #partCodingCategoryPage .tree-search-input {
+        border: 1px solid #d1d1d1;
+    }
+
+    #partCodingCategoryPage #categoryTree {
+        min-height: 420px;
+        max-height: calc(100vh - 220px);
+        overflow: auto;
+    }
+
+    #requestNewPartModal .attribute-row td:first-child {
+        width: 35%;
+    }
+</style>
+
+<div class="card" id="partCodingCategoryPage">
+    <div class="card-header">
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+            <h3 class="card-title mb-0">کدینگ کالا</h3>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-primary btn-sm" id="btnSearchParts">
+                    <i class="ki-duotone ki-magnifier fs-4"></i>
+                    نمایش کالاهای مرتبط
+                </button>
+                <button type="button" class="btn btn-light-primary btn-sm" id="btnAdvancedFilter">
+                    <i class="ki-duotone ki-filter fs-4"></i>
+                    فیلتر پیشرفته
+                </button>
+                @if (hasAddPermission)
+                {
+                    <button type="button" class="btn btn-success btn-sm" id="btnRequestNewCode" disabled>
+                        <i class="ki-duotone ki-plus fs-4"></i>
+                        درخواست کد جدید
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-lg-4" id="treePane">
+                <div class="border rounded p-3 h-100">
+                    <label class="form-label">جستجو در درخت</label>
+                    <input type="text" class="form-control form-control-sm mb-3 tree-search-input" id="treeSearchInput" placeholder="جستجو..." />
+                    <div id="categoryTree"></div>
+                </div>
+            </div>
+
+               <div class="col-lg-8" id="gridPane">
+                    <div class="border rounded p-3 h-100">
+                         <table id="partsGrid" class="table table-row-bordered table-striped border nowrap w-100">
+                              <thead>
+                                   <tr>
+                                        <th>#</th>
+                                        <th>کد</th>
+                                        <th>نام</th>
+                                        <th>تاریخ بروزرسانی</th>
+                                        <th>شماره</th>
+                                        <th>توضیحات</th>
+                                        <th>نوع</th>
+                                        <th>واحد</th>
+                                        <th>خارجی</th>
+                                        <th>روتین</th>
+                                   </tr>
+                              </thead>
+                              <tbody class="text-center"></tbody>
+                         </table>
+                    </div>
+               </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="requestNewPartModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">درخواست کد جدید</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">کد کالا</label>
+                    <input type="text" class="form-control" id="txtPartCode" readonly />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">نام کالا</label>
+                    <input type="text" class="form-control" id="txtPartName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">توضیحات</label>
+                    <textarea class="form-control" id="txtComment" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label d-block">خصوصیت‌ها</label>
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody id="attributesBody"></tbody>
+                    </table>
+                </div>
+                <div class="mb-0">
+                    <fileuploader bind="attachmentId"
+                                  accepted-file-types=".pdf,.zip,.png,.jpg,.jpeg,.rar,.doc,.docx,.xls,.xlsx"
+                                  entity-prop-name="Attachment"
+                                  entity-type="@typeof(PartCodingCategoryRequest).FullName"
+                                  max-file-size="5"
+                                  label="پیوست"
+                                  required="true"></fileuploader>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-warning" id="btnSaveRequest">
+                    <i class="ki-duotone ki-send fs-4"></i>
+                    ذخیره و ارسال
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="advancedFilterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">فیلتر پیشرفته</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm tblFilters">
+                    <tbody>
+                        <tr>
+                            <td class="width-30px">
+                                <button type="button" class="btn btn-sm btn-light-success iconAddRowFilter">+</button>
+                            </td>
+                            <td class="width-120px">کد یا نام کالا</td>
+                            <td>
+                                <textarea rows="2" class="form-control txtPartNameFilter" placeholder="می‌توانید چند مقدار را با Enter جدا کنید"></textarea>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" id="btnRemoveFilters">حذف فیلترها</button>
+                <button type="button" class="btn btn-primary" id="btnApplyFilter">اعمال فیلتر</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/panelLib/plugins/custom/jstree/jstree.bundle.js"></script>
+<script>
+    (function () {
+        const minPrefixLength = 6;
+        let hasAddPermission = @hasAddPermission.ToString().ToLower();
+        let selectedCategoryId = null;
+        let selectedNode = null;
+        let partCodePrefix = null;
+        let searchContent = '';
+        let partsGrid = null;
+        let treeInstance = null;
+
+        const $page = $$('#partCodingCategoryPage');
+        const $tree = $$('#categoryTree');
+        const $treeSearch = $$('#treeSearchInput');
+        const $requestModal = $$('#requestNewPartModal');
+        const $attributesBody = $$('#attributesBody');
+        const $tblFilters = $$('.tblFilters');
+
+        const $btnSearchParts = $$('#btnSearchParts');
+        const $btnAdvancedFilter = $$('#btnAdvancedFilter');
+        const $btnRequestNewCode = $$('#btnRequestNewCode');
+        const $btnSaveRequest = $$('#btnSaveRequest');
+        const $btnRemoveFilters = $$('#btnRemoveFilters');
+        const $btnApplyFilter = $$('#btnApplyFilter');
+
+        const $txtPartCode = $$('#txtPartCode');
+        const $txtPartName = $$('#txtPartName');
+        const $txtComment = $$('#txtComment');
+
+        const requestModalEl = document.getElementById('requestNewPartModal');
+        const requestModal = bootstrap.Modal.getOrCreateInstance(requestModalEl);
+
+        function initTree() {
+            post('/Panel/Inv/PartCodingCategory/GetTreeData', {}, function (response) {
+                if (!response.isSuccess) {
+                    return toastr.error(response.message || 'خطا در بارگذاری درخت', 'خطا');
+                }
+
+                if ($.jstree.reference($tree)) {
+                    $tree.jstree('destroy');
+                }
+                $tree.empty();
+                $tree.jstree({
+                    core: {
+                        themes: { responsive: true },
+                        data: response.data || []
+                    },
+                    plugins: ['search', 'wholerow']
+                });
+
+                treeInstance = $tree.jstree(true);
+
+                $tree.off('select_node.jstree').on('select_node.jstree', function (_e, data) {
+                    selectedNode = data.node;
+                    selectedCategoryId = parseInt(selectedNode.id, 10);
+                    updateToolbarState();
+                });
+            });
+        }
+
+        function getPartCodePrefixFromNode(node) {
+            if (!node || !treeInstance) return '';
+
+            let codes = '';
+            const parents = node.parents.filter(function (p) { return p !== '#'; }).reverse();
+            parents.forEach(function (pid) {
+                const parentNode = treeInstance.get_node(pid);
+                if (parentNode?.data?.code) codes += parentNode.data.code;
+            });
+
+            if (node.data?.code) codes += node.data.code;
+            return codes;
+        }
+
+        function buildAttributesForm(node) {
+            $attributesBody.empty();
+            const atributies = node?.data?.atributies || '';
+            if (!atributies) return;
+
+            atributies.split(',').forEach(function (title, index) {
+                title = (title || '').trim();
+                if (!title) return;
+
+                $attributesBody.append(
+                    `<tr class="attribute-row">
+                        <td><label class="form-label mb-0">${title}</label></td>
+                        <td><input type="text" class="form-control form-control-sm fcinput" data-title="${title}" id="attrInput${index + 1}" /></td>
+                    </tr>`
+                );
+            });
+        }
+
+             function initPartsGrid() {
+         if ($.fn.DataTable.isDataTable('#partsGrid')) {
+             partsGrid.destroy();
+             $('#partsGrid tbody').empty();
+         }
+
+         partsGrid = $('#partsGrid').DataTable({
+             processing: true,
+             serverSide: true,
+             deferLoading: 0,
+             searching: false,
+             ordering: true,
+             pageLength: 50,
+             lengthMenu: [[50, 100, 500], [50, 100, 500]],
+              fixedColumns: false,
+                scrollCollapse: true,
+                scrollX: true,
+                autoWidth: false,
+                colResize: {
+                     isEnabled: true,
+                     resize: true,
+                     reorder: true,
+                     dataProfileId: "PartCateGoryTable" ,
+                },
+             language: {
+                 url: '/panelLib/plugins/custom/datatables/fa.json'
+             },
+             drawCallback: function () {
+                 partsGrid.columns.adjust();
+             },
+             initComplete: function () {
+              
+                 this.api().columns.adjust();
+             },
+             ajax: {
+                 url: '/Panel/Inv/PartCodingCategory/FetchPartsGridData',
+                 type: 'POST',
+                 contentType: 'application/json',
+                 data: function (d) {
+                     d.partCodePrefix = partCodePrefix;
+                     d.searchContent = searchContent;
+                     return JSON.stringify(d);
+                 },
+                 dataFilter: function (data) {
+                     const json = jQuery.parseJSON(data);
+                     const payload = json.data || {};
+                     return JSON.stringify({
+                         isSuccess: json.isSuccess,
+                         message: json.message,
+                         draw: payload.draw ?? payload.Draw,
+                         recordsTotal: payload.recordsTotal ?? payload.RecordsTotal ?? 0,
+                         recordsFiltered: payload.recordsFiltered ?? payload.RecordsFiltered ?? 0,
+                         data: payload.data ?? payload.Data ?? []
+                     });
+                 },
+                 dataSrc: function (json) {
+                     if (json.isSuccess === false) {
+                         toastr.error(json.message || 'خطا در دریافت اطلاعات', 'خطا');
+                         return [];
+                     }
+                     return json.data || [];
+                 }
+             },
+             columns: [
+                 {
+                     data: null,
+                     orderable: false,
+                     render: function (_data, _type, _row, meta) {
+                         return meta.row + meta.settings._iDisplayStart + 1;
+                     }
+                 },
+                 { data: 'code' },
+                 { data: 'name' },
+                 { data: 'modifiedDateShamsiDateTime' },
+                 { data: 'number' },
+                 { data: 'description' },
+                 { data: 'typeTitle' },
+                 { data: 'unitTitle' },
+                 {
+                     data: 'foreign',
+                     render: function (data) { return data ? '<i class="ki-duotone ki-check fs-3 text-success"></i>' : ''; }
+                 },
+                 {
+                     data: 'engineeringRoutine',
+                     render: function (data) { return data ? '<i class="ki-duotone ki-check fs-3 text-success"></i>' : ''; }
+                 }
+             ]
+         });
+     }
+
+        function reloadGrid() {
+            if (!partsGrid) return;
+            if (!partCodePrefix) {
+                partsGrid.clear().draw();
+                return;
+            }
+            partsGrid.ajax.reload();
+            partsGrid.columns.adjust();
+        }
+
+        function searchParts() {
+            if (!selectedNode) {
+                return toastr.warning('حداقل یک دسته بندی را انتخاب کنید.', 'هشدار');
+            }
+
+            partCodePrefix = getPartCodePrefixFromNode(selectedNode);
+            reloadGrid();
+        }
+
+        function collectSearchContent() {
+            let content = '';
+            $$('.txtPartNameFilter').each(function (_idx, item) {
+                const val = $$(item).val();
+                if (val && val.trim().length > 0) {
+                    content += val.trim().replace(/\n/g, '|') + '|';
+                }
+            });
+
+            if (content.endsWith('|')) content = content.slice(0, -1);
+            return content;
+        }
+
+        function bindFilterEvents() {
+            $$('.iconAddRowFilter').off('click').on('click', function () {
+                $tblFilters.find('tbody').append(
+                    `<tr>
+                        <td><button type="button" class="btn btn-sm btn-light-success iconAddRowFilter">+</button></td>
+                        <td>کد یا نام کالا</td>
+                        <td><textarea rows="2" class="form-control txtPartNameFilter"></textarea></td>
+                    </tr>`
+                );
+                bindFilterEvents();
+            });
+
+            $btnRemoveFilters.off('click').on('click', function () {
+                $tblFilters.find('tbody tr:not(:first)').remove();
+                $$('.txtPartNameFilter').val('');
+                searchContent = '';
+                reloadGrid();
+            });
+
+            $btnApplyFilter.off('click').on('click', function () {
+                searchContent = collectSearchContent();
+                reloadGrid();
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('advancedFilterModal')).hide();
+            });
+        }
+
+        function updateToolbarState() {
+            const prefix = selectedNode ? getPartCodePrefixFromNode(selectedNode) : '';
+            const canRequest = prefix.length >= minPrefixLength;
+
+            if ($btnRequestNewCode.length) {
+                $btnRequestNewCode.prop('disabled', !canRequest || !hasAddPermission);
+            }
+
+            if (canRequest) {
+                partCodePrefix = prefix;
+                reloadGrid();
+            }
+        }
+
+        function clearRequestForm() {
+            $txtPartName.val('');
+            $txtComment.val('');
+            $attributesBody.find('.fcinput').val('');
+            $requestModal.find('input[data-bind="attachmentId"]').val('');
+            $requestModal.find('.existing-file-item').remove();
+            $requestModal.find('.file-uploader-wrapper').show();
+            $requestModal.find('[data-file-uploader="true"]').attr('data-file-id', '');
+        }
+
+        function openRequestModal() {
+            if (!selectedNode) {
+                return toastr.warning('ابتدا یک دسته بندی از درخت انتخاب کنید.', 'هشدار');
+            }
+
+            const prefix = getPartCodePrefixFromNode(selectedNode);
+            if (prefix.length < minPrefixLength) {
+                return toastr.warning('برای ثبت درخواست، دسته بندی با پیشوند کد حداقل ۶ رقمی انتخاب کنید.', 'هشدار');
+            }
+
+            clearRequestForm();
+            $txtPartCode.val(prefix);
+            buildAttributesForm(selectedNode);
+
+            requestModal.show();
+
+            if (typeof initFileUploaders === 'function') {
+                initFileUploaders($requestModal);
+            }
+        }
+
+        function validateRequestForm() {
+            if (!$txtPartCode.val()?.trim()) {
+                toastr.warning('کد کالا نمی‌تواند خالی باشد.', 'هشدار');
+                return false;
+            }
+
+            if (!$txtPartName.val()?.trim()) {
+                toastr.warning('نام کالا نمی‌تواند خالی باشد.', 'هشدار');
+                return false;
+            }
+
+            let valid = true;
+            $attributesBody.find('.fcinput').each(function (_i, input) {
+                const $input = $$(input);
+                if (!$input.val()?.trim()) {
+                    toastr.warning(`${$input.data('title')} نمی‌تواند خالی باشد.`, 'هشدار');
+                    valid = false;
+                    return false;
+                }
+            });
+
+            return valid;
+        }
+
+        function collectRequestAttributes() {
+            let result = '';
+            $attributesBody.find('.fcinput').each(function (_i, input) {
+                const $input = $$(input);
+                result += `${$input.data('title')} = ${$input.val()}|`;
+            });
+
+            if (result.endsWith('|')) result = result.slice(0, -1);
+            return result;
+        }
+
+        function getAttachmentId() {
+            const val = $requestModal.find('input[data-bind="attachmentId"]').val();
+            if (!val) return null;
+            const parsed = parseInt(val, 10);
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        function saveRequest() {
+            if (!hasAddPermission) {
+                return toastr.error('شما مجوز ثبت درخواست را ندارید.', 'خطا');
+            }
+
+            if (!validateRequestForm()) return;
+
+            const attachmentId = getAttachmentId();
+             
+
+            const model = {
+                partCodingCategoryId: selectedCategoryId,
+                requestPartCodePrefix: $txtPartCode.val(),
+                title: $txtPartName.val(),
+                atributies: collectRequestAttributes(),
+                description: $txtComment.val(),
+                attachmentId: attachmentId
+            };
+
+            post('/Panel/Inv/PartCodingCategory/RequestNewPart', model, function (response) {
+                if (!response.isSuccess) {
+                    return toastr.error(response.message || 'خطا در ثبت درخواست', 'خطا');
+                }
+
+                toastr.success(`درخواست با کد ${response.data?.generatedCode || ''} ثبت شد.`, 'موفق');
+                requestModal.hide();
+                clearRequestForm();
+                reloadGrid();
+            });
+        }
+
+        function bindTreeSearch() {
+            $treeSearch.off('keyup').on('keyup', function () {
+                if (!treeInstance) return;
+                treeInstance.search($treeSearch.val() || '');
+            });
+        }
+
+        function bindEvents() {
+            $btnSearchParts.on('click', searchParts);
+            $btnAdvancedFilter.on('click', function () {
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('advancedFilterModal')).show();
+            });
+
+            $btnRequestNewCode.on('click', openRequestModal);
+            $btnSaveRequest.on('click', saveRequest);
+
+            requestModalEl.addEventListener('hidden.bs.modal', function () {
+                clearRequestForm();
+            });
+
+            bindFilterEvents();
+            bindTreeSearch();
+        }
+
+        initPartsGrid();
+        initTree();
+        bindEvents();
+    })();
+</script>

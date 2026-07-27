@@ -1,11 +1,7 @@
 ﻿using Common.Attributes;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Job
 {
@@ -31,6 +27,10 @@ namespace Services.Job
 				// ثبت کلاس در DI (معمولا Scoped بهترین گزینه برای جاب‌هاست)
 				services.AddScoped(jobClass);
 			}
+
+			services.TryAddSingleton<IJobRealtimeNotifier, NoOpJobRealtimeNotifier>();
+			services.TryAddSingleton<JobLogBroadcastBuffer>();
+			services.AddHostedService(sp => sp.GetRequiredService<JobLogBroadcastBuffer>());
 
 			return services;
 		}

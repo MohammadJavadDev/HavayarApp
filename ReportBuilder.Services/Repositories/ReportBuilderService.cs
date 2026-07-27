@@ -4,6 +4,7 @@ using Aspose.Cells;
 using Common.Utilities;
 using Data;
 using Data.Contracts;
+using Data.SystemAuth;
 using Entities.Base;
 using Entities.Base.DataTable;
 using Microsoft.Data.SqlClient;
@@ -14,8 +15,11 @@ using static Data.Repositories.DataTableQueryBuilder;
 
 namespace ReportBuilder.Services.Repositories
 {
-    public class ReportBuilderService(ApplicationDbContext dbContext,IUnitOfWork unitOfWork 
-        , IDataTableQueryBuilder _dataTableQuery ) : IReportBuilderService
+    public class ReportBuilderService(
+         ApplicationDbContext dbContext,
+         IUnitOfWork unitOfWork 
+        , IDataTableQueryBuilder _dataTableQuery,
+         ISdk sdk) : IReportBuilderService
     {
 
         private string? ConnectionString { get;  } = dbContext.Database.GetDbConnection().ConnectionString;
@@ -535,13 +539,15 @@ namespace ReportBuilder.Services.Repositories
                 {
                     Title = c.Title,
                     Id = c.Id,
-                    IsActive = c.IsActive
+                    IsActive = c.IsActive,
+                    Type = c.Type
                 })
                 .ToList();
         }
 
+	 
 
-        private Task AddChunkDataToWorksheet(Worksheet worksheet, IEnumerable<Dictionary<string, object>> chunkData,
+		private Task AddChunkDataToWorksheet(Worksheet worksheet, IEnumerable<Dictionary<string, object>> chunkData,
             int startRow, DataTableRequest request)
         {
             int row = startRow;
@@ -864,7 +870,51 @@ namespace ReportBuilder.Services.Repositories
             return items.ToList();
         }
 
+        public List<ReportBuilderReport> GetDashbordsByRole()
+        {
+			return GetDashboardSelectItemsByRole()
+				.Where(c => c.Type == "stimulsoft" && c.Id.HasValue)
+				.Select(c => new ReportBuilderReport
+				{
+					Title = c.Title,
+					Id = c.Id!.Value,
+					IsActive = IsActiveEnum.Active
+				})
+				.ToList();
+		}
 
+		public List<DashboardSelectItem> GetDashboardSelectItemsByRole()
+		{
+			var reportQuery = unitOfWork.Repository<ReportBuilderReport>()
+				.TableNoTracking
+				.Where(c => c.IsActive == IsActiveEnum.Active && c.Type == ReportType.Dashboard);
 
+			if (!sdk.CurrentUser.IsAdministrator)
+			{
+				var dashbordIds = sdk.CurrentUser.RoleAccess
+					.Where(c => c.ActionAccessItemType == Common.Auth.Enums.ActionAccessItemType.Dashbord
+						&& c.RowId.HasValue
+						&& c.Path != null
+						&& c.Path.StartsWith("dashbord_", StringComparison.OrdinalIgnoreCase))
+					.Select(c => c.RowId!.Value)
+					.Distinct()
+					.ToList();
+
+				reportQuery = reportQuery.Where(c => c.Id.HasValue && dashbordIds.Contains(c.Id.Value));
+			}
+
+			return reportQuery
+				.Select(c => new { c.Id, c.Title })
+				.ToList()
+				.Where(c => c.Id.HasValue)
+				.Select(c => new DashboardSelectItem
+				{
+					Id = c.Id,
+					Title = c.Title,
+					Type = "stimulsoft",
+					Url = $"/System/ReportBuilder/StimulSoftViewReport?reportId={c.Id}"
+				})
+				.ToList();
+		}
     }
 }

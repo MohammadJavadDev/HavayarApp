@@ -60,6 +60,28 @@ namespace Entities.Base.FormBuilder
 		[DisplayInfo(null, false, SystemType.String)]
 		[MaxLength(500)]
 		public string? SourceEntityFullName { get; set; }
+
+		[DisplayName("منتشر شده")]
+		[DisplayInfo(null, true, SystemType.Boolean)]
+		public bool IsPublished { get; set; }
+
+		[DisplayName("تاریخ انتشار")]
+		[DisplayInfo(null, false, SystemType.DateTime)]
+		public DateTime? PublishedAt { get; set; }
+
+		[DisplayName("نسخه انتشار")]
+		[DisplayInfo(null, false, SystemType.Int)]
+		public int PublishVersion { get; set; }
+
+		[DisplayName("خطای آخرین انتشار")]
+		[DisplayInfo(null, false, SystemType.String)]
+		[MaxLength(4000)]
+		public string? LastPublishError { get; set; }
+
+		[DisplayName("پیشوند مسیر کنترلر")]
+		[DisplayInfo(null, false, SystemType.String)]
+		[MaxLength(200)]
+		public string? ControllerRoutePrefix { get; set; }
 	}
 
 	[Display(Name = "ویژگی فرم")]

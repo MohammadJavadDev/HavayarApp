@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -43,6 +43,10 @@ namespace Entities.Base.DataTable
     {
         public string[]? value { get; set; } = [];
         public bool regex { get; set; } = false;
+        /// <summary>
+        /// عملگر فیلتر ستون: contains, !contains, starts, ends, =, !=, null, !null, between, &gt;, &lt;, none
+        /// </summary>
+        public string? condition { get; set; }
     }
 
     public class OrderTable

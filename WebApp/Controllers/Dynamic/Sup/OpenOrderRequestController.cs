@@ -19,6 +19,7 @@ using Microsoft.EntityFrameworkCore;
 using Services.Auth;
 using Services.NotificationGroupServices;
 using Services.NotificationServices;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -1863,86 +1864,107 @@ namespace WebApp.Controllers.Dynamic
 			ViewBag.OpenOrderRequestId = openOrderRequestId;
 			//دریافت نفرات ثابت 
 			 var  staticPersonels = await userService.GetUsersByRoleName("Sup.OpenOrderRequest.ConfigManageStaticPersonel");
-			ViewBag.StaticPersonels = staticPersonels?.Select(c => new { c.Id, c.Username, c.Name, c.NameFa, c.Email }) ?? [];
+			ViewBag.StaticPersonels = staticPersonels?.Select(c => c.Id) ?? [];
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AddRequestedPersonelPartial.cshtml");
 		}
 
 		[HttpPost("[action]")]
-		public async Task<IActionResult> AddRequestedPersonelToOpenRequest(AddRequestedPersonel request, CancellationToken cn)
+		public async Task<IActionResult> AddRequestedPersonelToOpenRequest(
+    [FromBody] AddRequestedPersonel request,
+    CancellationToken cancellationToken)
 		{
 			try
 			{
-				// TODO: بررسی دسترسی
-				if (request.OpenOrderRequestId == null || request.OpenOrderRequestId == 0)
-					return BadRequest("درخواست باز یافت نشد");
-				 
+				// 1. اعتبارسنجی ورودی
+				if (request.OpenOrderRequestIds == null || request.OpenOrderRequestIds.Length == 0)
+					return BadRequest("هیچ شناسه‌ای برای درخواست باز ارسال نشده است.");
 
-				var openOrderRequest = await unitOfWork
-					.Repository<OpenOrderRequest>()
-					.Table
-					.FirstOrDefaultAsync(x => x.Id == request.OpenOrderRequestId, cn);
+				// 2. بارگذاری تمام رکوردهای OpenOrderRequest مربوطه
+				var openOrderRequests = await unitOfWork
+				    .Repository<OpenOrderRequest>()
+				    .Table
+				    .Where(x => request.OpenOrderRequestIds.Contains(x.Id.Value))
+				    .ToListAsync(cancellationToken);
 
-				if (openOrderRequest == null)
-					return BadRequest("درخواست باز یافت نشد");
+				// 3. بررسی وجود تمام رکوردها
+				if (openOrderRequests.Count != request.OpenOrderRequestIds.Length)
+					return BadRequest("برخی از درخواست‌های باز یافت نشدند.");
 
-			   
+				// 4. بارگذاری کاربران مورد نیاز (با حذف تکراری‌ها)
+				var allPersonelIds = request.RequestedPersonelIds
+				    .Cast<long?>()
+				    .Concat(request.RequestedEngineeringPersonelIds.Cast<long?>())
+				    .Where(id => id.HasValue)
+				    .Select(id => id.Value)
+				    .Distinct()
+				    .ToArray();
 
-				var user = await userService.TableNoTracking
-					.Where(c => request.requestedEngineeringPersonelIds.Contains((long)c.Id) ||
-							  request.RequestedPersonelIds.Contains((long)c.Id) 
-							  )
-					.ToArrayAsync(cn);
+				var users = await userService.TableNoTracking
+				    .Where(u => allPersonelIds.Contains(u.Id.Value))
+				    .ToDictionaryAsync(u => u.Id, cancellationToken); // دیکشنری برای دسترسی سریع
 
-				if(request.requestedEngineeringPersonelIds.Any())
+				// 5. به‌روزرسانی هر رکورد
+				foreach (var openOrderRequest in openOrderRequests)
 				{
-					openOrderRequest.RequestedEngineeringPersonelIds = request.requestedEngineeringPersonelIds;
-					openOrderRequest.RequestedEngineeringPersonel = string.Join(',',user.Where(c=> request.requestedEngineeringPersonelIds.
-																Contains((long)c.Id)).Select(c=>c.NameFa)
-																.ToArray());
-					openOrderRequest.RequestedEngineeringPersonelEmail = string.Join(',', user.Where(c => request.requestedEngineeringPersonelIds.
-																Contains((long)c.Id)
-																).Select(c => c.Email)
-																.ToArray());
+					// به‌روزرسانی مهندسین
+					if (request.RequestedEngineeringPersonelIds.Any())
+					{
+						var engUsers = request.RequestedEngineeringPersonelIds
+						    .Where(id => users.ContainsKey(id))
+						    .Select(id => users[id])
+						    .ToList();
+
+						openOrderRequest.RequestedEngineeringPersonelIds = request.RequestedEngineeringPersonelIds;
+						openOrderRequest.RequestedEngineeringPersonel = string.Join("، ", engUsers.Select(u => u.NameFa));
+						openOrderRequest.RequestedEngineeringPersonelEmail = string.Join("; ", engUsers.Select(u => u.Email));
+					}
+
+					// به‌روزرسانی پرسنل عادی
+					if (request.RequestedPersonelIds.Any())
+					{
+						var normalUsers = request.RequestedPersonelIds
+						    .Where(id => users.ContainsKey(id))
+						    .Select(id => users[id])
+						    .ToList();
+
+						openOrderRequest.RequestedPersonelIds = request.RequestedPersonelIds;
+						openOrderRequest.RequestedPersonel = string.Join("، ", normalUsers.Select(u => u.NameFa));
+						openOrderRequest.RequestedPersonelEmail = string.Join("; ", normalUsers.Select(u => u.Email));
+					}
+
+					// تنظیم تاریخ ثبت (فقط در صورتی که خالی باشد)
+					openOrderRequest.RequestedPersonelRegShamsiDate ??= DateTime.Now.ToShamsiDate();
 				}
 
-				if(request.RequestedPersonelIds.Any())
+				// 6. ذخیره‌سازی یکپارچه
+				await unitOfWork.SaveChangesAsync(cancellationToken);
+
+				return Ok(new
 				{
-
-					openOrderRequest.RequestedPersonelIds = request.RequestedPersonelIds;
-					openOrderRequest.RequestedPersonel = string.Join(',', user.Where(c => request.RequestedPersonelIds.
-																Contains((long)c.Id)).Select(c => c.NameFa)
-																.ToArray());
-					openOrderRequest.RequestedPersonelEmail = string.Join(',', user.Where(c => request.requestedEngineeringPersonelIds.
-																Contains((long)c.Id)).Select(c => c.Email)
-																.ToArray());
-
-
-				}
-
-				if (openOrderRequest.RequestedPersonelRegShamsiDate == null)
-					openOrderRequest.RequestedPersonelRegShamsiDate = DateTime.Now.ToShamsiDate();
-				 
-				await unitOfWork.SaveChangesAsync(cn);
-
-				return Ok(new { message = "لینک با موفقیت ثبت شد" });
+					message = "اطلاعات پرسنل با موفقیت ثبت شد.",
+					updatedCount = openOrderRequests.Count
+				});
 			}
 			catch (Exception ex)
 			{
-				return StatusCode(500, "خطا در ثبت لینک VPIS: " + ex.Message);
+				// لاگ‌گیری مناسب (ترجیحاً با ILogger)
+				return StatusCode(500, new
+				{
+					message = "خطا در ثبت اطلاعات پرسنل.",
+					detail = ex.Message
+				});
 			}
 		}
+
 		#endregion
 
 		#region Request DTOs
 
 		public class AddRequestedPersonel
 		{
-			public long? OpenOrderRequestId { get; set; }
-			public List<string>? RequestedPersonel { get; set; }
+			public long[] OpenOrderRequestIds { get; set; }
 			public List<long> RequestedPersonelIds { get; set; } = new();
-			public List<string>? RequestedEngineeringPersonel { get; set; }
-			public List<long> requestedEngineeringPersonelIds { get; set; } = new();
-  
+			public List<long> RequestedEngineeringPersonelIds { get; set; } = new();
 		}
 		public class SaveCommentRequest
 		{

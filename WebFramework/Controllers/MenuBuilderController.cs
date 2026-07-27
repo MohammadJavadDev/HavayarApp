@@ -68,6 +68,7 @@ namespace WebFramework.Controllers.SystemControllers
 
 		[HttpPost("{action}")]
 		[ActionDisplayName("دریافت منو با شناسه", ActionAccessType.Api)]
+          [AllowAnonymous]
 		public IActionResult GetMenuById(long? Id)
 		{
 		 

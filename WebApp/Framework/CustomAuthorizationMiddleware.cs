@@ -124,24 +124,21 @@ namespace WebFramework.Middlewares
                     return true;  
                 }
 
-             
-                var cacheKey = BuildCacheKey(roleNames, requestPath);
 
-                if (_cache.TryGetValue(cacheKey, out bool cachedAccess))
-                {
-                    if (!cachedAccess && type == ActionAccessType.Api)
-                    {
-                        ThrowForbiddenException(requestPath);
-                    }
-                    return cachedAccess;
-                }
+				var templatePath = _accessMemoryStorage.GetMatchingTemplate(requestPath) ?? requestPath;
+				var cacheKey = BuildCacheKey(roleNames, templatePath);
 
-       
-                bool hasAccess = CheckRoleAccess(roleNames, requestPath);
+				if (_cache.TryGetValue(cacheKey, out bool cachedAccess))
+				{
+					if (!cachedAccess && type == ActionAccessType.Api)
+						ThrowForbiddenException(requestPath);
+					return cachedAccess;
+				}
 
-                _cache.Set(cacheKey, hasAccess, _cacheDuration);
+				bool hasAccess = CheckRoleAccess(roleNames, requestPath);
+				_cache.Set(cacheKey, hasAccess, _cacheDuration);
 
-                if (!hasAccess && type == ActionAccessType.Api)
+				if (!hasAccess && type == ActionAccessType.Api)
                 {
                     ThrowForbiddenException(requestPath);
                 }
@@ -161,32 +158,26 @@ namespace WebFramework.Middlewares
             }
         }
 
-        private bool CheckRoleAccess(List<string> roleNames, string requestPath)
-        {
-            foreach (var roleName in roleNames)
-            {
-                var role = _roleMemoryStorage.GetRoleByName(roleName);
+		private bool CheckRoleAccess(List<string> roleNames, string requestPath)
+		{
+			foreach (var roleName in roleNames)
+			{
+				var role = _roleMemoryStorage.GetRoleByName(roleName);
 
-        
-                if (role?.RoleAccesses == null)
-                {
-                    continue;
-                }
+				if (role?.RoleAccesses == null) continue;
 
-              
-                foreach (var access in role.RoleAccesses)
-                {
-                    if (string.Equals(access.Path, requestPath, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return true;
-                    }
-                }
-            }
+				foreach (var access in role.RoleAccesses)
+				{
+					// ← تغییر: به‌جای Equals، از IsMatch استفاده می‌کنیم
+					if (RoutePatternHelper.IsMatch(requestPath, access.Path))
+						return true;
+				}
+			}
 
-            return false;
-        }
+			return false;
+		}
 
-        private static string BuildCacheKey(List<string> roleNames, string requestPath)
+		private static string BuildCacheKey(List<string> roleNames, string requestPath)
         {
           
             if (roleNames.Count <= 3)

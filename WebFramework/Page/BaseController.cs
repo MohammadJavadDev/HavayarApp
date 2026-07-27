@@ -1,4 +1,4 @@
-﻿using Data.SystemAuth;
+using Data.SystemAuth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Razor.Internal;
@@ -29,7 +29,12 @@ public class BaseController : Controller
 	#endregion
 
 	#region View Methods
-	protected new IActionResult View(string viewName, object model = null)
+	protected new IActionResult View(string viewName)
+	{
+		return new ProcessedViewResult(viewName, null, ViewData, TempData);
+	}
+
+	protected new IActionResult View(string viewName, object model)
 	{
 		return new ProcessedViewResult(viewName, model, ViewData, TempData);
 	}

@@ -17,7 +17,6 @@ using System.Reflection;
 using WebApp.Models;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using static Stimulsoft.Report.Func;
 
 namespace WebApp.Controllers.SystemControllers
 {
@@ -88,7 +87,9 @@ namespace WebApp.Controllers.SystemControllers
 					AuthorizationType = user.AuthorizationType,
 					RoleIds = user.RoleIds,
 					Email = user.Email,
-					FName = user.NameFa
+					FName = user.NameFa,
+					PartyId = user.PartyId
+
 				}, cn);
 			}
 			else
@@ -105,7 +106,8 @@ namespace WebApp.Controllers.SystemControllers
 					AuthorizationType = user.AuthorizationType,
 					RoleIds = user.RoleIds,
 					Email = user.Email,
-					NameFa = user.NameFa
+					NameFa = user.NameFa,
+					PartyId = user.PartyId
 				}, cn);
 			}
 

@@ -185,7 +185,9 @@ LEFT JOIN USR3.Gnr_DimDate AS CreationDate ON CreationDate.Date = CAST(SupInquir
 							PriceUnitId = priceUnitId,
 							CreatedById = createdById,
 							CreatedOnMiladiDateTime = row.CreationDate,
-							CreatedOnShamsiDateTime = row.CreationDateInText,
+							CreatedOnShamsiDateTime = row.CreationDateInText + " " + row.CreatedTime,
+							ModifiedDateMiladiDateTime = row.CreationDate,
+							ModifiedDateShamsiDateTime = row.CreationDateInText + " " + row.CreatedTime,
 						});
 					}
 				}
@@ -392,7 +394,7 @@ WHERE NOT EXISTS (
     WHERE li.InvoiceItemID = remote.InvoiceItemID
 )
 OPTION (RECOMPILE);
-
+--	متولی  تایید مهندسی در درخواست خریدهای باز وجود ندارد  
 DROP TABLE #LocalItems;
 
 ";

@@ -1,15 +1,20 @@
 @inject IUnitOfWork _unitOfWork;
+@inject ISdk sdk;
 @using Common.Utilities
 @using Data.Contracts
+@using Data.SystemAuth
 @using Entities.Base
 @using Microsoft.EntityFrameworkCore
 @using ReportBuilder.Entities
+
 @model ReportBuilder.Entities.ReportBuilderReport;
 @{
-    var objects = await _unitOfWork.Repository<ReportBuilderTable>()
+     var objects = await _unitOfWork.Repository<ReportBuilderTable>()
         .TableNoTracking
         .Select(c=> new {c.Id, c.ObjectType , c.Title, c.ObjectName, c.ObjectSchema}).ToListAsync();
-    var savedQueries = ViewBag.SavedQueries as List<Entities.Base.SavedQuery> ?? new List<Entities.Base.SavedQuery>();
+     var savedQueries = ViewBag.SavedQueries as List<Entities.Base.SavedQuery> ?? new List<Entities.Base.SavedQuery>();
+
+     var isAdmin = sdk.CurrentUser.IsAdministrator;
 }
 
 <div class="card">
@@ -17,10 +22,8 @@
         <div class='col-md-12 align-content-center  text-center  fa-2x justify-content-center'>
             <span>ایجاد گزارش</span>
         </div>
-        
     </div>
     <div class="card-body">
-
         <div class="row mb-10">
             <div class="col-md-4">
                 <label class="required">نام گزارش</label>
@@ -30,18 +33,21 @@
             <div class="col-md-4">
                 <label class="required">نوع گزارش</label>
                 <select class="form-select" data-bind="type" asp-for="Type" >
-                    <option value="0">جدول</option>
-                    <option value="1">طراحی</option>
+                         @if (isAdmin)
+                         {
+                              <option value="0">جدول</option>
+                              <option value="1">طراحی</option>
+                         }
+                              
+                    <option value="2">داشبورد</option>
                 </select>
  
             </div>
             <div class="col-md-4">
                 <label class="required">نام </label>
-                <input class="form-control" disabled data-bind="reportName" value="@Model?.Name" />
+                <input class="form-control"   data-bind="reportName" value="@Model?.Name" />
             </div>
         </div>
-        
-
         <nav>
             <div class="nav nav-pills flex-column flex-sm-row" id="nav-tab" role="tablist">
                 <button class="flex-sm-fill text-sm-center nav-link active" id="nav-reportItem-tab" data-bs-toggle="tab" data-bs-target="#nav-reportItem" type="button" role="tab" aria-controls="nav-reportItem" aria-selected="true" disabled="disabled">آیتم گزارش</button>
@@ -87,6 +93,7 @@
                         <div class="separator separator-content my-15 border-primary">
                             <span class="text-primary">گزارش‌های QueryDesigner</span>
                         </div>
+                              <div class="row">
                         @foreach (var sq in savedQueries)
                         {
                             <div class="col-md-6 mt-3" data-sectionItem="">
@@ -98,6 +105,8 @@
                                 </div>
                             </div>
                         }
+                    
+                        </div>
                     }
 
                     <div class="separator separator-content my-15 border-success">
@@ -396,7 +405,7 @@
 
         $$("#filterNext").click(function() {
 
-            if (reportType === "1") {
+            if (reportType === "1" || reportType === "2") {
                 $$("#tableViewDesigne").addClass("d-none");
                 $$("#StimulsoftViewDesigne").removeClass("d-none");
 
@@ -443,7 +452,7 @@
 
 
         $$("#saveReport").click(function() {
-             debugger
+              
             var model = {};
             model.title = $$("[data-bind='reportTitle']").val();
             model.name = $$("[data-bind=reportName]").val();

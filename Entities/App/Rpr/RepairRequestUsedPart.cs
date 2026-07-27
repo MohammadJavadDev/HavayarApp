@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
     [Display(Name = "درخواست تعمیر قطعه استفاده شده")]
     [Table("RepairRequestUsedPart", Schema = "Rpr")]

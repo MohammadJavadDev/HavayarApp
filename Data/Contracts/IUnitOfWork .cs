@@ -16,5 +16,12 @@ namespace Data.Contracts
         Task CommitTransactionAsync(CancellationToken cancellationToken);
         void RollbackTransaction();
         Task RollbackTransactionAsync(CancellationToken cancellationToken);
-    }
+
+		/// <summary>
+		/// اجرای یک عملیات در تراکنش با پشتیبانی از استراتژی Retry
+		/// </summary>
+		Task<TResult> ExecuteInTransactionAsync<TResult>(
+		    Func<Task<TResult>> action,
+		    CancellationToken cancellationToken = default);
+	}
 }

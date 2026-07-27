@@ -115,6 +115,9 @@ namespace Entities.App.Inv
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? Description { get; set; }
 
+
+		public decimal SaleRate { get; set; } = 1;
+
 		public long? HamkaranId { get; set; }
 
 		[DisplayName("دسته خرید")]

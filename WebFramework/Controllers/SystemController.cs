@@ -182,6 +182,12 @@ namespace WebFramework.Controllers.SystemControllers
 				  htmlTemplate = c.HtmlTemplate,
 				  btnConfig = c.BtnConfig,
 				  inputConfig = c.InputConfig,
+				  width = c.Width ?? 200,
+				  filterable = c.Filterable,
+				  sortable = c.Sortable,
+				  searchable = c.Filterable,
+				  orderable = c.Sortable,
+				  className = string.IsNullOrWhiteSpace(c.ClassName) ? null : c.ClassName.Trim(),
 
 
 			  };

@@ -21,7 +21,8 @@ namespace WebApp.Controllers.SystemControllers
 	{
   
         [HttpGet("/")]
-        [HttpGet("/Panel")]
+		[HttpGet("/dashbord")]
+		[HttpGet("/Panel")]
         public async Task<IActionResult> Index(CancellationToken ct)
 		{
 	         if(sdk.CurrentUser is null)

@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
     [Display(Name = "درخواست تعمیر پیمانکار")]
     [Table("RepairRequestContractor", Schema = "Rpr")]
@@ -32,7 +32,7 @@ namespace Entities.App.Prp
 
         [DisplayName("هزینه")]
         [DisplayInfo(null, true, type: SystemType.Long)]
-        public long? Cost { get; set; }
+        public decimal? Cost { get; set; }
 
         [DisplayName("کالا")]
         [DisplayInfo(null, true, type: SystemType.Entity)]

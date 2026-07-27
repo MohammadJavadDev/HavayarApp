@@ -11,6 +11,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using ReportBuilder.Entities;
 using System.ComponentModel;
+using System.Globalization;
 using System.Reflection;
 using License = Aspose.Cells.License;
 
@@ -149,131 +150,165 @@ namespace Data.Repositories
                return response;
           }
 
-	 
+		public async Task ExportToExcelProfile(DataTableRequest request, Stream outputStream, string licensePath)
+		{
+			var profile = await queryService.GetReportAsync((long)request.profileId!);
+			if (profile == null)
+				throw new Exception("نمایه داده انتخاب شده یافت نشد.");
 
-        public async Task ExportToExcelProfile(DataTableRequest request, Stream outputStream, string licensePath)
-        {
+			// حذف ستون‌های دکمه
+			request.columns = request.columns.Where(c => c.type != "button").ToList();
+			currentRequest = request;
 
-		 
-
-		 var profile = await queryService.GetReportAsync((long)request.profileId!);
-            if (profile == null)
-            {
-                throw new Exception("نمایه داده انتخاب شده یافت نشد.");
-            }
-
-            var removes =  request.columns.Where(c => c.type == "button").ToList();
-
-              foreach (var r in removes)
-              {
-                  request.columns.Remove(r);
-              }
-
-              currentRequest = request;
-            var workbook = new Workbook();
-
-            if (!workbook.IsLicensed)
-                new License().SetLicense(licensePath);
-
+			var workbook = new Workbook();
+			if (!workbook.IsLicensed)
+				new License().SetLicense(licensePath);
 
 			var savedQueryId = request.profileId;
 			var paramValues = queryService.ExtractParameterValuesFromRequest(request);
-			QueryResult result;
 
-               request.start = 0;
+			request.start = 0;
 			request.length = 10000;
 
+			var worksheet = workbook.Worksheets[0];
+			worksheet.Name = "LargeData";
 
-			// Create a new workbook
-
-		  var worksheet = workbook.Worksheets[0];
-             worksheet.Name = "LargeData";
-
-            // Retrieve data headers from the first chunk
-            var firstChunk = await queryService.ExecuteReportAsync(request, paramValues, request.start, request.length, sdk.CurrentUser.Id.ToString(), sdk.CurrentUser.Username);
+			var firstChunk = await queryService.ExecuteReportAsync(
+			    request, paramValues, request.start, request.length,
+			    sdk.CurrentUser.Id.ToString(), sdk.CurrentUser.Username);
 
 			if (firstChunk == null || !firstChunk.Rows.Any())
-            {
-                return;
-            }
+				return;
 
-            // Add column headers dynamically based on the first record
-            var headers = firstChunk.Rows.First().Keys.ToList();
-            for (int i = 0; i < headers.Count; i++)
-            {
-                if (!request.columns.Any(c => c.name == headers[i]))
-                {
-                    headers.Remove( headers[i]);
-                }
-            }
-
-            
-            for (int i = 0; i < headers.Count; i++)
-            {
-                var header = request.columns[i].title;
-                worksheet.Cells[0, i].PutValue(header);
-            }
-
-            int row = 1; // Start adding data from the second row
-
-            // Add the first chunk data to the worksheet
-            await AddChunkDataToWorksheet(worksheet, firstChunk.Rows, row, request);
-            row += firstChunk.Rows.Count();
-
-            // Add subsequent chunks dynamically
-            //while (true)
-            //{
-            //    // Update query with pagination or limits if necessary
-            //    var nextChunk = ExecuteQuery(query); // Update the query to fetch the next set of rows
-
-            //    if (!nextChunk.Any()) break; // Exit if there are no more rows
-
-            //    await AddChunkDataToWorksheet(worksheet, nextChunk, row);
-            //    row += nextChunk.Count();
-            //}
+			var availableKeys = firstChunk.Rows.First().Keys.ToHashSet();
+			var orderedHeaders = request.columns
+			    .Where(c => availableKeys.Contains(c.name))
+			    .Select(c => c.name)
+			    .ToList();
 
 
-            worksheet.AutoFitColumns();
+			for (int i = 0; i < orderedHeaders.Count; i++)
+			{
+				var col = request.columns.First(c => c.name == orderedHeaders[i]);
+				worksheet.Cells[0, i].PutValue(col.title);
+			}
+
+			int row = 1;
+	
+			await AddChunkDataToWorksheet(worksheet, firstChunk.Rows, row, request, orderedHeaders);
+			row += firstChunk.Rows.Count();
+
+			workbook.Save(outputStream, SaveFormat.Xlsx);
+			await Task.CompletedTask;
+		}
 
 
-            if (!workbook.IsLicensed)
-                new License().SetLicense(licensePath);
-            workbook.Save(outputStream, SaveFormat.Xlsx);
-            await Task.CompletedTask;
-             
-        }
-        private Task AddChunkDataToWorksheet(Worksheet worksheet, IEnumerable<Dictionary<string, object>> chunkData,
-            int startRow, DataTableRequest request)
-        {
-            int row = startRow;
-            foreach (var record in chunkData)
-            {
-                int col = 0;
-                foreach (var r in record)
-                {
-                    var colInfo = request.columns.FirstOrDefault(c=>c.name == r.Key);
-                    if (colInfo == null)
-                    {
-                        continue;
-                    }
-                    var putValue = r.Value;
-                    if (colInfo.type == "select")
-                    {
-                        if (putValue is not null)
-                        {
-                            putValue = colInfo.options?.FirstOrDefault(c => c.value == putValue.ToString())?.name ?? putValue;
-                        }
-                    }
-                    worksheet.Cells[row, col].PutValue((putValue ?? string.Empty).ToString());
-                    col++;
-                }
-                row++;
-            }
+		private Task AddChunkDataToWorksheet(
+		    Worksheet worksheet,
+		    IEnumerable<Dictionary<string, object>> chunkData,
+		    int startRow,
+		    DataTableRequest request,
+		    List<string> orderedHeaders)
+		{
+			int row = startRow;
+			foreach (var record in chunkData)
+			{
 
-            return Task.CompletedTask;
-        }
+				for (int colIndex = 0; colIndex < orderedHeaders.Count; colIndex++)
+				{
+					var key = orderedHeaders[colIndex];
+					var colInfo = request.columns.FirstOrDefault(c => c.name == key);
+					if (colInfo == null) continue;
 
-        public async Task RemoveEntity(string tableName, long id)
+					record.TryGetValue(key, out var putValue);
+
+					if (colInfo.type == "select" && putValue is not null)
+					{
+						putValue = colInfo.options?
+						    .FirstOrDefault(c => c.value == putValue.ToString())?.name
+						    ?? "";
+					}
+
+					var cell = worksheet.Cells[row, colIndex];
+					var colType = (colInfo.type ?? string.Empty).Trim().ToLowerInvariant();
+
+					// ستون اعشاری: اگر بخش اعشار صفر باشد به‌صورت عدد صحیح، وگرنه با اعشار معنادار
+					if (colType == "decimal" && TryPutDecimalExcelValue(cell, putValue))
+					{
+						// مقدار عددی در سلول قرار گرفت
+					}
+					else
+					{
+						cell.PutValue((putValue ?? string.Empty).ToString());
+					}
+				}
+				row++;
+			}
+			return Task.CompletedTask;
+		}
+
+		/// <summary>
+		/// برای خروجی اکسل: اعداد صحیح (مثل 5.00) بدون اعشار، اعداد اعشاری با بخش کسری معنادار.
+		/// </summary>
+		private static bool TryPutDecimalExcelValue(Cell cell, object? value)
+		{
+			if (value == null || value == DBNull.Value)
+				return false;
+
+			decimal d;
+			switch (value)
+			{
+				case decimal dec:
+					d = dec;
+					break;
+				case double dbl when !double.IsNaN(dbl) && !double.IsInfinity(dbl):
+					d = Convert.ToDecimal(dbl);
+					break;
+				case float fl when !float.IsNaN(fl) && !float.IsInfinity(fl):
+					d = Convert.ToDecimal(fl);
+					break;
+				case int i:
+					cell.PutValue(i);
+					return true;
+				case long l when l >= int.MinValue && l <= int.MaxValue:
+					cell.PutValue((int)l);
+					return true;
+				case long l:
+					cell.PutValue(Convert.ToDouble(l));
+					return true;
+				case short s16:
+					cell.PutValue((int)s16);
+					return true;
+				case byte b:
+					cell.PutValue((int)b);
+					return true;
+				default:
+					var s = value.ToString()?.Trim();
+					if (string.IsNullOrEmpty(s))
+						return false;
+					s = s.Replace(',', '.');
+					if (!decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out d)
+					    && !decimal.TryParse(s, NumberStyles.Any, CultureInfo.CurrentCulture, out d))
+						return false;
+					break;
+			}
+
+			// حذف صفرهای انتهایی scale (مثل 5.00 → 5) با فرمت G29
+			d = decimal.Parse(d.ToString("G29", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+
+			if (d == decimal.Truncate(d) && d >= int.MinValue && d <= int.MaxValue)
+			{
+				cell.PutValue(decimal.ToInt32(d));
+			}
+			else
+			{
+				cell.PutValue(Convert.ToDouble(d));
+			}
+
+			return true;
+		}
+
+		public async Task RemoveEntity(string tableName, long id)
         {
             var entityType = typeof(BaseEntity).Assembly.GetTypes().FirstOrDefault(t => t.Name.ToLower() == tableName.ToLower());
             if (entityType == null)

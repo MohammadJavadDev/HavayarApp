@@ -6,11 +6,8 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
-    /// <summary>
-    /// اقلام مصرفی 
-    /// </summary>
     [Display(Name = "درخواست تعمیر قطعه")]
     [Table("RepairRequestPart", Schema = "Rpr")]
     public class RepairRequestPart : BaseEntity
@@ -89,7 +86,9 @@ namespace Entities.App.Prp
         [DisplayInfo(null, true, type: SystemType.String)]
         public string? UnitName { get; set; }
 
-
+        [DisplayName("نسخه")]
+        [DisplayInfo(null, true, type: SystemType.Long)]
+        public long? Revision { get; set; }
 
         [DisplayName("مقدار مصرفی")]
         [DisplayInfo(null, true, type: SystemType.Decimal)]

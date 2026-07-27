@@ -93,6 +93,7 @@ namespace WebFramework.Controllers
 			public IFormFile excelFile { get; set; }
 			public int importDefinitionId { get; set; }
 			public string columnMappingJson { get; set; }
+			public bool rollbackOnError { get; set; }
 		}
 	 
 		[HttpPost("/panel/importData/import")]
@@ -128,12 +129,12 @@ namespace WebFramework.Controllers
 					rows = ExcelImportHelper.ReadExcel(stream);
 
 				if (rows.Count == 0)
-					return Ok(new { success = true, totalRows = 0, successRows = 0, failedRows = 0, logId = 0 });
+					return Ok(new { success = true, totalRows = 0, successRows = 0, failedRows = 0, logId = 0, rolledBack = false });
 
 				 
 
 				var executor = new ImportExecutor(_connectionString, _sdk);
-				var log = executor.ExecuteImport(def, rows, mapping);
+				var log = executor.ExecuteImport(def, rows, mapping, model.rollbackOnError);
 				log.FileName = model.excelFile.FileName;
 
 				// ذخیره لاگ
@@ -153,6 +154,7 @@ namespace WebFramework.Controllers
 					totalRows = log.TotalRows,
 					successRows = log.SuccessRows,
 					failedRows = log.FailedRows,
+					rolledBack = log.RolledBack,
 					failedDetails
 				});
 			}

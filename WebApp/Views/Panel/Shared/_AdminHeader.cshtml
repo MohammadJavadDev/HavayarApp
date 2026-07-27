@@ -1,4 +1,4 @@
-﻿@using Common.System
+@using Common.System
 @using Data.SystemAuth
 @inject ISdk sdk;
 @{
@@ -186,6 +186,28 @@
 				<small class="text-muted">آیکن بزرگ + عنوان</small>
 			</div>
 
+		</div>
+	</div>
+	<hr class="my-3">
+	<div class="mb-4 px-3">
+		<label class="form-label fw-bold">حالت فیلتر جداول</label>
+		<div class="d-flex gap-2" id="tableFilterModeOptions">
+			<div class="flex-fill text-center border rounded p-2 table-filter-mode-opt"
+				 data-mode="inline"
+				 style="cursor:pointer; transition:border-color 0.15s;">
+				<div class="mb-1">
+					<i class="fa-light fa-table-list fs-3 text-primary"></i>
+				</div>
+				<small class="text-muted d-block">ردیف زیر هدر</small>
+			</div>
+			<div class="flex-fill text-center border rounded p-2 table-filter-mode-opt"
+				 data-mode="popup"
+				 style="cursor:pointer; transition:border-color 0.15s;">
+				<div class="mb-1">
+					<i class="fa-light fa-filter fs-3 text-primary"></i>
+				</div>
+				<small class="text-muted d-block">پاپ‌اور</small>
+			</div>
 		</div>
 	</div>
 	<hr class="my-3">

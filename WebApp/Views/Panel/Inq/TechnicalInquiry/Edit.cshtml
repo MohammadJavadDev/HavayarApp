@@ -1,0 +1,462 @@
+@using Common.Utilities
+@using Data.SystemAuth
+@using Entities.App.Edms
+@using Entities.App.Hcm
+@using Entities.App.Inq
+@using Entities.App.Inq.Enums
+@using Entities.App.Inv
+@inject ISdk sdk;
+@model TechnicalInquiry
+
+
+@{
+     var disableForEditBool = false;
+     string? disableForEdit = null;
+     var changePartMode = false;
+     var endOperation = false;
+
+     if (Model.Id.HasValue && Model.Id > 0)
+     {
+          disableForEdit = "disabled";
+          disableForEditBool = true;
+     }
+
+     IEnumerable<TechnicalInquiryStatusEnum> filterdStatus = null;
+
+     if (!sdk.IsAdministrator)
+     {
+
+     }
+
+     switch (Model?.LastStatus)
+     {
+          case null or TechnicalInquiryStatusEnum.InitialRegistration:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Modified
+                       || c == TechnicalInquiryStatusEnum.SendToEngineering);
+               break;
+
+          case TechnicalInquiryStatusEnum.Modified:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SendToEngineering);
+               break;
+
+          case TechnicalInquiryStatusEnum.SendToEngineering:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.ManagerReject
+                       || c == TechnicalInquiryStatusEnum.ManagerApproved);
+               break;
+
+          case TechnicalInquiryStatusEnum.ManagerReject:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Modified);
+               break;
+
+          case TechnicalInquiryStatusEnum.ManagerApproved:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SendToFinancial
+                       || c == TechnicalInquiryStatusEnum.SuppliesApprove);
+               break;
+
+          case TechnicalInquiryStatusEnum.SendToFinancial:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SuppliesApprove);
+               break;
+
+          case TechnicalInquiryStatusEnum.SuppliesApprove:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.IssuedToVendor);
+               break;
+
+          case TechnicalInquiryStatusEnum.IssuedToVendor:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.VendorIssued);
+               break;
+
+          case TechnicalInquiryStatusEnum.VendorIssued:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SuppliesRejectVendorDosc
+                       || c == TechnicalInquiryStatusEnum.SuppliesApprovedVendorDocs);
+               break;
+
+          case TechnicalInquiryStatusEnum.SuppliesRejectVendorDosc:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.VendorIssued);
+               break;
+
+          case TechnicalInquiryStatusEnum.SuppliesApprovedVendorDocs:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.EngineeringApprovedVendorDocs
+                       || c == TechnicalInquiryStatusEnum.EngineeringRejectedVendorDosc
+                       || c == TechnicalInquiryStatusEnum.EngineeringRoleApprovedVendorDosc);
+               break;
+
+          case TechnicalInquiryStatusEnum.EngineeringRejectedVendorDosc:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.VendorIssued);
+               break;
+
+          case TechnicalInquiryStatusEnum.EngineeringApprovedVendorDocs:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Final
+                       || c == TechnicalInquiryStatusEnum.ReviewSupplierProposalsByEngineering);
+               break;
+
+          case TechnicalInquiryStatusEnum.EngineeringRoleApprovedVendorDosc:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SupplierRejectToEngineering
+                       || c == TechnicalInquiryStatusEnum.Final);
+               break;
+
+          case TechnicalInquiryStatusEnum.ReviewSupplierProposalsByEngineering:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SendEngineeringToTheProjectManager);
+               break;
+
+          case TechnicalInquiryStatusEnum.SendEngineeringToTheProjectManager:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.RegisteringFinancialRequestsFromSuppliers
+                       || c == TechnicalInquiryStatusEnum.ProjectHasLiquidity
+                       || c == TechnicalInquiryStatusEnum.ProjectHasNoLiquidity);
+               break;
+
+          case TechnicalInquiryStatusEnum.ProjectHasLiquidity:
+          case TechnicalInquiryStatusEnum.ProjectHasNoLiquidity:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Final);
+               break;
+
+          case TechnicalInquiryStatusEnum.RegisteringFinancialRequestsFromSuppliers:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Final
+                       || c == TechnicalInquiryStatusEnum.SupplyChangeStatus);
+               break;
+
+          case TechnicalInquiryStatusEnum.SupplyChangeStatus:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.VendorUploadFile);
+               break;
+
+          case TechnicalInquiryStatusEnum.VendorUploadFile:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.VendorUploadFileReject
+                       || c == TechnicalInquiryStatusEnum.VendorUploadFileApprove);
+               break;
+
+          case TechnicalInquiryStatusEnum.VendorUploadFileReject:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.VendorUploadFile);
+               break;
+
+          case TechnicalInquiryStatusEnum.VendorUploadFileApprove:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Reviewfilebyengineeringandsendingtosupplyandprocurement);
+               break;
+
+          case TechnicalInquiryStatusEnum.Reviewfilebyengineeringandsendingtosupplyandprocurement:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.SupplierRejectToEngineering
+                       || c == TechnicalInquiryStatusEnum.Final);
+               break;
+
+          case TechnicalInquiryStatusEnum.SupplierRejectToEngineering:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.ReviewSupplierProposalsByEngineering);
+               break;
+
+          case TechnicalInquiryStatusEnum.Final:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.Final);
+               break;
+
+          default:
+               filterdStatus = EnumExtensions.GetEnumSelectListFiltered<TechnicalInquiryStatusEnum>(
+                   c => c == TechnicalInquiryStatusEnum.InitialRegistration);
+               break;
+     }
+
+     var avableStatus = filterdStatus.GetEnumValuesWithDisplayNames();
+}
+
+
+<div class="card">
+     <div class="form-action-buttons">
+          <form-action-buttons entity-type="typeof(TechnicalInquiry)"></form-action-buttons>
+     </div>
+</div>
+
+
+<div class="card">
+     <div class="card-body row g-4">
+
+          <div class="col-12">
+               <h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+          </div>
+
+          <input type="hidden" data-bind="id" value="@Model?.Id" />
+
+          <div class="col-md-4">
+               <label>عنوان پروژه</label>
+               <input class="form-control" data-bind="projectTitle" asp-for="ProjectTitle" />
+               <div data-invalidmessagespan class="mt-1">
+                    <span class="text-danger"></span>
+               </div>
+          </div>
+
+
+          <div class='col-md-4'>
+               <label class=''>نوع استعلام</label>
+               <select class='form-control' data-bind='queryType' asp-for='QueryType' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Inq.Enums.QueryTypeEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class="col-md-4">
+               <label>پروژه</label>
+               @(Html.EntitySelector<Project>(
+                              "ProjectSelect",
+                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                              c => new { Id = c.Id, Code = c.Code, Title = c.Name },
+                              c => new { c.Code, c.Name },
+                              "{Code} {Name}",
+                              "EdmsProjectId",
+                              "ProjectName",
+                              Model?.ProjectId.ToString()
+                              ))
+          </div>
+
+
+          <div class="col-md-4">
+               <label>مدیر پروژه</label>
+               @(Html.EntitySelector<Personel>(
+                              "ProjectManagerSelect",
+                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                              c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+                              c => new { c.Name, c.Family },
+                              "{Name} {Family}",
+                              "ProjectManagerId",
+                              "ProjectManagerName",
+                              Model?.ProjectManagerId.ToString()
+                              ))
+          </div>
+
+
+          <div class="col-md-4">
+               <label>PSL مربوطه</label>
+               @(Html.EntitySelector<Personel>(
+                              "RelevantPSLSelect",
+                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                              c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+                              c => new { c.Name, c.Family },
+                              "{Name} {Family}",
+                              "RelevantPSLId",
+                              "RelevantPSLName",
+                              Model?.RelevantPSLId.ToString()
+                              ))
+          </div>
+
+
+          <div class="col-md-4">
+               <label>کالا</label>
+               @(Html.EntitySelector<Part>(
+                              "PartSelector",
+                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                              c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+                              c => new { c.Code, c.Name },
+                              "{Code} {Name}",
+                              "PartId",
+                              "PartName",
+                              Model?.PartId.ToString()
+                              ))
+          </div>
+
+          <div class='col-md-4'>
+               <label class=''>وضعیت</label>
+               <select class='form-control' data-bind='lastStatus' asp-for='LastStatus'>
+                    @foreach (var option in avableStatus)
+                    {
+                         <option value="@option.Value">@option.Text</option>
+                    }
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+
+          <div class="col-md-4">
+               <label>توضیحات پیمانکار</label>
+               <textarea placeholder="توضیحات فقط برای تامین خرید ارسال میشود." class='form-control' data-bind='descriptionContractor' asp-for="DescriptionContractor" rows="2"></textarea>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+
+          <div class="col-md-4">
+               <fileuploader bind="datasheetFileId"
+                             accepted-file-types=".jpg,.png"
+                             file-id="@Model?.DatasheetFileId"
+                             file-entity="@Model?.DatasheetFile"
+                             entity-prop-name="DatasheetFile"
+                             entity-type="@typeof(TechnicalInquiry).FullName"
+                             max-file-size="10"
+                             label="فایل DataSheet">
+               </fileuploader>
+          </div>
+
+
+          <div class="col-md-4">
+               <fileuploader bind="mapFileId"
+                             accepted-file-types=".jpg,.png"
+                             file-id="@Model?.MapFileId"
+                             file-entity="@Model?.MapFile"
+                             entity-prop-name="MapFile"
+                             entity-type="@typeof(TechnicalInquiry).FullName"
+                             max-file-size="10"
+                             label="فایل MAP">
+               </fileuploader>
+          </div>
+
+
+          <div class="col-md-4">
+               <fileuploader bind="specFileId"
+                             accepted-file-types=".jpg,.png"
+                             file-id="@Model?.SpecFileId"
+                             file-entity="@Model?.SpecFile"
+                             entity-prop-name="SpecFile"
+                             entity-type="@typeof(TechnicalInquiry).FullName"
+                             max-file-size="10"
+                             label="فایل SPEC">
+               </fileuploader>
+          </div>
+
+
+          <div class="col-md-4">
+               <fileuploader bind="tcFileId"
+                             accepted-file-types=".jpg,.png"
+                             file-id="@Model?.TcFileId"
+                             file-entity="@Model?.TcFile"
+                             entity-prop-name="TcFile"
+                             entity-type="@typeof(TechnicalInquiry).FullName"
+                             max-file-size="10"
+                             label="فایل TC">
+               </fileuploader>
+          </div>
+
+
+          <div class="col-md-4">
+               <fileuploader bind="otherFileId"
+                             accepted-file-types=".jpg,.png"
+                             file-id="@Model?.OtherFileId"
+                             file-entity="@Model?.OtherFile"
+                             entity-prop-name="OtherFile"
+                             entity-type="@typeof(TechnicalInquiry).FullName"
+                             max-file-size="10"
+                             label="فایل متفرقه">
+               </fileuploader>
+          </div>
+
+     </div>
+</div>
+
+
+
+<div class="card card-body my-3">
+     <div class="col-md-12">
+          <div class="p-4">
+               <h4 class="text-center">تاریخچه تغییرات</h4>
+          </div>
+          <div class="p-1">
+               <table class="table table-bordered text-center">
+                    <thead>
+                         <tr>
+                              <th>نوع درخواست</th>
+                              <th>وضعیت</th>
+                              <th>توضیحات</th>
+                              <th>تاریخ</th>
+                              <th>ایجاد کننده</th>
+                         </tr>
+                    </thead>
+                    <tbody>
+                         @foreach (var comment in Model?.TechnicalInquiryHistory)
+                         {
+                              <tr>
+                                   <td>
+                                        <span>@(comment.QueryType != null ? comment.QueryType.ToDisplay() : "نامشخص")</span>
+                                   </td>
+                                   <td class="col-md-2">
+                                        <span>@(comment.LastStatus != null ? comment.LastStatus.ToDisplay() : "نامشخص")</span>
+                                   </td>
+                                   <td class="col-md-4">
+                                        <span>@comment.Comment</span>
+                                   </td>
+                                   <td class="col-md-2">
+                                        <span class="ltr">@comment.CreatedOnShamsiDateTime</span>
+                                   </td>
+                                   <td class="col-md-2">
+                                        <span>@comment.CreatedByName</span>
+                                   </td>
+                              </tr>
+                         }
+                    </tbody>
+               </table>
+          </div>
+     </div>
+</div>
+
+
+<div class="card">
+     <div class="card-footer row text-muted">
+
+          <div class="col-md-3">
+               <span>ایجاد کننده:</span>
+               <span data-bind="createdByName">@Model?.CreatedByName</span>
+          </div>
+
+          <div class="col-md-3">
+               <span>تاریخ ایجاد:</span>
+               <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+          </div>
+
+          <div class="col-md-3">
+               <span>ویرایش کننده:</span>
+               <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+          </div>
+
+          <div class="col-md-3">
+               <span>تاریخ ویرایش:</span>
+               <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+          </div>
+
+     </div>
+</div>
+
+
+<script>
+
+     function savefn($btnAction) {
+
+         if (validateError(page.$pageEl)) return;
+
+         const model = page.$pageEl.dataBind();
+         const $btn = $(this.element).block();
+
+         $$.post('save', model, function (r) {
+
+             $btn.block(false);
+
+             if (!r.isSuccess) {
+                 toastr.error(r.message, 'خطا');
+                 return;
+             }
+
+             toastr.success('ذخیره سازی با موفقیت انجام شد');
+
+             page.$pageEl.dataBind(r.data);
+
+             $btnAction.baseaction();
+         });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+</script>

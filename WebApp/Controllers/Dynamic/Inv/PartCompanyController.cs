@@ -2,12 +2,13 @@ using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
 using Data.SystemAuth;
+using Entities.App.Gnr;
+using Entities.App.Inv;
+using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Entities.Base.DataTable;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using Entities.App.Inv;
 
 namespace WebApp.Controllers.Dynamic
 {
@@ -113,6 +114,106 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 		{
 			return Ok(await unitOfWork.Repository<PartCompany>().FetchDataAsync(request, cn));
+		}
+
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("افزودن تامین کنندگان", ActionAccessType.Api, ActionAccessItemType.Custom)]
+		public async Task<IActionResult> AddSuppliers(AddSuppliersViewModel model, CancellationToken cancellationToken)
+		{
+		 
+			if (model.PartIds == null || model.PartIds.Length == 0)
+				return BadRequest("حداقل یک کالا باید انتخاب شود.");
+
+
+			var partIds = model.PartIds
+			    .Select(id => id)
+			    .Distinct()
+			    .ToArray();
+
+			if (model.SupplierIds == null || model.SupplierIds.Length == 0)
+			{
+				var repo = unitOfWork.Repository<PartCompany>();
+
+				// حذف روابط موجود
+				var relationsToDelete = repo.Table
+				    .Where(pc => partIds.Contains(pc.PartId));
+
+				await relationsToDelete.ExecuteDeleteAsync(cancellationToken);
+
+				return Ok();
+			}
+				  
+			var supplierIds = model.SupplierIds
+			    .Select(id => id)
+			    .Distinct()
+			    .ToArray();
+
+			if (!partIds.Any() || !supplierIds.Any())
+				return BadRequest("شناسه‌های نامعتبر ارسال شده‌اند.");
+
+			// 2. بررسی وجود موجودیت‌ها
+			var existingParts = await unitOfWork.Repository<Part>()
+			    .Table
+			    .Where(p => partIds.Contains(p.Id.Value))
+			    .Select(p => p.Id)
+			    .ToArrayAsync(cancellationToken);
+
+			if (existingParts.Length != partIds.Length)
+				return BadRequest("برخی از کالاها یافت نشدند.");
+
+			var existingSuppliers = await unitOfWork.Repository<Supplier>()
+			    .Table
+			    .Where(s => supplierIds.Contains(s.Id.Value))
+			    .Select(s => s.Id)
+			    .ToArrayAsync(cancellationToken);
+
+			if (existingSuppliers.Length != supplierIds.Length)
+				return BadRequest("برخی از تامین‌کنندگان یافت نشدند.");
+
+ 
+			return await unitOfWork.ExecuteInTransactionAsync(async () =>
+			{
+				var repo = unitOfWork.Repository<PartCompany>();
+
+ 
+				var relationsToDelete = repo.Table
+				    .Where(pc => partIds.Contains(pc.PartId));
+
+				await relationsToDelete.ExecuteDeleteAsync(cancellationToken);
+
+ 
+				var newRelations = new List<PartCompany>();
+				foreach (var partId in partIds)
+				{
+					foreach (var supplierId in supplierIds)
+					{
+						newRelations.Add(new PartCompany
+						{
+							PartId = partId,
+							SupplierId = supplierId
+						});
+					}
+				}
+
+				await repo.AddRangeAsync(newRelations, cancellationToken);
+
+			 
+				await unitOfWork.SaveChangesAsync(cancellationToken);
+
+				return Ok(new
+				{
+					message = "تامین‌کنندگان با موفقیت به‌روزرسانی شدند.",
+					affectedParts = partIds.Length,
+					addedSuppliersPerPart = supplierIds.Length,
+					totalRelationsAdded = newRelations.Count
+				});
+			}, cancellationToken);
+		}
+		public class AddSuppliersViewModel
+		{
+			public long[] PartIds { get; set; } = Array.Empty<long>();
+			public long[] SupplierIds { get; set; } = Array.Empty<long>();
 		}
 	}
 }

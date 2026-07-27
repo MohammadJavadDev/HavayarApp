@@ -8,6 +8,16 @@ SET NOCOUNT ON;
 
 BEGIN TRY
     BEGIN TRANSACTION;
+    
+        -- ۱. حذف داده‌های قدیمی (به ترتیب وابستگی FK)
+    DELETE FROM Bom.ProductFormulItem;
+
+    DELETE FROM Bom.ProductFormul;
+
+    -- FormulChangeRequest به ProductGroup وابسته است
+    DELETE FROM Bom.FormulChangeRequest;
+
+    DELETE FROM Bom.ProductGroup;
 
     -- ۱. حذف داده‌های قدیمی (به ترتیب وابستگی FK)
     -- ابتدا FormulItem (وابسته به Formul)
@@ -18,6 +28,8 @@ BEGIN TRY
 
     -- در آخر FormulGroup
     DELETE FROM Bom.FormulGroup;
+
+   
 
     -- ۲. درج FormulGroup از TotalSystem
     SET IDENTITY_INSERT Bom.FormulGroup ON;
@@ -61,7 +73,6 @@ FROM [TMS].[TotalSystem].[dbo].[Bom_FormulGroup];
     Id,
     Title,
     GroupId,
-    PartId,
     CreatedById,
     ModifiedById,
     CreatedByName,
@@ -76,7 +87,6 @@ SELECT
     CAST(Formul_ID AS BIGINT)         AS Id,
     Formul_Title                      AS Title,
     CAST(FormulGroup_FK AS BIGINT)    AS GroupId,
-    NULL                              AS PartId,
     NULL                              AS CreatedById,
     NULL                              AS ModifiedById,
     NULL                              AS CreatedByName,

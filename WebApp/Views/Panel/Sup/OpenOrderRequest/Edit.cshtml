@@ -61,8 +61,11 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 							<form-action-button color-class="btn-active-icon-dark btn-color-dark" icon-class="fa fa-times-circle"
 								action-name="terminateRequest" title="خاتمه"></form-action-button>
 													<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-user-plus"
-											action-name="addRequestedPersonel" title="افزودن درخواست کنندگان و ذینفعان"></form-action-button>
-						</form-action-buttons>
+											action-name="addRequestedPersonel" title="درخواست کنندگان و ذینفعان"></form-action-button>
+						<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-plus"
+											action-name="addSupplier" title="تامیین کننده منتخب"></form-action-button>
+					
+										</form-action-buttons>
 					</div>
 					
 				</div>
@@ -549,7 +552,7 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 
 		self.FormActionButtons.history.element.disabled = false;
 		self.FormActionButtons.addComment.element.disabled = false;
-
+		self.FormActionButtons.addSupplier.element.disabled = false;
 
 		 
 	
@@ -602,7 +605,14 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 	}
 
 	initializePage()
- 
+	
+	self.FormActionButtons.addSupplier.onclick(function () {
+	const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+	})
 
 	//#region Add Comment
 	self.FormActionButtons.addComment.onclick(function () {
@@ -1198,7 +1208,7 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 							}
 
 							const model = $content.dataBind();
-							model.openOrderRequestId = openOrderRequestId;
+							model.OpenOrderRequestIds = [openOrderRequestId];
 
 							model.requestedPersonelIds = model.requestedPersonelIds.split(',').map(c=>parseInt(c))
 							model.requestedEngineeringPersonelIds = model.requestedEngineeringPersonelIds.split(',').map(c=>parseInt(c));

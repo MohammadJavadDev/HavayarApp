@@ -34,10 +34,20 @@ namespace Data.Services.QueryBuilderServices
 			var now = DateTime.Now;
 			var utcNow = DateTime.UtcNow;
 
-			var matches = Regex.Matches(query, @"@([a-zA-Z_][a-zA-Z0-9_]*)");
+			var executableSql = RemoveCommentsAndLiterals(query);
+			var declaredVariables = Regex.Matches(
+					executableSql,
+					@"\bDECLARE\s+(?<!@)@([a-zA-Z_][a-zA-Z0-9_]*)",
+					RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+				.Select(match => match.Groups[1].Value)
+				.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+			var matches = Regex.Matches(executableSql, @"(?<!@)@([a-zA-Z_][a-zA-Z0-9_]*)");
 			foreach (Match m in matches)
 			{
 				var paramName = m.Groups[1].Value;
+				if (declaredVariables.Contains(paramName)) continue;
+
 				var key = paramName.StartsWith("@") ? paramName : "@" + paramName;
 				if (result.ContainsKey(key)) continue;
 
@@ -58,6 +68,18 @@ namespace Data.Services.QueryBuilderServices
 			}
 
 			return result;
+		}
+
+		private static string RemoveCommentsAndLiterals(string query)
+		{
+			const string nonExecutableSqlPattern =
+				@"N?'(?:''|[^'])*'|--[^\r\n]*|/\*.*?\*/|\[(?:\]\]|[^\]])*\]|""(?:""""|[^""])*""";
+
+			return Regex.Replace(
+				query,
+				nonExecutableSqlPattern,
+				match => new string(' ', match.Length),
+				RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
 		}
 
 		/// <summary>

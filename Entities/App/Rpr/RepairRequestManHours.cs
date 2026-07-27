@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
     [Display(Name = "نفر ساعت ")]
     [Table("RepairRequestManHours", Schema = "Rpr")]
@@ -42,10 +42,17 @@ namespace Entities.App.Prp
         [DisplayInfo(null, true, type: SystemType.String)]
         public long? ManHourSalePrice { get; set; }
 
+
+        [DisplayName("مجموع ساعت کارکرد")]
+        [DisplayInfo(null, true, type: SystemType.String)]
+        [StringLength(4000)]
+        public string? TotalWorkingHours { get; set; }
+
+
         [DisplayName("توضیحات")]
         [DisplayInfo(null, true, type: SystemType.String)]
         [StringLength(4000)]
         public string? Comment { get; set; }
-        
+
     }
 }

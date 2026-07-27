@@ -1,6 +1,7 @@
 using Common.Attributes;
 using Entities.App.Inv;
 using Entities.App.Sale.Enums;
+using Entities.Auth;
 using Entities.Base;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
@@ -14,9 +15,9 @@ namespace Entities.App.Sale
 	{
 		[DisplayName("سفارش ساخت")]
 		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
-		public ProductionOrder ProductionOrder { get; set; }
+		public ProductionOrder? ProductionOrder { get; set; }
 
-		public long ProductionOrderId { get; set; }
+		public long? ProductionOrderId { get; set; }
 
 
 		[DisplayName("ساخت داخل")]
@@ -143,6 +144,16 @@ namespace Entities.App.Sale
 		public ProductionOrderItemCheckStatusEnum? CheckStatus { get; set; }
 
 
+		[DisplayName("تاریخ میلادی تغییر وضعیت بررسی")]
+		[DisplayInfo(null, false, SystemType.DateTime, systemProprty: true)]
+		public DateTime? CheckStatusChangedOnMiladiDate { get; set; } = null;
+
+		[DisplayName("تاریخ شمسی تغییر وضعیت بررسی")]
+		[MaxLength(30)]
+		[DisplayInfo("CheckStatusChangedOnMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? CheckStatusChangedOnShamsiDate { get; set; } = null;
+
+
 		[DisplayName("ورژن")]
 		[DisplayInfo(null, false, type: SystemType.String)]
 		public string? Version { get; set; }
@@ -232,7 +243,78 @@ namespace Entities.App.Sale
 		[DisplayInfo("DeliveryMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
 		public string? DeliveryShamsiDate { get; set; } = null;
 
-		 
+
+		/// <summary>
+		/// معادل HTS: ReceivedDate — عنوان UI: تاریخ اخذ / تاریخ ارسال به صنایع
+		/// </summary>
+		[DisplayName("تاریخ ارسال به صنایع")]
+		[DisplayInfo(null, false, SystemType.Date, systemProprty: true)]
+		public DateTime? SendToIndustrialMiladiDate { get; set; } = null;
+
+		/// <summary>
+		/// معادل HTS: ReceivedDateInText (caption SendToIndustryDate)
+		/// </summary>
+		[DisplayName("تاریخ ارسال به صنایع")]
+		[MaxLength(30)]
+		[DisplayInfo("SendToIndustrialMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? SendToIndustrialShamsiDate { get; set; } = null;
+
+
+		[DisplayName("اولین تغییر‌دهنده صنایع")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public User? FirstIndustrialChangeBy { get; set; }
+
+		public long? FirstIndustrialChangeById { get; set; }
+
+		[DisplayName("تاریخ میلادی اولین تغییر صنایع")]
+		[DisplayInfo(null, false, SystemType.Date, systemProprty: true)]
+		public DateTime? FirstIndustrialChangeMiladiDate { get; set; } = null;
+
+		[DisplayName("تاریخ شمسی اولین تغییر صنایع")]
+		[MaxLength(30)]
+		[DisplayInfo("FirstIndustrialChangeMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? FirstIndustrialChangeShamsiDate { get; set; } = null;
+
+
+		[DisplayName("تاریخ میلادی آماده‌سازی مدارک")]
+		[DisplayInfo(null, false, SystemType.Date, systemProprty: true)]
+		public DateTime? DocumentPreparationMiladiDate { get; set; } = null;
+
+		[DisplayName("تاریخ شمسی آماده‌سازی مدارک")]
+		[MaxLength(30)]
+		[DisplayInfo("DocumentPreparationMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? DocumentPreparationShamsiDate { get; set; } = null;
+
+
+		[DisplayName("تاریخ میلادی تحویل استاندارد")]
+		[DisplayInfo(null, false, SystemType.Date, systemProprty: true)]
+		public DateTime? StandardDeliveryMiladiDate { get; set; } = null;
+
+		[DisplayName("تاریخ شمسی تحویل استاندارد")]
+		[MaxLength(30)]
+		[DisplayInfo("StandardDeliveryMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? StandardDeliveryShamsiDate { get; set; } = null;
+
+
+		[DisplayName("ملاحظات مهندسی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? EngineeringConsideration { get; set; }
+
+
+		/// <summary>
+		/// معادل HTS: PlanningConsideration
+		/// </summary>
+		[DisplayName("ملاحظات صنایع")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? PlanningConsideration { get; set; }
+
+
+		[DisplayName("روتین")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool IsRoutine { get; set; } = false;
+
 
 		[DisplayName("وضعیت")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
@@ -243,10 +325,7 @@ namespace Entities.App.Sale
 		[DisplayName("وضعیت تولید")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProductionOrderItemProductionStatusEnum ProductionStatus { get; set; }
-
-
-		
-
+		 
 
 		[DisplayName("Bom اقلام سفارش ساخت")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
@@ -258,6 +337,9 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<ProductionOrderItemComment> ProductionOrderItemComments { get; set; } = new();
 
+		[DisplayName("تاریخچه استعلام اقلام سفارش ساخت")]
+		[DisplayInfo(null, true, type: SystemType.ListEntity)]
+		public List<ProductionOrderItemInquiry> ProductionOrderItemInquiries { get; set; } = new();
 
 	}
 
@@ -272,6 +354,9 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProductionOrderItemProductionStatusEnum ProductionStatus { get; set; }
 
+		[DisplayName("مرحله ساخت")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public ProductionOrderItemProductionStepEnum? ProductionStep { get; set; }
 
 		[DisplayName("تاریخ میلادی شروع")]
 		[DisplayInfo(null, false, SystemType.DateTime, systemProprty: true)]
@@ -316,9 +401,55 @@ namespace Entities.App.Sale
 		[DisplayInfo("IsForProductionMode", true, SystemType.Boolean)]
 		public bool IsForProductionMode { get; set; }
 
+		[DisplayName("برای مرحله ساخت میباشد")]
+		[DisplayInfo("IsForProductionStepStatus", true, SystemType.Boolean)]
+		public bool IsForProductionStepStatus { get; set; }
+
 		[DisplayName("شناسه درخواست توقف")]
 		[DisplayInfo("StopRequestId", true, SystemType.Long)]
 		public long? StopRequestId { get; set; }
+	}
+
+	[Display(Name = "تاریخچه استعلام اقلام سفارش ساخت")]
+	[Table("ProductionOrderItemInquiry", Schema = "Sale")]
+	public class ProductionOrderItemInquiry : BaseEntity
+	{
+		public long ProductionOrderItemId { get; set; }
+		public ProductionOrderItem ProductionOrderItem { get; set; }
+
+		[DisplayName("وضعیت")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public ProductionOrderItemCheckStatusEnum Status { get; set; }
+
+		[DisplayName("مسئول")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public Entities.Auth.User? Responsible { get; set; }
+
+		public long? ResponsibleId { get; set; }
+
+		[DisplayName("نام مسئول")]
+		[DisplayInfo("ResponsibleName", true, SystemType.String)]
+		[MaxLength(256)]
+		public string? ResponsibleName { get; set; }
+
+		[DisplayName("تاریخ Lead Time میلادی")]
+		[DisplayInfo(null, false, SystemType.DateTime, systemProprty: true)]
+		public DateTime? LeadTimeMiladiDate { get; set; }
+
+		[DisplayName("تاریخ Lead Time شمسی")]
+		[MaxLength(30)]
+		[DisplayInfo("LeadTimeMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
+		public string? LeadTimeShamsiDate { get; set; }
+
+		[DisplayName("پیوست")]
+		[DisplayInfo(null, true, type: SystemType.File)]
+		public FileEntity? AttachmentFile { get; set; }
+
+		public long? AttachmentFileId { get; set; }
+
+		[DisplayName("کامنت")]
+		[DisplayInfo("Comment", true, SystemType.String)]
+		public string? Comment { get; set; }
 	}
 
 

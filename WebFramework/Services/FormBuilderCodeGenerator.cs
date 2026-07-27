@@ -11,7 +11,23 @@ namespace WebFramework.Services
 	{
 		GeneratedCodeResult GenerateCode(FormDefinition formDefinition);
 		Dictionary<string, string> GetFilePaths(FormDefinition formDefinition);
-		bool SaveAllFiles(FormDefinition formDefinition, GeneratedCodeResult code);
+		bool SaveAllFiles(FormDefinition formDefinition, GeneratedCodeResult code, FormBuilderSaveOptions? options = null);
+	}
+
+	public sealed class FormBuilderSaveOptions
+	{
+		public bool SaveEntity { get; init; } = true;
+		public bool SaveController { get; init; } = true;
+		public bool SaveViews { get; init; } = true;
+		public bool SaveEnums { get; init; } = true;
+
+		public static FormBuilderSaveOptions PublishArtifacts => new()
+		{
+			SaveEntity = true,
+			SaveController = false,
+			SaveViews = false,
+			SaveEnums = true
+		};
 	}
 
 	public class GeneratedCodeResult
@@ -134,43 +150,54 @@ namespace WebFramework.Services
 		return paths;
 	}
 
-		public bool SaveAllFiles(FormDefinition formDefinition, GeneratedCodeResult code)
+		public bool SaveAllFiles(FormDefinition formDefinition, GeneratedCodeResult code, FormBuilderSaveOptions? options = null)
 		{
+			options ??= new FormBuilderSaveOptions();
+
 			try
 			{
 				var paths = GetFilePaths(formDefinition);
 
-				// Save entity
-				Directory.CreateDirectory(Path.GetDirectoryName(paths["Entity"])!);
-				File.WriteAllText(paths["Entity"], code.EntityClass);
-
-				// Save controller
-				Directory.CreateDirectory(Path.GetDirectoryName(paths["Controller"])!);
-				File.WriteAllText(paths["Controller"], code.ControllerClass);
-
-				// Save views
-				Directory.CreateDirectory(Path.GetDirectoryName(paths["EditView"])!);
-				File.WriteAllText(paths["EditView"], code.EditView);
-				File.WriteAllText(paths["ListView"], code.ListView);
-
-				// Save partial views
-				foreach (var kvp in code.PartialViews)
+				if (options.SaveEntity)
 				{
-					var key = $"Partial_{kvp.Key.Replace("_", "").Replace("Partial", "")}";
-					if (paths.ContainsKey(key))
+					Directory.CreateDirectory(Path.GetDirectoryName(paths["Entity"])!);
+					File.WriteAllText(paths["Entity"], code.EntityClass);
+				}
+
+				if (options.SaveController)
+				{
+					Directory.CreateDirectory(Path.GetDirectoryName(paths["Controller"])!);
+					File.WriteAllText(paths["Controller"], code.ControllerClass);
+				}
+				else if (File.Exists(paths["Controller"]))
+				{
+					File.Delete(paths["Controller"]);
+				}
+
+				if (options.SaveViews)
+				{
+					Directory.CreateDirectory(Path.GetDirectoryName(paths["EditView"])!);
+					File.WriteAllText(paths["EditView"], code.EditView);
+					File.WriteAllText(paths["ListView"], code.ListView);
+
+					foreach (var kvp in code.PartialViews)
 					{
-						File.WriteAllText(paths[key], kvp.Value);
+						var key = $"Partial_{kvp.Key.Replace("_", "").Replace("Partial", "")}";
+						if (paths.ContainsKey(key))
+							File.WriteAllText(paths[key], kvp.Value);
 					}
 				}
 
-				// Save enum classes
-				foreach (var kvp in code.EnumClasses)
+				if (options.SaveEnums)
 				{
-					var key = $"Enum_{kvp.Key}";
-					if (paths.ContainsKey(key))
+					foreach (var kvp in code.EnumClasses)
 					{
-						Directory.CreateDirectory(Path.GetDirectoryName(paths[key])!);
-						File.WriteAllText(paths[key], kvp.Value);
+						var key = $"Enum_{kvp.Key}";
+						if (paths.ContainsKey(key))
+						{
+							Directory.CreateDirectory(Path.GetDirectoryName(paths[key])!);
+							File.WriteAllText(paths[key], kvp.Value);
+						}
 					}
 				}
 
@@ -444,10 +471,16 @@ namespace WebFramework.Services
 			var listPath = $"\\Views\\{viewFolder}\\List.cshtml";
 			var editPath = $"\\Views\\{viewFolder}\\Edit.cshtml";
 
+			sb.AppendLine("using System;");
+			sb.AppendLine("using System.IO;");
+			sb.AppendLine("using System.Linq;");
+			sb.AppendLine("using System.Threading;");
+			sb.AppendLine("using System.Threading.Tasks;");
 			sb.AppendLine("using Common.Attributes;");
 			sb.AppendLine("using Common.Auth.Enums;");
 			sb.AppendLine("using Data.Contracts;");
 			sb.AppendLine("using Data.SystemAuth;");
+			sb.AppendLine("using Microsoft.AspNetCore.Hosting;");
 			sb.AppendLine("using Microsoft.AspNetCore.Mvc;");
 			sb.AppendLine("using Microsoft.EntityFrameworkCore;");
 			sb.AppendLine("using Entities.Base.DataTable;");
@@ -628,9 +661,9 @@ namespace WebFramework.Services
 			var sb = new StringBuilder();
 			var entityName = formDefinition.EntityName;
 			var namespacePrefix = formDefinition.Namespace ?? $"Entities.App.{formDefinition.Module}";
+			var entityFullName = $"{namespacePrefix}.{entityName}";
 
-			sb.AppendLine($"@using {namespacePrefix};");
-			sb.AppendLine($"<datatableprofile entity-Type=\"typeof({entityName})\" ></datatableprofile>");
+			sb.AppendLine($"<datatableprofile entity-name=\"{entityFullName}\"></datatableprofile>");
 
 			return sb.ToString();
 		}

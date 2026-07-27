@@ -12,10 +12,7 @@
 	{
 		canEditDocument =(bool) ViewData["CanEditDocument"];
 	}
-
-
-
-
+	 
 }
 <div class="card my-1">
 	<div class="form-action-buttons">
@@ -28,6 +25,9 @@
 							action-name="addComment" title="افزودن کامنت"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="ki-abstract-27 ki-outline"
 							action-name="addReplySheet" title="افزودن ReplySheet"></form-action-button>
+
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="ki-arrow-mix ki-outline"
+							action-name="editStatus" title="اصلاح وضعیت"></form-action-button>
 		</form-action-buttons>
 	</div>
 </div>
@@ -152,7 +152,10 @@
 </div>
 
 <script>
-
+	debugger
+	    if(!AppSdk.hasRole("Edms.Document.ChangeStatus"))
+		 $(self.FormActionButtons.editStatus.element).disabled(true)
+		 
 	 
 	function getGroupKey() {
 		// 1) Prefer current editor values (after partial load)
@@ -235,7 +238,7 @@
 		});
 	}
 
-	function saveCurrentRevision($btnAction , replySheet =false) {
+	function saveCurrentRevision($btnAction , replySheet = false) {
 		const $editor = $$('#DocumentRevisionEditor');
 		const canEditDocument = '@canEditDocument'
 		if ($editor.length === 0) return toastr.error('فرم ریویژن یافت نشد.', 'خطا');
@@ -405,7 +408,7 @@
 		$$('[data-header-document-code-wrapper]').hide();
 	});
 	
-		self.FormActionButtons.addComment.onclick(function () {
+	 self.FormActionButtons.addComment.onclick(function () {
 			
 			const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
 
@@ -460,4 +463,64 @@
 
 
 	})
+
+	self.FormActionButtons.editStatus.onclick(function () {
+		if(!AppSdk.hasRole("Edms.Document.ChangeStatus"))
+			return toastr.error("عدم دسترسی");
+
+
+					const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
+
+			if(!id){
+				error2("شناسه مدرک جهت افزودن کامنت یافت نشد.");
+				return;
+			}
+
+			var currentStatus =$$("#docStatus").val() ;
+			var projectId = $$("#projectId").val() ;
+
+		page.getPartialView(`DocumentCommentPartialEdit?documentId=${id}&projectId=${projectId}&currentStatus=${currentStatus}&canEdit=true&editStatus=true`, function (v) {
+
+			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
+		let $conf =	$.confirm({
+				title: 'افزودن کامنت',
+				content: $content,
+				type: 'green',
+				columnClass: "col-md-12",
+				typeAnimated: true,
+				buttons: {
+					acc: {
+						text: 'افزودن کامنت',
+						btnClass: 'btn  btn-success',
+						action: async function () {
+
+						 let model =this.$content.dataBind().comments[0];
+						var r =  await  $$.post("AddEditComment",model);
+						if(!r.isSuccess)
+						{
+							error2(r.message);
+							return  false
+						}
+
+						reloadRevisionsList(getCurrentRevisionId());
+						toastr.success("کامنت جدید به مدرک اضافه شد")
+						$conf.close();
+						appController.closeCurrentPage();
+
+						 return false;
+						}
+					},
+					close:
+					{
+						text: 'بستن',
+						btnClass: 'btn  btn-danger',
+						action: function () {
+						}
+					}
+				}
+			});
+
+			initFileUploaders($content)
+		});
+	});
 </script>

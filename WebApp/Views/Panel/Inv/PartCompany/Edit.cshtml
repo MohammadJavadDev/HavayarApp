@@ -38,7 +38,7 @@
 				{
 					Id = c.Id, Party_FullName = c.Party.FullName
 				},
-				c => new { c.Party },
+				c => new { c.Party.FullName },
 				"{Party.FullName}",
 				"SupplierId",
 				"SupplierName",

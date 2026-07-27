@@ -11,14 +11,17 @@ public class JobLogger : IJobLogger
 {
 	private readonly string _connectionString;
 	private readonly ILogger<JobLogger> _logger;
+	private readonly JobLogBroadcastBuffer _logBroadcastBuffer;
 
-	// Thread-safe storage for current history ID
+	// Thread-safe storage for current history / schedule IDs
 	private readonly AsyncLocal<long?> _currentHistoryId = new AsyncLocal<long?>();
+	private readonly AsyncLocal<int?> _currentScheduleId = new AsyncLocal<int?>();
 
-	public JobLogger(IConfiguration configuration, ILogger<JobLogger> logger)
+	public JobLogger(IConfiguration configuration, ILogger<JobLogger> logger, JobLogBroadcastBuffer logBroadcastBuffer)
 	{
 		_connectionString = configuration.GetConnectionString("db");
 		_logger = logger;
+		_logBroadcastBuffer = logBroadcastBuffer;
 	}
 
 	/// <summary>
@@ -29,12 +32,23 @@ public class JobLogger : IJobLogger
 		_currentHistoryId.Value = historyId;
 	}
 
+	public void SetCurrentHistoryId(long historyId, int scheduleId)
+	{
+		_currentHistoryId.Value = historyId;
+		_currentScheduleId.Value = scheduleId;
+	}
+
 	/// <summary>
 	/// Gets the current job history ID
 	/// </summary>
 	public long GetCurrentHistoryId()
 	{
 		return _currentHistoryId.Value ?? 0;
+	}
+
+	public int GetCurrentScheduleId()
+	{
+		return _currentScheduleId.Value ?? 0;
 	}
 
 	public async Task LogInfoAsync(string message, long jobHistoryId, CancellationToken cancellationToken = default)
@@ -251,6 +265,18 @@ public class JobLogger : IJobLogger
 					}
 				}
 			}
+
+			if (jobHistoryId > 0)
+			{
+				var scheduleId = GetCurrentScheduleId();
+				if (scheduleId <= 0)
+					scheduleId = await ResolveScheduleIdAsync(jobHistoryId, cancellationToken).ConfigureAwait(false);
+
+				if (scheduleId > 0)
+				{
+					_logBroadcastBuffer.Enqueue(jobHistoryId, scheduleId, logLevel, message, now);
+				}
+			}
 		}
 		catch (Exception ex)
 		{
@@ -259,5 +285,33 @@ public class JobLogger : IJobLogger
 			// Fallback logging
 			Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [LOG_ERROR] Failed to log: {ex.Message}");
 		}
+	}
+
+	private async Task<int> ResolveScheduleIdAsync(long jobHistoryId, CancellationToken cancellationToken)
+	{
+		try
+		{
+			using var connection = new SqlConnection(_connectionString);
+			await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+			using var command = new SqlCommand(
+				"SELECT ScheduleId FROM [system].[JobHistory] WHERE Id = @Id",
+				connection);
+			command.Parameters.Add(new SqlParameter("@Id", SqlDbType.BigInt) { Value = jobHistoryId });
+
+			var result = await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+			if (result != null && result != DBNull.Value)
+			{
+				var scheduleId = Convert.ToInt32(result);
+				_currentScheduleId.Value = scheduleId;
+				return scheduleId;
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogDebug(ex, "Could not resolve ScheduleId for history {HistoryId}", jobHistoryId);
+		}
+
+		return 0;
 	}
 }

@@ -2,6 +2,7 @@
 using Common.Auth.Enums;
 using Common.Utilities;
 using Entities.Base.ImportDefinitions;
+using Entities.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -22,10 +23,12 @@ namespace WebFramework.Controllers
 	public class ImportDefinitionController  : BaseController 
 	{
 		private readonly IImportRepository _repo;
+		private readonly IEntityMetadataCache _entityMetadataCache;
 
-		public ImportDefinitionController(IImportRepository repo)
+		public ImportDefinitionController(IImportRepository repo, IEntityMetadataCache entityMetadataCache)
 		{
 			_repo = repo;
+			_entityMetadataCache = entityMetadataCache;
 		}
 
 		[HttpGet("/panel/importDefinition/list")]
@@ -108,6 +111,40 @@ namespace WebFramework.Controllers
 			return  Ok(columns);
 		}
 
+		[HttpGet("/panel/importDefinition/getAvailableEntities")]
+		[ActionDisplayName("دریافت موجودیت‌ها", ActionAccessType.Api)]
+		public IActionResult GetAvailableEntities()
+		{
+			var entities = _entityMetadataCache.GetAll()
+				.Select(e => new
+				{
+					name = e.EntityName,
+					fullName = e.EntityFullName,
+					displayName = e.DisplayName,
+					schema = e.Schema,
+					tableName = e.TabelName
+				})
+				.OrderBy(e => e.displayName)
+				.ToList();
+
+			return Ok(entities);
+		}
+
+		[HttpPost("/panel/importDefinition/generateFromEntity")]
+		[ActionDisplayName("تولید از موجودیت", ActionAccessType.Api)]
+		public IActionResult GenerateFromEntity([FromBody] GenerateFromEntityRequest request)
+		{
+			if (string.IsNullOrWhiteSpace(request?.EntityFullName))
+				throw new Exception("موجودیت انتخاب نشده است.");
+
+			var entityMeta = _entityMetadataCache.Get(request.EntityFullName);
+			if (entityMeta == null)
+				throw new Exception("موجودیت یافت نشد.");
+
+			var result = ImportDefinitionEntityGenerator.Generate(entityMeta);
+			return Ok(result);
+		}
+
 		// -------------------------------------------------------
 		private ImportDefinitionViewModel BuildViewModel(ImportDefinition def) =>
 		    new ImportDefinitionViewModel
@@ -126,6 +163,11 @@ namespace WebFramework.Controllers
 			public List<Nullable<bool>> ColIsSystemVariable { get; set; }
 			public List<string> ColSystemVariable { get; set; }
 			public List<Nullable<bool>> ColIsRequired { get; set; }
+		}
+
+		public class GenerateFromEntityRequest
+		{
+			public string EntityFullName { get; set; } = "";
 		}
 	}
 }

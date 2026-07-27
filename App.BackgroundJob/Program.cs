@@ -1,19 +1,21 @@
 using Data;
+using Data.Actions;
 using Data.Contracts;
 using Data.Repositories;
 using Data.Services;
+using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Auth;
 using Entities.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using Services.Auth;
-using Services.FileServices;
+ using Services.FileServices;
 using Services.Job;
-using Services.NotifitactionBuilderServices;
-using System.Text;
-using WebFramework.Initializes;
+ using System.Text;
+using WebFramework.Services;
 using Z.EntityFramework.Extensions;
 
 try
@@ -51,19 +53,44 @@ builder.Services.AddSingleton<EntityMetadataCache>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<IOnlineUserService, RedisOnlineUserService>();
 
+
+	builder.Services.AddSingleton<DynamicActionDescriptorChangeProvider>();
+	builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Infrastructure.IActionDescriptorChangeProvider>(
+		sp => sp.GetRequiredService<DynamicActionDescriptorChangeProvider>());
+	builder.Services.AddSingleton<IDynamicTypeRegistry, Services.DynamicCompilation.DynamicTypeRegistry>();
+	builder.Services.AddSingleton<Services.DynamicCompilation.IDynamicCompilationService, Services.DynamicCompilation.DynamicCompilationService>();
+	builder.Services.AddSingleton<Services.DynamicCompilation.IFormDefinitionMetadataBuilder, Services.DynamicCompilation.FormDefinitionMetadataBuilder>();
+	builder.Services.AddSingleton<IDynamicControllerRegistrar, DynamicControllerRegistrar>();
+	builder.Services.AddSingleton<Microsoft.AspNetCore.Mvc.Abstractions.IActionDescriptorProvider, ExcludeShadowedFormControllersProvider>();
+	builder.Services.AddSingleton<Microsoft.EntityFrameworkCore.Infrastructure.IModelCacheKeyFactory, DynamicModelCacheKeyFactory>();
+
 builder.Services.AddHostedService<JobDiscoveryService>();
 builder.Services.AddHostedService<JobWorkerWithLogging>();
 
 builder.Services.AddScoped<IFileService, FileService>();
+ 
+	builder.Services.AddScoped<IQueryBuilderService, QueryBuilderService>();
+
+	builder.Services.AddEntityActions(
+	typeof(Program).Assembly
+	);
 
 builder.Services.AddScoped<ISdk, Sdk>();
+builder.Services.AddScoped<IQueryService, QueryService>();
 builder.Services.AddScoped<IDataTableQueryBuilder, DataTableQueryBuilder>();
+builder.Services.AddScoped<IDatabaseSchemaService, DatabaseSchemaService>();
+builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 builder.Services.AddJobServices();
 
 // Register JobLogger service
 builder.Services.AddScoped<IJobLogger, JobLogger>();
+
+// Realtime: replace NoOp with SignalR notifier (single-instance app, no Redis backplane)
+builder.Services.AddSignalR();
+builder.Services.RemoveAll<IJobRealtimeNotifier>();
+builder.Services.AddSingleton<IJobRealtimeNotifier, App.BackgroundJob.Services.SignalRJobRealtimeNotifier>();
 
 // Register Authentication services
 builder.Services.AddScoped<IUserService, UserService>();
@@ -88,6 +115,26 @@ builder.Services
             ValidIssuer = AppSettings.Issuer,
             ValidAudience = AppSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(AppSettings.PrivateKey))
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                {
+                    context.Token = accessToken;
+                }
+                else if (string.IsNullOrEmpty(context.Token) &&
+                         context.Request.Cookies.TryGetValue("JwtToken", out var cookieToken))
+                {
+                    context.Token = cookieToken;
+                }
+
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -151,6 +198,8 @@ builder.Services.AddAuthorization(options =>
 
 
 	InitializeApplication(app);
+
+	app.MapHub<App.BackgroundJob.Hubs.JobMonitorHub>("/hubs/jobs");
 
 	app.MapControllerRoute(
 	    name: "default",

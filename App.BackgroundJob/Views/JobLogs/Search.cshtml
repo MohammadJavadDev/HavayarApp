@@ -1,87 +1,91 @@
+@using Common.Utilities
 @model IEnumerable<Entities.Base.Job.JobLog>
 @{
-    ViewData["Title"] = "Search Job Logs";
-    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = ViewData["Title"] ?? "جستجوی لاگ‌ها";
+    ViewData["Icon"] = ViewData["Icon"] ?? "search";
 }
 
-<h2>Search Job Logs</h2>
+@await Html.PartialAsync("_PageHeader")
 
 <div class="card mb-4">
- 
     <div class="card-body">
-        <form method="get" class="form-row">
-            <div class="form-group col-md-4">
-                <label for="query">Search Text</label>
-                <input type="text" class="form-control" id="query" name="query" 
-                       placeholder="Search in messages, details, exceptions..." value="@ViewData["query"]">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="query" class="form-label">متن جستجو</label>
+                <input type="text" class="form-control" id="query" name="query"
+                       placeholder="پیام، جزئیات، استثنا..." value="@ViewData["query"]">
             </div>
-            
-            <div class="form-group col-md-2">
-                <label for="scheduleId">Job Schedule</label>
-                <select class="form-control" id="scheduleId" name="scheduleId">
-                    <option value="">All Jobs</option>
-                    @foreach (var schedule in ViewBag.Schedules as IEnumerable<Entities.Base.Job.JobSchedule>)
+            <div class="col-md-2">
+                <label for="scheduleId" class="form-label">زمان‌بندی</label>
+                <select class="form-select" id="scheduleId" name="scheduleId">
+                    <option value="">همه</option>
+                    @foreach (var schedule in ViewBag.Schedules as IEnumerable<Entities.Base.Job.JobSchedule> ?? Enumerable.Empty<Entities.Base.Job.JobSchedule>())
                     {
                         <option value="@schedule.Id" selected="@(schedule.Id.ToString() == ViewData["scheduleId"]?.ToString())">
-                            @(schedule.JobDefinition?.DisplayName ?? "Unknown Job") (@schedule.Id)
+                            @(schedule.JobDefinition?.DisplayName ?? "Unknown") (@schedule.Id)
                         </option>
                     }
                 </select>
             </div>
-
-            <div class="form-group col-md-2">
-                <label for="fromDate">From Date</label>
-                <input type="datetime-local" class="form-control" id="fromDate" name="fromDate" 
+            <div class="col-md-2">
+                <label for="fromDate" class="form-label">از تاریخ</label>
+                <input type="datetime-local" class="form-control" id="fromDate" name="fromDate"
                        value="@(ViewData["fromDate"] != null ? Convert.ToDateTime(ViewData["fromDate"]).ToString("yyyy-MM-ddTHH:mm") : "")">
             </div>
-
-            <div class="form-group col-md-2">
-                <label for="toDate">To Date</label>
-                <input type="datetime-local" class="form-control" id="toDate" name="toDate" 
+            <div class="col-md-2">
+                <label for="toDate" class="form-label">تا تاریخ</label>
+                <input type="datetime-local" class="form-control" id="toDate" name="toDate"
                        value="@(ViewData["toDate"] != null ? Convert.ToDateTime(ViewData["toDate"]).ToString("yyyy-MM-ddTHH:mm") : "")">
             </div>
-
-            <div class="form-group col-md-2 d-flex align-items-end">
-                <button type="submit" class="btn btn-primary btn-block">
-                    <i class="fas fa-search"></i> Search
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-1"></i> جستجو
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-@if (Model.Any())
+@if (Model != null && Model.Any())
 {
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <h4>Search Results (@Model.Count() results)</h4>
-            <a href="@Url.Action("Index", "JobLogs")" class="btn btn-secondary btn-sm">
-                <i class="fas fa-arrow-left"></i> Back to History
+            <h5 class="mb-0">نتایج (@Model.Count())</h5>
+            <a href="@Url.Action("Index", "JobLogs")" class="btn btn-secondary btn-sm js-soft-nav">
+                <i class="fas fa-arrow-right me-1"></i> بازگشت
             </a>
         </div>
-        <div class="card-body">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-striped table-bordered">
-                    <thead>
+                <table class="table table-striped table-hover mb-0">
+                    <thead class="table-dark">
                         <tr>
-                            <th>Timestamp</th>
-                            <th>Job</th>
-                            <th>Level</th>
-                            <th>Message</th>
-                            <th>Actions</th>
+                            <th>زمان</th>
+                            <th>جاب</th>
+                            <th>سطح</th>
+                            <th>پیام</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach (var log in Model)
                         {
+                            var level = (log.LogLevel ?? "Info").ToLowerInvariant();
+                            var badge = level switch
+                            {
+                                "error" => "bg-danger",
+                                "warning" => "bg-warning text-dark",
+                                "debug" => "bg-secondary",
+                                _ => "bg-info"
+                            };
                             <tr>
-                                <td>@log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                                <td>@log.JobHistory?.JobSchedule?.JobDefinition?.DisplayName</td>
-                                <td><span class="badge @GetLogLevelBadgeClass(log.LogLevel)">@log.LogLevel</span></td>
+                                <td dir="ltr">@log.Timestamp.ToShamsiDateTime()</td>
+                                <td>@(log.JobHistory?.JobSchedule?.JobDefinition?.DisplayName ?? "—")</td>
+                                <td><span class="badge @badge">@log.LogLevel</span></td>
                                 <td>@log.Message</td>
                                 <td>
-                                    <a href="@Url.Action("Details", "JobLogs", new { id = log.JobHistoryId })#log-@log.Id" 
-                                       class="btn btn-sm btn-info" title="View full details">
+                                    <a href="@Url.Action("Details", "JobLogs", new { id = log.JobHistoryId })"
+                                       class="btn btn-sm btn-outline-primary js-soft-nav" title="جزئیات">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
@@ -93,38 +97,15 @@
         </div>
     </div>
 }
-else if (Context.Request.Method == "POST")
+else if (!string.IsNullOrEmpty(ViewData["query"]?.ToString()) || ViewData["scheduleId"] != null || ViewData["fromDate"] != null)
 {
     <div class="alert alert-info">
-        <i class="fas fa-info-circle"></i> No logs found matching your search criteria.
+        <i class="fas fa-info-circle me-1"></i> نتیجه‌ای با این فیلترها یافت نشد.
     </div>
 }
 else
 {
     <div class="alert alert-secondary">
-        <i class="fas fa-search"></i> Enter search criteria and click Search to find logs.
+        <i class="fas fa-search me-1"></i> معیار جستجو را وارد کنید.
     </div>
-}
-
-@section Scripts {
-    <script>
-        // Auto-focus on search input
-        $(document).ready(function() {
-            $('#query').focus();
-        });
-    </script>
-}
-
-@functions {
-    private string GetLogLevelBadgeClass(string logLevel)
-    {
-        switch (logLevel.ToLower())
-        {
-            case "error": return "badge-danger";
-            case "warning": return "badge-warning";
-            case "info": return "badge-info";
-            case "debug": return "badge-secondary";
-            default: return "badge-info";
-        }
-    }
 }

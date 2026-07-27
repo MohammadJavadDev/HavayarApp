@@ -16,9 +16,19 @@ namespace Services.Job
         void SetCurrentHistoryId(long historyId);
 
         /// <summary>
+        /// Sets the current job history and schedule IDs for logging / realtime context
+        /// </summary>
+        void SetCurrentHistoryId(long historyId, int scheduleId);
+
+        /// <summary>
         /// Gets the current job history ID
         /// </summary>
         long GetCurrentHistoryId();
+
+        /// <summary>
+        /// Gets the current job schedule ID
+        /// </summary>
+        int GetCurrentScheduleId();
         /// <summary>
         /// Logs an informational message
         /// </summary>

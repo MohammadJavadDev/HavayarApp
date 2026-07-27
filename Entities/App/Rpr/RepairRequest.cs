@@ -3,7 +3,7 @@ using Entities.App.FIN;
 using Entities.App.Gnr;
 using Entities.App.Hcm;
 using Entities.App.Inv;
-using Entities.App.Prp.Enums;
+using Entities.App.Rpr.Enums;
 using Entities.App.Sale;
 using Entities.App.SLS;
 using Entities.Auth;
@@ -12,7 +12,7 @@ using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Entities.App.Prp
+namespace Entities.App.Rpr
 {
     [Display(Name = "درخواست تعمیرات")]
     [Table("RepairRequest", Schema = "Rpr")]
@@ -102,7 +102,18 @@ namespace Entities.App.Prp
 
         [DisplayName("تاریخ شمسی تحویل به انبار ")]
         [DisplayInfo(null, true, type: SystemType.DateShamsi)]
-        public string? DeliveryWarehouseDateShamsi { get; set; } = null;
+        public string? DeliveryWarehouseShamsiDate { get; set; } = null;
+
+
+        [DisplayName("تاریخ میلادی ورود به انبار")]
+        [DisplayInfo(null, true, type: SystemType.Date)]
+        public DateTime? OpenWarehouseMiladiDate { get; set; } = null;
+
+        [DisplayName("تاریخ شمسی ورود به انبار ")]
+        [DisplayInfo(null, true, type: SystemType.DateShamsi)]
+        public string? OpenWarehouseShamsiDate { get; set; } = null;
+
+
 
 
         [DisplayName("کسری قطعات")]
@@ -183,12 +194,12 @@ namespace Entities.App.Prp
 
         [DisplayName("تاریخ میلادی تایید")]
         [DisplayInfo(null, false, SystemType.DateTime)]
-        public DateTime? ConfirmMiladiDateTime { get; set; } = null;
+        public DateTime? ConfirmMiladiDate { get; set; } = null;
 
 
         [DisplayName("تاریخ شمسی تایید")]
         [DisplayInfo(null, false, SystemType.DateTimeShamsi)]
-        public string? ConfirmShamsiDateTime { get; set; } = null;
+        public string? ConfirmShamsiDate { get; set; } = null;
 
 
 
@@ -248,7 +259,16 @@ namespace Entities.App.Prp
         /// </summary>
         [DisplayName("مدت حضور در تعمیرات")]
         [DisplayInfo(null, false, SystemType.Int)]
-        public int? RepairsDuration { get; set; }
+        public string? RepairsDuration { get; set; }
+
+        [DisplayName("تاخیر در ارسال پیش بررسی")]
+        [DisplayInfo(null, false, SystemType.Int)]
+        public string? DelaySendingPreview { get; set; }
+
+
+        [DisplayName("تاخیر در تاریخ توافقی")]
+        [DisplayInfo(null, false, SystemType.Int)]
+        public string? DelayTheAgreedDate { get; set; }
 
 
 
@@ -462,7 +482,7 @@ namespace Entities.App.Prp
 
         [DisplayName("2تاریخ میلادی پیش بررسی")]
         [DisplayInfo(null, true, type: SystemType.Date)]
-        public DateTime? PreChec2MiladikDate { get; set; } = null;
+        public DateTime? PreChec2MiladiDate { get; set; } = null;
 
         [DisplayName("2تاریخ شمسی پیش بررسی")]
         [DisplayInfo(null, true, type: SystemType.DateShamsi)]
@@ -503,11 +523,11 @@ namespace Entities.App.Prp
         [DisplayInfo(null, false, SystemType.Boolean)]
         public bool? IsConfirmed2 { get; set; }
 
-        [DisplayName("تاریخ میلادی توافقی")]
+        [DisplayName("تاریخ میلادی ائافقی ")]
         [DisplayInfo(null, false, SystemType.Date)]
         public DateTime? AgreedMiladiDate { get; set; } = null;
 
-        [DisplayName("تاریخ میلادی شمسی")]
+        [DisplayName(" تاریخ  شمسی توافقی ")]
         [DisplayInfo(null, false, SystemType.DateShamsi)]
         public string? AgreedShamsiDate { get; set; } = null;
 
@@ -545,9 +565,9 @@ namespace Entities.App.Prp
         public virtual ICollection<EstimatedCost> EstimatedCost { get; set; }
 
 
-        [DisplayName("پیوست تعمیرات")]
-        [DisplayInfo(null, true, type: SystemType.ListEntity)]
-        public virtual ICollection<RepairRequestAttachment> RepairRequestAttachment { get; set; }
+        //[DisplayName("پیوست تعمیرات")]
+        //[DisplayInfo(null, true, type: SystemType.ListEntity)]
+        //public virtual ICollection<RepairRequestAttachment> RepairRequestAttachment { get; set; }
 
 
         [DisplayName("توضیحات درخواست تعمیر")]
@@ -571,6 +591,12 @@ namespace Entities.App.Prp
         [DisplayName("نفر ساعت")]
         [DisplayInfo(null, true, type: SystemType.ListEntity)]
         public virtual ICollection<RepairRequestManHours> RepairRequestManHours { get; set; }
+
+
+        [DisplayName("فایل تعمیرات")]
+        [DisplayInfo(null, true, type: SystemType.File, fileTypes: ".jpg,.png")]
+        public FileEntity? RepairRequestsAttachment { get; set; }
+        public long? RepairRequestsAttachmentId { get; set; }
 
 
     }

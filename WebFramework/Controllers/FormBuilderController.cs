@@ -2,6 +2,7 @@ using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Entities.EntityMetadatas;
 using Data.Contracts;
+using Data.Services;
 using Entities.Base;
 using Entities.Base.DataTable;
 using Entities.Base.FormBuilder;
@@ -28,6 +29,8 @@ namespace WebFramework.Controllers
 		private readonly IEnvironmentService _webHostEnvironment;
 		private readonly Data.ApplicationDbContext _dbContext;
 		private readonly IDatabaseSchemaService _databaseSchemaService;
+		private readonly IFormBuilderPublishService _publishService;
+		private readonly IPageBuilderService _pageBuilderService;
 
 		public FormBuilderController(
 			IUnitOfWork unitOfWork,
@@ -35,7 +38,9 @@ namespace WebFramework.Controllers
 			IEntityMetadataCache entityMetadataCache,
 			IEnvironmentService webHostEnvironment,
 			Data.ApplicationDbContext dbContext,
-			IDatabaseSchemaService databaseSchemaService)
+			IDatabaseSchemaService databaseSchemaService,
+			IFormBuilderPublishService publishService,
+			IPageBuilderService pageBuilderService)
 		{
 			_unitOfWork = unitOfWork;
 			_codeGenerator = codeGenerator;
@@ -43,6 +48,8 @@ namespace WebFramework.Controllers
 			_webHostEnvironment = webHostEnvironment;
 			_dbContext = dbContext;
 			_databaseSchemaService = databaseSchemaService;
+			_publishService = publishService;
+			_pageBuilderService = pageBuilderService;
 		}
 
 		[HttpPost("[action]")]
@@ -178,6 +185,9 @@ namespace WebFramework.Controllers
 						.ThenInclude(p => p.ChildProperties)
 							.ThenInclude(cp => cp.EnumOptions)
 				.FirstOrDefaultAsync(f => f.Id == savedFormDefinition.Id, cn);
+
+			if (result != null)
+				await _pageBuilderService.EnsureFormPagesAsync(result, cancellationToken: cn);
 
 			return Ok(result);
 		}
@@ -1212,7 +1222,12 @@ namespace WebFramework.Controllers
 		{
 			var model = _unitOfWork.Repository<FormDefinition>().TableNoTracking.FirstOrDefault(c => c.Id == id);
 			if (model != null)
+			{
+				if (model.IsPublished)
+					await _publishService.UnpublishAsync(id, cn);
+
 				await _unitOfWork.Repository<FormDefinition>().DeleteAsync(model, cn, true);
+			}
 			return Ok();
 		}
 
@@ -2170,6 +2185,47 @@ Return ONLY the Persian display name."
 			}
 		}
 
+		[HttpPost("[action]")]
+		[ActionDisplayName("انتشار آنلاین", ActionAccessType.Api)]
+		public async Task<IActionResult> Publish([FromBody] PublishFormRequest request, CancellationToken cn)
+		{
+			var result = await _publishService.PublishAsync(request.FormDefinitionId, cn);
+			if (!result.Success)
+				return StatusCode(500, result);
+
+			return Ok(result);
+		}
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("انتشار مجدد", ActionAccessType.Api)]
+		public async Task<IActionResult> Republish([FromBody] PublishFormRequest request, CancellationToken cn)
+		{
+			var result = await _publishService.RepublishAsync(request.FormDefinitionId, cn);
+			if (!result.Success)
+				return StatusCode(500, result);
+
+			return Ok(result);
+		}
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("لغو انتشار", ActionAccessType.Api)]
+		public async Task<IActionResult> Unpublish([FromBody] PublishFormRequest request, CancellationToken cn)
+		{
+			var result = await _publishService.UnpublishAsync(request.FormDefinitionId, cn);
+			if (!result.Success)
+				return StatusCode(500, result);
+
+			return Ok(result);
+		}
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("وضعیت انتشار", ActionAccessType.Api)]
+		public async Task<IActionResult> PublishStatus(long id, CancellationToken cn)
+		{
+			var result = await _publishService.GetPublishStatusAsync(id, cn);
+			return Ok(result);
+		}
+
 		#region Database Import Endpoints
 
 		/// <summary>
@@ -2462,6 +2518,11 @@ Return ONLY the Persian display name."
 	{
 		public long FormDefinitionId { get; set; }
 		public bool OverwriteExisting { get; set; }
+	}
+
+	public class PublishFormRequest
+	{
+		public long FormDefinitionId { get; set; }
 	}
 
 	public class LoadFromEntityRequest

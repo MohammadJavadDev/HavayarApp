@@ -1,13 +1,19 @@
+using Azure.Core;
 using Common.Attributes;
 using Common.Auth.Enums;
+using Common.Utilities;
 using Data.Contracts;
 using Data.SystemAuth;
+using Entities.App.Bom;
+using Entities.App.Inv;
+using Entities.App.Inv.Enums;
+using Entities.Base;
+using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Entities.Base.DataTable;
+using System.Linq;
 using WebFramework.Filtters;
 using WebFramework.Page;
-using Entities.App.Inv;
 
 namespace WebApp.Controllers.Dynamic
 {
@@ -126,6 +132,97 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult PartDocumentPartial()
 		{
 			return PartialView(@"\Views\Panel\Inv\Part\_PartDocumentPartial.cshtml");
+		}
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> PartDocumentInfo(long? id)
+		{
+			// Repositories
+			var partDocumentRepo = unitOfWork.Repository<PartDocument>();
+			var fileEntityRepo = unitOfWork.Repository<FileEntity>();
+			var productFormulRepo = unitOfWork.Repository<ProductFormul>();
+			var formulItemRepo = unitOfWork.Repository<ProductFormulItem>();
+			var partRepo = unitOfWork.Repository<Part>();
+
+			// 1. Subquery: maximum Id per (PartId, Type)
+			var maxIds = partDocumentRepo.TableNoTracking
+				.Where(c=>c.PartId == id)
+			    .GroupBy(pd => new { pd.PartId, pd.Type })
+			    .Select(g => new
+			    {
+				    g.Key.PartId,
+				    g.Key.Type,
+				    MaxId = g.Max(pd => pd.Id)
+			    });
+
+			// 2. CTE equivalent: latest attachment per part+type (joined with FileEntity)
+			var lastAttachments = from pd in partDocumentRepo.TableNoTracking
+							  join fe in fileEntityRepo.TableNoTracking
+								 on pd.AttachmentId equals fe.Id
+							  join max in maxIds
+								 on new { pd.PartId, pd.Type } equals new { max.PartId, max.Type }
+							  where pd.Id == max.MaxId
+							  select new
+							  {
+								  pd.AttachmentId,
+								  pd.PartId,
+								  fe.OriginalName,
+								  fe.Size,
+								  pd.CreatedByName,
+								  pd.CreatedOnShamsiDateTime,
+								  pd.ModifiedDateShamsiDateTime,
+								  pd.ModifiedByName,
+								  pd.Type,
+								  pd.Main
+							  };
+
+
+			var PartDocumentType = EnumExtensions.GetEnumValuesWithDisplayNames<PartDocumentTypeEnum>();
+
+			// 3. Main query
+			var query = from bf in productFormulRepo.TableNoTracking
+					  join bfi in formulItemRepo.TableNoTracking
+						 on bf.Id equals bfi.ProductFormulId into bfiGroup
+					  from bfi in bfiGroup.DefaultIfEmpty()   // LEFT JOIN
+					  from v in lastAttachments               // INNER JOIN with CTE (becomes cross + where)
+					  join p in partRepo.TableNoTracking
+						 on bf.ProductId equals p.Id         // INNER JOIN Part
+					  where v.PartId == bf.ProductId || (bfi != null && v.PartId == bfi.PartId)
+					  select new  
+					  {
+						  Code = p.Code,
+						  Name = p.Name,
+						  OriginalName = v.OriginalName,
+						  Size = v.Size,
+						  CreatedByName = v.CreatedByName,
+						  CreatedOnShamsiDateTime = v.CreatedOnShamsiDateTime,
+						  ModifiedDateShamsiDateTime = v.ModifiedDateShamsiDateTime,
+						  ModifiedByName = v.ModifiedByName,
+						  Type = v.Type,
+						  Main = v.Main,
+						  AttachmentId = v.AttachmentId
+					  };
+
+			// Execute with DISTINCT
+			var result = await query.Distinct().ToListAsync();
+
+			var resultModel = result.Select(v=> new
+			{
+				Code = v.Code,
+				Name = v.Name,
+				OriginalName = v.OriginalName,
+				Size = v.Size,
+				CreatedByName = v?.CreatedByName ?? "-",
+				CreatedOnShamsiDateTime = v.CreatedOnShamsiDateTime,
+				ModifiedDateShamsiDateTime = v.ModifiedDateShamsiDateTime,
+				ModifiedByName = v?.ModifiedByName ?? "-",
+				Type = PartDocumentType.FirstOrDefault(c => c.Value == (int)v.Type).Text,
+				Main = (v.Main == true ? "بلی" : "خیر"),
+				AttachmentId = v.AttachmentId
+			});
+
+
+			return Ok(resultModel);
 		}
 	}
 }

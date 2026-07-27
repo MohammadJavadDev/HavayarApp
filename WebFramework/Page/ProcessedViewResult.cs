@@ -1,11 +1,13 @@
 ﻿using Common.Utilities;
 using Data.Repositories;
+using WebFramework.Services;
 using HtmlAgilityPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.ViewEngines;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.Extensions.DependencyInjection;
 using Services.AccessServices;
 using System.Collections.Generic;
 using System.IO;
@@ -41,24 +43,29 @@ public class ProcessedViewResult : ViewResult
 		var isMainPage = !isPartialRequest;
 
 		var viewEngine = ViewEngine ??
-					  (IViewEngine)context.HttpContext.RequestServices.GetService(typeof(ICompositeViewEngine));
+					  (IViewEngine)context.HttpContext.RequestServices.GetRequiredService<ICompositeViewEngine>();
 
-		
+		var viewRenderService = context.HttpContext.RequestServices.GetRequiredService<IPageBuilderViewRenderService>();
 
-		var viewResult = viewEngine.FindView(context, ViewName, isMainPage: isMainPage);
+		var resolvedViewName = ResolveViewName(context);
+		if (string.IsNullOrWhiteSpace(resolvedViewName))
+			throw new InvalidOperationException("View name could not be determined for the current request.");
 
-		// 🔹 اگر مسیر کامل دادی، GetView
+		var viewResult = await viewRenderService.ResolveViewAsync(
+			context,
+			resolvedViewName,
+			isMainPage,
+			context.HttpContext.RequestAborted);
+
 		if (!viewResult.Success)
-		{
-			viewResult = viewEngine.GetView(null, ViewName, isMainPage);
-		}
-		
-
-
-		if (!viewResult.Success)
-			throw new FileNotFoundException($"View '{ViewName}' not found.");
+			throw new FileNotFoundException(
+				$"View '{PageBuilderPathHelper.NormalizeViewPath(resolvedViewName)}' not found in Page Builder database or on disk.");
 
 		using var sw = new StringWriter();
+		var executingFilePath = viewResult.View?.Path;
+		if (string.IsNullOrWhiteSpace(executingFilePath))
+			executingFilePath = viewRenderService.GetApplicationRelativePath(resolvedViewName);
+
 		var viewContext = new ViewContext(
 		    context,
 		    viewResult.View,
@@ -68,7 +75,7 @@ public class ProcessedViewResult : ViewResult
 		    new HtmlHelperOptions()
 		);
 
-		viewContext.ExecutingFilePath = null;
+		viewContext.ExecutingFilePath = executingFilePath;
 		await viewResult.View.RenderAsync(viewContext);
 
 		var fullHtml = sw.ToString();
@@ -103,7 +110,7 @@ public class ProcessedViewResult : ViewResult
 			if (node != null)
 			{
 				// همه فرزندان داخل div رو پاک می‌کنیم
-				node.RemoveAllChildren();
+				//node.RemoveAllChildren();
 			}
 
 			fullHtml = doc.DocumentNode.OuterHtml;
@@ -117,11 +124,11 @@ public class ProcessedViewResult : ViewResult
 		if (isPartialRequest)
 		{
 			var _accessMemoryStorage = (IAccessMemoryStorage)context.HttpContext.RequestServices.GetService(typeof(IAccessMemoryStorage));
-			var viewName = context.HttpContext.Request.Path.Value;
-			var action = _accessMemoryStorage?.GetAccessAction(viewName);
+			var requestPath = context.HttpContext.Request.Path.Value;
+			var action = _accessMemoryStorage?.GetAccessAction(requestPath);
 			response.ContentType = "application/json; charset=utf-8";
 			var viewTitle = (action?.AccessController?.DisplayName + " - " + action?.DisplayName) ?? "تب جدید";
-			if (viewName == "/Authenticate/Forbidden")
+			if (requestPath == "/Authenticate/Forbidden")
 			{
 				viewTitle = "عدم دسترسی";
 			}
@@ -167,5 +174,38 @@ public class ProcessedViewResult : ViewResult
 			response.ContentType = "text/html; charset=utf-8";
 			await response.WriteAsync(fullHtml);
 		}
+	}
+
+	private string ResolveViewName(ActionContext context)
+	{
+		if (!string.IsNullOrWhiteSpace(ViewName))
+			return ViewName!;
+
+		var panelViewPath = ResolvePanelViewPathFromRequest(context.HttpContext.Request.Path);
+		if (!string.IsNullOrWhiteSpace(panelViewPath))
+			return panelViewPath;
+
+		var actionName = context.RouteData.Values["action"]?.ToString();
+		if (!string.IsNullOrWhiteSpace(actionName))
+			return actionName;
+
+		throw new InvalidOperationException("View name could not be determined for the current request.");
+	}
+
+	private static string? ResolvePanelViewPathFromRequest(PathString requestPath)
+	{
+		if (!requestPath.HasValue)
+			return null;
+
+		var segments = requestPath.Value!.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+		if (segments.Length < 4)
+			return null;
+
+		if (!segments[0].Equals("Panel", StringComparison.OrdinalIgnoreCase))
+			return null;
+
+		var action = segments[^1];
+		var folder = string.Join("/", segments[..^1]);
+		return PageBuilderPathHelper.ToFileProviderSubpath($"Views/{folder}/{action}.cshtml");
 	}
 }

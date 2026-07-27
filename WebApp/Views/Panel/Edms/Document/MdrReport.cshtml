@@ -1,0 +1,227 @@
+@using Entities.App.Edms
+@{
+	ViewData["Title"] = "گزارش MDR";
+}
+
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="card-title mb-0">فیلتر گزارش MDR</h3>
+	</div>
+	<div class="card-body row g-3 align-items-end">
+		<div class="col-md-4">
+			<label class="form-label">پروژه</label>
+			@(Html.EntitySelector<Project>(
+				"MdrProjectSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+				c => new { c.Id, c.Title, c.Code },
+				"{Code} - {Title}",
+				"projectId",
+				null,
+				null,
+				false))
+		</div>
+		<div class="col-md-3">
+			<label class="form-label">کد پروژه</label>
+			<input type="text" class="form-control" id="filterProjectCode" placeholder="Project Code" />
+		</div>
+		<div class="col-md-3">
+			<label class="form-label">شماره مدرک (VPIS)</label>
+			<input type="text" class="form-control" id="filterDocumentNumber" placeholder="Document Number" />
+		</div>
+		<div class="col-md-2 d-flex gap-2">
+			<button type="button" class="btn btn-primary flex-grow-1" id="btnSearchMdr">
+				<i class="fa fa-search"></i> جستجو
+			</button>
+			<button type="button" class="btn btn-success" id="btnExportMdr" title="خروجی Excel">
+				<i class="fa fa-file-excel"></i>
+			</button>
+		</div>
+	</div>
+</div>
+
+<div class="card">
+	<div class="card-body p-2">
+		<div class="table-responsive">
+			<table id="mdrReportTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width:100%; direction:rtl;">
+				<thead>
+					<tr>
+						<th></th>
+						<th>کد پروژه</th>
+						<th>نام پروژه</th>
+						<th>شماره مدرک</th>
+						<th>عنوان مدرک</th>
+						<th>دیسپلین</th>
+						<th>کلاس</th>
+						<th>نوع</th>
+						<th>وزن</th>
+						<th>پیشرفت</th>
+						<th>پیشرفت کل</th>
+						<th>وضعیت نهایی</th>
+						<th>وضعیت داخلی</th>
+						<th>آخرین Rev</th>
+						<th>POI</th>
+						<th>تاریخ ارسال هوایار</th>
+						<th>تاریخ ارسال کارفرما</th>
+						<th>Hold</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+	(function () {
+		const fetchUrl = '/Panel/Edms/Document/GetMdrReportPost';
+		const exportUrl = '/Panel/Edms/Document/ExportMdrToExcel';
+		let mdrTable = null;
+		let lastItems = [];
+
+		function getFilter() {
+			const projectId = $$('#MdrProjectSelector .entity-selector-value').val();
+			return {
+				projectId: projectId ? parseInt(projectId, 10) : null,
+				projectCode: $$('#filterProjectCode').val()?.trim() || null,
+				documentNumber: $$('#filterDocumentNumber').val()?.trim() || null
+			};
+		}
+
+		function formatRevisionTable(revisions) {
+			if (!revisions || !revisions.length) {
+				return '<div class="p-3 text-muted">ریویژنی ثبت نشده است.</div>';
+			}
+			let html = '<div class="p-3"><table class="table table-sm table-bordered mb-0"><thead><tr>' +
+				'<th>Rev</th><th>POI</th><th>Status</th><th>Havayar Send</th><th>Transmittal</th>' +
+				'<th>Client Reply</th><th>Client Time</th><th>Havayar Delay</th><th>Client Delay</th>' +
+				'</tr></thead><tbody>';
+			revisions.forEach(function (r) {
+				html += '<tr>' +
+					'<td>' + (r.revNo ?? '') + '</td>' +
+					'<td>' + (r.poi ?? '') + '</td>' +
+					'<td>' + (r.status ?? '') + '</td>' +
+					'<td>' + (r.havayarSendingDate ?? '') + '</td>' +
+					'<td>' + (r.havayarSendingTransmittal ?? '') + '</td>' +
+					'<td>' + (r.clientReplyDate ?? '') + '</td>' +
+					'<td>' + (r.clientTime ?? '') + '</td>' +
+					'<td>' + (r.havayarDelay ?? '') + '</td>' +
+					'<td>' + (r.clientDelay ?? '') + '</td>' +
+					'</tr>';
+			});
+			html += '</tbody></table></div>';
+			return html;
+		}
+
+		function renderTable(items) {
+			lastItems = items || [];
+			if (mdrTable) {
+				mdrTable.destroy();
+				$$('#mdrReportTable tbody').empty();
+			}
+
+			mdrTable = $$('#mdrReportTable').DataTable({
+				language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+				data: lastItems,
+				columns: [
+					{
+						className: 'dt-control text-center',
+						orderable: false,
+						data: null,
+						defaultContent: '<i class="fa fa-plus-circle text-primary"></i>'
+					},
+					{ data: 'projectCode', defaultContent: '' },
+					{ data: 'projectName', defaultContent: '' },
+					{ data: 'documentNumber', defaultContent: '' },
+					{ data: 'documentTitle', defaultContent: '' },
+					{ data: 'disipline', defaultContent: '' },
+					{ data: 'docClass', defaultContent: '' },
+					{ data: 'docType', defaultContent: '' },
+					{ data: 'weightFactor', defaultContent: '' },
+					{ data: 'progress', defaultContent: '' },
+					{ data: 'overallProgress', defaultContent: '' },
+					{ data: 'finalStatus', defaultContent: '' },
+					{ data: 'internalStatus', defaultContent: '' },
+					{ data: 'lastRev', defaultContent: '' },
+					{ data: 'lastPoi', defaultContent: '' },
+					{ data: 'havayarLastSendDate', defaultContent: '' },
+					{ data: 'clientLastSentDate', defaultContent: '' },
+					{
+						data: 'holdDocuments',
+						render: function (data) { return data ? 'بله' : 'خیر'; }
+					}
+				],
+				pageLength: 25,
+				lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'همه']],
+				scrollX: true,
+				order: [[1, 'asc'], [3, 'asc']]
+			});
+
+			$$('#mdrReportTable tbody').off('click', 'td.dt-control').on('click', 'td.dt-control', function () {
+				const tr = $(this).closest('tr');
+				const row = mdrTable.row(tr);
+				if (row.child.isShown()) {
+					row.child.hide();
+					tr.removeClass('shown');
+					$(this).html('<i class="fa fa-plus-circle text-primary"></i>');
+				} else {
+					row.child(formatRevisionTable(row.data().revisions)).show();
+					tr.addClass('shown');
+					$(this).html('<i class="fa fa-minus-circle text-danger"></i>');
+				}
+			});
+		}
+
+		function loadReport() {
+			const $btn = $$('#btnSearchMdr').prop('disabled', true);
+			$$.post(fetchUrl, getFilter()).then(function (r) {
+				$btn.prop('disabled', false);
+				if (!r.isSuccess) {
+					toastr.error(r.message || 'خطا در دریافت گزارش');
+					return;
+				}
+				renderTable((r.data && r.data.items) ? r.data.items : []);
+				toastr.success('گزارش با موفقیت بارگذاری شد');
+			});
+		}
+
+		async function exportExcel() {
+			const filter = getFilter();
+			const $btn = $$('#btnExportMdr').prop('disabled', true);
+			try {
+				const response = await fetch(exportUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(filter)
+				});
+				if (!response.ok) {
+					const text = await response.text();
+					toastr.error(text || 'خطا در ایجاد فایل Excel');
+					return;
+				}
+				const blob = await response.blob();
+				const url = window.URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = 'Hts_Edms_Mdr_Report_' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.xlsx';
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				window.URL.revokeObjectURL(url);
+				toastr.success('فایل Excel دانلود شد');
+			} catch (e) {
+				toastr.error('خطا در دانلود Excel');
+			} finally {
+				$btn.prop('disabled', false);
+			}
+		}
+
+		$$('#btnSearchMdr').on('click', loadReport);
+		$$('#btnExportMdr').on('click', exportExcel);
+		$$('#filterProjectCode, #filterDocumentNumber').on('keypress', function (e) {
+			if (e.which === 13) loadReport();
+		});
+
+		renderTable([]);
+	})();
+</script>

@@ -497,8 +497,8 @@ namespace Services.ImportDefinitionServices
 		public ImportLog ExecuteImport(
 		    ImportDefinition definition,
 		    List<Dictionary<string, string>> excelRows,
-		    Dictionary<string, string> columnMapping
-			)
+		    Dictionary<string, string> columnMapping,
+		    bool rollbackOnError = false)
 		{
 			var log = new ImportLog
 			{
@@ -520,55 +520,104 @@ namespace Services.ImportDefinitionServices
 			using var conn = new SqlConnection(_connectionString);
 			conn.Open();
 
-			for (int rowIdx = 0; rowIdx < excelRows.Count; rowIdx++)
+			SqlTransaction transaction = null;
+			if (rollbackOnError)
+				transaction = conn.BeginTransaction();
+
+			try
 			{
-				var excelRow = excelRows[rowIdx];
-				var detail = new ImportLogDetail { RowNumber = rowIdx + 2 };  
-
-				try
+				for (int rowIdx = 0; rowIdx < excelRows.Count; rowIdx++)
 				{
-					using var cmd = new SqlCommand(definition.SqlQuery, conn);
+					var excelRow = excelRows[rowIdx];
+					var detail = new ImportLogDetail { RowNumber = rowIdx + 2 };
 
-					cmd.Parameters.Clear();
-
-					foreach (var p in _systemVariables)
+					try
 					{
-						cmd.Parameters.AddWithValue("@" + p.Key, p.Value);
-					}
+						using var cmd = new SqlCommand(definition.SqlQuery, conn);
+						if (transaction != null)
+							cmd.Transaction = transaction;
 
-					foreach (var col in columns)
-					{
-						object paramValue = DBNull.Value;
-						 
-						// پیدا کردن ستون در اکسل از طریق mapping
-						var excelHeader = columnMapping.ContainsKey(col.ColumnName)
-						    ? columnMapping[col.ColumnName]
-						    : col.DisplayName;
+						cmd.Parameters.Clear();
 
-						if (excelRow.ContainsKey(excelHeader) && !string.IsNullOrWhiteSpace(excelRow[excelHeader]))
+						foreach (var p in _systemVariables)
 						{
-							paramValue = ConvertValue(excelRow[excelHeader], col.DataType, col);
-						}
-						else if (col.IsRequired)
-						{
-							throw new Exception($"ستون «{col.DisplayName}» اجباری است و مقدار ندارد.");
+							cmd.Parameters.AddWithValue("@" + p.Key, p.Value);
 						}
 
-						cmd.Parameters.AddWithValue("@" + col.ColumnName, paramValue);
+						foreach (var col in columns)
+						{
+							object paramValue = DBNull.Value;
+
+							// پیدا کردن ستون در اکسل از طریق mapping
+							var excelHeader = columnMapping.ContainsKey(col.ColumnName)
+							    ? columnMapping[col.ColumnName]
+							    : col.DisplayName;
+
+							if (excelRow.ContainsKey(excelHeader) && !string.IsNullOrWhiteSpace(excelRow[excelHeader]))
+							{
+								paramValue = ConvertValue(excelRow[excelHeader], col.DataType, col);
+							}
+							else if (col.IsRequired)
+							{
+								throw new Exception($"ستون «{col.DisplayName}» اجباری است و مقدار ندارد.");
+							}
+
+							cmd.Parameters.AddWithValue("@" + col.ColumnName, paramValue);
+						}
+
+						cmd.ExecuteNonQuery();
+						detail.Success = true;
+						log.SuccessRows++;
+						details.Add(detail);
 					}
+					catch (Exception ex)
+					{
+						detail.Success = false;
+						detail.ErrorMessage = ex.Message;
+						details.Add(detail);
 
-					cmd.ExecuteNonQuery();
-					detail.Success = true;
-					log.SuccessRows++;
-				}
-				catch (Exception ex)
-				{
-					detail.Success = false;
-					detail.ErrorMessage = ex.Message;
-					log.FailedRows++;
+						if (rollbackOnError)
+						{
+							transaction?.Rollback();
+							transaction = null;
+							log.RolledBack = true;
+
+							foreach (var prev in details.Where(d => d.Success))
+							{
+								prev.Success = false;
+								prev.ErrorMessage = $"به دلیل خطا در ردیف {detail.RowNumber}، تغییرات این ردیف برگشت داده شد.";
+							}
+
+							log.SuccessRows = 0;
+
+							for (int skipIdx = rowIdx + 1; skipIdx < excelRows.Count; skipIdx++)
+							{
+								details.Add(new ImportLogDetail
+								{
+									RowNumber = skipIdx + 2,
+									Success = false,
+									ErrorMessage = "به دلیل خطای قبلی پردازش نشد."
+								});
+							}
+
+							log.FailedRows = details.Count(d => !d.Success);
+							break;
+						}
+
+						log.FailedRows++;
+					}
 				}
 
-				details.Add(detail);
+				transaction?.Commit();
+			}
+			catch
+			{
+				transaction?.Rollback();
+				throw;
+			}
+			finally
+			{
+				transaction?.Dispose();
 			}
 
 			log.Details = details;

@@ -1,7 +1,7 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
-using Entities.App.Prp;
+using Entities.App.Rpr;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +21,7 @@ namespace WebApp.Controllers.Dynamic.Rpr
         [ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
         public async Task<IActionResult> Save(RepairRequestManHours repairRequestManHours, CancellationToken cn)
         {
-
+            repairRequestManHours.TotalWorkingHours = CalculateWorkingHours(repairRequestManHours.StartTime, repairRequestManHours.EndTime);
             var exist = await unitOfWork.Repository<RepairRequestManHours>().TableNoTracking.AnyAsync(c => c.Id == repairRequestManHours.Id);
             if (exist)
             {
@@ -143,9 +143,6 @@ namespace WebApp.Controllers.Dynamic.Rpr
             return PartialView(@"\Views\Panel\Rpr\RepairRequest\PersonHour\AddManHours.cshtml", model);
         }
 
-
-
-
         [HttpPost("[action]")]
         public async Task<IActionResult> CreateRepairRequestManHours(RepairRequestManHours request, CancellationToken cn)
         {
@@ -174,19 +171,18 @@ namespace WebApp.Controllers.Dynamic.Rpr
         public async Task<IActionResult> GetManHoursList(long repairRequestId)
         {
             var list = await unitOfWork.Repository<RepairRequestManHours>()
-                .TableNoTracking.Where(it=> it.RepairRequestId ==  repairRequestId)
+                .TableNoTracking.Where(it => it.RepairRequestId == repairRequestId)
                 .Include(x => x.Personel)
                 .OrderByDescending(x => x.WorkDate)
                 .ThenBy(x => x.StartTime)
                 .ToListAsync();
 
             return PartialView(@"\Views\Panel\Rpr\RepairRequest\PersonHour\List.cshtml", list);
-            
+
         }
 
-
         [HttpDelete("[action]")]
-        public async Task<IActionResult> DeleteManHours([FromQuery]long id, CancellationToken cn)
+        public async Task<IActionResult> DeleteManHours([FromQuery] long id, CancellationToken cn)
         {
             var model = await unitOfWork.Repository<RepairRequestManHours>()
                 .Table
@@ -199,6 +195,26 @@ namespace WebApp.Controllers.Dynamic.Rpr
 
             return Ok(new { success = true, message = "حذف با موفقیت انجام شد" });
         }
+
+        private static string CalculateWorkingHours(string? startTime, string? endTime)
+        {
+            if (string.IsNullOrWhiteSpace(startTime) || string.IsNullOrWhiteSpace(endTime))
+                return "00:00";
+
+            if (!TimeSpan.TryParse(startTime, out var start))
+                return "00:00";
+
+            if (!TimeSpan.TryParse(endTime, out var end))
+                return "00:00";
+
+            var diff = end - start;
+
+            if (diff < TimeSpan.Zero)
+                diff += TimeSpan.FromDays(1);
+
+            return $"{(int)diff.TotalHours:D2}:{diff.Minutes:D2}";
+        }
+
     }
 
 }

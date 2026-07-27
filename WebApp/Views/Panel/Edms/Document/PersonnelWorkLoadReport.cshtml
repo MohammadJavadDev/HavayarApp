@@ -1,0 +1,290 @@
+@using Entities.App.Edms
+@using Entities.Auth
+@{
+	ViewData["Title"] = "گزارش حجم کاری پرسنل";
+}
+
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="card-title mb-0">فیلتر گزارش حجم کاری پرسنل</h3>
+	</div>
+	<div class="card-body row g-3 align-items-end">
+		<div class="col-md-5">
+			<label class="form-label">پروژه</label>
+			@(Html.EntitySelector<Project>(
+				"PersonnelWorkLoadProjectSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+				c => new { c.Id, c.Title, c.Code },
+				"{Code} - {Title}",
+				"projectId",
+				null,
+				null,
+				false))
+		</div>
+		<div class="col-md-5">
+			<label class="form-label">پرسنل</label>
+			@(Html.EntitySelector<User>(
+				"PersonnelWorkLoadPersonnelSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa, Username = c.Username },
+				c => new { c.Id, c.Name, c.NameFa, c.Username },
+				"{Name}",
+				"personnelId",
+				null,
+				null,
+				false))
+		</div>
+		<div class="col-md-2">
+			<button type="button" class="btn btn-primary w-100" id="btnSearchPersonnelWorkLoad">
+				<i class="fa fa-search"></i> جستجو
+			</button>
+		</div>
+	</div>
+</div>
+
+<div class="card">
+	<div class="card-body p-2">
+		<div class="table-responsive">
+			<table id="personnelWorkLoadReportTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width:100%; direction:rtl;">
+				<thead>
+					<tr>
+						<th></th>
+						<th>ردیف</th>
+						<th>کد پروژه</th>
+						<th>نام پروژه</th>
+						<th>مسئول اصلی</th>
+						<th>یک ماه آینده</th>
+						<th>دو ماه آینده</th>
+						<th>تا پایان سال</th>
+						<th>Rev 0</th>
+						<th>Rev 1</th>
+						<th>Rev N</th>
+						<th>چک‌کنندگی</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+				<tfoot>
+					<tr>
+						<th></th>
+						<th></th>
+						<th></th>
+						<th></th>
+						<th>جمع</th>
+						<th></th>
+						<th></th>
+						<th></th>
+						<th></th>
+						<th></th>
+						<th></th>
+						<th></th>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+	(function () {
+		const fetchUrl = '/Panel/Edms/Document/GetPersonnelWorkLoadReport';
+		let reportTable = null;
+
+		function getSelectorValue(selector) {
+			const value = $$(selector + ' .entity-selector-value').val();
+			return value ? parseInt(value, 10) : null;
+		}
+
+		function getFilter() {
+			return {
+				projectId: getSelectorValue('#PersonnelWorkLoadProjectSelector'),
+				personnelId: getSelectorValue('#PersonnelWorkLoadPersonnelSelector')
+			};
+		}
+
+		function formatMinutes(value) {
+			const minutes = Number(value || 0);
+			if (!Number.isFinite(minutes) || minutes <= 0) {
+				return '0:00';
+			}
+
+			const sign = minutes < 0 ? '-' : '';
+			const absolute = Math.abs(Math.round(minutes));
+			const hours = Math.floor(absolute / 60);
+			const remainingMinutes = absolute % 60;
+			return sign + hours + ':' + remainingMinutes.toString().padStart(2, '0');
+		}
+
+		function escapeHtml(value) {
+			return String(value ?? '')
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#039;');
+		}
+
+		function formatProductionDates(items) {
+			if (!items || !items.length) {
+				return '<div class="p-3 text-muted">تاریخ تولیدی برای این ردیف وجود ندارد.</div>';
+			}
+
+			let html = '<div class="p-3"><table class="table table-sm table-bordered mb-0"><thead><tr>' +
+				'<th>شماره مدرک</th><th>عنوان مدرک</th><th>Rev</th><th>تاریخ تولید</th><th>نفرساعت</th>' +
+				'</tr></thead><tbody>';
+
+			items.forEach(function (item) {
+				html += '<tr>' +
+					'<td>' + escapeHtml(item.documentNumber) + '</td>' +
+					'<td>' + escapeHtml(item.documentTitle) + '</td>' +
+					'<td>' + escapeHtml(item.revision) + '</td>' +
+					'<td>' + escapeHtml(item.productionDate) + '</td>' +
+					'<td class="ltr">' + formatMinutes(item.manHour) + '</td>' +
+					'</tr>';
+			});
+
+			html += '</tbody></table></div>';
+			return html;
+		}
+
+		function sumColumn(api, columnIndex) {
+			return api.column(columnIndex, { search: 'applied' }).data().reduce(function (sum, value) {
+				return sum + Number(value || 0);
+			}, 0);
+		}
+
+		function renderTable(items) {
+			if (reportTable) {
+				reportTable.destroy();
+				$$('#personnelWorkLoadReportTable tbody').empty();
+			}
+
+			reportTable = $$('#personnelWorkLoadReportTable').DataTable({
+				language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+				data: items || [],
+				columns: [
+					{
+						className: 'dt-control text-center',
+						orderable: false,
+						data: null,
+						defaultContent: '<i class="fa fa-plus-circle text-primary"></i>'
+					},
+					{
+						data: null,
+						orderable: false,
+						render: function (_data, _type, _row, meta) {
+							return meta.settings._iDisplayStart + meta.row + 1;
+						}
+					},
+					{ data: 'projectCode', defaultContent: '' },
+					{ data: 'projectName', defaultContent: '' },
+					{ data: 'personnelName', defaultContent: '' },
+					{
+						data: 'manHour1MonthsLater',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					},
+					{
+						data: 'manHour2MonthsLater',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					},
+					{
+						data: 'manHourNMonthsLater',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					},
+					{
+						data: 'rev0ManHour',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					},
+					{
+						data: 'rev1ManHour',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					},
+					{
+						data: 'revNManHour',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					},
+					{
+						data: 'checkingManHour',
+						className: 'ltr',
+						render: function (data) { return formatMinutes(data); }
+					}
+				],
+				pageLength: 25,
+				lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'همه']],
+					autoWidth: true,
+					scrollX: true,
+				order: [[2, 'asc'], [4, 'asc']],
+				footerCallback: function () {
+					const api = this.api();
+					[5, 6, 7, 8, 9, 10, 11].forEach(function (columnIndex) {
+						$$(api.column(columnIndex).footer()).html(formatMinutes(sumColumn(api, columnIndex)));
+					});
+				}
+			});
+
+			if(items && items.length > 0 ){
+				reportTable.columns.adjust();
+			}
+
+			$$('#personnelWorkLoadReportTable tbody').off('click', 'td.dt-control').on('click', 'td.dt-control', function () {
+				const tr = $(this).closest('tr');
+				const row = reportTable.row(tr);
+				if (row.child.isShown()) {
+					row.child.hide();
+					tr.removeClass('shown');
+					$(this).html('<i class="fa fa-plus-circle text-primary"></i>');
+				} else {
+					row.child(formatProductionDates(row.data().productionDates)).show();
+					tr.addClass('shown');
+					$(this).html('<i class="fa fa-minus-circle text-danger"></i>');
+				}
+			});
+		}
+
+		async function loadReport() {
+			const filter = getFilter();
+			if (!filter.projectId && !filter.personnelId) {
+				toastr.warning('حداقل یکی از فیلترهای پروژه یا پرسنل را انتخاب کنید.');
+				return;
+			}
+
+			const $btn = $$('#btnSearchPersonnelWorkLoad').prop('disabled', true);
+			try {
+				const response = await fetch(fetchUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(filter)
+				});
+				 
+				if (!response.ok) {
+					const text = await response.text();
+					toastr.error(text || 'خطا در دریافت گزارش');
+					return;
+				}
+
+				const result = await response.json();
+				if (!result.isSuccess) {
+					toastr.error(result.message || 'خطا در دریافت گزارش');
+					return;
+				}
+
+				renderTable((result.data && result.data.items) ? result.data.items : []);
+				toastr.success('گزارش با موفقیت بارگذاری شد');
+			} catch (e) {
+				if(!e.message =="Cannot read properties of undefined (reading 'scrollHeight')")
+				toastr.error('خطا در دریافت گزارش');
+			} finally {
+				$btn.prop('disabled', false);
+			}
+		}
+
+		$$('#btnSearchPersonnelWorkLoad').on('click', loadReport);
+		renderTable([]);
+	})();
+</script>

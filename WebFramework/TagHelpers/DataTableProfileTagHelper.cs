@@ -51,7 +51,9 @@ namespace WebFramework.TagHelpers
 
 			if (!unicode.HasValue())
 			{
-				var controller = _accessMemoryStorage.GetAccessControllerBy(EntityType);
+				var controller = EntityType != null
+					? _accessMemoryStorage.GetAccessControllerBy(EntityType)
+					: _accessMemoryStorage.GetAccessControllerBy(entityName!);
 
 				if (controller == null)
 				{
@@ -94,12 +96,7 @@ namespace WebFramework.TagHelpers
 				}
 			}
 
-			
-
-
-
-
-
+			 
 			var profiles = new List<SavedQuery>();
 
 			if (sdk.CurrentUser.IsAdministrator)
@@ -110,7 +107,7 @@ namespace WebFramework.TagHelpers
 			{
 				var profilesAccess = sdk.CurrentUser.RoleAccess
 				.Where(c => c.ActionAccessType == ActionAccessType.DataProfile
-		          	&& c.EntityName == entityName
+		          	&& c.EntityName.Equals(entityName, StringComparison.OrdinalIgnoreCase)   
 					&& c.RowId != null)
 				.Select(c => c.RowId) .ToList();
 				profiles = queryService.GetDataTableProfileById(profilesAccess , entityName);
@@ -158,22 +155,22 @@ namespace WebFramework.TagHelpers
 					<div class=""col-md-5 text-center  position-absolute mt-3"" data-place=""ProfileSelector"">
 			
 				            <div class=""input-group mb-3"">
-					            <a   class="" btn btn-icon   btn-active-color-warning   me-1"" data-action=""editDataProfile"" {disableActions}>
+					            <a   class="" btn btn-icon   btn-active-color-warning   me-1 {disableActions} "" data-action=""editDataProfile"" >
 						            <i class=""ki-duotone ki-pencil fs-2"">
 							            <span class=""path1""></span>
 							            <span class=""path2""></span>
 						            </i>
 					            </a>
-					            <a class="" btn btn-icon   btn-active-color-success  me-1"" data-action=""newDataProfile"" {disableActions}>
+					            <a class="" btn btn-icon   btn-active-color-success  me-1 {disableActions} "" data-action=""newDataProfile"" >
 						            <i class=""fa fa-plus fs-2"">
 						            </i>
 					            </a>
-							 <a class="" btn btn-icon   btn-active-color-danger  me-1"" data-action=""removeDataProfile"" {disableActions}>
+							 <a class="" btn btn-icon   btn-active-color-danger  me-1 {disableActions} "" data-action=""removeDataProfile"" >
 						            <i class=""fa fa-trash fs-2"">
 						            </i>
 					            </a>
 
-							<a class="" btn btn-icon   btn-active-color-info  me-1"" data-action=""copyDataProfile"" {disableActions}>
+							<a class="" btn btn-icon   btn-active-color-info  me-1 {disableActions} "" data-action=""copyDataProfile"" >
 						            <i class=""ki-copy-success ki-outline fs-2"">
 						            </i>
 					            </a>

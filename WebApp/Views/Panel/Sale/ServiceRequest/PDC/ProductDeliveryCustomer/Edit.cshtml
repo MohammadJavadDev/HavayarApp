@@ -1,0 +1,527 @@
+﻿@using Entities.App.Gnr
+@using Entities.App.Hcm
+@using Entities.App.Inv
+@using Entities.App.Sale
+@model ProductDeliveryCustomer
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(ProductDeliveryCustomer)"></form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h3 class="fw-bold text-dark mb-0">
+                         فرم تحویل محصول به مشتری
+                         <br />
+                    </h3>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+          <div class="card mb-4 border">
+               <div class="card-header bg-light" id="headingCollapsible">
+                    <h5 class="mb-0">
+                         <button class="btn btn-link text-dark text-decoration-none p-0"
+                                 type="button"
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#collapsibleContent"
+                                 aria-expanded="true"
+                                 aria-controls="collapsibleContent"
+                                 style="font-weight: bold; font-size: 1.1rem;">
+                              <i class="fas fa-chevron-down me-2" id="collapseIcon"></i>
+                              مشخصات مشتری
+                         </button>
+                    </h5>
+               </div>
+
+               <div id="collapsibleContent" class="collapse show" aria-labelledby="headingCollapsible">
+                    <div class="card-body">
+                         <div class="row g-3">
+
+                              <div class="col-md-4">
+                                   <label class="form-label fw-bold">نام شرکت</label>
+                                   @(Html.EntitySelector<Party>(
+                                                                      "CompanyIdIdSelector",
+                                                                      c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                      c => new
+                                                                      {
+                                                                           Id = c.Id,
+                                                                           CompanyName = c.CompanyName,
+                                                                      },
+                                                                      c => new { c.CompanyName },
+                                                                      "{CompanyName}",
+                                                                      "CompanyId",
+                                                                      Model?.Company?.CompanyName,
+                                                                      Model?.CompanyId?.ToString()
+                                                                      ))
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+
+                              <div class="col-md-4">
+                                   <label class="form-label fw-bold">نام مدیر</label>
+                                   @(Html.EntitySelector<Personel>(
+                                                                      "ManagerNamesIdSelector",
+                                                                      c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                      c => new
+                                                                      {
+                                                                           Id = c.Id,
+                                                                           Name = c.Name,
+                                                                           Family = c.Family
+                                                                      },
+                                                                      c => new { c.Name, c.Family },
+                                                                      "{Name} {Family}",
+                                                                      "ManagerNamesId",
+                                                                      Model?.ManagerNames?.Name,
+                                                                      Model?.ManagerNamesId?.ToString()
+                                                                      ))
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-4">
+                                   <label class="form-label fw-bold">نام مسئول فنی</label>
+                                   @(Html.EntitySelector<Personel>(
+                                                                      "TechnicalManagerIdSelector",
+                                                                      c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                      c => new
+                                                                      {
+                                                                           Id = c.Id,
+                                                                           Name = c.Name,
+                                                                           Family = c.Family
+                                                                      },
+                                                                      c => new { c.Name, c.Family },
+                                                                      "{Name} {Family}",
+                                                                      "TechnicalManagerId",
+                                                                      Model?.TechnicalManagerName?.Name,
+                                                                      Model?.TechnicalManagerId?.ToString()
+                                                                      ))
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-4">
+                                   <label class="form-label fw-bold">نام و سمت تحویل گیرنده</label>
+                                   <input class="form-control"
+                                          data-bind="nameRecipient"
+                                          asp-for="NameRecipient" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+
+                              <div class='col-md-4'>
+                                   <label class='form-label fw-bold'>تاریخ راه اندازی</label>
+                                   <input class='form-control' data-bind='LaunchShamsiDate' data-persionDatePicker="true"
+                                          persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                                          value='@Model?.LaunchMiladiDate' />
+                              </div>
+
+
+                              <div class="col-md-4">
+                                   <label class="form-label fw-bold">تلفن</label>
+                                   <input class="form-control"
+                                          data-bind="phone"
+                                          asp-for="Phone" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+
+                              <div class="col-md-12">
+                                   <label class="form-label fw-bold">آدرس</label>
+                                   <textarea class="form-control" asp-for="Address" data-bind="address" rows="5"></textarea>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+          </div>
+          <div class="card mb-4 border">
+               <div class="card-header bg-light" id="headingCollapsible">
+                    <h5 class="mb-0">
+                         <button class="btn btn-link text-dark text-decoration-none p-0"
+                                 type="button"
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#collapsibleDeliverDetails"
+                                 aria-expanded="true"
+                                 aria-controls="collapsibleDeliverDetails"
+                                 style="font-weight: bold; font-size: 1.1rem;">
+                              <i class="fas fa-chevron-down me-2" id="collapseIcon"></i>
+                              مشخصات تحویل دهنده
+                         </button>
+                    </h5>
+               </div>
+
+               <div id="collapsibleDeliverDetails" class="collapse show" aria-labelledby="headingCollapsible">
+                    <div class="card-body">
+                         <div class="row g-3">
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">نام و نام خانوادگی</label>
+                                   @(Html.EntitySelector<Personel>(
+                                                                      "FullNameIdSelector",
+                                                                      c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                      c => new
+                                                                      {
+                                                                           Id = c.Id,
+                                                                           Name = c.Name,
+                                                                           Family = c.Family
+                                                                      },
+                                                                      c => new { c.Name, c.Family },
+                                                                      "{Name} {Family}",
+                                                                      "FullNameId",
+                                                                      Model?.FullName?.Name,
+                                                                      Model?.FullNameId?.ToString()
+                                                                      ))
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class='col-md-2 align-content-center'>
+                                   <div class="form-check">
+                                        <input data-bind='afterSalesServicePersonnel' class="form-check-input" type="checkbox" asp-for='AfterSalesServicePersonnel' />
+                                        <label class="form-check-label" asp-for='AfterSalesServicePersonnel'>
+                                             پرسنل واحد خدمات پس از فروش
+                                        </label>
+                                   </div>
+                              </div>
+
+                              <div class='col-md-2 align-content-center'>
+                                   <div class="form-check">
+                                        <input data-bind='agency' class="form-check-input" type="checkbox" asp-for='Agency' />
+                                        <label class="form-check-label" asp-for='Agency'>
+                                             نمایندگی
+                                        </label>
+                                   </div>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+          </div>
+          <div class="card mb-4 border">
+               <div class="card-header bg-light" id="headingCollapsible">
+                    <h5 class="mb-0">
+                         <button class="btn btn-link text-dark text-decoration-none p-0"
+                                 type="button"
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#collapsibleConditionDeliverDevice"
+                                 aria-expanded="true"
+                                 aria-controls="collapsibleConditionDeliverDevice"
+                                 style="font-weight: bold; font-size: 1.1rem;">
+                              <i class="fas fa-chevron-down me-2" id="collapseIcon"></i>
+                              شرایط دستگاه در زمان تحویل
+                         </button>
+                    </h5>
+               </div>
+
+               <div id="collapsibleConditionDeliverDevice" class="collapse show" aria-labelledby="headingCollapsible">
+                    <div class="card-body">
+                         <div class="row g-3">
+
+
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">نام دستگاه</label>
+                                   <input class="form-control"
+                                          data-bind="deviceName"
+                                          asp-for="DeviceName" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">مدل دستگاه</label>
+                                   <input class="form-control"
+                                          data-bind="deviceName"
+                                          asp-for="DeviceModel" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">سریال ساخت</label>
+                                   <input class="form-control"
+                                          data-bind="productionSeries"
+                                          asp-for="ProductionSeries" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">فشار کاری</label>
+                                   <input class="form-control"
+                                          data-bind="workPressure"
+                                          asp-for="WorkPressure" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">جریان راه اندازی</label>
+                                   <input class="form-control"
+                                          data-bind="startingCurrent"
+                                          asp-for="StartingCurrent" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class='col-md-3'>
+                                   <label class=''>نوع راه اندازی</label>
+                                   <select class='form-control'
+                                           data-bind='startupType'
+                                           asp-for='StartupType'
+                                           asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enum.ProductionSeriesEnum))">
+                                   </select>
+                                   <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+                              </div>
+
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">جریان زیر بار</label>
+                                   <input class="form-control"
+                                          data-bind="loadCurrent"
+                                          asp-for="LoadCurrent" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">جریان بدون بار</label>
+                                   <input class="form-control"
+                                          data-bind="noLoadCurrent"
+                                          asp-for="NoLoadCurrent" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">ولتاژ شبکه هنگام راه اندازی</label>
+                                   <input class="form-control"
+                                          data-bind="mainsVoltageDuringStartup"
+                                          asp-for="MainsVoltageDuringStartup" />
+                                   <div data-invalidmessagespan class="mt-1">
+                                        <span class="text-danger"></span>
+                                   </div>
+                              </div>
+
+                              <div class="col-md-4">
+                                   <label class="form-label">
+                                        آیا شرایط استاندارد در هنگام راه‌اندازی وجود دارد؟
+                                   </label>
+                                   <div class="form-check form-check-inline">
+                                        <input class="form-check-input"
+                                               type="radio"
+                                               asp-for="StandardConditionsDuringStartup"
+                                               value="true" />
+                                        <label class="form-check-label">بلی</label>
+                                   </div>
+                                   <div class="form-check form-check-inline">
+                                        <input class="form-check-input"
+                                               type="radio"
+                                               asp-for="StandardConditionsDuringStartup"
+                                               value="false" />
+                                        <label class="form-check-label">خیر</label>
+                                   </div>
+                              </div>
+
+                         </div>
+                    </div>
+               </div>
+          </div>
+          <div class="card mb-4 border">
+               <div class="card-header bg-light" id="headingCollapsible">
+                    <h5 class="mb-0">
+                         <button class="btn btn-link text-dark text-decoration-none p-0"
+                                 type="button"
+                                 data-bs-toggle="collapse"
+                                 data-bs-target="#collapsibleDeviceTechnicalDocument"
+                                 aria-expanded="true"
+                                 aria-controls="collapsibleDeviceTechnicalDocument"
+                                 style="font-weight: bold; font-size: 1.1rem;">
+                              <i class="fas fa-chevron-down me-2" id="collapseIcon"></i>
+                              مشخصات دستگاه و مدارک فنی همراه آن
+                         </button>
+                    </h5>
+               </div>
+
+               <div id="collapsibleDeviceTechnicalDocument" class="collapse show" aria-labelledby="headingCollapsible">
+                    <div class="card-body">
+                         <div class="row g-3 mt-3">
+
+
+                              <div class="col-md-3">
+                                   <label class="form-label fw-bold">تجهیزات</label>
+                                   @(Html.EntitySelector<Part>(
+                                                                      "AccessoriesIdSelector",
+                                                                      c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                      c => new { Id = c.Id, Code = c.Code, Title = c.Name },
+                                                                      c => new { c.Name },
+                                                                      "{Title}",
+                                                                      "AccessoriesId",
+                                                                      Model?.Accessories?.Name,
+                                                                      Model?.AccessoriesId?.ToString(),
+                                                                      false,
+                                                                      true
+                                                                      ))
+                              </div>
+
+                              <div class='col-md-2 align-content-center'>
+                                   <div class="form-check">
+                                        <input data-bind='serviceMaintenanceManual' class="form-check-input" type="checkbox" asp-for='ServiceMaintenanceManual' />
+                                        <label class="form-check-label" asp-for='ServiceMaintenanceManual'>
+                                             دفترچه سرویس نگهداری
+                                        </label>
+                                   </div>
+                              </div>
+
+                              <div class='col-md-2 align-content-center'>
+                                   <div class="form-check">
+                                        <input data-bind='controllerInstructionManual' class="form-check-input" type="checkbox" asp-for='ControllerInstructionManual' />
+                                        <label class="form-check-label" asp-for='ControllerInstructionManual'>
+                                             دفترچه راهبری برای کنترلر
+                                        </label>
+                                   </div>
+                              </div>
+
+                              <div class='col-md-2 align-content-center'>
+                                   <div class="form-check">
+                                        <input data-bind='compressorServiceLogbook' class="form-check-input" type="checkbox" asp-for='CompressorServiceLogbook' />
+                                        <label class="form-check-label" asp-for='CompressorServiceLogbook'>
+                                             دفترچه گزارش خدمات کمپرسور
+                                        </label>
+                                   </div>
+                              </div>
+
+                              <div class='col-md-2 align-content-center'>
+                                   <div class="form-check">
+                                        <input data-bind='compElecSchem' class="form-check-input" type="checkbox" asp-for='CompElecSchem' />
+                                        <label class="form-check-label" asp-for='CompElecSchem'>
+                                             نقشه برق كمپرسور و در صورت موجود بودن تجهيزات جانبي نقشه برق آن
+                                        </label>
+                                   </div>
+                              </div>
+
+                         </div>
+                    </div>
+               </div>
+
+
+
+               <div class="card border mt-5">
+                    <div class="card-body">
+                         <div class="row g-3 align-items-end mb-4">
+                         </div>
+                    </div>
+               </div>
+
+          </div>
+
+     </div>
+
+     <div class="card mt-4 border-0 shadow-sm">
+          <div class="card-body">
+               <div class="row text-muted">
+                    <div class="col-md-3">
+                         <span class="fw-bold">ایجاد کننده :</span>
+                         <span data-bind="createdByName">@Model?.CreatedByName</span>
+                    </div>
+                    <div class="col-md-3">
+                         <span class="fw-bold">تاریخ ایجاد :</span>
+                         <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+                    </div>
+                    <div class="col-md-3">
+                         <span class="fw-bold">ویرایش کننده :</span>
+                         <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+                    </div>
+                    <div class="col-md-3">
+                         <span class="fw-bold">تاریخ ویرایش :</span>
+                         <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+                    </div>
+               </div>
+          </div>
+     </div>
+</div>
+
+<script>
+     document.addEventListener('DOMContentLoaded', function() {
+         const collapseElement = document.getElementById('collapsibleContent');
+         const collapsibleContent = document.getElementById('collapseIcon');
+
+         if (collapseElement && collapsibleContent) {
+             collapseElement.addEventListener('shown.bs.collapse', function() {
+                 collapsibleContent.className = 'fas fa-chevron-down me-2';
+             });
+
+             collapseElement.addEventListener('hidden.bs.collapse', function() {
+                 collapsibleContent.className = 'fas fa-chevron-left me-2';
+             });
+         }
+
+
+         const DeliverDetailsElement = document.getElementById('collapsibleDeliverDetails');
+         const DeliverDetails = document.getElementById('collapseIcon');
+
+         if (DeliverDetailsElement && DeliverDetails) {
+             DeliverDetailsElement.addEventListener('shown.bs.collapse', function() {
+                 DeliverDetails.className = 'fas fa-chevron-down me-2';
+             });
+
+             DeliverDetailsElement.addEventListener('hidden.bs.collapse', function() {
+                 DeliverDetails.className = 'fas fa-chevron-left me-2';
+             });
+         }
+
+
+         const collapseConditionDeliverDevice = document.getElementById('collapsibleConditionDeliverDevice');
+         const ConditionDeliverDevice = document.getElementById('collapseIcon');
+
+         if (collapseConditionDeliverDevice && ConditionDeliverDevice) {
+             collapseConditionDeliverDevice.addEventListener('shown.bs.collapse', function() {
+                 ConditionDeliverDevice.className = 'fas fa-chevron-down me-2';
+             });
+
+             collapseConditionDeliverDevice.addEventListener('hidden.bs.collapse', function() {
+                 ConditionDeliverDevice.className = 'fas fa-chevron-left me-2';
+             });
+         }
+
+
+     });
+
+     function savefn($btnAction) {
+         if (validateError(page.$pageEl)) { return; }
+         var model = page.$pageEl.dataBind();
+         const $btn = $(this.element).block();
+         $$.post('save',
+             model,
+             function(r) {
+                 $btn.block(false);
+                 if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+                 toastr.success('ذخیره سازی با موفقیت انجام شد .');
+                 page.$pageEl.dataBind(r.data);
+                 $btnAction.baseaction();
+             })
+     }
+
+     self.FormActionButtons.save.onclick(function() { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
+</script>

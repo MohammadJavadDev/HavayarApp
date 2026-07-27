@@ -49,8 +49,11 @@
  
             <div class="col-lg-12">
                 <div class="card shadow-sm h-100">
-                         <div class="card-header bg-primary text-white p-5">
-                              <i class="fas fa-info-circle me-2 text-white"></i>اطلاعات پایه
+                         <div class="card-header bg-primary text-white p-5 d-flex justify-content-between align-items-center">
+                              <span><i class="fas fa-info-circle me-2 text-white"></i>اطلاعات پایه</span>
+                              <button type="button" class="btn btn-sm btn-light" id="btnLoadFromEntity">
+                                   <i class="fas fa-database me-1"></i>بارگذاری از موجودیت سیستم
+                              </button>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
@@ -198,6 +201,30 @@
 </div>
 
  
+<div class="modal fade" id="loadEntityModal" tabindex="-1" dir="rtl">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">انتخاب موجودیت سیستم</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">با انتخاب موجودیت، کوئری INSERT و ستون‌های ورود اطلاعات به‌صورت خودکار ساخته می‌شوند.</p>
+                <label class="form-label fw-semibold">موجودیت</label>
+                <select class="form-select" id="entitySelector">
+                    <option value="">در حال بارگذاری...</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmLoadEntity">
+                    <i class="fas fa-magic me-1"></i>تولید خودکار
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="sqlHelpModal" tabindex="-1" dir="rtl">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -264,8 +291,6 @@
       const systemVarNames = ['CurrentUserId', 'CurrentUserName', 'CurrentDateMiladi',  'CurrentDateTimeMiladi' , 'CurrentDateTimeShamsi','CurrentDateShamsi'];
 
       function detectParams(sql = "") {
-           debugger
-   
           const matches = [...sql.matchAll(/@@(\w+)/g)].map(m => m[1]);
           const unique = [...new Set(matches)];
           $('#detectedParams').text(unique.map(p => '@@' + p).join(', '));
@@ -393,12 +418,15 @@
       // ----------------------------------------------------------------
       // افزودن ستون جدید (خالی)
       // ----------------------------------------------------------------
-      function addColumnRow(colName, displayName, isSysVar, sysVar) {
+      function addColumnRow(colName, displayName, isSysVar, sysVar, dataType, isRequired, optionSettings) {
              
           colName     = colName || '';
           displayName = displayName || '';
           isSysVar    = !!isSysVar;
           sysVar      = sysVar || '';
+          dataType    = dataType ?? 0;
+          isRequired  = !!isRequired;
+          optionSettings = optionSettings || '';
 
           const sysVarOptions = @Html.Raw(Json.Serialize(
                             ((IEnumerable<KeyValuePair<string, string>>)
@@ -427,7 +455,7 @@
                                         <option value="@dt.Value">@dt.Text</option>
                               }
                   </select>
-                  <input type="hidden" data-bind="columns.optionSettings"  />
+                  <input type="hidden" data-bind="columns.optionSettings" />
                 
               </td>
               <td class="text-center">
@@ -441,7 +469,7 @@
                   </select>
               </td>
               <td class="text-center">
-                  <input type="checkbox" data-bind="columns.isRequired" class="form-check-input" value="true"/>
+                  <input type="checkbox" data-bind="columns.isRequired" class="form-check-input" value="true" ${isRequired ? 'checked' : ''}/>
 
               </td>
               <td>
@@ -454,12 +482,113 @@
          
         
 
+          row.find('[data-bind="columns.dataType"]').val(dataType);
+          row.find('[data-bind="columns.optionSettings"]').val(optionSettings);
           $$('#colBody').append(row);
           $$('#noColsMsg').addClass('d-none');
-
-          
       }
-      debugger
+
+      function clearColumnRows() {
+          $$('#colBody').empty();
+          $$('#noColsMsg').removeClass('d-none');
+      }
+
+      function applyGeneratedDefinition(data) {
+          if (!data) return;
+
+          $$('[data-bind="fullNameEntity"]').val(data.fullNameEntity || '');
+          $$('[data-bind="title"]').val(data.title || '');
+          $$('[data-bind="description"]').val(data.description || '');
+
+          if (sqlEditor && data.sqlQuery) {
+              sqlEditor.setValue(data.sqlQuery);
+              $$("#sqlQueryInput").val(data.sqlQuery);
+              detectParams(data.sqlQuery);
+          }
+
+          clearColumnRows();
+
+          (data.columns || []).forEach(col => {
+              const optionSettings = col.optionSettings
+                  ? JSON.stringify(col.optionSettings)
+                  : '';
+              addColumnRow(
+                  col.columnName,
+                  col.displayName,
+                  col.isSystemVariable,
+                  col.systemVariable,
+                  col.dataType,
+                  col.isRequired,
+                  optionSettings
+              );
+          });
+      }
+
+      async function loadAvailableEntities() {
+          try {
+              const response = await $.get('/panel/importDefinition/getAvailableEntities');
+              const $selector = $$('#entitySelector');
+              $selector.empty().append('<option value="">انتخاب کنید...</option>');
+
+              if (!response.isSuccess || !response.data) {
+                  error2('خطا در بارگذاری لیست موجودیت‌ها');
+                  return;
+              }
+
+              response.data.forEach(entity => {
+                  $selector.append(
+                      $('<option></option>')
+                          .val(entity.fullName)
+                          .text(`${entity.displayName} (${entity.name})`)
+                  );
+              });
+
+              $selector.select2({
+                  width: '100%',
+                  dropdownParent: $$('#loadEntityModal')
+              });
+          } catch (error) {
+              error2('خطا در بارگذاری لیست موجودیت‌ها');
+              console.error(error);
+          }
+      }
+
+      $$('#btnLoadFromEntity').on('click', function () {
+          $$('#loadEntityModal').modal('show');
+      });
+
+      $$('#btnConfirmLoadEntity').on('click', async function () {
+          const entityFullName = $$('#entitySelector').val();
+          if (!entityFullName) {
+              toastr.error('لطفاً یک موجودیت انتخاب کنید');
+              return;
+          }
+
+          const $btn = $$(this);
+          $btn.prop('disabled', true);
+
+          try {
+              const response = await $$.post('/panel/importDefinition/generateFromEntity', {
+                  entityFullName: entityFullName
+              });
+
+              if (!response.isSuccess) {
+                  error2(response.message || 'خطا در تولید تعریف ورود اطلاعات');
+                  return;
+              }
+
+              applyGeneratedDefinition(response.data);
+              $$('#loadEntityModal').modal('hide');
+              success2('تعریف ورود اطلاعات از موجودیت با موفقیت ساخته شد.');
+          } catch (error) {
+              error2('خطا در تولید تعریف ورود اطلاعات');
+              console.error(error);
+          } finally {
+              $btn.prop('disabled', false);
+          }
+      });
+
+      loadAvailableEntities();
 
       $$().on("click","[data-action='moreSetting']", async function(e){
              e.preventDefault();
@@ -477,7 +606,6 @@
                            text: 'ذخیره',
                            btnClass: 'btn-success',
                            action: function() {
-                                debugger
                                const $content = this.$content;
                                var optionSettringJson = "";
 

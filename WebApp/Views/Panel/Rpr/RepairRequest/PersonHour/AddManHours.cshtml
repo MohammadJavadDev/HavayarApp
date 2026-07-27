@@ -1,7 +1,4 @@
-@using Entities.App.Prp
-@using Entities.App.Sale
-@using Entities.App.Sale.Enums
-@using Entities.App.Inv
+@using Entities.App.Rpr
 @model RepairRequestManHours
 
 <div class="row">
@@ -32,32 +29,38 @@
         <label class=''>
             تاریخ
         </label>
-        <input class='form-control' data-bind='workDate' data-persionDatePicker="true"
-               persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+        <input class='form-control' data-bind='WorkDate' data-persionDatePicker="true"
+               persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}'
                value='@Model?.WorkDate' />
     </div>
 
+
     <div class='col-md-12'>
-        <label class=''>
-            ساعت شروع
-        </label>
-        <input class='form-control' data-bind='StartTime' data-persionDatePicker="true"
+        <label>ساعت شروع</label>
+        <input class='form-control'
+               name="StartTime"
+               id="StartTime"
+               data-bind='startTime'
+               data-persionDatePicker="true"
                persion-datetimepicker='{"format": "HH:mm","autoClose": true,"initialValue": false,"onlyTimePicker": true}'
                value='@Model?.StartTime' />
     </div>
 
 
+
     <div class='col-md-12'>
-        <label class=''>
-            ساعت خاتمه
-        </label>
-        <input class='form-control' data-bind='EndTime' data-persionDatePicker="true"
+        <label>ساعت خاتمه</label>
+        <input class='form-control'
+               name="EndTime"
+               id="EndTime"
+               data-bind='endTime'
+               data-persionDatePicker="true"
                persion-datetimepicker='{"format": "HH:mm","autoClose": true,"initialValue": false,"onlyTimePicker": true}'
                value='@Model?.EndTime' />
     </div>
 
     <div class="col-md-12">
-        <label class="required">هزینه نفر ساعت</label>
+        <label>هزینه نفر ساعت</label>
         <input class="form-control" data-bind="manHourPrice" asp-for="ManHourPrice"
                data-invalidMessage="فقط عدد"
                data-inputmask="'regex':'^[\u06F0-\u06F90-9.]+$' , 'placeholder' : ''" />
@@ -65,7 +68,7 @@
     </div>
 
     <div class="col-md-12">
-        <label class="required">هزینه نفر ساعت فروش</label>
+        <label>هزینه نفر ساعت فروش</label>
         <input class="form-control" data-bind="manHourSalePrice" asp-for="ManHourSalePrice"
                data-invalidMessage="فقط عدد"
                data-inputmask="'regex':'^[\u06F0-\u06F90-9.]+$' , 'placeholder' : ''" />

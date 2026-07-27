@@ -25,7 +25,10 @@ namespace App.BackgroundJob.Controllers
 		}
 		public IActionResult Index()
 		{
-			return View();
+			ViewData["Title"] = "تولید کلاس از دیتابیس";
+			ViewData["Icon"] = "database";
+			ViewData["Description"] = "انتخاب جدول یا ویو و تولید کد C#";
+			return this.SoftView();
 		}
 
 		[HttpGet]

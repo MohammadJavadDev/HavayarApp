@@ -1,0 +1,2324 @@
+﻿{
+  "ReportGuid": "fcf5044583354de4befb1af3bbaddcf1",
+  "ReportName": "SanayeTaahodatMoavenatEjraee",
+  "ReportAlias": "صنایع - تعهدات معاونت اجرایی",
+  "ReportCreated": "/Date(1784918134113+0330)/",
+  "ReportChanged": "/Date(1784918134113+0330)/",
+  "EngineVersion": "EngineV2",
+  "CalculationMode": "Interpretation",
+  "ReportUnit": "Inches",
+  "Script": "using System;\r\nusing System.Drawing;\r\nusing System.Windows.Forms;\r\nusing System.Data;\r\nusing Stimulsoft.Controls;\r\nusing Stimulsoft.Base.Drawing;\r\nusing Stimulsoft.Report;\r\nusing Stimulsoft.Report.Dialogs;\r\nusing Stimulsoft.Report.Components;\r\n\r\nnamespace Reports\r\n{\r\n    public class SanayeTaahodatMoavenatEjraee : Stimulsoft.Report.StiReport\r\n    {\r\n        public SanayeTaahodatMoavenatEjraee()        {\r\n            this.InitializeComponent();\r\n        }\r\n\r\n        #region StiReport Designer generated code - do not modify\r\n        #endregion StiReport Designer generated code - do not modify\r\n    }\r\n}\r\n",
+  "ReferencedAssemblies": {
+    "0": "System.Dll",
+    "1": "System.Drawing.Dll",
+    "2": "System.Windows.Forms.Dll",
+    "3": "System.Data.Dll",
+    "4": "System.Xml.Dll",
+    "5": "Stimulsoft.Controls.Dll",
+    "6": "Stimulsoft.Base.Dll",
+    "7": "Stimulsoft.Report.Dll"
+  },
+  "Dictionary": {
+    "DataSources": {
+      "0": {
+        "Ident": "StiDataTableSource",
+        "Name": "KpiSummary",
+        "Alias": "KpiSummary",
+        "Key": "3dee5089529c482180a0f8f33c366093",
+        "Columns": {
+          "0": {
+            "Name": "Z_MontazereTolid",
+            "Index": -1,
+            "NameInSource": "Z_MontazereTolid",
+            "Alias": "Z_MontazereTolid",
+            "Type": "System.Decimal"
+          },
+          "1": {
+            "Name": "Z_DarHaleTolid",
+            "Index": -1,
+            "NameInSource": "Z_DarHaleTolid",
+            "Alias": "Z_DarHaleTolid",
+            "Type": "System.Decimal"
+          },
+          "2": {
+            "Name": "Z_Test",
+            "Index": -1,
+            "NameInSource": "Z_Test",
+            "Alias": "Z_Test",
+            "Type": "System.Decimal"
+          },
+          "3": {
+            "Name": "Z_Bastebandi",
+            "Index": -1,
+            "NameInSource": "Z_Bastebandi",
+            "Alias": "Z_Bastebandi",
+            "Type": "System.Decimal"
+          },
+          "4": {
+            "Name": "Z_AmadeyeErsal",
+            "Index": -1,
+            "NameInSource": "Z_AmadeyeErsal",
+            "Alias": "Z_AmadeyeErsal",
+            "Type": "System.Decimal"
+          },
+          "5": {
+            "Name": "Z_TahvilForosh",
+            "Index": -1,
+            "NameInSource": "Z_TahvilForosh",
+            "Alias": "Z_TahvilForosh",
+            "Type": "System.Decimal"
+          },
+          "6": {
+            "Name": "Z_TadarokatDarRah",
+            "Index": -1,
+            "NameInSource": "Z_TadarokatDarRah",
+            "Alias": "Z_TadarokatDarRah",
+            "Type": "System.Decimal"
+          },
+          "7": {
+            "Name": "Z_SumOfPassedProductionSteps",
+            "Index": -1,
+            "NameInSource": "Z_SumOfPassedProductionSteps",
+            "Alias": "Z_SumOfPassedProductionSteps",
+            "Type": "System.Decimal"
+          },
+          "8": {
+            "Name": "Z_SumOfProductionSteps",
+            "Index": -1,
+            "NameInSource": "Z_SumOfProductionSteps",
+            "Alias": "Z_SumOfProductionSteps",
+            "Type": "System.Decimal"
+          },
+          "9": {
+            "Name": "Z_RemainedCount",
+            "Index": -1,
+            "NameInSource": "Z_RemainedCount",
+            "Alias": "Z_RemainedCount",
+            "Type": "System.Decimal"
+          },
+          "10": {
+            "Name": "Z_RemainedPercent",
+            "Index": -1,
+            "NameInSource": "Z_RemainedPercent",
+            "Alias": "Z_RemainedPercent",
+            "Type": "System.Decimal"
+          }
+        },
+        "NameInSource": "NewDataSet.KpiSummary"
+      },
+      "1": {
+        "Ident": "StiDataTableSource",
+        "Name": "OrdersMain",
+        "Alias": "OrdersMain",
+        "Key": "918cc56529134bb9ad4ee67c14252615",
+        "Columns": {
+          "0": {
+            "Name": "Id",
+            "Index": -1,
+            "NameInSource": "Id",
+            "Alias": "Id",
+            "Type": "System.Int64"
+          },
+          "1": {
+            "Name": "Serial",
+            "Index": -1,
+            "NameInSource": "Serial",
+            "Alias": "Serial",
+            "Type": "System.String"
+          },
+          "2": {
+            "Name": "PartCode",
+            "Index": -1,
+            "NameInSource": "PartCode",
+            "Alias": "PartCode",
+            "Type": "System.String"
+          },
+          "3": {
+            "Name": "PartName",
+            "Index": -1,
+            "NameInSource": "PartName",
+            "Alias": "PartName",
+            "Type": "System.String"
+          },
+          "4": {
+            "Name": "BranchTitle",
+            "Index": -1,
+            "NameInSource": "BranchTitle",
+            "Alias": "BranchTitle",
+            "Type": "System.String"
+          },
+          "5": {
+            "Name": "CustomerName",
+            "Index": -1,
+            "NameInSource": "CustomerName",
+            "Alias": "CustomerName",
+            "Type": "System.String"
+          },
+          "6": {
+            "Name": "EquipmentCategory",
+            "Index": -1,
+            "NameInSource": "EquipmentCategory",
+            "Alias": "EquipmentCategory",
+            "Type": "System.String"
+          },
+          "7": {
+            "Name": "ProductionStep",
+            "Index": -1,
+            "NameInSource": "ProductionStep",
+            "Alias": "ProductionStep",
+            "Type": "System.Int32"
+          },
+          "8": {
+            "Name": "ProductionStepName",
+            "Index": -1,
+            "NameInSource": "ProductionStepName",
+            "Alias": "ProductionStepName",
+            "Type": "System.String"
+          },
+          "9": {
+            "Name": "ShamsiYear",
+            "Index": -1,
+            "NameInSource": "ShamsiYear",
+            "Alias": "ShamsiYear",
+            "Type": "System.String"
+          },
+          "10": {
+            "Name": "ItemCount",
+            "Index": -1,
+            "NameInSource": "ItemCount",
+            "Alias": "ItemCount",
+            "Type": "System.Int32"
+          },
+          "11": {
+            "Name": "ProductionStartShamsiDate",
+            "Index": -1,
+            "NameInSource": "ProductionStartShamsiDate",
+            "Alias": "ProductionStartShamsiDate",
+            "Type": "System.String"
+          },
+          "12": {
+            "Name": "CreatedOnShamsiDateTime",
+            "Index": -1,
+            "NameInSource": "CreatedOnShamsiDateTime",
+            "Alias": "CreatedOnShamsiDateTime",
+            "Type": "System.String"
+          }
+        },
+        "NameInSource": "NewDataSet.OrdersMain"
+      },
+      "2": {
+        "Ident": "StiDataTableSource",
+        "Name": "WaitingEngineering",
+        "Alias": "WaitingEngineering",
+        "Key": "4103505a88564e4697aa83a3296cc68f",
+        "Columns": {
+          "0": {
+            "Name": "Id",
+            "Index": -1,
+            "NameInSource": "Id",
+            "Alias": "Id",
+            "Type": "System.Int64"
+          },
+          "1": {
+            "Name": "Serial",
+            "Index": -1,
+            "NameInSource": "Serial",
+            "Alias": "Serial",
+            "Type": "System.String"
+          },
+          "2": {
+            "Name": "PartCode",
+            "Index": -1,
+            "NameInSource": "PartCode",
+            "Alias": "PartCode",
+            "Type": "System.String"
+          },
+          "3": {
+            "Name": "PartName",
+            "Index": -1,
+            "NameInSource": "PartName",
+            "Alias": "PartName",
+            "Type": "System.String"
+          },
+          "4": {
+            "Name": "BranchTitle",
+            "Index": -1,
+            "NameInSource": "BranchTitle",
+            "Alias": "BranchTitle",
+            "Type": "System.String"
+          },
+          "5": {
+            "Name": "CustomerName",
+            "Index": -1,
+            "NameInSource": "CustomerName",
+            "Alias": "CustomerName",
+            "Type": "System.String"
+          },
+          "6": {
+            "Name": "EquipmentCategory",
+            "Index": -1,
+            "NameInSource": "EquipmentCategory",
+            "Alias": "EquipmentCategory",
+            "Type": "System.String"
+          },
+          "7": {
+            "Name": "ProductionStep",
+            "Index": -1,
+            "NameInSource": "ProductionStep",
+            "Alias": "ProductionStep",
+            "Type": "System.Int32"
+          },
+          "8": {
+            "Name": "ProductionStepName",
+            "Index": -1,
+            "NameInSource": "ProductionStepName",
+            "Alias": "ProductionStepName",
+            "Type": "System.String"
+          },
+          "9": {
+            "Name": "ShamsiYear",
+            "Index": -1,
+            "NameInSource": "ShamsiYear",
+            "Alias": "ShamsiYear",
+            "Type": "System.String"
+          },
+          "10": {
+            "Name": "ItemCount",
+            "Index": -1,
+            "NameInSource": "ItemCount",
+            "Alias": "ItemCount",
+            "Type": "System.Int32"
+          },
+          "11": {
+            "Name": "ProductionStartShamsiDate",
+            "Index": -1,
+            "NameInSource": "ProductionStartShamsiDate",
+            "Alias": "ProductionStartShamsiDate",
+            "Type": "System.String"
+          },
+          "12": {
+            "Name": "CreatedOnShamsiDateTime",
+            "Index": -1,
+            "NameInSource": "CreatedOnShamsiDateTime",
+            "Alias": "CreatedOnShamsiDateTime",
+            "Type": "System.String"
+          }
+        },
+        "NameInSource": "NewDataSet.WaitingEngineering"
+      },
+      "3": {
+        "Ident": "StiDataTableSource",
+        "Name": "ReadyToSend",
+        "Alias": "ReadyToSend",
+        "Key": "7b1c308e7acc40cbb6933d7dbd543df3",
+        "Columns": {
+          "0": {
+            "Name": "Id",
+            "Index": -1,
+            "NameInSource": "Id",
+            "Alias": "Id",
+            "Type": "System.Int64"
+          },
+          "1": {
+            "Name": "Serial",
+            "Index": -1,
+            "NameInSource": "Serial",
+            "Alias": "Serial",
+            "Type": "System.String"
+          },
+          "2": {
+            "Name": "PartCode",
+            "Index": -1,
+            "NameInSource": "PartCode",
+            "Alias": "PartCode",
+            "Type": "System.String"
+          },
+          "3": {
+            "Name": "PartName",
+            "Index": -1,
+            "NameInSource": "PartName",
+            "Alias": "PartName",
+            "Type": "System.String"
+          },
+          "4": {
+            "Name": "BranchTitle",
+            "Index": -1,
+            "NameInSource": "BranchTitle",
+            "Alias": "BranchTitle",
+            "Type": "System.String"
+          },
+          "5": {
+            "Name": "CustomerName",
+            "Index": -1,
+            "NameInSource": "CustomerName",
+            "Alias": "CustomerName",
+            "Type": "System.String"
+          },
+          "6": {
+            "Name": "ProductionEndShamsiDate",
+            "Index": -1,
+            "NameInSource": "ProductionEndShamsiDate",
+            "Alias": "ProductionEndShamsiDate",
+            "Type": "System.String"
+          },
+          "7": {
+            "Name": "PreparationShamsiDate",
+            "Index": -1,
+            "NameInSource": "PreparationShamsiDate",
+            "Alias": "PreparationShamsiDate",
+            "Type": "System.String"
+          },
+          "8": {
+            "Name": "TestingEndShamsiDate",
+            "Index": -1,
+            "NameInSource": "TestingEndShamsiDate",
+            "Alias": "TestingEndShamsiDate",
+            "Type": "System.String"
+          },
+          "9": {
+            "Name": "ItemCount",
+            "Index": -1,
+            "NameInSource": "ItemCount",
+            "Alias": "ItemCount",
+            "Type": "System.Int64"
+          }
+        },
+        "NameInSource": "NewDataSet.ReadyToSend"
+      },
+      "4": {
+        "Ident": "StiDataTableSource",
+        "Name": "StoppedPurchases",
+        "Alias": "StoppedPurchases",
+        "Key": "538adb526db24e2bad40395be6284164",
+        "Columns": {
+          "0": {
+            "Name": "Id",
+            "Index": -1,
+            "NameInSource": "Id",
+            "Alias": "Id",
+            "Type": "System.Int64"
+          },
+          "1": {
+            "Name": "PurchaseRequestNumber",
+            "Index": -1,
+            "NameInSource": "PurchaseRequestNumber",
+            "Alias": "PurchaseRequestNumber",
+            "Type": "System.Int64"
+          },
+          "2": {
+            "Name": "PartCode",
+            "Index": -1,
+            "NameInSource": "PartCode",
+            "Alias": "PartCode",
+            "Type": "System.String"
+          },
+          "3": {
+            "Name": "PartName",
+            "Index": -1,
+            "NameInSource": "PartName",
+            "Alias": "PartName",
+            "Type": "System.String"
+          },
+          "4": {
+            "Name": "RequiredQty",
+            "Index": -1,
+            "NameInSource": "RequiredQty",
+            "Alias": "RequiredQty",
+            "Type": "System.Int64"
+          },
+          "5": {
+            "Name": "OrderQty",
+            "Index": -1,
+            "NameInSource": "OrderQty",
+            "Alias": "OrderQty",
+            "Type": "System.Int64"
+          },
+          "6": {
+            "Name": "StopShamsiDate",
+            "Index": -1,
+            "NameInSource": "StopShamsiDate",
+            "Alias": "StopShamsiDate",
+            "Type": "System.String"
+          },
+          "7": {
+            "Name": "Status",
+            "Index": -1,
+            "NameInSource": "Status",
+            "Alias": "Status",
+            "Type": "System.String"
+          },
+          "8": {
+            "Name": "RequestedPersonel",
+            "Index": -1,
+            "NameInSource": "RequestedPersonel",
+            "Alias": "RequestedPersonel",
+            "Type": "System.String"
+          },
+          "9": {
+            "Name": "Comment",
+            "Index": -1,
+            "NameInSource": "Comment",
+            "Alias": "Comment",
+            "Type": "System.String"
+          }
+        },
+        "NameInSource": "NewDataSet.StoppedPurchases"
+      },
+      "5": {
+        "Ident": "StiDataTableSource",
+        "Name": "OpenWithoutEngAccept",
+        "Alias": "OpenWithoutEngAccept",
+        "Key": "8d0377d69dde4919b0baaf927b8e75bf",
+        "Columns": {
+          "0": {
+            "Name": "Id",
+            "Index": -1,
+            "NameInSource": "Id",
+            "Alias": "Id",
+            "Type": "System.Int64"
+          },
+          "1": {
+            "Name": "PurchaseRequestNumber",
+            "Index": -1,
+            "NameInSource": "PurchaseRequestNumber",
+            "Alias": "PurchaseRequestNumber",
+            "Type": "System.Int64"
+          },
+          "2": {
+            "Name": "PartCode",
+            "Index": -1,
+            "NameInSource": "PartCode",
+            "Alias": "PartCode",
+            "Type": "System.String"
+          },
+          "3": {
+            "Name": "PartName",
+            "Index": -1,
+            "NameInSource": "PartName",
+            "Alias": "PartName",
+            "Type": "System.String"
+          },
+          "4": {
+            "Name": "RequiredQty",
+            "Index": -1,
+            "NameInSource": "RequiredQty",
+            "Alias": "RequiredQty",
+            "Type": "System.Int64"
+          },
+          "5": {
+            "Name": "OrderQty",
+            "Index": -1,
+            "NameInSource": "OrderQty",
+            "Alias": "OrderQty",
+            "Type": "System.Int64"
+          },
+          "6": {
+            "Name": "PurchaseRequestShamsiDate",
+            "Index": -1,
+            "NameInSource": "PurchaseRequestShamsiDate",
+            "Alias": "PurchaseRequestShamsiDate",
+            "Type": "System.String"
+          },
+          "7": {
+            "Name": "RequestedPersonel",
+            "Index": -1,
+            "NameInSource": "RequestedPersonel",
+            "Alias": "RequestedPersonel",
+            "Type": "System.String"
+          },
+          "8": {
+            "Name": "IsRoutineRequest",
+            "Index": -1,
+            "NameInSource": "IsRoutineRequest",
+            "Alias": "IsRoutineRequest",
+            "Type": "System.Boolean"
+          },
+          "9": {
+            "Name": "Status",
+            "Index": -1,
+            "NameInSource": "Status",
+            "Alias": "Status",
+            "Type": "System.String"
+          }
+        },
+        "NameInSource": "NewDataSet.OpenWithoutEngAccept"
+      },
+      "6": {
+        "Ident": "StiDataTableSource",
+        "Name": "OpenOrdersByRequestType",
+        "Alias": "OpenOrdersByRequestType",
+        "Key": "0026f3639a15443cb82e49ee17b38404",
+        "Columns": {
+          "0": {
+            "Name": "RequestType",
+            "Index": -1,
+            "NameInSource": "RequestType",
+            "Alias": "RequestType",
+            "Type": "System.String"
+          },
+          "1": {
+            "Name": "Cnt",
+            "Index": -1,
+            "NameInSource": "Cnt",
+            "Alias": "Cnt",
+            "Type": "System.Int32"
+          }
+        },
+        "NameInSource": "NewDataSet.OpenOrdersByRequestType"
+      },
+      "7": {
+        "Ident": "StiDataTableSource",
+        "Name": "WeeklyCommitments",
+        "Alias": "WeeklyCommitments",
+        "Key": "50431e5947a54506b7fc2ef3473559ff",
+        "Columns": {
+          "0": {
+            "Name": "WeekLabel",
+            "Index": -1,
+            "NameInSource": "WeekLabel",
+            "Alias": "WeekLabel",
+            "Type": "System.String"
+          },
+          "1": {
+            "Name": "WeekStartShamsi",
+            "Index": -1,
+            "NameInSource": "WeekStartShamsi",
+            "Alias": "WeekStartShamsi",
+            "Type": "System.String"
+          },
+          "2": {
+            "Name": "ItemCount",
+            "Index": -1,
+            "NameInSource": "ItemCount",
+            "Alias": "ItemCount",
+            "Type": "System.Int32"
+          },
+          "3": {
+            "Name": "PassedCount",
+            "Index": -1,
+            "NameInSource": "PassedCount",
+            "Alias": "PassedCount",
+            "Type": "System.Int32"
+          },
+          "4": {
+            "Name": "RemainCount",
+            "Index": -1,
+            "NameInSource": "RemainCount",
+            "Alias": "RemainCount",
+            "Type": "System.Int32"
+          }
+        },
+        "NameInSource": "NewDataSet.WeeklyCommitments"
+      }
+    }
+  },
+  "Pages": {
+    "0": {
+      "Ident": "StiDashboard",
+      "Name": "PageMain",
+      "Guid": "c2932fcf182843c9a5cc50334494ea17",
+      "Alias": "۱ صفحه اصلی",
+      "Brush": "solid:240,247,250",
+      "Components": {
+        "0": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndMontazer",
+          "Guid": "1b87a596b3d04932965528021ce91d1c",
+          "ClientRectangle": "20,20,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "34de6206dcf44ae595d7e02f7b2898b5",
+            "Expression": "Sum(KpiSummary.Z_MontazereTolid)",
+            "Label": "منتظر تولید"
+          },
+          "Title": {
+            "Text": "منتظر تولید",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Blue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "1": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndDarHal",
+          "Guid": "4e0670655a084cccb6dca74a7085c578",
+          "ClientRectangle": "252,20,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "54d2a4ce3a7b4cfba21240b73c349d9b",
+            "Expression": "Sum(KpiSummary.Z_DarHaleTolid)",
+            "Label": "در حال تولید"
+          },
+          "Title": {
+            "Text": "در حال تولید",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Turquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "2": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndTest",
+          "Guid": "fd5a7aaeb5234190af497b3292440b2f",
+          "ClientRectangle": "484,20,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "1441ac807e984d69be3e0de2a74db93f",
+            "Expression": "Sum(KpiSummary.Z_Test)",
+            "Label": "تست"
+          },
+          "Title": {
+            "Text": "تست",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "DarkTurquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "3": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndBaste",
+          "Guid": "70a34edd36ad4486b9163869e48be43c",
+          "ClientRectangle": "716,20,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "d998822a635c4d7bb8519f542054742d",
+            "Expression": "Sum(KpiSummary.Z_Bastebandi)",
+            "Label": "بسته‌بندی"
+          },
+          "Title": {
+            "Text": "بسته‌بندی",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Blue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "4": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndAmade",
+          "Guid": "3d12342dcfec4e238bf4bc57bc1f2619",
+          "ClientRectangle": "948,20,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "afb7350c8707484ebdd14508b19eae72",
+            "Expression": "Sum(KpiSummary.Z_AmadeyeErsal)",
+            "Label": "آماده ارسال"
+          },
+          "Title": {
+            "Text": "آماده ارسال",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Green",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "5": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndTahvil",
+          "Guid": "b975aa22e8fa4f4fa77776f452e70309",
+          "ClientRectangle": "20,172,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "a59c0d545b7043bf93d6e9341f3875e7",
+            "Expression": "Sum(KpiSummary.Z_TahvilForosh)",
+            "Label": "تحویل فروش"
+          },
+          "Title": {
+            "Text": "تحویل فروش",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "DarkBlue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "6": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndTadarokat",
+          "Guid": "05b76df840de4407866be998cdc3d7d7",
+          "ClientRectangle": "252,172,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "82e8df10f0a74edf91d60aee1058b150",
+            "Expression": "Sum(KpiSummary.Z_TadarokatDarRah)",
+            "Label": "تدارکات در راه"
+          },
+          "Title": {
+            "Text": "تدارکات در راه",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Orange",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "7": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndPassed",
+          "Guid": "569142b55a1349ed96c3bda9c7fb1a97",
+          "ClientRectangle": "484,172,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "f97005b2443346468f7b550a67d9e7ee",
+            "Expression": "Sum(KpiSummary.Z_SumOfPassedProductionSteps)",
+            "Label": "گذشته از تولید"
+          },
+          "Title": {
+            "Text": "گذشته از تولید",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Turquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "8": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndSum",
+          "Guid": "766547accb6b412ca2149ed2f7229dbc",
+          "ClientRectangle": "716,172,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "1a5a42c2955245b4adbb247bc2277390",
+            "Expression": "Sum(KpiSummary.Z_SumOfProductionSteps)",
+            "Label": "جمع مراحل"
+          },
+          "Title": {
+            "Text": "جمع مراحل",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Blue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "9": {
+          "Ident": "StiIndicatorElement",
+          "Name": "IndRemain",
+          "Guid": "ad670941ffa64b3bb303f8ee3677209e",
+          "ClientRectangle": "948,172,220,140",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Indicator",
+            "OnHover": "ShowToolTip",
+            "OnClick": "None",
+            "HyperlinkDestination": "NewTab"
+          },
+          "TargetFormat": {
+            "Ident": "StiPercentageFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 2,
+            "GroupSeparator": ",",
+            "PositivePattern": 1,
+            "Symbol": "%"
+          },
+          "Value": {
+            "Ident": "ValueIndicatorMeter",
+            "Key": "63fd321c8f904f30a093c937d7dc26c1",
+            "Expression": "Sum(KpiSummary.Z_RemainedCount)",
+            "Label": "مانده"
+          },
+          "Title": {
+            "Text": "مانده",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;18;Bold;",
+          "Style": "Sienna",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "10": {
+          "Ident": "StiGaugeElement",
+          "Name": "GaugeRemain",
+          "Guid": "b04e482adc2049bdbb2e5ec6f338d26c",
+          "ClientRectangle": "20,332,320,260",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "MinimumDateTime": "/Date(1784918134406+0330)/",
+          "MaximumDateTime": "/Date(1816454134406+0330)/",
+          "DashboardInteraction": {
+            "Ident": "Gauge",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Value": {
+            "Ident": "ValueGaugeMeter",
+            "Key": "f417bcddf0a84d56a977a2b56b583e13",
+            "Expression": "Sum(KpiSummary.Z_RemainedPercent)",
+            "Label": "درصد مانده"
+          },
+          "Title": {
+            "Text": "درصد مانده",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;12;;",
+          "Style": "Turquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;",
+          "ValueFormat": {
+            "Ident": "StiNumberFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 1,
+            "GroupSeparator": ",",
+            "State": "DecimalDigits, Abbreviation"
+          }
+        },
+        "11": {
+          "Ident": "StiProgressElement",
+          "Name": "ProgressPassed",
+          "Guid": "82063e3f035143b2a3544b0dbf0c2de5",
+          "ClientRectangle": "360,332,320,260",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Progress",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Value": {
+            "Ident": "ValueProgressMeter",
+            "Key": "42871fae825a4c9ea79fa32a274f76b7",
+            "Expression": "Sum(KpiSummary.Z_SumOfPassedProductionSteps)",
+            "Label": "گذشته از تولید"
+          },
+          "Target": {
+            "Ident": "TargetProgressMeter",
+            "Key": "969ef646090b41829017b5f146a6248d",
+            "Expression": "Sum(KpiSummary.Z_SumOfProductionSteps)",
+            "Label": "Z_SumOfProductionSteps"
+          },
+          "Title": {
+            "Text": "پیشرفت تولید",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "ForeColor": "8,47,73",
+          "Font": "IRANSansWeb;12;;",
+          "Style": "Green",
+          "ColorEach": true,
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "12": {
+          "Ident": "StiChartElement",
+          "Name": "DonutSteps",
+          "Guid": "2e62c76fa57b4e43bd239216211161af",
+          "ClientRectangle": "700,332,480,260",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Values": {
+            "0": {
+              "Ident": "ValueChartMeter",
+              "Key": "cfe420ba3e044640bfc90f5e0819e484",
+              "Expression": "Sum(OrdersMain.ItemCount)",
+              "Label": "تعداد",
+              "SeriesType": "Doughnut"
+            }
+          },
+          "Arguments": {
+            "0": {
+              "Ident": "ArgumentChartMeter",
+              "Key": "1444f581316b40f8b5220e819df10844",
+              "Expression": "OrdersMain.ProductionStepName",
+              "Label": "مرحله ساخت"
+            }
+          },
+          "DashboardInteraction": {
+            "Ident": "Chart",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab",
+            "ViewsState": "OnHover"
+          },
+          "Title": {
+            "Text": "توزیع مراحل ساخت",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "ManuallyEnteredChartMeter": {
+            "Ident": "ValueChartMeter",
+            "Key": "f5a4178a36504ef6978b8b55b4e90f0e"
+          },
+          "ArgumentFormat": {
+            "Ident": "StiGeneralFormatService"
+          },
+          "ValueFormat": {
+            "Ident": "StiNumberFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 0,
+            "GroupSeparator": ",",
+            "State": "DecimalDigits, Abbreviation"
+          },
+          "Area": {
+            "SideBySide": true,
+            "GridLinesHor": {
+              "Visible": true
+            },
+            "Indicator": {
+              "Value": {
+                "Color": "Transparent"
+              },
+              "Title": {
+                "Color": "Transparent"
+              }
+            }
+          },
+          "Labels": {
+            "Position": "Center"
+          },
+          "Options3D": {
+            "Lighting": "Gradient"
+          },
+          "Style": "DarkTurquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "13": {
+          "Ident": "StiComboBoxElement",
+          "Name": "FilterYear",
+          "Guid": "e0024eab6aac48f1acf0aac24726a2b7",
+          "ClientRectangle": "20,612,280,70",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Filter",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "NameMeter": {
+            "Ident": "NameComboBoxMeter",
+            "Key": "47cd0c47318945b393dcf0f399b0d67f",
+            "Expression": "OrdersMain.ShamsiYear",
+            "Label": "سال"
+          },
+          "KeyMeter": {
+            "Ident": "KeyComboBoxMeter",
+            "Key": "8d0dcf7a748146ca9225a43a8d198099",
+            "Expression": "OrdersMain.ShamsiYear",
+            "Label": "سال"
+          },
+          "Style": "Turquoise",
+          "CornerRadius": "8,8,8,8",
+          "Shadow": ";;;"
+        },
+        "14": {
+          "Ident": "StiComboBoxElement",
+          "Name": "FilterBranch",
+          "Guid": "84cfb27b32a64c8a88cc70f9a88ee989",
+          "ClientRectangle": "320,612,320,70",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Filter",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "NameMeter": {
+            "Ident": "NameComboBoxMeter",
+            "Key": "7617f6faba7846ff972cb422626605b8",
+            "Expression": "OrdersMain.BranchTitle",
+            "Label": "دپارتمان فروش"
+          },
+          "KeyMeter": {
+            "Ident": "KeyComboBoxMeter",
+            "Key": "8ba3bcac10cc45d0b61a69606bc48fbb",
+            "Expression": "OrdersMain.BranchTitle",
+            "Label": "دپارتمان فروش"
+          },
+          "Style": "Turquoise",
+          "CornerRadius": "8,8,8,8",
+          "Shadow": ";;;"
+        },
+        "15": {
+          "Ident": "StiComboBoxElement",
+          "Name": "FilterCustomer",
+          "Guid": "86947018475c4916bc7af3a48a56140a",
+          "ClientRectangle": "660,612,340,70",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "DashboardInteraction": {
+            "Ident": "Filter",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "NameMeter": {
+            "Ident": "NameComboBoxMeter",
+            "Key": "f1f4fe417e054b91acadc17819e07868",
+            "Expression": "OrdersMain.CustomerName",
+            "Label": "مشتری"
+          },
+          "KeyMeter": {
+            "Ident": "KeyComboBoxMeter",
+            "Key": "c7557941c2d64e36bf6240cf3dd52ca4",
+            "Expression": "OrdersMain.CustomerName",
+            "Label": "مشتری"
+          },
+          "Style": "Turquoise",
+          "CornerRadius": "8,8,8,8",
+          "Shadow": ";;;"
+        },
+        "16": {
+          "Ident": "StiChartElement",
+          "Name": "TreeMapEquipment",
+          "Guid": "86950783df114283b489ca1a7ec59b23",
+          "ClientRectangle": "20,702,560,300",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Values": {
+            "0": {
+              "Ident": "ValueChartMeter",
+              "Key": "d990ca18f9bd4e3f96d5e9282e200149",
+              "Expression": "Sum(OrdersMain.ItemCount)",
+              "Label": "تعداد",
+              "SeriesType": "Treemap"
+            }
+          },
+          "Arguments": {
+            "0": {
+              "Ident": "ArgumentChartMeter",
+              "Key": "ef0484fe0ae94acc98b2fbad58484305",
+              "Expression": "OrdersMain.EquipmentCategory",
+              "Label": "گروه تجهیز"
+            }
+          },
+          "DashboardInteraction": {
+            "Ident": "Chart",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab",
+            "ViewsState": "OnHover"
+          },
+          "Title": {
+            "Text": "گروه تجهیز",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "ManuallyEnteredChartMeter": {
+            "Ident": "ValueChartMeter",
+            "Key": "18fa8316e07f454bb62addc62ff1a057"
+          },
+          "ArgumentFormat": {
+            "Ident": "StiGeneralFormatService"
+          },
+          "ValueFormat": {
+            "Ident": "StiNumberFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 0,
+            "GroupSeparator": ",",
+            "State": "DecimalDigits, Abbreviation"
+          },
+          "Area": {
+            "SideBySide": true,
+            "GridLinesHor": {
+              "Visible": true
+            },
+            "Indicator": {
+              "Value": {
+                "Color": "Transparent"
+              },
+              "Title": {
+                "Color": "Transparent"
+              }
+            }
+          },
+          "Labels": {
+            "Position": "Center"
+          },
+          "Options3D": {
+            "Lighting": "Gradient"
+          },
+          "Style": "Blue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "17": {
+          "Ident": "StiChartElement",
+          "Name": "BarByBranch",
+          "Guid": "da7b983cbbed484680cc2608a7d6be98",
+          "ClientRectangle": "600,702,580,300",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Values": {
+            "0": {
+              "Ident": "ValueChartMeter",
+              "Key": "0fa6c9b316ad4945adf2203cb85e7aea",
+              "Expression": "Sum(OrdersMain.ItemCount)",
+              "Label": "تعداد"
+            }
+          },
+          "Arguments": {
+            "0": {
+              "Ident": "ArgumentChartMeter",
+              "Key": "dfbb6eae75694bf098227faedea8e196",
+              "Expression": "OrdersMain.BranchTitle",
+              "Label": "دپارتمان فروش"
+            }
+          },
+          "DashboardInteraction": {
+            "Ident": "Chart",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab",
+            "ViewsState": "OnHover"
+          },
+          "Title": {
+            "Text": "تعداد بر اساس دپارتمان فروش",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "ManuallyEnteredChartMeter": {
+            "Ident": "ValueChartMeter",
+            "Key": "d3bc51c59ddf49308b412e1f570d6868"
+          },
+          "ArgumentFormat": {
+            "Ident": "StiGeneralFormatService"
+          },
+          "ValueFormat": {
+            "Ident": "StiNumberFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 0,
+            "GroupSeparator": ",",
+            "State": "DecimalDigits, Abbreviation"
+          },
+          "Area": {
+            "SideBySide": true,
+            "GridLinesHor": {
+              "Visible": true
+            },
+            "Indicator": {
+              "Value": {
+                "Color": "Transparent"
+              },
+              "Title": {
+                "Color": "Transparent"
+              }
+            }
+          },
+          "Labels": {
+            "Position": "None"
+          },
+          "Options3D": {
+            "Lighting": "Gradient"
+          },
+          "Style": "Turquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        }
+      },
+      "Height": 1100.0,
+      "Style": "Turquoise",
+      "Border": ";;2;;;;;solid:Black",
+      "BackColor": "240,247,250"
+    },
+    "1": {
+      "Ident": "StiDashboard",
+      "Name": "PageWaitingEngineering",
+      "Guid": "ada025f083444e6da20123e352324ece",
+      "Alias": "۲ سفارشات در انتظار مهندسی",
+      "Brush": "solid:240,247,250",
+      "Components": {
+        "0": {
+          "Ident": "StiTableElement",
+          "Name": "Table_WaitingEngineering",
+          "Guid": "6639f04a8b0949799e0766f03ea32266",
+          "ClientRectangle": "20,20,1160,740",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Columns": {
+            "0": {
+              "Ident": "DimensionColumn",
+              "Key": "81502dc013844364a189732602b14547",
+              "Expression": "WaitingEngineering.Serial",
+              "Label": "سریال",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "1": {
+              "Ident": "DimensionColumn",
+              "Key": "413158bdc59b4a648b207a0b41a9de2e",
+              "Expression": "WaitingEngineering.PartCode",
+              "Label": "کد کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "2": {
+              "Ident": "DimensionColumn",
+              "Key": "826ba40c86064bf7b79407cd866255a1",
+              "Expression": "WaitingEngineering.PartName",
+              "Label": "نام کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "3": {
+              "Ident": "DimensionColumn",
+              "Key": "5ebf29d44bd44477be1e8b826e216e1d",
+              "Expression": "WaitingEngineering.BranchTitle",
+              "Label": "دپارتمان فروش",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "4": {
+              "Ident": "DimensionColumn",
+              "Key": "7ef937be69b94089becbeefef4fc8a4f",
+              "Expression": "WaitingEngineering.CustomerName",
+              "Label": "مشتری",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "5": {
+              "Ident": "DimensionColumn",
+              "Key": "a6657951325d494fb17e1d78dc98b78d",
+              "Expression": "WaitingEngineering.ProductionStepName",
+              "Label": "مرحله ساخت",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "6": {
+              "Ident": "DimensionColumn",
+              "Key": "cc5d066b5cb34a63aff3b09a436991a0",
+              "Expression": "WaitingEngineering.ProductionStartShamsiDate",
+              "Label": "تاریخ شروع تولید",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "7": {
+              "Ident": "DimensionColumn",
+              "Key": "a691852bd2984c08acf837cafe58d6d7",
+              "Expression": "WaitingEngineering.CreatedOnShamsiDateTime",
+              "Label": "تاریخ ایجاد",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            }
+          },
+          "ForeColor": "71,85,105",
+          "HeaderFont": ";10;;",
+          "FooterFont": ";10;;",
+          "Font": "IRANSansWeb;;;",
+          "Title": {
+            "Text": "۲ سفارشات در انتظار مهندسی",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;13;Bold;"
+          },
+          "DashboardInteraction": {
+            "Ident": "Table",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Style": "AliceBlue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        }
+      },
+      "Height": 800.0,
+      "Style": "Turquoise",
+      "Border": ";;2;;;;;solid:Black",
+      "BackColor": "240,247,250"
+    },
+    "2": {
+      "Ident": "StiDashboard",
+      "Name": "PageReadyToSend",
+      "Guid": "93630710785641949e93e0d766a0a5ae",
+      "Alias": "۳ سفارشات آماده به ارسال",
+      "Brush": "solid:240,247,250",
+      "Components": {
+        "0": {
+          "Ident": "StiTableElement",
+          "Name": "Table_ReadyToSend",
+          "Guid": "f79be33c98aa4ccfbff30be437ccdfe6",
+          "ClientRectangle": "20,20,1160,740",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Columns": {
+            "0": {
+              "Ident": "DimensionColumn",
+              "Key": "b678dc973a6a4c809d96dfa340dae43f",
+              "Expression": "ReadyToSend.Serial",
+              "Label": "سریال",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "1": {
+              "Ident": "DimensionColumn",
+              "Key": "2ffb1f2746bd40c2a39315261d06ea16",
+              "Expression": "ReadyToSend.PartCode",
+              "Label": "کد کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "2": {
+              "Ident": "DimensionColumn",
+              "Key": "5685961f2eb946f8ae11711e4720bade",
+              "Expression": "ReadyToSend.PartName",
+              "Label": "نام کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "3": {
+              "Ident": "DimensionColumn",
+              "Key": "4c42aa7fffcd4d5e8030fa806882d8cf",
+              "Expression": "ReadyToSend.BranchTitle",
+              "Label": "دپارتمان فروش",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "4": {
+              "Ident": "DimensionColumn",
+              "Key": "0cd51e95fc75480bb37141b54fb0e77f",
+              "Expression": "ReadyToSend.CustomerName",
+              "Label": "مشتری",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "5": {
+              "Ident": "DimensionColumn",
+              "Key": "df3af40bbbf4496f95c4044240098be7",
+              "Expression": "ReadyToSend.ProductionEndShamsiDate",
+              "Label": "تاریخ پایان تولید",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "6": {
+              "Ident": "DimensionColumn",
+              "Key": "29c47c33d798482c929f51bc0f337c16",
+              "Expression": "ReadyToSend.PreparationShamsiDate",
+              "Label": "تاریخ آماده‌سازی",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "7": {
+              "Ident": "DimensionColumn",
+              "Key": "e34db7d0e23340bfb03fc17f40473276",
+              "Expression": "ReadyToSend.TestingEndShamsiDate",
+              "Label": "تاریخ پایان تست",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            }
+          },
+          "ForeColor": "71,85,105",
+          "HeaderFont": ";10;;",
+          "FooterFont": ";10;;",
+          "Font": "IRANSansWeb;;;",
+          "Title": {
+            "Text": "۳ سفارشات آماده به ارسال",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;13;Bold;"
+          },
+          "DashboardInteraction": {
+            "Ident": "Table",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Style": "AliceBlue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        }
+      },
+      "Height": 800.0,
+      "Style": "Turquoise",
+      "Border": ";;2;;;;;solid:Black",
+      "BackColor": "240,247,250"
+    },
+    "3": {
+      "Ident": "StiDashboard",
+      "Name": "PageStoppedPurchases",
+      "Guid": "5003a9e41db547e2b22c039a6eedd676",
+      "Alias": "۴ خریدهای متوقف شده",
+      "Brush": "solid:240,247,250",
+      "Components": {
+        "0": {
+          "Ident": "StiTableElement",
+          "Name": "Table_StoppedPurchases",
+          "Guid": "eecc025a1815463a8e1781d6a31709a3",
+          "ClientRectangle": "20,20,1160,740",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Columns": {
+            "0": {
+              "Ident": "MeasureColumn",
+              "Key": "805a538c7dbb4580b4e0f737c8eaa9e7",
+              "Expression": "Sum(StoppedPurchases.PurchaseRequestNumber)",
+              "Label": "شماره درخواست خرید",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "1": {
+              "Ident": "DimensionColumn",
+              "Key": "eeff12bf53dc4501bd67c1defcd6771e",
+              "Expression": "StoppedPurchases.PartCode",
+              "Label": "کد کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "2": {
+              "Ident": "DimensionColumn",
+              "Key": "61820856bb9340cc807f2dfe627dbce0",
+              "Expression": "StoppedPurchases.PartName",
+              "Label": "نام کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "3": {
+              "Ident": "MeasureColumn",
+              "Key": "15c2a639fdd64cc58694162ddc9e40b9",
+              "Expression": "Sum(StoppedPurchases.RequiredQty)",
+              "Label": "تعداد نیاز",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "4": {
+              "Ident": "MeasureColumn",
+              "Key": "e27c717bba6440cc9a89563db538858f",
+              "Expression": "Sum(StoppedPurchases.OrderQty)",
+              "Label": "تعداد سفارش",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "5": {
+              "Ident": "DimensionColumn",
+              "Key": "4cfbb6d601224a6d87bcd12297cad7b9",
+              "Expression": "StoppedPurchases.StopShamsiDate",
+              "Label": "تاریخ توقف",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "6": {
+              "Ident": "DimensionColumn",
+              "Key": "426ce35c63d94eadb8f402d2b5e52eaf",
+              "Expression": "StoppedPurchases.Status",
+              "Label": "وضعیت",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "7": {
+              "Ident": "DimensionColumn",
+              "Key": "f0dddd40a95e4352873dcf369e2ff24a",
+              "Expression": "StoppedPurchases.RequestedPersonel",
+              "Label": "پرسنل درخواست‌کننده",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "8": {
+              "Ident": "DimensionColumn",
+              "Key": "30df6fdd17984406b3fad98921e92795",
+              "Expression": "StoppedPurchases.Comment",
+              "Label": "توضیحات",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            }
+          },
+          "ForeColor": "71,85,105",
+          "HeaderFont": ";10;;",
+          "FooterFont": ";10;;",
+          "Font": "IRANSansWeb;;;",
+          "Title": {
+            "Text": "۴ خریدهای متوقف شده",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;13;Bold;"
+          },
+          "DashboardInteraction": {
+            "Ident": "Table",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Style": "AliceBlue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        }
+      },
+      "Height": 800.0,
+      "Style": "Turquoise",
+      "Border": ";;2;;;;;solid:Black",
+      "BackColor": "240,247,250"
+    },
+    "4": {
+      "Ident": "StiDashboard",
+      "Name": "PageOpenWithoutEngAccept",
+      "Guid": "692b8748808a4c67a54ca173c09a68e0",
+      "Alias": "۵ درخواست‌های باز بدون تایید مهندسی",
+      "Brush": "solid:240,247,250",
+      "Components": {
+        "0": {
+          "Ident": "StiChartElement",
+          "Name": "DonutRequestType",
+          "Guid": "5e0afeea778347f18f4c94b8738d6b76",
+          "ClientRectangle": "20,20,450,300",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Values": {
+            "0": {
+              "Ident": "ValueChartMeter",
+              "Key": "50e553931fa04d5b9f31772bbe3a251f",
+              "Expression": "Sum(OpenOrdersByRequestType.Cnt)",
+              "Label": "تعداد",
+              "SeriesType": "Doughnut"
+            }
+          },
+          "Arguments": {
+            "0": {
+              "Ident": "ArgumentChartMeter",
+              "Key": "7c1468a4d7bd47ea9aa6ea49a00e5d45",
+              "Expression": "OpenOrdersByRequestType.RequestType",
+              "Label": "نوع درخواست"
+            }
+          },
+          "DashboardInteraction": {
+            "Ident": "Chart",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab",
+            "ViewsState": "OnHover"
+          },
+          "Title": {
+            "Text": "تفکیک نوع درخواست",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "ManuallyEnteredChartMeter": {
+            "Ident": "ValueChartMeter",
+            "Key": "c1a895b7c6c646dea2c170eee7b3ba82"
+          },
+          "ArgumentFormat": {
+            "Ident": "StiGeneralFormatService"
+          },
+          "ValueFormat": {
+            "Ident": "StiNumberFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 0,
+            "GroupSeparator": ",",
+            "State": "DecimalDigits, Abbreviation"
+          },
+          "Area": {
+            "SideBySide": true,
+            "GridLinesHor": {
+              "Visible": true
+            },
+            "Indicator": {
+              "Value": {
+                "Color": "Transparent"
+              },
+              "Title": {
+                "Color": "Transparent"
+              }
+            }
+          },
+          "Labels": {
+            "Position": "Center"
+          },
+          "Options3D": {
+            "Lighting": "Gradient"
+          },
+          "Style": "Turquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "1": {
+          "Ident": "StiTableElement",
+          "Name": "TableOpenWithoutEng",
+          "Guid": "f204b46710174dfd9b7e2b1e654b3cdb",
+          "ClientRectangle": "20,340,1160,520",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Columns": {
+            "0": {
+              "Ident": "MeasureColumn",
+              "Key": "fc3a1972687c43d08cefa1db3d88d982",
+              "Expression": "Sum(OpenWithoutEngAccept.PurchaseRequestNumber)",
+              "Label": "شماره درخواست خرید",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "1": {
+              "Ident": "DimensionColumn",
+              "Key": "1793f06c83484426a326bbac99952cb5",
+              "Expression": "OpenWithoutEngAccept.PartCode",
+              "Label": "کد کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "2": {
+              "Ident": "DimensionColumn",
+              "Key": "ad83cf1e6f094a25899edcc9bd1ee387",
+              "Expression": "OpenWithoutEngAccept.PartName",
+              "Label": "نام کالا",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "3": {
+              "Ident": "MeasureColumn",
+              "Key": "864cbdc003254038ad07a1bdef6b929e",
+              "Expression": "Sum(OpenWithoutEngAccept.RequiredQty)",
+              "Label": "تعداد نیاز",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "4": {
+              "Ident": "MeasureColumn",
+              "Key": "746c66b7056b43aea3529514b64f2d1f",
+              "Expression": "Sum(OpenWithoutEngAccept.OrderQty)",
+              "Label": "تعداد سفارش",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "5": {
+              "Ident": "DimensionColumn",
+              "Key": "37e8e4b330f84cc99e910915a3fa8067",
+              "Expression": "OpenWithoutEngAccept.PurchaseRequestShamsiDate",
+              "Label": "تاریخ درخواست خرید",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "6": {
+              "Ident": "DimensionColumn",
+              "Key": "7e4987d42a8b4b4e82592216685332e9",
+              "Expression": "OpenWithoutEngAccept.RequestedPersonel",
+              "Label": "پرسنل درخواست‌کننده",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "7": {
+              "Ident": "DimensionColumn",
+              "Key": "a1406c20eb474ef78b5cbfedfef37e5c",
+              "Expression": "OpenWithoutEngAccept.IsRoutineRequest",
+              "Label": "درخواست روتین",
+              "TextFormat": {
+                "Ident": "StiBooleanFormatService"
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "8": {
+              "Ident": "DimensionColumn",
+              "Key": "49dbe9300096414b9784ad9c69b70286",
+              "Expression": "OpenWithoutEngAccept.Status",
+              "Label": "وضعیت",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            }
+          },
+          "ForeColor": "8,47,73",
+          "HeaderFont": ";10;;",
+          "FooterFont": ";10;;",
+          "Font": "IRANSansWeb;;;",
+          "Title": {
+            "Text": "درخواست‌های باز بدون تایید مهندسی",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;13;Bold;"
+          },
+          "DashboardInteraction": {
+            "Ident": "Table",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Style": "AliceBlue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        }
+      },
+      "Height": 900.0,
+      "Style": "Turquoise",
+      "Border": ";;2;;;;;solid:Black",
+      "BackColor": "240,247,250"
+    },
+    "5": {
+      "Ident": "StiDashboard",
+      "Name": "PageWeekly",
+      "Guid": "6e084e1607b34d22b9ca8ce6d7a66069",
+      "Alias": "۶ نمودار هفتگی",
+      "Brush": "solid:240,247,250",
+      "Components": {
+        "0": {
+          "Ident": "StiChartElement",
+          "Name": "LineWeekly",
+          "Guid": "23fde7ae4f7e495386174529f34042c4",
+          "ClientRectangle": "20,20,1160,520",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Values": {
+            "0": {
+              "Ident": "ValueChartMeter",
+              "Key": "e3100bb2c8b74bb6ba9884c8570040a8",
+              "Expression": "Sum(WeeklyCommitments.ItemCount)",
+              "Label": "تعداد",
+              "SeriesType": "Spline"
+            }
+          },
+          "Arguments": {
+            "0": {
+              "Ident": "ArgumentChartMeter",
+              "Key": "9f22db2bc2974d349ea41508b06b8653",
+              "Expression": "WeeklyCommitments.WeekLabel",
+              "Label": "هفته"
+            }
+          },
+          "DashboardInteraction": {
+            "Ident": "Chart",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab",
+            "ViewsState": "OnHover"
+          },
+          "Title": {
+            "Text": "روند تعهدات هفتگی",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;13;Bold;"
+          },
+          "ManuallyEnteredChartMeter": {
+            "Ident": "ValueChartMeter",
+            "Key": "e7c9a5e85b284b4e8b9f2b78379b642f"
+          },
+          "ArgumentFormat": {
+            "Ident": "StiGeneralFormatService"
+          },
+          "ValueFormat": {
+            "Ident": "StiNumberFormatService",
+            "NegativePattern": 1,
+            "DecimalDigits": 0,
+            "GroupSeparator": ",",
+            "State": "DecimalDigits, Abbreviation"
+          },
+          "Area": {
+            "SideBySide": true,
+            "GridLinesHor": {
+              "Visible": true
+            },
+            "Indicator": {
+              "Value": {
+                "Color": "Transparent"
+              },
+              "Title": {
+                "Color": "Transparent"
+              }
+            }
+          },
+          "Labels": {
+            "Position": "None"
+          },
+          "Options3D": {
+            "Lighting": "Gradient"
+          },
+          "Style": "DarkTurquoise",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        },
+        "1": {
+          "Ident": "StiTableElement",
+          "Name": "TableWeekly",
+          "Guid": "809e7f29baaf4563954fbfc6e7cbcc52",
+          "ClientRectangle": "20,560,1160,300",
+          "Border": "All;165,243,252;;;",
+          "BackColor": "White",
+          "AltClientRectangle": "0,0,0,0",
+          "Columns": {
+            "0": {
+              "Ident": "DimensionColumn",
+              "Key": "e8cd9ce6fa3a484a8c1205d44a25ab5c",
+              "Expression": "WeeklyCommitments.WeekLabel",
+              "Label": "هفته",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "1": {
+              "Ident": "DimensionColumn",
+              "Key": "b28e661f2cd94b18962381dd9a8be348",
+              "Expression": "WeeklyCommitments.WeekStartShamsi",
+              "Label": "شروع هفته",
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "2": {
+              "Ident": "MeasureColumn",
+              "Key": "4d8421c5bf9e4ced9e3a6436f22d3d6b",
+              "Expression": "Sum(WeeklyCommitments.ItemCount)",
+              "Label": "تعداد",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "3": {
+              "Ident": "MeasureColumn",
+              "Key": "105035b78ac045e888fa44fc46665b51",
+              "Expression": "Sum(WeeklyCommitments.PassedCount)",
+              "Label": "گذشته از تولید",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            },
+            "4": {
+              "Ident": "MeasureColumn",
+              "Key": "d970bf19f45e444fa186d9b686ded73b",
+              "Expression": "Sum(WeeklyCommitments.RemainCount)",
+              "Label": "مانده",
+              "HorAlignment": "Right",
+              "ShowTotalSummary": true,
+              "TextFormat": {
+                "Ident": "StiNumberFormatService",
+                "NegativePattern": 1,
+                "DecimalDigits": 0,
+                "GroupSeparator": ",",
+                "UseLocalSetting": false
+              },
+              "DashboardInteraction": {
+                "Ident": "TableColumn",
+                "OnHover": "None",
+                "OnClick": "None",
+                "HyperlinkDestination": "NewTab"
+              }
+            }
+          },
+          "ForeColor": "8,47,73",
+          "HeaderFont": ";10;;",
+          "FooterFont": ";10;;",
+          "Font": "IRANSansWeb;;;",
+          "Title": {
+            "Text": "جزئیات هفتگی",
+            "ForeColor": "30,58,78",
+            "Font": "IRANSansWeb;12;Bold;"
+          },
+          "DashboardInteraction": {
+            "Ident": "Table",
+            "OnHover": "ShowToolTip",
+            "OnClick": "ApplyFilter",
+            "HyperlinkDestination": "NewTab"
+          },
+          "Style": "AliceBlue",
+          "CornerRadius": "10,10,10,10",
+          "Shadow": ";;;"
+        }
+      },
+      "Height": 900.0,
+      "Style": "Turquoise",
+      "Border": ";;2;;;;;solid:Black",
+      "BackColor": "240,247,250"
+    }
+  }
+}

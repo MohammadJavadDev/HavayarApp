@@ -6,6 +6,7 @@ namespace Entities.ViewModels;
 public class CreateUserViewModel
 {
     public long? Id { get; set; }
+    public long? PartyId { get; set; }
     public string Name { get; set; }
     public string Username { get; set; }
     public string? Password { get; set; }

@@ -244,13 +244,13 @@
 }
 
 .select2-container--default .select2-selection--multiple {
-  background-color: white;
-  border: 1px solid #aaa;
-  border-radius: 4px;
-  cursor: text;
-  padding-bottom: 5px;
-  padding-right: 5px;
-  position: relative;
+     background-color: transparent;
+     border: 1px solid #aaa;
+     border-radius: 4px;
+     cursor: text;
+     padding-bottom: 5px;
+     padding-right: 5px;
+     position: relative;
 }
 
 .select2-container--default .select2-selection--multiple.select2-selection--clearable {

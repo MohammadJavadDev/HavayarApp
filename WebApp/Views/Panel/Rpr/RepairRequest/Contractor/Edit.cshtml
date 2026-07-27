@@ -1,5 +1,5 @@
 @using Entities.App.Inv
-@using Entities.App.Prp
+@using Entities.App.Rpr
 @using WebFramework.TagHelpers;
 @model RepairRequestContractor
 
@@ -100,7 +100,7 @@
                 <input type="text"
                        class="form-control numeric-input"
                        onkeypress="return (event.charCode >= 48 && event.charCode <= 57)"
-                       data-bind="textInput: cost"
+                       data-bind="cost"
                        value="@Model?.Cost" />
             </div>
 

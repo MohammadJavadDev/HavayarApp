@@ -7,8 +7,10 @@
 		<label class="required">جابجایی با</label>
 		@(Html.EntitySelector<ProductionOrderItem>(
 				"ProductionOrderItemSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active && !string.IsNullOrEmpty(c.Serial)
-				&& !c.IsDeleted && c.IsLatestVersion,
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active 
+				&& !string.IsNullOrEmpty(c.Serial)
+				&& !c.IsDeleted 
+				&& c.IsLatestVersion,
 				c => new
 				{
 					Id = c.Id,
@@ -18,13 +20,18 @@
 				},
 				c => new { c.ProductionOrder.ProductionOrderNumber, c.Part.Code, c.Serial },
 				"{ProductionOrderNumber} | {PartCode} | {Serial}",
-				"ProductionOrderItemId",
-				"ProductionOrderItemName",
+				"SwapId",
+				"SwapIdName",
 				null
 				))
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
-	<div class="col-md-12">
-		<input type="checkbox" data-bind="chkSwapParts" />
+	<div class="col-md-12 mt-5"
+		style="    display: flex;
+			    flex-direction: column;
+			    align-content: space-between;
+			    align-items: flex-start;">
+		<label for="chksawp">جابجایی کالاها</label>
+		<input type="checkbox" id="chksawp" data-bind="ShouldBeChangePartCode" />
 	</div>
 </div>

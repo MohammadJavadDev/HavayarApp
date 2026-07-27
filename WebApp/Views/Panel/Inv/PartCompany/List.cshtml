@@ -1,2 +1,28 @@
+﻿@using Entities.App.Gnr
 @using Entities.App.Inv;
 <datatableprofile entity-Type="typeof(PartCompany)" ></datatableprofile>
+
+
+
+<div class="d-none" id="bodySupplierSelectorModal">
+	<div class="col-md-12">
+			<label class=''>تامین کنندگان</label>
+			@(Html.EntitySelector<Supplier>(
+				"SupplierSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Party_FullName = c.Party.FullName
+				},
+				c => new { c.Party.FullName },
+				"{Party.FullName}",
+				"SupplierId",
+				"SupplierName",
+				null,
+				true,
+				true
+
+			))
+		</div>
+</div>
+

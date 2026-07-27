@@ -1,0 +1,131 @@
+@using Entities.App.Pln;
+@using Entities.App.Sale;
+@model ProductionOrderDelay
+<div class="card">
+	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductionOrderDelay)"></form-action-buttons></div>
+</div>
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4">
+			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		</div>
+		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+
+		<div class="col-md-6">
+			<label class=''>سفارش ساخت</label>
+			@(Html.EntitySelector<ProductionOrder>(
+				"ProductionOrderSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					Number = (int)c.ProductionOrderNumber
+				},
+				c => new { c.ProductionOrderNumber },
+				"{Number}",
+				"ProductionOrderId",
+				"ProductionOrderName",
+				Model?.ProductionOrderId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>قلم سفارش ساخت</label>
+			@(Html.EntitySelector<ProductionOrderItem>(
+				"ProductionOrderItemSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsDeleted == false,
+				c => new
+				{
+					Id = c.Id,
+					ProductionOrderNumber = (long)c.ProductionOrder.ProductionOrderNumber,
+					c.Serial,
+					PartName = c.Part.Name,
+					PartCode = c.Part.Code,
+					PartId = c.PartId,
+					c.ProductionOrderId
+				},
+				c => new { c.ProductionOrder.ProductionOrderNumber },
+				"{ProductionOrderNumber}  || {Serial} || {PartCode} || {PartName}",
+				"ProductionOrderItemId",
+				"ProductionOrderItemName",
+				Model?.ProductionOrderItemId?.ToString()
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تعداد روز تاخیر</label>
+			<input class='form-control' data-bind='delayDays' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DelayDays' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ میلادی شروع تاخیر</label>
+			<input class='form-control ltr' data-bind='delayStartMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.DelayStartMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>تاریخ میلادی پایان تاخیر</label>
+			<input class='form-control ltr' data-bind='delayEndMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.DelayEndMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>علت تاخیر</label>
+			<textarea class='form-control' data-bind='delayReason' rows="3">@Model?.DelayReason</textarea>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12'>
+			<label class=''>توضیحات</label>
+			<textarea class='form-control' data-bind='description' rows="3">@Model?.Description</textarea>
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card">
+
+	<div class='card-body row'>
+		<div class='col-md-3'>
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class='col-md-3'>
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class='col-md-3'>
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) { return; }
+		var model = page.$pageEl.dataBind();
+		const $btn = $(this.element).block();
+		$$.post('save',
+			model,
+			function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+				toastr.success('ذخیره سازی با موفقیت انجام شد .');
+				page.$pageEl.dataBind(r.data);
+				$btnAction.baseaction();
+			})
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+</script>

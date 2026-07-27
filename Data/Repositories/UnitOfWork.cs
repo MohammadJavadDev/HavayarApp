@@ -6,6 +6,7 @@ using Data.Services;
 using Data.Services.Actions;
 using Data.SystemAuth;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Data.Repositories
@@ -13,7 +14,8 @@ namespace Data.Repositories
     public class UnitOfWork(ApplicationDbContext context,  ISdk? sdk  , IAuditService _auditService, IEntityActionInvoker invoker) : IUnitOfWork
     {
         private readonly IDictionary<Type, object> _repositories = new Dictionary<Type, object>();
-        private IDbContextTransaction _transaction;
+ 
+		private IDbContextTransaction _transaction;
 
         public IRepository<TEntity> Repository<TEntity>() where TEntity : BaseEntity, new()
         {
@@ -84,6 +86,29 @@ namespace Data.Repositories
         {
             context.Dispose();
         }
-    }
+
+		public async Task<TResult> ExecuteInTransactionAsync<TResult>(
+	  Func<Task<TResult>> action,
+	  CancellationToken cancellationToken = default)
+		{
+			var strategy = context.Database.CreateExecutionStrategy();
+
+			return await strategy.ExecuteAsync(async () =>
+			{
+				await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+				try
+				{
+					var result = await action();
+					await transaction.CommitAsync(cancellationToken);
+					return result;
+				}
+				catch
+				{
+			 
+					throw;
+				}
+			});
+		}
+	}
 
 }

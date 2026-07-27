@@ -1,0 +1,28 @@
+﻿@using Entities.App.Inv;
+<datatableprofile unicode="@nameof(PartCodingCategoryRequest)"></datatableprofile>
+
+
+
+
+<div class="d-none" id="bodySelectPart">
+	<div class="col-md-12">
+		<label class="required">کالای ایجاد شده</label>
+		@(Html.EntitySelector<Part>(
+				"PartSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id,
+					 Name = c.Name,
+					 Code = c.Code
+				},
+				c => new { c.Name , c.Code },
+				"{Name} | {Code}",
+				"CreatedPartId",
+				"CreatePartName",
+				null
+				))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	 
+</div>

@@ -35,7 +35,7 @@ namespace Entities.App.Sup
 
 		[DisplayName("تاریخ حواله فروش شمسی")]
 		[DisplayInfo(null, true, type: SystemType.DateShamsi)]
-		[MaxLength(10)]
+		[MaxLength(16)]
 		public string? OrderShamsiDate { get; set; }
 
 
@@ -461,6 +461,10 @@ namespace Entities.App.Sup
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public OpenOrderRequestAttachmentFileTypeEnum? FileType { get; set; }
 
+		/// <summary>
+		/// شناسه پیوست در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 
 	}
 

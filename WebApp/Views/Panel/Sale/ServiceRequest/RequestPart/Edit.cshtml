@@ -1,0 +1,842 @@
+@using Entities.App.Gnr
+@using Entities.App.Inv
+@using Entities.App.SLS
+@using Entities.App.Sale
+@model ServiceRequestPart
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(ServiceRequestPart)"></form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         درخواست کالا
+                         <br />
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class="col-md-4">
+                    <label class="form-label fw-bold">شماره سند</label>
+
+                    <input class="form-control"
+                           data-bind="projectVchNum"
+                           asp-for="ProjectVchNum" />
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+               <div class="col-md-4">
+                    <label class="form-label fw-bold">مرکز فروش</label>
+
+                    @(Html.EntitySelector<SalesOffice>(
+                                        "SalesOfficeIdSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Name = c.Name,
+                                             Code = c.Code
+                                        },
+                                        c => new { c.Name, c.Code },
+                                        "{Name}",
+                                        "SalesOfficeId",
+                                        Model?.SalesOffice?.Name,
+                                        Model?.SalesOfficeId?.ToString()
+                                        ))
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+               <div class="col-md-4">
+                    <label class="form-label fw-bold">سال مالی</label>
+
+                    <input class="form-control"
+                           data-bind="projectVchYear"
+                           asp-for="ProjectVchYear" />
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+
+
+               <div class="col-12 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                         <h5 class="fw-bold mb-0">
+                              <i class="fa fa-cubes ms-2"></i> لیست قطعات
+                         </h5>
+                         <button type="button" class="btn btn-primary" id="btnAddPieces">
+                              <i class="fa fa-plus-circle ms-2"></i> افزودن قطعات
+                         </button>
+                    </div>
+
+                    <div class="table-responsive">
+                         <table class="table table-bordered table-hover table-striped" id="piecesTable">
+                              <thead class="table-light">
+                                   <tr>
+                                        <th class="text-center" style="width: 50px;">#</th>
+                                        <th>تاریخ</th>
+                                        <th>نام قطعه</th>
+                                        <th class="text-center" style="width: 120px;">تعداد</th>
+                                   </tr>
+                              </thead>
+                              <tbody id="piecesTableBody">
+                                   <tr id="emptyRow">
+                                        <td colspan="4" class="text-center text-muted py-3">
+                                             <i class="fa fa-info-circle ms-2"></i> برای مشاهده قطعات، روی دکمه "افزودن قطعات" کلیک کنید
+                                        </td>
+                                   </tr>
+                              </tbody>
+                         </table>
+                    </div>
+
+                    <!-- نمایش قطعه انتخاب شده -->
+                    <div class="row mt-3" id="selectedPartDisplay" style="display: none;">
+                         <div class="col-12">
+                              <div class="alert alert-info">
+                                   <i class="fa fa-check-circle ms-2"></i>
+                                   <strong>قطعه انتخاب شده:</strong>
+                                   <span id="selectedPartDisplayName">-</span>
+                                   <button type="button" class="btn btn-sm btn-outline-danger ms-3" id="clearSelectedPart">
+                                        <i class="fa fa-times"></i> لغو انتخاب
+                                   </button>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+               <!-- فیلد مخفی برای ذخیره ID قطعه انتخاب شده -->
+               <input type="hidden" id="selectedPartId" data-bind="projectVchPartId" />
+
+
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">محصول مرتبط</label>
+                    <select class="form-control"
+                            id="relatedProductsSelector"
+                            data-bind="relatedProducts"
+                            asp-for="RelatedProducts">
+                         <option value="">انتخاب محصول...</option>
+                    </select>
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">قطعه جایگزین</label>
+                    @(Html.EntitySelector<Part>(
+                                        "ReplacePartSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             GetHashCode = c.Code,
+                                             Title = c.Name,
+                                        },
+                                        c => new { c.Name },
+                                        "{Title}",
+                                        "ReplacePartId",
+                                        Model?.ReplacePart?.Name,
+                                        Model?.ReplacePartId?.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">مبلغ</label>
+                    <input class="form-control"
+                           data-bind="unitPrice"
+                           asp-for="UnitPrice" />
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+
+               <div class='col-md-3'>
+                    <label class=''>نوع خدمات</label>
+                    <select class='form-control' data-bind='serviceTypes' asp-for='ServiceTypes' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ServiceTypesEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">مرکز هزینه</label>
+                    @(Html.EntitySelector<CostCenter>(
+                                        "CostCenterSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Code = c.Number,
+                                             Title = c.Title,
+                                        },
+                                        c => new { c.Title },
+                                        "{Title}",
+                                        "CostCenterId",
+                                        Model?.CostCenter?.Title,
+                                        Model?.CostCenterId?.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">سایر مراکز هزینه</label>
+                    @(Html.EntitySelector<Supplier>(
+                                        "CostCenterSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Code = c.Party.Number,
+                                             Title = c.Party.FullName,
+                                        },
+                                        c => new { c.Party.FullName },
+                                        "{Title}",
+                                        "SupplierId",
+                                        Model?.Supplier?.Party.FullName,
+                                        Model?.SupplierId?.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='returnLicence' class="form-check-input" type="checkbox" asp-for='ReturnLicence' />
+                         <label class="form-check-label form-label fw-bold" asp-for='ReturnLicence'>
+                              مجوز برگشت دارد
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class="accordion my-4" id="accordionDamagedPart">
+                    <div class="accordion-item border-0 shadow-sm">
+                         <h2 class="accordion-header" id="headingDamaged">
+                              <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDamaged" aria-expanded="false" aria-controls="collapseDamaged">
+                                   <i class="fa fa-recycle ms-2"></i> &nbsp; اطلاعات قطعه داغی
+                              </button>
+                         </h2>
+                         <div id="collapseDamaged" class="accordion-collapse collapse" aria-labelledby="headingDamaged" data-bs-parent="#accordionDamagedPart">
+                              <div class="accordion-body">
+                                   <div class="row g-3">
+
+                                        <div class='col-md-3 align-content-center'>
+                                             <div class="form-check">
+                                                  <input data-bind='hasReturn_DamagedPart' class="form-check-input" type="checkbox" asp-for='HasReturn_DamagedPart' />
+                                                  <label class="form-check-label form-label fw-bold" asp-for='HasReturn_DamagedPart'>
+                                                       داغی دارد
+                                                  </label>
+                                             </div>
+                                        </div>
+
+                                        <div class='col-md-3'>
+                                             <label class='form-label'>وضعیت داغی</label>
+                                             <select class='form-control' data-bind='damagedPartType' asp-for='DamagedPartType' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.DamagedPartTypeEnum))">
+                                             </select>
+                                             <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                             <label class="form-label fw-bold">کد قطعه داغی</label>
+                                             @(Html.EntitySelector<Part>(
+                                                                                          "DamagedPartIdSelector",
+                                                                                          c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                                          c => new { Id = c.Id, Code = c.Code, Title = c.Name },
+                                                                                          c => new { c.Name },
+                                                                                          "{Title}",
+                                                                                          "DamagedPartId",
+                                                                                          Model?.DamagedPart?.Name,
+                                                                                          Model?.DamagedPartId?.ToString(),
+                                                                                          false,
+                                                                                          true
+                                                                                          ))
+                                        </div>
+
+                                        <div class="col-md-3">
+                                             <label class="form-label fw-bold">توضیح قطعه داغی</label>
+                                             <textarea class='form-control' data-bind='damagedPartDescription' asp-for='DamagedPartDescription'>@Model?.DamagedPartDescription</textarea>
+                                        </div>
+
+                                   </div>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+
+
+
+               <div class="accordion my-4" id="accordionFailure">
+                    <div class="accordion-item border-0 shadow-sm">
+                         <h2 class="accordion-header" id="headingFailure">
+                              <button class="accordion-button collapsed fw-bold text-danger" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFailure" aria-expanded="false" aria-controls="collapseFailure">
+                                   <i class="fa fa-exclamation-triangle ms-2"></i>&nbsp;  خرابی
+                              </button>
+                         </h2>
+                         <div id="collapseFailure" class="accordion-collapse collapse" aria-labelledby="headingFailure" data-bs-parent="#accordionFailure">
+                              <div class="accordion-body">
+                                   <div class="row g-3">
+
+                                        <div class='col-md-3 align-content-center'>
+                                             <div class="form-check">
+                                                  <input data-bind='hasFailure' class="form-check-input" type="checkbox" asp-for='HasFailure' />
+                                                  <label class="form-check-label fw-bold" asp-for='HasFailure'>
+                                                       خرابی دارد
+                                                  </label>
+                                             </div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                             <label class="form-label fw-bold">قطعه معیوب</label>
+                                             @(Html.EntitySelector<Part>(
+                                                                                          "FailurePartIdSelector",
+                                                                                          c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                                                                          c => new
+                                                                                          {
+                                                                                               Id = c.Id,
+                                                                                               Code = c.Code,
+                                                                                               Title = c.Name,
+                                                                                          },
+                                                                                          c => new { c.Name },
+                                                                                          "{Title}",
+                                                                                          "FailurePartId",
+                                                                                          Model?.FailurePart?.Name,
+                                                                                          Model?.FailurePartId?.ToString(),
+                                                                                          false,
+                                                                                          true
+                                                                                          ))
+                                             <div data-invalidmessagespan class="mt-1">
+                                                  <span class="text-danger"></span>
+                                             </div>
+                                        </div>
+
+                                        <div class="col-md-6">
+                                             <label class="form-label fw-bold required">شرح خرابی</label>
+                                             <textarea class="form-control" data-bind='failureDescription' asp-for="FailureDescription" rows="2" placeholder="جزئیات خرابی را اینجا بنویسید..."></textarea>
+                                        </div>
+
+                                   </div>
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+
+               <div class="col-md-12">
+                    <label>توضیحات</label>
+                    <textarea class="form-control form-label fw-bold" asp-for="Comment" data-bind='comment' rows="5"></textarea>
+               </div>
+
+
+          </div>
+
+          <div class="card border mt-5">
+               <div class="card-body">
+
+                    <div class="row g-3 align-items-end mb-4">
+                    </div>
+
+               </div>
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+
+<script>
+     const serviceRequestId = sessionStorage.getItem("ServiceRequestId");
+
+     function getServiceRequestId() {
+         return $('[data-bind="id"]').val();
+     }
+
+     function loadPiecesData() {
+         const projectVchNum = parseInt($('[data-bind="projectVchNum"]').val());
+         const projectVchYear = parseInt($('[data-bind="projectVchYear"]').val());
+         const salesOfficeId = $('#SalesOfficeIdSelector input[type="hidden"]').val();
+
+         if (!projectVchNum) {
+             toastr.warning("شماره سند را وارد کنید");
+             return;
+         }
+
+         if (!projectVchYear) {
+             toastr.warning("سال مالی را وارد کنید");
+             return;
+         }
+
+         $('#selectedPartId').val('');
+         $('#selectedPartDisplayName').text('');
+         $('#selectedPartDisplay').hide();
+
+         const params = new URLSearchParams();
+         params.append("projectVchNum", projectVchNum);
+         params.append("projectVchYear", projectVchYear);
+
+         if (salesOfficeId)
+             params.append("SalesOfficeId", salesOfficeId);
+
+         const tbody = $("#piecesTableBody");
+         tbody.html(`
+                     <tr>
+                         <td colspan="4" class="text-center py-3">
+                             <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                 <span class="visually-hidden">در حال بارگذاری...</span>
+                             </div>
+                             <span class="ms-2">در حال دریافت اطلاعات...</span>
+                         </td>
+                     </tr>
+                 `);
+
+         fetch(`/Panel/Sale/ServiceRequestPart/GetPiecesDataAsync?${params}`)
+             .then(r => r.json())
+             .then(result => {
+                 console.log(result);
+
+                 if (!result.isSuccess) {
+                     toastr.error(result.message);
+                     renderPiecesTable([]);
+                     return;
+                 }
+
+                 const pieces = result.data?.data ?? [];
+                 console.log(pieces);
+                 renderPiecesTable(pieces);
+                 toastr.success(`${pieces.length} قطعه یافت شد`);
+             })
+             .catch(err => {
+                 console.log(err);
+                 toastr.error(err.message || 'خطا در دریافت اطلاعات');
+                 renderPiecesTable([]);
+             });
+     }
+
+     function renderPiecesTable(pieces) {
+         const tbody = $("#piecesTableBody");
+         tbody.empty();
+
+         if (!pieces || pieces.length === 0) {
+             tbody.append(`
+                         <tr>
+                             <td colspan="4" class="text-center text-muted py-3">
+                                 <i class="fa fa-info-circle ms-2"></i> اطلاعاتی یافت نشد
+                             </td>
+                         </tr>
+                     `);
+             return;
+         }
+
+         pieces.forEach((item, index) => {
+             tbody.append(`
+                                       <tr data-id="${item.id}" data-part-ref="${item.partRef}" class="piece-row" style="cursor: pointer;">
+                             <td class="text-center">${index + 1}</td>
+                             <td>${item.date || '-'}</td>
+                             <td>${item.partName || '-'}</td>
+                             <td class="text-center">${Number(item.qty).toLocaleString("fa-IR")}</td>
+                         </tr>
+                     `);
+         });
+
+         $('.piece-row').off('click').on('click', function() {
+             $('.piece-row').removeClass('table-primary');
+             $(this).addClass('table-primary');
+             const partId = $(this).data('partRef');
+             const partName = $(this).find('td:eq(2)').text();
+             $('#selectedPartId').val(partId);
+             $('#selectedPartDisplayName').text(partName);
+             $('#selectedPartDisplay').show();
+
+             toastr.info(`قطعه "${partName}" انتخاب شد`);
+         });
+     }
+
+     $(document).on('click', '#clearSelectedPart', function() {
+         $('#selectedPartId').val('');
+         $('#selectedPartDisplayName').text('');
+         $('#selectedPartDisplay').hide();
+         $('.piece-row').removeClass('table-primary');
+         toastr.info('انتخاب قطعه لغو شد');
+     });
+
+     function loadServiceRequestDetails(serviceRequestId) {
+         if (!serviceRequestId || serviceRequestId === '0') {
+             $('#contractorTableBody').html(`
+                         <tr>
+                             <td colspan="13" class="text-center text-warning">
+                                 شناسه معتبر نیست
+                             </td>
+                         </tr>
+                     `);
+             return;
+         }
+
+         $.ajax({
+             url: '/Panel/Sale/ServiceRequest/GetServiceRequest',
+             type: 'GET',
+             data: { serviceRequestId: serviceRequestId },
+             dataType: 'json',
+             success: function(res) {
+                 if (res && res.isSuccess === true && Array.isArray(res.data)) {
+                     renderServiceRequestDetails(res.data);
+                 } else {
+                     $('#contractorTableBody').html(`
+                                 <tr>
+                                     <td colspan="13" class="text-center text-warning">
+                                         اطلاعاتی یافت نشد
+                                     </td>
+                                 </tr>
+                             `);
+                 }
+             },
+             error: function() {
+                 $('#contractorTableBody').html(`
+                             <tr>
+                                 <td colspan="13" class="text-center text-danger">
+                                     خطا در دریافت اطلاعات
+                                 </td>
+                             </tr>
+                         `);
+             }
+         });
+     }
+
+     function renderServiceRequestDetails(list) {
+         const SaleRequestTypeEnum = {
+             1: 'آموزش',
+             2: 'اورهال',
+             3: 'بازدید و مشاوره',
+             4: 'تعمیرات گارانتی',
+             5: 'تعمیرات وارانتی',
+             6: 'راه اندازی اولیه',
+             7: 'پایپینگ',
+             8: 'سرویس دوره ای',
+             9: 'سایر موارد',
+             10: 'OPI',
+             11: 'راه اندازی تجهیز تعمیری',
+             12: 'پیش راه اندازی',
+             13: 'نصب'
+         };
+
+         const tbody = $('#contractorTableBody');
+         tbody.empty();
+
+         list.forEach((item, index) => {
+             const requestTypeName = SaleRequestTypeEnum[item.requestType] || 'نامشخص';
+
+             const row = `
+                         <tr data-id="${item.id || 0}">
+                             <td class="text-center">
+                                 <button class="btn btn-warning btn-sm" data-action="editDetail" data-id="${item.id}">
+                                     <i class="fa fa-pencil"></i>
+                                 </button>
+                                 <button class="btn btn-danger btn-sm" data-action="deleteDetail" data-id="${item.id}">
+                                     <i class="fa fa-trash"></i>
+                                 </button>
+                             </td>
+                             <td>${index + 1}</td>
+                             <td>${requestTypeName}</td>
+                             <td class="text-end">
+                                 ${item.cost ? new Intl.NumberFormat('fa-IR').format(item.cost) : '-'}
+                             </td>
+                             <td>${item.part?.name || '-'}</td>
+                             <td>${item.sendPartShamsiDate || '-'}</td>
+                             <td>${item.contractorAcceptShamsiDate || '-'}</td>
+                             <td>${item.noticeShamsiDate || '-'}</td>
+                             <td>${item.noticeTime || '-'}</td>
+                         </tr>`;
+
+             tbody.append(row);
+         });
+     }
+
+     function refreshServiceRequestDetails() {
+         const serviceRequestId = getServiceRequestId();
+         if (!serviceRequestId) return;
+
+         $('#contractorTableBody').html(`
+                     <tr>
+                         <td colspan="13" class="text-center py-4">
+                             <div class="spinner-border text-primary"></div>
+                         </td>
+                     </tr>
+                 `);
+
+         loadServiceRequestDetails(serviceRequestId);
+     }
+
+     $(document).on('click', '[data-action="addNewContractor"]', function() {
+         const serviceRequestId = getServiceRequestId();
+
+         if (!serviceRequestId) {
+             toastr.error('ابتدا اطلاعات را ذخیره کنید');
+             return;
+         }
+
+         const url = `/Panel/Sale/ServiceRequest/ShowProductDetailForm?serviceRequestId=${serviceRequestId}`;
+
+         $$.get(url, function(html) {
+             const bodyCn = $(`<div style="overflow-y:auto;max-height:70vh;">${html}</div>`);
+             initPersionDatePicker(bodyCn);
+
+             $.confirm({
+                 title: 'افزودن آیتم',
+                 columnClass: 'col-md-6',
+                 content: bodyCn,
+                 rtl: true,
+                 buttons: {
+                     save: {
+                         text: 'ذخیره',
+                         btnClass: 'btn-success',
+                         action: function() {
+                             const $content = this.$content;
+                             if (validateError($content))
+                                 return false;
+
+                             const model = $content.dataBind();
+                             model.ServiceRequestId = serviceRequestId;
+                             const self = this;
+
+                             $$.post('/Panel/Sale/ServiceRequest/AddRepairProductDetail', model, function(r) {
+                                 if (!r.isSuccess) {
+                                     toastr.error(r.message || 'خطا در ذخیره');
+                                     return;
+                                 }
+                                 toastr.success('با موفقیت ذخیره شد');
+                                 refreshServiceRequestDetails();
+                                 self.close();
+                             });
+                             return false;
+                         }
+                     },
+                     cancel: {
+                         text: 'انصراف',
+                         btnClass: 'btn-secondary'
+                     }
+                 }
+             });
+         });
+     });
+
+     $(document).on('click', '[data-action="editDetail"]', function() {
+         const selectedRow = $(this).data('id');
+         const serviceRequestId = getServiceRequestId();
+
+         const url = selectedRow
+             ? `/Panel/Sale/ServiceRequest/EditServiceRequest?id=${selectedRow}&serviceRequestId=${serviceRequestId}`
+             : `/Panel/Sale/ServiceRequest/EditServiceRequest?serviceRequestId=${serviceRequestId}`;
+
+         $$.get(url, function(html) {
+             const bodyCn = $(`<div style="overflow-y:auto;max-height:70vh;">${html}</div>`);
+             initPersionDatePicker(bodyCn);
+
+             $.confirm({
+                 title: selectedRow ? 'ویرایش' : 'افزودن',
+                 columnClass: 'col-md-6',
+                 content: bodyCn,
+                 rtl: true,
+                 buttons: {
+                     save: {
+                         text: 'ذخیره',
+                         btnClass: 'btn-success',
+                         action: function() {
+                             const $content = this.$content;
+                             if (validateError($content))
+                                 return false;
+
+                             const model = $content.dataBind();
+                             if (model.noticeTime) {
+                                 model.NoticeTime = model.noticeTime;
+                             }
+                             delete model.noticetime;
+                             delete model.noticeTime;
+                             model.ServiceRequestId = serviceRequestId;
+
+                             if (selectedRow)
+                                 model.Id = selectedRow;
+
+                             const self = this;
+                             $$.post('/Panel/Sale/ServiceRequest/AddRepairProductDetail', model, function(r) {
+                                 if (!r.isSuccess) {
+                                     toastr.error(r.message || 'خطا');
+                                     return;
+                                 }
+                                 toastr.success(selectedRow ? 'ویرایش انجام شد' : 'با موفقیت ثبت شد');
+                                 refreshServiceRequestDetails();
+                                 self.close();
+                             });
+                             return false;
+                         }
+                     },
+                     cancel: {
+                         text: 'انصراف'
+                     }
+                 }
+             });
+         });
+     });
+
+     $(document).on('click', '[data-action="deleteDetail"]', function() {
+         const id = $(this).data('id');
+
+         Swal.fire({
+             title: 'آیا مطمئن هستید؟',
+             text: 'این عملیات قابل بازگشت نیست',
+             icon: 'warning',
+             showCancelButton: true,
+             confirmButtonText: 'حذف',
+             cancelButtonText: 'انصراف'
+         }).then((result) => {
+             if (!result.isConfirmed)
+                 return;
+
+             $.ajax({
+                 url: `/Panel/Sale/ServiceRequest/DeleteServiceRequest?id=${id}`,
+                 type: 'DELETE',
+                 success: function(res) {
+                     if (res && res.data.data.success === true) {
+                         toastr.success(res.data.data.message || 'حذف شد');
+                         refreshServiceRequestDetails();
+                     } else {
+                         toastr.error(res.data.data.message || 'خطا در حذف');
+                     }
+                 },
+                 error: function() {
+                     toastr.error('خطا در حذف رکورد');
+                 }
+             });
+         });
+     });
+
+     $(document).ready(function() {
+         const serviceRequestId = getServiceRequestId();
+         if (serviceRequestId && serviceRequestId !== '0') {
+             loadServiceRequestDetails(serviceRequestId);
+         }
+     });
+
+     // Get RelatedProduct
+     $('#relatedProductsSelector').one('focus click', function() {
+         if (!serviceRequestId || serviceRequestId === '0') {
+             toastr.warning('لطفاً ابتدا سند اصلی را ذخیره کنید تا شناسه درخواست مشخص شود.');
+             return;
+         }
+
+         const $select = $(this);
+
+         if ($select.children('option').length > 1) return;
+
+         $select.html('<option value="">در حال دریافت اطلاعات...</option>');
+         $.ajax({
+             url: '/Panel/Sale/ServiceRequestPart/GetRelatedProduct',
+             type: 'GET',
+             data: { serviceRequestId: serviceRequestId },
+             dataType: 'json',
+             success: function(res) {
+                 $select.empty();
+                 $select.append('<option value="">انتخاب محصول...</option>');
+                 if (res && res.isSuccess && Array.isArray(res.data) && res.data.length > 0) {
+                     res.data.forEach(function(item) {
+                         $select.append(`<option value="${item.id}">${item.text}</option>`);
+                     });
+                     const currentValue = "@Model?.RelatedProducts";
+                     if (currentValue) {
+                         $select.val(currentValue);
+                     }
+                 } else {
+                     $select.html('<option value="">محصول مرتبطی یافت نشد</option>');
+                 }
+             },
+             error: function(xhr) {
+                 console.error(xhr);
+                 $select.html('<option value="">خطا در دریافت اطلاعات</option>');
+                 toastr.error('سیستم موفق به لود لیست محصولات مرتبط نشد.');
+             }
+         });
+     });
+
+     function savefn($btnAction) {
+         if (validateError(page.$pageEl)) return;
+
+         const model = page.$pageEl.dataBind();
+         model.ServiceRequestId = sessionStorage.getItem("ServiceRequestId");
+         const selectedPartId = $('#selectedPartId').val();
+         if (selectedPartId) {
+             model.ProjectVchPartId = parseInt(selectedPartId);
+         }
+
+         const $btn = $(this.element).block();
+
+         $$.post('save', model, function(r) {
+             $btn.block(false);
+
+             if (!r.isSuccess) {
+                 toastr.error(r.message, 'خطا');
+                 return;
+             }
+
+             toastr.success('ذخیره سازی با موفقیت انجام شد');
+             page.$pageEl.dataBind(r.data);
+             $btnAction.baseaction();
+         });
+     }
+
+     self.FormActionButtons.save.onclick(function() { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
+
+     $(document).on('click', '#btnAddPieces', function() {
+         loadPiecesData();
+     });
+</script>
