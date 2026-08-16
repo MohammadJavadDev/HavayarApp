@@ -481,21 +481,144 @@ class QueryDesigner {
      }
 
      applyMode(mode) {
-          if (mode === undefined)
+          if (mode === undefined || mode === null)
                return;
-               
-          this.mode = mode;
-          sessionStorage.setItem('queryDesignerMode', mode);
+
+          // نرمال‌سازی: 0/design → Diagram ، 1/write/query → Query
+          if (mode === 'design' || mode === 0 || mode === '0') this.mode = 0;
+          else if (mode === 'write' || mode === 'query' || mode === 1 || mode === '1') this.mode = 1;
+          else this.mode = mode;
+
+          sessionStorage.setItem('queryDesignerMode', this.mode);
           $('#modeSelection').addClass('d-none');
-          if (mode === 'design' || mode === 0) {
+          if (this.mode === 0) {
                $('#designModeContent').removeClass('d-none');
                $('#writeModeContent').addClass('d-none');
                // TODO: if (user.IsAdmin) { $('#queryEditor').prop('readonly', false); }
                $('#queryEditor').prop('readonly', true);
-          } else if (mode === 'write' || mode === 1) {
+          } else if (this.mode === 1) {
                $('#designModeContent').addClass('d-none');
                $('#writeModeContent').removeClass('d-none');
           }
+     }
+
+     /**
+      * تبدیل حالت طراحی بصری به حالت نوشتن Query:
+      * SQL نهایی، ستون‌ها (از جمله ستون‌های دکمه/HTML) و دکمه‌های اکشن حفظ می‌شوند.
+      */
+     convertDesignToQueryMode() {
+          if (this.mode !== 0) {
+               this.showWarning('فقط گزارش‌های حالت طراحی قابل تبدیل هستند');
+               return;
+          }
+
+          if (this.selectedTables?.length) {
+               this.refreshQuery();
+          }
+
+          const query = ($('#queryEditor').val() || '').trim();
+          if (!query) {
+               this.showError('ابتدا جداول و ستون‌ها را طوری تنظیم کنید که Query ساخته شود');
+               return;
+          }
+
+          if (!this.columns?.length) {
+               this.showError('حداقل یک ستون برای تبدیل لازم است');
+               return;
+          }
+
+          const confirmed = confirm(
+               'با تبدیل به حالت Query، دیاگرام و روابط حذف می‌شوند و ادامهٔ ویرایش فقط از طریق SQL خواهد بود.\n\n' +
+               'ستون‌ها، دکمه‌های سفارشی، پارامترها و Query حفظ می‌شوند.\n\nادامه می‌دهید؟'
+          );
+          if (!confirmed) return;
+
+          this._applyDesignToQueryConversion(query);
+          this.showSuccess('به حالت Query تبدیل شد — برای تثبیت، ذخیره کنید');
+     }
+
+     /**
+      * @param {string} query
+      * @private
+      */
+     _applyDesignToQueryConversion(query) {
+          const writeColumns = this._mapDesignColumnsToWriteMode(this.columns);
+
+          this._writeModeColumns = writeColumns;
+          this._writeModeSelects = [{ index: 0, name: 'Select1', title: 'Select1' }];
+          this._writeModePreviewed = true;
+
+          // پاک‌سازی حالت دیاگرام (بدون confirm داخلی clearDiagram)
+          if (this.jsPlumbInstance) {
+               this.jsPlumbInstance.deleteEveryConnection();
+               this.jsPlumbInstance.deleteEveryEndpoint();
+          }
+          $('#diagramCanvas .table-box').remove();
+          this.selectedTables = [];
+          this.relations = [];
+          this.filters = [];
+          this.customConditions = [];
+          this.columns = [];
+          $('.empty-state').show();
+          this.updateFiltersList();
+          this.updateCustomConditionsList();
+          this.updateColumnsTable();
+
+          // دکمه‌های اکشن سفارشی / eventScripts / parameters / actionOptions بدون تغییر می‌مانند
+          this.applyMode(1);
+
+          if (!this.sqlEditor) {
+               this.initSqlEditor(query);
+          } else {
+               this.sqlEditor.setValue(query, -1);
+          }
+
+          this.updateWriteModeColumnsTable();
+          $('#writeModeColumnsSection').removeClass('d-none');
+     }
+
+     /**
+      * نگاشت ستون‌های حالت طراحی به مدل ستون‌های حالت Query
+      * @param {Array} columns
+      * @returns {Array}
+      * @private
+      */
+     _mapDesignColumnsToWriteMode(columns) {
+          return (columns || []).map((c) => {
+               const resultColumnName = (c.alliance || c.columnName || c.id || `col_${this.generateId()}`).toString();
+               const widthNum = parseInt(c.width, 10);
+
+               return {
+                    columnName: resultColumnName,
+                    displayName: c.displayName || resultColumnName,
+                    systemType: c.systemType || 'String',
+                    visible: c.visible !== false,
+                    primaryKey: !!c.primaryKey,
+                    optionSetting: c.optionSetting || null,
+                    render: c.render || null,
+                    selectIndex: 0,
+                    width: (!isNaN(widthNum) && widthNum >= 40) ? Math.min(widthNum, 2000) : 200,
+                    filterable: c.filterable !== false,
+                    sortable: c.sortable !== false,
+                    className: this._normalizeColumnClassName(c.className),
+                    isCustom: !!c.isCustom,
+                    customColType: c.customColType || null,
+                    htmlTemplate: c.htmlTemplate ?? null,
+                    btnConfig: c.btnConfig ?? null,
+                    inputConfig: c.inputConfig ?? null,
+                    alliance: c.alliance || resultColumnName
+               };
+          });
+     }
+
+     /**
+      * آیا ستون، ستون سفارشی UI است (دکمه/HTML/ورودی بدون نتیجه SQL)؟
+      * @param {Object} col
+      * @returns {boolean}
+      * @private
+      */
+     _isUiOnlyWriteColumn(col) {
+          return !!(col && col.isCustom && col.customColType && col.customColType !== 'data');
      }
 
      loadEventScripts() {
@@ -760,6 +883,7 @@ class QueryDesigner {
           $('#tableSearch').on('input', (e) => this.filterTables(e.target.value));
           $('#spSearch').on('input', (e) => this.filterStoredProcedures(e.target.value));
           $('#btnClearDiagram').on('click', () => this.clearDiagram());
+          $('#btnConvertToQueryMode, #btnConvertToQueryModeBottom').on('click', () => this.convertDesignToQueryMode());
           $('#btnZoomIn').on('click', () => this.setZoom(this.zoom + 0.1));
           $('#btnZoomOut').on('click', () => this.setZoom(this.zoom - 0.1));
           $('#btnFitView').on('click', () => this.setZoom(1));
@@ -3487,6 +3611,40 @@ class QueryDesigner {
                });
           });
 
+          // ستون‌های سفارشی UI (دکمه/HTML/ورودی) که در نتیجه SQL نیستند حفظ شوند
+          previousColumns.forEach(prev => {
+               if (!this._isUiOnlyWriteColumn(prev)) return;
+
+               const already = columns.some(c =>
+                    (c.columnName || '').toLowerCase() === (prev.columnName || '').toLowerCase()
+                    && (c.selectIndex || 0) === (prev.selectIndex || 0)
+               );
+               if (already) return;
+
+               columns.push({
+                    selectIndex: prev.selectIndex || 0,
+                    columnName: prev.columnName || prev.alliance || `custom_${this.generateId()}`,
+                    displayName: prev.displayName || prev.columnName,
+                    systemType: prev.systemType || 'String',
+                    visible: prev.visible !== false,
+                    primaryKey: !!prev.primaryKey,
+                    optionSetting: prev.optionSetting || null,
+                    render: prev.render || null,
+                    width: (prev.width != null && !isNaN(parseInt(prev.width, 10)) && parseInt(prev.width, 10) >= 40)
+                         ? Math.min(parseInt(prev.width, 10), 2000)
+                         : 200,
+                    filterable: prev.filterable !== false,
+                    sortable: prev.sortable !== false,
+                    className: this._normalizeColumnClassName(prev.className),
+                    isCustom: true,
+                    customColType: prev.customColType || null,
+                    htmlTemplate: prev.htmlTemplate ?? null,
+                    btnConfig: prev.btnConfig ?? null,
+                    inputConfig: prev.inputConfig ?? null,
+                    alliance: prev.alliance || prev.columnName
+               });
+          });
+
           return columns;
      }
 
@@ -3837,6 +3995,7 @@ class QueryDesigner {
           const columns = this._writeModeColumns.map(c => ({
                columnName: c.columnName,
                displayName: c.displayName || c.columnName,
+               alliance: c.alliance || c.columnName,
                systemType: c.systemType || 'String',
                visible: c.visible,
                primaryKey: c.primaryKey,
@@ -3848,17 +4007,30 @@ class QueryDesigner {
                     : 200,
                filterable: c.filterable !== false,
                sortable: c.sortable !== false,
-               className: this._normalizeColumnClassName(c.className)
+               className: this._normalizeColumnClassName(c.className),
+               isCustom: !!c.isCustom,
+               customColType: c.customColType || null,
+               htmlTemplate: c.htmlTemplate ?? null,
+               btnConfig: c.btnConfig ?? null,
+               inputConfig: c.inputConfig ?? null
           }));
           try {
              
                const design = {
                     name: name,
                     title: title,
-                    queryDesign: { tables: [], relations: [], filters: [], customQuery: query, parameters: this.parameters, selects: this._writeModeSelects || [] },
+                    queryDesign: {
+                         tables: [],
+                         relations: [],
+                         filters: [],
+                         customConditions: [],
+                         customQuery: query,
+                         parameters: this.parameters,
+                         selects: this._writeModeSelects || []
+                    },
                     columns: columns,
                     type: this.reportType,
-                    mode: this.mode,
+                    mode: 1,
                     entityFullName: this.entityFullName,
                     actionOptions: JSON.stringify(this.actionOptions),
                     customActionButtons: JSON.stringify(this.customActionButtons),
@@ -4263,8 +4435,9 @@ class QueryDesigner {
                               this._writeModeColumns = (design.columns || []).map(c => ({
                                    columnName: c.columnName,
                                    displayName: c.displayName || c.columnName,
+                                   alliance: c.alliance || c.columnName,
                                    systemType: c.systemType || 'String',
-                                   visible: c.visible === null ? true : c.visible,
+                                   visible: c.visible === null || c.visible === undefined ? true : c.visible,
                                    primaryKey: c.primaryKey || false,
                                    optionSetting: c.optionSetting || null,
                                    render: c.render,
@@ -4274,7 +4447,12 @@ class QueryDesigner {
                                         : 200,
                                    filterable: c.filterable !== false,
                                    sortable: c.sortable !== false,
-                                   className: this._normalizeColumnClassName(c.className)
+                                   className: this._normalizeColumnClassName(c.className),
+                                   isCustom: !!c.isCustom,
+                                   customColType: c.customColType || null,
+                                   htmlTemplate: c.htmlTemplate ?? null,
+                                   btnConfig: c.btnConfig ?? null,
+                                   inputConfig: c.inputConfig ?? null
                               }));
 
                               const savedSelects = design.queryDesign.selects || design.queryDesign.Selects || [];

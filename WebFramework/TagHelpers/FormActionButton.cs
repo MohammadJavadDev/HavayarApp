@@ -39,7 +39,7 @@ namespace WebFramework.TagHelpers
 				}
 			}
 			output.Content.SetHtmlContent($@"
-				<i class='fs-2 {IconClass}'></i>
+				<i class='{IconClass}'></i>
 				");
 
 			return;

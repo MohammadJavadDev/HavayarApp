@@ -7,6 +7,7 @@
 @using Entities.App.Sup.Enums;
 @using Entities.Auth;
 @using Common.Utilities
+@using WebApp.ViewModels.Sup
 @inject ISdk sdk
 @model OpenOrderRequest
 @{
@@ -22,6 +23,8 @@ var hasSendingPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Sending"
 var hasQueryPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Query");
 var hasTerminatePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Terminate");
 var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.ConfigManage");
+var attachmentListItems = ViewBag.AttachmentListItems as List<OpenOrderRequestAttachmentListItemVm> ?? new List<OpenOrderRequestAttachmentListItemVm>();
+var attachmentDisplayCount = attachmentListItems.Count;
 
 }
 <div class="card">
@@ -93,7 +96,7 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 					<li class="nav-item">
 						<a class="nav-link" data-bs-toggle="tab" href="#tab_attachments_@Model.Id" id="tab_attachments_link_">
 							<i class="bi bi-paperclip me-2"></i>مدیریت پیوست‌ها
-							<span class="badge-circle badge badge-light-primary mx-1">@(Model?.Attachments.Count ?? 0)</span>
+							<span class="badge-circle badge badge-light-primary mx-1" id="attachments_count_badge">@attachmentDisplayCount</span>
 						</a>
 					</li>
 					<li class="nav-item">
@@ -505,7 +508,7 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 						</button>
 					</div>
 					<div id="attachments_content">
-						@await Html.PartialAsync("_AttachmentListPartial.cshtml", Model?.Attachments)
+						@await Html.PartialAsync("_AttachmentListPartial.cshtml", attachmentListItems)
 					</div>
 				</div>
 
@@ -944,14 +947,33 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 			return;
 		}
 
-		$$.post('/Panel/Sup/OpenOrderRequest/SetInWayStatus/'+openOrderRequestId, null, function (r) {
-			if (!r.isSuccess) {
-				toastr.error(`${r.message}`, 'خطا');
-				return;
-			}
-			toastr.success('وضعیت به "در راه" تغییر یافت');
+				$.confirm({
+			title: 'تایید',
+			content: 'آیا از تغییر وضعیت این درخواست به "در راه" اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-info',
+					action: function () {
+						$$.post('/Panel/Sup/OpenOrderRequest/SetInWayStatus/'+openOrderRequestId, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('وضعیت به "در راه" تغییر یافت');
  
+							});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
 		});
+
+		
 	});
 	//#endregion
 
@@ -970,14 +992,33 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 			return;
 		}
 
-		$$.post('/Panel/Sup/OpenOrderRequest/StatusInquiry/'+openOrderRequestId, null, function (r) {
-			if (!r.isSuccess) {
-				toastr.error(`${r.message}`, 'خطا');
-				return;
-			}
-			toastr.success('وضعیت به "در حال استعلام" تغییر یافت');
+			$.confirm({
+			title: 'تایید',
+			content: 'آیا از تغییر وضعیت این درخواست به "در حال استعلام" اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-info',
+					action: function () {
+						$$.post('/Panel/Sup/OpenOrderRequest/StatusInquiry/'+openOrderRequestId, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('وضعیت به "در حال استعلام" تغییر یافت');
 			 
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
 		});
+
+		
 	});
 	//#endregion
 
@@ -1024,6 +1065,56 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 	//#endregion
 
 	//#region Manage Attachments (moved to tab)
+	function reloadAttachmentsList() {
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!openOrderRequestId || openOrderRequestId == '0') {
+			return;
+		}
+
+		$$.get(`/Panel/Sup/OpenOrderRequest/AttachmentListPartial?openOrderRequestId=${openOrderRequestId}`, function (html) {
+			$$('#attachments_content').html(html);
+			const rowCount = $$('#attachments_content tbody tr').length;
+			const emptyState = $$('#attachments_content .alert-info').length > 0;
+			$$('#attachments_count_badge').text(emptyState ? 0 : rowCount);
+		});
+	}
+
+	function deleteOpenOrderAttachment(attachmentId) {
+		$.confirm({
+			title: 'تایید حذف',
+			content: 'آیا از حذف این پیوست اطمینان دارید؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'بله',
+					btnClass: 'btn-danger',
+					action: function () {
+						$$.post('/Panel/Sup/OpenOrderRequest/DeleteAttachment', { id: attachmentId }, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(`${r.message}`, 'خطا');
+								return;
+							}
+							toastr.success('پیوست با موفقیت حذف شد');
+							reloadAttachmentsList();
+						});
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			}
+		});
+	}
+
+	$$('#attachments_content').on('click', '.btn-delete-attachment', function () {
+		const attachmentId = $$(this).data('attachment-id');
+		if (!attachmentId) {
+			return;
+		}
+		deleteOpenOrderAttachment(attachmentId);
+	});
+
 	function openAttachmentModal(attachmentId = null) {
 		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
 
@@ -1039,7 +1130,6 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 				content: bodyCn,
 				rtl: true,
 				onContentReady: function () {
-					debugger
 					var self = this;
 					setTimeout(function () {
 						initFileUploaders(self.$body)
@@ -1068,10 +1158,7 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 
 								toastr.success('پیوست با موفقیت ذخیره شد');
 								self.close();
-								// Reload attachments tab
-								attachmentsLoaded = false;
-								loadAttachmentsTab();
-								page.close()
+								reloadAttachmentsList();
 							});
 
 							return false;
@@ -1134,7 +1221,7 @@ var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Con
 								
 								toastr.success('لینک با موفقیت ثبت شد');
 								self.close();
-								page.close()
+								reloadAttachmentsList();
 							});
 							
 							return false;

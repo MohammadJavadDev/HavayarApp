@@ -161,7 +161,7 @@ namespace WebFramework.TagHelpers
 			if (_readonly)
 			{
 				var readonlySpan = new TagBuilder("span");
-				readonlySpan.AddCssClass("form-control-plaintext border p-3 border-radius");
+				readonlySpan.AddCssClass("form-control-plaintext ");
 				if (multiSelect && initialItems.Any())
 				{
 					foreach(var item in initialItems.Select(x => $"<span class='entity-chip badge badge-success'>{x.Display}</span>"))

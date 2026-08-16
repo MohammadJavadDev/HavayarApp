@@ -340,5 +340,10 @@ namespace Entities.App.Sale
 		[MaxLength(2048)]
 		public string? Comment { get; set; }
 
+		/// <summary>
+		/// شناسه کامنت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
+
 	}
 }

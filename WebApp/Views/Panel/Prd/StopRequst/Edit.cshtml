@@ -1,184 +1,637 @@
+@using Common.Utilities
+@using Data.SystemAuth
 @using Entities.App.Hrm
-@using Entities.App.Prd;
+@using Entities.App.Prd
 @using Entities.App.Prd.Enums
-@using Entities.App.Sale;
+@using Entities.App.Sale
 @using Entities.Auth
+@inject ISdk sdk
 @model StopRequst
 
-<div class="card">
-	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(StopRequst)"></form-action-buttons></div>
+@{
+	var isNew = Model?.Id == null || Model.Id == 0;
+	var isAdmin = sdk.IsAdministrator;
+	var isExpert = (bool)(ViewBag.IsExpert ?? false);
+	var isResponsible = (bool)(ViewBag.IsResponsible ?? false);
+	var isCft = (bool)(ViewBag.IsCft ?? false);
+	var isQc = (bool)(ViewBag.IsQc ?? false);
+	var bypassResponsible = (bool)(ViewBag.BypassResponsibleAssignment ?? false);
+	var status = Model?.LastStatus;
+	var currentUserId = (long?)ViewBag.CurrentUserId;
+	var isOwner = isNew || (Model?.CreatedById != null && currentUserId != null && Model.CreatedById == currentUserId);
+	var isAssignedResponsible = bypassResponsible || (!string.IsNullOrWhiteSpace(Model?.ResponsibleUserIds)
+		&& currentUserId != null
+		&& Model.ResponsibleUserIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.Contains(currentUserId.Value.ToString()));
 
+	bool showExpertConfirm = !isNew && isExpert && (status is StopRequstModuleStatusEnum.PreRegister
+		or StopRequstModuleStatusEnum.Edited
+		or StopRequstModuleStatusEnum.StopingFactorDisApprove
+		or StopRequstModuleStatusEnum.RegisteredInProductTest);
+	bool showExpertReject = showExpertConfirm;
+	bool showResponsibleConfirm = !isNew && isResponsible && isAssignedResponsible
+		&& (status is StopRequstModuleStatusEnum.ProductionExpertApprove
+			or StopRequstModuleStatusEnum.RegisteredInProductTest
+			or StopRequstModuleStatusEnum.CftLeadApproved);
+	bool showResponsibleReject = showResponsibleConfirm;
+	bool showSendToCft = !isNew && isExpert
+		&& (status is StopRequstModuleStatusEnum.StopingFactorApprove
+			or StopRequstModuleStatusEnum.EffectivenessMeasuresDisApproved);
+	bool showEffectivity = !isNew && isExpert && status == StopRequstModuleStatusEnum.StopingFactorApprove;
+	bool showCft = !isNew && isCft && status == StopRequstModuleStatusEnum.SendToCFTTeam;
+	bool showQc = !isNew && isQc && status == StopRequstModuleStatusEnum.CheckByQcManager;
+	bool hasWorkflowActions = showExpertConfirm || showResponsibleConfirm || showSendToCft
+		|| showEffectivity || showCft || showQc;
+
+	// ذخیره فقط: ادمین همیشه / ایجاد جدید / صاحب رکورد در وضعیت‌های قابل‌ویرایش درخواست‌کننده
+	var editableRequesterStatus = isNew || status is StopRequstModuleStatusEnum.PreRegister
+		or StopRequstModuleStatusEnum.Edited
+		or StopRequstModuleStatusEnum.RegisteredInProductTest
+		or null;
+	var canSave = isAdmin || isNew || (editableRequesterStatus && isOwner);
+	// فیلدها: قابل ذخیره + کارشناس در مرحله تایید (برای تغییر واحد/مسئول قبل از ExpertConfirm)
+	var canEdit = canSave || showExpertConfirm;
+	var disabledAttr = canEdit ? null : "disabled";
+	var selectedReasons = (Model?.StopReasonIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+}
+
+<div class="card">
+	<form-action-buttons entity-type="typeof(StopRequst)"></form-action-buttons>
 </div>
-<div class="card">
 
+<div class="card my-2">
 	<div class="card-body row">
-		<div class="col-12 mb-4">
-			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+		<span class="section-box-title">قلم سفارش ساخت
+
+		</span>
+	 
+			@if (Model?.LastStatus != null)
+			{
+				<div class="col-md-6 form-group-inline">
+					<label>وضعیت فعلی</label>
+				<input class="form-control" value="@Model.LastStatus.ToDisplay()" readonly />
+				</div>
+			 
+			}
+			@if (!isNew)
+			{
+				<div class="col-md-6 form-group-inline">
+					<label>شماره توقف</label>
+					<input class="form-control" value="@Model?.Id" readonly />
+				</div>
+			}
+	 
+
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input type="hidden" data-bind="stopReasonIds" value="@Model?.StopReasonIds" />
+		<input type="hidden" data-bind="stopReasonTitles" value="@Model?.StopReasonTitles" />
+		<input type="hidden" data-bind="lastStatus" value="@((int?)Model?.LastStatus)" />
+
+		@{
+			var selectedProductionOrderId = Model?.ProductionOrderItem?.ProductionOrderId?.ToString();
+		}
+		<div class="col-md-6 form-group-inline">
+			<label class="required">سفارش ساخت</label>
+			@(Html.EntitySelector<ProductionOrder>(
+				"ProductionOrderSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Number = c.ProductionOrderNumber },
+				c => new { c.ProductionOrderNumber },
+				"{Number}",
+				"productionOrderId",
+				"productionOrderName",
+				selectedProductionOrderId,
+				true,
+				false,
+				!canEdit
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
-		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class="col-md-6">
-			<label class=''>قلم سفارش ساخت</label>
+		<div class="col-md-6 form-group-inline">
+			<label class="required">قلم سفارش ساخت</label>
 			@(Html.EntitySelector<ProductionOrderItem>(
 				"ProductionOrderItemSelector",
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
 				c => new
 				{
 					Id = c.Id,
-					ProductionOrder_ProductionOrderNumber = c.ProductionOrder.ProductionOrderNumber
+					ProductionOrderId = c.ProductionOrderId,
+					Number = c.ProductionOrder.ProductionOrderNumber,
+					PartCode = c.Part.Code,
+					PartName = c.Part.Name,
+					Serial = c.Serial
 				},
-				c => new { c.ProductionOrder },
-				"{ProductionOrder.ProductionOrderNumber}",
-				"ProductionOrderItemId",
-				"ProductionOrderItemName",
-				Model?.ProductionOrderItemId?.ToString()
+				c => new { c.Part.Code, c.Part.Name, c.Serial },
+				"{PartCode} - {PartName} ({Serial})",
+				"productionOrderItemId",
+				"productionOrderItemName",
+				Model?.ProductionOrderItemId?.ToString(),
+				true,
+				false,
+				!canEdit
 			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
-
-		<div class='col-md-6'>
-			<label class=''>تاریخ شروع توقف</label>
-			<input class='form-control'  data-bind='stopStartDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}' value='@Model?.StopStartMiladiDateTime' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-6'>
-			<label class=''>محل مشاهده</label>
-			<select class='form-control' data-bind='observationLocation' asp-for='ObservationLocation' asp-items="Html.GetEnumSelectList(typeof(StopRequstObservationLocationEnum))">
+		<div class="col-md-6 form-group-inline">
+			<label class="required">محل مشاهده</label>
+			<select class="form-control" data-bind="observationLocation" data-required="true" asp-for="ObservationLocation"
+				   asp-items="Html.GetEnumSelectList(typeof(StopRequstObservationLocationEnum))" disabled="@disabledAttr">
 			</select>
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>وضعیت تولید</label>
-			<select class='form-control' data-bind='productionStatus' asp-for='ProductionStatus' asp-items="Html.GetEnumSelectList(typeof(StopRequstProductionStatusEnum))">
+		<div class="col-md-6 form-group-inline">
+			<label class="required">وضعیت تولید</label>
+			<select class="form-control" data-bind="productionStatus" data-required="true" asp-for="ProductionStatus"
+				   asp-items="Html.GetEnumSelectList(typeof(StopRequstProductionStatusEnum))" disabled="@disabledAttr">
 			</select>
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-		 
-		<div class='col-md-6'>
-			<label class=''>ساعت کارکرد دستگاه</label>
-			<input class='form-control'  data-bind='operatingHours'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='OperatingHours' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-		<div class="col-md-6">
-			<label class=''>علت توقف</label>
-			<select class='form-control' id="stopReasonSelect" multiple asp-items="Html.GetEnumSelectList(typeof(StopRequstStopReasonEnum))">
-
-			 </select>
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
 
-		<div class="col-md-6">
-			<label>واحد های مسئول توقف</label>
-			@(Html.EntitySelector<OrgUnit>(
-				 "ResponsibleUnitIdsSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id,
-				    Title = c.Title
-				},
-					 c => new { c.Title },
-				 "{Title}",
-				 "ResponsibleUnitIds",
-				"ResponsibleUnitTitles",
-						Model?.ResponsibleUnitIds?.ToString(),
-				false,
-				true
-			))
-			 
-		 </div>
+		<div class="col-md-6 form-group-inline">
+			<label class="required">تاریخ شروع توقف</label>
+			<input class="form-control" data-bind="stopStartShamsiDateTime" data-required="true" data-persionDatePicker="true"
+				  persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
+				  value="@Model?.StopStartShamsiDateTime" disabled="@disabledAttr" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
 
-		 		<div class="col-md-6">
-			<label> مسئول های توقف</label>
-			@(Html.EntitySelector<User>(
-				 "ResponsibleUnitIdsSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id,
-							Name = c.Name
-				},
-						c => new { c.Name },
-				"{Name}",
-				"ResponsibleUserIds",
-				"ResponsibleUserNames",
-						Model?.ResponsibleUserIds?.ToString(),
-				false,
-				true
-			))
-			 
-		 </div>
-
-		 
-		 		<div class="col-md-6">
-			<label> ذینفعان</label>
-			@(Html.EntitySelector<User>(
-						"BeneficiarieUserIdsSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id,
-							Name = c.Name
-				},
-						c => new { c.Name },
-				"{Name}",
-						"BeneficiarieUserIds",
-						"BeneficiarieUserNames",
-						Model?.BeneficiarieUserIds?.ToString(),
-				false,
-				true
-			))
-			 
-		 </div>
-
+		<div class="col-md-6 form-group-inline">
+			<label>ساعت کارکرد دستگاه</label>
+			<input class="form-control" data-bind="operatingHours" data-invalidMessage="فقط عدد"
+				  data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for="OperatingHours" disabled="@disabledAttr" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
 	</div>
 </div>
 
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">جزئیات توقف</span>
+
+		<div class="col-md-6 form-group-inline">
+			<label class="required">علت توقف</label>
+			<select class="form-control" id="stopReasonSelect" multiple @(canEdit ? null : "disabled")>
+				@foreach (StopRequstStopReasonEnum reason in Enum.GetValues(typeof(StopRequstStopReasonEnum)))
+				{
+					var val = ((int)reason).ToString();
+					<option value="@val" selected="@(selectedReasons.Contains(val) ? "selected" : null)">@reason.ToDisplay()</option>
+				}
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		<div class="col-md-6 form-group-inline">
+			<label class="@(showExpertConfirm ? "required" : null)">واحد های مسئول توقف</label>
+			@(Html.EntitySelector<OrgUnit>(
+				"ResponsibleUnitIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"responsibleUnitIds",
+				"responsibleUnitTitles",
+				Model?.ResponsibleUnitIds?.ToString(),
+				false,
+				true,
+				!canEdit
+			))
+		</div>
+
+		<div class="col-md-6 form-group-inline">
+			<label class="@(showExpertConfirm ? "required" : null)">مسئول های توقف</label>
+			@(Html.EntitySelector<User>(
+				"ResponsibleUserIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"responsibleUserIds",
+				"responsibleUserNames",
+				Model?.ResponsibleUserIds?.ToString(),
+				false,
+				true,
+				!canEdit
+			))
+		</div>
+
+		<div class="col-md-6 form-group-inline">
+			<label>ذینفعان</label>
+			@(Html.EntitySelector<User>(
+				"BeneficiarieUserIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"beneficiarieUserIds",
+				"beneficiarieUserNames",
+				Model?.BeneficiarieUserIds?.ToString(),
+				false,
+				true,
+				!canEdit
+			))
+		</div>
+
+		<div class="col-md-6 form-group-inline">
+			<label>ذینفعان جایگزین</label>
+			@(Html.EntitySelector<User>(
+				"AlternativeBeneficiarieUserIdsSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"alternativeBeneficiarieUserIds",
+				"alternativeBeneficiarieUserNames",
+				Model?.AlternativeBeneficiarieUserIds?.ToString(),
+				false,
+				true,
+				!canEdit
+			))
+		</div>
+
+		<div class="col-md-6 form-group-inline">
+			<label>شماره عدم انطباق</label>
+			<input class="form-control" data-bind="conformityCheckRequestNumber" value="@Model?.ConformityCheckRequestNumber" disabled="@disabledAttr" />
+		</div>
+
+		<div class="col-md-12 form-group-inline">
+			<label class="required">شرح</label>
+			<textarea class="form-control" data-bind="description" data-required="true" rows="3" disabled="@disabledAttr">@Model?.Description</textarea>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		@if (!string.IsNullOrWhiteSpace(Model?.ResponsibleUserDescription))
+		{
+			<div class="col-md-12 form-group-inline">
+				<label>اقدامات مسئول</label>
+				<textarea class="form-control" rows="2" disabled>@Model.ResponsibleUserDescription</textarea>
+			</div>
+		}
+		@if (!string.IsNullOrWhiteSpace(Model?.SuggestedDateForFinishOfStopShamsi))
+		{
+			<div class="col-md-6 form-group-inline">
+				<label>تاریخ پیشنهادی پایان</label>
+				<input class="form-control" value="@Model.SuggestedDateForFinishOfStopShamsi" disabled />
+			</div>
+		}
+		@if (!string.IsNullOrWhiteSpace(Model?.CftDescription) || !string.IsNullOrWhiteSpace(Model?.SessionResult))
+		{
+			<div class="col-md-12 form-group-inline">
+				<label>شرح CFT / نتیجه جلسه</label>
+				<textarea class="form-control" rows="2" disabled>@(Model.CftDescription ?? Model.SessionResult)</textarea>
+			</div>
+		}
+		@if (!string.IsNullOrWhiteSpace(Model?.EffectivityDescription))
+		{
+			<div class="col-md-12 form-group-inline">
+				<label>شرح اثربخشی</label>
+				<textarea class="form-control" rows="2" disabled>@Model.EffectivityDescription</textarea>
+			</div>
+		}
+		@if (!string.IsNullOrWhiteSpace(Model?.StopFinishShamsiDate))
+		{
+			<div class="col-md-6 form-group-inline">
+				<label>تاریخ پایان توقف</label>
+				<input class="form-control" value="@Model.StopFinishShamsiDate" disabled />
+			</div>
+		}
+	</div>
+</div>
+
+@if (hasWorkflowActions)
+{
+	<div class="card my-2">
+		<div class="card-body">
+			<span class="section-box-title">اقدامات وضعیت</span>
+			<div class="d-flex flex-wrap gap-2 mt-2">
+				@if (showExpertConfirm)
+				{
+					<button type="button" class="btn btn-success" id="btnExpertConfirm">تایید کارشناس تولید</button>
+					<button type="button" class="btn btn-danger" id="btnExpertReject">رد کارشناس تولید</button>
+				}
+				@if (showResponsibleConfirm)
+				{
+					<button type="button" class="btn btn-success" id="btnResponsibleConfirm">تایید مسئول عامل</button>
+					<button type="button" class="btn btn-warning" id="btnResponsibleReject">رد مسئول عامل</button>
+				}
+				@if (showSendToCft)
+				{
+					<button type="button" class="btn btn-info" id="btnSendToCft">ارسال به CFT / جلسه</button>
+				}
+				@if (showEffectivity)
+				{
+					<button type="button" class="btn btn-success" id="btnEffectivityApprove">تایید اثربخشی</button>
+					<button type="button" class="btn btn-danger" id="btnEffectivityDisapprove">عدم تایید اثربخشی</button>
+				}
+				@if (showCft)
+				{
+					<button type="button" class="btn btn-primary" id="btnCftOperate">اقدام تیم CFT</button>
+				}
+				@if (showQc)
+				{
+					<button type="button" class="btn btn-success" id="btnQcApprove">تایید مدیر QC</button>
+					<button type="button" class="btn btn-danger" id="btnQcDisapprove">رد مدیر QC</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+@if (!isNew)
+{
+	<div class="card mt-3">
+		<div class="card-body">
+			<h5 class="fw-bold">تاریخچه وضعیت</h5>
+			@await Html.PartialAsync("~/Views/Panel/Prd/StopRequst/_CommentListPartial.cshtml", Model?.Comments)
+		</div>
+	</div>
+
+	<div class="card mt-3">
+		<div class="card-body">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h5 class="fw-bold mb-0">پیوست‌ها</h5>
+				<button type="button" class="btn btn-sm btn-primary" id="btnAddAttachment">افزودن پیوست</button>
+			</div>
+			@await Html.PartialAsync("~/Views/Panel/Prd/StopRequst/_AttachmentListPartial.cshtml", Model?.Attachments)
+		</div>
+	</div>
+}
+
 <div class="card">
- 
-	<div class='card-body row'>
-		<div class='col-md-3'>
-			<span>ایجاد کننده :</span>
-			<span data-bind="createdByName">@Model?.CreatedByName</span>
-		</div>
-		<div class='col-md-3'>
-			<span>تاریخ ایجاد :</span>
-			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
-		</div>
-		<div class='col-md-3'>
-			<span>ویرایش کننده :</span>
-			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
-		</div>
-		<div class='col-md-3'>
-			<span>تاریخ ویرایش :</span>
-			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
-		</div>
+	<div class="card-body row">
+		<div class="col-md-3"><span>ایجاد کننده :</span> <span data-bind="createdByName">@Model?.CreatedByName</span></div>
+		<div class="col-md-3"><span>تاریخ ایجاد :</span> <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span></div>
+		<div class="col-md-3"><span>ویرایش کننده :</span> <span data-bind="modifiedByName">@Model?.ModifiedByName</span></div>
+		<div class="col-md-3"><span>تاریخ ویرایش :</span> <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span></div>
 	</div>
 </div>
 
 <script>
+	$$("#stopReasonSelect").select2({ placeholder: 'انتخاب کنید', allowClear: true, width: '100%' });
 
-	$$("#stopReasonSelect").select2();
+	const canSave = @(canSave ? "true" : "false");
+
+	(function initSaveButtons() {
+		const saveButtons = ['save', 'saveandnew', 'saveandclose', 'delete'];
+		saveButtons.forEach(function (name) {
+			const btn = self.FormActionButtons[name];
+			if (!btn || !btn.element) return;
+			btn.element.disabled = !canSave;
+		});
+	})();
+
+	(function setupProductionOrderItemCascade() {
+		const cascadeOpts = {
+			filters: function () {
+				const poId = $$('#ProductionOrderSelector').find('.entity-selector-value').val();
+				return { ProductionOrderId: poId || '0' };
+			},
+			watchDependencies: ['#ProductionOrderSelector']
+		};
+		const $itemSelector = $$('#ProductionOrderItemSelector');
+		let inst = $itemSelector.data('entitySelector') || $itemSelector.data('entitySelectorInstance');
+		if (inst) {
+			inst.extraFilters = cascadeOpts.filters;
+			inst.options.watchDependencies = cascadeOpts.watchDependencies;
+			inst.watchDependencies();
+		} else {
+			$itemSelector.entitySelector(cascadeOpts);
+		}
+	})();
+
+	const stopId = @(Model?.Id ?? 0);
+
+	function syncStopReasons(model) {
+		const $sel = $$("#stopReasonSelect");
+		const vals = $sel.val() || [];
+		const texts = [];
+		$sel.find('option:selected').each(function () { texts.push($$(this).text().trim()); });
+		model.stopReasonIds = vals.join(',');
+		model.stopReasonTitles = texts.join(',');
+		$$('[data-bind="stopReasonIds"]').val(model.stopReasonIds);
+		$$('[data-bind="stopReasonTitles"]').val(model.stopReasonTitles);
+		return vals.length > 0;
+	}
 
 	function savefn($btnAction) {
+		if (!canSave) {
+			toastr.error('در این وضعیت امکان ذخیره وجود ندارد');
+			return;
+		}
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
+		if (!syncStopReasons(model)) {
+			toastr.error('علت توقف الزامی است');
+			return;
+		}
+		if (!model.description || !String(model.description).trim()) {
+			toastr.error('شرح الزامی است');
+			return;
+		}
 		const $btn = $(this.element).block();
-
-
-		$$.post('save',
-			model,
-			function (r) {
-				$btn.block(false);
-				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				page.$pageEl.dataBind(r.data);
-				$btnAction.baseaction();
-			})
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+			toastr.success('ذخیره سازی با موفقیت انجام شد .');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
 	}
 
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+	function reloadStopEdit() {
+		appController.refreshCurrentPage();
+	}
+
+	function postWorkflow(url, payload, successMsg) {
+		$$.post(url, payload, function (r) {
+			if (!r.isSuccess) return toastr.error(r.message || 'خطا', 'خطا');
+			toastr.success(successMsg || 'عملیات با موفقیت انجام شد');
+			reloadStopEdit();
+		});
+	}
+
+	function promptComment(title, onOk) {
+		$.confirm({
+			title: title,
+			content: '' +
+				'<div class="form-group">' +
+				'<label>توضیحات</label>' +
+				'<textarea class="form-control" id="wfComment" rows="3"></textarea>' +
+				'</div>',
+			rtl: true,
+			buttons: {
+				ok: {
+					text: 'ثبت',
+					btnClass: 'btn-primary',
+					action: function () {
+						const comment = this.$content.find('#wfComment').val();
+						onOk(comment);
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	}
+
+	$$('#btnExpertReject').on('click', function () {
+		promptComment('رد کارشناس تولید', function (comment) {
+			if (!comment || !comment.trim()) { toastr.error('شرح رد الزامی است'); return; }
+			postWorkflow('/Panel/StopRequst/ExpertReject', { id: stopId, comment: comment }, 'رد ثبت شد');
+		});
+	});
+
+	$$('#btnExpertConfirm').on('click', function () {
+		var model = page.$pageEl.dataBind();
+		syncStopReasons(model);
+		if (!model.responsibleUnitIds || !model.responsibleUserIds) {
+			toastr.error('واحد و مسئول عامل الزامی است');
+			return;
+		}
+		promptComment('تایید کارشناس تولید', function (comment) {
+			postWorkflow('/Panel/StopRequst/ExpertConfirm', {
+				id: stopId,
+				responsibleUnitIds: model.responsibleUnitIds,
+				responsibleUnitTitles: model.responsibleUnitTitles,
+				responsibleUserIds: model.responsibleUserIds,
+				responsibleUserNames: model.responsibleUserNames,
+				comment: comment
+			}, 'تایید کارشناس ثبت شد');
+		});
+	});
+
+	$$('#btnResponsibleConfirm').on('click', function () {
+		$.confirm({
+			title: 'تایید مسئول عامل',
+			content: `
+				<label>شرح اقدامات</label><textarea id="wfComment" class="form-control" rows="3"></textarea>
+				<label class="mt-2">تاریخ پیشنهادی پایان (شمسی)</label>
+				<input id="wfSuggestDate" class="form-control" data-persionDatePicker="true"   persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' />`,
+			rtl: true,
+			onContentReady: function () { 
+				debugger
+				initPersionDatePicker(this.$content); 
+			},
+			buttons: {
+				ok: {
+					text: 'تایید',
+					btnClass: 'btn-success',
+					action: function () {
+						const comment = this.$content.find('#wfComment').val();
+						if (!comment || !comment.trim()) { toastr.error('شرح اقدامات الزامی است'); return false; }
+						postWorkflow('/Panel/StopRequst/ResponsibleConfirm', {
+							id: stopId,
+							comment: comment,
+							suggestedDateForFinishOfStopShamsi: this.$content.find('#wfSuggestDate').val()
+						}, 'تایید مسئول ثبت شد');
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	});
+
+	$$('#btnResponsibleReject').on('click', function () {
+		promptComment('رد مسئول عامل', function (comment) {
+			if (!comment || !comment.trim()) { toastr.error('شرح رد الزامی است'); return; }
+			postWorkflow('/Panel/StopRequst/ResponsibleReject', { id: stopId, comment: comment }, 'رد مسئول ثبت شد');
+		});
+	});
+
+	$$('#btnSendToCft').on('click', function () {
+		$.confirm({
+			title: 'ارسال به CFT / نتیجه جلسه',
+			content: `
+				<label><input type="checkbox" id="wfNeedCft" checked /> نیاز به تیم CFT</label>
+				<label class="mt-2 d-block">نتیجه جلسه / توضیحات</label>
+				<textarea id="wfComment" class="form-control" rows="3"></textarea>
+				<label class="mt-2">تاریخ جلسه شمسی</label>
+				<input id="wfSessionDate" class="form-control" data-persionDatePicker="true"  persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' />`,
+			rtl: true,
+			onContentReady: function () { initPersionDatePicker(this.$content); },
+			buttons: {
+				ok: {
+					text: 'ثبت',
+					btnClass: 'btn-info',
+					action: function () {
+						postWorkflow('/Panel/StopRequst/SendToCft', {
+							id: stopId,
+							isNeedToCftTeam: this.$content.find('#wfNeedCft').is(':checked'),
+							comment: this.$content.find('#wfComment').val(),
+							productionSessionShamsiDate: this.$content.find('#wfSessionDate').val()
+						}, 'ثبت شد');
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	});
+
+	$$('#btnCftOperate').on('click', function () {
+		promptComment('اقدام تیم CFT', function (comment) {
+			postWorkflow('/Panel/StopRequst/CftOperate', { id: stopId, comment: comment }, 'اقدام CFT ثبت شد');
+		});
+	});
+
+	$$('#btnEffectivityApprove').on('click', function () {
+		promptComment('تایید اثربخشی', function (comment) {
+			postWorkflow('/Panel/StopRequst/EffectivityApprove', { id: stopId, comment: comment }, 'اثربخشی تایید شد');
+		});
+	});
+
+	$$('#btnEffectivityDisapprove').on('click', function () {
+		promptComment('عدم تایید اثربخشی', function (comment) {
+			postWorkflow('/Panel/StopRequst/EffectivityDisapprove', { id: stopId, comment: comment }, 'عدم تایید ثبت شد');
+		});
+	});
+
+	$$('#btnQcApprove').on('click', function () {
+		promptComment('تایید مدیر QC', function (comment) {
+			postWorkflow('/Panel/StopRequst/QcManagerApprove', { id: stopId, comment: comment }, 'تایید QC ثبت شد');
+		});
+	});
+
+	$$('#btnQcDisapprove').on('click', function () {
+		promptComment('رد مدیر QC', function (comment) {
+			postWorkflow('/Panel/StopRequst/QcManagerDisapprove', { id: stopId, comment: comment }, 'رد QC ثبت شد');
+		});
+	});
+
+	$$('#btnAddAttachment').on('click', function () {
+		$.confirm({
+			title: 'افزودن پیوست',
+			content: `
+				<div class="mb-2">
+					<fileuploader bind="attachmentId" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.jpg,.png,"
+						entity-prop-name="Attachment" max-file-size="10" label="پیوست"></fileuploader>
+				</div>
+				<label>توضیحات</label>
+				<input class="form-control" id="attComment" />`,
+			rtl: true,
+			buttons: {
+				ok: {
+					text: 'ذخیره',
+					btnClass: 'btn-primary',
+					action: function () {
+						const attachmentId = this.$content.find('[data-bind="attachmentId"]').val()
+							|| this.$content.find('input[name="attachmentId"]').val();
+						if (!attachmentId) { toastr.error('فایل انتخاب نشده'); return false; }
+						$$.post('/Panel/StopRequst/SaveAttachment', {
+							stopRequstId: stopId,
+							attachmentId: attachmentId,
+							comment: this.$content.find('#attComment').val()
+						}, function (r) {
+							if (!r.isSuccess) return toastr.error(r.message || 'خطا');
+							toastr.success('پیوست ذخیره شد');
+							reloadStopEdit();
+						});
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	});
 </script>

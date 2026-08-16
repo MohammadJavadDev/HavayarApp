@@ -1,6 +1,14 @@
 @using Entities.App.Edms
 @model dynamic
+<style>
+	.select2-dropdown {
+		z-index: 9999 !important;
+	}
 
+	.select2-container--open {
+		z-index: 1000003000000 !important;
+	}
+</style>
 <div class="row">
 	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
 	
@@ -15,17 +23,13 @@
 		<label class='required'>پروژه</label>
 		@(Html.EntitySelector<Project>(
 			"ProjectVpisSelector",
-			c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsConfidential == false,
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active && (c.IsConfidential == false),
 				c => new { Id = c.Id, ProjectName = c.ProjectName, Code = c.Code },
 				c => new { c.ProjectName, c.Code },
 			"{ProjectCode} - {ProjectName}",
 			"projectId",
 			"projectName",
-			null,
-			false,
-			false,
-			false,
-			true
+			null
 		))
 		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 	</div>
@@ -49,8 +53,8 @@
 <script>
 	(function() {
 		const openOrderRequestId = @ViewBag.OpenOrderRequestId;
-		const $projectSelector = $$('[data-bind="projectId"]');
-		const $vpisSelect = $$('#vpisMultiSelect');
+		const $projectSelector = $('[data-bind="projectId"]');
+		const $vpisSelect = $('#vpisMultiSelect');
 
 		// Initialize multiselect
 		$vpisSelect.select2({
@@ -60,7 +64,7 @@
 		});
 
 		// Load current project if exists
-		$$.get(`/Panel/Sup/OpenOrderRequest/GetCurrentProjectForVpis?openOrderRequestId=${openOrderRequestId}`, function(r) {
+		get(`/Panel/Sup/OpenOrderRequest/GetCurrentProjectForVpis?openOrderRequestId=${openOrderRequestId}`, function(r) {
 			if (r.isSuccess && r.data && r.data > 0) {
 				$projectSelector.val(r.data).trigger('change');
 			}
@@ -68,7 +72,7 @@
 
 		// Project change handler
 		$projectSelector.on('change', function() {
-			const projectId = $$(this).val();
+			const projectId = $(this).val();
 			
 			if (!projectId) {
 				$vpisSelect.empty().select2({
@@ -81,7 +85,7 @@
 			}
 
 			// Load VPIS for selected project
-			$$.get(`/Panel/Sup/OpenOrderRequest/GetVpisListByProject?projectId=${projectId}&openOrderRequestId=${openOrderRequestId}`, 
+			get(`/Panel/Sup/OpenOrderRequest/GetVpisListByProject?projectId=${projectId}&openOrderRequestId=${openOrderRequestId}`, 
 				function(r) {
 					if (r.isSuccess && r.data) {
 						$vpisSelect.empty();
@@ -107,8 +111,8 @@
 								.map(v => `<li>${v.documentFullTitle}</li>`)
 								.join('');
 							
-							$$('#currentLinkedVpisList').html(`<ul>${linkedNames}</ul>`);
-							$$('#linkedVpisInfo').show();
+							$('#currentLinkedVpisList').html(`<ul>${linkedNames}</ul>`);
+							$('#linkedVpisInfo').show();
 						}
 					} else {
 						toastr.warning('هیچ مدرک VPIS مناسبی برای این پروژه یافت نشد');

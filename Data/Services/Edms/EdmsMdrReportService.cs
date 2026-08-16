@@ -238,13 +238,13 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 				if (lastClientComment is not null && (!isVendor || lastClientComment.Status != DocumentStatusEnums.Issue))
 					clientLastSentDateValue = EdmsMdrReportLogic.FormatDate(lastClientComment.CreatedOnMiladiDateTime);
 
-				if (lastComment.Status != DocumentStatusEnums.ApproveByEmployer)
+				if (lastComment.Status != DocumentStatusEnums.ApproveByClient)
 				{
 					var specialClientStatus = new[]
 					{
-						DocumentStatusEnums.RejectByEmployer,
-						DocumentStatusEnums.CommentedByEmployer,
-						DocumentStatusEnums.ApprovedAsNoteByEmployer
+						DocumentStatusEnums.RejectByClient,
+						DocumentStatusEnums.CommentedByClient,
+						DocumentStatusEnums.ApprovedAsNoteByClient
 					};
 
 					var lastCommentIsNotReview = lastComment.Status == DocumentStatusEnums.NotReview;
@@ -410,8 +410,8 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 	{
 		var acceptable = new HashSet<DocumentStatusEnums>
 		{
-			DocumentStatusEnums.ApproveByEmployer, DocumentStatusEnums.RejectByEmployer,
-			DocumentStatusEnums.CommentedByEmployer, DocumentStatusEnums.ApprovedAsNoteByEmployer,
+			DocumentStatusEnums.ApproveByClient, DocumentStatusEnums.RejectByClient,
+			DocumentStatusEnums.CommentedByClient, DocumentStatusEnums.ApprovedAsNoteByClient,
 			DocumentStatusEnums.ReIssued, DocumentStatusEnums.NotReview,
 			DocumentStatusEnums.ReplaySheet, DocumentStatusEnums.ReplaySheetFromClient,
 			DocumentStatusEnums.Hold, DocumentStatusEnums.UnHold
@@ -537,8 +537,8 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 		{
 			DocumentStatusEnums.Issue, DocumentStatusEnums.RejectByDcc, DocumentStatusEnums.ApproveByApprover,
 			DocumentStatusEnums.CommentedByDcc, DocumentStatusEnums.ApprovedByDcc, DocumentStatusEnums.ReIssued,
-			DocumentStatusEnums.IssueForClient, DocumentStatusEnums.ApproveByEmployer, DocumentStatusEnums.RejectByEmployer,
-			DocumentStatusEnums.CommentedByEmployer, DocumentStatusEnums.ApprovedAsNoteByEmployer,
+			DocumentStatusEnums.IssueForClient, DocumentStatusEnums.ApproveByClient, DocumentStatusEnums.RejectByClient,
+			DocumentStatusEnums.CommentedByClient, DocumentStatusEnums.ApprovedAsNoteByClient,
 			DocumentStatusEnums.ReplaySheet, DocumentStatusEnums.Hold, DocumentStatusEnums.UnHold
 		};
 

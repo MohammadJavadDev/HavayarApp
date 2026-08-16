@@ -232,7 +232,7 @@ namespace WebApp.Controllers.Dynamic
 				var previousState = productionOrder.State;
 				var now = DateTime.Now;
 
-				productionOrder.State = ProductionOrderStateEnum.FinancialApproval;
+				// State از طریق ProductionOrderCommentAction پس از درج کامنت همگام می‌شود
 				productionOrder.FinancialConfirmedById = CurrentUserId;
 				productionOrder.FinancialConfirmedOnMiladiDate = now;
 				productionOrder.FinancialConfirmedOnShamsiDate = now.ToShamsiDateTime();
@@ -248,6 +248,10 @@ namespace WebApp.Controllers.Dynamic
 				await unitOfWork.Repository<ProductionOrder>().UpdateAsync(productionOrder, cn, true);
 				await unitOfWork.Repository<ProductionOrderComment>().AddAsync(comment, cn, true);
 				await unitOfWork.SaveChangesAsync(cn);
+
+				// بارگذاری State به‌روزشده توسط Action
+				productionOrder = await unitOfWork.Repository<ProductionOrder>()
+					.TableNoTracking.FirstAsync(x => x.Id == id, cn);
 
 				return Ok(productionOrder);
 			}
@@ -284,7 +288,7 @@ namespace WebApp.Controllers.Dynamic
 				var previousState = productionOrder.State;
 				var now = DateTime.Now;
 
-				productionOrder.State = ProductionOrderStateEnum.Obsolete;
+				// State از طریق ProductionOrderCommentAction پس از درج کامنت همگام می‌شود
 				productionOrder.ObsoletedById = CurrentUserId;
 				productionOrder.ObsoletedOnMiladiDate = now;
 				productionOrder.ObsoletedOnShamsiDate = now.ToShamsiDateTime();
@@ -333,6 +337,9 @@ namespace WebApp.Controllers.Dynamic
 					await unitOfWork.Repository<ProductionOrderItemComment>().AddRangeAsync(itemComments, cn, false);
 
 				await unitOfWork.SaveChangesAsync(cn);
+
+				productionOrder = await unitOfWork.Repository<ProductionOrder>()
+					.TableNoTracking.FirstAsync(x => x.Id == id, cn);
 
 				return Ok(productionOrder);
 			}

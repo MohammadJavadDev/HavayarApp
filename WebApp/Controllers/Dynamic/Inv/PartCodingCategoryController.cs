@@ -123,16 +123,16 @@ namespace WebApp.Controllers.Dynamic.Inv
 			DataTableRequestGridData request,
 			CancellationToken cn)
 		{
-			if (!request.partCodePrefix.HasValue())
-			{
-				return Ok(new DataTableResponse
-				{
-					Draw = request.draw,
-					RecordsTotal = 0,
-					RecordsFiltered = 0,
-					Data = Array.Empty<object>()
-				});
-			}
+			//if (!request.partCodePrefix.HasValue())
+			//{
+			//	return Ok(new DataTableResponse
+			//	{
+			//		Draw = request.draw,
+			//		RecordsTotal = 0,
+			//		RecordsFiltered = 0,
+			//		Data = Array.Empty<object>()
+			//	});
+			//}
 
 			var partQuery = unitOfWork.Repository<Part>().TableNoTracking
 				.Include(p => p.Unit)
@@ -507,7 +507,7 @@ namespace WebApp.Controllers.Dynamic.Inv
 
 			return parts.Where(p =>
 				(partCodes.Count > 0 && partCodes.Any(code => (p.Code ?? string.Empty).Contains(code, StringComparison.OrdinalIgnoreCase)))
-				|| (partNames.Count > 0 && partNames.All(name => (p.Name ?? string.Empty).ToLower().Contains(name)))
+				|| (partNames.Count > 0 && (partNames.All(name => (p.Name ?? string.Empty).ToLower().Contains(name))))
 			).ToList();
 		}
 

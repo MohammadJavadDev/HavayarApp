@@ -1,4 +1,5 @@
-﻿@using WebFramework.ViewModels.ImportDefinitionsViewModels
+﻿@using Entities.Base.ImportDefinitions
+@using WebFramework.ViewModels.ImportDefinitionsViewModels
 @model  ImportDataViewModel
  
 
@@ -35,8 +36,11 @@
                                 {
                                     <option value="@d.Id"
                                             selected="@(Model.SelectedDefinitionId == d.Id)"
-                                            data-entity="@d.FullNameEntity">
+                                            data-entity="@d.FullNameEntity"
+                                            data-import-type="@((int)d.ImportType)"
+                                            data-api-call-mode="@((int)(d.ApiCallMode ?? ApiCallMode.PerRow))">
                                         @d.Title
+                                        @(d.ImportType == ImportSourceType.Api ? " (API)" : " (SQL)")
                                     </option>
                                 }
                             </select>
@@ -118,7 +122,7 @@
 
           
             <div id="divImportBtn" style="opacity:.5;pointer-events:none">
-                    <div class="form-check mb-3 px-10 py-3 bg-light rounded border">
+                    <div class="form-check mb-3 px-10 py-3 bg-light rounded border" id="rollbackSection">
                     <input class="form-check-input" type="checkbox" id="chkRollbackOnError" />
                     <label class="form-check-label fw-semibold" for="chkRollbackOnError">
                         عدم بارگذاری رکوردها در صورت خطا
@@ -126,6 +130,10 @@
                     <div class="form-text small text-muted mt-1">
                         در صورت فعال بودن، با بروز خطا در هر ردیف، کل تغییرات برگشت داده می‌شود و عملیات متوقف می‌گردد.
                     </div>
+                </div>
+                <div id="apiRollbackNote" class="alert alert-secondary d-none mb-3 py-2 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    برای ورود از نوع API امکان برگشت تراکنش (Rollback) وجود ندارد؛ هر درخواست HTTP مستقل اجرا می‌شود.
                 </div>
                 <div class="d-grid">
                     <button id="btnImport" class="btn btn-primary btn-lg py-3">
@@ -215,6 +223,13 @@
                     به دلیل بروز خطا، تمام تغییرات برگشت داده شد و بارگذاری متوقف گردید.
                 </div>
 
+                <div id="rBatchResponseSection" class="d-none mb-4">
+                    <h6 class="fw-bold mb-2">
+                        <i class="fas fa-code me-2"></i>پاسخ API (دسته‌ای)
+                    </h6>
+                    <pre id="rBatchResponseJson" class="bg-dark text-success p-3 rounded small mb-0" dir="ltr" style="max-height:280px;overflow:auto;white-space:pre-wrap"></pre>
+                </div>
+
                 <div id="rErrorSection" class="d-none">
                     <h6 class="fw-bold text-danger mb-3">
                         <i class="fas fa-exclamation-triangle me-2"></i>خطاهای رخ داده
@@ -225,11 +240,19 @@
                                 <tr>
                                     <th width="80" class="text-center">شماره ردیف</th>
                                     <th>پیام خطا</th>
+                                    <th class="api-response-col d-none">پاسخ API</th>
                                 </tr>
                             </thead>
                             <tbody id="rErrorBody"></tbody>
                         </table>
                     </div>
+                </div>
+
+                <div id="rRowResponseSection" class="d-none mt-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-exchange-alt me-2"></i>پاسخ API به‌ازای هر ردیف
+                    </h6>
+                    <div class="accordion" id="rRowResponseAccordion"></div>
                 </div>
 
                 <div id="rAllSuccess" class="text-center py-4 d-none">
@@ -264,10 +287,45 @@
  
     let definitionColumns = [];   
     let excelHeaders      = [];    
-    let selectedFile      = null;  
+    let selectedFile      = null;
+    let currentImportType = 0; // 0=Sql, 1=Api
+    let currentApiCallMode = 0; // 0=PerRow, 1=Batch
+
+    function syncRollbackUi() {
+        const isApi = currentImportType === 1;
+        if (isApi) {
+            $$('#rollbackSection').addClass('d-none');
+            $$('#apiRollbackNote').removeClass('d-none');
+            $$('#chkRollbackOnError').prop('checked', false);
+        } else {
+            $$('#rollbackSection').removeClass('d-none');
+            $$('#apiRollbackNote').addClass('d-none');
+        }
+    }
+
+    function formatJsonPretty(text) {
+        if (text == null || text === '') return '';
+        try {
+            return JSON.stringify(JSON.parse(text), null, 2);
+        } catch {
+            return String(text);
+        }
+    }
+
+    function escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
  
     $$('#selDefinition').on('change', function () {
         const defId = $(this).val();
+        const $opt = $(this).find('option:selected');
+        currentImportType = parseInt($opt.data('import-type'), 10) || 0;
+        currentApiCallMode = parseInt($opt.data('api-call-mode'), 10) || 0;
+        syncRollbackUi();
 
         if (!defId) {
             resetAll();
@@ -302,7 +360,6 @@
     });
  
     $$('#uploadArea').click( function () {
-         debugger
         $$('#fileInput').trigger('click');
     });
  
@@ -424,7 +481,8 @@
         fd.append('excelFile', selectedFile);
         fd.append('importDefinitionId', defId);
         fd.append('columnMappingJson', JSON.stringify(mapping));
-        fd.append('rollbackOnError', $$('#chkRollbackOnError').is(':checked'));
+        const rollback = currentImportType === 1 ? false : $$('#chkRollbackOnError').is(':checked');
+        fd.append('rollbackOnError', rollback);
 
         showLoading(true);
 
@@ -452,11 +510,14 @@
     // نمایش نتایج در Modal
     // ==============================================================
     function showResults(res) {
-           if(!res.isSuccess) return errro2(res.message);
+           if(!res.isSuccess) return error2(res.message);
 
                 res = res.data;
         const successPct = res.totalRows > 0
             ? Math.round(res.successRows / res.totalRows * 100) : 0;
+
+        const isApi = (res.importType === 1 || res.importType === 'Api' || currentImportType === 1);
+        const isBatch = (res.apiCallMode === 1 || res.apiCallMode === 'Batch' || currentApiCallMode === 1);
 
         $$('#rTotal').text(res.totalRows);
         $$('#rSuccess').text(res.successRows);
@@ -473,20 +534,75 @@
             $$('#rRollbackAlert').addClass('d-none');
         }
 
+        // Batch response
+        if (isApi && isBatch && res.batchResponseJson) {
+            $$('#rBatchResponseSection').removeClass('d-none');
+            $$('#rBatchResponseJson').text(formatJsonPretty(res.batchResponseJson));
+        } else {
+            $$('#rBatchResponseSection').addClass('d-none');
+            $$('#rBatchResponseJson').text('');
+        }
+
+        $$('.api-response-col').toggleClass('d-none', !(isApi && !isBatch));
+
         if (res.failedRows > 0 && res.failedDetails && res.failedDetails.length > 0) {
             $$('#rErrorSection').removeClass('d-none');
             $$('#rAllSuccess').addClass('d-none');
             const tbody = $$('#rErrorBody').empty();
             res.failedDetails.forEach(d => {
+                const respCell = (isApi && !isBatch)
+                    ? `<td><pre class="mb-0 small" dir="ltr" style="max-height:120px;overflow:auto;white-space:pre-wrap">${escapeHtml(formatJsonPretty(d.responseJson))}</pre></td>`
+                    : (isApi && !isBatch ? '<td></td>' : '');
                 tbody.append(`
                     <tr>
                         <td class="text-center fw-bold text-danger">${d.rowNumber}</td>
-                        <td class="text-danger">${d.errorMessage || ''}</td>
+                        <td class="text-danger">${escapeHtml(d.errorMessage || '')}</td>
+                        ${isApi && !isBatch ? respCell : ''}
                     </tr>`);
             });
         } else if (res.totalRows > 0) {
             $$('#rErrorSection').addClass('d-none');
             $$('#rAllSuccess').removeClass('d-none');
+        } else {
+            $$('#rErrorSection').addClass('d-none');
+            $$('#rAllSuccess').addClass('d-none');
+        }
+
+        // Per-row API responses (success + failure)
+        const accordion = $$('#rRowResponseAccordion').empty();
+        if (isApi && !isBatch && res.rowResponses && res.rowResponses.length) {
+            $$('#rRowResponseSection').removeClass('d-none');
+            res.rowResponses.forEach((d, i) => {
+                const pretty = formatJsonPretty(d.responseJson);
+                if (!pretty && d.success) return;
+                const headingId = `rowRespH${i}`;
+                const collapseId = `rowRespC${i}`;
+                const badge = d.success
+                    ? '<span class="badge bg-success">موفق</span>'
+                    : '<span class="badge bg-danger">ناموفق</span>';
+                accordion.append(`
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="${headingId}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#${collapseId}" aria-expanded="false" aria-controls="${collapseId}">
+                                ردیف ${d.rowNumber} ${badge}
+                                ${d.errorMessage ? `<small class="text-danger ms-2">${escapeHtml(d.errorMessage)}</small>` : ''}
+                            </button>
+                        </h2>
+                        <div id="${collapseId}" class="accordion-collapse collapse" aria-labelledby="${headingId}"
+                             data-bs-parent="#rRowResponseAccordion">
+                            <div class="accordion-body">
+                                <pre class="bg-dark text-success p-3 rounded small mb-0" dir="ltr"
+                                     style="max-height:220px;overflow:auto;white-space:pre-wrap">${escapeHtml(pretty || '(بدون پاسخ)')}</pre>
+                            </div>
+                        </div>
+                    </div>`);
+            });
+            if (accordion.children().length === 0) {
+                $$('#rRowResponseSection').addClass('d-none');
+            }
+        } else {
+            $$('#rRowResponseSection').addClass('d-none');
         }
 
         new bootstrap.Modal('#resultModal').show();
@@ -514,6 +630,9 @@
         disableStep('divImportBtn');
         $$('#defInfo').addClass('d-none');
         $$('#btnDownloadSample').prop('disabled', true);
+        currentImportType = 0;
+        currentApiCallMode = 0;
+        syncRollbackUi();
         resetFileOnly();
     }
     function resetFileOnly() {

@@ -1,0 +1,352 @@
+@using WebApp.Controllers.Dynamic
+@model SaleReportListByParentViewModel
+
+@{
+     var tableId = "saleReportListTable_" + Model.ServiceRequestId;
+}
+
+<div class="card" id="saleReportListPage" data-service-request-id="@Model.ServiceRequestId">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">
+               <i class="fa fa-clipboard-list ms-2"></i>
+               لیست گزارش کارها شناسه (@Model.ServiceRequestId)
+          </h5>
+          <div>
+               <button type="button" class="btn btn-primary" id="btnNewSaleReport">
+                    <i class="fa fa-plus-circle ms-1"></i>
+                    جدید
+               </button>
+               <button type="button" class="btn btn-info" id="btnRefreshSaleReportPage">
+                    <i class="fa-light fa-magnifying-glass-arrows-rotate ms-1"></i>
+                    بروزرسانی اطلاعات
+               </button>
+          </div>
+     </div>
+     <div class="card-body">
+          <div class="table-responsive">
+               <table class="table table-bordered table-striped table-hover nowrap" id="@tableId" style="width: auto;">
+                    <thead>
+                         <tr>
+                              <th>عملیات</th>
+                              <th>ردیف</th>
+                              <th>شماره گزارش</th>
+                              <th>تاریخ شروع سرویس</th>
+                              <th>زمان شروع</th>
+                              <th>تاریخ پایان سرویس</th>
+                              <th>ساعت خاتمه</th>
+                              <th>شرح خرابی</th>
+                              <th>کدهای عملیاتی</th>
+                              <th>شرح موانع اجرایی</th>
+                              <th>ساعت کارکرد</th>
+                              <th>ساعت کارکرد زیر بار</th>
+                              <th>شدت جریان زیر بار</th>
+                              <th>شدت جریان بدون بار</th>
+                              <th>حداکثر فشار کاری</th>
+                              <th>حداقل فشار کاری</th>
+                              <th>دمای محیط</th>
+                              <th>دمای دستگاه</th>
+                              <th>ولتاژ تابلو برق</th>
+                              <th>دیوپوینت درایر</th>
+                              <th>وضعیت کمپرسورخانه</th>
+                              <th>وضعیت تابلو برق</th>
+                              <th>وضعیت پایپینگ</th>
+                              <th>نتیجه</th>
+                              <th>تعویض برد</th>
+                              <th>توضیحات گارانتی کارشناس</th>
+                              <th>توضیحات کارشناس</th>
+                              <th>کنترل سطح روغن</th>
+                              <th>بازدید اتصالات</th>
+                              <th>بازدید مکش روغن</th>
+                              <th>بازدید غبارگیر</th>
+                              <th>بازدید پولی و تسمه</th>
+                              <th>تعویض فیلتر روغن</th>
+                              <th>تعویض فیلتر سپراتور</th>
+                              <th>تعویض فیلتر هوا</th>
+                              <th>تعویض کیت آنلودر</th>
+                              <th>تعویض کیت مینیمم</th>
+                              <th>تعویض کیت ترموستات</th>
+                              <th>تعویض کیت ایراند</th>
+                              <th>گریس‌کاری الکتروموتور</th>
+                              <th>تمیز کردن ظاهر دستگاه</th>
+                              <th>وضعیت کمپرسورخانه</th>
+                              <th>سیستم خنک‌کننده</th>
+                              <th>کنترل تابلو تغذیه</th>
+                              <th>سیستم برق کمپرسور</th>
+                              <th>وضعیت تجهیزات جانبی</th>
+                              <th>وضعیت پایپینگ</th>
+                              <th>دفترچه سرویس</th>
+                              <th>تایید مشتری</th>
+                              <th>توضیحات سرپرست فنی</th>
+                              <th>توضیحات مسئول منطقه</th>
+                              <th>نظر سرپرست خدمات</th>
+                              <th>نظر مدیر خدمات</th>
+                         </tr>
+                    </thead>
+                    <tbody></tbody>
+               </table>
+          </div>
+     </div>
+</div>
+<script>
+     (function () {
+          const serviceRequestId = @Model.ServiceRequestId;
+          const tableSelector = "#@tableId";
+          const listApiUrl = "/Panel/Sale/SaleReport/GetListByParentId?serviceRequestId=" + serviceRequestId;
+
+          sessionStorage.setItem("ServiceRequestId", serviceRequestId);
+
+          const missionResultMap = {
+               1: "انجام شده",
+               2: "انجام نشده",
+               3: "انجام شده با نقص"
+          };
+
+          function dash(val) {
+               return val === null || val === undefined || val === "" ? "-" : val;
+          }
+
+          function formatBool(val) {
+               return val === true || val === "true" || val === 1 ? "بله" : "خیر";
+          }
+
+          function formatNumber(val) {
+               if (val === null || val === undefined || val === "") return "-";
+               const num = Number(val);
+               if (isNaN(num)) return val;
+               return num.toLocaleString("fa-IR");
+          }
+
+          function formatMissionResult(val) {
+               if (val === null || val === undefined || val === "") return "-";
+               return missionResultMap[val] || dash(val);
+          }
+
+          function deleteSaleReport(id) {
+               Swal.fire({
+                    icon: "warning",
+                    title: "آیا از حذف این اطلاعات مطمئن هستید؟",
+                    showDenyButton: true,
+                    confirmButtonText: "بله",
+                    denyButtonText: "خیر"
+               }).then(function (result) {
+                    if (!result.isConfirmed) return;
+
+                    $$.get("/Panel/Sale/SaleReport/Delete?id=" + id, function (response) {
+                         if (response && response.isSuccess === false) {
+                              toastr.error(response.message || "خطا در حذف رکورد");
+                              return;
+                         }
+                         toastr.success("رکورد با موفقیت حذف شد");
+                         reloadSaleReportList(serviceRequestId);
+                    });
+               });
+          }
+
+          function measureTextWidth(text, sampleEl) {
+               const $probe = $("<span/>").css({
+                    position: "absolute",
+                    visibility: "hidden",
+                    whiteSpace: "nowrap",
+                    font: sampleEl ? window.getComputedStyle(sampleEl).font : "14px Vazirmatn, Tahoma, sans-serif"
+               }).text(text || "").appendTo("body");
+               const width = $probe.outerWidth();
+               $probe.remove();
+               return width;
+          }
+
+          function fitColumnWidths(api) {
+               const $container = $(api.table().container());
+               const $scrollHead = $container.find(".dataTables_scrollHead");
+               const $scrollBody = $container.find(".dataTables_scrollBody");
+               const sortIconExtra = 28;
+
+               api.columns().every(function (colIdx) {
+                    const headerEl = this.header();
+                    const headerText = $(headerEl).text().trim();
+                    let maxWidth = measureTextWidth(headerText, headerEl) + sortIconExtra;
+
+                    this.nodes().to$().each(function () {
+                         const cellWidth = measureTextWidth($(this).text().trim(), this) + 24;
+                         if (cellWidth > maxWidth) maxWidth = cellWidth;
+                    });
+
+                    maxWidth = Math.ceil(maxWidth);
+
+                    $(headerEl).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                    this.nodes().to$().css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                    $scrollHead.find("thead th").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                    $scrollBody.find("tbody tr").each(function () {
+                         $(this).children("td").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                    });
+               });
+
+               api.columns.adjust();
+          }
+
+          if ($.fn.DataTable.isDataTable(tableSelector)) {
+               $$(tableSelector).DataTable().clear().destroy();
+          }
+
+          const table = $$(tableSelector).DataTable({
+               destroy: true,
+               processing: true,
+               serverSide: false,
+               autoWidth: false,
+               scrollX: true,
+               pageLength: 10,
+               lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "همه"]],
+               order: [[1, "asc"]],
+               ajax: {
+                    url: listApiUrl,
+                    type: "GET",
+                    dataSrc: function (json) {
+                         if (json && json.isSuccess === false) {
+                              toastr.error(json.message || "خطا در دریافت اطلاعات");
+                              return [];
+                         }
+                         return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+                    }
+               },
+               columns: [
+                    {
+                         data: "id",
+                         orderable: false,
+                         searchable: false,
+                         className: "text-center",
+                         render: function (id) {
+                              return `
+                                   <button type="button" class="btn btn-sm btn-warning btn-edit-sale-report" data-id="${id}" title="ویرایش">
+                                        <i class="fa fa-edit"></i>
+                                   </button>
+                                   <button type="button" class="btn btn-sm btn-danger btn-delete-sale-report" data-id="${id}" title="حذف">
+                                        <i class="fa fa-trash"></i>
+                                   </button>
+                              `;
+                         }
+                    },
+                    {
+                         data: null,
+                         orderable: false,
+                         searchable: false,
+                         className: "text-center",
+                         render: function (data, type, row, meta) {
+                              return meta.row + meta.settings._iDisplayStart + 1;
+                         }
+                    },
+                    { data: "reportNumber", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "serviceStartShamsiDate", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "serviceStartTime", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "serviceEndShamsiDate", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "serviceEndTime", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "failureTypeTitle", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "repairsTypeTitle", defaultContent: "-", render: function (d, t, row) { return dash(d || row.repairsTypeId); } },
+                    { data: "executiveBarriersDescription", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "totalRunTime", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "workHoursUnderload", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "flowIntensityUnderload", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "flowIntensityWithoutload", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "maximumWorkingPressure", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "minimumWorkingPressure", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "environmentTemperature", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "deviceTemperature", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "voltagePowerGrid", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "amountDryerDyupoint", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
+                    { data: "compressorHouseStatus", className: "text-center", render: formatBool },
+                    { data: "electricalPanelStatus", className: "text-center", render: formatBool },
+                    { data: "pipingStatus", className: "text-center", render: formatBool },
+                    { data: "missionResult", className: "text-center", render: formatMissionResult },
+                    { data: "oldRunTime", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "expertGuaranteeDateShamsi", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "expertGuaranteeComment", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "oilLevelCheck", className: "text-center", render: formatBool },
+                    { data: "inspectionOfAllConnections", className: "text-center", render: formatBool },
+                    { data: "oilSuctionInspection", className: "text-center", render: formatBool },
+                    { data: "dustCollectorInspection", className: "text-center", render: formatBool },
+                    { data: "inspectionOfTheseRpentinebeltTimingBelt", className: "text-center", render: formatBool },
+                    { data: "oilFilterReplacement", className: "text-center", render: formatBool },
+                    { data: "separatFilterReplacement", className: "text-center", render: formatBool },
+                    { data: "airFilterReplacement", className: "text-center", render: formatBool },
+                    { data: "replacingTheunLoaderkit", className: "text-center", render: formatBool },
+                    { data: "minimumKitReplacement", className: "text-center", render: formatBool },
+                    { data: "replacingthethermostatkit", className: "text-center", render: formatBool },
+                    { data: "irankitReplacement", className: "text-center", render: formatBool },
+                    { data: "electricMotorGreasing", className: "text-center", render: formatBool },
+                    { data: "cleaningExteriorDevice", className: "text-center", render: formatBool },
+                    { data: "statusCompressor", className: "text-center", render: formatBool },
+                    { data: "coolingSystem", className: "text-center", render: formatBool },
+                    { data: "compressorRoomPowerSupplyPanelControl", className: "text-center", render: formatBool },
+                    { data: "compressorElectricalSystemElectricalPanel", className: "text-center", render: formatBool },
+                    { data: "statusPeripheralEquipment", className: "text-center", render: formatBool },
+                    { data: "pipingCondition", className: "text-center", render: formatBool },
+                    { data: "serviceMaintenanceManual", className: "text-center", render: formatBool },
+                    { data: "theAboveItemsApprovedCustomer", className: "text-center", render: formatBool },
+                    { data: "technicalSupervisorsRemarks", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "explanationByThereGionalOfficial", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "opinionofAfterSalesServiceSupervisor", defaultContent: "-", render: function (d) { return dash(d); } },
+                    { data: "afterSalesServiceManagersOpinion", defaultContent: "-", render: function (d) { return dash(d); } }
+               ],
+               language: {
+                    url: "/panelLib/plugins/custom/datatables/fa.json",
+                    emptyTable: "هیچ اطلاعاتی یافت نشد",
+                    zeroRecords: "هیچ اطلاعاتی یافت نشد"
+               },
+               initComplete: function () {
+                    fitColumnWidths(this.api());
+               }
+          });
+
+          window["saleReportListTable_" + serviceRequestId] = table;
+
+          window.reloadSaleReportList = function (id) {
+               const targetId = id || serviceRequestId;
+               const dt = window["saleReportListTable_" + targetId];
+               if (dt && typeof dt.ajax === "object") {
+                    dt.ajax.reload(function () {
+                         fitColumnWidths(dt);
+                    }, false);
+               }
+          };
+
+          $$("#btnNewSaleReport").on("click", function () {
+               appController.addPage("/Panel/Sale/SaleReport/New?serviceRequestId=" + serviceRequestId);
+          });
+
+          $$(tableSelector).on("click", ".btn-edit-sale-report", function () {
+               const id = $(this).data("id");
+               appController.addPage("/Panel/Sale/SaleReport/Edit?id=" + id);
+          });
+
+          $$(tableSelector).on("click", ".btn-delete-sale-report", function () {
+               const id = $(this).data("id");
+               deleteSaleReport(id);
+          });
+
+          $$("#btnRefreshSaleReportPage").on("click", function () {
+               reloadSaleReportList(serviceRequestId);
+          });
+     })();
+</script>
+
+<style>
+     #saleReportListPage #@tableId {
+          width: max-content !important;
+          table-layout: auto;
+     }
+
+     #saleReportListPage #@tableId th,
+     #saleReportListPage #@tableId td,
+     #saleReportListPage .dataTables_scrollHead th,
+     #saleReportListPage .dataTables_scrollBody td {
+          white-space: nowrap !important;
+          vertical-align: middle;
+          padding-inline: 0.75rem;
+     }
+
+     #saleReportListPage #@tableId tbody tr:hover {
+          background-color: #f5f5f5;
+     }
+
+     #saleReportListPage .dataTables_wrapper .dataTables_scroll {
+          overflow-x: auto;
+     }
+</style>

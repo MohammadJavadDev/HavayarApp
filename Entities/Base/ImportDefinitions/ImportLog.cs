@@ -19,6 +19,11 @@ namespace Entities.Base.ImportDefinitions
 		[NotMapped]
 		public bool RolledBack { get; set; }
 
+		/// <summary>
+		/// پاسخ یکجای API در حالت Batch
+		/// </summary>
+		public string? BatchResponseJson { get; set; }
+
 		public long ImportDefinitionId { get; set; }
 		public ImportDefinition ImportDefinition { get; set; }
 		public List<ImportLogDetail> Details { get; set; } = new List<ImportLogDetail>();
@@ -33,5 +38,10 @@ namespace Entities.Base.ImportDefinitions
 		public int RowNumber { get; set; }
 		public bool Success { get; set; }
 		public string? ErrorMessage { get; set; }
+
+		/// <summary>
+		/// پاسخ API برای این ردیف (حالت PerRow)
+		/// </summary>
+		public string? ResponseJson { get; set; }
 	}
 }

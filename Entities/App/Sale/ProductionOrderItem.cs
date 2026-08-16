@@ -164,7 +164,18 @@ namespace Entities.App.Sale
 		[MaxLength(20)]
 		public string? PartCode { get; set; }
 
+		/// <summary>
+		/// شناسه منطقی قلم در راهکاران = Sale_ProductionOrderItemID
+		/// </summary>
 		public long? HamkaranId { get; set; }
+
+		/// <summary>
+		/// شناسه رکورد تاریخچه راهکاران = Sale_ProductionOrderItemHistory.Id
+		/// معادل RahkaranId در HTS قدیمی (هر ویرایش یک History.Id جدا)
+		/// </summary>
+		[DisplayName("شناسه تاریخچه راهکاران")]
+		[DisplayInfo(null, false, type: SystemType.Long, systemProprty: true)]
+		public long? RahkaranHistoryId { get; set; }
 
 		[DisplayName("مرحله ساخت")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
@@ -227,6 +238,30 @@ namespace Entities.App.Sale
 		[MaxLength(30)]
 		[DisplayInfo("PreparationMiladiDate", true, SystemType.DateShamsi, systemProprty: true)]
 		public string? PreparationShamsiDate { get; set; } = null;
+
+		/// <summary>معادل HTS Second_installment_Date روی Serial (+30 روز از PreparationDate)</summary>
+		[DisplayName("تاریخ قسط دوم شمسی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(30)]
+		public string? SecondInstallmentShamsiDate { get; set; }
+
+		/// <summary>معادل HTS Third_installment_Date (+60 روز)</summary>
+		[DisplayName("تاریخ قسط سوم شمسی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(30)]
+		public string? ThirdInstallmentShamsiDate { get; set; }
+
+		/// <summary>معادل HTS Fourth_installment_Date (+90 روز)</summary>
+		[DisplayName("تاریخ قسط چهارم شمسی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(30)]
+		public string? FourthInstallmentShamsiDate { get; set; }
+
+		/// <summary>معادل HTS Fifth_Installment_Date (+120 روز)</summary>
+		[DisplayName("تاریخ قسط پنجم شمسی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(30)]
+		public string? FifthInstallmentShamsiDate { get; set; }
 
 
 		[DisplayName("حذف شده")]
@@ -325,7 +360,12 @@ namespace Entities.App.Sale
 		[DisplayName("وضعیت تولید")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProductionOrderItemProductionStatusEnum ProductionStatus { get; set; }
-		 
+
+		[DisplayName("آخرین کامنت وضعیت تولید")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(2048)]
+		public string? LastComment { get; set; }
+
 
 		[DisplayName("Bom اقلام سفارش ساخت")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
@@ -408,6 +448,11 @@ namespace Entities.App.Sale
 		[DisplayName("شناسه درخواست توقف")]
 		[DisplayInfo("StopRequestId", true, SystemType.Long)]
 		public long? StopRequestId { get; set; }
+
+		/// <summary>
+		/// شناسه کامنت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 
 	[Display(Name = "تاریخچه استعلام اقلام سفارش ساخت")]

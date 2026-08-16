@@ -1,4 +1,5 @@
 using Common.Attributes;
+using Entities.App.Pln.Enums;
 using Entities.App.Sale;
 using Entities.Base;
 using System;
@@ -24,6 +25,10 @@ namespace Entities.App.Pln
 		public ProductionOrderItem? ProductionOrderItem { get; set; }
 
 		public long? ProductionOrderItemId { get; set; }
+
+		[Display(Name = "عامل تاخیرات")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public DelayResponsibleEnum DelayResponsible { get; set; }
 
 
 		[DisplayName("تعداد روز تاخیر")]

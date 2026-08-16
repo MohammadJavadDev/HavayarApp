@@ -1,6 +1,5 @@
-@using Common.Utilities
-@using Entities.App.Sup
-@model List<OpenOrderRequestAttachment>
+@using WebApp.ViewModels.Sup
+@model List<OpenOrderRequestAttachmentListItemVm>
 
 <div class="row">
 	<div class="col-md-12">
@@ -20,30 +19,39 @@
 						</tr>
 					</thead>
 					<tbody>
-						@foreach (var attachment in Model.OrderByDescending(c => c.CreatedOnMiladiDateTime))
+						@foreach (var attachment in Model)
 						{
-							<tr>
+							<tr class="@(attachment.IsFromVpis ? "table-light" : "")">
 								<td>
-									<a href="/File/download/@attachment.AttachmentId"
-										class="btn btn-sm btn-primary" >
-										<i class="fa fa-download"></i>
-									</a>
-									@if (User.IsInRole("Admin")) // TODO: باید دسترسی واقعی چک شود
+									@if (attachment.DownloadFileId.HasValue && attachment.DownloadFileId.Value > 0)
 									{
-										<button type="button" class="btn btn-sm btn-danger" 
-											onclick="deleteAttachment(@attachment.Id)">
+										<a href="/File/download/@attachment.DownloadFileId"
+											class="btn btn-sm btn-primary">
+											<i class="fa fa-download"></i>
+										</a>
+									}
+									@if (attachment.IsFromVpis)
+									{
+										<span class="badge badge-light-info ms-1" title="مدرک لینک‌شده از VPIS — حذف از این بخش مجاز نیست">
+											<i class="fa fa-link"></i> VPIS
+										</span>
+									}
+									else if (attachment.CanDelete)
+									{
+										<button type="button" class="btn btn-sm btn-danger btn-delete-attachment"
+											data-attachment-id="@attachment.Id">
 											<i class="fa fa-trash"></i>
 										</button>
 									}
 								</td>
-								<td>@attachment.FileType?.ToDisplay()</td>
-								<td>@attachment.Attachment?.OriginalName</td>
-								<td>@(attachment.Attachment?.Size != null ? (attachment.Attachment.Size / 1024.0).ToString("N2") + " KB" : "-")</td>
+								<td>@(attachment.FileTypeDisplay ?? "-")</td>
+								<td>@(attachment.FileName ?? "-")</td>
+								<td>@(attachment.SizeDisplay ?? "-")</td>
 								<td>@attachment.Comment</td>
 								<td>
-									<i class="fa fa-user"></i> @attachment.CreatedByName
+									<i class="fa fa-user"></i> @(attachment.CreatedByName ?? "-")
 								</td>
-								<td style="direction: ltr; text-align: right;">@attachment.CreatedOnShamsiDateTime</td>
+								<td style="direction: ltr; text-align: right;">@(attachment.CreatedOnShamsiDateTime ?? "-")</td>
 							</tr>
 						}
 					</tbody>
@@ -58,35 +66,3 @@
 		}
 	</div>
 </div>
-
-<script>
-	function deleteAttachment(attachmentId) {
-		$.confirm({
-			title: 'تایید حذف',
-			content: 'آیا از حذف این پیوست اطمینان دارید؟',
-			rtl: true,
-			buttons: {
-				confirm: {
-					text: 'بله',
-					btnClass: 'btn-danger',
-					action: function() {
-						$$.post('/Panel/Sup/OpenOrderRequest/DeleteAttachment', { id: attachmentId }, function(r) {
-							if (!r.isSuccess) {
-								toastr.error(`${r.message}`, 'خطا');
-								return;
-							}
-							toastr.success('پیوست با موفقیت حذف شد');
-							// Reload attachment list
-							const openOrderRequestId = '@ViewBag.OpenOrderRequestId';
-							location.href = `/Panel/Sup/OpenOrderRequest/Edit/${openOrderRequestId}`;
-						});
-					}
-				},
-				cancel: {
-					text: 'انصراف',
-					btnClass: 'btn-secondary'
-				}
-			}
-		});
-	}
-</script>

@@ -194,6 +194,7 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<INotificationGroupService, NotificationGroupService>();
 
 builder.Services.AddScoped<IImportRepository, ImportRepository>();
+builder.Services.AddSingleton<ImportApiEndpointInspector>();
 
  
    

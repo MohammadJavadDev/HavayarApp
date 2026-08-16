@@ -372,6 +372,25 @@ namespace WebFramework.Controllers
 		}
 
 		/// <summary>
+		/// تبدیل گزارش از حالت طراحی بصری به حالت نوشتن Query
+		/// </summary>
+		[HttpPost("[action]")]
+		public async Task<IActionResult> ConvertToQueryMode(int id)
+		{
+			if (!CurrentUserId.HasValue)
+				throw new Exception("کاربر احراز هویت نشده است");
+
+			var report = await _queryService.ConvertDesignToQueryModeAsync(id, CurrentUserId.Value);
+			return Ok(new
+			{
+				report.Id,
+				report.Name,
+				report.Title,
+				Mode = report.Mode
+			});
+		}
+
+		/// <summary>
 		/// دریافت گزارش
 		/// </summary>
 		[HttpGet("[action]")]

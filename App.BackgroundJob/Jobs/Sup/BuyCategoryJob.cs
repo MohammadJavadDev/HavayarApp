@@ -44,6 +44,7 @@ namespace App.BackgroundJob.Jobs.Sup
 					.Where(u => u.Party != null && u.Party.HamkaranId != null)
 					.Select(u => new { Id = u.Id!.Value, HamkaranId = u.Party.HamkaranId!.Value })
 					.ToDictionaryAsync(x => x.HamkaranId, x => x.Id, cn);
+ 
 
 				// 4. Sync BuyCategories
 				var categoryIdMap = new Dictionary<long, long>(); // Rahkaran ID => App ID

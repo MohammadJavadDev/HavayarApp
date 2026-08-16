@@ -136,6 +136,8 @@
 	<script src="~/panelLib/plugins/custom/xlsx/xlsx.full.min.js"></script>
 	<script src="~/lib/signalr/signalr.js"></script>
 	<script>
+
+
 		window.AppConfig = {
 			realtimeHubUrl: "@Configuration["RealtimeHub:Url"]"
 		};
@@ -143,6 +145,43 @@
 
 	<script src="~/panellib/plugins/custom/querybuilder/querybuilder.js" asp-append-version="true"></script>
 	<script src="~/panellib/js/panel.js" asp-append-version="true"></script>
+
+	<script>
+		 async function checkBrowser() {
+
+		    let isSupported = false;
+
+		    if (navigator.userAgentData) {
+
+			   const brands = navigator.userAgentData.brands.map(x => x.brand);
+
+			   isSupported =
+				  brands.includes("Google Chrome") ||
+				  brands.includes("Microsoft Edge");
+
+		    } else {
+
+			   const ua = navigator.userAgent;
+
+			   const isEdge = /Edg\//.test(ua);
+			   const isChrome = /Chrome\//.test(ua) && !isEdge;
+
+			   isSupported = isChrome || isEdge;
+		    }
+
+		    if (!isSupported) {
+
+			   Swal.fire({
+				  icon: 'warning',
+				  title: 'مرورگر پشتیبانی نمی‌شود',
+				  text: 'لطفاً از Google Chrome یا Microsoft Edge استفاده کنید.',
+				  allowOutsideClick: false
+			   });
+		    }
+		}
+
+		$(checkBrowser);
+	</script>
 
 	@await RenderSectionAsync("Scripts", required: false)
 </body>

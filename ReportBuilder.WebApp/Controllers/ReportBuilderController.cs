@@ -312,8 +312,21 @@ namespace ReportBuilder.WebApp.Controllers
           [ActionDisplayName("ذخیر گزارش ها", ActionAccessType.Api)]
           public async Task<IActionResult> SaveReportBuilderTable(ReportBuilderReport model, CancellationToken cn)
           {
-
-               model.Content = reportJsonData;
+				// Content فقط وقتی از طراح Stimulsoft در همین session ذخیره شده باشد در reportJsonData هست.
+				// اگر خالی باشد نباید Content موجود در دیتابیس را پاک کنیم (باگ قبلی).
+				if (!string.IsNullOrWhiteSpace(reportJsonData))
+				{
+					model.Content = reportJsonData;
+				}
+				else if (model.Id is > 0)
+				{
+					var existingContent = await unitOfWork.Repository<ReportBuilderReport>()
+						.TableNoTracking
+						.Where(c => c.Id == model.Id)
+						.Select(c => c.Content)
+						.FirstOrDefaultAsync(cn);
+					model.Content = existingContent;
+				}
 
                if (model.SavedQueryId != null)
                {
@@ -1283,19 +1296,58 @@ namespace ReportBuilder.WebApp.Controllers
             return StiNetCoreViewer.ViewerEventResult(this);
         }
         [HttpPost("[action]")]
-        public IActionResult SaveReport()
+        public async Task<IActionResult> SaveReport(CancellationToken cn)
         {
             TempData.Keep("itemId");
             TempData.Keep("reportId");
             TempData.Keep("fromSavedQuery");
 
             var report2 = StiNetCoreDesigner.GetReportObject(this);
+			if (report2 is null)
+				return StiNetCoreDesigner.SaveReportResult(this);
 
+            var json = report2.SaveToJsonString();
+            reportJsonData = json;
 
-            reportJsonData = report2.SaveToJsonString();
+			// قبلاً فقط در حافظه (static reportJsonData) ذخیره می‌شد و تا وقتی کاربر
+			// از صفحه Edit روی «ذخیره» نمی‌زد، Content دیتابیس آپدیت نمی‌شد؛ به همین دلیل
+			// تغییرات Size Mode و ... بعد از بستن/باز کردن طراح از بین می‌رفتند.
+			var reportId = ResolveDesignerReportId();
+			if (reportId > 0 && !string.IsNullOrWhiteSpace(json))
+			{
+				await unitOfWork.Repository<ReportBuilderReport>()
+					.BulkUpdateFieldAsync(
+						c => c.Id == reportId,
+						c => c.Content,
+						json,
+						cn);
+			}
 
             return StiNetCoreDesigner.SaveReportResult(this);
         }
+
+		/// <summary>
+		/// شناسه گزارش در حال ویرایش طراح: اول از پارامترهای درخواست (form/query)، بعد TempData.
+		/// </summary>
+		private long ResolveDesignerReportId()
+		{
+			if (Request.HasFormContentType && Request.Form.ContainsKey("reportId")
+			    && long.TryParse(Request.Form["reportId"].ToString(), out var formId) && formId > 0)
+				return formId;
+
+			if (Request.Query.ContainsKey("reportId")
+			    && long.TryParse(Request.Query["reportId"].ToString(), out var queryId) && queryId > 0)
+				return queryId;
+
+			if (TempData.ContainsKey("reportId")
+			    && long.TryParse(TempData["reportId"]?.ToString(), out var tempId) && tempId > 0)
+			{
+				TempData.Keep("reportId");
+				return tempId;
+			}
+
+			return 0;
+		}
 
 
  

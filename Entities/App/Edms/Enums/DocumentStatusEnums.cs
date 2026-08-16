@@ -47,17 +47,17 @@ namespace Entities.App.Edms.Enums
 		CommentedByDcc = 11,
 
 
-		[Display(Name = "RejectByEmployer رد توسط کارفرما")]
-		RejectByEmployer = 12,
+		[Display(Name = "RejectByClient رد توسط کارفرما")]
+		RejectByClient = 12,
 
-		[Display(Name = "ApproveByEmployer تایید توسط کارفرما")]
-		ApproveByEmployer = 13,
+		[Display(Name = "ApproveByClient تایید توسط کارفرما")]
+		ApproveByClient = 13,
 
-		[Display(Name = "ApprovedAsNoteByEmployer تایید با یادداشت توسط کارفرما")]
-		ApprovedAsNoteByEmployer = 14,
+		[Display(Name = "ApprovedAsNoteClient تایید با یادداشت توسط کارفرما")]
+		ApprovedAsNoteByClient = 14,
 
-		[Display(Name = "CommentedByEmployer نظر داده شده توسط کارفرما")]
-		CommentedByEmployer = 15,
+		[Display(Name = "CommentedByClient نظر داده شده توسط کارفرما")]
+		CommentedByClient = 15,
 
 		[Display(Name = "Hold معلق")]
 		Hold = 16,
@@ -68,8 +68,7 @@ namespace Entities.App.Edms.Enums
 		[Display(Name = "NotReview بررسی نشده")]
 		NotReview = 18,
 
-		[Display(Name = "UnHoldByEmployer خارج از انتظار توسط کارفرما")]
-		UnHoldByEmployer = 19,
+	 
 
 		[Display(Name = "SendEmailToClient ارسال ایمیل به مشتری")]
 		SendEmailToClient = 20,
@@ -118,12 +117,8 @@ namespace Entities.App.Edms.Enums
 
 		[Display(Name = "CommentedInternal  نظر داده شده داخلی")]
 		CommentedInternal = 34,
-
-		[Display(Name = "ClientCommented  نظر داده شده مشتری")]
-		ClientCommented = 35,
-
-		[Display(Name = "ClientApproval  تایید مشتری")]
-		ClientApproval = 36,
+		 
+	 
 
 		[Display(Name = "ApprovalInternal  تایید داخلی")]
 		ApprovalInternal = 37,

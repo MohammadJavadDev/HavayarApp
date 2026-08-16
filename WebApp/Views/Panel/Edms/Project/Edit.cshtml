@@ -9,40 +9,38 @@
 <div class="card">
  	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class='col-md-6'>
+		<div class='col-md-9 form-group-inline'>
 			<label class='required'>عنوان</label>
 			<input class='form-control' data-bind='title' required asp-for='Title' disabled />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>کد</label>
 			<input class='form-control ltr' data-bind='code' asp-for='Code' disabled />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
+ 
 
-		<div class='col-md-3'>
-   		</div>
-
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>شرکت طرف قرارداد (مشترى)</label>
 			<input class='form-control' data-bind='contractPartyCustomer' asp-for='ContractPartyCustomer' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>نام سایت (یا نام پروژه اصلى در مدارك کارفرما)</label>
 			<input class='form-control' data-bind='projectName' asp-for='ProjectName' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>نوع پکیج (هوا، درایر، نیتروژن و غیره)</label>
 			<input class='form-control' data-bind='packageType' asp-for='PackageType' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
-		<div class="col-md-12"></div>
+		<div class="col-md-12 form-group-inline"></div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>نام</label>
 			<input class='form-control' data-bind='name' asp-for='Name' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -54,7 +52,7 @@
 
 	 
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>تاریخ شروع شمسی</label>
 			<input class='form-control' data-bind='startShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.StartMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -62,13 +60,13 @@
 
  
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>تاریخ پایان شمسی</label>
 			<input class='form-control' data-bind='expirationShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ExpirationMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">مدیر پروژه</label>
 			@(Html.EntitySelector<User>
 						(
@@ -90,14 +88,14 @@
 			 
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class='required'>وضعیت</label>
 			<select class='form-control' data-bind='status' required asp-for='Status' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectStatusEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">مهندس مسئول psl</label>
 			@(Html.EntitySelector<User>
 						(
@@ -118,7 +116,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">هماهنگ کننده</label>
 			@(Html.EntitySelector<User>
 						(
@@ -139,7 +137,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">واحد ذینفع</label>
 			@(Html.EntitySelector<OrgUnit>
 						(
@@ -160,7 +158,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">کارشناس فروش</label>
 			@(Html.EntitySelector<User>
 						(
@@ -182,7 +180,7 @@
 			 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">dcc</label>
 			@(Html.EntitySelector<User>
 						(
@@ -204,7 +202,7 @@
 			 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">کارشناس فرآیند</label>
 			@(Html.EntitySelector<User>
 						(
@@ -225,7 +223,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 
 			<label class="form-label">کارشناس مکانیک</label>
 			@(Html.EntitySelector<User>
@@ -248,7 +246,7 @@
 		 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">کارشناس کنترل</label>
 			@(Html.EntitySelector<User>
 						(
@@ -270,7 +268,7 @@
 			 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">کارشناس ابزاردقیق</label>
 			@(Html.EntitySelector<User>
 						(
@@ -291,7 +289,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">کارشناس برق</label>
 			@(Html.EntitySelector<User>
 						(
@@ -313,7 +311,7 @@
 		 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">کارشناس پایپینگ</label>
 			@(Html.EntitySelector<User>
 						(
@@ -335,7 +333,7 @@
 		 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">بازرس پروژه</label>
 			@(Html.EntitySelector<User>
 						(
@@ -357,7 +355,7 @@
 			 
 		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">مسئول تدارکات برق/ابزار دقیق</label>
 			@(Html.EntitySelector<User>
 						(
@@ -378,7 +376,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">مسئول تدارکات مکانیک</label>
 			@(Html.EntitySelector<User>
 						(
@@ -399,7 +397,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">مسئول تدارکات خارجی</label>
 			@(Html.EntitySelector<User>
 						(
@@ -420,7 +418,7 @@
 						))
  		</div>
 
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">دارای دسترسی به آرشیو و اسناد ورودی (غیر مهندسی)</label>
 			@(Html.EntitySelector<User>
 						(
@@ -450,25 +448,25 @@
 			</div>
 		</div>
 
-		<div class='col-md-12'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>پیش کد ترانسمیتال</label>
 			<input class='form-control' data-bind='transmissionPrefix' asp-for='TransmissionPrefix' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>گیرنده ترانسمیتال</label>
 			<input class='form-control' data-bind='transmitterRecipient' asp-for='TransmitterRecipient' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>گیرنده کپی ترانسمیتال </label>
 			<input class='form-control' data-bind='receiverCopyTransmital' asp-for='ReceiverCopyTransmital' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-12'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>ایمیل متفرقه/عمومی</label>
 			<input class='form-control' data-bind='emailAddress' asp-for='EmailAddress' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -489,7 +487,7 @@
 			</div>
 		</div>
 		 
-		<div class='col-md-6'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>کاربران محرمانه</label>
 
 			@(Html.EntitySelector<User>
@@ -525,7 +523,7 @@
 			</div>
 		</div>
 
-			<div class='col-md-6'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>کاربران تکوین</label>
 
 			@(Html.EntitySelector<User>
@@ -551,13 +549,13 @@
 		</div>
 		 
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>روز تاخیر مجاز هوایار</label>
 			<input class='form-control' data-bind='legalDelayHavayar' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='LegalDelayHavayar' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>روز تاخیر مجاز کارفرما</label>
 			<input class='form-control' data-bind='legalClientDayDelay' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='LegalClientDayDelay' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>

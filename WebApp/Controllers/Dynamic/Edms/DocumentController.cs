@@ -1069,8 +1069,8 @@ namespace WebApp.Controllers.Dynamic
 		{
 			var validStatuses = new HashSet<DocumentStatusEnums>
 			{
-				DocumentStatusEnums.CommentedByEmployer,
-				DocumentStatusEnums.ApprovedAsNoteByEmployer,
+				DocumentStatusEnums.CommentedByClient,
+				DocumentStatusEnums.ApprovedAsNoteByClient,
 				DocumentStatusEnums.NotReview
 			};
 
@@ -1252,17 +1252,16 @@ namespace WebApp.Controllers.Dynamic
 
 					if (currentStatus == DocumentStatusEnums.ApproveByApprover)
 						return item == DocumentStatusEnums.ApprovedByDcc 
-						   || item == DocumentStatusEnums.CommentedByDcc
 						   || item == DocumentStatusEnums.RejectByDcc;
 
 					if (currentStatus == DocumentStatusEnums.NotReview || item == DocumentStatusEnums.ApprovedByDcc)
-						return item == DocumentStatusEnums.ApproveByEmployer
-						|| item == DocumentStatusEnums.RejectByEmployer
-						|| item == DocumentStatusEnums.CommentedByEmployer
-						|| item == DocumentStatusEnums.ApprovedAsNoteByEmployer
+						return item == DocumentStatusEnums.ApproveByClient
+						|| item == DocumentStatusEnums.RejectByClient
+						|| item == DocumentStatusEnums.CommentedByClient
+						|| item == DocumentStatusEnums.ApprovedAsNoteByClient
 						|| item == DocumentStatusEnums.ReIssued;
 
-					if (currentStatus == DocumentStatusEnums.ClientApproval)
+					if (currentStatus == DocumentStatusEnums.ApproveByClient)
 						return item == DocumentStatusEnums.ReIssued;
 						 
 

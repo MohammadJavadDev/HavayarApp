@@ -29,6 +29,7 @@ namespace WebFramework.TagHelpers
 			output.AddClass("align-items-center", HtmlEncoder.Default);
 			output.AddClass("col-md-auto", HtmlEncoder.Default);
 			output.AddClass("me-auto", HtmlEncoder.Default);
+			output.Attributes.SetAttribute("style", "overflow: auto;max-width: 100%;");
 
 			var htmlContent = new StringBuilder();
 
@@ -40,7 +41,7 @@ namespace WebFramework.TagHelpers
 				{
 					htmlContent.AppendLine(@"
 					  <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-primary d-none"" data-action=""new_page"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""جدید"">
-						 <i class=""fs-2 fa-jelly fa-light fa-circle-plus"" style=""padding-right: 2px;padding-top: 2px;""></i>
+						 <i class=""  fa-jelly fa-light fa-circle-plus"" style=""padding-right: 2px;padding-top: 2px;""></i>
 					  </button>");
 				}
 
@@ -48,7 +49,7 @@ namespace WebFramework.TagHelpers
 				{
 					htmlContent.AppendLine(@"
             <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-primary"" data-action=""save"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره"">
-                <i class=""fs-2 fa-light fa-floppy-disk"" style=""padding-top: 2px; padding-right: 2px;""></i>
+                <i class=""  fa-light fa-floppy-disk"" style=""padding-top: 2px; padding-right: 2px;""></i>
             </button>");
 				}
 
@@ -56,7 +57,7 @@ namespace WebFramework.TagHelpers
 				{
 					htmlContent.AppendLine(@"
 				  <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-success p-2 d-none"" data-action=""saveandnew"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره و جدید"">
-					 <i class=""fs-2 fa-light fa-floppy-disk-circle-arrow-right""></i>
+					 <i class=""  fa-light fa-floppy-disk-circle-arrow-right""></i>
 				  </button>");
 				}
 
@@ -64,7 +65,7 @@ namespace WebFramework.TagHelpers
 				{
 					htmlContent.AppendLine(@"
             <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-danger"" data-action=""saveandclose"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره و بستن"">
-                <i class=""fs-2 fa-light fa-floppy-disk-circle-xmark"" style=""padding-right: 2px;padding-top: 2px;""></i>
+                <i class=""  fa-light fa-floppy-disk-circle-xmark"" style=""padding-right: 2px;padding-top: 2px;""></i>
             </button>");
 				}
 
@@ -72,9 +73,9 @@ namespace WebFramework.TagHelpers
 				{
 					var historyType = entityType?.Name ?? "";
 					htmlContent.AppendLine($@"
-            <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-info"" data-system-action=""history"" data-action=""history"" data-system-history-type=""{historyType}"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""تاریخچه"">
-                <i class=""fs-2 fa-light fa-files-medical"" style=""padding-right: 2px;padding-top: 2px;""></i>
-            </button>");
+					  <button class=""btn-sm btn btn-icon btn-active-icon-dark btn-color-info"" data-system-action=""history"" data-action=""history"" data-system-history-type=""{historyType}"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""تاریخچه"">
+						 <i class=""  fa-light fa-files-medical"" style=""padding-right: 2px;padding-top: 2px;""></i>
+					  </button>");
 				}
 			}
 

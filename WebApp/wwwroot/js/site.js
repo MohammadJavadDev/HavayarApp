@@ -5751,33 +5751,26 @@ function _processRows(rows, columns) {
 							col.options.find(o => o.value === val)?.name ?? "";
 					}
 					break;
-				case 'datetime':
-					if (val) {
-						try {
-							const d = new Date(val);
-							if (!isNaN(d.getTime())) {
-								processed[col.data] = d.toISOString().replace('T', ' ').split('.')[0];
-							}
-						} catch (_) { }
+				case 'datetime': {
+					const m = String(val ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/);
+					if (m) {
+						const [, y, mo, d, h, mi, s] = m;
+						processed[col.data] = `${y}-${mo}-${d} ${h}:${mi}:${s}`;
 					}
 					break;
-				case 'date':
-					if (val) {
-						try {
-							const d = new Date(val);
-							if (!isNaN(d.getTime())) {
-								processed[col.data] = d.toISOString().split('T')[0];
-							}
-						} catch (_) { }
+				}
+				case 'date': {
+					const m = String(val ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+					if (m) {
+						processed[col.data] = `${m[1]}-${m[2]}-${m[3]}`;
 					}
 					break;
+				}
 			}
 		});
 		return processed;
 	});
 }
-
-
 function getColFilters(table) {
 	table.columns().every(function () {
 		var col = this;
@@ -11327,14 +11320,23 @@ function validateError($el) {
 		}
 		else if ($(c).attr("data-entity-selector"))
 		{
-			$input = $(c).parent().data("entitySelector").$input;
-
-			if ($(c).val() == '0') {
-				value = null;
+			if (!$(c).parent().data("entitySelector")) {
+		
+			
+				if ($(c).parent().data("readonly") == true) {
+					value = $(c).val();
+				}
 			}
 			else {
-				value = $(c).val();
+				$input = $(c).parent().data("entitySelector").$input;
+				if ($(c).val() == '0') {
+					value = null;
+				}
+				else {
+					value = $(c).val();
+				}
 			}
+			 
 		}
 		else {
 
@@ -11684,16 +11686,21 @@ const initPersionDatePicker = function ($el) {
 	$el.find("[data-persionDatePicker=true]").each((c, i) => {
 		 
 		let objOptionsStr = $(i).attr("data-persionDatePickerOption") ?? $(i).attr("persion-datetimepicker");
+		let objOptions = null;
 		if (objOptionsStr) {
-			 
-			let objOptions = JSON.parse(objOptionsStr);
 
-			if ($(i).val() && $(i).val().length > 0) {
-				objOptions.initialValue = true
-			}
-			$(i).persianDatepicker(objOptions)
-			$(i).attr("data-persionDatePicker", "false");
+		    objOptions = JSON.parse(objOptionsStr);
+			 
 		}
+		else {
+			objOptions = persionDatePickerOptionsDateTime;
+		}
+
+		if ($(i).val() && $(i).val().length > 0) {
+			objOptions.initialValue = true
+		}
+		$(i).persianDatepicker(objOptions)
+		$(i).attr("data-persionDatePicker", "false");
 
 	})
 }

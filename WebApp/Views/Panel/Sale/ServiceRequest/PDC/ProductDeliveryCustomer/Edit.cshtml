@@ -101,7 +101,7 @@
                                                                       c => new { c.Name, c.Family },
                                                                       "{Name} {Family}",
                                                                       "TechnicalManagerId",
-                                                                      Model?.TechnicalManagerName?.Name,
+                                                                      Model?.TechnicalManager?.Name,
                                                                       Model?.TechnicalManagerId?.ToString()
                                                                       ))
                                    <div data-invalidmessagespan class="mt-1">
@@ -374,7 +374,7 @@
                                                                       c => c.IsActive == Entities.Base.IsActiveEnum.Active,
                                                                       c => new { Id = c.Id, Code = c.Code, Title = c.Name },
                                                                       c => new { c.Name },
-                                                                      "{Title}",
+                                                                      "{Code} {Title}",
                                                                       "AccessoriesId",
                                                                       Model?.Accessories?.Name,
                                                                       Model?.AccessoriesId?.ToString(),
@@ -459,69 +459,95 @@
           </div>
      </div>
 </div>
-
 <script>
-     document.addEventListener('DOMContentLoaded', function() {
-         const collapseElement = document.getElementById('collapsibleContent');
-         const collapsibleContent = document.getElementById('collapseIcon');
+     $(function() {
+         $('.collapse')
+             .on('shown.bs.collapse', function() {
 
-         if (collapseElement && collapsibleContent) {
-             collapseElement.addEventListener('shown.bs.collapse', function() {
-                 collapsibleContent.className = 'fas fa-chevron-down me-2';
+                 $(this)
+                     .prev('.card-header')
+                     .find('.collapse-icon')
+                     .removeClass('fa-chevron-left')
+                     .addClass('fa-chevron-down');
+
+             })
+             .on('hidden.bs.collapse', function() {
+
+                 $(this)
+                     .prev('.card-header')
+                     .find('.collapse-icon')
+                     .removeClass('fa-chevron-down')
+                     .addClass('fa-chevron-left');
+
              });
 
-             collapseElement.addEventListener('hidden.bs.collapse', function() {
-                 collapsibleContent.className = 'fas fa-chevron-left me-2';
-             });
-         }
 
+         self.FormActionButtons.save.onclick(function() {
+             savefn(this);
+         });
 
-         const DeliverDetailsElement = document.getElementById('collapsibleDeliverDetails');
-         const DeliverDetails = document.getElementById('collapseIcon');
+         self.FormActionButtons.saveandnew.onclick(function() {
+             savefn(this);
+         });
 
-         if (DeliverDetailsElement && DeliverDetails) {
-             DeliverDetailsElement.addEventListener('shown.bs.collapse', function() {
-                 DeliverDetails.className = 'fas fa-chevron-down me-2';
-             });
-
-             DeliverDetailsElement.addEventListener('hidden.bs.collapse', function() {
-                 DeliverDetails.className = 'fas fa-chevron-left me-2';
-             });
-         }
-
-
-         const collapseConditionDeliverDevice = document.getElementById('collapsibleConditionDeliverDevice');
-         const ConditionDeliverDevice = document.getElementById('collapseIcon');
-
-         if (collapseConditionDeliverDevice && ConditionDeliverDevice) {
-             collapseConditionDeliverDevice.addEventListener('shown.bs.collapse', function() {
-                 ConditionDeliverDevice.className = 'fas fa-chevron-down me-2';
-             });
-
-             collapseConditionDeliverDevice.addEventListener('hidden.bs.collapse', function() {
-                 ConditionDeliverDevice.className = 'fas fa-chevron-left me-2';
-             });
-         }
-
+         self.FormActionButtons.saveandclose.onclick(function() {
+             savefn(this);
+         });
 
      });
 
-     function savefn($btnAction) {
-         if (validateError(page.$pageEl)) { return; }
+
+     var isSaving = false;
+
+     function savefn(btnAction) {
+
+         if (isSaving)
+             return;
+
+         if (validateError(page.$pageEl))
+             return;
+
+         isSaving = true;
+
          var model = page.$pageEl.dataBind();
-         const $btn = $(this.element).block();
-         $$.post('save',
+
+         var $btn = $(btnAction.element);
+
+         $btn.block();
+
+         $$.post(
+             'save',
              model,
              function(r) {
-                 $btn.block(false);
-                 if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-                 toastr.success('ذخیره سازی با موفقیت انجام شد .');
-                 page.$pageEl.dataBind(r.data);
-                 $btnAction.baseaction();
-             })
-     }
 
-     self.FormActionButtons.save.onclick(function() { savefn(this); });
-     self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
-     self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
+                 isSaving = false;
+
+                 $btn.block(false);
+
+                 if (!r.isSuccess) {
+
+                     toastr.error(r.message, 'خطا');
+
+                     return;
+
+                 }
+
+                 toastr.success('ذخیره سازی با موفقیت انجام شد.');
+
+                 page.$pageEl.dataBind(r.data);
+
+                 btnAction.baseaction();
+
+             },
+             function() {
+
+                 isSaving = false;
+
+                 $btn.block(false);
+
+                 toastr.error('خطا در ارتباط با سرور');
+
+             });
+
+     }
 </script>

@@ -625,7 +625,7 @@ namespace Services.ImportDefinitionServices
 		}
  
 
-		private static object ConvertValue(string value, SystemType dataType , ImportDefinitionColumn col)
+		public static object ConvertValue(string value, SystemType dataType , ImportDefinitionColumn col)
 		{
 
 			 
@@ -650,6 +650,16 @@ namespace Services.ImportDefinitionServices
 				_ => value
 			};
 		}
+
+		/// <summary>
+		/// تبدیل مقدار اکسل برای ارسال JSON (بدون DBNull)
+		/// </summary>
+		public static object? ConvertValueForJson(string value, SystemType dataType, ImportDefinitionColumn col)
+		{
+			var converted = ConvertValue(value, dataType, col);
+			return converted == DBNull.Value ? null : converted;
+		}
+
 		private static object ConvertSelectValue(string value, ImportDefinitionColumn col)
 		{
 			// بررسی اینکه OptionSetting وجود داشته باشد

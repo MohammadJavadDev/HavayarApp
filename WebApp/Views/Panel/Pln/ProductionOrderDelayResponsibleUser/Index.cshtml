@@ -1,0 +1,218 @@
+﻿@using Entities.App.Pln.Enums
+@using Entities.Auth
+@using Entities.Base
+@using WebFramework.TagHelpers
+ 
+<div class="card">
+	<div class="card-body row">
+		<input class="form-control" id="recordId" type="hidden" value="" />
+		<div class="col-md-12 mb-4">
+			<label>عامل توقف</label>
+			<select class="form-select" id="delayResponsibleSelect"
+					asp-items="Html.GetEnumSelectList(typeof(DelayResponsibleEnum))">
+			</select>
+		</div>
+
+		<div class="col-md-8 mb-3">
+			<label>افزودن کاربر</label>
+			@(Html.EntitySelector<User>(
+				"addUserSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa, Email = c.Email },
+				c => new { c.Name, c.NameFa, c.Email },
+				"{NameFa} ({Name})",
+				null,
+				null,
+				null
+			))
+		</div>
+		<div class="col-md-4 mb-3 d-flex align-items-end">
+			<button type="button" class="btn btn-success w-100" id="btnAddUser">
+				افزودن به لیست
+			</button>
+		</div>
+
+		<div class="col-md-12">
+			<div class="table-responsive">
+				<table class="table table-row-bordered table-hover align-middle" id="usersTable">
+					<thead>
+						<tr class="fw-bold text-gray-800">
+							<th style="width:60px">#</th>
+							<th>نام کاربر</th>
+							<th>ایمیل</th>
+							<th style="width:100px">عملیات</th>
+						</tr>
+					</thead>
+					<tbody id="usersTableBody">
+						<tr class="empty-row">
+							<td colspan="4" class="text-center text-muted">کاربری انتخاب نشده است</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="col-md-12 mt-3">
+			<button type="button" class="btn btn-primary" id="btnSave">
+				ذخیره
+			</button>
+		</div>
+	</div>
+</div>
+
+<script>
+	var currentUsers = [];
+	var currentId = null;
+	var isLoading = false;
+
+	function getRowValue(row, key) {
+		if (!row) return '';
+		var found = Object.keys(row).find(function (k) { return k.toLowerCase() === key.toLowerCase(); });
+		return found ? (row[found] ?? '') : '';
+	}
+
+	function getUserSelector() {
+		var $el = $$('#addUserSelector');
+		return $el.data('entitySelector') || $el.data('entitySelectorInstance');
+	}
+
+	function renderUsersTable() {
+		var $body = $$('#usersTableBody');
+		$body.empty();
+
+		if (!currentUsers.length) {
+			$body.append('<tr class="empty-row"><td colspan="4" class="text-center text-muted">کاربری انتخاب نشده است</td></tr>');
+			return;
+		}
+
+		currentUsers.forEach(function (user, index) {
+			var name = user.name || '';
+			var email = user.email || '';
+			var row = '<tr data-user-id="' + user.id + '">' +
+				'<td>' + (index + 1) + '</td>' +
+				'<td>' + $('<div/>').text(name).html() + '</td>' +
+				'<td>' + $('<div/>').text(email).html() + '</td>' +
+				'<td><button type="button" class="btn btn-sm btn-danger btn-remove-user" data-user-id="' + user.id + '">حذف</button></td>' +
+				'</tr>';
+			$body.append(row);
+		});
+	}
+
+	function loadUsersByDelayResponsible() {
+		var delayResponsible = $$('#delayResponsibleSelect').val();
+		if (delayResponsible === null || delayResponsible === undefined || delayResponsible === '') {
+			currentUsers = [];
+			currentId = null;
+			$$('#recordId').val('');
+			renderUsersTable();
+			return;
+		}
+
+		isLoading = true;
+		var $card = $$('.card').first().block();
+		$$.get('ListUserBy?delayResponsible=' + encodeURIComponent(delayResponsible), function (r) {
+			$card.block(false);
+			isLoading = false;
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در دریافت اطلاعات', 'خطا');
+				return;
+			}
+
+			var data = r.data || {};
+			currentId = data.id || null;
+			$$('#recordId').val(currentId || '');
+
+			var ids = data.userIds || [];
+			var names = data.userNames || [];
+			var emails = data.usersEmail || [];
+
+			currentUsers = ids.map(function (id, i) {
+				return {
+					id: id,
+					name: names[i] || '',
+					email: emails[i] || ''
+				};
+			});
+			renderUsersTable();
+		});
+	}
+
+	$$('#delayResponsibleSelect').change(function () {
+		loadUsersByDelayResponsible();
+	});
+
+	$$('#btnAddUser').click(function () {
+		var selector = getUserSelector();
+		if (!selector || !selector.selectedItems || !selector.selectedItems.length) {
+			toastr.warning('لطفا یک کاربر انتخاب کنید');
+			return;
+		}
+
+		var item = selector.selectedItems[0];
+		var userId = parseInt(item.id, 10);
+		if (!userId) {
+			toastr.warning('کاربر نامعتبر است');
+			return;
+		}
+
+		if (currentUsers.some(function (u) { return u.id == userId; })) {
+			toastr.warning('این کاربر قبلا به لیست اضافه شده است');
+			return;
+		}
+
+		var row = item.row || {};
+		var nameFa = getRowValue(row, 'NameFa');
+		var name = getRowValue(row, 'Name');
+		var displayName = nameFa || name || item.display || '';
+		var email = getRowValue(row, 'Email');
+
+		currentUsers.push({
+			id: userId,
+			name: displayName,
+			email: email || ''
+		});
+		renderUsersTable();
+
+		if (typeof selector.clearAll === 'function') {
+			selector.clearAll();
+		}
+	});
+
+	$$('#usersTableBody').on('click', '.btn-remove-user', function () {
+		var userId = parseInt($(this).attr('data-user-id'), 10);
+		currentUsers = currentUsers.filter(function (u) { return u.id != userId; });
+		renderUsersTable();
+	});
+
+	$$('#btnSave').click(function () {
+		var delayResponsible = $$('#delayResponsibleSelect').val();
+		if (delayResponsible === null || delayResponsible === undefined || delayResponsible === '') {
+			toastr.warning('لطفا عامل توقف را انتخاب کنید');
+			return;
+		}
+
+		var model = {
+			id: currentId || 0,
+			delayResponsible: parseInt(delayResponsible, 10),
+			userIds: currentUsers.map(function (u) { return u.id; }),
+			userNames: currentUsers.map(function (u) { return u.name; }),
+			usersEmail: currentUsers.map(function (u) { return u.email; })
+		};
+
+		var $btn = $(this).block();
+		$$.post('Save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+				return;
+			}
+
+			var data = r.data || {};
+			currentId = data.id || currentId;
+			$$('#recordId').val(currentId || '');
+			toastr.success('ذخیره سازی با موفقیت انجام شد .');
+		});
+	});
+
+	loadUsersByDelayResponsible();
+</script>

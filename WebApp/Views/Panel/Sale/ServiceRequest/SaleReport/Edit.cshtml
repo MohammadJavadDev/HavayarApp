@@ -3,554 +3,622 @@
 
 <div class="card shadow-sm border-0">
 
-    <div class="form-action-buttons border-bottom p-3">
-        <form-action-buttons entity-type="typeof(SaleReport)"></form-action-buttons>
-    </div>
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(SaleReport)"></form-action-buttons>
+     </div>
 
-    <div class="card-body">
+     <div class="card-body">
 
-        <div class="row mb-4">
-            <div class="col-12">
-                <h4 class="fw-bold text-dark mb-0">
-                    گزارش کار
-                </h4>
-            </div>
-        </div>
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         گزارش کار
+                    </h4>
+               </div>
+          </div>
 
-        <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
 
-        <div class="row g-3">
+          <div class="row g-3">
 
 
-            <div class="col-md-3">
-                <label class="form-label fw-bold">شماره گزارش</label>
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">شماره گزارش</label>
 
-                <input class="form-control"
-                       data-bind="reportNumber"
-                       asp-for="ReportNumber" />
+                    <input class="form-control"
+                           data-bind="reportNumber"
+                           asp-for="ReportNumber" />
 
-                <div data-invalidmessagespan class="mt-1">
-                    <span class="text-danger"></span>
-                </div>
-            </div>
-
-  
-       
-            <div class='col-md-3'>
-                <label class='form-label fw-bold'>
-                    تاریخ شروع سرویس
-                </label>
-                <input class='form-control' data-bind='serviceStartShamsiDate' data-persionDatePicker="true"
-                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                       value='@Model?.ServiceStartMiladiDate' />
-            </div>
-            <div class='col-md-3'>
-                <label class='form-label fw-bold'>
-                    زمان شروع
-                </label>
-                <input class='form-control' data-bind='serviceStartTime' data-persionDatePicker="true"
-                       persion-datetimepicker='{"format": "HH:mm","autoClose": true,"initialValue": false,"onlyTimePicker": true}'
-                       value='@Model?.ServiceStartTime' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class='form-label fw-bold'>
-                    تاریخ پایان سرویس
-                </label>
-                <input class='form-control' data-bind='serviceEndShamsiDate' data-persionDatePicker="true"
-                       persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                       value='@Model?.ServiceEndMiladiDate' />
-            </div>
-
-
-            <div class='col-md-3'>
-                <label class='form-label fw-bold'>
-                    ساعت خاتمه
-                </label>
-                <input class='form-control' data-bind='serviceEndTime' data-persionDatePicker="true"
-                       persion-datetimepicker='{"format": "HH:mm","autoClose": true,"initialValue": false,"onlyTimePicker": true}'
-                       value='@Model?.ServiceEndTime' />
-            </div>
-
-            <div class="col-md-3">
-                <label class="form-label fw-bold">شرح خرابی</label>
-
-                @(Html.EntitySelector<FailureTypeSale>(
-                    "FailureTypeIdSelector",
-                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                    c => new
-                    {
-                        Id = c.Id,
-                        Title = c.Title,
-                        Code = c.Code
-                    },
-                    c => new { c.Title, c.Code },
-                    "{Code} {Title}",
-                    "FailureTypeId",
-                    Model?.FailureType?.Title,
-                    Model?.FailureTypeId?.ToString()
-                ))
-
-                <div data-invalidmessagespan class="mt-1">
-                    <span class="text-danger"></span>
-                </div>
-            </div>
-
-
-            <div class="col-md-3">
-                <label class="form-label fw-bold">کد های عملیاتی</label>
-
-                @(Html.EntitySelector<RepairsType>(
-                    "RepairsTypeIdSelector",
-                    c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                    c => new
-                    {
-                        Id = c.Id,
-                        Title = c.Title,
-                        Code = c.Code
-                    },
-                    c => new { c.Title, c.Code },
-                    "{Code} {Title}",
-                    "RepairsTypeId",
-                    Model?.RepairsType?.Title,
-                    Model?.RepairsTypeId?.ToString(),
-                    false,
-                    true
-                ))
-
-                <div data-invalidmessagespan class="mt-1">
-                    <span class="text-danger"></span>
-                </div>
-            </div>
-
-
-            
-
-            <div class="col-md-3">
-                <label class="form-label fw-bold">شرح موانع اجرایی</label>
-                <textarea class="form-control" data-bind="executiveBarriersDescription" asp-for="ExecutiveBarriersDescription" rows="2"></textarea>
-            </div>
-
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">ساعت کارکرد</label>
-                <input class='form-control' data-bind='totalRunTime' asp-for='TotalRunTime' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">ساعت کارکرد زیر بار</label>
-                <input class='form-control' data-bind='workHoursUnderload' asp-for='WorkHoursUnderload' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold"> شدت جریان زیر بار</label>
-                <input class='form-control' data-bind='flowIntensityUnderload' asp-for='FlowIntensityUnderload' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold"> شدت جریان بدون بار</label>
-                <input class='form-control' data-bind='flowIntensityWithoutload' asp-for='FlowIntensityWithoutload' />
-            </div>
-
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">حداکثر فشار کاری</label>
-                <input class='form-control' data-bind='maximumWorkingPressure' asp-for='MaximumWorkingPressure' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">حداقل فشار کاری</label>
-                <input class='form-control' data-bind='minimumWorkingPressure' asp-for='MinimumWorkingPressure' />
-            </div>
-
-            
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">دمای محیط</label>
-                <input class='form-control' data-bind='environmentTemperature' asp-for='EnvironmentTemperature' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">دمای دستگاه</label>
-                <input class='form-control' data-bind='deviceTemperature' asp-for='DeviceTemperature' />
-            </div>
-
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">ولتاژ تابلو برق</label>
-                <input class='form-control' data-bind='voltagePowerGrid' asp-for='VoltagePowerGrid' />
-            </div>
-
-            <div class='col-md-3'>
-                <label class="form-label fw-bold">مقدار دیوپوینت درایر</label>
-                <input class='form-control' data-bind='amountDryerDyupoint' asp-for='AmountDryerDyupoint' />
-            </div>
-
-
-            <div class='col-md-1 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='compressorHouseStatus' class="form-check-input" type="checkbox" asp-for='CompressorHouseStatus' />
-                    <label class="form-check-label form-label fw-bold" asp-for='CompressorHouseStatus'>
-                        وضعیت کمپرسور خانه
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-1 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='electricalPanelStatus' class="form-check-input" type="checkbox" asp-for='ElectricalPanelStatus' />
-                    <label class="form-check-label form-label fw-bold" asp-for='ElectricalPanelStatus'>
-                        وضعیت تابلو برق
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-1 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='pipingStatus' class="form-check-input" type="checkbox" asp-for='PipingStatus' />
-                    <label class="form-check-label form-label fw-bold" asp-for='PipingStatus'>
-                        وضعیت پایپینگ
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-3'>
-                <label class='form-label fw-bold'>نتیجه</label>
-                <select class='form-control' data-bind='missionResult' asp-for='MissionResult' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.MissionResultEnum))">
-                </select>
-                <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-            </div>
-
-
-            <div class='col-md-3'>
-                <label class='form-label fw-bold'>تعویض برد</label>
-                <input class='form-control' data-bind='oldRunTime' asp-for='OldRunTime' />
-            </div>
-
-
-            <div class="col-md-3">
-                <label class='form-label fw-bold'>توضیحات گارانتی کارشناس</label>
-                <textarea class="form-control" data-bind="expertGuaranteeDateShamsi" asp-for="ExpertGuaranteeDateShamsi" rows="1"></textarea>
-            </div>
-
-
-            <div class="col-md-3">
-
-                <fileuploader bind="SaleReportAttachmentId" file-id="@Model?.SaleReportAttachmentId" file-entity="@Model?.SaleReportAttachment"
-                              Label="پیوست فایل" entity-type="@typeof(SaleReport).FullName" entity-prop-name="SaleReportAttachment" max-file-size="10"
-                              accepted-file-types=".jpg,.png,.pdf,.rar,.zip,.excel,.word"></fileuploader>
-            </div>
-
-            <div class='col-md-2 align-content-center'></div>
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='oilLevelCheck' class="form-check-input" type="checkbox" asp-for='OilLevelCheck' />
-                    <label class="form-check-label form-label fw-bold" asp-for='OilLevelCheck'>
-                        کنترل سطح روغن
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='inspectionOfAllConnections' class="form-check-input" type="checkbox" asp-for='InspectionOfAllConnections' />
-                    <label class="form-check-label form-label fw-bold" asp-for='InspectionOfAllConnections'>
-                        بازديد كليه اتصالات
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='oilSuctionInspection' class="form-check-input" type="checkbox" asp-for='OilSuctionInspection' />
-                    <label class="form-check-label form-label fw-bold" asp-for='OilSuctionInspection'>
-                        بازديد مكش روغن
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='dustCollectorInspection' class="form-check-input" type="checkbox" asp-for='DustCollectorInspection' />
-                    <label class="form-check-label form-label fw-bold" asp-for='DustCollectorInspection'>
-                        بازديد غبار گير
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='inspectionOfTheseRpentinebeltTimingBelt' class="form-check-input" type="checkbox" asp-for='InspectionOfTheseRpentinebeltTimingBelt' />
-                    <label class="form-check-label form-label fw-bold" asp-for='InspectionOfTheseRpentinebeltTimingBelt'>
-                        بازديد پولی و تسمه
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='oilFilterReplacement' class="form-check-input" type="checkbox" asp-for='OilFilterReplacement' />
-                    <label class="form-check-label form-label fw-bold" asp-for='OilFilterReplacement'>
-                        تعويض فيلتر روغن
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='separatFilterReplacement' class="form-check-input" type="checkbox" asp-for='SeparatFilterReplacement' />
-                    <label class="form-check-label form-label fw-bold" asp-for='SeparatFilterReplacement'>
-                        تعويض فيلتر سپراتور
-                    </label>
-                </div>
-            </div>
-
-            
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='airFilterReplacement' class="form-check-input" type="checkbox" asp-for='AirFilterReplacement' />
-                    <label class="form-check-label form-label fw-bold" asp-for='AirFilterReplacement'>
-                        تعويض فيلتر سپراتور
-                    </label>
-                </div>
-            </div>
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='replacingTheunLoaderkit' class="form-check-input" type="checkbox" asp-for='ReplacingTheunLoaderkit' />
-                    <label class="form-check-label form-label fw-bold" asp-for='ReplacingTheunLoaderkit'>
-                        تعويض كيت آنلودر
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='minimumKitReplacement' class="form-check-input" type="checkbox" asp-for='MinimumKitReplacement' />
-                    <label class="form-check-label form-label fw-bold" asp-for='MinimumKitReplacement'>
-                        تعويض كيت مينيمم
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='replacingthethermostatkit' class="form-check-input" type="checkbox" asp-for='Replacingthethermostatkit' />
-                    <label class="form-check-label form-label fw-bold" asp-for='Replacingthethermostatkit'>
-                        تعويض كيت ترموستات
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='irankitReplacement' class="form-check-input" type="checkbox" asp-for='IrankitReplacement' />
-                    <label class="form-check-label form-label fw-bold" asp-for='IrankitReplacement'>
-                        تعويض كيت ايراند
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='electricMotorGreasing' class="form-check-input" type="checkbox" asp-for='ElectricMotorGreasing' />
-                    <label class="form-check-label form-label fw-bold" asp-for='ElectricMotorGreasing'>
-                        گريس كاري الكترموتور
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='cleaningExteriorDevice' class="form-check-input" type="checkbox" asp-for='CleaningExteriorDevice' />
-                    <label class="form-check-label form-label fw-bold" asp-for='CleaningExteriorDevice'>
-                        تميز كردن ظاهر دستگاه
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='statusCompressor' class="form-check-input" type="checkbox" asp-for='StatusCompressor' />
-                    <label class="form-check-label form-label fw-bold" asp-for='StatusCompressor'>
-                        وضعيت كمپرسور خانه
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='coolingSystem' class="form-check-input" type="checkbox" asp-for='CoolingSystem' />
-                    <label class="form-check-label form-label fw-bold" asp-for='CoolingSystem'>
-                        سيستم خنك كننده
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='compressorRoomPowerSupplyPanelControl' class="form-check-input" type="checkbox" asp-for='CompressorRoomPowerSupplyPanelControl' />
-                    <label class="form-check-label form-label fw-bold" asp-for='CompressorRoomPowerSupplyPanelControl'>
-                        كنترل تابلو تغذيه كمپرسورخانه
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='compressorElectricalSystemElectricalPanel' class="form-check-input" type="checkbox" asp-for='CompressorElectricalSystemElectricalPanel' />
-                    <label class="form-check-label form-label fw-bold" asp-for='CompressorElectricalSystemElectricalPanel'>
-                        (سيستم برق كمپرسور(تابلو برق
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='statusPeripheralEquipment' class="form-check-input" type="checkbox" asp-for='StatusPeripheralEquipment' />
-                    <label class="form-check-label form-label fw-bold" asp-for='StatusPeripheralEquipment'>
-                        وضعيت تجهيزات جانبی
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='pipingCondition' class="form-check-input" type="checkbox" asp-for='PipingCondition' />
-                    <label class="form-check-label form-label fw-bold" asp-for='PipingCondition'>
-                        وضعيت پايپينگ
-                    </label>
-                </div>
-            </div>
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='serviceMaintenanceManual' class="form-check-input" type="checkbox" asp-for='ServiceMaintenanceManual' />
-                    <label class="form-check-label form-label fw-bold" asp-for='ServiceMaintenanceManual'>
-                        دفترچه سرويس و نگهداری
-                    </label>
-                </div>
-            </div>
-
-
-            <div class='col-md-2 align-content-center'>
-                <div class="form-check">
-                    <input data-bind='theAboveItemsApprovedCustomer' class="form-check-input" type="checkbox" asp-for='TheAboveItemsApprovedCustomer' />
-                    <label class="form-check-label form-label fw-bold" asp-for='TheAboveItemsApprovedCustomer'>
-                        موارد فوق مورد تایید مشتری می باشد
-                    </label>
-                </div>
-            </div>
-
-
-            <div class="col-md-12">
-                <label class='form-label fw-bold'>توضیحات سرپرست فنی</label>
-                <textarea class="form-control" data-bind="technicalSupervisorsRemarks" rows="5" asp-for="TechnicalSupervisorsRemarks" rows="1"></textarea>
-            </div>
-
-            <div class="col-md-12">
-                <label class='form-label fw-bold'>توضیحات مسئول منطقه</label>
-                <textarea class="form-control" data-bind="explanationByThereGionalOfficial" rows="5" asp-for="ExplanationByThereGionalOfficial" rows="1"></textarea>
-            </div>
-
-            <div class="col-md-12">
-                <label class='form-label fw-bold'>نظر سرپرست خدمات پس از فروش</label>
-                <textarea class="form-control" data-bind="opinionofAfterSalesServiceSupervisor" rows="5" asp-for="OpinionofAfterSalesServiceSupervisor" rows="1"></textarea>
-            </div>
-
-            <div class="col-md-12">
-                <label class='form-label fw-bold'>نظر مدير خدمات پس از فروش</label>
-                <textarea class="form-control" data-bind="afterSalesServiceManagersOpinion" rows="5" asp-for="AfterSalesServiceManagersOpinion" rows="1"></textarea>
-            </div>
-
-
-            <div class="col-md-12">
-                <label class='form-label fw-bold'>توضیحات کارشناس</label>
-                <textarea class="form-control" data-bind="expertGuaranteeComment" asp-for="ExpertGuaranteeComment" rows="5"></textarea>
-            </div>
-
-
-            <div class="card border mt-5">
-                <div class="card-body">
-
-                    <div class="row g-3 align-items-end mb-4">
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
                     </div>
-                </div>
-            </div>
+               </div>
 
-        </div>
-    </div>
 
-    <div class="card mt-4 border-0 shadow-sm">
-        <div class="card-body">
-            <div class="row text-muted">
 
-                <div class="col-md-3">
-                    <span class="fw-bold">ایجاد کننده :</span>
-                    <span data-bind="createdByName">@Model?.CreatedByName</span>
-                </div>
+               <div class='col-md-3'>
+                    <label class='form-label fw-bold'>
+                         تاریخ شروع
+                    </label>
+                    <input class='form-control' data-bind='serviceStartShamsiDate' data-persionDatePicker="true"
+                           persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                           value='@Model?.ServiceStartMiladiDate' />
+               </div>
+               <div class='col-md-3'>
+                    <label class='form-label fw-bold'>
+                         ساعت شروع
+                    </label>
+                    <input class='form-control time-input'
+                           data-bind='serviceStartTime'
+                           maxlength="4"
+                           value='@Model?.ServiceStartTime' />
+                    <small class="text-muted">عدد را بدون دو نقطه وارد کنید (مثال: 0700)</small>
+               </div>
 
-                <div class="col-md-3">
-                    <span class="fw-bold">تاریخ ایجاد :</span>
-                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
-                </div>
+               <div class='col-md-3'>
+                    <label class='form-label fw-bold'>
+                         تاریخ پایان
+                    </label>
+                    <input class='form-control' data-bind='serviceEndShamsiDate' data-persionDatePicker="true"
+                           persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                           value='@Model?.ServiceEndMiladiDate' />
+               </div>
 
-                <div class="col-md-3">
-                    <span class="fw-bold">ویرایش کننده :</span>
-                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
-                </div>
+               <div class='col-md-3'>
+                    <label class='form-label fw-bold'>
+                         ساعت پایان
+                    </label>
+                    <input class='form-control time-input'
+                           data-bind='serviceEndTime'
+                           maxlength="4"
+                           value='@Model?.ServiceEndTime' />
+                    <small class="text-muted">عدد را بدون دو نقطه وارد کنید (مثال: 1700)</small>
+               </div>
 
-                <div class="col-md-3">
-                    <span class="fw-bold">تاریخ ویرایش :</span>
-                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
-                </div>
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">شرح خرابی</label>
 
-            </div>
-        </div>
-    </div>
+                    @(Html.EntitySelector<FailureTypeSale>(
+                                        "FailureTypeIdSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Title = c.Title,
+                                             Code = c.Code
+                                        },
+                                        c => new { c.Title, c.Code },
+                                        "{Code} {Title}",
+                                        "FailureTypeId",
+                                        Model?.FailureType?.Title,
+                                        Model?.FailureTypeId?.ToString()
+                                        ))
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">کد های عملیاتی</label>
+
+                    @(Html.EntitySelector<RepairsType>(
+                                        "RepairsTypeIdSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Title = c.Title,
+                                             Code = c.Code
+                                        },
+                                        c => new { c.Title, c.Code },
+                                        "{Code} {Title}",
+                                        "RepairsTypeId",
+                                        Model?.RepairsType?.Title,
+                                        Model?.RepairsTypeId?.ToString(),
+                                        false,
+                                        true
+                                        ))
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+
+
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">شرح موانع اجرایی</label>
+                    <textarea class="form-control" data-bind="executiveBarriersDescription" asp-for="ExecutiveBarriersDescription" rows="2"></textarea>
+               </div>
+
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">ساعت کارکرد</label>
+                    <input class='form-control' data-bind='totalRunTime' asp-for='TotalRunTime' />
+               </div>
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">ساعت کارکرد زیر بار</label>
+                    <input class='form-control' data-bind='workHoursUnderload' asp-for='WorkHoursUnderload' />
+               </div>
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold"> شدت جریان زیر بار</label>
+                    <input class='form-control' data-bind='flowIntensityUnderload' asp-for='FlowIntensityUnderload' />
+               </div>
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold"> شدت جریان بدون بار</label>
+                    <input class='form-control' data-bind='flowIntensityWithoutload' asp-for='FlowIntensityWithoutload' />
+               </div>
+
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">حداکثر فشار کاری</label>
+                    <input class='form-control' data-bind='maximumWorkingPressure' asp-for='MaximumWorkingPressure' />
+               </div>
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">حداقل فشار کاری</label>
+                    <input class='form-control' data-bind='minimumWorkingPressure' asp-for='MinimumWorkingPressure' />
+               </div>
+
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">دمای محیط</label>
+                    <input class='form-control' data-bind='environmentTemperature' asp-for='EnvironmentTemperature' />
+               </div>
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">دمای دستگاه</label>
+                    <input class='form-control' data-bind='deviceTemperature' asp-for='DeviceTemperature' />
+               </div>
+
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">ولتاژ تابلو برق</label>
+                    <input class='form-control' data-bind='voltagePowerGrid' asp-for='VoltagePowerGrid' />
+               </div>
+
+               <div class='col-md-3'>
+                    <label class="form-label fw-bold">مقدار دیوپوینت درایر</label>
+                    <input class='form-control' data-bind='amountDryerDyupoint' asp-for='AmountDryerDyupoint' />
+               </div>
+
+
+               <div class='col-md-1 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='compressorHouseStatus' class="form-check-input" type="checkbox" asp-for='CompressorHouseStatus' />
+                         <label class="form-check-label form-label fw-bold" asp-for='CompressorHouseStatus'>
+                              وضعیت کمپرسور خانه
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-1 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='electricalPanelStatus' class="form-check-input" type="checkbox" asp-for='ElectricalPanelStatus' />
+                         <label class="form-check-label form-label fw-bold" asp-for='ElectricalPanelStatus'>
+                              وضعیت تابلو برق
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-1 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='pipingStatus' class="form-check-input" type="checkbox" asp-for='PipingStatus' />
+                         <label class="form-check-label form-label fw-bold" asp-for='PipingStatus'>
+                              وضعیت پایپینگ
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-3'>
+                    <label class='form-label fw-bold'>نتیجه</label>
+                    <select class='form-control' data-bind='missionResult' asp-for='MissionResult' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.MissionResultEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+
+               <div class='col-md-3'>
+                    <label class='form-label fw-bold'>تعویض برد</label>
+                    <input class='form-control' data-bind='oldRunTime' asp-for='OldRunTime' />
+               </div>
+
+
+               <div class="col-md-3">
+                    <label class='form-label fw-bold'>توضیحات گارانتی کارشناس</label>
+                    <textarea class="form-control" data-bind="expertGuaranteeDateShamsi" asp-for="ExpertGuaranteeDateShamsi" rows="1"></textarea>
+               </div>
+
+
+               <div class="col-md-3">
+
+                    <fileuploader bind="SaleReportAttachmentId" file-id="@Model?.SaleReportAttachmentId" file-entity="@Model?.SaleReportAttachment"
+                                  Label="پیوست فایل" entity-type="@typeof(SaleReport).FullName" entity-prop-name="SaleReportAttachment" max-file-size="10"
+                                  accepted-file-types=".jpg,.png,.pdf,.rar,.zip,.excel,.word"></fileuploader>
+               </div>
+
+               <div class='col-md-2 align-content-center'></div>
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='oilLevelCheck' class="form-check-input" type="checkbox" asp-for='OilLevelCheck' />
+                         <label class="form-check-label form-label fw-bold" asp-for='OilLevelCheck'>
+                              کنترل سطح روغن
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='inspectionOfAllConnections' class="form-check-input" type="checkbox" asp-for='InspectionOfAllConnections' />
+                         <label class="form-check-label form-label fw-bold" asp-for='InspectionOfAllConnections'>
+                              بازديد كليه اتصالات
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='oilSuctionInspection' class="form-check-input" type="checkbox" asp-for='OilSuctionInspection' />
+                         <label class="form-check-label form-label fw-bold" asp-for='OilSuctionInspection'>
+                              بازديد مكش روغن
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='dustCollectorInspection' class="form-check-input" type="checkbox" asp-for='DustCollectorInspection' />
+                         <label class="form-check-label form-label fw-bold" asp-for='DustCollectorInspection'>
+                              بازديد غبار گير
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='inspectionOfTheseRpentinebeltTimingBelt' class="form-check-input" type="checkbox" asp-for='InspectionOfTheseRpentinebeltTimingBelt' />
+                         <label class="form-check-label form-label fw-bold" asp-for='InspectionOfTheseRpentinebeltTimingBelt'>
+                              بازديد پولی و تسمه
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='oilFilterReplacement' class="form-check-input" type="checkbox" asp-for='OilFilterReplacement' />
+                         <label class="form-check-label form-label fw-bold" asp-for='OilFilterReplacement'>
+                              تعويض فيلتر روغن
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='separatFilterReplacement' class="form-check-input" type="checkbox" asp-for='SeparatFilterReplacement' />
+                         <label class="form-check-label form-label fw-bold" asp-for='SeparatFilterReplacement'>
+                              تعويض فيلتر سپراتور
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='airFilterReplacement' class="form-check-input" type="checkbox" asp-for='AirFilterReplacement' />
+                         <label class="form-check-label form-label fw-bold" asp-for='AirFilterReplacement'>
+                              تعويض فيلتر سپراتور
+                         </label>
+                    </div>
+               </div>
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='replacingTheunLoaderkit' class="form-check-input" type="checkbox" asp-for='ReplacingTheunLoaderkit' />
+                         <label class="form-check-label form-label fw-bold" asp-for='ReplacingTheunLoaderkit'>
+                              تعويض كيت آنلودر
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='minimumKitReplacement' class="form-check-input" type="checkbox" asp-for='MinimumKitReplacement' />
+                         <label class="form-check-label form-label fw-bold" asp-for='MinimumKitReplacement'>
+                              تعويض كيت مينيمم
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='replacingthethermostatkit' class="form-check-input" type="checkbox" asp-for='Replacingthethermostatkit' />
+                         <label class="form-check-label form-label fw-bold" asp-for='Replacingthethermostatkit'>
+                              تعويض كيت ترموستات
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='irankitReplacement' class="form-check-input" type="checkbox" asp-for='IrankitReplacement' />
+                         <label class="form-check-label form-label fw-bold" asp-for='IrankitReplacement'>
+                              تعويض كيت ايراند
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='electricMotorGreasing' class="form-check-input" type="checkbox" asp-for='ElectricMotorGreasing' />
+                         <label class="form-check-label form-label fw-bold" asp-for='ElectricMotorGreasing'>
+                              گريس كاري الكترموتور
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='cleaningExteriorDevice' class="form-check-input" type="checkbox" asp-for='CleaningExteriorDevice' />
+                         <label class="form-check-label form-label fw-bold" asp-for='CleaningExteriorDevice'>
+                              تميز كردن ظاهر دستگاه
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='statusCompressor' class="form-check-input" type="checkbox" asp-for='StatusCompressor' />
+                         <label class="form-check-label form-label fw-bold" asp-for='StatusCompressor'>
+                              وضعيت كمپرسور خانه
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='coolingSystem' class="form-check-input" type="checkbox" asp-for='CoolingSystem' />
+                         <label class="form-check-label form-label fw-bold" asp-for='CoolingSystem'>
+                              سيستم خنك كننده
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='compressorRoomPowerSupplyPanelControl' class="form-check-input" type="checkbox" asp-for='CompressorRoomPowerSupplyPanelControl' />
+                         <label class="form-check-label form-label fw-bold" asp-for='CompressorRoomPowerSupplyPanelControl'>
+                              كنترل تابلو تغذيه كمپرسورخانه
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='compressorElectricalSystemElectricalPanel' class="form-check-input" type="checkbox" asp-for='CompressorElectricalSystemElectricalPanel' />
+                         <label class="form-check-label form-label fw-bold" asp-for='CompressorElectricalSystemElectricalPanel'>
+                              (سيستم برق كمپرسور(تابلو برق
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='statusPeripheralEquipment' class="form-check-input" type="checkbox" asp-for='StatusPeripheralEquipment' />
+                         <label class="form-check-label form-label fw-bold" asp-for='StatusPeripheralEquipment'>
+                              وضعيت تجهيزات جانبی
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='pipingCondition' class="form-check-input" type="checkbox" asp-for='PipingCondition' />
+                         <label class="form-check-label form-label fw-bold" asp-for='PipingCondition'>
+                              وضعيت پايپينگ
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='serviceMaintenanceManual' class="form-check-input" type="checkbox" asp-for='ServiceMaintenanceManual' />
+                         <label class="form-check-label form-label fw-bold" asp-for='ServiceMaintenanceManual'>
+                              دفترچه سرويس و نگهداری
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='theAboveItemsApprovedCustomer' class="form-check-input" type="checkbox" asp-for='TheAboveItemsApprovedCustomer' />
+                         <label class="form-check-label form-label fw-bold" asp-for='TheAboveItemsApprovedCustomer'>
+                              موارد فوق مورد تایید مشتری می باشد
+                         </label>
+                    </div>
+               </div>
+
+
+               <div class="col-md-12">
+                    <label class='form-label fw-bold'>توضیحات سرپرست فنی</label>
+                    <textarea class="form-control" data-bind="technicalSupervisorsRemarks" rows="5" asp-for="TechnicalSupervisorsRemarks" rows="1"></textarea>
+               </div>
+
+               <div class="col-md-12">
+                    <label class='form-label fw-bold'>توضیحات مسئول منطقه</label>
+                    <textarea class="form-control" data-bind="explanationByThereGionalOfficial" rows="5" asp-for="ExplanationByThereGionalOfficial" rows="1"></textarea>
+               </div>
+
+               <div class="col-md-12">
+                    <label class='form-label fw-bold'>نظر سرپرست خدمات پس از فروش</label>
+                    <textarea class="form-control" data-bind="opinionofAfterSalesServiceSupervisor" rows="5" asp-for="OpinionofAfterSalesServiceSupervisor" rows="1"></textarea>
+               </div>
+
+               <div class="col-md-12">
+                    <label class='form-label fw-bold'>نظر مدير خدمات پس از فروش</label>
+                    <textarea class="form-control" data-bind="afterSalesServiceManagersOpinion" rows="5" asp-for="AfterSalesServiceManagersOpinion" rows="1"></textarea>
+               </div>
+
+
+               <div class="col-md-12">
+                    <label class='form-label fw-bold'>توضیحات کارشناس</label>
+                    <textarea class="form-control" data-bind="expertGuaranteeComment" asp-for="ExpertGuaranteeComment" rows="5"></textarea>
+               </div>
+
+
+               <div class="card border mt-5">
+                    <div class="card-body">
+
+                         <div class="row g-3 align-items-end mb-4">
+                         </div>
+                    </div>
+               </div>
+
+          </div>
+     </div>
+
+     <div class="card mt-4 border-0 shadow-sm">
+          <div class="card-body">
+               <div class="row text-muted">
+
+                    <div class="col-md-3">
+                         <span class="fw-bold">ایجاد کننده :</span>
+                         <span data-bind="createdByName">@Model?.CreatedByName</span>
+                    </div>
+
+                    <div class="col-md-3">
+                         <span class="fw-bold">تاریخ ایجاد :</span>
+                         <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+                    </div>
+
+                    <div class="col-md-3">
+                         <span class="fw-bold">ویرایش کننده :</span>
+                         <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+                    </div>
+
+                    <div class="col-md-3">
+                         <span class="fw-bold">تاریخ ویرایش :</span>
+                         <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+                    </div>
+
+               </div>
+          </div>
+     </div>
 </div>
 
 <script>
 
-    const serviceRequestId = sessionStorage.getItem("ServiceRequestId");
-    
+     const serviceRequestId = sessionStorage.getItem("ServiceRequestId") || "@Model?.ServiceRequestId";
 
-        function savefn($btnAction) {
 
-        if (validateError(page.$pageEl)) return;
+        function formatTimeInput($input) {
+         if (!$input || $input.length === 0) return;
 
-        const model = page.$pageEl.dataBind();
-        model.ServiceRequestId = sessionStorage.getItem("ServiceRequestId");
-        const $btn = $(this.element).block();
+         var val = $input.val().replace(/[^0-9]/g, '');
 
-        $$.post('save', model, function (r) {
+         if (val.length === 0) {
+             $input.val('');
+             return '';
+         }
 
-            $btn.block(false);
+         if (val.length >= 3) {
+             var hours = val.substring(0, val.length - 2);
+             var minutes = val.substring(val.length - 2);
 
-            if (!r.isSuccess) {
-                toastr.error(r.message, 'خطا');
-                return;
-            }
 
-            toastr.success('ذخیره سازی با موفقیت انجام شد');
+             if (hours.length === 1) hours = '0' + hours;
+             var hourNum = parseInt(hours);
+             var minuteNum = parseInt(minutes);
 
-            page.$pageEl.dataBind(r.data);
+             if (hourNum > 23) hours = '23';
+             if (minuteNum > 59) minutes = '59';
 
-            $btnAction.baseaction();
-        });
-    }
+             var formattedTime = hours + ':' + minutes;
+             $input.val(formattedTime);
 
-    self.FormActionButtons.save.onclick(function () { savefn(this); });
-    self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
-    self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+             return formattedTime;
+         } else {
+             $input.val(val);
+             return val;
+         }
+     }
+
+     $(document).ready(function() {
+         $(document).on('blur', '.time-input', function() {
+             formatTimeInput($(this));
+         });
+
+         $(document).on('input', '.time-input', function() {
+             var val = $(this).val().replace(/[^0-9]/g, '');
+             if (val.length > 4) {
+                 val = val.substring(0, 4);
+             }
+             $(this).val(val);
+         });
+
+         $(document).on('keydown', '.time-input', function(e) {
+             if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' ||
+                 e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' ||
+                 e.key === 'End' || e.key === 'Enter') {
+                 return;
+             }
+
+             if (!/^[0-9]$/.test(e.key)) {
+                 e.preventDefault();
+                 return false;
+             }
+         });
+     });
+
+
+     function savefn($btnAction) {
+
+         if (validateError(page.$pageEl)) return;
+
+         const model = page.$pageEl.dataBind();
+         model.ServiceRequestId = serviceRequestId || sessionStorage.getItem("ServiceRequestId");
+         const $btn = $(this.element).block();
+
+         $$.post('save', model, function(r) {
+
+             $btn.block(false);
+
+             if (!r.isSuccess) {
+                 toastr.error(r.message, 'خطا');
+                 return;
+             }
+
+             toastr.success('ذخیره سازی با موفقیت انجام شد');
+
+             page.$pageEl.dataBind(r.data);
+
+             const parentId = r.data?.serviceRequestId || r.data?.ServiceRequestId || model.ServiceRequestId || serviceRequestId;
+             if (typeof window.reloadSaleReportList === 'function' && parentId) {
+                 window.reloadSaleReportList(parentId);
+             }
+
+             $btnAction.baseaction();
+         });
+     }
+
+     self.FormActionButtons.save.onclick(function() { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
 
 </script>

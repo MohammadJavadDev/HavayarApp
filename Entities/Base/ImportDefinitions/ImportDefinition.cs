@@ -8,6 +8,22 @@ using System.Text;
 
 namespace Entities.Base.ImportDefinitions
 {
+	public enum ImportSourceType
+	{
+		[Display(Name = "SQL")]
+		Sql = 0,
+		[Display(Name = "API")]
+		Api = 1
+	}
+
+	public enum ApiCallMode
+	{
+		[Display(Name = "ردیفی")]
+		PerRow = 0,
+		[Display(Name = "دسته‌ای")]
+		Batch = 1
+	}
+
 	[Display(Name = "تعریف ورود اطلاعات")]
 	[Table("ImportDefinition", Schema = "System")]
 	public class ImportDefinition:BaseEntity
@@ -29,11 +45,31 @@ namespace Entities.Base.ImportDefinitions
 		[DisplayName("توضیحات")]
 		public string Description { get; set; }
 
-		[Required(ErrorMessage = "کوئری SQL الزامی است")]
+		[DisplayName("نوع ورود")]
+		[DisplayInfo(null, true, SystemType.Select)]
+		public ImportSourceType ImportType { get; set; } = ImportSourceType.Sql;
+
 		[DisplayName("کوئری SQL")]
-		[DisplayInfo(null, true, SystemType.String, required: true)]
+		[DisplayInfo(null, true, SystemType.String)]
 		public string SqlQuery { get; set; }
- 
+
+		[StringLength(1000)]
+		[DisplayName("آدرس API")]
+		[DisplayInfo(null, true, SystemType.String)]
+		public string ApiUrl { get; set; }
+
+		[StringLength(20)]
+		[DisplayName("متد HTTP")]
+		[DisplayInfo(null, true, SystemType.String)]
+		public string ApiHttpMethod { get; set; } = "POST";
+
+		[DisplayName("حالت فراخوانی API")]
+		[DisplayInfo(null, true, SystemType.Select)]
+		public ApiCallMode? ApiCallMode { get; set; }
+
+		[DisplayName("API داخلی")]
+		[DisplayInfo(null, true, SystemType.Boolean)]
+		public bool ApiIsInternal { get; set; }
 
 		public string Columns { get; set; }
 	}
@@ -43,7 +79,7 @@ namespace Entities.Base.ImportDefinitions
 	{
  
 
-		// نام پارامتر در SQL (مثلاً "FirstName" برای @FirstName)
+		// نام پارامتر در SQL / فیلد JSON در API
 		public string ColumnName { get; set; }
 
 		// عنوانی که در هدر اکسل نشان داده می‌شود

@@ -7,7 +7,7 @@
 	<input type="hidden" data-bind="id" value="@Model?.Id" />
 	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
 
-	<div class="col-md-12">
+	<div class="col-md-12 form-group-inline">
 		<label class="required">کالا</label>
 		@(Html.EntitySelector<Part>(
 			"PartSelector",
@@ -27,7 +27,7 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
+	<div class="col-md-6 form-group-inline">
 		<label class="required">تعداد/مقدار</label>
 		<input class="form-control" data-bind="amount" asp-for="Amount" 
 			data-invalidMessage="فقط عدد" 
@@ -35,7 +35,7 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
+	<div class="col-md-6 form-group-inline">
 		<label>نسخه</label>
 		<input class="form-control" data-bind="revision" asp-for="Revision" 
 			data-invalidMessage="فقط عدد" 
@@ -43,7 +43,7 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
+	<div class="col-md-6 form-group-inline">
 		<label>تعداد تامین شده</label>
 		<input class="form-control" data-bind="numberSupplied" asp-for="NumberSupplied" 
 			data-invalidMessage="فقط عدد" 
@@ -51,10 +51,9 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
-		</div>
 
-	<div class="col-md-6">
+
+	<div class="col-md-6 form-group-inline">
 		<label>مرحله ساخت</label>
 		<select class="form-control" data-bind="productionStep" asp-for="ProductionStep"
 			asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemBomProductionStepEnum))">
@@ -62,7 +61,7 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
+	<div class="col-md-6 form-group-inline">
 		<label>وضعیت</label>
 		<select class="form-control" data-bind="status" asp-for="Status"
 			asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemBomEnum))">
@@ -70,7 +69,7 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6 align-content-center">
+	<div class="col-md-2 form-group-inline align-content-center" style="margin-right: 10%;">
 		<div class="form-check">
 			<input data-bind="isLatest" class="form-check-input" type="checkbox" asp-for="IsLatest" />
 			<label class="form-check-label" asp-for="IsLatest">
@@ -79,7 +78,7 @@
 		</div>
 	</div>
 
-	<div class="col-md-6 align-content-center">
+	<div class="col-md-2 align-content-center form-group-inline">
 		<div class="form-check">
 			<input data-bind="needsAVL" class="form-check-input" type="checkbox" asp-for="NeedsAVL" />
 			<label class="form-check-label" asp-for="NeedsAVL">
@@ -87,14 +86,15 @@
 			</label>
 		</div>
 	</div>
+	
 
-	<div class="col-md-12">
+	<div class="col-md-12 form-group-inline">
 		<label>توضیحات</label>
 		<textarea class="form-control" data-bind="description" asp-for="Description" rows="3"></textarea>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-12">
+	<div class="col-md-12 form-group-inline">
 		<label>توضیحات واحد فروش</label>
 		<textarea class="form-control" data-bind="saleUnitDetails" asp-for="SaleUnitDetails" rows="3"></textarea>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>

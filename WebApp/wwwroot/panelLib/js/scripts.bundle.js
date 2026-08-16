@@ -7811,7 +7811,8 @@ var KTAppSidebar = function () {
 
     // Private functions
     // Handle sidebar minimize mode toggle
-    var handleToggle = function () {
+     var handleToggle = function () {
+          
         var toggleObj = KTToggle.getInstance(toggle);
         var headerMenuObj = KTMenu.getInstance(headerMenu);
 
@@ -7822,7 +7823,17 @@ var KTAppSidebar = function () {
         // Add a class to prevent sidebar hover effect after toggle click
         toggleObj.on('kt.toggle.change', function () {
             // Set animation state
-            sidebar.classList.add('animating');
+             sidebar.classList.add('animating');
+
+             if (toggleObj.isEnabled() == false) {
+                  $('[data-action="changeMenu"]').parent().hide();
+                  $('#sidebar_menu_search').parent().parent().hide();
+                  
+             }
+             else {
+                  $('[data-action="changeMenu"]').parent().show();
+                  $('#sidebar_menu_search').parent().parent().show();
+             }
 
             // Wait till animation finishes
             setTimeout(function () {

@@ -89,9 +89,14 @@ namespace Entities.App.Sale
 		public long? DispachZoneId { get; set; }
 
 
-		[DisplayName("نام کارشناس")]
+		[DisplayName("شناسه کارشناس")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? ExpertNameId { get; set; }
+
+		[DisplayName("کارشناس")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		public string? ExpertName { get; set; }
+
 
 
 		[DisplayName("گزارش کار")]

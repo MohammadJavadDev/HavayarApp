@@ -24,11 +24,16 @@ namespace WebFramework.Controllers
 	{
 		private readonly IImportRepository _repo;
 		private readonly IEntityMetadataCache _entityMetadataCache;
+		private readonly ImportApiEndpointInspector _apiInspector;
 
-		public ImportDefinitionController(IImportRepository repo, IEntityMetadataCache entityMetadataCache)
+		public ImportDefinitionController(
+			IImportRepository repo,
+			IEntityMetadataCache entityMetadataCache,
+			ImportApiEndpointInspector apiInspector)
 		{
 			_repo = repo;
 			_entityMetadataCache = entityMetadataCache;
+			_apiInspector = apiInspector;
 		}
 
 		[HttpGet("/panel/importDefinition/list")]
@@ -65,28 +70,87 @@ namespace WebFramework.Controllers
  
 		public IActionResult Save(ImportDefinition model)
 		{
-			 
-			// اعتبارسنجی دستی
 			if (string.IsNullOrWhiteSpace(model.FullNameEntity) ||
-			    string.IsNullOrWhiteSpace(model.Title) ||
-			    string.IsNullOrWhiteSpace(model.SqlQuery))
+			    string.IsNullOrWhiteSpace(model.Title))
 			{
 				throw new Exception("فیلدهای الزامی را پر کنید.");
-		 
 			}
 
-			if (model.Columns.Length == 0)
+			var columns = string.IsNullOrWhiteSpace(model.Columns)
+				? null
+				: model.Columns.JsonDeserialize<List<ImportDefinitionColumn>>();
+
+			if (columns == null || columns.Count == 0)
 			{
 				throw new Exception("حداقل یک ستون تعریف کنید.");
 			}
 
- 
-			var defId = _repo.SaveDefinition(model);
+			if (model.ImportType == ImportSourceType.Sql)
+			{
+				if (string.IsNullOrWhiteSpace(model.SqlQuery))
+					throw new Exception("برای نوع SQL، کوئری SQL الزامی است.");
+			}
+			else if (model.ImportType == ImportSourceType.Api)
+			{
+				if (string.IsNullOrWhiteSpace(model.ApiUrl))
+					throw new Exception("برای نوع API، آدرس API الزامی است.");
+
+				if (string.IsNullOrWhiteSpace(model.ApiHttpMethod))
+					model.ApiHttpMethod = "POST";
+
+				model.ApiCallMode ??= ApiCallMode.PerRow;
+				model.SqlQuery = null;
+			}
+			else
+			{
+				throw new Exception("نوع ورود اطلاعات نامعتبر است.");
+			}
+
+			_repo.SaveDefinition(model);
 			 
 			TempData["Success"] = "تعریف ورود اطلاعات با موفقیت ذخیره شد.";
 			return Ok();
-			 
-			 
+		}
+
+		[HttpGet("/panel/importDefinition/getAvailableApis")]
+		[ActionDisplayName("لیست APIهای سیستم", ActionAccessType.Api)]
+		public IActionResult GetAvailableApis()
+		{
+			var apis = _apiInspector.GetAvailableApis()
+				.Select(a => new
+				{
+					controller = a.Controller,
+					controllerDisplayName = a.ControllerDisplayName,
+					action = a.Action,
+					actionDisplayName = a.ActionDisplayName,
+					path = a.Path,
+					httpMethod = a.HttpMethod,
+					label = $"{a.ControllerDisplayName} / {a.ActionDisplayName} ({a.HttpMethod} {a.Path})"
+				})
+				.ToList();
+
+			return Ok(apis);
+		}
+
+		[HttpPost("/panel/importDefinition/inspectApi")]
+		[ActionDisplayName("بازرسی API", ActionAccessType.Api)]
+		public IActionResult InspectApi([FromBody] ImportApiInspectRequest request)
+		{
+			var result = _apiInspector.Inspect(request);
+			return Ok(new
+			{
+				apiUrl = result.ApiUrl,
+				httpMethod = result.HttpMethod,
+				controller = result.Controller,
+				action = result.Action,
+				columns = result.Columns.Select(c => new
+				{
+					columnName = c.ColumnName,
+					displayName = c.DisplayName,
+					dataType = c.DataType,
+					isRequired = c.IsRequired
+				})
+			});
 		}
 
 		[HttpPost("/panel/importDefinition/delete")]

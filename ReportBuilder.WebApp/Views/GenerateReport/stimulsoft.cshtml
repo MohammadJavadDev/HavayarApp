@@ -31,15 +31,16 @@
 	    const reportId = @Html.Raw(Json.Serialize(ViewBag.ReportId));
 
 	jsSTDesiner.onBeginProcessData = function (args) {
+		// reportId باید برای SaveReport هم ارسال شود تا ذخیره طراح مستقیماً در دیتابیس بنشیند
+		// (قبلاً فقط GetReport آن را می‌فرستاد و Save فقط روی static memory می‌نوشت).
+		if (reportId != null && reportId !== undefined && reportId !== '') {
+			args.data["reportId"] = reportId;
+		}
 
 	    if (args.action == "GetReport") {
-
-		   args.data["reportId"] = reportId;
-
 		   for (const key in queryParams) {
 			  args.data[key] = JSON.stringify(queryParams[key]);
 		   }
-
 	    }
 	};
 

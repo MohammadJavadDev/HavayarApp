@@ -5,7 +5,6 @@
 @model ServiceRequestPart
 
 <div class="card shadow-sm border-0">
-
      <div class="form-action-buttons border-bottom p-3">
           <form-action-buttons entity-type="typeof(ServiceRequestPart)"></form-action-buttons>
      </div>
@@ -15,7 +14,7 @@
           <div class="row mb-4">
                <div class="col-12">
                     <h4 class="fw-bold text-dark mb-0">
-                         درخواست کالا
+                         درخواست کالا برای درخواست پشتیبانی با شناسه (@Model.ServiceRequestId)
                          <br />
                     </h4>
                </div>
@@ -396,7 +395,7 @@
 </div>
 
 <script>
-     const serviceRequestId = sessionStorage.getItem("ServiceRequestId");
+     const serviceRequestId = @Model.ServiceRequestId;
 
      function getServiceRequestId() {
          return $('[data-bind="id"]').val();
@@ -602,7 +601,7 @@
      }
 
      function refreshServiceRequestDetails() {
-         const serviceRequestId = getServiceRequestId();
+
          if (!serviceRequestId) return;
 
          $('#contractorTableBody').html(`
@@ -617,7 +616,7 @@
      }
 
      $(document).on('click', '[data-action="addNewContractor"]', function() {
-         const serviceRequestId = getServiceRequestId();
+
 
          if (!serviceRequestId) {
              toastr.error('ابتدا اطلاعات را ذخیره کنید');
@@ -671,7 +670,7 @@
 
      $(document).on('click', '[data-action="editDetail"]', function() {
          const selectedRow = $(this).data('id');
-         const serviceRequestId = getServiceRequestId();
+ 
 
          const url = selectedRow
              ? `/Panel/Sale/ServiceRequest/EditServiceRequest?id=${selectedRow}&serviceRequestId=${serviceRequestId}`
@@ -760,7 +759,7 @@
      });
 
      $(document).ready(function() {
-         const serviceRequestId = getServiceRequestId();
+ 
          if (serviceRequestId && serviceRequestId !== '0') {
              loadServiceRequestDetails(serviceRequestId);
          }
@@ -810,7 +809,7 @@
          if (validateError(page.$pageEl)) return;
 
          const model = page.$pageEl.dataBind();
-         model.ServiceRequestId = sessionStorage.getItem("ServiceRequestId");
+         model.ServiceRequestId = serviceRequestId
          const selectedPartId = $('#selectedPartId').val();
          if (selectedPartId) {
              model.ProjectVchPartId = parseInt(selectedPartId);
@@ -828,6 +827,12 @@
 
              toastr.success('ذخیره سازی با موفقیت انجام شد');
              page.$pageEl.dataBind(r.data);
+
+             const parentId = r.data?.serviceRequestId || r.data?.ServiceRequestId || model.ServiceRequestId || serviceRequestId;
+             if (typeof window.reloadRequestPartList === 'function' && parentId) {
+                 window.reloadRequestPartList(parentId);
+             }
+
              $btnAction.baseaction();
          });
      }

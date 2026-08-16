@@ -26,9 +26,9 @@ table.dataTable td.dt-control {
           box-sizing: border-box;
           content: "";
           border-top: 5px solid transparent;
-          border-left: 10px solid rgba(0, 0, 0, 0.5);
+          border-right: 10px solid rgba(0, 0, 0, 0.5);
           border-bottom: 5px solid transparent;
-          border-right: 0px solid transparent;
+          border-left: 0px solid transparent;
      }
 
 table.dataTable tr.dt-hasChild td.dt-control:before {

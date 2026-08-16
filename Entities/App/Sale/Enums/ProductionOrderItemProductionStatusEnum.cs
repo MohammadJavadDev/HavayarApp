@@ -11,16 +11,23 @@ namespace Entities.App.Sale.Enums
 		[Display(Name = "نامشخص")]
 		NotDetermined = 0,
 
+
+		[Display(Name = "ثبت یا ویرایش از راهکاران")]
+		InitialRegistration = 1903,
+		 
 		[Display(Name = "پایان تولید")]
 		ProductionCompleted = 1789,
     
           [Display(Name = "شروع بازرسی نهایی")]
 		FinalInspectionStarted = 1790,
     
-          [Display(Name = "پایان بسته بندی")]
-	 	PackagingCompleted = 1791,
-    
-          [Display(Name = "شروع توقف در مرحله تولید")]
+		[Display(Name = "پایان بسته بندی")]
+		PackagingCompleted = 1791,
+
+		[Display(Name = "شروع تولید")]
+		ProductionStarted = 1792,
+
+		[Display(Name = "شروع توقف در مرحله تولید")]
 		ProductionStageStopStarted = 1795,
     
           [Display(Name = "شروع توقف در مرحله بازرسی نهایی")]

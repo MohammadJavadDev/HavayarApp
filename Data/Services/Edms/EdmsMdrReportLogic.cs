@@ -8,10 +8,10 @@ internal static class EdmsMdrReportLogic
 {
 	private static readonly DocumentStatusEnums[] ClientStatusNormal =
 	[
-		DocumentStatusEnums.ApproveByEmployer,
-		DocumentStatusEnums.RejectByEmployer,
-		DocumentStatusEnums.CommentedByEmployer,
-		DocumentStatusEnums.ApprovedAsNoteByEmployer
+		DocumentStatusEnums.ApproveByClient,
+		DocumentStatusEnums.RejectByClient,
+		DocumentStatusEnums.CommentedByClient,
+		DocumentStatusEnums.ApprovedAsNoteByClient
 	];
 
 	private static readonly DocumentStatusEnums[] ClientStatusVendor =
@@ -23,18 +23,18 @@ internal static class EdmsMdrReportLogic
 		DocumentStatusEnums.ApprovedByDcc,
 		DocumentStatusEnums.ReIssued,
 		DocumentStatusEnums.IssueForClient,
-		DocumentStatusEnums.ApproveByEmployer,
-		DocumentStatusEnums.RejectByEmployer,
-		DocumentStatusEnums.CommentedByEmployer,
-		DocumentStatusEnums.ApprovedAsNoteByEmployer
+		DocumentStatusEnums.ApproveByClient,
+		DocumentStatusEnums.RejectByClient,
+		DocumentStatusEnums.CommentedByClient,
+		DocumentStatusEnums.ApprovedAsNoteByClient
 	];
 
 	private static readonly DocumentStatusEnums[] ValidStatusClient =
 	[
-		DocumentStatusEnums.ApproveByEmployer,
-		DocumentStatusEnums.RejectByEmployer,
-		DocumentStatusEnums.CommentedByEmployer,
-		DocumentStatusEnums.ApprovedAsNoteByEmployer,
+		DocumentStatusEnums.ApproveByClient,
+		DocumentStatusEnums.RejectByClient,
+		DocumentStatusEnums.CommentedByClient,
+		DocumentStatusEnums.ApprovedAsNoteByClient,
 		DocumentStatusEnums.NotReview,
 		DocumentStatusEnums.ReIssued
 	];
@@ -131,10 +131,10 @@ internal static class EdmsMdrReportLogic
 		DocumentStatusEnums.ApprovedByDcc => "Approved By DCC",
 		DocumentStatusEnums.RejectByDcc => "Reject By DCC",
 		DocumentStatusEnums.CommentedByDcc => "Commented By DCC",
-		DocumentStatusEnums.RejectByEmployer => "Reject By Employer",
-		DocumentStatusEnums.ApproveByEmployer => "Approve By Employer",
-		DocumentStatusEnums.ApprovedAsNoteByEmployer => "Approved As Note By Employer",
-		DocumentStatusEnums.CommentedByEmployer => "Commented By Employer",
+		DocumentStatusEnums.RejectByClient => "Reject By Employer",
+		DocumentStatusEnums.ApproveByClient => "Approve By Employer",
+		DocumentStatusEnums.ApprovedAsNoteByClient => "Approved As Note By Employer",
+		DocumentStatusEnums.CommentedByClient => "Commented By Employer",
 		DocumentStatusEnums.Hold => "Hold",
 		DocumentStatusEnums.UnHold => "UnHold",
 		DocumentStatusEnums.NotReview => "Not Review",
@@ -235,7 +235,7 @@ internal static class EdmsMdrReportLogic
 				if (lastComment.Status == DocumentStatusEnums.NotReview && lastComments.Count > 1)
 				{
 					var beforeLastStatus = lastComments[^2].Status;
-					if (beforeLastStatus is DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.ApprovedAsNoteByEmployer)
+					if (beforeLastStatus is DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.ApprovedAsNoteByClient)
 					{
 						var projectProgress = project.ProgressPercentage
 							.FirstOrDefault(p => p.Status == beforeLastStatus);
@@ -270,10 +270,10 @@ internal static class EdmsMdrReportLogic
 
 		switch (status)
 		{
-			case DocumentStatusEnums.RejectByEmployer:
-			case DocumentStatusEnums.ApproveByEmployer:
-			case DocumentStatusEnums.ApprovedAsNoteByEmployer:
-			case DocumentStatusEnums.CommentedByEmployer:
+			case DocumentStatusEnums.RejectByClient:
+			case DocumentStatusEnums.ApproveByClient:
+			case DocumentStatusEnums.ApprovedAsNoteByClient:
+			case DocumentStatusEnums.CommentedByClient:
 			case DocumentStatusEnums.NotReview:
 				return GetStatusTitle(status);
 
@@ -341,10 +341,10 @@ internal static class EdmsMdrReportLogic
 				return "Not Issued";
 
 			case DocumentStatusEnums.IssueForClient:
-			case DocumentStatusEnums.RejectByEmployer:
-			case DocumentStatusEnums.ApproveByEmployer:
-			case DocumentStatusEnums.ApprovedAsNoteByEmployer:
-			case DocumentStatusEnums.CommentedByEmployer:
+			case DocumentStatusEnums.RejectByClient:
+			case DocumentStatusEnums.ApproveByClient:
+			case DocumentStatusEnums.ApprovedAsNoteByClient:
+			case DocumentStatusEnums.CommentedByClient:
 			case DocumentStatusEnums.ReIssued:
 				return GetStatusTitle(status);
 
@@ -362,7 +362,7 @@ internal static class EdmsMdrReportLogic
 		{
 			DocumentStatusEnums.Issue => "Not Review",
 			DocumentStatusEnums.Hold or DocumentStatusEnums.UnHold or DocumentStatusEnums.CommentedByDcc
-				or DocumentStatusEnums.ApprovedAsNoteByEmployer or DocumentStatusEnums.RejectByDcc
+				or DocumentStatusEnums.ApprovedAsNoteByClient or DocumentStatusEnums.RejectByDcc
 				or DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover
 				=> GetStatusTitle(documentComment.Status.Value),
 			DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.NotReview => "Issued",

@@ -122,6 +122,48 @@ namespace Entities.Base
 
 
 			#endregion
+
+			#region Sale.ProductionOrderItemBom Notification Groups
+
+			// معادل HTS: GetIndustrialStaticReceivers در ProductionOrderItemBomService
+			// پس از انتشار، اعضای واحد صنایع را از پنل گروه اعلان‌ها به این گروه اضافه کنید
+			builder.HasData(new NotificationGroup()
+			{
+				Id = 3,
+				DisplayName = "سفارش ساخت - BOM - واحد صنایع",
+				Code = "Sale.ProductionOrderItemBom.Industrial",
+				Description = "گیرندگان اصلی اعلان افزودن/ویرایش/حذف BOM قلم سفارش ساخت (معادل لیست صنایع در HTS)",
+				CreatedById = 1,
+				CreatedByName = "admin",
+				ModifiedById = 1,
+				ModifiedByName = "admin",
+				CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+				ModifiedDateShamsiDateTime = now.ToShamsiDateTime(),
+				CreatedOnMiladiDateTime = now,
+				ModifiedDateMiladiDateTime = now,
+				IsActive = IsActiveEnum.Active
+			});
+
+			// معادل HTS: GetEngineeringStaticReceivers در ProductionOrderItemBomService
+			// پس از انتشار، اعضای مهندسی را از پنل گروه اعلان‌ها به این گروه اضافه کنید
+			builder.HasData(new NotificationGroup()
+			{
+				Id = 4,
+				DisplayName = "سفارش ساخت - BOM - واحد مهندسی",
+				Code = "Sale.ProductionOrderItemBom.Engineering",
+				Description = "گیرندگان CC اعلان BOM قلم سفارش ساخت (معادل لیست مهندسی در HTS)",
+				CreatedById = 1,
+				CreatedByName = "admin",
+				ModifiedById = 1,
+				ModifiedByName = "admin",
+				CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+				ModifiedDateShamsiDateTime = now.ToShamsiDateTime(),
+				CreatedOnMiladiDateTime = now,
+				ModifiedDateMiladiDateTime = now,
+				IsActive = IsActiveEnum.Active
+			});
+
+			#endregion
 		}
 	}
 

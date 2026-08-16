@@ -17,6 +17,7 @@ using Entities.Base;
 using Entities.Base.Enums;
 using Entities.Base.Notification;
 using Entities.Hts.Pln;
+using Entities.Rahkaran.USR3;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
  
@@ -546,15 +547,20 @@ namespace App.BackgroundJob.Jobs.Sale
 				await unitOfWork.SaveChangesAsync(cn);
 				await jobLogger?.LogInfoAsync("همگام‌سازی سفارش ساخت با موفقیت انجام شد", cn);
 
-				// همگام‌سازی ProductionOrderItem (جدول فرزند)
-				await jobLogger?.LogInfoAsync("شروع همگام‌سازی اقلام سفارش ساخت از راهکاران...", cn);
-				var rahkaranItems = await Rdb.RahkaranSale_ProductionOrderItem
+				// همگام‌سازی ProductionOrderItem — معادل InsertOrUpdateProductionOrderItems
+				// منبع: Sale_ProductionOrderItemHistory (Status: 0=جدید، 1=ویرایش/نسخه جدید، 2=حذف)
+				await jobLogger?.LogInfoAsync("شروع همگام‌سازی اقلام سفارش ساخت از تاریخچه راهکاران...", cn);
+				var historyItems = await Rdb.RahkaranSale_ProductionOrderItemHistory
 					.AsNoTracking()
 					.ToListAsync(cn);
 
-				await jobLogger?.LogInfoAsync($"تعداد {rahkaranItems.Count} رکورد قلم سفارش ساخت در راهکاران یافت شد", cn);
+				await jobLogger?.LogInfoAsync($"تعداد {historyItems.Count} رکورد تاریخچه قلم سفارش ساخت در راهکاران یافت شد", cn);
 
-				// بارگذاری مجدد ProductionOrder ها برای نگاشت _MasterRef
+				var liveItemsById = (await Rdb.RahkaranSale_ProductionOrderItem
+					.AsNoTracking()
+					.ToListAsync(cn))
+					.ToDictionary(x => x.Sale_ProductionOrderItemID, x => x);
+
 				var allAppProductionOrders = await unitOfWork.Repository<ProductionOrder>()
 					.Table
 					.ToListAsync(cn);
@@ -563,13 +569,20 @@ namespace App.BackgroundJob.Jobs.Sale
 					.Where(x => x.HamkaranId.HasValue)
 					.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
 
+				// Part: Status=0 در SP با Hamkaran_Part_FK؛ Status=1 با Part_Code
 				var appParts = await unitOfWork.Repository<Part>()
 					.Table
-					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
-				var partMap = appParts.ToDictionary(
-					x => x.HamkaranId!.Value,
-					x => (PartId: x.Id, IsRoutine: x.EngineeringRoutine || (x.DesignTypeIsRoutine ?? false)));
+				var partMapByHamkaranId = appParts
+					.Where(x => x.HamkaranId.HasValue)
+					.GroupBy(x => x.HamkaranId!.Value)
+					.ToDictionary(
+						g => g.Key,
+						g => g.First());
+				var partMapByCode = appParts
+					.Where(x => !string.IsNullOrWhiteSpace(x.Code))
+					.GroupBy(x => x.Code!.Trim(), StringComparer.OrdinalIgnoreCase)
+					.ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
 				var appItems = await unitOfWork.Repository<ProductionOrderItem>()
 					.Table
@@ -577,182 +590,332 @@ namespace App.BackgroundJob.Jobs.Sale
 
 				await jobLogger?.LogInfoAsync($"تعداد {appItems.Count} رکورد قلم سفارش ساخت در پایگاه داده برنامه موجود است", cn);
 
-				var appItemsDict = appItems
-					.Where(x => x.HamkaranId.HasValue && x.IsLatestVersion)
+				// کلید نسخه در HTS قدیمی: RahkaranId = History.Id
+				var appItemsByHistoryId = appItems
+					.Where(x => x.RahkaranHistoryId.HasValue)
+					.GroupBy(x => x.RahkaranHistoryId!.Value)
+					.ToDictionary(g => g.Key, g => g.First());
+
+				var appLatestByHamkaranId = appItems
+					.Where(x => x.HamkaranId.HasValue && x.IsLatestVersion && !x.IsDeleted)
 					.GroupBy(x => x.HamkaranId!.Value)
 					.ToDictionary(g => g.Key, g => g.First());
 
-				// سفارش‌های منسوخ برای همگام‌سازی وضعیت اقلام (معادل BuyStatusId=2208 در SP قدیمی)
+				// برای bridge امن: HamkaranId + Revision بدون RahkaranHistoryId
+				var appItemsByHamkaranRevision = appItems
+					.Where(x => x.HamkaranId.HasValue && !x.RahkaranHistoryId.HasValue)
+					.GroupBy(x => $"{x.HamkaranId!.Value}_{x.Revision?.ToString() ?? "null"}")
+					.ToDictionary(g => g.Key, g => g.First());
+
 				var obsoleteProductionOrderIds = allAppProductionOrders
 					.Where(x => x.State == ProductionOrderStateEnum.Obsolete && x.Id.HasValue)
 					.Select(x => x.Id!.Value)
 					.ToHashSet();
 
 				var newItems = new List<ProductionOrderItem>();
-				var processedHamkaranIds = new HashSet<long>();
+				var historyById = historyItems.ToDictionary(x => x.Id);
 
-				int updatedItemsCount = 0;
+				int insertedNewCount = 0;
+				int insertedRevisionCount = 0;
+				int bridgedCount = 0;
 				int skippedItemsCount = 0;
+				int skippedNoPartCount = 0;
+				int deletedItemsCount = 0;
+				int syncedLatestCount = 0;
 
-				foreach (var rahkaranItem in rahkaranItems)
+				ProductionOrderItemCheckStatusEnum ResolveCheckStatus(int? checkStatusId) =>
+					checkStatusId.HasValue
+					&& Enum.IsDefined(typeof(ProductionOrderItemCheckStatusEnum), checkStatusId.Value)
+						? (ProductionOrderItemCheckStatusEnum)checkStatusId.Value
+						: ProductionOrderItemCheckStatusEnum.InitialRegistration;
+
+				ProductionOrderItemDeviceTypeEnum? ResolveDeviceType(int? deviceTypeId) =>
+					deviceTypeId.HasValue
+					&& Enum.IsDefined(typeof(ProductionOrderItemDeviceTypeEnum), deviceTypeId.Value)
+						? (ProductionOrderItemDeviceTypeEnum?)deviceTypeId.Value
+						: null;
+
+				ProductionOrderItemEquipmentTypeEnum? ResolveEquipmentType(int? equipmentTypeId) =>
+					equipmentTypeId.HasValue
+					&& Enum.IsDefined(typeof(ProductionOrderItemEquipmentTypeEnum), equipmentTypeId.Value)
+						? (ProductionOrderItemEquipmentTypeEnum?)equipmentTypeId.Value
+						: null;
+
+				bool TryResolvePart(
+					RahkaranSale_ProductionOrderItemHistory history,
+					bool preferCodeFallback,
+					out Part? part)
 				{
-					processedHamkaranIds.Add(rahkaranItem.Sale_ProductionOrderItemID);
+					part = null;
+					if (history.PartIdRef.HasValue
+						&& partMapByHamkaranId.TryGetValue(history.PartIdRef.Value, out part))
+						return true;
 
-					// پیدا کردن ProductionOrderId بر اساس _MasterRef
-					if (!productionOrderMap.TryGetValue(rahkaranItem._MasterRef, out var productionOrderId))
+					// معادل JOIN روی Part_Code در شاخه Status=1 اسپ
+					if (preferCodeFallback)
 					{
-						await jobLogger?.LogWarningAsync($"سفارش ساخت والد با HamkaranId {rahkaranItem._MasterRef} برای قلم یافت نشد", 0, cn);
+						string? code = null;
+						if (history.Sale_ProductionOrderItemID.HasValue
+							&& liveItemsById.TryGetValue(history.Sale_ProductionOrderItemID.Value, out var live)
+							&& !string.IsNullOrWhiteSpace(live.PartCode))
+							code = live.PartCode.Trim();
+
+						if (!string.IsNullOrWhiteSpace(code)
+							&& partMapByCode.TryGetValue(code, out part))
+							return true;
+					}
+
+					return false;
+				}
+
+				// فقط شناسه History — بدون بازنویسی فیلدهای عملیاتی/فروش (برخلاف UPDATE واقعی SP که INSERT است)
+				void StampRahkaranHistoryId(ProductionOrderItem existItem, RahkaranSale_ProductionOrderItemHistory history)
+				{
+					existItem.RahkaranHistoryId = history.Id;
+					if (!existItem.HamkaranId.HasValue && history.Sale_ProductionOrderItemID.HasValue)
+						existItem.HamkaranId = history.Sale_ProductionOrderItemID.Value;
+					if (string.IsNullOrEmpty(existItem.Version) && history.Version.HasValue)
+						existItem.Version = history.Version.Value.ToString();
+				}
+
+				ProductionOrderItem? TryBridgeExisting(RahkaranSale_ProductionOrderItemHistory history)
+				{
+					if (!history.Sale_ProductionOrderItemID.HasValue)
+						return null;
+
+					var key = $"{history.Sale_ProductionOrderItemID.Value}_{history.Revision?.ToString() ?? "null"}";
+					if (!appItemsByHamkaranRevision.TryGetValue(key, out var bridged))
+						return null;
+
+					StampRahkaranHistoryId(bridged, history);
+					appItemsByHistoryId[history.Id] = bridged;
+					appItemsByHamkaranRevision.Remove(key);
+					return bridged;
+				}
+
+				ProductionOrderItem BuildItemFromHistory(
+					RahkaranSale_ProductionOrderItemHistory history,
+					long productionOrderId,
+					long saleProductionOrderItemId,
+					Part part,
+					DateTime now)
+				{
+					var isRoutine = part.EngineeringRoutine || (part.DesignTypeIsRoutine ?? false);
+					string? partCode = part.Code;
+					if (string.IsNullOrWhiteSpace(partCode)
+						&& liveItemsById.TryGetValue(saleProductionOrderItemId, out var live)
+						&& !string.IsNullOrWhiteSpace(live.PartCode))
+					{
+						partCode = live.PartCode;
+					}
+
+					var item = new ProductionOrderItem
+					{
+						HamkaranId = saleProductionOrderItemId,
+						RahkaranHistoryId = history.Id,
+						ProductionOrderId = productionOrderId,
+						IsBuildInside = history.IsBuildInside ?? false,
+						DeviceType = ResolveDeviceType(history.DeviceTypeId),
+						EquipmentType = ResolveEquipmentType(history.EquipmentTypeId),
+						PartId = part.Id,
+						Amount = history.Amount,
+						AgreedDeliverDate = history.AgreedDeliverDate,
+						PartModel = history.PartModel,
+						AirendOrCategory = history.AirendOrCategory,
+						InputPressureBar = history.InputPressureBar,
+						OutputPressureBar = history.OutputPressureBar,
+						Capacity = history.Capacity,
+						Scale = history.Scale,
+						GasType = history.GasType,
+						MaximumTemperature = history.MaximumTemperature,
+						PurityPercentage = history.PurityPercentage,
+						RelativeHumidity = history.RelativeHumidity,
+						BarometricPressure = history.BarometricPressure,
+						MovingType = history.MovingType,
+						HasInspection = history.HasInspection ?? false,
+						SalesConsideration = history.SalesConsideration,
+						Revision = history.Revision,
+						IsLatestVersion = history.IsLatestVersion ?? true,
+						CheckStatus = ResolveCheckStatus(history.CheckStatusId),
+						PartCode = partCode,
+						IsRoutine = isRoutine,
+						Version = history.Version?.ToString(),
+						Status = ProductionOrderItemStatusEnum.NotCompleted,
+						IsDeleted = false
+					};
+
+					item.ProductionOrderItemComments.Add(new ProductionOrderItemComment
+					{
+						// معادل StatusId=1903 در SP قدیمی
+						ProductionStatus = ProductionOrderItemProductionStatusEnum.InitialRegistration,
+						Comment = "خوانده شده از راهکاران",
+						StartMiladiDateTime = now,
+						StartShamsiDate = now.ToShamsiDateTime(),
+						CreatedById = 1,
+						CreatedOnMiladiDateTime = now,
+						CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+						IsActive = IsActiveEnum.Active
+					});
+
+					return item;
+				}
+
+				var nowDate = DateTime.Now;
+
+				//------------------------------------------------------------------
+				// Status = 0 → درج قلم جدید (معادل #NewRahkaranProductionOrderItem)
+				//------------------------------------------------------------------
+				foreach (var history in historyItems.Where(h => h.Status == 0))
+				{
+					if (appItemsByHistoryId.ContainsKey(history.Id))
+						continue;
+
+					if (!history.ProductionOrderId.HasValue
+						|| !history.Sale_ProductionOrderItemID.HasValue
+						|| !productionOrderMap.TryGetValue(history.ProductionOrderId.Value, out var productionOrderId)
+						|| !productionOrderId.HasValue)
+					{
+						await jobLogger?.LogWarningAsync(
+							$"سفارش ساخت والد با HamkaranId {history.ProductionOrderId} برای History.Id={history.Id} یافت نشد", 0, cn);
 						skippedItemsCount++;
 						continue;
 					}
 
-					// پیدا کردن PartId / IsRoutine بر اساس PartIdRef (مثل SP قدیمی از DesignTypeIsRoutine)
-					long? partId = null;
-					var isRoutine = false;
-					if (rahkaranItem.PartIdRef.HasValue && partMap.TryGetValue(rahkaranItem.PartIdRef.Value, out var foundPart))
+					var saleItemId = history.Sale_ProductionOrderItemID.Value;
+
+					// پل امن: فقط اگر همان Revision بدون HistoryId باشد — بدون overwrite فیلدها
+					if (TryBridgeExisting(history) != null)
 					{
-						partId = foundPart.PartId;
-						isRoutine = foundPart.IsRoutine;
+						bridgedCount++;
+						continue;
 					}
 
-					var checkStatus = rahkaranItem.CheckStatusId.HasValue
-						&& Enum.IsDefined(typeof(ProductionOrderItemCheckStatusEnum), rahkaranItem.CheckStatusId.Value)
-							? (ProductionOrderItemCheckStatusEnum?)rahkaranItem.CheckStatusId.Value
-							: ProductionOrderItemCheckStatusEnum.InitialRegistration;
-
-					if (!appItemsDict.TryGetValue(rahkaranItem.Sale_ProductionOrderItemID, out var existItem))
+					// SP: INNER JOIN Part روی Hamkaran_Part_FK
+					if (!TryResolvePart(history, preferCodeFallback: false, out var part) || part?.Id == null)
 					{
-						// ایجاد رکورد جدید (New Insert)
-						// HamkaranId = Sale_ProductionOrderItemID (کلید منطقی قلم).
-						// توجه: در HTS قدیمی RahkaranId = History.Id بود؛ کات‌اور با Number+PartCode هم تطبیق می‌دهد.
-						var newItem = new ProductionOrderItem
-						{
-							HamkaranId = rahkaranItem.Sale_ProductionOrderItemID,
-							ProductionOrderId = (long)productionOrderId,
-							IsBuildInside = rahkaranItem.IsBuildInside ?? false,
-							DeviceType = rahkaranItem.DeviceTypeId.HasValue ? (ProductionOrderItemDeviceTypeEnum?)rahkaranItem.DeviceTypeId.Value : null,
-							EquipmentType = rahkaranItem.EquipmentTypeId.HasValue ? (ProductionOrderItemEquipmentTypeEnum?)rahkaranItem.EquipmentTypeId.Value : null,
-							PartId = partId,
-							Amount = rahkaranItem.Amount,
-							AgreedDeliverDate = rahkaranItem.AgreedDeliverDate,
-							PartModel = rahkaranItem.PartModel,
-							AirendOrCategory = rahkaranItem.AirendOrCategory,
-							InputPressureBar = rahkaranItem.InputPressureBar,
-							OutputPressureBar = rahkaranItem.OutputPressureBar,
-							Capacity = rahkaranItem.Capacity,
-							Scale = rahkaranItem.Scale,
-							GasType = rahkaranItem.GasType,
-							MaximumTemperature = rahkaranItem.MaximumTemperature,
-							PurityPercentage = rahkaranItem.PurityPercentage,
-							RelativeHumidity = rahkaranItem.RelativeHumidity,
-							BarometricPressure = rahkaranItem.BarometricPressure,
-							MovingType = rahkaranItem.MovingType,
-							HasInspection = rahkaranItem.HasInspection ?? false,
-							SalesConsideration = rahkaranItem.SalesConsideration,
-							Revision = rahkaranItem.Revision,
-							IsLatestVersion = true,
-							CheckStatus = checkStatus,
-							PartCode = rahkaranItem.PartCode,
-							IsRoutine = isRoutine,
-							Status = ProductionOrderItemStatusEnum.NotCompleted
-						};
-						newItems.Add(newItem);
-
-						newItem.ProductionOrderItemComments.Add(new ProductionOrderItemComment
-						{
-							ProductionStatus = ProductionOrderItemProductionStatusEnum.NotDetermined,
-							Comment = "خوانده شده از راهکاران",
-							StartMiladiDateTime = DateTime.Now,
-							StartShamsiDate = DateTime.Now.ToShamsiDateTime(),
-							CreatedById = 1,
-							CreatedOnMiladiDateTime = DateTime.Now,
-							CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
-							IsActive = IsActiveEnum.Active
-						});
+						await jobLogger?.LogWarningAsync(
+							$"کالای PartIdRef={history.PartIdRef} برای History.Id={history.Id} یافت نشد (معادل INNER JOIN اسپ)", 0, cn);
+						skippedNoPartCount++;
+						continue;
 					}
-					else
+
+					// SP: JOIN Gnr_AllDate روی AgreedDeliverDate — بدون تاریخ وارد نمی‌شود
+					if (!history.AgreedDeliverDate.HasValue)
 					{
-						// بررسی تغییر نسخه (Update -> New Version Insert)
-						// منطق SQL: بایستی به ازای هر ویرایش، قلم جدیدی ایجاد گردد
-						if (existItem.Revision != rahkaranItem.Revision)
-						{
-							existItem.IsLatestVersion = false;
-
-							var revisionNow = DateTime.Now;
-							var newItem = new ProductionOrderItem
-							{
-								HamkaranId = rahkaranItem.Sale_ProductionOrderItemID,
-								ProductionOrderId = (long)productionOrderId,
-								IsBuildInside = rahkaranItem.IsBuildInside ?? false,
-								DeviceType = rahkaranItem.DeviceTypeId.HasValue ? (ProductionOrderItemDeviceTypeEnum?)rahkaranItem.DeviceTypeId.Value : null,
-								EquipmentType = rahkaranItem.EquipmentTypeId.HasValue ? (ProductionOrderItemEquipmentTypeEnum?)rahkaranItem.EquipmentTypeId.Value : null,
-								PartId = partId,
-								Amount = rahkaranItem.Amount,
-								AgreedDeliverDate = rahkaranItem.AgreedDeliverDate,
-								PartModel = rahkaranItem.PartModel,
-								AirendOrCategory = rahkaranItem.AirendOrCategory,
-								InputPressureBar = rahkaranItem.InputPressureBar,
-								OutputPressureBar = rahkaranItem.OutputPressureBar,
-								Capacity = rahkaranItem.Capacity,
-								Scale = rahkaranItem.Scale,
-								GasType = rahkaranItem.GasType,
-								MaximumTemperature = rahkaranItem.MaximumTemperature,
-								PurityPercentage = rahkaranItem.PurityPercentage,
-								RelativeHumidity = rahkaranItem.RelativeHumidity,
-								BarometricPressure = rahkaranItem.BarometricPressure,
-								MovingType = rahkaranItem.MovingType,
-								HasInspection = rahkaranItem.HasInspection ?? false,
-								SalesConsideration = rahkaranItem.SalesConsideration,
-								Revision = rahkaranItem.Revision,
-								IsLatestVersion = true,
-								CheckStatus = checkStatus,
-								PartCode = rahkaranItem.PartCode,
-								IsRoutine = isRoutine,
-								Status = ProductionOrderItemStatusEnum.NotCompleted,
-								SendToIndustrialMiladiDate = revisionNow,
-								SendToIndustrialShamsiDate = revisionNow.ToShamsiDate()
-							};
-
-							newItem.ProductionOrderItemComments.Add(new ProductionOrderItemComment
-							{
-								ProductionStatus = ProductionOrderItemProductionStatusEnum.NotDetermined,
-								Comment = "خوانده شده از راهکاران (نسخه جدید)",
-								StartMiladiDateTime = revisionNow,
-								StartShamsiDate = revisionNow.ToShamsiDateTime(),
-								CreatedById = 1,
-								CreatedOnMiladiDateTime = revisionNow,
-								CreatedOnShamsiDateTime = revisionNow.ToShamsiDateTime(),
-								IsActive = IsActiveEnum.Active
-							});
-
-							newItems.Add(newItem);
-							updatedItemsCount++;
-						}
-						// Revision یکسان ⇒ طبق تریگر راهکاران تغییری نیست؛ فیلد عملیاتی توسط کات‌اور HTS پوشش داده می‌شود
+						await jobLogger?.LogWarningAsync(
+							$"AgreedDeliverDate خالی برای History.Id={history.Id} — رد شد (معادل JOIN تاریخ اسپ)", 0, cn);
+						skippedItemsCount++;
+						continue;
 					}
+
+					var newItem = BuildItemFromHistory(history, productionOrderId.Value, saleItemId, part, nowDate);
+					newItems.Add(newItem);
+					appItemsByHistoryId[history.Id] = newItem;
+					if (newItem.IsLatestVersion)
+						appLatestByHamkaranId[saleItemId] = newItem;
+					insertedNewCount++;
 				}
 
-				// بررسی اقلام حذف شده (حذف از جدول زنده راهکاران = History.Status=2 در SP قدیمی)
-				var itemsToDelete = appItemsDict.Values
-					.Where(x => !processedHamkaranIds.Contains(x.HamkaranId!.Value))
-					.ToList();
-
-				if (itemsToDelete.Any())
+				//------------------------------------------------------------------
+				// Status = 1 → به‌ازای هر ویرایش قلم جدید (معادل #Rahkaran_ProductinoOrderItem_UpdatedItems)
+				//------------------------------------------------------------------
+				foreach (var history in historyItems.Where(h => h.Status == 1))
 				{
-					foreach (var item in itemsToDelete)
+					if (appItemsByHistoryId.ContainsKey(history.Id))
+						continue;
+
+					if (!history.ProductionOrderId.HasValue
+						|| !history.Sale_ProductionOrderItemID.HasValue
+						|| !productionOrderMap.TryGetValue(history.ProductionOrderId.Value, out var productionOrderId)
+						|| !productionOrderId.HasValue)
 					{
-						item.IsLatestVersion = false;
-						item.IsDeleted = true;
-						item.IsActive = IsActiveEnum.Deleted;
-						item.Status = ProductionOrderItemStatusEnum.Invalid;
+						await jobLogger?.LogWarningAsync(
+							$"سفارش ساخت والد با HamkaranId {history.ProductionOrderId} برای ویرایش History.Id={history.Id} یافت نشد", 0, cn);
+						skippedItemsCount++;
+						continue;
 					}
-					await jobLogger?.LogInfoAsync($"تعداد {itemsToDelete.Count} قلم حذف/باطل شدند", cn);
+
+					var saleItemId = history.Sale_ProductionOrderItemID.Value;
+
+					if (TryBridgeExisting(history) != null)
+					{
+						bridgedCount++;
+						continue;
+					}
+
+					if (!history.AgreedDeliverDate.HasValue)
+					{
+						await jobLogger?.LogWarningAsync(
+							$"AgreedDeliverDate خالی برای ویرایش History.Id={history.Id} — رد شد", 0, cn);
+						skippedItemsCount++;
+						continue;
+					}
+
+					// SP: INNER JOIN Part روی Code
+					if (!TryResolvePart(history, preferCodeFallback: true, out var part) || part?.Id == null)
+					{
+						await jobLogger?.LogWarningAsync(
+							$"کالا برای ویرایش History.Id={history.Id} (PartIdRef={history.PartIdRef}) یافت نشد", 0, cn);
+						skippedNoPartCount++;
+						continue;
+					}
+
+					// نسخه قبلی همان قلم دیگر آخرین نسخه نیست (تا قبل از sync سراسری IsLatestVersion)
+					if (appLatestByHamkaranId.TryGetValue(saleItemId, out var previousLatest))
+					{
+						previousLatest.IsLatestVersion = false;
+					}
+
+					var newItem = BuildItemFromHistory(history, productionOrderId.Value, saleItemId, part, nowDate);
+					newItems.Add(newItem);
+					appItemsByHistoryId[history.Id] = newItem;
+					if (newItem.IsLatestVersion)
+						appLatestByHamkaranId[saleItemId] = newItem;
+					insertedRevisionCount++;
 				}
 
-				// منسوخ‌سازی / خروج از منسوخی اقلام بر اساس State هدر (معادل 2208 / 1903 در SP قدیمی)
+				//------------------------------------------------------------------
+				// همگام‌سازی IsLatestVersion از History (معادل UPDATE انتهای SP)
+				//------------------------------------------------------------------
+				foreach (var item in appItems.Concat(newItems).Where(i => i.RahkaranHistoryId.HasValue))
+				{
+					if (!historyById.TryGetValue(item.RahkaranHistoryId!.Value, out var history))
+						continue;
+
+					var historyLatest = history.IsLatestVersion ?? false;
+					if (item.IsLatestVersion != historyLatest)
+					{
+						item.IsLatestVersion = historyLatest;
+						syncedLatestCount++;
+					}
+				}
+
+				//------------------------------------------------------------------
+				// Status = 2 → باطل (معادل UPDATE IsDeleted/ProductionStepId=227/StatusId=581)
+				//------------------------------------------------------------------
+				var deletedHistoryIds = historyItems
+					.Where(h => h.Status == 2)
+					.Select(h => h.Id)
+					.ToHashSet();
+
+				foreach (var item in appItems.Where(i =>
+					i.RahkaranHistoryId.HasValue
+					&& deletedHistoryIds.Contains(i.RahkaranHistoryId.Value)
+					&& !i.IsDeleted))
+				{
+					item.IsDeleted = true;
+					item.IsLatestVersion = false;
+					item.IsActive = IsActiveEnum.Deleted;
+					item.ProductionStep = ProductionOrderItemProductionStepEnum.Canceled;
+					item.Status = ProductionOrderItemStatusEnum.Invalid;
+					deletedItemsCount++;
+				}
+
+				// منسوخ‌سازی / خروج از منسوخی اقلام بر اساس State هدر (معادل BuyStatusId=2208 در SP هدر)
 				int deprecatedItemsCount = 0;
 				int restoredFromDeprecatedCount = 0;
-				foreach (var item in appItems.Where(i => i.IsLatestVersion && !i.IsDeleted && i.IsActive != IsActiveEnum.Deleted))
+				foreach (var item in appItems.Concat(newItems)
+					.Where(i => i.IsLatestVersion && !i.IsDeleted && i.IsActive != IsActiveEnum.Deleted))
 				{
 					if (!item.ProductionOrderId.HasValue)
 						continue;
@@ -765,39 +928,37 @@ namespace App.BackgroundJob.Jobs.Sale
 							deprecatedItemsCount++;
 						}
 					}
-					else if (item.CheckStatus == ProductionOrderItemCheckStatusEnum.Deprecated)
+					else if (item.CheckStatus == ProductionOrderItemCheckStatusEnum.Deprecated
+						&& !newItems.Contains(item))
 					{
 						item.CheckStatus = ProductionOrderItemCheckStatusEnum.InitialRegistration;
 						restoredFromDeprecatedCount++;
 					}
 				}
-				foreach (var item in newItems.Where(i => i.ProductionOrderId.HasValue))
-				{
-					if (obsoleteProductionOrderIds.Contains(item.ProductionOrderId!.Value))
-					{
-						item.CheckStatus = ProductionOrderItemCheckStatusEnum.Deprecated;
-						deprecatedItemsCount++;
-					}
-				}
+
+				if (insertedNewCount > 0)
+					await jobLogger?.LogInfoAsync($"درج {insertedNewCount} قلم جدید از History.Status=0", cn);
+				if (insertedRevisionCount > 0)
+					await jobLogger?.LogInfoAsync($"درج {insertedRevisionCount} نسخه جدید از History.Status=1", cn);
+				if (bridgedCount > 0)
+					await jobLogger?.LogInfoAsync($"اتصال {bridgedCount} قلم موجود به RahkaranHistoryId", cn);
+				if (syncedLatestCount > 0)
+					await jobLogger?.LogInfoAsync($"همگام‌سازی IsLatestVersion برای {syncedLatestCount} قلم", cn);
+				if (deletedItemsCount > 0)
+					await jobLogger?.LogInfoAsync($"باطل شدن {deletedItemsCount} قلم بر اساس History.Status=2", cn);
 				if (deprecatedItemsCount > 0)
 					await jobLogger?.LogInfoAsync($"تعداد {deprecatedItemsCount} قلم به‌خاطر منسوخ شدن سفارش ساخت، Deprecated شدند", cn);
 				if (restoredFromDeprecatedCount > 0)
 					await jobLogger?.LogInfoAsync($"تعداد {restoredFromDeprecatedCount} قلم از منسوخی خارج و به ثبت اولیه برگشتند", cn);
-
 				if (skippedItemsCount > 0)
-				{
-					await jobLogger?.LogWarningAsync($"تعداد {skippedItemsCount} قلم به دلیل عدم وجود سفارش ساخت والد رد شد", 0, cn);
-				}
+					await jobLogger?.LogWarningAsync($"تعداد {skippedItemsCount} قلم به دلیل والد/تاریخ نامعتبر رد شد", 0, cn);
+				if (skippedNoPartCount > 0)
+					await jobLogger?.LogWarningAsync($"تعداد {skippedNoPartCount} قلم به دلیل عدم یافتن کالا (INNER JOIN اسپ) رد شد", 0, cn);
 
 				if (newItems.Any())
 				{
 					await jobLogger?.LogInfoAsync($"افزودن {newItems.Count} قلم جدید (شامل نسخه‌های جدید) به پایگاه داده", cn);
 					await unitOfWork.Repository<ProductionOrderItem>().AddRangeAsync(newItems, cn, false);
-				}
-
-				if (updatedItemsCount > 0)
-				{
-					await jobLogger?.LogInfoAsync($"به‌روزرسانی {updatedItemsCount} قلم موجود", cn);
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
@@ -1639,15 +1800,16 @@ namespace App.BackgroundJob.Jobs.Sale
 
 		/// <summary>
 		/// One-time (re-runnable) cutover sync from old HTS → App ProductionOrder / ProductionOrderItem.
-		/// Overwrites App with HTS when HTS has a value (status, steps, key dates/text, serial/planning).
+		/// Overwrites App with HTS when HTS has a value (status, steps, key dates/text, serial/planning),
+		/// then upserts header/item comments by HtsId.
 		/// Not bi-directional; not continuous sync.
 		/// </summary>
-		[JobHandler("کات‌اور یک‌باره سفارش ساخت از HTS (وضعیت و فیلدهای عملیاتی)")]
+		[JobHandler("کات‌اور یک‌باره سفارش ساخت از HTS (وضعیت، فیلدهای عملیاتی و کامنت‌ها)")]
 		public async Task SyncProductionOrderOperationalFieldsFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
 		{
 			try
 			{
-				await jobLogger?.LogInfoAsync("شروع کات‌اور یک‌باره سفارش ساخت از HTS (وضعیت + فیلدهای عملیاتی)", cn);
+				await jobLogger?.LogInfoAsync("شروع کات‌اور یک‌باره سفارش ساخت از HTS (وضعیت + فیلدهای عملیاتی + کامنت‌ها)", cn);
 
 				const int batchSize = 200;
 				var appProductionOrders = await unitOfWork.Repository<ProductionOrder>()
@@ -1671,11 +1833,13 @@ namespace App.BackgroundJob.Jobs.Sale
 					.Where(i => i.IsLatestVersion && i.IsActive != IsActiveEnum.Deleted)
 					.ToListAsync(cn);
 
-				var itemsByHamkaranId = appItems
-					.Where(i => i.HamkaranId.HasValue)
-					.GroupBy(i => i.HamkaranId!.Value)
+				// کلید اصلی تطبیق با HTS: App.RahkaranHistoryId == HTS.RahkaranId (== History.Id)
+				var itemsByRahkaranHistoryId = appItems
+					.Where(i => i.RahkaranHistoryId.HasValue)
+					.GroupBy(i => i.RahkaranHistoryId!.Value)
 					.ToDictionary(g => g.Key, g => g.First());
 
+				// fallback فقط برای اقلامی که هنوز RahkaranHistoryId ندارند
 				var itemsByPoAndPartCode = appItems
 					.Where(i => i.ProductionOrderId.HasValue && !string.IsNullOrWhiteSpace(i.PartCode ?? i.Part?.Code))
 					.GroupBy(i => $"{i.ProductionOrderId}_{i.PartCode ?? i.Part!.Code}")
@@ -1689,7 +1853,7 @@ namespace App.BackgroundJob.Jobs.Sale
 					.ToDictionary(g => g.Key, g => g.First().Id!.Value, StringComparer.OrdinalIgnoreCase);
 
 				await jobLogger?.LogInfoAsync(
-					$"بارگذاری انجام شد: {productionOrderByNumber.Count} سفارش، {appItems.Count} قلم، {appUsersByUsername.Count} کاربر برای نگاشت",
+					$"بارگذاری انجام شد: {productionOrderByNumber.Count} سفارش، {appItems.Count} قلم ({itemsByRahkaranHistoryId.Count} با RahkaranHistoryId)، {appUsersByUsername.Count} کاربر برای نگاشت",
 					cn);
 
 				var productionOrderNumbers = productionOrderByNumber.Keys.OrderBy(x => x).ToList();
@@ -1775,9 +1939,12 @@ namespace App.BackgroundJob.Jobs.Sale
 					foreach (var htsItem in htsItems)
 					{
 						ProductionOrderItem? appItem = null;
-						if (htsItem.RahkaranId.HasValue)
-							itemsByHamkaranId.TryGetValue(htsItem.RahkaranId.Value, out appItem);
 
+						// اولویت ۱: HTS.RahkaranId == App.RahkaranHistoryId
+						if (htsItem.RahkaranId.HasValue)
+							itemsByRahkaranHistoryId.TryGetValue(htsItem.RahkaranId.Value, out appItem);
+
+						// اولویت ۲: Number + PartCode — فقط وقتی هنوز HistoryId ست نشده
 						if (appItem == null
 							&& htsItem.ProductionOrderNumber.HasValue
 							&& !string.IsNullOrWhiteSpace(htsItem.PartCode)
@@ -1785,7 +1952,11 @@ namespace App.BackgroundJob.Jobs.Sale
 							&& matchedPo.Id.HasValue)
 						{
 							var key = $"{matchedPo.Id}_{htsItem.PartCode}";
-							itemsByPoAndPartCode.TryGetValue(key, out appItem);
+							if (itemsByPoAndPartCode.TryGetValue(key, out var byPart)
+								&& !byPart.RahkaranHistoryId.HasValue)
+							{
+								appItem = byPart;
+							}
 						}
 
 						if (appItem == null)
@@ -1795,7 +1966,7 @@ namespace App.BackgroundJob.Jobs.Sale
 							if (batchUnmatched <= 5)
 							{
 								await jobLogger?.LogWarningAsync(
-									$"قلم HTS بدون متناظر در App: PO={htsItem.ProductionOrderNumber}، Part={htsItem.PartCode}، RahkaranId={htsItem.RahkaranId}",
+									$"قلم HTS بدون متناظر در App: PO={htsItem.ProductionOrderNumber}، Part={htsItem.PartCode}، HTS.RahkaranId={htsItem.RahkaranId}",
 									0,
 									cn);
 							}
@@ -1806,6 +1977,9 @@ namespace App.BackgroundJob.Jobs.Sale
 						batchMatched++;
 
 						var changed = ApplyHtsCutoverToItem(appItem, htsItem, appUsersByUsername, out var userMapMiss);
+						// بعد از کات‌اور، دیکشنری HistoryId را برای همگام‌سازی کامنت‌ها به‌روز نگه دار
+						if (appItem.RahkaranHistoryId.HasValue)
+							itemsByRahkaranHistoryId[appItem.RahkaranHistoryId.Value] = appItem;
 
 						if (userMapMiss)
 						{
@@ -1848,12 +2022,504 @@ namespace App.BackgroundJob.Jobs.Sale
 				await jobLogger?.LogInfoAsync(
 					$"کات‌اور تمام شد. matched={totalMatched}، updated(items)={totalUpdatedItems}، skipped(unchanged)={totalSkippedUnchanged}، unmatched={totalUnmatched}، updated(headers)={totalUpdatedHeaders}، firstIndustrialUserMapMiss={totalUserMapMisses}",
 					cn);
+
+				await SyncProductionOrderCommentsFromHts(
+					productionOrderByNumber,
+					itemsByRahkaranHistoryId,
+					itemsByPoAndPartCode,
+					appUsersByUsername,
+					batchSize,
+					jobLogger,
+					cn);
 			}
 			catch (Exception ex)
 			{
 				await jobLogger?.LogExceptionAsync(ex, cn);
 				throw;
 			}
+		}
+
+		/// <summary>
+		/// همگام‌سازی کامنت‌های هدر و قلم سفارش ساخت از HTS.
+		/// با HtsId یکتا است؛ رکوردهای موجود بروزرسانی و جدیدها درج می‌شوند.
+		/// از AddRangeAsync استفاده می‌شود تا EntityAction وضعیت والد را بازنویسی نکند.
+		/// </summary>
+		private async Task SyncProductionOrderCommentsFromHts(
+			Dictionary<long, ProductionOrder> productionOrderByNumber,
+			Dictionary<long, ProductionOrderItem> itemsByRahkaranHistoryId,
+			Dictionary<string, ProductionOrderItem> itemsByPoAndPartCode,
+			IReadOnlyDictionary<string, long> appUsersByUsername,
+			int batchSize,
+			IJobLogger? jobLogger,
+			CancellationToken cn)
+		{
+			await jobLogger?.LogInfoAsync("شروع همگام‌سازی کامنت‌های سفارش ساخت از HTS", cn);
+
+			var existingHeaderComments = await unitOfWork.Repository<ProductionOrderComment>()
+				.Table
+				.Where(c => c.HtsId != 0)
+				.ToListAsync(cn);
+			var headerByHtsId = existingHeaderComments
+				.GroupBy(c => c.HtsId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var existingItemComments = await unitOfWork.Repository<ProductionOrderItemComment>()
+				.Table
+				.Where(c => c.HtsId != 0)
+				.ToListAsync(cn);
+			var itemCommentByHtsId = existingItemComments
+				.GroupBy(c => c.HtsId)
+				.ToDictionary(g => g.Key, g => g.First());
+
+			var productionOrderNumbers = productionOrderByNumber.Keys.OrderBy(x => x).ToList();
+			int headerInserted = 0, headerUpdated = 0, headerUnmatched = 0;
+			int itemInserted = 0, itemUpdated = 0, itemUnmatched = 0, itemUserMapMiss = 0;
+
+			for (var skip = 0; skip < productionOrderNumbers.Count; skip += batchSize)
+			{
+				var batchNumbers = productionOrderNumbers.Skip(skip).Take(batchSize).ToList();
+				var numberParams = string.Join(",", batchNumbers.Select((_, i) => $"@p{i}"));
+				var parameters = batchNumbers
+					.Select((num, i) => new Microsoft.Data.SqlClient.SqlParameter($"@p{i}", (int)num))
+					.ToArray();
+
+				var headerSql = $@"
+					SELECT
+						c.Id,
+						c.ProductionOrderId,
+						c.StatusId,
+						c.CreatedUserId,
+						c.CreatedDate,
+						c.CreatedDateInText,
+						c.Comment,
+						po.Number AS ProductionOrderNumber,
+						u.Username AS CreatedUserUsername
+					FROM Pln_ProductionOrderComment c (NOLOCK)
+						INNER JOIN Pln_ProductionOrder po (NOLOCK) ON c.ProductionOrderId = po.Id
+						LEFT JOIN Gnr_User u (NOLOCK) ON c.CreatedUserId = u.User_ID
+					WHERE po.IsLatestVersion = 1
+						AND po.Number IN ({numberParams})";
+
+				var htsHeaderComments = await Hdb.Hts_Pln_ProductionOrderComments
+					.FromSqlRaw(headerSql, parameters)
+					.AsNoTracking()
+					.ToListAsync(cn);
+
+				var newHeaderComments = new List<ProductionOrderComment>();
+				var lastStateByAppPoId = new Dictionary<long, ProductionOrderStateEnum?>();
+				foreach (var htsComment in htsHeaderComments
+					.OrderBy(c => c.CreatedDate)
+					.ThenBy(c => c.Id))
+				{
+					if (!htsComment.ProductionOrderNumber.HasValue
+						|| !productionOrderByNumber.TryGetValue(htsComment.ProductionOrderNumber.Value, out var header)
+						|| !header.Id.HasValue)
+					{
+						headerUnmatched++;
+						continue;
+					}
+
+					var appPoId = header.Id.Value;
+					var createdById = ResolveAppUserId(htsComment.CreatedUserUsername, appUsersByUsername);
+					var newState = MapProductionOrderStateFromHts(htsComment.StatusId);
+					lastStateByAppPoId.TryGetValue(appPoId, out var previousState);
+					var createdOn = htsComment.CreatedDate;
+					var createdOnShamsi = !string.IsNullOrWhiteSpace(htsComment.CreatedDateInText)
+						? htsComment.CreatedDateInText
+						: createdOn.ToShamsiDateTime();
+
+					if (headerByHtsId.TryGetValue(htsComment.Id, out var existing))
+					{
+						var changed = false;
+						if (existing.ProductionOrderId != appPoId)
+						{
+							existing.ProductionOrderId = appPoId;
+							changed = true;
+						}
+						if (existing.PreviousState != previousState)
+						{
+							existing.PreviousState = previousState;
+							changed = true;
+						}
+						if (existing.NewState != newState)
+						{
+							existing.NewState = newState;
+							changed = true;
+						}
+						if (!string.Equals(existing.Comment, htsComment.Comment, StringComparison.Ordinal))
+						{
+							existing.Comment = htsComment.Comment;
+							changed = true;
+						}
+						if (existing.CreatedById != createdById)
+						{
+							existing.CreatedById = createdById;
+							changed = true;
+						}
+						if (existing.CreatedOnMiladiDateTime != createdOn)
+						{
+							existing.CreatedOnMiladiDateTime = createdOn;
+							existing.CreatedOnShamsiDateTime = createdOnShamsi;
+							changed = true;
+						}
+						if (changed)
+							headerUpdated++;
+					}
+					else
+					{
+						var entity = new ProductionOrderComment
+						{
+							ProductionOrderId = appPoId,
+							PreviousState = previousState,
+							NewState = newState,
+							Comment = htsComment.Comment,
+							CreatedById = createdById,
+							CreatedOnMiladiDateTime = createdOn,
+							CreatedOnShamsiDateTime = createdOnShamsi,
+							IsActive = IsActiveEnum.Active,
+							HtsId = htsComment.Id
+						};
+						newHeaderComments.Add(entity);
+						headerByHtsId[htsComment.Id] = entity;
+						headerInserted++;
+					}
+
+					if (newState.HasValue)
+						lastStateByAppPoId[appPoId] = newState;
+				}
+
+				if (newHeaderComments.Count > 0)
+					await unitOfWork.Repository<ProductionOrderComment>().AddRangeAsync(newHeaderComments, cn, false);
+
+				var itemSql = $@"
+					SELECT
+						c.Id,
+						c.ProductionOrderItemId,
+						c.StatusId,
+						c.CommentDate,
+						c.CommentDateInText,
+						c.CommentEndDate,
+						c.CommentEndDateInText,
+						c.CommentStartTime,
+						c.CommentEndTime,
+						c.FailureTypeIds,
+						c.FailureTypeInText,
+						c.IsForProductionMode,
+						c.CreatedUserId,
+						c.CreatedDate,
+						c.CreatedDateInText,
+						c.Comment,
+						c.CcReciversIds,
+						c.CcReciversInText,
+						c.StopRequestId,
+						c.IsForProductionStepStatus,
+						po.Number AS ProductionOrderNumber,
+						p.Part_Code AS PartCode,
+						poi.RahkaranId AS ItemRahkaranId,
+						u.Username AS CreatedUserUsername
+					FROM Pln_ProductionOrder_Itm_New_Comment c (NOLOCK)
+						INNER JOIN Pln_ProductionOrderItem poi (NOLOCK) ON c.ProductionOrderItemId = poi.Id
+						INNER JOIN Pln_ProductionOrder po (NOLOCK) ON poi.ProductionOrderId = po.Id
+						LEFT JOIN Inv_Part p (NOLOCK) ON poi.PartId = p.Part_ID
+						LEFT JOIN Gnr_User u (NOLOCK) ON c.CreatedUserId = u.User_ID
+					WHERE po.IsLatestVersion = 1
+						AND poi.IsLatestVersion = 1
+						AND poi.IsDeleted = 0
+						AND c.ProductionOrderItemId IS NOT NULL
+						AND po.Number IN ({numberParams})";
+
+				var itemParameters = batchNumbers
+					.Select((num, i) => new Microsoft.Data.SqlClient.SqlParameter($"@p{i}", (int)num))
+					.ToArray();
+
+				var htsItemComments = await Hdb.Hts_Pln_ProductionOrderItemComments
+					.FromSqlRaw(itemSql, itemParameters)
+					.AsNoTracking()
+					.ToListAsync(cn);
+
+				var newItemComments = new List<ProductionOrderItemComment>();
+				foreach (var htsComment in htsItemComments)
+				{
+					ProductionOrderItem? appItem = null;
+
+					// HTS.ItemRahkaranId == App.RahkaranHistoryId
+					if (htsComment.ItemRahkaranId.HasValue)
+						itemsByRahkaranHistoryId.TryGetValue(htsComment.ItemRahkaranId.Value, out appItem);
+
+					// fallback: Number + PartCode فقط وقتی HistoryId هنوز خالی است
+					if (appItem == null
+						&& htsComment.ProductionOrderNumber.HasValue
+						&& !string.IsNullOrWhiteSpace(htsComment.PartCode)
+						&& productionOrderByNumber.TryGetValue(htsComment.ProductionOrderNumber.Value, out var matchedPo)
+						&& matchedPo.Id.HasValue)
+					{
+						var key = $"{matchedPo.Id}_{htsComment.PartCode}";
+						if (itemsByPoAndPartCode.TryGetValue(key, out var byPart)
+							&& !byPart.RahkaranHistoryId.HasValue)
+						{
+							appItem = byPart;
+						}
+					}
+
+					if (appItem?.Id == null)
+					{
+						itemUnmatched++;
+						continue;
+					}
+
+					var createdById = ResolveAppUserId(htsComment.CreatedUserUsername, appUsersByUsername);
+					if (!string.IsNullOrWhiteSpace(htsComment.CreatedUserUsername)
+						&& createdById == 1
+						&& !string.Equals(htsComment.CreatedUserUsername.Trim(), "a", StringComparison.OrdinalIgnoreCase))
+					{
+						itemUserMapMiss++;
+					}
+
+					MapItemCommentStatuses(
+						htsComment,
+						out var productionStatus,
+						out var productionStep);
+
+					var startMiladi = CombineHtsDateAndTime(htsComment.CommentDate, htsComment.CommentStartTime)
+						?? htsComment.CreatedDate;
+					var startShamsi = !string.IsNullOrWhiteSpace(htsComment.CommentDateInText)
+						? AppendTimeToShamsi(htsComment.CommentDateInText, htsComment.CommentStartTime)
+						: startMiladi.ToShamsiDateTime();
+					var endMiladi = CombineHtsDateAndTime(htsComment.CommentEndDate, htsComment.CommentEndTime);
+					var endShamsi = endMiladi.HasValue
+						? (!string.IsNullOrWhiteSpace(htsComment.CommentEndDateInText)
+							? AppendTimeToShamsi(htsComment.CommentEndDateInText, htsComment.CommentEndTime)
+							: endMiladi.Value.ToShamsiDateTime())
+						: null;
+					var createdOnShamsi = !string.IsNullOrWhiteSpace(htsComment.CreatedDateInText)
+						? htsComment.CreatedDateInText
+						: htsComment.CreatedDate.ToShamsiDateTime();
+
+					if (itemCommentByHtsId.TryGetValue(htsComment.Id, out var existing))
+					{
+						var changed = ApplyHtsItemCommentFields(
+							existing,
+							appItem.Id.Value,
+							htsComment,
+							productionStatus,
+							productionStep,
+							createdById,
+							startMiladi,
+							startShamsi,
+							endMiladi,
+							endShamsi,
+							createdOnShamsi);
+						if (changed)
+							itemUpdated++;
+					}
+					else
+					{
+						var entity = new ProductionOrderItemComment
+						{
+							ProductionOrderItemId = appItem.Id.Value,
+							ProductionStatus = productionStatus,
+							ProductionStep = productionStep,
+							StartMiladiDateTime = startMiladi,
+							StartShamsiDate = startShamsi,
+							EndMiladiDateTime = endMiladi,
+							EndShamsiDate = endShamsi,
+							FailureTypeIds = htsComment.FailureTypeIds,
+							FailureTypeNames = htsComment.FailureTypeInText,
+							Comment = htsComment.Comment,
+							CcReciversIds = htsComment.CcReciversIds,
+							CcReciversNames = htsComment.CcReciversInText,
+							IsForProductionMode = htsComment.IsForProductionMode,
+							IsForProductionStepStatus = htsComment.IsForProductionStepStatus,
+							CreatedById = createdById,
+							CreatedOnMiladiDateTime = htsComment.CreatedDate,
+							CreatedOnShamsiDateTime = createdOnShamsi,
+							IsActive = IsActiveEnum.Active,
+							HtsId = htsComment.Id
+						};
+						newItemComments.Add(entity);
+						itemCommentByHtsId[htsComment.Id] = entity;
+						itemInserted++;
+					}
+				}
+
+				if (newItemComments.Count > 0)
+					await unitOfWork.Repository<ProductionOrderItemComment>().AddRangeAsync(newItemComments, cn, false);
+
+				await unitOfWork.SaveChangesAsync(cn);
+				await jobLogger?.LogInfoAsync(
+					$"comment batch {skip / batchSize + 1}: header(hts={htsHeaderComments.Count}, +{newHeaderComments.Count}) item(hts={htsItemComments.Count}, +{newItemComments.Count})",
+					cn);
+			}
+
+			await jobLogger?.LogInfoAsync(
+				$"همگام‌سازی کامنت‌ها تمام شد. header(inserted={headerInserted}, updated={headerUpdated}, unmatched={headerUnmatched}) item(inserted={itemInserted}, updated={itemUpdated}, unmatched={itemUnmatched}, userMapMiss={itemUserMapMiss})",
+				cn);
+		}
+
+		private static long ResolveAppUserId(string? htsUsername, IReadOnlyDictionary<string, long> appUsersByUsername)
+		{
+			if (!string.IsNullOrWhiteSpace(htsUsername)
+				&& appUsersByUsername.TryGetValue(htsUsername.Trim(), out var userId))
+				return userId;
+
+			return 1;
+		}
+
+		private static ProductionOrderStateEnum? MapProductionOrderStateFromHts(short statusId)
+		{
+			return statusId switch
+			{
+				2055 => ProductionOrderStateEnum.Submit,                 // ایجاد شده
+				2056 => ProductionOrderStateEnum.Submit,                 // ویرایش شده
+				2436 => ProductionOrderStateEnum.Submit,                 // خوانده شده از راهکاران
+				2084 => ProductionOrderStateEnum.FinancialUnitReview,    // در انتظار تایید مالی / صدور سند همکاران
+				2057 => ProductionOrderStateEnum.FinancialApproval,      // تایید مالی
+				2071 => ProductionOrderStateEnum.FinancialApproval,      // تایید مالی و آغاز فرآیند ساخت
+				2207 => ProductionOrderStateEnum.Obsolete,               // منسوخ شده
+				_ => null
+			};
+		}
+
+		private static void MapItemCommentStatuses(
+			Hts_Pln_ProductionOrderItemComment htsComment,
+			out ProductionOrderItemProductionStatusEnum productionStatus,
+			out ProductionOrderItemProductionStepEnum? productionStep)
+		{
+			productionStep = null;
+			productionStatus = ProductionOrderItemProductionStatusEnum.NotDetermined;
+
+			if (htsComment.IsForProductionStepStatus
+				&& TryMapEnum(htsComment.StatusId, out ProductionOrderItemProductionStepEnum step))
+			{
+				productionStep = step;
+				return;
+			}
+
+			if (TryMapCheckStatusFromHts(htsComment.StatusId, out var checkStatus))
+			{
+				productionStatus = (ProductionOrderItemProductionStatusEnum)(int)checkStatus;
+				return;
+			}
+
+			if (TryMapEnum(htsComment.StatusId, out ProductionOrderItemProductionStatusEnum status))
+			{
+				productionStatus = status;
+				return;
+			}
+
+			// مقدار ناشناخته را به‌صورت خام نگه می‌داریم تا تاریخچه از بین نرود
+			productionStatus = (ProductionOrderItemProductionStatusEnum)(int)htsComment.StatusId;
+		}
+
+		private static bool ApplyHtsItemCommentFields(
+			ProductionOrderItemComment existing,
+			long productionOrderItemId,
+			Hts_Pln_ProductionOrderItemComment htsComment,
+			ProductionOrderItemProductionStatusEnum productionStatus,
+			ProductionOrderItemProductionStepEnum? productionStep,
+			long createdById,
+			DateTime startMiladi,
+			string? startShamsi,
+			DateTime? endMiladi,
+			string? endShamsi,
+			string? createdOnShamsi)
+		{
+			var changed = false;
+
+			if (existing.ProductionOrderItemId != productionOrderItemId)
+			{
+				existing.ProductionOrderItemId = productionOrderItemId;
+				changed = true;
+			}
+			if (existing.ProductionStatus != productionStatus)
+			{
+				existing.ProductionStatus = productionStatus;
+				changed = true;
+			}
+			if (existing.ProductionStep != productionStep)
+			{
+				existing.ProductionStep = productionStep;
+				changed = true;
+			}
+			if (existing.StartMiladiDateTime != startMiladi)
+			{
+				existing.StartMiladiDateTime = startMiladi;
+				existing.StartShamsiDate = startShamsi;
+				changed = true;
+			}
+			if (existing.EndMiladiDateTime != endMiladi)
+			{
+				existing.EndMiladiDateTime = endMiladi;
+				existing.EndShamsiDate = endShamsi;
+				changed = true;
+			}
+			if (!string.Equals(existing.FailureTypeIds, htsComment.FailureTypeIds, StringComparison.Ordinal))
+			{
+				existing.FailureTypeIds = htsComment.FailureTypeIds;
+				changed = true;
+			}
+			if (!string.Equals(existing.FailureTypeNames, htsComment.FailureTypeInText, StringComparison.Ordinal))
+			{
+				existing.FailureTypeNames = htsComment.FailureTypeInText;
+				changed = true;
+			}
+			if (!string.Equals(existing.Comment, htsComment.Comment, StringComparison.Ordinal))
+			{
+				existing.Comment = htsComment.Comment;
+				changed = true;
+			}
+			if (!string.Equals(existing.CcReciversIds, htsComment.CcReciversIds, StringComparison.Ordinal))
+			{
+				existing.CcReciversIds = htsComment.CcReciversIds;
+				changed = true;
+			}
+			if (!string.Equals(existing.CcReciversNames, htsComment.CcReciversInText, StringComparison.Ordinal))
+			{
+				existing.CcReciversNames = htsComment.CcReciversInText;
+				changed = true;
+			}
+			if (existing.IsForProductionMode != htsComment.IsForProductionMode)
+			{
+				existing.IsForProductionMode = htsComment.IsForProductionMode;
+				changed = true;
+			}
+			if (existing.IsForProductionStepStatus != htsComment.IsForProductionStepStatus)
+			{
+				existing.IsForProductionStepStatus = htsComment.IsForProductionStepStatus;
+				changed = true;
+			}
+			if (existing.CreatedById != createdById)
+			{
+				existing.CreatedById = createdById;
+				changed = true;
+			}
+			if (existing.CreatedOnMiladiDateTime != htsComment.CreatedDate)
+			{
+				existing.CreatedOnMiladiDateTime = htsComment.CreatedDate;
+				existing.CreatedOnShamsiDateTime = createdOnShamsi;
+				changed = true;
+			}
+
+			return changed;
+		}
+
+		private static DateTime? CombineHtsDateAndTime(DateTime? date, string? time)
+		{
+			if (!date.HasValue)
+				return null;
+
+			if (string.IsNullOrWhiteSpace(time) || !TimeSpan.TryParse(time.Trim(), out var ts))
+				return date.Value.Date;
+
+			return date.Value.Date.Add(ts);
+		}
+
+		private static string AppendTimeToShamsi(string shamsiDate, string? time)
+		{
+			if (string.IsNullOrWhiteSpace(time))
+				return shamsiDate;
+
+			return $"{shamsiDate.Trim()} {time.Trim()}";
 		}
 
 		/// <summary>
@@ -1867,6 +2533,12 @@ namespace App.BackgroundJob.Jobs.Sale
 		{
 			var changed = false;
 			firstIndustrialUserMapMissed = false;
+
+			if (htsItem.RahkaranId.HasValue && appItem.RahkaranHistoryId != htsItem.RahkaranId)
+			{
+				appItem.RahkaranHistoryId = htsItem.RahkaranId;
+				changed = true;
+			}
 
 			if (TryMapCheckStatusFromHts(htsItem.BuyStatusId, out ProductionOrderItemCheckStatusEnum checkStatus)
 				&& appItem.CheckStatus != checkStatus)

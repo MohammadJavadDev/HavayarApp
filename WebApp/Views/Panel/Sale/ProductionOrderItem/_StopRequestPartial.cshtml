@@ -1,8 +1,13 @@
 @using Entities.App.Prd
-@using Entities.App.Prd.Enums
 @using Entities.App.Hrm
+@using Entities.App.Prd.Enums
 @using Entities.Auth
+@using Common.Utilities
 @model StopRequst
+
+@{
+	var selectedReasons = (Model?.StopReasonIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+}
 
 <div class="row">
 	<input type="hidden" data-bind="id" value="@Model?.Id" />
@@ -12,15 +17,15 @@
 
 	<div class="col-md-6">
 		<label class="required">تاریخ شروع توقف</label>
-		<input class="form-control" data-bind="stopStartDate" data-persionDatePicker="true"
+		<input class="form-control" data-bind="stopStartShamsiDateTime" data-required="true" data-persionDatePicker="true"
 			persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
-			value="@Model?.StopStartMiladiDateTime" />
+			value="@Model?.StopStartShamsiDateTime" />
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
 	<div class="col-md-6">
 		<label class="required">محل مشاهده</label>
-		<select class="form-control" data-bind="observationLocation" asp-for="ObservationLocation"
+		<select class="form-control" data-bind="observationLocation" data-required="true" asp-for="ObservationLocation"
 			asp-items="Html.GetEnumSelectList(typeof(StopRequstObservationLocationEnum))">
 		</select>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
@@ -28,7 +33,7 @@
 
 	<div class="col-md-6">
 		<label class="required">وضعیت تولید</label>
-		<select class="form-control" data-bind="productionStatus" asp-for="ProductionStatus"
+		<select class="form-control" data-bind="productionStatus" data-required="true" asp-for="ProductionStatus"
 			asp-items="Html.GetEnumSelectList(typeof(StopRequstProductionStatusEnum))">
 		</select>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
@@ -43,16 +48,12 @@
 	</div>
 
 	<div class="col-md-12">
-		<label>علت توقف</label>
-		<select class="form-control stopReasonSelect" id="stopReasonSelectModal" multiple
-			asp-items="Html.GetEnumSelectList(typeof(StopRequstStopReasonEnum))">
-			@if (!string.IsNullOrWhiteSpace(Model?.StopReasonIds))
+		<label class="required">علت توقف</label>
+		<select class="form-control stopReasonSelect" id="stopReasonSelectModal" multiple>
+			@foreach (StopRequstStopReasonEnum reason in Enum.GetValues(typeof(StopRequstStopReasonEnum)))
 			{
-				var reasons = Model.StopReasonIds.Split(',');
-				foreach (var reason in reasons)
-				{
-					<option value="@reason" selected>@reason</option>
-				}
+				var val = ((int)reason).ToString();
+				<option value="@val" selected="@(selectedReasons.Contains(val) ? "selected" : null)">@reason.ToDisplay()</option>
 			}
 		</select>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
@@ -61,13 +62,9 @@
 	<div class="col-md-12">
 		<label>واحد های مسئول توقف</label>
 		@(Html.EntitySelector<OrgUnit>(
-			"ResponsibleUnitIdsSelector",
+			"StopModalResponsibleUnitIdsSelector",
 			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-			c => new
-			{
-				Id = c.Id,
-				Title = c.Title
-			},
+			c => new { Id = c.Id, Title = c.Title },
 			c => new { c.Title },
 			"{Title}",
 			"ResponsibleUnitIds",
@@ -76,19 +73,14 @@
 			false,
 			true
 		))
-		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
 	<div class="col-md-6">
 		<label>مسئول های توقف</label>
 		@(Html.EntitySelector<User>(
-			"ResponsibleUserIdsSelector",
+			"StopModalResponsibleUserIdsSelector",
 			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-			c => new
-			{
-				Id = c.Id,
-				Name = c.Name
-			},
+			c => new { Id = c.Id, Name = c.Name },
 			c => new { c.Name },
 			"{Name}",
 			"ResponsibleUserIds",
@@ -97,19 +89,14 @@
 			false,
 			true
 		))
-		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
 	<div class="col-md-6">
 		<label>ذینفعان</label>
 		@(Html.EntitySelector<User>(
-			"BeneficiarieUserIdsSelector",
+			"StopModalBeneficiarieUserIdsSelector",
 			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-			c => new
-			{
-				Id = c.Id,
-				Name = c.Name
-			},
+			c => new { Id = c.Id, Name = c.Name },
 			c => new { c.Name },
 			"{Name}",
 			"BeneficiarieUserIds",
@@ -118,6 +105,32 @@
 			false,
 			true
 		))
+	</div>
+
+	<div class="col-md-6">
+		<label>ذینفعان جایگزین</label>
+		@(Html.EntitySelector<User>(
+			"StopModalAlternativeBeneficiarieUserIdsSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new { Id = c.Id, Name = c.Name },
+			c => new { c.Name },
+			"{Name}",
+			"AlternativeBeneficiarieUserIds",
+			"AlternativeBeneficiarieUserNames",
+			Model?.AlternativeBeneficiarieUserIds?.ToString(),
+			false,
+			true
+		))
+	</div>
+
+	<div class="col-md-6">
+		<label>شماره عدم انطباق</label>
+		<input class="form-control" data-bind="conformityCheckRequestNumber" value="@Model?.ConformityCheckRequestNumber" />
+	</div>
+
+	<div class="col-md-12">
+		<label class="required">شرح</label>
+		<textarea class="form-control" data-bind="description" data-required="true" rows="3">@Model?.Description</textarea>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 </div>

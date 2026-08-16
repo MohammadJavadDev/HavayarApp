@@ -30,7 +30,7 @@ namespace Entities.App.Sale
 
 		[DisplayName("نام مسئول فنی")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
-		public Personel? TechnicalManagerName { get; set; }
+		public Personel? TechnicalManager { get; set; }
 		public long? TechnicalManagerId { get; set; }
 
 
@@ -71,7 +71,7 @@ namespace Entities.App.Sale
 
 
 		[DisplayName("نمایندگی")]
-		[DisplayInfo(null, true, type: SystemType.String)]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
 		public bool Agency { get; set; } = default;
 
 
@@ -86,9 +86,8 @@ namespace Entities.App.Sale
 
 
 		[DisplayName("سریال ساخت")]
-		[DisplayInfo(null, true, type: SystemType.Select)]
+		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? ProductionSeries { get; set; }
-
 
 
 
@@ -103,7 +102,7 @@ namespace Entities.App.Sale
 
 
 		[DisplayName("نوع راه اندازی")]
-		[DisplayInfo(null, true, type: SystemType.String)]
+		[DisplayInfo(null, true, type: SystemType.Select)]
 		public ProductionSeriesEnum StartupType { get; set; }
 
 
@@ -123,7 +122,7 @@ namespace Entities.App.Sale
 
 
 		[DisplayName("آيا شرايط استاندارد در هنگام راه اندازي وجود دارد?")]
-		[DisplayInfo(null, true, type: SystemType.String)]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
 		public bool StandardConditionsDuringStartup { get; set; } = default;
 
 
@@ -132,7 +131,7 @@ namespace Entities.App.Sale
 		[DisplayName("تجهیزات جانبی")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public Part? Accessories { get; set; }
-		public string? AccessoriesId { get; set; }
+		public long? AccessoriesId { get; set; }
 
 
 		[DisplayName("دفترچه سرويس و نگهداري ")]
@@ -166,10 +165,5 @@ namespace Entities.App.Sale
 
 
 		#endregion
-
-
-
-
-
 	}
 }

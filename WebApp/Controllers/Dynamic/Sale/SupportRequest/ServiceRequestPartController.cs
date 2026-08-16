@@ -4,6 +4,7 @@ using Data;
 using Data.Contracts;
 using Entities.App.Sale;
 using Entities.App.Sale.DTO;
+using Entities.App.Sale.Enums;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -30,6 +31,7 @@ namespace WebApp.Controllers.Dynamic
 			if (serviceRequestPart.Id == null || serviceRequestPart.Id == 0)
 			{
 				return await Add(serviceRequestPart, cn);
+
 			}
 			var exist = await unitOfWork.Repository<ServiceRequestPart>().TableNoTracking.AnyAsync(c => c.Id == serviceRequestPart.Id);
 			if (exist)
@@ -89,9 +91,10 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("درج اطلاعات", ActionAccessType.View, ActionAccessItemType.Create)]
-		public IActionResult New()
+		public IActionResult New(long? serviceRequestId)
 		{
 			var newEntity = new ServiceRequestPart();
+			newEntity.ServiceRequestId = serviceRequestId;
 			return View(@"\Views\Panel\Sale\ServiceRequest\RequestPart\Edit.cshtml", newEntity);
 		}
 
@@ -240,8 +243,8 @@ namespace WebApp.Controllers.Dynamic
 					    PartCode = srd.Part != null ? srd.Part.Code : string.Empty,
 					    PartName = srd.Part != null ? srd.Part.Name : string.Empty,
 					    SendDate = srd.OrderDetail != null && srd.OrderDetail.Sale_Order != null
-						  ? srd.OrderDetail.Sale_Order.VchDateShamsiDate
-						  : null,
+						? srd.OrderDetail.Sale_Order.VchDateShamsiDate
+						: null,
 					    Serial = srd.OrderDetailSerial != null ? srd.OrderDetailSerial.Serial : string.Empty
 				    })
 				    .ToListAsync(cancellationToken);
@@ -313,7 +316,7 @@ namespace WebApp.Controllers.Dynamic
 					}).ToList();
 				}
 
-				return Ok(new { isSuccess = true, data = pieces });
+				return Ok(new { pieces });
 			}
 			catch (Exception ex)
 			{
@@ -389,8 +392,8 @@ namespace WebApp.Controllers.Dynamic
 						Qty = reader.GetDecimal(reader.GetOrdinal("Qty")),
 						BranchFk = (int)reader.GetByte(reader.GetOrdinal("Branch_FK")),
 						LastBuyPrice = reader.IsDBNull(reader.GetOrdinal("LastBuyPrice"))
-						   ? 0
-						   : reader.GetDecimal(reader.GetOrdinal("LastBuyPrice"))
+						  ? 0
+						  : reader.GetDecimal(reader.GetOrdinal("LastBuyPrice"))
 					});
 				}
 			}
@@ -480,16 +483,13 @@ namespace WebApp.Controllers.Dynamic
 						VchDate = reader.GetString(reader.GetOrdinal("VchDate")),
 						PartRef = reader.GetInt64(reader.GetOrdinal("PartRef")),
 						PartName = reader.GetString(reader.GetOrdinal("PartName")),
-						//MunitRef = reader.IsDBNull(reader.GetOrdinal("MunitRef"))
-						//    ? null
-						//    : (long?)reader.GetInt64(reader.GetOrdinal("MunitRef")),
 						MunitRef = reader.IsDBNull(reader.GetOrdinal("MunitRef"))
-							  ? null
-							  : Convert.ToInt64(reader["MunitRef"]),
+							? null
+							: Convert.ToInt64(reader["MunitRef"]),
 						Qty = reader.GetDecimal(reader.GetOrdinal("Qty")),
 						LastBuyPrice = reader.IsDBNull(reader.GetOrdinal("LastBuyPrice"))
-						   ? null
-						   : reader.GetDecimal(reader.GetOrdinal("LastBuyPrice"))
+						  ? null
+						  : reader.GetDecimal(reader.GetOrdinal("LastBuyPrice"))
 					});
 				}
 			}
@@ -510,5 +510,117 @@ namespace WebApp.Controllers.Dynamic
 			command.Parameters.Add(parameter);
 		}
 
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("لیست اطلاعات با شناسه درخواست پشتیبانی", ActionAccessType.View, ActionAccessItemType.Custom)]
+		public IActionResult ListBy(long? serviceRequestId)
+		{
+			if (serviceRequestId == null || serviceRequestId == 0)
+				throw new Exception("شناسه درخواست پشتیبانی نمیتواند خالی باشد.");
+
+			var model = new ServiceRequestPartListByParentViewModel
+			{
+				ServiceRequestId = serviceRequestId.Value
+			};
+
+			return View(@"\Views\Panel\Sale\ServiceRequest\RequestPart\ListByParentId.cshtml", model);
+		}
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("دریافت لیست با شناسه درخواست پشتیبانی", ActionAccessType.Api, ActionAccessItemType.FetchData)]
+		public IActionResult GetListByParentId(long? serviceRequestId)
+		{
+			if (serviceRequestId == null || serviceRequestId == 0)
+				return BadRequest("شناسه درخواست پشتیبانی نمیتواند خالی باشد.");
+
+			var items = unitOfWork
+			    .Repository<ServiceRequestPart>()
+			    .TableNoTracking
+			    .Where(c => c.ServiceRequestId == serviceRequestId)
+			    .Select(c => new ServiceRequestPartListItemViewModel
+			    {
+				    Id = c.Id,
+				    ServiceRequestId = c.ServiceRequestId,
+				    PartCode = c.Part.Code,
+				    PartName = c.Part.Name,
+				    PartId = c.PartId,
+				    ProjectVchNum = c.ProjectVchNum,
+				    SalesOfficeName = c.SalesOffice.Name,
+				    ProjectPartUnitTitle = c.ProjectPartUnit.Title ?? "",
+				    ProjectVchYear = c.ProjectVchYear,
+				    ProjectVoucherShamsiDate = c.ProjectVoucherShamsiDate,
+				    ProjectVchPartCode = c.ProjectVchPart.Code,
+				    ProjectVchPartName = c.ProjectVchPart.Name,
+				    ProjectVchPartId = c.ProjectVchPartId,
+				    ReplacePartCode = c.ReplacePart.Code,
+				    ReplacePartName = c.ReplacePart.Name,
+				    CostCenterTitle = c.CostCenter.Title,
+				    CostCenterId = c.CostCenterId,
+				    SupplierName = c.Supplier.Party.FullName,
+				    SupplierId = c.SupplierId,
+				    Mount = c.Mount,
+				    UnitPrice = c.UnitPrice,
+				    ReturnLicence = c.ReturnLicence,
+				    HasReturn_DamagedPart = c.HasReturn_DamagedPart,
+				    DamagedPartId = c.DamagedPartId,
+				    DamagedPartCode = c.DamagedPart.Code ?? "",
+				    DamagedPartName = c.DamagedPart.Name ?? "",
+				    DamagedPartType = c.DamagedPartType,
+				    DamagedPartDescription = c.DamagedPartDescription,
+				    HasFailure = c.HasFailure,
+				    FailurePartId = c.FailurePartId,
+				    FailurePartCode = c.FailurePart.Code,
+				    FailurePartName = c.FailurePart.Name,
+				    FailureDescription = c.FailureDescription,
+				    Comment = c.Comment
+			    })
+			    .ToList();
+
+			return Ok(items);
+		}
+	}
+
+	public class ServiceRequestPartListByParentViewModel
+	{
+		public long ServiceRequestId { get; set; }
+		public List<ServiceRequestPartListItemViewModel> Items { get; set; } = new();
+	}
+
+	public class ServiceRequestPartListItemViewModel
+	{
+		public long? Id { get; set; }
+		public long? ServiceRequestId { get; set; }
+		public string? PartCode { get; set; }
+		public string? PartName { get; set; }
+		public long? PartId { get; set; }
+		public short? ProjectVchNum { get; set; }
+		public string? SalesOfficeName { get; set; }
+		public string? ProjectPartUnitTitle { get; set; }
+		public short? ProjectVchYear { get; set; }
+		public string? ProjectVoucherShamsiDate { get; set; }
+		public string? ProjectVchPartCode { get; set; }
+		public string? ProjectVchPartName { get; set; }
+		public long? ProjectVchPartId { get; set; }
+		public string? ReplacePartCode { get; set; }
+		public string? ReplacePartName { get; set; }
+		public string? CostCenterTitle { get; set; }
+		public long? CostCenterId { get; set; }
+		public string? SupplierName { get; set; }
+		public long? SupplierId { get; set; }
+		public decimal? Mount { get; set; }
+		public long? UnitPrice { get; set; }
+		public bool ReturnLicence { get; set; }
+		public bool HasReturn_DamagedPart { get; set; }
+		public string? DamagedPartId { get; set; }
+		public string? DamagedPartCode { get; set; }
+		public string? DamagedPartName { get; set; }
+		public DamagedPartTypeEnum DamagedPartType { get; set; }
+		public string? DamagedPartDescription { get; set; }
+		public bool HasFailure { get; set; }
+		public string? FailurePartId { get; set; }
+		public string? FailurePartCode { get; set; }
+		public string? FailurePartName { get; set; }
+		public string? FailureDescription { get; set; }
+		public string? Comment { get; set; }
 	}
 }

@@ -24,10 +24,10 @@ else
 					var statusText = rev.Status.HasValue ? rev.Status.Value.ToDisplay() : "-";
 						var statusClass = rev?.Status switch
 						{
-							DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByEmployer or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
-							DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+							DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
+							DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
 							DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-							DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+							DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
 							DocumentStatusEnums.Archived => "badge-light-dark",
 							_ => "badge-light"
 						};

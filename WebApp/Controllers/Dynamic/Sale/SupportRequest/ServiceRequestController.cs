@@ -15,7 +15,7 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("مدیریت درخواست های پشتیبانی", typeof(ServiceRequest))]
-	public class ServiceRequestController(IUnitOfWork unitOfWork, IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController
+	public class ServiceRequestController(IUnitOfWork unitOfWork, IWebHostEnvironment _webHostEnvironment) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -114,8 +114,6 @@ namespace WebApp.Controllers.Dynamic
 			return Ok(await unitOfWork.Repository<ServiceRequest>().FetchDataAsync(request, cn));
 		}
 
-
-
 		[HttpGet("[action]")]
 		public IActionResult ShowProductDetailForm(long? serviceRequestId, CancellationToken cancellationToken)
 		{
@@ -126,7 +124,6 @@ namespace WebApp.Controllers.Dynamic
 			};
 			return PartialView(@"\Views\Panel\Sale\ServiceRequest\ProductDetail\Edit.cshtml", model);
 		}
-
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره جزئیات", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -143,7 +140,6 @@ namespace WebApp.Controllers.Dynamic
 				return Ok(new { isSuccess = true, message = "با موفقیت ویرایش شد", data = entity });
 			}
 		}
-
 
 		[HttpDelete("[action]")]
 		public async Task<IActionResult> DeleteServiceRequest([FromQuery] long? id, CancellationToken cancellationToken)
@@ -167,7 +163,6 @@ namespace WebApp.Controllers.Dynamic
 
 		}
 
-
 		[HttpGet("[action]")]
 		public async Task<IActionResult> EditServiceRequest(long? id, long? serviceRequestId, CancellationToken cancellationToken)
 		{
@@ -183,7 +178,6 @@ namespace WebApp.Controllers.Dynamic
 
 			return PartialView(@"\Views\Panel\Sale\ServiceRequest\ProductDetail\Edit.cshtml", entity);
 		}
-
 
 		[HttpGet("[action]")]
 		public async Task<IActionResult> GetServiceRequest(long? serviceRequestId)
@@ -222,7 +216,6 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
-
 		[HttpGet("[action]")]
 		public async Task<IActionResult> GetOrderDetailSerials(long? partId)
 		{
@@ -251,10 +244,10 @@ namespace WebApp.Controllers.Dynamic
 			var items = await unitOfWork.Repository<OrderDetailSerial>()
 			    .Table
 			    .Where(x =>
-				   !string.IsNullOrEmpty(x.Serial) &&
-				   x.OrderDetail != null &&
-				   x.OrderDetail.Part != null &&
-				   x.OrderDetail.Part.Code == partCode
+				  !string.IsNullOrEmpty(x.Serial) &&
+				  x.OrderDetail != null &&
+				  x.OrderDetail.Part != null &&
+				  x.OrderDetail.Part.Code == partCode
 			    )
 			    .GroupBy(x => x.Serial)
 			    .Select(g => new
@@ -266,9 +259,6 @@ namespace WebApp.Controllers.Dynamic
 
 			return Json(new { items });
 		}
-
-
-
 
 	}
 }

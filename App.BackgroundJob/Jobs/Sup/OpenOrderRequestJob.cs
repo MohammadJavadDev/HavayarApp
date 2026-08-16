@@ -1,23 +1,27 @@
 using App.BackgroundJob.Jobs.Inv;
 using Common.Attributes;
+using Common.Entities;
 using Common.Utilities;
 using Data;
 using Data.Contracts;
+using Entities.App.Edms;
 using Entities.App.FIN;
 using Entities.App.Inv;
+using Entities.App.Inv.Enums;
+using Entities.App.Pln;
 using Entities.App.Sale;
 using Entities.App.Sup;
 using Entities.App.Sup.Enums;
-using Entities.Base.Notification;
 using Entities.Auth;
+using Entities.Base;
+using Entities.Base.Enums;
+using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
 using Services.FileServices;
 using Services.Job;
 using System.Data;
 using System.Globalization;
 using System.Text;
-using Entities.App.Edms;
-using Entities.Base.Enums;
 
 namespace App.BackgroundJob.Jobs.Sup
 {
@@ -167,10 +171,11 @@ namespace App.BackgroundJob.Jobs.Sup
 
                             }
 
-                            if (remoteOrder.FinalVoucherDate.HasValue)
-                            {
-                                newOrder.FinalInventoryVoucherShamsiDate = remoteOrder.FinalVoucherDate.Value.ToShamsiDate();
-                            }
+                                if (remoteOrder.FinalVoucherDate.HasValue)
+                                {
+                                    newOrder.FinalInventoryVoucherShamsiDate = remoteOrder.FinalVoucherDate.Value.ToShamsiDate();
+                                    newOrder.FinalInventoryVoucherMiladiDate = remoteOrder.FinalVoucherDate;
+                                }
 
                             if (remoteOrder.DeliveryDate.HasValue)
                             {
@@ -268,12 +273,6 @@ namespace App.BackgroundJob.Jobs.Sup
                                     localOrder.DeliveryVoucherMiladiDate = remoteOrder.DeliveryDate;
                                 }
 
-                                if (remoteOrder.DeliveryDate.HasValue)
-                                {
-                                    localOrder.DeliveryVoucherShamsiDate = remoteOrder.DeliveryDate.Value.ToShamsiDate();
-                                    localOrder.DeliveryVoucherMiladiDate = remoteOrder.DeliveryDate;
-                                }
-
                                 if (remoteOrder.TemporaryVoucherDate.HasValue)
                                 {
                                     localOrder.TemporaryInventoryVoucherShamsiDate = remoteOrder.TemporaryVoucherDate.Value.ToShamsiDate();
@@ -296,7 +295,10 @@ namespace App.BackgroundJob.Jobs.Sup
 
 
                                 if (remoteOrder.FinalVoucherDate.HasValue)
+                                {
                                     localOrder.FinalInventoryVoucherShamsiDate = remoteOrder.FinalVoucherDate.Value.ToShamsiDate();
+                                    localOrder.FinalInventoryVoucherMiladiDate = remoteOrder.FinalVoucherDate;
+                                }
 
                                 if(localOrder.Comment == null || !localOrder.Comment.Contains("|| بروزرسانی سیستمی"))
                                      localOrder.Comment += "|| بروزرسانی سیستمی";
@@ -332,8 +334,11 @@ namespace App.BackgroundJob.Jobs.Sup
                 // 7. Compute Additional Logic (From Stored Procedure)
                 await ComputeOpenOrderRequest(yearNumbers, jobLogger, cn);
 
-                // 8. Notifications
+                // 8. Notifications (رسید کالا / رد QC) — یک‌بار به ازای هر نفر، کالا و رسید
                 await SendNotifications(yearNumbers, jobLogger, cn);
+
+                // 9. تایید خودکار مهندسی برای درخواست‌های روتین دارای مدرک (معادل سیستم قدیم)
+                await AutoAcceptEngineeringForRoutineParts(jobLogger, cn);
 
             }
             catch (Exception ex)
@@ -346,71 +351,764 @@ namespace App.BackgroundJob.Jobs.Sup
             }
         }
 
+        private const string ArrivalNotificationTitle = "رسید کالای درخواستی در انبار";
+        private const string PartialArrivalNotificationTitle = "رسید قسمتی از کالای درخواستی در انبار";
+        private const string QcRejectionNotificationTitle = "عدم تایید کالا توسط QC";
+        private const string AutoEngineeringAcceptTitle = "اعلان ثبت پیوست درخواست باز";
+        private const string ReceiptQueryParam = "receipt=";
+        private const string ReceiptBodyMarkerPrefix = "<!--receipt:";
+        private const string LegacyReceiptKey = "*";
+        private const string QcReceiptKey = "qc";
+
+        private static readonly string[] ArrivalExtraEmails =
+        [
+            "Ahmadi.sh@havayar.com",
+            "Asadi.re@havayar.com",
+            "Moradmand.a@havayar.com",
+            "Azadbakhsh.s@havayar.com",
+            "Azadbakhsh.sh@havayar.com",
+            "zamani.z@havayar.com",
+            "Zandi.n@havayar.com",
+            "Eezi.a@havayar.com",
+            "khederzadeh.s@havayar.com",
+            "Saemian.r@havayar.com"
+        ];
+
+        private static readonly string[] QcRejectionExtraEmails =
+        [
+            "Salim.sh@havayar.com",
+            "Bagheri.h@havayar.com",
+            "Shahpordeli.s@havayar.com",
+            "Sharifi.b@havayar.com",
+            "Zabihian.s@havayar.com",
+            "Dordab.y@havayar.com",
+            "Hosseini.h@havayar.com",
+            "Sohrabi.za@havayar.com",
+            "Yaltaghian.f@havayar.com",
+            "Daryaft@havayar.com",
+            "Fazeli.e@havayar.com",
+            "Tafakor.s@havayar.com",
+            "Ahsani.e@havayar.com",
+            "Kargar.m@havayar.com",
+            "Ashrafi.m@havayar.com",
+            "azami.m@havayar.com",
+            "Sarmadi.p@havayar.com",
+            "Rajablou.a@havayar.com",
+            "Bagheri.m@havayar.com",
+            "Razaghmanesh.z@havayar.com",
+            "Zamani.ar@havayar.com",
+            "Banafshechin.y@havayar.com",
+            "Mousavi.a@havayar.com"
+        ];
+
         private async Task SendNotifications(string yearNumbers, IJobLogger? logger, CancellationToken cn)
         {
             var newEvents = await GetNewInvVchForNotify(yearNumbers);
-            var users = await dbContext.Users.ToListAsync(cn);
-            var localOrders = await unitOfWork.Repository<OpenOrderRequest>().Table.ToListAsync(cn);
+            if (newEvents.Count == 0)
+            {
+                logger?.LogInfoAsync("No inventory voucher events for notification.");
+                return;
+            }
 
-            foreach (var evt in newEvents)
+            var users = await dbContext.Users.AsNoTracking().ToListAsync(cn);
+            var userLookup = BuildUserLookup(users);
+
+            var localOrders = await unitOfWork.Repository<OpenOrderRequest>().Table
+                .Where(x => !x.IsForceDeletedByUser && !x.IsDeleted)
+                .ToListAsync(cn);
+
+            if (localOrders.Count == 0)
+                return;
+
+            var orderIds = localOrders.Where(o => o.Id.HasValue).Select(o => o.Id!.Value).ToList();
+            var existingNotifications = new List<(long EntityId, long OwnerId, string Title, string? ViewPath, string? Body)>();
+            foreach (var batch in orderIds.Chunk(1000))
+            {
+                var batchIds = batch.ToList();
+                var batchRows = await unitOfWork.Repository<Notification>().TableNoTracking
+                    .Where(n => n.EntityId != null
+                                && batchIds.Contains(n.EntityId.Value)
+                                && (n.Title == ArrivalNotificationTitle
+                                    || n.Title == PartialArrivalNotificationTitle
+                                    || n.Title == QcRejectionNotificationTitle))
+                    .Select(n => new { n.EntityId, n.OwnerId, n.Title, n.ViewPath, n.Body })
+                    .ToListAsync(cn);
+
+                existingNotifications.AddRange(batchRows.Select(n => (n.EntityId!.Value, n.OwnerId, n.Title, n.ViewPath, n.Body)));
+            }
+
+            var sentKeys = existingNotifications
+                .Select(n => (n.EntityId, n.OwnerId, n.Title, ReceiptKey: ExtractReceiptKey(n.ViewPath, n.Body) ?? LegacyReceiptKey))
+                .ToHashSet();
+
+            var eventsByPurchaseItem = newEvents
+                .GroupBy(e => e.PurchaseRequestItemID)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var createdCount = 0;
+            var skippedCount = 0;
+
+            foreach (var order in localOrders)
             {
                 try
                 {
-                    var order = localOrders.FirstOrDefault(x => x.PurchaseRequestItemId == evt.PurchaseRequestItemID && x.PurchaseRequestNumber.ToString() == evt.PurchaseRequestNumber && x.OrderRowId  == evt.SendRefNo);
-                    if (order == null) continue;
+                    if (!eventsByPurchaseItem.TryGetValue(order.PurchaseRequestItemId, out var orderEvents))
+                        continue;
 
-                    string? title = null;
-                    string? body = null;
+                    orderEvents = FilterEventsForOrder(order, orderEvents);
+                    if (orderEvents.Count == 0)
+                        continue;
 
-                    if (evt.InspctnFlag == 0 && !order.IsRejectedByInspection)
-                    {
-                        title = "عدم تایید کالا توسط QC";
-                        body = $"کالا با کد {evt.PartCode} مربوط به سفارش {evt.OrdNo} توسط واحد کیفیت رد شد. <br/> شرح: {evt.InspectionComment}";
-                        order.IsRejectedByInspection = true;
-                    }
-                    else if (evt.FinalVchItemId.HasValue)
-                    {
-                        if (order.RequiredQty == order.FactoredCount)
-                        {
-                            title = "رسید کالای درخواستی در انبار";
-                            body = $"کالای {evt.PartName} (سفارش {evt.OrdNo}) به مقدار {evt.FinalVchQty} رسید شد.";
-                        }
-                    }
+                    createdCount += await SendQcRejectionNotifications(order, orderEvents, userLookup, sentKeys, cn, incrementSkipped: () => skippedCount++);
 
-                    if (title != null)
-                    {
-                        var recipients = new List<string>();
-                        if (!string.IsNullOrEmpty(order.RequestedPersonelEmail)) recipients.AddRange(order.RequestedPersonelEmail.Split(';'));
-                        if (!string.IsNullOrEmpty(order.RequestedEngineeringPersonelEmail)) recipients.AddRange(order.RequestedEngineeringPersonelEmail.Split(';'));
-
-                        foreach (var email in recipients.Where(e => !string.IsNullOrWhiteSpace(e)))
-                        {
-                            var cleanEmail = email.Trim();
-                            var user = users.FirstOrDefault(u => u.Email != null && u.Email.Equals(cleanEmail, StringComparison.OrdinalIgnoreCase));
-                            if (user != null)
-                            {
-                                await unitOfWork.Repository<Notification>().AddAsync(new Notification
-                                {
-                                    Title = title,
-                                    Body = body,
-                                    EntityId = order.Id,
-                                    OwnerId = user.Id!.Value,
-                                    ViewPath = $"Panel/Sup/OpenOrderRequest/Edit/{order.Id}",
-                                    IsRead = false
-                                }, cn);
-                            }
-                        }
-                    }
+                    createdCount += await SendArrivalNotifications(order, orderEvents, userLookup, sentKeys, cn, incrementSkipped: () => skippedCount++);
                 }
                 catch (Exception ex)
                 {
                     if (logger != null)
-                    {
-                        await logger.LogInfoAsync($"Error creating notification for {evt.PurchaseRequestItemID}: {ex.Message}", cn);
-                    }
+                        await logger.LogInfoAsync($"Error creating notification for {order.PurchaseRequestItemId}: {ex.Message}", cn);
                 }
             }
+
             await unitOfWork.SaveChangesAsync(cn);
+            logger?.LogInfoAsync($"Notifications created={createdCount}, skipped(already sent)={skippedCount}");
+        }
+
+        private static List<HamkaranNotifyDto> FilterEventsForOrder(OpenOrderRequest order, List<HamkaranNotifyDto> events)
+        {
+            var prNumber = order.PurchaseRequestNumber.ToString();
+            var matches = events.Where(e =>
+                string.Equals((e.PurchaseRequestNumber ?? string.Empty).Trim(), prNumber, StringComparison.OrdinalIgnoreCase));
+
+            if (order.OrderRowId.HasValue)
+                matches = matches.Where(e => e.SendRefNo == order.OrderRowId);
+
+            return matches.ToList();
+        }
+
+        private async Task<int> SendQcRejectionNotifications(
+            OpenOrderRequest order,
+            List<HamkaranNotifyDto> orderEvents,
+            UserLookup userLookup,
+            HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
+            CancellationToken cn,
+            Action incrementSkipped)
+        {
+            if (order.IsRejectedByInspection)
+                return 0;
+
+            var rejectedItems = orderEvents.Where(e => e.InspctnFlag == 0).ToList();
+            if (rejectedItems.Count == 0)
+                return 0;
+
+            var recipientIds = ResolveRecipientUserIds(
+                order,
+                userLookup,
+                includeRequestedPersonnel: true,
+                extraEmails: QcRejectionExtraEmails,
+                includeSalesUnit: false,
+                includePairedExtras: false);
+
+            if (recipientIds.Count == 0)
+            {
+                order.IsRejectedByInspection = true;
+                return 0;
+            }
+
+            var body = BuildQcRejectionBody(order, rejectedItems);
+            var created = 0;
+
+            foreach (var userId in recipientIds)
+            {
+                if (WasNotificationAlreadySent(sentKeys, order.Id!.Value, userId, QcRejectionNotificationTitle, QcReceiptKey))
+                {
+                    incrementSkipped();
+                    continue;
+                }
+
+                await AddReceiptNotification(order, userId, QcRejectionNotificationTitle, body, QcReceiptKey, cn);
+                MarkNotificationSent(sentKeys, order.Id!.Value, userId, QcRejectionNotificationTitle, QcReceiptKey);
+                created++;
+            }
+
+            order.IsRejectedByInspection = true;
+            return created;
+        }
+
+        private async Task<int> SendArrivalNotifications(
+            OpenOrderRequest order,
+            List<HamkaranNotifyDto> orderEvents,
+            UserLookup userLookup,
+            HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
+            CancellationToken cn,
+            Action incrementSkipped)
+        {
+            var confirmedReceipts = orderEvents
+                .Where(e => e.FinalVchItemId.HasValue)
+                .GroupBy(e => e.FinalVchItemId!.Value)
+                .Select(g => g.First())
+                .ToList();
+
+            if (confirmedReceipts.Count == 0)
+                return 0;
+
+            var trackedPaperIds = ParsePaperIds(order.NotifyEmailSendPaperIds);
+            var newReceipts = confirmedReceipts
+                .Where(r => !IsReceiptAlreadyTracked(trackedPaperIds, r))
+                .ToList();
+
+            var isFullyReceived = order.RequiredQty == order.FactoredCount && order.FactoredCount > 0;
+
+            if (newReceipts.Count == 0)
+            {
+                if (isFullyReceived)
+                    MarkOrderFullyReceived(order, confirmedReceipts);
+                return 0;
+            }
+
+            var title = isFullyReceived ? ArrivalNotificationTitle : PartialArrivalNotificationTitle;
+
+            if (!isFullyReceived && order.FactoredCount <= 0)
+                return 0;
+
+            var extraEmails = isFullyReceived
+                ? ArrivalExtraEmails.Concat(GetPairedExtraEmails(order)).ToArray()
+                : new[] { "Saemian.r@havayar.com" };
+
+            var recipientIds = ResolveRecipientUserIds(
+                order,
+                userLookup,
+                includeRequestedPersonnel: true,
+                extraEmails: extraEmails,
+                includeSalesUnit: isFullyReceived,
+                includePairedExtras: isFullyReceived);
+
+            var created = 0;
+            var allowLegacyWildcard = trackedPaperIds.Count == 0;
+            var newlyTrackedKeys = new List<string>();
+
+            foreach (var receipt in newReceipts)
+            {
+                var receiptKey = GetReceiptKey(receipt);
+                var body = BuildArrivalBody(order, new[] { receipt });
+                var sentToAnyone = false;
+
+                foreach (var userId in recipientIds)
+                {
+                    if (WasArrivalAlreadySent(sentKeys, order.Id!.Value, userId, title, receiptKey, allowLegacyWildcard))
+                    {
+                        incrementSkipped();
+                        sentToAnyone = true;
+                        continue;
+                    }
+
+                    await AddReceiptNotification(order, userId, title, body, receiptKey, cn);
+                    MarkNotificationSent(sentKeys, order.Id!.Value, userId, title, receiptKey);
+                    sentToAnyone = true;
+                    created++;
+                }
+
+                if (sentToAnyone || (isFullyReceived && recipientIds.Count == 0))
+                    newlyTrackedKeys.AddRange(GetTrackablePaperIds(receipt));
+            }
+
+            if (newlyTrackedKeys.Count > 0)
+            {
+                foreach (var key in newlyTrackedKeys)
+                    trackedPaperIds.Add(key);
+
+                order.NotifyEmailSendPaperIds = TruncatePaperIds(string.Join("|", trackedPaperIds));
+                order.NotifyEmailRequestedPersonel = recipientIds.Count > 0;
+            }
+
+            if (isFullyReceived)
+                MarkOrderFullyReceived(order, newReceipts);
+
+            return created;
+        }
+
+        private static void MarkOrderFullyReceived(OpenOrderRequest order, List<HamkaranNotifyDto> receipts)
+        {
+            var now = DateTime.Now;
+            var factoredDate = receipts.Select(r => r.FactoredDate).FirstOrDefault(d => d.HasValue) ?? now;
+            order.IsDeleted = true;
+            order.IsDeletedMiladiDate = now;
+            order.IsDeletedShamsiDate = now.ToShamsiDateTime();
+            order.FactoredMiladiDate = factoredDate;
+            order.FactoredShamsiDate = factoredDate.ToShamsiDate();
+            if (string.IsNullOrEmpty(order.CompletionShamsiDate))
+            {
+                order.CompletionMiladiDate = factoredDate;
+                order.CompletionShamsiDate = factoredDate.ToShamsiDate();
+            }
+        }
+
+        private async Task AddReceiptNotification(
+            OpenOrderRequest order,
+            long userId,
+            string title,
+            string body,
+            string receiptKey,
+            CancellationToken cn)
+        {
+            await unitOfWork.Repository<Notification>().AddAsync(new Notification
+            {
+                Type = NotificationType.Email,
+                Title = title,
+                Body = $"{body}{ReceiptBodyMarkerPrefix}{receiptKey}-->",
+                EntityId = order.Id,
+                OwnerId = userId,
+                ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={order.Id}&{ReceiptQueryParam}{receiptKey}",
+                IsRead = false
+            }, cn);
+        }
+
+        private static bool WasNotificationAlreadySent(
+            HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
+            long entityId,
+            long ownerId,
+            string title,
+            string receiptKey)
+        {
+            return sentKeys.Contains((entityId, ownerId, title, receiptKey));
+        }
+
+        private static bool WasArrivalAlreadySent(
+            HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
+            long entityId,
+            long ownerId,
+            string title,
+            string receiptKey,
+            bool allowLegacyWildcard)
+        {
+            if (WasNotificationAlreadySent(sentKeys, entityId, ownerId, title, receiptKey)
+                || WasNotificationAlreadySent(sentKeys, entityId, ownerId, ArrivalNotificationTitle, receiptKey)
+                || WasNotificationAlreadySent(sentKeys, entityId, ownerId, PartialArrivalNotificationTitle, receiptKey))
+                return true;
+
+            if (!allowLegacyWildcard)
+                return false;
+
+            return sentKeys.Contains((entityId, ownerId, ArrivalNotificationTitle, LegacyReceiptKey))
+                   || sentKeys.Contains((entityId, ownerId, PartialArrivalNotificationTitle, LegacyReceiptKey))
+                   || sentKeys.Contains((entityId, ownerId, title, LegacyReceiptKey));
+        }
+
+        private static void MarkNotificationSent(
+            HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
+            long entityId,
+            long ownerId,
+            string title,
+            string receiptKey)
+        {
+            sentKeys.Add((entityId, ownerId, title, receiptKey));
+        }
+
+        private static HashSet<string> ParsePaperIds(string? paperIds)
+        {
+            if (string.IsNullOrWhiteSpace(paperIds))
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            return paperIds
+                .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static bool IsReceiptAlreadyTracked(HashSet<string> trackedPaperIds, HamkaranNotifyDto receipt)
+        {
+            if (receipt.FinalVchItemId.HasValue && trackedPaperIds.Contains(receipt.FinalVchItemId.Value.ToString()))
+                return true;
+
+            return !string.IsNullOrWhiteSpace(receipt.SendNo) && trackedPaperIds.Contains(receipt.SendNo.Trim());
+        }
+
+        private static string GetReceiptKey(HamkaranNotifyDto receipt)
+        {
+            if (receipt.FinalVchItemId.HasValue)
+                return receipt.FinalVchItemId.Value.ToString();
+
+            return string.IsNullOrWhiteSpace(receipt.SendNo) ? LegacyReceiptKey : receipt.SendNo.Trim();
+        }
+
+        private static IEnumerable<string> GetTrackablePaperIds(HamkaranNotifyDto receipt)
+        {
+            if (receipt.FinalVchItemId.HasValue)
+                yield return receipt.FinalVchItemId.Value.ToString();
+
+            if (!string.IsNullOrWhiteSpace(receipt.SendNo))
+                yield return receipt.SendNo.Trim();
+        }
+
+        private static string TruncatePaperIds(string value)
+        {
+            const int maxLength = 2048;
+            if (value.Length <= maxLength)
+                return value;
+
+            var parts = value.Split('|');
+            var builder = new StringBuilder();
+            for (var i = parts.Length - 1; i >= 0; i--)
+            {
+                var next = parts[i];
+                if (builder.Length == 0)
+                {
+                    if (next.Length <= maxLength)
+                        builder.Insert(0, next);
+                    continue;
+                }
+
+                if (builder.Length + 1 + next.Length > maxLength)
+                    break;
+
+                builder.Insert(0, next + "|");
+            }
+
+            return builder.ToString();
+        }
+
+        private static string? ExtractReceiptKey(string? viewPath, string? body)
+        {
+            if (!string.IsNullOrEmpty(viewPath))
+            {
+                var idx = viewPath.IndexOf(ReceiptQueryParam, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    var start = idx + ReceiptQueryParam.Length;
+                    var end = viewPath.IndexOf('&', start);
+                    var key = end < 0 ? viewPath[start..] : viewPath[start..end];
+                    if (!string.IsNullOrWhiteSpace(key))
+                        return key.Trim();
+                }
+            }
+
+            if (!string.IsNullOrEmpty(body))
+            {
+                var idx = body.IndexOf(ReceiptBodyMarkerPrefix, StringComparison.Ordinal);
+                if (idx >= 0)
+                {
+                    var start = idx + ReceiptBodyMarkerPrefix.Length;
+                    var end = body.IndexOf("-->", start, StringComparison.Ordinal);
+                    if (end > start)
+                        return body[start..end].Trim();
+                }
+            }
+
+            return null;
+        }
+
+        private sealed class UserLookup
+        {
+            public Dictionary<string, User> ByEmail { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, User> ByUsername { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static UserLookup BuildUserLookup(List<User> users)
+        {
+            var lookup = new UserLookup();
+            foreach (var user in users.Where(u => u.Id.HasValue))
+            {
+                if (!string.IsNullOrWhiteSpace(user.Email) && !lookup.ByEmail.ContainsKey(user.Email))
+                    lookup.ByEmail[user.Email.Trim()] = user;
+
+                if (!string.IsNullOrWhiteSpace(user.Username) && !lookup.ByUsername.ContainsKey(user.Username))
+                    lookup.ByUsername[user.Username.Trim()] = user;
+            }
+
+            return lookup;
+        }
+
+        private static User? FindUser(UserLookup lookup, string emailOrUsername)
+        {
+            var clean = emailOrUsername.Trim();
+            if (clean.Length == 0)
+                return null;
+
+            if (lookup.ByEmail.TryGetValue(clean, out var byEmail))
+                return byEmail;
+
+            var username = clean.Contains('@') ? clean.Split('@')[0] : clean;
+            if (lookup.ByUsername.TryGetValue(username, out var byUsername))
+                return byUsername;
+
+            if (!clean.Contains('@', StringComparison.Ordinal) && lookup.ByEmail.TryGetValue(username + "@havayar.com", out var byConstructedEmail))
+                return byConstructedEmail;
+
+            return null;
+        }
+
+        private static HashSet<long> ResolveRecipientUserIds(
+            OpenOrderRequest order,
+            UserLookup userLookup,
+            bool includeRequestedPersonnel,
+            IEnumerable<string>? extraEmails,
+            bool includeSalesUnit,
+            bool includePairedExtras)
+        {
+            var ids = new HashSet<long>();
+
+            if (includeRequestedPersonnel)
+            {
+                AddUserIdsFromEmails(ids, userLookup, order.RequestedPersonelEmail);
+                AddUserIdsFromEmails(ids, userLookup, order.RequestedEngineeringPersonelEmail);
+                AddUserIds(ids, order.RequestedPersonelIds);
+                AddUserIds(ids, order.RequestedEngineeringPersonelIds);
+            }
+
+            if (includeSalesUnit)
+            {
+                AddUserId(ids, order.SalesUnitSalesExpertId);
+                AddUserId(ids, order.SalesUnitSalesManagerId);
+                AddUserId(ids, order.SalesUnitProjectManagerId);
+            }
+
+            if (extraEmails != null)
+                AddUserIdsFromEmails(ids, userLookup, string.Join(";", extraEmails));
+
+            if (includePairedExtras)
+                AddUserIdsFromEmails(ids, userLookup, string.Join(";", GetPairedExtraEmails(order)));
+
+            return ids;
+        }
+
+        private static IEnumerable<string> GetPairedExtraEmails(OpenOrderRequest order)
+        {
+            var emails = $"{order.RequestedPersonelEmail};{order.RequestedEngineeringPersonelEmail}".ToLowerInvariant();
+            if (emails.Contains("asadpour.h"))
+                yield return "khodabandeh.f@havayar.com";
+            else if (emails.Contains("khodabandeh.f"))
+                yield return "asadpour.h@havayar.com";
+            else if (emails.Contains("vahedian.s"))
+                yield return "daneshmandi.m@havayar.com";
+        }
+
+        private static void AddUserIdsFromEmails(HashSet<long> ids, UserLookup lookup, string? emails)
+        {
+            if (string.IsNullOrWhiteSpace(emails))
+                return;
+
+            foreach (var part in emails.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var user = FindUser(lookup, part);
+                if (user?.Id != null)
+                    ids.Add(user.Id.Value);
+            }
+        }
+
+        private static void AddUserIds(HashSet<long> ids, List<long>? source)
+        {
+            if (source == null)
+                return;
+
+            foreach (var id in source.Where(x => x > 0))
+                ids.Add(id);
+        }
+
+        private static void AddUserId(HashSet<long> ids, long? id)
+        {
+            if (id.HasValue && id.Value > 0)
+                ids.Add(id.Value);
+        }
+
+        private static string BuildArrivalBody(OpenOrderRequest order, IEnumerable<HamkaranNotifyDto> receipts)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("<div style='text-align:center;direction:rtl'>");
+            sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>");
+            sb.AppendLine("<tr style='background: #000aa0'><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td></tr>");
+            sb.AppendLine("<tr><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#1F497D;text-align:right;direction:rtl'>");
+            sb.AppendLine("با سلام و احترام <br />");
+            sb.AppendLine("کاربر گرامی کالای درخواستی شما طبق مشخصات ذیل وارد کارخانه شد</br></br>");
+
+            foreach (var receipt in receipts)
+            {
+                var sendDate = receipt.SendDate.HasValue ? receipt.SendDate.Value.ToShamsiDate() : "-";
+                sb.AppendLine("<ul style='margin-bottom:20px'>");
+                sb.AppendLine($"<li>شماره درخواست : <strong>{receipt.PurchaseRequestNumber ?? order.PurchaseRequestNumber.ToString()}</strong></li>");
+                sb.AppendLine($"<li>کد کالا : <strong>{receipt.PartCode}</strong></li>");
+                sb.AppendLine($"<li>شرح کالا : <strong>{receipt.PartName}</strong></li>");
+                sb.AppendLine($"<li>توضیح کلی : <strong>{order.OrderItemComment}</strong></li>");
+                sb.AppendLine($"<li>تاریخ ارسال : <strong>{sendDate}</strong></li>");
+                sb.AppendLine($"<li>تعداد/مقدار : <strong>{receipt.SendQty ?? receipt.FinalVchQty}</strong></li>");
+                sb.AppendLine($"<li>توضیح قلم : <strong>{receipt.Comment}</strong></li>");
+                sb.AppendLine("</ul>");
+            }
+
+            sb.AppendLine("</div></td></tr></table></div>");
+            return sb.ToString();
+        }
+
+        private static string BuildQcRejectionBody(OpenOrderRequest order, List<HamkaranNotifyDto> rejectedItems)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("<div style='direction:rtl;text-align:right;padding:5px; margin:5px; font-family:tahoma; font-size: 11pt'>");
+            sb.AppendLine($"کاربر گرامی، کالا با مشخصات ذیل، مربوط به سفارش ({rejectedItems[0].OrdNo ?? order.OrderNo?.ToString()}) توسط واحد کیفیت رد شد<br>");
+
+            foreach (var item in rejectedItems)
+            {
+                var sendDate = item.SendDate.HasValue ? item.SendDate.Value.ToShamsiDate() : "-";
+                sb.AppendLine("<ul>");
+                sb.AppendLine($"<li>کد کالا : <strong>{item.PartCode}</strong></li>");
+                sb.AppendLine($"<li>شرح کالا : <strong>{item.PartName}</strong></li>");
+                sb.AppendLine($"<li>تامین کننده : <strong>{item.DlTempTitle}</strong></li>");
+                sb.AppendLine($"<li>شرح واحد کیفیت : <strong>{item.InspectionComment}</strong></li>");
+                sb.AppendLine($"<li>شماره برگه ارسال : <strong>{item.SendNo}</strong></li>");
+                sb.AppendLine($"<li>تاریخ ارسال : <strong>{sendDate}</strong></li>");
+                sb.AppendLine($"<li>تعداد/مقدار : <strong>{item.SendQty}</strong></li>");
+                sb.AppendLine($"<li>توضیح قلم : <strong>{item.Comment}</strong></li>");
+                sb.AppendLine("</ul><br /><br /><br />");
+            }
+
+            sb.AppendLine("</div>");
+            return sb.ToString();
+        }
+
+        private async Task AutoAcceptEngineeringForRoutineParts(IJobLogger? logger, CancellationToken cn)
+        {
+            try
+            {
+                logger?.LogInfoAsync("Starting auto engineering accept for routine parts...");
+
+                var documentTypes = new[]
+                {
+                    PartDocumentTypeEnum.Data_Sheet,
+                    PartDocumentTypeEnum.Detail_Drawing,
+                    PartDocumentTypeEnum.Wiring_Diagram,
+                    PartDocumentTypeEnum.Technical_Documents
+                };
+
+                var partIdsWithRequiredDocs = await unitOfWork.Repository<Part>().TableNoTracking
+                    .Where(p => p.Documents.Any(d => d.Main == true && d.Type != null && documentTypes.Contains(d.Type.Value)))
+                    .Select(p => p.Id!.Value)
+                    .ToListAsync(cn);
+
+                var partIdsNotNeedingDocs = await unitOfWork.Repository<Part>().TableNoTracking
+                    .Where(p => p.DocumentsNotRequired)
+                    .Select(p => p.Id!.Value)
+                    .ToListAsync(cn);
+
+                var eligiblePartIds = partIdsWithRequiredDocs.Union(partIdsNotNeedingDocs).ToHashSet();
+                if (eligiblePartIds.Count == 0)
+                {
+                    logger?.LogInfoAsync("No eligible parts for auto engineering accept.");
+                    return;
+                }
+
+                var orders = await unitOfWork.Repository<OpenOrderRequest>().Table
+                    .Include(o => o.Part)
+                    .ThenInclude(p => p!.BuyCategory)
+                    .Where(o => !o.IsDeleted
+                                && !o.IsForceDeletedByUser
+                                && !o.EngineeringAccept
+                                && eligiblePartIds.Contains(o.PartId))
+                    .ToListAsync(cn);
+
+                if (orders.Count == 0)
+                {
+                    logger?.LogInfoAsync("No open orders pending auto engineering accept.");
+                    return;
+                }
+
+                var partIds = orders.Select(o => o.PartId).Distinct().ToList();
+                var leadTimes = await unitOfWork.Repository<LeadTime>().TableNoTracking
+                    .Where(lt => lt.PartId != null && partIds.Contains(lt.PartId.Value))
+                    .ToListAsync(cn);
+                var leadTimeByPart = leadTimes
+                    .GroupBy(lt => lt.PartId!.Value)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var lastDocumentCreators = await unitOfWork.Repository<Part>().TableNoTracking
+                    .Where(p => partIds.Contains(p.Id!.Value))
+                    .SelectMany(p => p.Documents
+                        .Where(d => d.Main == true && d.Type != null && documentTypes.Contains(d.Type.Value))
+                        .Select(d => new { PartId = p.Id!.Value, d.Id, d.CreatedById }))
+                    .ToListAsync(cn);
+                var lastCreatorByPart = lastDocumentCreators
+                    .GroupBy(d => d.PartId)
+                    .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First().CreatedById);
+
+                var industrialUserIds = await dbContext.NotificationGroupMembers
+                    .AsNoTracking()
+                    .Where(m => m.NotificationGroup.Code == "Sup.OpenOrderRequest.Industrial"
+                                && m.IsActive == IsActiveEnum.Active)
+                    .Select(m => m.UserId)
+                    .ToListAsync(cn);
+
+                var now = DateTime.Now;
+                var acceptedCount = 0;
+
+                foreach (var order in orders)
+                {
+                    var notNeedDocuments = order.Part?.DocumentsNotRequired == true;
+                    long? engineeringUserId = notNeedDocuments ? 1 : lastCreatorByPart.GetValueOrDefault(order.PartId);
+                    if (!notNeedDocuments && engineeringUserId is null or <= 0)
+                        continue;
+
+                    order.Changed = true;
+                    order.EngineeringAccept = true;
+                    order.EngineeringAcceptUserId = engineeringUserId;
+                    order.EngineeringConfirmationMiladiDateTime = now;
+                    order.EngineeringAcceptShamsiDateTime = now.ToShamsiDateTime();
+                    order.IsAcceptedAutomaticallyByEngineering = true;
+
+                    if (leadTimeByPart.TryGetValue(order.PartId, out var leadTime) && leadTime.LeadTimeDay > 0)
+                    {
+                        order.SupplyMiladiDate = now.AddDays(leadTime.LeadTimeDay);
+                        order.SupplyShamsiDate = order.SupplyMiladiDate.Value.ToShamsiDate();
+                    }
+
+                    var recipientIds = new HashSet<long>();
+                    if (order.Part?.BuyCategory?.PurchaseResponsibleId is > 0)
+                        recipientIds.Add(order.Part.BuyCategory.PurchaseResponsibleId.Value);
+
+                    foreach (var industrialId in industrialUserIds)
+                        recipientIds.Add(industrialId);
+
+                    var body = BuildAutoEngineeringAcceptBody(order);
+                    foreach (var userId in recipientIds)
+                    {
+                        await unitOfWork.Repository<Notification>().AddAsync(new Notification
+                        {
+                            Type = NotificationType.Email,
+                            Title = AutoEngineeringAcceptTitle,
+                            Body = body,
+                            EntityId = order.Id,
+                            OwnerId = userId,
+                            ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={order.Id}",
+                            IsRead = false
+                        }, cn);
+                    }
+
+                    acceptedCount++;
+                }
+
+                await unitOfWork.SaveChangesAsync(cn);
+                logger?.LogInfoAsync($"Auto engineering accept completed. Accepted={acceptedCount}");
+            }
+            catch (Exception ex)
+            {
+                if (logger != null)
+                    await logger.LogInfoAsync($"Error in AutoAcceptEngineeringForRoutineParts: {ex.Message}", cn);
+            }
+        }
+
+        private static string BuildAutoEngineeringAcceptBody(OpenOrderRequest order)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("<div style='width: 100%;text-align:center;direction:rtl'>");
+            sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' width='100%'>");
+            sb.AppendLine("<tr style='background: #000aa0'><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td></tr>");
+            sb.AppendLine("<tr><td>");
+            sb.AppendLine("بدینوسیله اعلام میگردد، مدرک/مدارک جدیدی جهت درخواست باز، با مشخصات ذیل آپلود گردید");
+            sb.AppendLine("<br><br>شما می توانید با مراجعه به سیستم جامع / سیستم تدارکات / عملیات / درخواست های باز / پیوست مدارک از جزییات آن اطلاع یابید<br><br>");
+            sb.AppendLine("<ul>");
+            sb.AppendLine($"<li>شماره درخواست : <strong>{order.PurchaseRequestNumber}</strong></li>");
+            sb.AppendLine($"<li>شماره سفارش : <strong>{order.OrderNo}</strong></li>");
+            if (order.IsStop)
+                sb.AppendLine("<li>وضعیت درخواست : <strong style='color:red'>متوقف شده</strong></li>");
+            sb.AppendLine($"<li>کد کالا : <strong>{order.Part?.Code}</strong></li>");
+            sb.AppendLine($"<li>عنوان کالا : <strong>{order.Part?.Name}</strong></li>");
+            sb.AppendLine("</ul></td></tr></table></div>");
+            return sb.ToString();
         }
 
         private async Task ComputeOpenOrderRequest(string yearNumbers, IJobLogger? logger, CancellationToken cn)
@@ -499,22 +1197,31 @@ namespace App.BackgroundJob.Jobs.Sup
                 }
 
                 // 7. State-based Deletion (PurchaseRequestItemStatus IN 5,6,9 = terminated/cancelled)
-                var terminatedItemIds = allOrderItemsWithState
-                    .Where(x => x.PurchaseRequestItemStatus != null && (x.PurchaseRequestItemStatus == 5 || x.PurchaseRequestItemStatus == 6 || x.PurchaseRequestItemStatus == 9))
-                    .Select(x => x.PurchaseRequestItemId)
-                    .ToHashSet();
-
-                foreach (var local in localOrders)
+                //    and items that no longer exist in Rahkaran at all
+                if (allOrderItemsWithState.Count > 0)
                 {
-                    if (terminatedItemIds.Contains(local.PurchaseRequestItemId) && !local.IsDeleted && !local.IsForceDeletedByUser)
+                    var terminatedItemIds = allOrderItemsWithState
+                        .Where(x => x.PurchaseRequestItemStatus != null && (x.PurchaseRequestItemStatus == 5 || x.PurchaseRequestItemStatus == 6 || x.PurchaseRequestItemStatus == 9))
+                        .Select(x => x.PurchaseRequestItemId)
+                        .ToHashSet();
+
+                    var allItemIds = allOrderItemsWithState.Select(x => x.PurchaseRequestItemId).ToHashSet();
+                    var cutoff = new DateTime(2023, 3, 20);
+
+                    foreach (var local in localOrders)
                     {
-                        // Check date filter
-                        if (local.PurchaseRequestMiladiDate.HasValue && local.PurchaseRequestMiladiDate.Value > new DateTime(2023, 3, 20))
+                        if (local.IsDeleted || local.IsForceDeletedByUser)
+                            continue;
+
+                        if (!local.PurchaseRequestMiladiDate.HasValue || local.PurchaseRequestMiladiDate.Value <= cutoff)
+                            continue;
+
+                        if (terminatedItemIds.Contains(local.PurchaseRequestItemId) || !allItemIds.Contains(local.PurchaseRequestItemId))
                         {
                             local.IsDeleted = true;
-							local.IsDeletedMiladiDate = now;
-							local.IsDeletedShamsiDate = now.ToShamsiDateTime();
-						}
+                            local.IsDeletedMiladiDate = now;
+                            local.IsDeletedShamsiDate = now.ToShamsiDateTime();
+                        }
                     }
                 }
 
@@ -560,10 +1267,11 @@ namespace App.BackgroundJob.Jobs.Sup
                     }
                 }
 
-                // 10. Update IsRoutineRequest
-                // Note: IsRoutineRequest is non-nullable bool with default false in new system
-                // Legacy logic: IsRoutineRequest = (SalesUnitProjectManagerId IS NULL)
-                // Skipping as it's already set to default false in entity
+                // 10. Update IsRoutineRequest — معادل SP قدیم: بدون مدیر پروژه = روتین
+                foreach (var local in localOrders)
+                {
+                    local.IsRoutineRequest = !local.SalesUnitProjectManagerId.HasValue;
+                }
 
                 await unitOfWork.SaveChangesAsync(cn);
 
@@ -947,6 +1655,9 @@ SELECT
         private async Task<List<HamkaranNotifyDto>> GetNewInvVchForNotify(string yearNumbers)
         {
             var sql = $@"
+IF OBJECT_ID('tempdb..#ReceiptPermitItems') IS NOT NULL
+	DROP TABLE #ReceiptPermitItems
+
 SELECT ReceiptPermitItemID , ReferenceRef 
 INTO #ReceiptPermitItems
 FROM Erps.LGS3.ReceiptPermitItem
@@ -957,8 +1668,9 @@ PurchaseRequest.Number AS PurchaseRequestNumber,
 
 InventoryVoucherItem.InventoryVoucherItemID AS VchItmID,
 OrderItem.OrderItemID AS SendRefNo,
-Delivery.Number AS SendNo ,
+CAST(Delivery.Number AS NVARCHAR(80)) AS SendNo ,
 [ORDER].Number AS OrdNo,
+Delivery.DeliveryDate AS SendDate,
 
 Part.Code AS PartCode,
 Part.Name AS PartName,
@@ -1091,12 +1803,18 @@ WHERE
             public string? PurchaseRequestNumber { get; set; }
             public long? FinalVchItemId { get; set; }
             public long? SendRefNo { get; set; }
+            public string? SendNo { get; set; }
             public string? OrdNo { get; set; }
+            public DateTime? SendDate { get; set; }
             public string? PartCode { get; set; }
             public string? PartName { get; set; }
+            public string? Comment { get; set; }
             public int? InspctnFlag { get; set; }
             public string? InspectionComment { get; set; }
+            public decimal? SendQty { get; set; }
             public decimal? FinalVchQty { get; set; }
+            public DateTime? FactoredDate { get; set; }
+            public string? DlTempTitle { get; set; }
         }
 
         private class AllOrderItemDto

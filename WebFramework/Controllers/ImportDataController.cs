@@ -25,12 +25,21 @@ namespace WebFramework.Controllers
 		private readonly IImportRepository _repo;
 		private readonly string _connectionString;
 		private readonly ISdk _sdk;
+		private readonly IHttpClientFactory _httpClientFactory;
+		private readonly IHttpContextAccessor _httpContextAccessor;
 
-		public ImportDataController(IImportRepository repo, IConfiguration config, ISdk sdk)
+		public ImportDataController(
+			IImportRepository repo,
+			IConfiguration config,
+			ISdk sdk,
+			IHttpClientFactory httpClientFactory,
+			IHttpContextAccessor httpContextAccessor)
 		{
 			_repo = repo;
 			_connectionString = config.GetConnectionString("Db");
 			_sdk = sdk;
+			_httpClientFactory = httpClientFactory;
+			_httpContextAccessor = httpContextAccessor;
 		}
 
 		[HttpGet("/panel/importData/list")]
@@ -97,7 +106,7 @@ namespace WebFramework.Controllers
 		}
 	 
 		[HttpPost("/panel/importData/import")]
-		public IActionResult Import(ImportDataFromExcellViewModel model)  
+		public async Task<IActionResult> Import(ImportDataFromExcellViewModel model, CancellationToken cancellationToken)  
 		{
 			if (model.excelFile == null || model.excelFile.Length == 0)
 				return BadRequest(new { success = false, message = "فایل انتخاب نشده است." });
@@ -129,23 +138,44 @@ namespace WebFramework.Controllers
 					rows = ExcelImportHelper.ReadExcel(stream);
 
 				if (rows.Count == 0)
-					return Ok(new { success = true, totalRows = 0, successRows = 0, failedRows = 0, logId = 0, rolledBack = false });
+					return Ok(new { success = true, totalRows = 0, successRows = 0, failedRows = 0, logId = 0, rolledBack = false, importType = def.ImportType, apiCallMode = def.ApiCallMode });
 
-				 
+				ImportLog log;
 
-				var executor = new ImportExecutor(_connectionString, _sdk);
-				var log = executor.ExecuteImport(def, rows, mapping, model.rollbackOnError);
+				if (def.ImportType == ImportSourceType.Api)
+				{
+					var apiExecutor = new ApiImportExecutor(_httpClientFactory, _httpContextAccessor, _sdk);
+					log = await apiExecutor.ExecuteImportAsync(def, rows, mapping, cancellationToken);
+					log.RolledBack = false;
+				}
+				else
+				{
+					var executor = new ImportExecutor(_connectionString, _sdk);
+					log = executor.ExecuteImport(def, rows, mapping, model.rollbackOnError);
+				}
+
 				log.FileName = model.excelFile.FileName;
 
 				// ذخیره لاگ
 				var logId = _repo.SaveImportLog(log);
+				foreach (var d in log.Details)
+					d.ImportLogId = (int)logId;
 				_repo.SaveImportLogDetails(logId, log.Details);
 
 				// آماده‌سازی پاسخ
 				var failedDetails = log.Details
 				    .Where(d => !d.Success)
-				    .Select(d => new { d.RowNumber, d.ErrorMessage })
+				    .Select(d => new { d.RowNumber, d.ErrorMessage, d.ResponseJson })
 				    .ToList();
+
+				var successDetails = log.Details
+					.Where(d => d.Success && !string.IsNullOrWhiteSpace(d.ResponseJson))
+					.Select(d => new { d.RowNumber, d.ResponseJson })
+					.ToList();
+
+				var rowResponses = log.Details
+					.Select(d => new { d.RowNumber, d.Success, d.ErrorMessage, d.ResponseJson })
+					.ToList();
 
 				return Ok(new
 				{
@@ -155,7 +185,12 @@ namespace WebFramework.Controllers
 					successRows = log.SuccessRows,
 					failedRows = log.FailedRows,
 					rolledBack = log.RolledBack,
-					failedDetails
+					importType = def.ImportType,
+					apiCallMode = def.ApiCallMode,
+					batchResponseJson = log.BatchResponseJson,
+					failedDetails,
+					successDetails,
+					rowResponses
 				});
 			}
 			catch (Exception ex)

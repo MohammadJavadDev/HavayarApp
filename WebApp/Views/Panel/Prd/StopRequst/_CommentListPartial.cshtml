@@ -1,0 +1,34 @@
+@using Common.Utilities
+@using Entities.App.Prd
+@model List<StopRequstComment>
+
+@if (Model != null && Model.Any())
+{
+	<div class="table-responsive">
+		<table class="table table-striped table-bordered table-hover">
+			<thead>
+				<tr>
+					<th>وضعیت</th>
+					<th>توضیحات</th>
+					<th>کاربر</th>
+					<th>تاریخ</th>
+				</tr>
+			</thead>
+			<tbody>
+				@foreach (var c in Model.OrderByDescending(x => x.CreatedOnMiladiDateTime))
+				{
+					<tr>
+						<td>@(c.Status?.ToDisplay() ?? "-")</td>
+						<td>@c.Description</td>
+						<td>@c.CreatedByName</td>
+						<td style="direction:ltr;text-align:right">@c.CreatedOnShamsiDateTime</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+else
+{
+	<div class="alert alert-info mb-0"><i class="fa fa-info-circle"></i> هیچ سابقه‌ای ثبت نشده است</div>
+}

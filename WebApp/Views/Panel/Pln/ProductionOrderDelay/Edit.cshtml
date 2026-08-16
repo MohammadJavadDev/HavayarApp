@@ -1,17 +1,36 @@
+@using Common.Utilities
 @using Entities.App.Pln;
+@using Entities.App.Pln.Enums
 @using Entities.App.Sale;
 @model ProductionOrderDelay
+@{
+	var isEdit = Model?.Id != null && Model.Id > 0;
+	var hasLockedProductionOrder = !isEdit && Model?.ProductionOrderId != null && Model.ProductionOrderId > 0;
+	var existingDelays = ViewBag.ExistingDelays as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
+	var calculatedRangeJson = ViewBag.CalculatedDelayRange != null
+		? System.Text.Json.JsonSerializer.Serialize(ViewBag.CalculatedDelayRange)
+		: "null";
+}
 <div class="card">
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductionOrderDelay)"></form-action-buttons></div>
 </div>
-<div class="card">
+<div class="card my-3">
 	<div class="card-body row">
+		<span class="section-box-title">اطلاعات اصلی</span>
 		<div class="col-12 mb-4">
-			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
+
+			@if (hasLockedProductionOrder)
+			{
+				<span class="badge badge-light-primary">ثبت با شناسه سفارش ساخت</span>
+			}
+			else if (!isEdit)
+			{
+				<span class="badge badge-light-info">ثبت جدید</span>
+			}
 		</div>
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class=''>سفارش ساخت</label>
 			@(Html.EntitySelector<ProductionOrder>(
 				"ProductionOrderSelector",
@@ -25,60 +44,136 @@
 				"{Number}",
 				"ProductionOrderId",
 				"ProductionOrderName",
-				Model?.ProductionOrderId?.ToString()
+				Model?.ProductionOrderId?.ToString(),
+				required: true,
+				_readonly: hasLockedProductionOrder
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class="col-md-6">
-			<label class=''>قلم سفارش ساخت</label>
-			@(Html.EntitySelector<ProductionOrderItem>(
-				"ProductionOrderItemSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsDeleted == false,
-				c => new
-				{
-					Id = c.Id,
-					ProductionOrderNumber = (long)c.ProductionOrder.ProductionOrderNumber,
-					c.Serial,
-					PartName = c.Part.Name,
-					PartCode = c.Part.Code,
-					PartId = c.PartId,
-					c.ProductionOrderId
-				},
-				c => new { c.ProductionOrder.ProductionOrderNumber },
-				"{ProductionOrderNumber}  || {Serial} || {PartCode} || {PartName}",
-				"ProductionOrderItemId",
-				"ProductionOrderItemName",
-				Model?.ProductionOrderItemId?.ToString()
-			))
+		<div class="col-md-6   form-group-inline">
+			<label>عامل توقف</label>
+			@{
+				var delayResponsibleItems = Html.GetEnumSelectList(typeof(DelayResponsibleEnum)).ToList();
+				var selectedResponsible = ((int)(Model?.DelayResponsible ?? 0)).ToString();
+				foreach (var item in delayResponsibleItems)
+					item.Selected = item.Value == selectedResponsible;
+			}
+			<select class="form-select" id="delayResponsibleSelect" data-bind="delayResponsible"
+				   asp-items="delayResponsibleItems">
+			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+	</div>
+	</div>
+<div class="card my-3">
+	<div class="card-body row">
+		<span class="section-box-title">دریافت‌کنندگان ایمیل این عامل توقف</span>
+ 
+		<div class="col-md-12 mb-3" id="responsibleUsersPanel" style="display:none;">
+
+			<div class="table-responsive">
+				<table class="table table-row-bordered table-sm align-middle mb-0">
+					<thead>
+						<tr class="fw-bold text-gray-800">
+							<th style="width:60px">#</th>
+							<th>نام کاربر</th>
+							<th>ایمیل</th>
+						</tr>
+					</thead>
+					<tbody id="responsibleUsersTableBody">
+						<tr class="empty-row">
+							<td colspan="3" class="text-center text-muted">کاربری تعریف نشده است</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+	</div>
+
+<div class="card my-3">
+	<div class="card-body row">
+	 
+		<span class="section-box-title">بازه تاخیر محاسبه‌شده سفارش ساخت</span>
+		<div class="col-md-12 mb-4" id="calculatedDelayRangePanel" style="display:none;">
+			<div class="alert alert-light border mb-0">
+				<div class="row g-3">
+					<div class="col-md-3">
+						<span class="text-muted d-block">شماره سفارش ساخت</span>
+						<span class="fw-semibold text-primary" id="calcProductionOrderNumber">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">حداکثر تاریخ تحویل</span>
+						<span class="fw-semibold text-primary" id="calcMaxDeliverDateShamsi">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">تاریخ آماده‌سازی (قلم بیشترین تاخیر)</span>
+						<span class="fw-semibold text-primary" id="calcPreparationDateShamsi">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">وضعیت آماده‌سازی</span>
+						<span class="fw-semibold text-primary" id="calcPreparationStatus">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">تاخیر محاسبه‌شده (روز)</span>
+						<span class="fw-semibold text-primary" id="calcDelayDay">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">تاخیر ثبت‌شده (روز)</span>
+						<span class="fw-semibold text-primary" id="calcRegisteredDelayDays">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">نیاز به ثبت تاخیر (روز)</span>
+						<span class="fw-semibold text-primary" id="calcNeedsDelayRegistrationDays">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">اقلام بدون آماده‌سازی / کل اقلام</span>
+						<span class="fw-semibold text-primary" id="calcItemsSummary">-</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+	</div>
+</div>
+
+<div class="card my-3">
+	<div class="card-body row">
+		<span class="section-box-title">اطلاعات تکمیلی</span>
+		<div class='col-md-6 form-group-inline'>
+			<label class=''> تاریخ شروع </label>
+			<input class='form-control ltr' id="delayStartDate" data-bind='delayStartShamsiDate' value='@Model?.DelayStartMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 form-group-inline'>
+			<label class=''> تاریخ پایان </label>
+			<input class='form-control ltr' id="delayEndDate" data-bind='delayEndShamsiDate' value='@Model?.DelayEndMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>تعداد روز تاخیر</label>
-			<input class='form-control' data-bind='delayDays' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DelayDays' />
+			<input class='form-control' id="delayDaysInput" data-bind='delayDays' readonly value='@Model?.DelayDays' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>تاریخ میلادی شروع تاخیر</label>
-			<input class='form-control ltr' data-bind='delayStartMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.DelayStartMiladiDate' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		<div class="col-md-12  " id="dateOverlapWarning" style="display:none;">
+			<div class="alert alert-warning mb-3">
+				<i class="fa fa-exclamation-triangle me-1"></i>
+				<span id="dateOverlapWarningText">بازه تاریخ انتخاب‌شده با تاخیرهای ثبت‌شده قبلی هم‌پوشانی دارد.</span>
+			</div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>تاریخ میلادی پایان تاخیر</label>
-			<input class='form-control ltr' data-bind='delayEndMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.DelayEndMiladiDate' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class='col-md-12'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>علت تاخیر</label>
 			<textarea class='form-control' data-bind='delayReason' rows="3">@Model?.DelayReason</textarea>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-12'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>توضیحات</label>
 			<textarea class='form-control' data-bind='description' rows="3">@Model?.Description</textarea>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -87,8 +182,58 @@
 	</div>
 </div>
 
-<div class="card">
+</div>
+</div>
 
+<div class="card" id="existingDelaysCard">
+	<div class="card-body">
+		<div class="d-flex justify-content-between align-items-center mb-4">
+			<h3 class="section-box-title">تاخیرهای ثبت‌شده این سفارش ساخت</h3>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-striped table-bordered table-hover align-middle" id="existingDelaysTable">
+				<thead>
+					<tr>
+						<th>عامل توقف</th>
+						<th>تعداد روز</th>
+						<th>تاریخ شروع</th>
+						<th>تاریخ پایان</th>
+						<th>علت تاخیر</th>
+						<th>ثبت‌کننده</th>
+						<th>تاریخ ثبت</th>
+					</tr>
+				</thead>
+				<tbody id="existingDelaysTableBody">
+					@if (existingDelays.Any())
+					{
+						foreach (var delay in existingDelays)
+						{
+							<tr data-delay-id="@(delay.Id ?? 0)"
+								data-start="@(delay.DelayStartMiladiDate?.ToString("yyyy-MM-dd"))"
+								data-end="@(delay.DelayEndMiladiDate?.ToString("yyyy-MM-dd"))">
+								<td>@delay.DelayResponsible.ToDisplay()</td>
+								<td>@(delay.DelayDays?.ToString() ?? "-")</td>
+								<td>@(delay.DelayStartShamsiDate ?? "-")</td>
+								<td>@(delay.DelayEndShamsiDate ?? "-")</td>
+								<td>@(delay.DelayReason ?? "-")</td>
+								<td>@(delay.CreatedByName ?? "-")</td>
+								<td>@(delay.CreatedOnShamsiDateTime ?? "-")</td>
+							</tr>
+						}
+					}
+					else
+					{
+						<tr class="empty-row">
+							<td colspan="7" class="text-center text-muted">تاخیری برای این سفارش ساخت ثبت نشده است</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<div class="card">
 	<div class='card-body row'>
 		<div class='col-md-3'>
 			<span>ایجاد کننده :</span>
@@ -110,10 +255,359 @@
 </div>
 
 <script>
+	var currentDelayId = @(Model?.Id ?? 0);
+	var lockedProductionOrderId = @(hasLockedProductionOrder ? (Model.ProductionOrderId ?? 0) : 0);
+	var pageProductionOrderId = @(Model?.ProductionOrderId ?? 0);
+	var calculatedDelayRange = @Html.Raw(calculatedRangeJson);
+	var existingDelaysData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+		existingDelays.Select(d => new
+		{
+			id = d.Id,
+			delayResponsibleTitle = d.DelayResponsible.ToDisplay(),
+			delayDays = d.DelayDays,
+			delayStartMiladiDate = d.DelayStartMiladiDate,
+			delayStartShamsiDate = d.DelayStartShamsiDate,
+			delayEndMiladiDate = d.DelayEndMiladiDate,
+			delayEndShamsiDate = d.DelayEndShamsiDate,
+			delayReason = d.DelayReason,
+			createdByName = d.CreatedByName,
+			createdOnShamsiDateTime = d.CreatedOnShamsiDateTime
+		})
+	));
+
+	function escapeHtml(text) {
+		return $('<div/>').text(text == null ? '' : text).html();
+	}
+
+	function getProductionOrderId() {
+		if (lockedProductionOrderId && lockedProductionOrderId > 0)
+			return lockedProductionOrderId;
+
+		var val = page.$pageEl.find('[data-bind="productionOrderId"]').val()
+			|| page.$pageEl.find('#ProductionOrderSelector .entity-selector-value').val();
+		var id = parseInt(val, 10);
+		if (!isNaN(id) && id > 0)
+			return id;
+
+		return pageProductionOrderId > 0 ? pageProductionOrderId : 0;
+	}
+
+	function toDateOnly(value) {
+		if (!value) return null;
+
+		if (value instanceof Date && !isNaN(value.getTime())) {
+			return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+		}
+
+		if (typeof value === 'number' && !isNaN(value)) {
+			var fromUnix = new Date(value);
+			if (!isNaN(fromUnix.getTime())) {
+				return new Date(fromUnix.getFullYear(), fromUnix.getMonth(), fromUnix.getDate());
+			}
+			return null;
+		}
+
+		var str = String(value).trim();
+		if (!str) return null;
+
+		if (typeof MJUtil !== 'undefined' && MJUtil.shamsiToMiladi && str.indexOf('/') > -1) {
+			var parts = str.split(/[\sT]/);
+			var datePart = parts[0];
+			var dateSegments = datePart.split('/');
+			if (dateSegments.length === 3) {
+				var shamsiYear = parseInt(dateSegments[0], 10);
+				// سال شمسی معمولاً ۱۳۰۰ تا ۱۵۰۰ است
+				if (shamsiYear >= 1300 && shamsiYear < 1700) {
+					str = MJUtil.shamsiToMiladi(datePart);
+				}
+			}
+		}
+
+		var normalized = str.replace(/\//g, '-').split(/[\sT]/)[0];
+		var segs = normalized.split('-');
+		if (segs.length !== 3) return null;
+
+		var y = parseInt(segs[0], 10);
+		var m = parseInt(segs[1], 10);
+		var d = parseInt(segs[2], 10);
+		if (!y || !m || !d) return null;
+
+		return new Date(y, m - 1, d);
+	}
+
+	function dateFromUnix(unix) {
+		if (unix === null || unix === undefined || unix === '') return null;
+		var n = Number(unix);
+		if (isNaN(n)) return null;
+		// بعضی نسخه‌ها ثانیه می‌دهند
+		if (n < 100000000000) n = n * 1000;
+		var d = new Date(n);
+		if (isNaN(d.getTime())) return null;
+		return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+	}
+
+	function getInputSelectedDate($el) {
+		var stored = $el.data('selectedDate');
+		if (stored instanceof Date && !isNaN(stored.getTime())) {
+			return new Date(stored.getFullYear(), stored.getMonth(), stored.getDate());
+		}
+
+		var unix = $el.data('selectedUnix');
+		var fromUnix = dateFromUnix(unix);
+		if (fromUnix) return fromUnix;
+
+		return toDateOnly($el.val());
+	}
+
+	function setInputSelectedDate($el, unixOrDate) {
+		var date = unixOrDate instanceof Date ? toDateOnly(unixOrDate) : dateFromUnix(unixOrDate);
+		if (!date) {
+			$el.removeData('selectedDate');
+			$el.removeData('selectedUnix');
+			return null;
+		}
+		$el.data('selectedDate', date);
+		$el.data('selectedUnix', date.getTime());
+		return date;
+	}
+
+	function getProp(obj, camel, pascal) {
+		if (!obj) return null;
+		if (obj[camel] !== undefined && obj[camel] !== null) return obj[camel];
+		if (obj[pascal] !== undefined && obj[pascal] !== null) return obj[pascal];
+		return null;
+	}
+
+	function bindDelayDatePickers() {
+		['#delayStartDate', '#delayEndDate'].forEach(function (selector) {
+			var $el = $$(selector);
+			if (!$el.length) return;
+
+			var currentVal = $el.val();
+			var existingApi = $el.data('datepicker');
+			if (existingApi && typeof existingApi.destroy === 'function') {
+				existingApi.destroy();
+			}
+
+			$el.removeData('delayPickerBound');
+			$el.attr('data-persionDatePicker', 'false');
+
+			var pickerApi = $el.persianDatepicker({
+				format: 'YYYY/MM/DD',
+				autoClose: true,
+				initialValue: !!(currentVal && String(currentVal).length),
+				timePicker: { enabled: false },
+				observer: true,
+				onSelect: function (unix) {
+					onDelayDateSelected($el, unix);
+				}
+			});
+
+			$el.data('datepicker', pickerApi);
+			$el.data('delayPickerBound', true);
+
+			if (currentVal) {
+				setInputSelectedDate($el, toDateOnly(currentVal));
+			}
+		});
+
+		calcDelayDays();
+	}
+
+	function renderCalculatedDelayRange(range) {
+		calculatedDelayRange = range || null;
+		var $panel = $$('#calculatedDelayRangePanel');
+
+		if (!calculatedDelayRange) {
+			$panel.hide();
+			return;
+		}
+
+		$$('#calcProductionOrderNumber').text(getProp(calculatedDelayRange, 'productionOrderNumber', 'ProductionOrderNumber') || '-');
+		$$('#calcMaxDeliverDateShamsi').text(getProp(calculatedDelayRange, 'maxDeliverDateOfOrderShamsi', 'MaxDeliverDateOfOrderShamsi') || '-');
+		$$('#calcPreparationDateShamsi').text(getProp(calculatedDelayRange, 'preparationDateShamsi', 'PreparationDateShamsi') || '-');
+		$$('#calcPreparationStatus').text(getProp(calculatedDelayRange, 'preparationStatus', 'PreparationStatus') || '-');
+		$$('#calcDelayDay').text(getProp(calculatedDelayRange, 'delayDay', 'DelayDay') != null ? getProp(calculatedDelayRange, 'delayDay', 'DelayDay') : '-');
+		$$('#calcRegisteredDelayDays').text(getProp(calculatedDelayRange, 'registeredDelayDays', 'RegisteredDelayDays') != null ? getProp(calculatedDelayRange, 'registeredDelayDays', 'RegisteredDelayDays') : '-');
+		$$('#calcNeedsDelayRegistrationDays').text(getProp(calculatedDelayRange, 'needsDelayRegistrationDays', 'NeedsDelayRegistrationDays') != null ? getProp(calculatedDelayRange, 'needsDelayRegistrationDays', 'NeedsDelayRegistrationDays') : '-');
+
+		var missing = getProp(calculatedDelayRange, 'missingPreparationCount', 'MissingPreparationCount');
+		var total = getProp(calculatedDelayRange, 'totalItemsCount', 'TotalItemsCount');
+		$$('#calcItemsSummary').text((missing != null ? missing : '-') + ' / ' + (total != null ? total : '-'));
+
+		$panel.show();
+	}
+
+	function loadCalculatedDelayRange() {
+		var productionOrderId = getProductionOrderId();
+		if (!productionOrderId) {
+			renderCalculatedDelayRange(null);
+			return;
+		}
+
+		$$.get('GetCalculatedDelayRange?productionOrderId=' + encodeURIComponent(productionOrderId), function (r) {
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در دریافت بازه تاخیر محاسبه‌شده', 'خطا');
+				renderCalculatedDelayRange(null);
+				return;
+			}
+			renderCalculatedDelayRange(r.data || null);
+		});
+	}
+
+	function calcDelayDays() {
+		var start = getInputSelectedDate($$('#delayStartDate'));
+		var end = getInputSelectedDate($$('#delayEndDate'));
+		if (!start || !end) {
+			$$('#delayDaysInput').val('');
+			checkDateOverlap();
+			return;
+		}
+
+		var diffMs = end.getTime() - start.getTime();
+		var days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+		if (days < 0) days = 0;
+		$$('#delayDaysInput').val(days);
+		checkDateOverlap();
+	}
+
+	function rangesOverlap(startA, endA, startB, endB) {
+		if (!startA || !endA || !startB || !endB) return false;
+		return startA.getTime() <= endB.getTime() && startB.getTime() <= endA.getTime();
+	}
+
+	function checkDateOverlap() {
+		var $warning = $$('#dateOverlapWarning');
+		var start = getInputSelectedDate($$('#delayStartDate'));
+		var end = getInputSelectedDate($$('#delayEndDate'));
+
+		if (!start || !end || !existingDelaysData || !existingDelaysData.length) {
+			$warning.hide();
+			return;
+		}
+
+		var overlaps = existingDelaysData.filter(function (item) {
+			if (currentDelayId && item.id == currentDelayId) return false;
+			var itemStart = toDateOnly(item.delayStartMiladiDate);
+			var itemEnd = toDateOnly(item.delayEndMiladiDate);
+			return rangesOverlap(start, end, itemStart, itemEnd);
+		});
+
+		if (!overlaps.length) {
+			$warning.hide();
+			return;
+		}
+
+		var details = overlaps.map(function (item) {
+			var from = item.delayStartShamsiDate || '-';
+			var to = item.delayEndShamsiDate || '-';
+			return from + ' تا ' + to;
+		}).join(' ، ');
+
+		$$('#dateOverlapWarningText').text('این بازه تاریخ قبلا ثبت شده است (' + details + ')');
+		$warning.show();
+	}
+
+	function renderExistingDelays(list) {
+		existingDelaysData = list || [];
+		var $body = $$('#existingDelaysTableBody');
+		$body.empty();
+
+		if (!existingDelaysData.length) {
+			$body.append('<tr class="empty-row"><td colspan="7" class="text-center text-muted">تاخیری برای این سفارش ساخت ثبت نشده است</td></tr>');
+			checkDateOverlap();
+			return;
+		}
+
+		existingDelaysData.forEach(function (item) {
+			var startAttr = item.delayStartMiladiDate ? String(item.delayStartMiladiDate).substring(0, 10) : '';
+			var endAttr = item.delayEndMiladiDate ? String(item.delayEndMiladiDate).substring(0, 10) : '';
+			var row = '<tr data-delay-id="' + (item.id || 0) + '" data-start="' + startAttr + '" data-end="' + endAttr + '">' +
+				'<td>' + escapeHtml(item.delayResponsibleTitle || '-') + '</td>' +
+				'<td>' + escapeHtml(item.delayDays != null ? item.delayDays : '-') + '</td>' +
+				'<td>' + escapeHtml(item.delayStartShamsiDate || '-') + '</td>' +
+				'<td>' + escapeHtml(item.delayEndShamsiDate || '-') + '</td>' +
+				'<td>' + escapeHtml(item.delayReason || '-') + '</td>' +
+				'<td>' + escapeHtml(item.createdByName || '-') + '</td>' +
+				'<td>' + escapeHtml(item.createdOnShamsiDateTime || '-') + '</td>' +
+				'</tr>';
+			$body.append(row);
+		});
+		checkDateOverlap();
+	}
+
+	function loadExistingDelays() {
+		var productionOrderId = getProductionOrderId();
+		if (!productionOrderId) {
+			renderExistingDelays([]);
+			return;
+		}
+
+		$$.get('GetByProductionOrderId?productionOrderId=' + encodeURIComponent(productionOrderId), function (r) {
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در دریافت لیست تاخیرها', 'خطا');
+				return;
+			}
+			renderExistingDelays(r.data || []);
+		});
+	}
+
+	function renderResponsibleUsers(data) {
+		var $panel = $$('#responsibleUsersPanel');
+		var $body = $$('#responsibleUsersTableBody');
+		$body.empty();
+
+		var ids = (data && data.userIds) || [];
+		var names = (data && data.userNames) || [];
+		var emails = (data && data.usersEmail) || [];
+
+		if (!ids.length) {
+			$body.append('<tr class="empty-row"><td colspan="3" class="text-center text-muted">کاربری برای این عامل توقف تعریف نشده است</td></tr>');
+			$panel.show();
+			return;
+		}
+
+		ids.forEach(function (id, index) {
+			var row = '<tr>' +
+				'<td>' + (index + 1) + '</td>' +
+				'<td>' + escapeHtml(names[index] || '-') + '</td>' +
+				'<td>' + escapeHtml(emails[index] || '-') + '</td>' +
+				'</tr>';
+			$body.append(row);
+		});
+		$panel.show();
+	}
+
+	function loadResponsibleUsers() {
+		var delayResponsible = $$('#delayResponsibleSelect').val();
+		if (delayResponsible === null || delayResponsible === undefined || delayResponsible === '') {
+			$$('#responsibleUsersPanel').hide();
+			return;
+		}
+
+		$$.get('GetResponsibleUsers?delayResponsible=' + encodeURIComponent(delayResponsible), function (r) {
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در دریافت کاربران عامل توقف', 'خطا');
+				return;
+			}
+			renderResponsibleUsers(r.data || {});
+		});
+	}
+
+	function onProductionOrderChanged() {
+		loadExistingDelays();
+		loadCalculatedDelayRange();
+	}
+
 	function savefn($btnAction) {
 		if (validateError(page.$pageEl)) { return; }
+		calcDelayDays();
 		var model = page.$pageEl.dataBind();
-		const $btn = $(this.element).block();
+		model.delayDays = $$('#delayDaysInput').val();
+		if (lockedProductionOrderId && lockedProductionOrderId > 0) {
+			model.productionOrderId = lockedProductionOrderId;
+		}
+		const $btn = $($btnAction.element).block();
 		$$.post('save',
 			model,
 			function (r) {
@@ -121,6 +615,13 @@
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
 				page.$pageEl.dataBind(r.data);
+				currentDelayId = (r.data && (r.data.id || r.data.Id)) || currentDelayId;
+				loadExistingDelays();
+
+				if ($btnAction === self.FormActionButtons.saveandnew && lockedProductionOrderId > 0) {
+					appController.addPage('/Panel/ProductionOrderDelay/New?productionOrderId=' + lockedProductionOrderId);
+					return;
+				}
 				$btnAction.baseaction();
 			})
 	}
@@ -128,4 +629,56 @@
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+	$$('#delayResponsibleSelect').change(function () {
+		loadResponsibleUsers();
+	});
+
+	$$('#ProductionOrderSelector .entity-selector-value').on('change', function () {
+		onProductionOrderChanged();
+	});
+
+	/**
+	 * persian-datepicker:
+	 * - onSelect(unix) قبل از اطمینان از به‌روز بودن value صدا زده می‌شود
+	 * - با initialValue:false اولین انتخاب اصلاً روی input نوشته نمی‌شود
+	 * بنابراین تاریخ را از پارامتر unix می‌گیریم و خودمان روی input می‌نویسیم.
+	 */
+	function formatUnixAsShamsi(unix) {
+		try {
+			if (typeof persianDate === 'function') {
+				return new persianDate(unix).format('YYYY/MM/DD');
+			}
+		} catch (e) { }
+
+		var date = dateFromUnix(unix);
+		if (date && typeof MJUtil !== 'undefined' && MJUtil.miladiToShamsi) {
+			return MJUtil.miladiToShamsi(date);
+		}
+		return null;
+	}
+
+	function onDelayDateSelected($el, unix) {
+		setInputSelectedDate($el, unix);
+
+		var formatted = formatUnixAsShamsi(unix);
+		if (formatted) {
+			$el.val(formatted);
+		}
+
+		calcDelayDays();
+	}
+
+	bindDelayDatePickers();
+	calcDelayDays();
+
+	// در حالت ورود با شناسه سفارش ساخت، چون سلکتور قفل است change نمی‌خورد؛
+	// صریحاً عملیات وابسته به انتخاب سفارش ساخت را اجرا می‌کنیم.
+	if (getProductionOrderId()) {
+		onProductionOrderChanged();
+	} else {
+		renderCalculatedDelayRange(calculatedDelayRange);
+	}
+
+	$$('#delayResponsibleSelect').trigger('change');
 </script>

@@ -198,10 +198,11 @@
                                    <tr>
                                         <th>نام</th>
                                         <th>عنوان</th>
+                                        <th>حالت</th>
                                         <th>ایجاد کننده</th>
                                         <th>تاریخ ایجاد</th>
                                         <th>آخرین ویرایش</th>
-                                        <th style="width: 200px;">عملیات</th>
+                                        <th style="width: 240px;">عملیات</th>
                                    </tr>
                               </thead>
                               <tbody>
@@ -213,6 +214,20 @@
                                              </td>
                                              <td>
                                                   <span class="report-title">@report.Title</span>
+                                             </td>
+                                             <td>
+                                                  @if (report.Mode == Entities.Base.ModeQuery.Query)
+                                                  {
+                                                       <span class="badge badge-custom bg-success">
+                                                            <i class="bi bi-code-slash"></i> Query
+                                                       </span>
+                                                  }
+                                                  else
+                                                  {
+                                                       <span class="badge badge-custom bg-primary">
+                                                            <i class="bi bi-diagram-3"></i> طراحی
+                                                       </span>
+                                                  }
                                              </td>
                                              <td>
                                                   <span class="badge badge-custom bg-secondary">
@@ -251,6 +266,15 @@
                                                      title="ویرایش">
                                                        <i class="bi bi-pencil"></i>
                                                   </a>
+                                                  @if (report.Mode == Entities.Base.ModeQuery.Diagram)
+                                                  {
+                                                       <button type="button"
+                                                               class="btn btn-sm btn-outline-warning"
+                                                               onclick="convertToQueryMode(@report.Id, '@report.Name.Replace("'", "\\'")')"
+                                                               title="تبدیل به حالت Query">
+                                                            <i class="bi bi-code-slash"></i>
+                                                       </button>
+                                                  }
                                                   <button type="button"
                                                           class="btn btn-sm btn-outline-success"
                                                           onclick="exportToExcel(@report.Id)"
@@ -319,11 +343,11 @@
                        $$('#reportsTable').DataTable({
                            responsive: true,
                             
-                           order: [[3, 'desc']], // مرتب‌سازی بر اساس تاریخ ایجاد
+                           order: [[4, 'desc']], // مرتب‌سازی بر اساس تاریخ ایجاد
                            pageLength: 25,
                            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'همه']],
                            columnDefs: [
-                               { orderable: false, targets: 5 } // غیرفعال کردن مرتب‌سازی برای ستون عملیات
+                               { orderable: false, targets: 6 } // غیرفعال کردن مرتب‌سازی برای ستون عملیات
                            ]
                        });
                        </text>
@@ -398,6 +422,37 @@
          window.location.href = '/QueryDesigner/DownloadSql?id=' + id;
      }
 
+     // تبدیل حالت طراحی به Query
+     async function convertToQueryMode(id, name) {
+         const confirmed = confirm(
+             `گزارش "${name}" از حالت طراحی به حالت Query تبدیل شود؟\n\n` +
+             `Query، ستون‌ها و دکمه‌ها حفظ می‌شوند؛ دیاگرام و روابط حذف می‌گردند.\n` +
+             `این عملیات غیرقابل بازگشت است.`
+         );
+         if (!confirmed) return;
+
+         try {
+             const response = await $.post('/Panel/QueryDesigner/ConvertToQueryMode', { id: id });
+
+             if (response.isSuccess || response.success) {
+                 showAlert('گزارش با موفقیت به حالت Query تبدیل شد', 'success');
+                 setTimeout(() => {
+                     if (window.appController && typeof appController.refreshCurrentPage === 'function') {
+                         appController.refreshCurrentPage();
+                     } else {
+                         window.location.href = window.location.href;
+                     }
+                 }, 1200);
+             } else {
+                 showAlert(response.message || 'خطا در تبدیل گزارش', 'danger');
+             }
+         } catch (error) {
+             console.error(error);
+             const msg = error?.responseJSON?.message || 'خطا در ارتباط با سرور';
+             showAlert(msg, 'danger');
+         }
+     }
+
      // حذف گزارش
      async function deleteReport(id, name) {
          const confirmed = confirm(`آیا از حذف گزارش "${name}" اطمینان دارید؟\n\nاین عملیات غیرقابل بازگشت است.`);
@@ -410,7 +465,11 @@
              if (response.success) {
                  showAlert('گزارش با موفقیت حذف شد', 'success');
                  setTimeout(() => {
-                     location.reload();
+                     if (window.appController && typeof appController.refreshCurrentPage === 'function') {
+                         appController.refreshCurrentPage();
+                     } else {
+                         window.location.href = window.location.href;
+                     }
                  }, 1500);
              } else {
                  showAlert('خطا در حذف گزارش', 'danger');

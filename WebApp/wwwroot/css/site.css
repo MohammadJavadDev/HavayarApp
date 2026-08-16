@@ -1924,7 +1924,7 @@ html.btn-display-large .form-action-buttons .btn-icon:not(.d-none) {
      width: auto !important;
      height: 55px !important;
      min-width: 60px;
-     padding: 8px 10px 6px;
+     padding: 5px 5px 5px;
      border-radius: 8px;
      border: 1.5px solid currentColor !important;
      gap: 10px;
@@ -1939,15 +1939,14 @@ html.btn-display-large .form-action-buttons {
      margin: 0;
 }
 
-html.btn-display-large .form-action-buttons .btn-icon i {
-     font-size: 1.6rem !important;
- 
-     transition: transform 0.2s ease;
-}
+     html.btn-display-large .form-action-buttons .btn-icon i {
+          font-size: var(--site-font-size) !important;
+          transition: transform 0.2s ease;
+     }
 
      html.btn-display-large .form-action-buttons .btn-icon::after {
           content: attr(title);
-          font-size: 10px;
+          font-size: var(--site-font-size);
           font-weight: 500;
           line-height: 1;
           white-space: nowrap;
@@ -2543,3 +2542,82 @@ button[data-action="multiSelect"].active {
 	background-color: var(--bs-info) !important;
 	color: #fff !important;
 }
+
+
+
+.card-body:has(> .section-box-title:first-child) {
+     position: relative;
+     padding-top: 32px !important;
+}
+
+.card-body > .section-box-title:first-child {
+     position: absolute;
+     top: 1.5px;
+     right: 9.5px;
+     background: var(--bs-primary);
+     color: #fff;
+     font-size: 0.82rem;
+     font-weight: 600;
+     padding: 3px 14px;
+     border-radius: 4px;
+     line-height: 1.6;
+     white-space: nowrap;
+     width: fit-content;
+     border: var(--bs-border-color);
+}
+
+.form-group-inline {
+     display: flex;
+     flex-wrap: wrap;
+     align-items: center;
+}
+
+     .form-group-inline > label {
+          flex: 0 0 80px;
+          max-width: 80px;
+          margin-bottom: 0;
+          white-space: normal;
+          word-break: break-word;
+          line-height: 1.3;
+          margin-left: 5px;
+     }
+
+     .form-group-inline > select,
+     .form-group-inline > input,
+     .form-group-inline > textarea,
+     .form-group-inline > .entity-selector-wrapper {
+          flex: 1 1 0;
+          min-width: 0;
+     }
+
+     .form-group-inline > [data-invalidmessagespan] {
+          flex: 0 0 100%;
+          margin-inline-start: calc(130px + 8px);
+     }
+
+ 
+.card-body.row > [class*="col-"] {
+     margin-bottom: 0.5rem;
+}
+
+     .card-body.row > [class*="col-"]:last-child {
+          margin-bottom: 0;
+     }
+
+@media (max-width: 767.98px) {
+     .form-group-inline {
+          flex-direction: column;
+          align-items: stretch;
+     }
+
+          .form-group-inline > label {
+               flex-basis: auto;
+               max-width: 100%;
+          }
+
+          .form-group-inline > [data-invalidmessagespan] {
+               margin-inline-start: 0;
+          }
+}
+
+ 

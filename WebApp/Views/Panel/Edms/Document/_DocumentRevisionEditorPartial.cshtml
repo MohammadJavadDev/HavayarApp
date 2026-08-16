@@ -17,10 +17,10 @@
 	var statusText = Model.Status.HasValue ? Model.Status.Value.ToDisplay() : "-";
 	var statusClass = Model?.Status switch
 	{
-		DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByEmployer or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByEmployer or DocumentStatusEnums.ApprovedAsNoteByEmployer => "badge-light-success",
-		DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByEmployer or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+		DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
+		DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
 		DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-		DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByEmployer or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+		DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
 		DocumentStatusEnums.Archived => "badge-light-dark",
 		_ => "badge-light"
 	};
@@ -58,7 +58,7 @@
 				</div>
 			</div>
 
-			<div class='col-md-6'>
+			<div class='col-md-4 form-group-inline'>
 				<label class='form-label'>هدف از تولید مدرک</label>
 				<select class='form-control' data-bind='goalOfProduction' asp-for='GoalOfProduction'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentGoalOfProductionEnum))">
@@ -66,28 +66,29 @@
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
-			<div class='col-md-6'>
+			<div class='col-md-4 form-group-inline'>
 				<label class='form-label'>نفر-ساعت</label>
 				<input class='form-control' data-bind='hourPrePerson' data-invalidMessage='فقط عدد'
 					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HourPrePerson' />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
-			<div class='col-md-6'>
+			<div class='col-md-4 form-group-inline'>
 				<label class='form-label'>تاریخ انتشار/ارسال</label>
 				<input class='form-control' data-bind='publicationShamsiDate' data-persionDatePicker="true"
 					persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
 					value='@Model?.PublicationShamsiDate' />
 			</div>
 
-			<div class='col-md-6'>
+			<div class='col-md-4 form-group-inline'>
 				<label class='form-label'>رویژن</label>
 				<input class='form-control' data-bind='revision' data-invalidMessage='فقط عدد'
 					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' disabled />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
+		
 
-			<div class="col-md-6">
+			<div class="col-md-4 form-group-inline">
 				<label class="form-label">بررسی کننده</label>
 				@(Html.EntitySelector<User>
 					(
@@ -107,7 +108,7 @@
 					))
 			</div>
 
-			<div class="col-md-6">
+			<div class="col-md-4 form-group-inline">
 				<label class="form-label">تایید کننده</label>
 				@(Html.EntitySelector<User>
 				(
@@ -127,13 +128,22 @@
 				))
 			</div>
 
-			<div class='col-md-12'>
+				<div class='col-md-4 form-group-inline'>
+				<label class='form-label'>وضعیت مدرک</label>
+				<select class='form-control' data-bind='status' asp-for='Status'
+					   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))"
+					   disabled="disabled">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-12 form-group-inline'>
 				<label class='form-label'>توضیحات</label>
 				<textarea class='form-control' data-bind='comment' asp-for='Comment'>@Model?.Comment</textarea>
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
-			<div class='col-md-6'>
+			<div class='col-md-6 '>
 				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
 						    label="فایل اصلی" entity-type="@typeof(Document).FullName" entity-prop-name="MainFile" bindid="mainFile"
 						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
@@ -157,14 +167,7 @@
 						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
 			</div>
 
-			<div class='col-md-6'>
-				<label class='form-label'>وضعیت مدرک</label>
-				<select class='form-control' data-bind='status' asp-for='Status'
-						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))"
-					   disabled="disabled">
-				</select>
-				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-			</div>
+		
 
 		
 		 

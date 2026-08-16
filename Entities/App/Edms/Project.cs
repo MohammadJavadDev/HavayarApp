@@ -268,6 +268,11 @@ namespace Entities.App.Edms
 		[DisplayName("پیوست")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<ProjectAttachment> ProjectAttachments { get; set; } = new();
+
+		/// <summary>
+		/// شناسه پروژه در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 
 	[Display(Name = "درصد پیشرفت")]
@@ -286,7 +291,10 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, true, type: SystemType.Int)]
 		public int? Percentage { get; set; }
 
-
+		/// <summary>
+		/// شناسه درصد پیشرفت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 
 	[Display(Name = "پیوست پروژه")]
@@ -310,5 +318,10 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, true, type: SystemType.Select)]
 
 		public ProjectAttachmentTypeEnum Type { get; set; }
+
+		/// <summary>
+		/// شناسه پیوست در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 }

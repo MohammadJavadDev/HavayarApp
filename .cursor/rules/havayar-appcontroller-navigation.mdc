@@ -1,0 +1,19 @@
+---
+description: HavayarApp panel navigation — use appController, never window/location.reload
+globs: WebApp/Views/**/*.cshtml,WebApp/wwwroot/js/**/*.js
+alwaysApply: true
+---
+
+# HavayarApp Page Navigation
+
+In HavayarApp frontend (Razor views / panel JS), **never** use:
+- `window.reload()`
+- `location.reload()`
+- `window.location` / `location.href` for panel refresh/navigation
+
+Use `appController` helpers instead:
+- `appController.refreshCurrentPage()` — refresh current page after save/workflow/attachment
+- `appController.openPage(url, ...)` — open/navigate to a page
+- `appController.closeCurrentPage()` — close current page
+
+After status changes, saves, or attachment uploads on panel forms, prefer `appController.refreshCurrentPage()`.

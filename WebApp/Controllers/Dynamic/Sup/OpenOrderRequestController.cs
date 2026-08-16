@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using WebApp.ViewModels.Sup;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -84,11 +85,11 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
-		public IActionResult Edit(long? id)
+		public async Task<IActionResult> Edit(long? id, CancellationToken cn)
 		{
 			if (id != null && id != 0)
 			{
-				var entity = unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				var entity = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
 					.Include(c => c.Dl)
 					.Include(c => c.Part)
 					.Include(c => c.EngineeringAcceptUser)
@@ -99,12 +100,14 @@ namespace WebApp.Controllers.Dynamic
 					.Include(c => c.SalesUnitProjectManager)
 					.Include(c => c.RelatedPart)
 					.Include(c => c.ManCompany)
-					.Include(c => c.Attachments)
+					.Include(c => c.Attachments!).ThenInclude(a => a.Attachment)
 					.Include(c => c.Comments)
-					.Include(c=>c.Attachments)
-					.FirstOrDefault(c => c.Id == id);
+					.FirstOrDefaultAsync(c => c.Id == id, cn);
+
+				ViewBag.AttachmentListItems = await BuildAttachmentListItemsAsync(id.Value, cn);
 				return View(@"\Views\Panel\Sup\OpenOrderRequest\Edit.cshtml", entity);
 			}
+			ViewBag.AttachmentListItems = new List<OpenOrderRequestAttachmentListItemVm>();
 			var newEntity = new OpenOrderRequest();
 			return View(@"\Views\Panel\Sup\OpenOrderRequest\Edit.cshtml", newEntity);
 		}
@@ -113,6 +116,7 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج اطلاعات", ActionAccessType.View, ActionAccessItemType.Create)]
 		public IActionResult New()
 		{
+			ViewBag.AttachmentListItems = new List<OpenOrderRequestAttachmentListItemVm>();
 			var newEntity = new OpenOrderRequest();
 			return View(@"\Views\Panel\Sup\OpenOrderRequest\Edit.cshtml", newEntity);
 		}
@@ -821,15 +825,78 @@ namespace WebApp.Controllers.Dynamic
 		[HttpGet("[action]")]
 		public async Task<IActionResult> AttachmentListPartial(long openOrderRequestId, CancellationToken cn)
 		{
+			var items = await BuildAttachmentListItemsAsync(openOrderRequestId, cn);
+			ViewBag.OpenOrderRequestId = openOrderRequestId;
+			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AttachmentListPartial.cshtml", items);
+		}
+
+		private async Task<List<OpenOrderRequestAttachmentListItemVm>> BuildAttachmentListItemsAsync(long openOrderRequestId, CancellationToken cn)
+		{
+			var items = new List<OpenOrderRequestAttachmentListItemVm>();
+
 			var attachments = await unitOfWork.Repository<OpenOrderRequestAttachment>()
 				.TableNoTracking
 				.Include(a => a.Attachment)
 				.Where(a => a.OpenOrderRequestId == openOrderRequestId)
-				.OrderByDescending(a => a.CreatedOnMiladiDateTime)
 				.ToListAsync(cn);
 
-			ViewBag.OpenOrderRequestId = openOrderRequestId;
-			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AttachmentListPartial.cshtml", attachments);
+			foreach (var attachment in attachments)
+			{
+				items.Add(new OpenOrderRequestAttachmentListItemVm
+				{
+					Id = attachment.Id!.Value,
+					IsFromVpis = false,
+					FileTypeDisplay = attachment.FileType?.ToDisplay(),
+					FileName = attachment.Attachment?.OriginalName,
+					DownloadFileId = attachment.AttachmentId,
+					SizeDisplay = attachment.Attachment != null
+						? (attachment.Attachment.Size / 1024.0).ToString("N2") + " KB"
+						: "-",
+					Comment = attachment.Comment,
+					CreatedByName = attachment.CreatedByName,
+					CreatedOnShamsiDateTime = attachment.CreatedOnShamsiDateTime,
+					CreatedOnMiladiDateTime = attachment.CreatedOnMiladiDateTime,
+					CanDelete = true
+				});
+			}
+
+			var vpisLinks = await unitOfWork.Repository<OpenOrderRequestVpis>()
+				.TableNoTracking
+				.Include(v => v.ProjectVpis)
+					.ThenInclude(pv => pv.ProjectName)
+				.Include(v => v.Document)
+					.ThenInclude(d => d!.MainFile)
+				.Where(v => v.OpenOrderRequestId == openOrderRequestId && v.IsLatest)
+				.ToListAsync(cn);
+
+			foreach (var link in vpisLinks)
+			{
+				var vpis = link.ProjectVpis;
+				var document = link.Document;
+				var fullTitle = $"{vpis?.ProjectName?.ProjectName} | {vpis?.Title} | {vpis?.Code} | Ver({document?.Revision ?? link.RevisionNumber})";
+				var mainFile = document?.MainFile;
+
+				items.Add(new OpenOrderRequestAttachmentListItemVm
+				{
+					Id = link.Id!.Value,
+					IsFromVpis = true,
+					FileTypeDisplay = "مدارک پروژه (VPIS)",
+					FileName = fullTitle,
+					DownloadFileId = document?.MainFileId,
+					SizeDisplay = mainFile != null
+						? (mainFile.Size / 1024.0).ToString("N2") + " KB"
+						: "-",
+					Comment = link.Comment,
+					CreatedByName = link.CreatedByName,
+					CreatedOnShamsiDateTime = link.CreatedOnShamsiDateTime,
+					CreatedOnMiladiDateTime = link.CreatedOnMiladiDateTime,
+					CanDelete = false
+				});
+			}
+
+			return items
+				.OrderByDescending(i => i.CreatedOnMiladiDateTime)
+				.ToList();
 		}
 
 		[HttpGet("[action]")]
@@ -1099,17 +1166,17 @@ namespace WebApp.Controllers.Dynamic
 
 			foreach (var member in userRecivers.Distinct())
 			{
-
-				await notificationService.CreateAndSendAsync(new Notification
-				{
-					Type = NotificationType.Appliaction,
-					Title = title,
-					Body = body,
-					EntityId = openOrderRequest.Id,
-					OwnerId = member!.Value,
-					ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
-					IsRead = false,
-				});
+				if(member != null)
+					await notificationService.CreateAndSendAsync(new Notification
+					{
+						Type = NotificationType.Appliaction,
+						Title = title,
+						Body = body,
+						EntityId = openOrderRequest.Id,
+						OwnerId = member!.Value,
+						ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
+						IsRead = false,
+					});
 				 
 			}
 
@@ -1832,6 +1899,7 @@ namespace WebApp.Controllers.Dynamic
 						OpenOrderRequestId = request.OpenOrderRequestId,
 						ProjectId = request.ProjectId.Value,
 						DocumentId = document.Id,
+						ProjectVpisId = document.DocumentVpisId.Value,
 						RevisionNumber = document.Revision,
 						IsLatest = true,
 						Comment = "لینک توسط کاربر"

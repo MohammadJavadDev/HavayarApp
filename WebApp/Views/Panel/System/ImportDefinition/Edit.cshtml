@@ -8,6 +8,8 @@
      bool isEdit = def.Id > 0;
      var columns = def.Columns.JsonDeserialize<ImportDefinitionColumn[]>();
      ViewData["Title"] = isEdit ? "ویرایش تعریف" : "تعریف جدید ورود اطلاعات";
+     var importType = def.ImportType;
+     var isApi = importType == ImportSourceType.Api;
 
      var queryString = def.SqlQuery ?? @"INSERT INTO [Schema].[Table] (CreatedById , ModifiedById , CreatedByName, ModifiedByName,ModifiedDateMiladiDateTime,ModifiedDateShamsiDateTime,CreatedOnMiladiDateTime,CreatedOnShamsiDateTime,IsActive) VALUES (@CurrentUserId, @CurrentUserId,@CurrentUserName,@CurrentUserName ,@CurrentDateTimeMiladi ,@CurrentDateTimeShamsi,@CurrentDateTimeMiladi ,@CurrentDateTimeShamsi, 1 )";
 }
@@ -16,7 +18,9 @@
      .select2-container {
           z-index: 999999999 !important
      }
- 
+     .import-type-toggle .btn {
+          min-width: 110px;
+     }
 </style>
 
 
@@ -44,6 +48,7 @@
     <div id="frmDefinition">
         @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Definition.Id" data-bind="id" />
+        <input type="hidden" id="importTypeInput" data-bind="importType" value="@((int)importType)" />
 
         <div class="row g-4">
  
@@ -51,11 +56,25 @@
                 <div class="card shadow-sm h-100">
                          <div class="card-header bg-primary text-white p-5 d-flex justify-content-between align-items-center">
                               <span><i class="fas fa-info-circle me-2 text-white"></i>اطلاعات پایه</span>
-                              <button type="button" class="btn btn-sm btn-light" id="btnLoadFromEntity">
+                              <button type="button" class="btn btn-sm btn-light sql-only-section @(isApi ? "d-none" : "")" id="btnLoadFromEntity">
                                    <i class="fas fa-database me-1"></i>بارگذاری از موجودیت سیستم
                               </button>
                     </div>
                     <div class="card-body">
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">نوع ورود اطلاعات <span class="text-danger">*</span></label>
+                            <div class="btn-group import-type-toggle" role="group">
+                                <input type="radio" class="btn-check" name="importTypeRadio" id="importTypeSql" value="0" @(isApi ? "" : "checked")>
+                                <label class="btn btn-outline-primary" for="importTypeSql">
+                                    <i class="fas fa-database me-1"></i>SQL
+                                </label>
+                                <input type="radio" class="btn-check" name="importTypeRadio" id="importTypeApi" value="1" @(isApi ? "checked" : "")>
+                                <label class="btn btn-outline-primary" for="importTypeApi">
+                                    <i class="fas fa-plug me-1"></i>API
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label fw-semibold">نام موجودیت <span class="text-danger">*</span></label>
                             <input asp-for="Definition.FullNameEntity"
@@ -76,20 +95,103 @@
                                              data-bind="description"
                                       placeholder="توضیح مختصر..."></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">
-                                کوئری SQL <span class="text-danger">*</span>
-                                <button type="button" class="btn btn-sm btn-outline-info ms-2"
-                                        data-bs-toggle="modal" data-bs-target="#sqlHelpModal">
-                                    <i class="fas fa-question-circle"></i> راهنما
-                                </button>
-                            </label>
-                            <div  id="sqlQuery"   style="height:300px"   >
-                                   
-                                 </div>
-                                   <input type="hidden" id="sqlQueryInput" data-bind="sqlQuery" />
-                            <div class="form-text">
-                                پارامترهای SQL: <span id="detectedParams" class="text-primary fw-bold"></span>
+
+                        <div class="sql-only-section @(isApi ? "d-none" : "")">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">
+                                    کوئری SQL <span class="text-danger">*</span>
+                                    <button type="button" class="btn btn-sm btn-outline-info ms-2"
+                                            data-bs-toggle="modal" data-bs-target="#sqlHelpModal">
+                                        <i class="fas fa-question-circle"></i> راهنما
+                                    </button>
+                                </label>
+                                <div  id="sqlQuery"   style="height:300px"   >
+                                       
+                                     </div>
+                                       <input type="hidden" id="sqlQueryInput" data-bind="sqlQuery" />
+                                <div class="form-text">
+                                    پارامترهای SQL: <span id="detectedParams" class="text-primary fw-bold"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="api-only-section @(isApi ? "" : "d-none")">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">منبع API</label>
+                                <div class="btn-group" role="group">
+                                    @{
+                                        var apiInternalChecked = !isEdit || !isApi || def.ApiIsInternal;
+                                    }
+                                    <input type="radio" class="btn-check" name="apiSourceRadio" id="apiSourceInternal" value="1" @(apiInternalChecked ? "checked" : "")>
+                                    <label class="btn btn-outline-secondary" for="apiSourceInternal">داخلی (سیستم)</label>
+                                    <input type="radio" class="btn-check" name="apiSourceRadio" id="apiSourceExternal" value="0" @(!apiInternalChecked ? "checked" : "")>
+                                    <label class="btn btn-outline-secondary" for="apiSourceExternal">خارجی</label>
+                                </div>
+                                <input type="hidden" id="apiIsInternalInput" data-bind="apiIsInternal" value="@(def.ApiIsInternal ? "true" : "false")" />
+                            </div>
+
+                            <div class="mb-3 api-internal-section">
+                                <label class="form-label fw-semibold">انتخاب API سیستم</label>
+                                <select id="selInternalApi" class="form-select" style="width:100%">
+                                    <option value="">در حال بارگذاری...</option>
+                                </select>
+                                <div class="form-text">با انتخاب API، آدرس، متد و ستون‌های ورودی به‌صورت خودکار پر می‌شوند.</div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label fw-semibold">آدرس API <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control font-monospace" dir="ltr"
+                                           id="apiUrlInput" data-bind="apiUrl"
+                                           value="@def.ApiUrl"
+                                           placeholder="/panel/..." />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">متد HTTP</label>
+                                    @{
+                                        var method = string.IsNullOrWhiteSpace(def.ApiHttpMethod) ? "POST" : def.ApiHttpMethod.ToUpperInvariant();
+                                    }
+                                    <select class="form-select" id="apiHttpMethodInput" data-bind="apiHttpMethod">
+                                        @if (method == "POST")
+                                        {
+                                            <option value="POST" selected>POST</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="POST">POST</option>
+                                        }
+                                        @if (method == "PUT")
+                                        {
+                                            <option value="PUT" selected>PUT</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="PUT">PUT</option>
+                                        }
+                                        @if (method == "PATCH")
+                                        {
+                                            <option value="PATCH" selected>PATCH</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="PATCH">PATCH</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 mb-0">
+                                <label class="form-label fw-semibold">حالت فراخوانی</label>
+                                @{
+                                    var callMode = def.ApiCallMode ?? ApiCallMode.PerRow;
+                                }
+                                <div class="btn-group d-block" role="group">
+                                    <input type="radio" class="btn-check" name="apiCallModeRadio" id="apiCallModePerRow" value="0" @(callMode == ApiCallMode.PerRow ? "checked" : "")>
+                                    <label class="btn btn-outline-info" for="apiCallModePerRow">ردیفی (یک درخواست به‌ازای هر ردیف)</label>
+                                    <input type="radio" class="btn-check" name="apiCallModeRadio" id="apiCallModeBatch" value="1" @(callMode == ApiCallMode.Batch ? "checked" : "")>
+                                    <label class="btn btn-outline-info" for="apiCallModeBatch">دسته‌ای (یک درخواست با آرایه همه ردیف‌ها)</label>
+                                </div>
+                                <input type="hidden" id="apiCallModeInput" data-bind="apiCallMode" value="@((int)callMode)" />
                             </div>
                         </div>
                     </div>
@@ -102,7 +204,7 @@
                          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <span><i class="fas fa-columns me-2"></i>ستون‌های ورود اطلاعات</span>
                         <div>
-                            <button type="button" id="btnAddFromSql" class="btn btn-sm btn-light me-2">
+                            <button type="button" id="btnAddFromSql" class="btn btn-sm btn-light me-2 sql-only-section @(isApi ? "d-none" : "")">
                                 <i class="fas fa-magic me-1"></i>افزودن از SQL
                             </button>
                             <button type="button" id="btnAddCol" class="btn btn-sm btn-warning">
@@ -116,7 +218,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th width="30"></th>
-                                        <th>نام پارامتر SQL</th>
+                                        <th id="colNameHeader">@(isApi ? "نام فیلد JSON" : "نام پارامتر SQL")</th>
                                         <th>عنوان در اکسل</th>
                                         <th>نوع</th>
                                         <th class="text-center">سیستمی</th>
@@ -184,7 +286,7 @@
                         </div>
                               <div id="noColsMsg" class='text-center py-4 text-muted @(columns != null && columns.Any() ? "d-none" : "")'>
                             <i class="fas fa-table fa-2x mb-2 d-block"></i>
-                            ستونی تعریف نشده. از دکمه «افزودن ستون» یا «افزودن از SQL» استفاده کنید.
+                            <span id="noColsMsgText">ستونی تعریف نشده. از دکمه «افزودن ستون» یا «افزودن از SQL» استفاده کنید.</span>
                         </div>
                     </div>
                 </div>
@@ -261,10 +363,13 @@
 
 
      var  sqlEditor = null;
+     var availableApis = [];
+     var currentImportType = @(isApi ? 1 : 0);
 
           function initSqlEditor(query = ""){
             
                 var $sqlQuery  = $$("#sqlQuery");
+               if (!$sqlQuery.length) return;
                sqlEditor = ace.edit($sqlQuery[0]);
                sqlEditor.setTheme('ace/theme/chrome');
                 sqlEditor.session.setMode('ace/mode/sqlserver');
@@ -283,7 +388,141 @@
                  $$("#sqlQueryInput").val(query)
           }
 
-          initSqlEditor(`@Html.Raw(queryString)`);
+          initSqlEditor(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(queryString)));
+
+     function applyImportTypeUi(type) {
+          currentImportType = parseInt(type, 10) || 0;
+          $$('#importTypeInput').val(currentImportType);
+          const isApiMode = currentImportType === 1;
+
+          if (isApiMode) {
+               $$('.sql-only-section').addClass('d-none');
+               $$('.api-only-section').removeClass('d-none');
+               $$('#colNameHeader').text('نام فیلد JSON');
+               $$('#noColsMsgText').text('ستونی تعریف نشده. API داخلی را انتخاب کنید یا ستون را دستی اضافه کنید.');
+          } else {
+               $$('.sql-only-section').removeClass('d-none');
+               $$('.api-only-section').addClass('d-none');
+               $$('#colNameHeader').text('نام پارامتر SQL');
+               $$('#noColsMsgText').text('ستونی تعریف نشده. از دکمه «افزودن ستون» یا «افزودن از SQL» استفاده کنید.');
+          }
+          applyApiSourceUi();
+     }
+
+     function applyApiSourceUi() {
+          const isInternal = $$('#apiSourceInternal').is(':checked');
+          $$('#apiIsInternalInput').val(isInternal ? 'true' : 'false');
+          if (isInternal) {
+               $$('.api-internal-section').removeClass('d-none');
+               $$('#apiUrlInput').attr('placeholder', '/panel/...');
+          } else {
+               $$('.api-internal-section').addClass('d-none');
+               $$('#apiUrlInput').attr('placeholder', 'https://example.com/api/...');
+          }
+     }
+
+     $$('input[name="importTypeRadio"]').on('change', function () {
+          applyImportTypeUi($(this).val());
+     });
+
+     $$('input[name="apiSourceRadio"]').on('change', function () {
+          applyApiSourceUi();
+     });
+
+     $$('input[name="apiCallModeRadio"]').on('change', function () {
+          $$('#apiCallModeInput').val($(this).val());
+     });
+
+     applyImportTypeUi(currentImportType);
+     // اصلاح حالت پیش‌فرض منبع API برای رکورد جدید از نوع API
+     if (currentImportType === 1 && !$$('#apiSourceExternal').is(':checked') && !$$('#apiSourceInternal').is(':checked')) {
+          $$('#apiSourceInternal').prop('checked', true);
+     }
+     applyApiSourceUi();
+
+     async function loadAvailableApis() {
+          try {
+               const response = await $.get('/panel/importDefinition/getAvailableApis');
+               const $sel = $$('#selInternalApi');
+               $sel.empty().append('<option value="">انتخاب کنید...</option>');
+
+               if (!response.isSuccess || !response.data) {
+                    error2('خطا در بارگذاری لیست APIها');
+                    return;
+               }
+
+               availableApis = response.data;
+               availableApis.forEach((api, idx) => {
+                    $sel.append(
+                         $('<option></option>')
+                              .val(idx)
+                              .attr('data-controller', api.controller)
+                              .attr('data-action', api.action)
+                              .attr('data-path', api.path)
+                              .attr('data-method', api.httpMethod)
+                              .text(api.label)
+                    );
+               });
+
+               $sel.select2({ width: '100%' });
+
+               // انتخاب خودکار بر اساس ApiUrl ذخیره‌شده
+               const currentUrl = ($$('#apiUrlInput').val() || '').toLowerCase();
+               if (currentUrl) {
+                    const matchIdx = availableApis.findIndex(a => (a.path || '').toLowerCase() === currentUrl);
+                    if (matchIdx >= 0) {
+                         $sel.val(String(matchIdx)).trigger('change.select2');
+                    }
+               }
+          } catch (e) {
+               console.error(e);
+               error2('خطا در بارگذاری لیست APIها');
+          }
+     }
+
+     $$('#selInternalApi').on('change', async function () {
+          const idx = $(this).val();
+          if (idx === '' || idx == null) return;
+          const api = availableApis[parseInt(idx, 10)];
+          if (!api) return;
+
+          try {
+               const response = await $$.post('/panel/importDefinition/inspectApi', {
+                    controller: api.controller,
+                    action: api.action,
+                    path: api.path
+               });
+
+               if (!response.isSuccess) {
+                    error2(response.message || 'خطا در بازرسی API');
+                    return;
+               }
+
+               const data = response.data;
+               $$('#apiUrlInput').val(data.apiUrl || api.path);
+               $$('#apiHttpMethodInput').val((data.httpMethod || api.httpMethod || 'POST').toUpperCase());
+
+               clearColumnRows();
+               (data.columns || []).forEach(col => {
+                    addColumnRow(
+                         col.columnName,
+                         col.displayName,
+                         false,
+                         '',
+                         col.dataType,
+                         !!col.isRequired,
+                         ''
+                    );
+               });
+
+               success2('ستون‌های ورودی API بارگذاری شد.');
+          } catch (e) {
+               console.error(e);
+               error2('خطا در بازرسی API');
+          }
+     });
+
+     loadAvailableApis();
 
      // ----------------------------------------------------------------
       // تشخیص پارامترها از SQL
@@ -691,9 +930,10 @@
       // افزودن خودکار از پارامترهای SQL
       // ----------------------------------------------------------------
       $$('#btnAddFromSql').on('click', function () {
+          if (!sqlEditor) return;
           const value = sqlEditor.getValue()
           const params = detectParams(value);
-          const existing = $$('#colBody input[data-bind="colColumnName"]')
+          const existing = $$('#colBody input[data-bind="columns.columnName"]')
               .map(function () { return $(this).val(); }).get();
 
           let added = 0;
@@ -726,7 +966,38 @@
       }
 
       $$("#save").on("click",function(){
+          applyApiSourceUi();
+          $$('#importTypeInput').val(currentImportType);
+          $$('#apiCallModeInput').val($$('input[name="apiCallModeRadio"]:checked').val() || '0');
+
           var model = $$().dataBind();
+          model.importType = currentImportType;
+          model.apiIsInternal = $$('#apiSourceInternal').is(':checked');
+          model.apiCallMode = parseInt($$('#apiCallModeInput').val(), 10);
+          model.apiUrl = $$('#apiUrlInput').val();
+          model.apiHttpMethod = $$('#apiHttpMethodInput').val();
+
+          if (!model.fullNameEntity || !model.title) {
+               return error2('فیلدهای الزامی را پر کنید.');
+          }
+
+          if (!model.columns || model.columns.length === 0) {
+               return error2('حداقل یک ستون تعریف کنید.');
+          }
+
+          if (currentImportType === 0) {
+               model.sqlQuery = sqlEditor ? sqlEditor.getValue() : $$('#sqlQueryInput').val();
+               if (!model.sqlQuery || !String(model.sqlQuery).trim()) {
+                    return error2('برای نوع SQL، کوئری SQL الزامی است.');
+               }
+          } else {
+               if (!model.apiUrl || !String(model.apiUrl).trim()) {
+                    return error2('برای نوع API، آدرس API الزامی است.');
+               }
+               if (!model.apiIsInternal && !/^https?:\/\//i.test(model.apiUrl)) {
+                    return error2('برای API خارجی باید آدرس کامل (شامل http/https) وارد شود.');
+               }
+          }
 
           model.columns.forEach(c=>{
                if(c.optionSettings && c.optionSettings.length > 0)
@@ -741,8 +1012,9 @@
                if(!r.isSuccess)return error2(r.message);
 
                success2("ذخیره سازی با موفقیت انجام شد.");
-               
+               if (typeof appController !== 'undefined' && appController.refreshCurrentPage) {
+                    appController.refreshCurrentPage();
+               }
           })
       })
 </script>
- 

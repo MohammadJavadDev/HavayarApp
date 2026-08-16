@@ -1,0 +1,32 @@
+@using Entities.App.Prd
+@{
+	ViewBag.Title = "گزارش توقفات";
+}
+<div class="card">
+	<div class="card-body row">
+		<div class="col-md-3">
+			<label>از تاریخ</label>
+			<input class="form-control" id="reportFromDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' />
+		</div>
+		<div class="col-md-3">
+			<label>تا تاریخ</label>
+			<input class="form-control" id="reportToDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' />
+		</div>
+		<div class="col-md-3 d-flex align-items-end">
+			<button type="button" class="btn btn-primary" id="btnApplyReportFilter">اعمال فیلتر</button>
+		</div>
+	</div>
+</div>
+<datatableprofile entity-Type="typeof(StopRequst)"></datatableprofile>
+<script>
+	$$('#btnApplyReportFilter').on('click', function () {
+		toastr.info('فیلتر تاریخ از طریق نمایه داده Stop_Report و پارامترهای FromDate/ToDate اعمال می‌شود. در صورت نیاز نمایه را از لیست نمایه‌ها انتخاب کنید.');
+		if (window.page && page.dataTable && page.dataTable.reload) {
+			page.dataTable.reload();
+		} else if ($$('.datatableprofile').length) {
+			location.reload();
+		}
+	});
+</script>

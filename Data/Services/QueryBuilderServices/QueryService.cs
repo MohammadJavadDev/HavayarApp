@@ -45,7 +45,10 @@ namespace Data.Services.QueryBuilderServices
 
 		Task<QueryResult> ExecuteReportAsync(DataTableRequest request, IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null);
 
-
+		/// <summary>
+		/// تبدیل گزارش ذخیره‌شده از حالت طراحی بصری (Diagram) به حالت نوشتن Query
+		/// </summary>
+		Task<SavedQuery> ConvertDesignToQueryModeAsync(long id, long userId);
 
 	}
 
@@ -164,6 +167,9 @@ namespace Data.Services.QueryBuilderServices
 
 			report.Name = design.Name;
 			report.Title = design.Title;
+			report.Type = design.Type;
+			report.Mode = design.Mode;
+			report.EntityFullName = design.EntityFullName;
 			report.QueryJson = JsonSerializer.Serialize(queryDesignForStorage);
 			report.ColumnsJson = JsonSerializer.Serialize(design.Columns);
 			report.DiagramJson = JsonSerializer.Serialize(tablesForStorage);
@@ -176,6 +182,95 @@ namespace Data.Services.QueryBuilderServices
 
 			await _context.SaveChangesAsync();
 
+			return report;
+		}
+
+		/// <summary>
+		/// تبدیل گزارش از حالت طراحی بصری به حالت نوشتن Query:
+		/// Query نهایی ذخیره می‌شود، ستون‌ها با نام نتیجه (Alliance) هم‌تراز می‌شوند،
+		/// دیاگرام/روابط/فیلترها حذف می‌شوند، دکمه‌ها و اسکریپت‌ها حفظ می‌گردند.
+		/// </summary>
+		public async Task<SavedQuery> ConvertDesignToQueryModeAsync(long id, long userId)
+		{
+			var report = await _context.SavedQueries.FindAsync(id);
+			if (report == null)
+				throw new KeyNotFoundException("گزارش مورد نظر یافت نشد");
+
+			if (report.Mode != ModeQuery.Diagram)
+				throw new InvalidOperationException("این گزارش از قبل در حالت Query است");
+
+			var queryDesign = string.IsNullOrWhiteSpace(report.QueryJson)
+				? null
+				: JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
+			var columns = string.IsNullOrWhiteSpace(report.ColumnsJson)
+				? new List<QueryColumn>()
+				: (JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson) ?? new List<QueryColumn>());
+
+			if (columns.Count == 0)
+				throw new InvalidOperationException("هیچ ستونی برای تبدیل وجود ندارد");
+
+			string query;
+			if (!string.IsNullOrWhiteSpace(queryDesign?.CustomQuery))
+			{
+				query = queryDesign.CustomQuery.Trim();
+			}
+			else if (queryDesign?.Tables != null && queryDesign.Tables.Any())
+			{
+				var sqlColumns = columns.Where(c => !string.IsNullOrEmpty(c.Address)).ToList();
+				if (sqlColumns.Count == 0)
+					throw new InvalidOperationException("هیچ ستون SQL برای ساخت Query وجود ندارد");
+
+				var hasShaping = sqlColumns.Any(c => c.GroupBy || !string.IsNullOrEmpty(c.Aggregate));
+				query = hasShaping
+					? _queryBuilder.BuildQueryWithShaping(queryDesign, sqlColumns)
+					: _queryBuilder.BuildQuery(queryDesign, sqlColumns);
+			}
+			else
+			{
+				throw new InvalidOperationException("امکان ساخت Query از طراحی فعلی وجود ندارد");
+			}
+
+			foreach (var column in columns)
+			{
+				var resultColumnName = !string.IsNullOrWhiteSpace(column.Alliance)
+					? column.Alliance
+					: column.ColumnName;
+
+				if (!string.IsNullOrWhiteSpace(resultColumnName))
+					column.ColumnName = resultColumnName;
+
+				column.TableName = null;
+				column.Address = null;
+				column.SelectIndex = 0;
+				column.GroupBy = false;
+				column.Aggregate = null;
+				column.SortDirection = null;
+				column.SortOrder = null;
+			}
+
+			var convertedDesign = new QueryDesign
+			{
+				Tables = new List<TableInfo>(),
+				Relations = new List<TableRelation>(),
+				Filters = new List<FilterCondition>(),
+				CustomConditions = new List<CustomQueryCondition>(),
+				CustomQuery = query,
+				Parameters = queryDesign?.Parameters ?? new List<QueryParameter>(),
+				Selects = new List<QuerySelectInfo>
+				{
+					new QuerySelectInfo { Index = 0, Name = "Select1", Title = "Select1" }
+				}
+			};
+
+			report.Mode = ModeQuery.Query;
+			report.QueryJson = JsonSerializer.Serialize(convertedDesign);
+			report.ColumnsJson = JsonSerializer.Serialize(columns);
+			report.DiagramJson = JsonSerializer.Serialize(new List<TableInfo>());
+			report.ModifiedById = userId;
+			report.ModifiedDateMiladiDateTime = DateTime.Now;
+			report.ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime();
+
+			await _context.SaveChangesAsync();
 			return report;
 		}
 

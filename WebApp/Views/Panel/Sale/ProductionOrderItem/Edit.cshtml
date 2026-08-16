@@ -1,4 +1,4 @@
-@using Common.Utilities
+﻿@using Common.Utilities
 @using Data.SystemAuth
 @using Entities.App.Inv;
 @using Entities.App.Sale;
@@ -9,9 +9,6 @@
 @{
 
 	var newMode = Model.Id == null;
-
-	var listProductionOrderItemBomProductionStepEnum = EnumExtensions.GetEnumValuesWithDisplayNames<ProductionOrderItemBomProductionStepEnum>();
-	var listProductionOrderItemStatusEnum = EnumExtensions.GetEnumValuesWithDisplayNames<ProductionOrderItemStatusEnum>();
 
 	var isAdmin = sdk.IsAdministrator;
 
@@ -51,8 +48,7 @@
 }
 
 <div class="card">
-	<div class="form-action-buttons">
-		<form-action-buttons entity-type="typeof(ProductionOrderItem)">
+   <form-action-buttons entity-type="typeof(ProductionOrderItem)">
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-exchange"
 				action-name="addComment" title="تغییر وضعیت"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-list"
@@ -61,8 +57,8 @@
 				action-name="addStopRequest" title="ثبت توقف"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-clock"
 				action-name="viewStopRequests" title="لیست توقفات"></form-action-button>
-			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-file-xls"
-							action-name="exportBomExcell" title="خروجی اکسل Bom"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-sitemap"
+							action-name="viewBom" title="Bom محصول"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-cog"
 				action-name="acceptEngineering" title="تایید/رد مهندسی"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-industry"
@@ -80,21 +76,264 @@
 			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-times-circle"
 				action-name="committeeReject" title="رد کمیته تامین"></form-action-button>
 		</form-action-buttons>
-	</div>
-
 </div>
 
  
-<div class="row my-3">
-	<div class="col-md-12">
-		<div class="card ">
+ 
+ <div class="card  my-2">
 			<div class="card-body row">
+				<span class="section-box-title">اطلاعات پایه</span>
+				 @if(!newMode)
+					{
+						<div class="col-md-3 form-group-inline">
+					<label class='text-muted d-block' style="font-size: 0.9rem;">سفارش ساخت</label>
+						@(Html.EntitySelector<ProductionOrder>(
+							"ProductionOrderSelector",
+							c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+							c => new
+							{
+								Id = c.Id,
+								Number = (int)c.ProductionOrderNumber
+							},
+							c => new { c.ProductionOrderNumber },
+							"{Number}",
+							"ProductionOrderId",
+							"ProductionOrderName",
+							Model?.ProductionOrderId.ToString(),
+							false,
+							false,
+							false,
+							true
 
-				<div class="col-md-2">
-					<label class=''>سفارش ساخت</label>
+							))
+											
+ 
+					</div>
+			
+					}
 
+				
+
+
+				
+					 @if (!newMode)
+					{
+			        <div class="col-md-9 form-group-inline">
+					    <label class='text-muted d-block' style="font-size: 0.9rem;">کالا</label>
+								@(Html.EntitySelector<Part>(
+										"PartSelector",
+										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+										c => new
+										{
+											Id = c.Id,
+											Name = c.Name,
+											Code = c.Code
+										},
+										c => new { c.Name, c.Code },
+										"{Name} {Code}",
+										"PartId",
+										"PartName",
+										Model?.PartId?.ToString(),
+										false,
+										false,
+										false,
+										true
+										))
+			         	</div>
+					
+					}
+			 
+				@if(!newMode)
+				{
+				<div class='col-md-3 form-group-inline'>
+			 
+						<label class='text-muted d-block ' style="font-size: 0.9rem;">تعداد / مقدار</label>
+						<span class='fw-semibold fs-6' data-bind='amount'>@(Model?.Amount?.ToString() ?? "-")</span>
+				 
+				</div>
+
+				}
+
+				
+				<div class='col-md-3 form-group-inline'>
+					 
+						<span class='text-muted me-2'>ساخت داخل:</span>
+						@if (Model?.IsBuildInside == true)
+						{
+							<span class="badge badge-success">بله</span>
+						}
+						else
+						{
+							<span class="badge badge-secondary">خیر</span>
+						}
+					 
+				</div>
+				<div class='col-md-3 form-group-inline'>
+			 
+						<label class='text-muted d-block  ' style="font-size: 0.9rem;">نوع تجهیز</label>
+						<span class='fw-semibold fs-6' data-bind='equipmentType'>@(Model?.EquipmentType?.ToString() ?? "-")</span>
+					 
+				</div>
+		     	<div class='col-md-3 form-group-inline'>
+		 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">تاریخ تحویل توافقی</label>
+					<span class='fw-semibold fs-6' data-bind='agreedDeliverDate'>@(Model?.AgreedDeliverDate?.ToString("yyyy/MM/dd") ?? "-")</span>
+				 
+			</div>
+		     	<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">نسخه</label>
+					<span class='fw-semibold fs-6' data-bind='revision'>@(Model?.Revision?.ToString() ?? "-")</span>
+			 
+			</div>
+				<div class='col-md-3 form-group-inline'>
+				 
+						<span class='text-muted me-2'>آخرین نسخه:</span>
+						@if (Model?.IsLatestVersion == true)
+						{
+							<span class="badge badge-success">بله</span>
+						}
+						else
+						{
+							<span class="badge badge-secondary">خیر</span>
+						}
+				 
+				</div>
+		     	<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">وضعیت بررسی (کارتابل)</label>
+					<span class='badge badge-light-primary fs-6 px-3 py-2' data-bind='checkStatus'>@(Model?.CheckStatus?.ToDisplay() ?? "-")</span>
+			 
+			</div>
+		     	<div class='col-md-3 form-group-inline'>
+				 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">مرحله ساخت (فعلی)</label>
+					<span class='badge badge-light-info fs-6 px-3 py-2'>@(Model?.ProductionStep.ToDisplay() ?? "-")</span>
+			 
+			</div>
+		     	<div class='col-md-3 form-group-inline'>
+				 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">ورژن</label>
+					<span class='fw-semibold fs-6' data-bind='version'>@(string.IsNullOrWhiteSpace(Model?.Version) ? "-" : Model?.Version)</span>
+			 
+			</div>
+
+
+			<div class='col-md-3 form-group-inline'>
+				 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">مدل</label>
+					<span class='fw-semibold fs-6' data-bind='partModel'>@(string.IsNullOrWhiteSpace(Model?.PartModel) ? "-" : Model?.PartModel)</span>
+			 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">ایرند / طبقه</label>
+					<span class='fw-semibold fs-6' data-bind='airendOrCategory'>@(string.IsNullOrWhiteSpace(Model?.AirendOrCategory) ? "-" : Model?.AirendOrCategory)</span>
+				 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">فشار ورودی</label>
+					<span class='fw-semibold fs-6' data-bind='inputPressureBar'>@(Model?.InputPressureBar?.ToString() ?? "-")</span>
+			 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">فشار خروجی</label>
+					<span class='fw-semibold fs-6' data-bind='outputPressureBar'>@(Model?.OutputPressureBar?.ToString() ?? "-")</span>
+				 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+		 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">ظرفیت</label>
+					<span class='fw-semibold fs-6' data-bind='capacity'>@(string.IsNullOrWhiteSpace(Model?.Capacity) ? "-" : Model?.Capacity)</span>
+				 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">مقیاس</label>
+					<span class='fw-semibold fs-6' data-bind='scale'>@(string.IsNullOrWhiteSpace(Model?.Scale) ? "-" : Model?.Scale)</span>
+			 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">نوع گاز</label>
+					<span class='fw-semibold fs-6' data-bind='gasType'>@(string.IsNullOrWhiteSpace(Model?.GasType) ? "-" : Model?.GasType)</span>
+			 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">دمای بیشینه</label>
+					<span class='fw-semibold fs-6' data-bind='maximumTemperature'>@(Model?.MaximumTemperature?.ToString() ?? "-")</span>
+				 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+				 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">درصد خلوص</label>
+					<span class='fw-semibold fs-6' data-bind='purityPercentage'>@(Model?.PurityPercentage?.ToString() ?? "-")</span>
+		 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+				 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">رطوبت نسبی</label>
+					<span class='fw-semibold fs-6' data-bind='relativeHumidity'>@(Model?.RelativeHumidity?.ToString() ?? "-")</span>
+				 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+			 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">فشار بارومتریک</label>
+					<span class='fw-semibold fs-6' data-bind='barometricPressure'>@(Model?.BarometricPressure?.ToString() ?? "-")</span>
+			 
+			</div>
+
+			<div class='col-md-3 form-group-inline'>
+				 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">نوع محرک</label>
+					<span class='fw-semibold fs-6' data-bind='movingType'>@(string.IsNullOrWhiteSpace(Model?.MovingType) ? "-" : Model?.MovingType)</span>
+				 
+			</div>
+
+				<div class='col-md-3 form-group-inline'>
+					 
+						<span class='text-muted me-2'>بازرسی حین ساخت:</span>
+						@if (Model?.HasInspection == true)
+						{
+							<span class="badge badge-success">دارد</span>
+						}
+						else
+						{
+							<span class="badge badge-secondary">ندارد</span>
+						}
+				 
+				</div>
+
+
+			</div>
+		</div>
+
+
+ 
+
+ 
+ <div class="card  my-2" id="changeDataSection">
+			<div class="card-body row">
+				<span class="section-box-title">تولید</span>
+				<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
+				 
 					@if (newMode)
 					{
+						<div class="col-md-4 form-group-inline">
+					<label class=''>سفارش ساخت</label>
 						@(Html.EntitySelector<ProductionOrder>(
 											"ProductionOrderSelector",
 											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
@@ -111,42 +350,15 @@
 											Model?.ProductionOrderId.ToString(),
 											true
 											))
-					}
-					else
-					{
-						@(Html.EntitySelector<ProductionOrder>(
-											"ProductionOrderSelector",
-											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-											c => new
-											{
-												Id = c.Id,
-												Number = (int)c.ProductionOrderNumber
-											},
-											c => new { c.ProductionOrderNumber },
-											"{Number}",
-											"ProductionOrderId",
-											"ProductionOrderName",
-											Model?.ProductionOrderId.ToString(),
-											false,
-											false,
-											false,
-											true
-
-											))
-					}
-
-				
-
+											
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				
-
-				<div class="col-md-4">
-					<label class=''>کالا</label>
-
+			  	</div>
+			
+					}
 					@if (newMode)
 					{
+							<div class="col-md-8 form-group-inline">
+					<label class='required'>کالا</label>
 								@(Html.EntitySelector<Part>(
 										"PartSelector",
 										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
@@ -163,290 +375,61 @@
 										Model?.PartId?.ToString(),
 										true
 										))
-					
-					}
-					else
-					{
-								@(Html.EntitySelector<Part>(
-										"PartSelector",
-										c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-										c => new
-										{
-											Id = c.Id,
-											Name = c.Name,
-											Code = c.Code
-										},
-										c => new { c.Name, c.Code },
-										"{Name} {Code}",
-										"PartId",
-										"PartName",
-										Model?.PartId?.ToString(),
-										false,
-										false,
-										false,
-										true
-										))
-					}
-			
-
+										
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
-				
-				@if (newMode)
+					
+					}
+
+					@if (newMode)
 				{
-					<div class='col-md-3'>
+
+					<div class='col-md-4 form-group-inline'>
+
+						<label class='required'  >تعداد / مقدار</label>
+						<input class='form-control' data-bind='amount' data-invalidMessage='فقط عداد'
+						data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+						asp-for='Amount' required />
+
+					</div>
+				}
+
+				 <div class='col-md-4 form-group-inline'>
 						<label class=''>نوع دستگاه</label>
 						<select class='form-control' data-bind='deviceType' asp-for='DeviceType'
 							   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemDeviceTypeEnum))">
 						</select>
 						<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 					</div>
-
-				
-				}
-				else
-				{
-						<div class='col-md-2'>
-					<div class="mb-3">
-						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع دستگاه</label>
-						<span class='fw-semibold fs-6' data-bind='deviceType'>@(Model?.DeviceType?.ToString() ?? "-")</span>
-					</div>
-				</div>
-				}
-
-				@if (newMode)
-				{
-				
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تعداد / مقدار</label>
-						<input class='form-control' data-bind='amount' data-invalidMessage='فقط عداد'
-						data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
-						asp-for='Amount' />
-				</div>
-			</div>
-			}else {
-				<div class='col-md-2'>
-					<div class="mb-3">
-						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تعداد / مقدار</label>
-						<span class='fw-semibold fs-6' data-bind='amount'>@(Model?.Amount?.ToString() ?? "-")</span>
-					</div>
-				</div>
-
-				}
-
-
-				<div class='col-md-2'>
-					<div class="d-flex align-items-center py-2">
-						<span class='text-muted me-2'>ساخت داخل:</span>
-						@if (Model?.IsBuildInside == true)
-						{
-							<span class="badge badge-success">بله</span>
-						}
-						else
-						{
-							<span class="badge badge-secondary">خیر</span>
-						}
-					</div>
-				</div>
-
-			
-
-				<div class='col-md-2'>
-					<div class="mb-3">
-						<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع تجهیز</label>
-						<span class='fw-semibold fs-6' data-bind='equipmentType'>@(Model?.EquipmentType?.ToString() ?? "-")</span>
-					</div>
-				</div>
-			 
-
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">تاریخ تحویل توافقی</label>
-					<span class='fw-semibold fs-6' data-bind='agreedDeliverDate'>@(Model?.AgreedDeliverDate?.ToString("yyyy/MM/dd") ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نسخه</label>
-					<span class='fw-semibold fs-6' data-bind='revision'>@(Model?.Revision?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-				<div class='col-md-2'>
-					<div class="d-flex align-items-center py-2">
-						<span class='text-muted me-2'>آخرین نسخه:</span>
-						@if (Model?.IsLatestVersion == true)
-						{
-							<span class="badge badge-success">بله</span>
-						}
-						else
-						{
-							<span class="badge badge-secondary">خیر</span>
-						}
-					</div>
-				</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">وضعیت بررسی (کارتابل)</label>
-					<span class='badge badge-light-primary fs-6 px-3 py-2' data-bind='checkStatus'>@(Model?.CheckStatus?.ToDisplay() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">مرحله ساخت (فعلی)</label>
-					<span class='badge badge-light-info fs-6 px-3 py-2'>@(Model?.ProductionStep.ToDisplay() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">ورژن</label>
-					<span class='fw-semibold fs-6' data-bind='version'>@(string.IsNullOrWhiteSpace(Model?.Version) ? "-" : Model?.Version)</span>
-				</div>
-			</div>
-
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">مدل</label>
-					<span class='fw-semibold fs-6' data-bind='partModel'>@(string.IsNullOrWhiteSpace(Model?.PartModel) ? "-" : Model?.PartModel)</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">ایرند / طبقه</label>
-					<span class='fw-semibold fs-6' data-bind='airendOrCategory'>@(string.IsNullOrWhiteSpace(Model?.AirendOrCategory) ? "-" : Model?.AirendOrCategory)</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">فشار ورودی</label>
-					<span class='fw-semibold fs-6' data-bind='inputPressureBar'>@(Model?.InputPressureBar?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">فشار خروجی</label>
-					<span class='fw-semibold fs-6' data-bind='outputPressureBar'>@(Model?.OutputPressureBar?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">ظرفیت</label>
-					<span class='fw-semibold fs-6' data-bind='capacity'>@(string.IsNullOrWhiteSpace(Model?.Capacity) ? "-" : Model?.Capacity)</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">مقیاس</label>
-					<span class='fw-semibold fs-6' data-bind='scale'>@(string.IsNullOrWhiteSpace(Model?.Scale) ? "-" : Model?.Scale)</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع گاز</label>
-					<span class='fw-semibold fs-6' data-bind='gasType'>@(string.IsNullOrWhiteSpace(Model?.GasType) ? "-" : Model?.GasType)</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">دمای بیشینه</label>
-					<span class='fw-semibold fs-6' data-bind='maximumTemperature'>@(Model?.MaximumTemperature?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">درصد خلوص</label>
-					<span class='fw-semibold fs-6' data-bind='purityPercentage'>@(Model?.PurityPercentage?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">رطوبت نسبی</label>
-					<span class='fw-semibold fs-6' data-bind='relativeHumidity'>@(Model?.RelativeHumidity?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">فشار بارومتریک</label>
-					<span class='fw-semibold fs-6' data-bind='barometricPressure'>@(Model?.BarometricPressure?.ToString() ?? "-")</span>
-				</div>
-			</div>
-
-			<div class='col-md-2'>
-				<div class="mb-3">
-					<label class='text-muted d-block mb-1' style="font-size: 0.9rem;">نوع محرک</label>
-					<span class='fw-semibold fs-6' data-bind='movingType'>@(string.IsNullOrWhiteSpace(Model?.MovingType) ? "-" : Model?.MovingType)</span>
-				</div>
-			</div>
-
-				<div class='col-md-2'>
-					<div class="d-flex align-items-center py-2">
-						<span class='text-muted me-2'>بازرسی حین ساخت:</span>
-						@if (Model?.HasInspection == true)
-						{
-							<span class="badge badge-success">دارد</span>
-						}
-						else
-						{
-							<span class="badge badge-secondary">ندارد</span>
-						}
-					</div>
-				</div>
-
-
-			</div>
-		</div>
-
-
-	</div>
-
-	<div class="col-md-12  " id="changeDataSection">
-		<div class="card h-100">
-			<div class="card-body row">
-				<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-				<div class='col-md-3'>
+				<div class='col-md-4 form-group-inline'>
 					<label class=''>مرحله ساخت</label>
 					<select class='form-control' data-bind='productionStep' asp-for='ProductionStep'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemProductionStepEnum))">
 					</select>
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
-
-				<div class='col-md-3'>
+						<div class='col-md-4 form-group-inline'>
 					<label class=''>شماره برنامه ریزی</label>
 					<input class='form-control' data-bind='planningNumber' data-invalidMessage='فقط عداد'
 						data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
 						asp-for='PlanningNumber' />
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
-
-				<div class='col-md-3'>
+					<div class='col-md-4 form-group-inline'>
 					<label class=''>سریال</label>
 					<input class='form-control' data-bind='serial' asp-for='Serial' />
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
+				<div class='col-md-4 form-group-inline'>
+					<label class=''>نوع سریال</label>
+					<select class='form-control' data-bind='serialType' asp-for='SerialType'
+						   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemSerialTypeEnum))">
+					</select>
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
 
-
-
-
-
-				<div class='col-md-3'>
+				
+				<div class='col-md-4 form-group-inline'>
 					<label class=''>تاریخ شروع تولید</label>
 					<input class='form-control' data-bind='productionStartShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -456,7 +439,7 @@
 
 
 
-				<div class='col-md-3'>
+				<div class='col-md-4 form-group-inline'>
 					<label class=''>تاریخ شمسی پایان تولید</label>
 					<input class='form-control' data-bind='productionEndShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -466,7 +449,7 @@
 
 
 
-				<div class='col-md-3'>
+				<div class='col-md-4 form-group-inline'>
 					<label class=''>تاریخ پایان تست</label>
 					<input class='form-control' data-bind='testingEndShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -476,7 +459,7 @@
 
 
 
-				<div class='col-md-3'>
+				<div class='col-md-4 form-group-inline'>
 					<label class=''>تاریخ آماده سازی</label>
 					<input class='form-control' data-bind='preparationShamsiDate' data-persionDatePicker="true"
 						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
@@ -485,94 +468,20 @@
 				</div>
 
 
+				  
 
-				<div class='col-md-3'>
-					<label class=''>تاریخ تحویل</label>
-					<input class='form-control' data-bind='deliveryShamsiDate' data-persionDatePicker="true"
-						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-						value='@Model?.DeliveryMiladiDate' />
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
-					<label class=''>تاریخ اخذ</label>
-					<input class='form-control' data-bind='sendToIndustrialShamsiDate' data-persionDatePicker="true"
-						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-						value='@Model?.SendToIndustrialMiladiDate' readonly disabled />
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
-					<label class=''>تاریخ اولین تغییر صنایع</label>
-					<input class='form-control' data-bind='firstIndustrialChangeShamsiDate' data-persionDatePicker="true"
-						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-						value='@Model?.FirstIndustrialChangeMiladiDate' readonly disabled />
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
-					<label class=''>تاریخ آماده‌سازی مدارک</label>
-					<input class='form-control' data-bind='documentPreparationShamsiDate' data-persionDatePicker="true"
-						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-						value='@Model?.DocumentPreparationMiladiDate' />
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
-					<label class=''>تاریخ تحویل استاندارد</label>
-					<input class='form-control' data-bind='standardDeliveryShamsiDate' data-persionDatePicker="true"
-						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-						value='@Model?.StandardDeliveryMiladiDate' />
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
+				<div class='col-md-4 form-group-inline'>
 					<label class=''>وضعیت</label>
 					<select class='form-control' data-bind='status' asp-for='Status'
 						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemStatusEnum))">
 					</select>
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
+				 
+				 
+			 
 
-				<div class='col-md-3'>
-					<label class=''>وضعیت تولید</label>
-					<select class='form-control' data-bind='productionStatus' asp-for='ProductionStatus'
-						asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemProductionStatusEnum))">
-					</select>
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
-					<label class=''>نوع سریال</label>
-					<select class='form-control' data-bind='serialType' asp-for='SerialType'
-						   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemSerialTypeEnum))">
-					</select>
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-3'>
-					<label class=''>روتین</label>
-					<div class="form-check form-switch mt-2">
-						<input class="form-check-input" type="checkbox" data-bind='isRoutine' asp-for='IsRoutine' />
-					</div>
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-8'>
-					<label class=''>ملاحظات</label>
-					<textarea class='form-control' data-bind='salesConsideration'
-						asp-for='SalesConsideration'>@Model?.SalesConsideration</textarea>
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-8'>
-					<label class=''>ملاحظات مهندسی</label>
-					<textarea class='form-control' data-bind='engineeringConsideration'
-						asp-for='EngineeringConsideration'>@Model?.EngineeringConsideration</textarea>
-					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-				</div>
-
-				<div class='col-md-8'>
+				<div class='col-md-12 form-group-inline'>
 					<label class=''>ملاحظات صنایع</label>
 					<textarea class='form-control' data-bind='planningConsideration'
 						asp-for='PlanningConsideration'>@Model?.PlanningConsideration</textarea>
@@ -581,110 +490,7 @@
 
 			</div>
 		</div>
-	</div>
-</div>
-
-<div class="card  card-body my-3">
-	<div class='col-md-12 '>
-		<div class="table-responsive">
-
-
-		<div class="d-flex justify-content-between align-items-center mb-3">
-			<h4 class="mb-0">لیست BOM</h4>
-			<button type="button" class="btn btn-primary btn-sm" data-action="addNewBom">
-				<i class="fa fa-plus"></i> افزودن BOM
-			</button>
-		</div>
-		<table id="bomTable" class="table table-striped table-bordered" >
-			<thead>
-				<tr>
-					<th class="min-w-50px">#</th>
-					<th class="min-w-50px">ردیف</th>
-					<th class="min-w-50px">نسخه</th>
-					<th class="min-w-100px">کد کالا</th>
-					<th class="min-w-500px">نام کالا</th>
-					<th class="min-w-150px">تعداد/مقدار</th>
-					<th class="min-w-150px">واحد</th>
-					<th class="min-w-150px">آخرین نسخه</th>
-					<th class="min-w-150px">مرحله ساخت</th>
-					<th class="min-w-150px">تعداد تامین شده</th>
-					<th class="min-w-150px">وضعیت</th>
-					<th class="min-w-150px">توضیحات</th>
-					<th class="min-w-300px">توضیحات واحد فروش</th>
-					<th class="min-w-150px">نیاز به AVL</th>
-					<th class="min-w-150px">زمان ایجاد</th>
-					<th class="min-w-150px">ایجاد کننده</th>
-					<th class="min-w-150px">زمان ویرایش</th>
-					<th class="min-w-150px">ویرایش کننده</th>
-				</tr>
-			</thead>
-			<tbody>
-				@if (ViewBag.ProductionOrderItemBomViewData != null)
-				{
-					int counter = 1;
-					@foreach (var item in (List<ProductionOrderItemBomViewModel>)ViewBag.ProductionOrderItemBomViewData)
-						{
-
-						 var ProductionStepStr = item?.ProductionStep == null || item?.ProductionStep == 0 ? "" : item?.ProductionStep.ToString();
-							var StatusStr = item?.Status == null || item?.Status == 0 ? "" : item?.Status.ToString();
-
-						<tr data-item-id="@(item.Id ?? 0)">
-							<td>
-								<button class="btn btn-icon btn-warning btn-sm" data-action="openBomModal">
-									<i class="fa fa-pencil"></i>
-								</button>
-							</td>
-							<td>@counter</td>
-							<td>@item?.Revision</td>
-							<td>@item?.PartCode</td>
-							<td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"
-								title="@item?.PartName">
-								@item?.PartName
-							</td>
-
-
-							<td>@item?.Amount</td>
-							<td>@item?.PartUnitName</td>
-							<td>
-								@if (item?.IsLatest == true)
-								{
-									<span class="badge badge-success">بله</span>
-								}
-								else
-								{
-									<span class="badge badge-secondary">خیر</span>
-								}
-							</td>
-								<td>@ProductionStepStr</td>
-							<td>@(item?.NumberSupplied?.ToString() ?? "-")</td>
-							<td>@StatusStr</td>
-							<td>@item?.Description</td>
-							<td>@item?.SaleUnitDetails</td>
-							<td>
-								@if (item?.NeedsAVL == true)
-								{
-									<span class="badge badge-warning">دارد</span>
-								}
-								else
-								{
-									<span class="badge badge-secondary">ندارد</span>
-								}
-							</td>
-							<td class="rtl">@item?.CreatedOnShamsiDateTime</td>
-							<td>@item?.CreatedByName</td>
-							<td class="rtl">@item?.ModifiedDateShamsiDateTime</td>
-							<td>@item?.ModifiedByName</td>
-						</tr>
-						counter++;
-					}
-				}
-			</tbody>
-		</table>
-
-		</div>
-	</div>
-</div>
-
+ 
 
 <div class="card">
 
@@ -710,9 +516,6 @@
 
 <script>
 	 
-	var listProductionOrderItemBomProductionStepEnum = @Html.Raw(listProductionOrderItemBomProductionStepEnum.JsonSerialize());
-	var listProductionOrderItemStatusEnum = @Html.Raw(listProductionOrderItemStatusEnum.JsonSerialize());
-
 	// TODO(Role): نگاه کن به بالای فایل Razor برای فهرست کامل Roleهای مورد نیاز هر پرچم زیر
 	var permissions = @Html.Raw(Json.Serialize(new {
 		   canAcceptEngineering,
@@ -749,7 +552,7 @@
 		self.FormActionButtons.viewComments.element.disabled = false;
 		self.FormActionButtons.addStopRequest.element.disabled = false;
 		self.FormActionButtons.viewStopRequests.element.disabled = false;
-		self.FormActionButtons.exportBomExcell.element.disabled = false;
+		self.FormActionButtons.viewBom.element.disabled = false;
 
 		const checkStatus = productionOrderItem.checkStatus;
 
@@ -791,6 +594,15 @@
 	function currentProductionOrderItemId() {
 		return $$("#changeDataSection [data-bind='id']").val();
 	}
+
+	self.FormActionButtons.viewBom.onclick(function () {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') {
+			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
+			return;
+		}
+		appController.addPage('/Panel/ProductionOrderItem/BomListBy?productionOrderItemId=' + id);
+	});
 
 	//#region Accept/Reject Engineering
 	self.FormActionButtons.acceptEngineering.onclick(function () {
@@ -1003,7 +815,6 @@
 	//#endregion
 
 	function savefn($btnAction) {
-		debugger
 		var id = $$("[data-bind='id']").val();
 		 
 
@@ -1047,197 +858,6 @@
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 
-	$$('#bomTable').DataTable({
-		language: {
-			url: "/panelLib/plugins/custom/datatables/fa.json"
-		},
-		pageLength: 500,
-		scrollY: "30vh",
-		"scrollX": true,
-		scrollCollapse: true,
-		paging: false,
-		info: false,
-		lengthChange: false,
-		dom: '<"top">rt<"bottom"f><"clear">',
-
-	});
-
- 
-	// BOM Modal Functions using jQuery Confirm
-	function openBomModal(bomId = null) {
-		const productionOrderItemId = $$('#changeDataSection [data-bind="id"]').val();
-		if (!productionOrderItemId || productionOrderItemId == '0') {
-			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
-			return;
-		}
-
-		const url = bomId 
-			? `/Panel/ProductionOrderItem/ProductionOrderItemBomPartial?id=${bomId}&productionOrderItemId=${productionOrderItemId}`
-			: `/Panel/ProductionOrderItem/ProductionOrderItemBomPartial?productionOrderItemId=${productionOrderItemId}`;
-	 
-		$$.get(url, function(result) {
-			let bodyCn = `<div style="overflow-x: hidden;">${result}</div>`
-			$.confirm({
-				title: bomId ? 'ویرایش BOM' : 'افزودن BOM',
-				columnClass: 'col-md-8',
-				content: bodyCn,
-				rtl: true,
-				buttons: {
-					save: {
-						text: 'ذخیره',
-						btnClass: 'btn-primary',
-						action: function() {
-							const $content = this.$content;
-							
-							if (validateError($content)) {
-								return false; // جلوگیری از بسته شدن
-							}
-							
-							const model = $content.dataBind();
-							const self = this;
-							
-							$$.post('/Panel/ProductionOrderItem/SaveBom', model, function(r) {
-								if (!r.isSuccess) {
-									toastr.error(`${r.message}`, 'خطا');
-									return false;
-								}
-								
-								toastr.success('ذخیره سازی با موفقیت انجام شد');
-								
-								// افزودن یا به‌روزرسانی رکورد در جدول
-								updateBomTable(r.data);
-					 
-								self.close();
-							});
-							
-							return false; // جلوگیری از بسته شدن خودکار
-						}
-					},
-					cancel: {
-						text: 'انصراف',
-						btnClass: 'btn-secondary'
-					}
-				},
-				onContentReady: function () {
-					var self = this;
-					setTimeout(function () {
-						initPersionDatePicker(self.$body);
-						// Fix select2 dropdowns in modal (EntitySelectors)
-						self.$body.find('select.select2-hidden-accessible').each(function() {
-							const $select = $$(this);
-							const currentData = $select.select2('data');
-							$select.select2('destroy');
-							$select.select2({
-								dropdownParent: self.$body,
-								width: '100%',
-								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-							});
-							if (currentData && currentData.length > 0) {
-								$select.val($select.val()).trigger('change');
-							}
-						});
-					}, 100);
-				},
-			});
-
-		
-		});
-	}
-
-	function updateBomTable(bomData) {
-		const table = $$('#bomTable').DataTable();
-		
-		// پیدا کردن ردیف موجود با data-item-id
-		const $existingRow = $$(`#bomTable tr[data-item-id="${bomData.id}"]`);
-		
-		// ساخت HTML برای badge ها
-		const isLatestBadge = bomData.isLatest 
-			? '<span class="badge badge-success">بله</span>' 
-			: '<span class="badge badge-secondary">خیر</span>';
-		
-		const needsAVLBadge = bomData.needsAVL 
-			? '<span class="badge badge-warning">دارد</span>' 
-			: '<span class="badge badge-secondary">ندارد</span>';
-		
-		const editBtn = `<button class="btn btn-icon btn-warning btn-sm" data-action="openBomModal"><i class="fa fa-pencil"></i></button>`;
-		
-		const partNameCell = `<span style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${bomData.partName || ''}">${bomData.partName || ''}</span>`;
-		
-		if ($existingRow.length > 0) {
-			// به‌روزرسانی ردیف موجود
-			const row = table.row($existingRow);
-			const currentRowNumber = $existingRow.find('td:eq(1)').text(); // حفظ شماره ردیف فعلی
-			
-			let productionStepEnum = listProductionOrderItemBomProductionStepEnum.firstOrDefault(c=>c.value == bomData.productionStep);
-			let productionStepStr = productionStepEnum?.exteraData || "";
-
-
-			 let productionOrderItemStatusEnum = listProductionOrderItemStatusEnum.firstOrDefault(c=>c.value == bomData.status);
-			let productionOrderItemStatusStr = productionOrderItemStatusEnum?.exteraData || "";
-	 
-			
-			row.data([
-				editBtn,
-				currentRowNumber,
-				bomData.revision || '',
-				bomData.partCode || '',
-				partNameCell,
-				bomData.amount || '',
-				bomData.partUnitName || '',
-				isLatestBadge,
-				productionStepStr,
-				bomData.numberSupplied !== null ? bomData.numberSupplied : '-',
-				productionOrderItemStatusStr,
-				bomData.description || '',
-				bomData.saleUnitDetails || '',
-				needsAVLBadge,
-				bomData.createdOnShamsiDateTime || '',
-				bomData.createdByName || '',
-				 bomData.modifiedDateShamsiDateTime || '',
-				bomData.modifiedByName || '',
-		
-			]).draw(false);
-		} else {
-			// افزودن ردیف جدید
-			const newRowNumber = table.rows().count() + 1;
-			const newRow = table.row.add([
-				editBtn,
-				newRowNumber,
-				bomData.revision || '',
-				bomData.partCode || '',
-				partNameCell,
-				bomData.amount || '',
-				bomData.partUnitName || '',
-				isLatestBadge,
-				bomData.productionStep || '',
-				bomData.numberSupplied !== null ? bomData.numberSupplied : '-',
-				bomData.status || '',
-				bomData.description || '',
-				bomData.saleUnitDetails || '',
-				needsAVLBadge,
-				bomData.createdOnShamsiDateTime || '',
-				bomData.createdByName || '',
-					bomData.modifiedDateShamsiDateTime || '',
-				bomData.modifiedByName || '',
-			
-			]).draw(false);
-			
-			$$(newRow.node()).attr('data-item-id', bomData.id);
-		}
-	}
-
-	 
-	// Event delegation برای دکمه افزودن BOM جدید
-	page.$pageEl.on('click', '[data-action="addNewBom"]', function() {
-		openBomModal();
-	});
-
-	// Event delegation برای دکمه‌های ویرایش BOM در جدول
-	page.$pageEl.on('click', '[data-action="openBomModal"]', function() {
-		const bomId = $$(this).closest('tr').data('item-id');
-		openBomModal(bomId);
-	});
-
 	// دکمه افزودن تغییر وضعیت
 	self.FormActionButtons.addComment.onclick(function () {
 		openCommentModal();
@@ -1257,8 +877,6 @@
 	self.FormActionButtons.viewStopRequests.onclick(function () {
 		viewStopRequestsList();
 	});
-
-	debugger
 
 	// Stop Request Functions
 	function openStopRequestModal(stopRequestId = null) {
@@ -1297,17 +915,20 @@
 								if (selectedReasons && selectedReasons.length > 0) {
 									const selectedTexts = [];
 									$stopReasonSelect.find('option:selected').each(function() {
-										selectedTexts.push($$(this).text());
+										selectedTexts.push($$(this).text().trim());
 									});
-									// ساخت hidden inputs برای ارسال
-									if ($content.find('[data-bind="stopReasonIds"]').length === 0) {
-										$content.append(`<input type="hidden" data-bind="stopReasonIds" value="${selectedReasons.join(',')}" />`);
-										$content.append(`<input type="hidden" data-bind="stopReasonTitles" value="${selectedTexts.join(',')}" />`);
-									} else {
-										$content.find('[data-bind="stopReasonIds"]').val(selectedReasons.join(','));
-										$content.find('[data-bind="stopReasonTitles"]').val(selectedTexts.join(','));
-									}
+									$content.find('[data-bind="stopReasonIds"]').val(selectedReasons.join(','));
+									$content.find('[data-bind="stopReasonTitles"]').val(selectedTexts.join(','));
+								} else {
+									toastr.error('علت توقف الزامی است');
+									return false;
 								}
+							}
+
+							const desc = $content.find('[data-bind="description"]').val();
+							if (!desc || !String(desc).trim()) {
+								toastr.error('شرح الزامی است');
+								return false;
 							}
 							
 							const model = $content.dataBind();
@@ -1558,91 +1179,4 @@
 			});
 		});
 	}
-
- 
-
-		 self.FormActionButtons.exportBomExcell.onclick(function () {
-			  
-		  var items = [];
-
-		  $$("#bomTable tbody tr").each(function () {
-
-			var rec =   $($(this).find("td")[1]).text()
-			var rev =   $($(this).find("td")[2]).text()
-			var partCode =   $($(this).find("td")[3]).text()
-			var partName =   $($(this).find("td")[4]).text()
-			var qty =   $($(this).find("td")[5]).text()
-			var unitName =   $($(this).find("td")[6]).text()
-			var lastVerion =   $($(this).find("td")[7]).text()
-			var produtionStep =   $($(this).find("td")[8]).text()
-			var numberSupplied =   $($(this).find("td")[9]).text()
-			var status =   $($(this).find("td")[10]).text()
-			var description =   $($(this).find("td")[11]).text()
-			var saleDescription =   $($(this).find("td")[12]).text()
-			var needsAVL =   $($(this).find("td")[13]).text()
-
-			var createdOn =   $($(this).find("td")[14]).text()
-			var createdBy =   $($(this).find("td")[15]).text()
-			var modifiedOn =   $($(this).find("td")[16]).text()
-			var modifiedBy =   $($(this).find("td")[17]).text()
-			 
-			 
-
-			  items.push({
-				 "ردیف": rec,
-				 "نسخه": rev,
-				 "کدکالا": partCode,
-				 "نام کالا": partName,
-				 "تعداد/مقدار": formatNumber(qty),
-				 "واحد": unitName,
-				 "آخرین نسخه": lastVerion,
-				 "مرحله ساخت": produtionStep,
-				 "تعداد تامین شده": numberSupplied,
-				 "وضعیت": status,
-				 "توضیحات": description,
-				 "توضیحات واحد فروش": saleDescription,
-				 "نیاز به AVL": needsAVL,
-
-				 "زمان ایجاد":createdOn ,
-				 "ایجاد کننده":createdBy ,
-				 "زمان ویرایش": modifiedOn,
-				 "ویرایش کننده": modifiedBy,
-			 });
-
-
-		  });
-
-		  if (items.length === 0) {
-			 return toastr.warning("هیچ قلمی برای خروجی اکسل یافت نشد");
-		  }
-		    
-		  var worksheet = XLSX.utils.json_to_sheet(items);
-		  var workbook = XLSX.utils.book_new();
-		  worksheet['!rightToLeft'] = true;
-
-			  var range = XLSX.utils.decode_range(worksheet['!ref']);
-			for (var C = range.s.c; C <= range.e.c; ++C) {
-			  var cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: C });
-			  if (!worksheet[cellAddress]) continue;
-			  worksheet[cellAddress].s = {
-			    font: { bold: true },
-			    fill: { fgColor: { rgb: "FFD9D9D9" } } // رنگ پس‌زمینه خاکستری روشن
-			  };
-			}
-
-		  XLSX.utils.book_append_sheet(workbook, worksheet, "ProductionOrderItemBom");
-
-		  var productionOrderName = $$("[data-bind=ProductionOrderName]").val();
-
-		  XLSX.writeFile(workbook, `ProductionOrderItemBom${productionOrderName}.xlsx`);
-	   });
-
-	   function formatNumber(input) {
- 
-		  const num = parseFloat(input);
- 
-		  if (isNaN(num)) return input;
- 
-		  return num.toString();
-		}
 </script>
