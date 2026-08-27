@@ -1,6 +1,8 @@
 using Common.Attributes;
 using Common.Auth.Enums;
+using Data;
 using Data.Contracts;
+using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sale.Enums;
 using Entities.Base.DataTable;
@@ -15,7 +17,7 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("گزارش کار", typeof(SaleReport))]
-	public class SaleReportController(IUnitOfWork unitOfWork, IWebHostEnvironment _webHostEnvironment) : BaseController
+	public class SaleReportController(IUnitOfWork unitOfWork, IWebHostEnvironment _webHostEnvironment, ApplicationDbContext _context) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -110,78 +112,117 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("دریافت لیست با شناسه درخواست پشتیبانی", ActionAccessType.Api, ActionAccessItemType.FetchData)]
-		public IActionResult GetListByParentId(long? serviceRequestId)
+		public IQueryable<SaleReportListItemViewModel> GetListByParentId(long? serviceRequestId)
 		{
-			if (serviceRequestId == null || serviceRequestId == 0)
-				return BadRequest("شناسه درخواست پشتیبانی نمیتواند خالی باشد.");
-
-			var items = unitOfWork
-			    .Repository<SaleReport>()
-			    .TableNoTracking
-			    .Where(c => c.ServiceRequestId == serviceRequestId)
-			    .Select(c => new SaleReportListItemViewModel
+			var query = _context.Vw_ServiceRequest_Details
+			    .AsNoTracking()
+			    .Where(x => x.ServiceRequestID == serviceRequestId)
+			    .Select(x => new SaleReportListItemViewModel
 			    {
-				    Id = c.Id,
-				    ServiceRequestId = c.ServiceRequestId,
-				    SaleMissionId = c.SaleMissionId,
-				    ReportNumber = c.ReportNumber,
-				    ServiceStartShamsiDate = c.ServiceStartShamsiDate,
-				    ServiceStartTime = c.ServiceStartTime,
-				    ServiceEndShamsiDate = c.ServiceEndShamsiDate,
-				    ServiceEndTime = c.ServiceEndTime,
-				    FailureTypeId = c.FailureTypeId,
-				    FailureTypeTitle = c.FailureType.Title,
-				    RepairsTypeId = c.RepairsTypeId,
-				    RepairsTypeTitle = null,
-				    ExecutiveBarriersDescription = c.ExecutiveBarriersDescription,
-				    TotalRunTime = c.TotalRunTime,
-				    WorkHoursUnderload = c.WorkHoursUnderload,
-				    FlowIntensityUnderload = c.FlowIntensityUnderload,
-				    FlowIntensityWithoutload = c.FlowIntensityWithoutload,
-				    MaximumWorkingPressure = c.MaximumWorkingPressure,
-				    MinimumWorkingPressure = c.MinimumWorkingPressure,
-				    EnvironmentTemperature = c.EnvironmentTemperature,
-				    DeviceTemperature = c.DeviceTemperature,
-				    VoltagePowerGrid = c.VoltagePowerGrid,
-				    AmountDryerDyupoint = c.AmountDryerDyupoint,
-				    CompressorHouseStatus = c.CompressorHouseStatus,
-				    ElectricalPanelStatus = c.ElectricalPanelStatus,
-				    PipingStatus = c.PipingStatus,
-				    MissionResult = c.MissionResult,
-				    OldRunTime = c.OldRunTime,
-				    ExpertGuaranteeDateShamsi = c.ExpertGuaranteeDateShamsi,
-				    ExpertGuaranteeComment = c.ExpertGuaranteeComment,
-				    OilLevelCheck = c.OilLevelCheck,
-				    InspectionOfAllConnections = c.InspectionOfAllConnections,
-				    OilSuctionInspection = c.OilSuctionInspection,
-				    DustCollectorInspection = c.DustCollectorInspection,
-				    InspectionOfTheseRpentinebeltTimingBelt = c.InspectionOfTheseRpentinebeltTimingBelt,
-				    OilFilterReplacement = c.OilFilterReplacement,
-				    SeparatFilterReplacement = c.SeparatFilterReplacement,
-				    AirFilterReplacement = c.AirFilterReplacement,
-				    ReplacingTheunLoaderkit = c.ReplacingTheunLoaderkit,
-				    MinimumKitReplacement = c.MinimumKitReplacement,
-				    Replacingthethermostatkit = c.Replacingthethermostatkit,
-				    IrankitReplacement = c.IrankitReplacement,
-				    ElectricMotorGreasing = c.ElectricMotorGreasing,
-				    CleaningExteriorDevice = c.CleaningExteriorDevice,
-				    StatusCompressor = c.StatusCompressor,
-				    CoolingSystem = c.CoolingSystem,
-				    CompressorRoomPowerSupplyPanelControl = c.CompressorRoomPowerSupplyPanelControl,
-				    CompressorElectricalSystemElectricalPanel = c.CompressorElectricalSystemElectricalPanel,
-				    StatusPeripheralEquipment = c.StatusPeripheralEquipment,
-				    PipingCondition = c.PipingCondition,
-				    ServiceMaintenanceManual = c.ServiceMaintenanceManual,
-				    TheAboveItemsApprovedCustomer = c.TheAboveItemsApprovedCustomer,
-				    TechnicalSupervisorsRemarks = c.TechnicalSupervisorsRemarks,
-				    ExplanationByThereGionalOfficial = c.ExplanationByThereGionalOfficial,
-				    OpinionofAfterSalesServiceSupervisor = c.OpinionofAfterSalesServiceSupervisor,
-				    AfterSalesServiceManagersOpinion = c.AfterSalesServiceManagersOpinion
-			    })
-			    .ToList();
+				    Id = x.ServiceRequestID,
+				    ServiceRequestId = x.SaleReportServiceRequestId,
+				    SaleMissionId = x.SaleMissionId,
+				    ReportNumber = x.ReportNumber,
+				    ServiceStartShamsiDate = x.ServiceStartShamsiDate,
+				    ServiceStartTime = x.ServiceStartTime,
+				    PartId = x.Partid,
+				    PartCode = x.PartCode,
+				    PartName = x.PartName,
+				    ServiceEndShamsiDate = x.ServiceEndShamsiDate,
+				    ServiceEndTime = x.ServiceEndTime,
+				    FailureTypeId = x.FailureTypeId,
+				    FailureTypeTitle = x.FailureTypeTitle,
+				    ExpertNameId = x.ExpertNameId,
+				    ExpertName = x.ExpertName,
+				    RepairsTypeId = x.RepairsTypeId,
+				    SaleReportId = x.SaleReportID,
+				    ExecutiveBarriersDescription = x.ExecutiveBarriersDescription,
+				    TotalRunTime = x.TotalRunTime,
+				    WorkHoursUnderload = x.WorkHoursUnderload,
+				    FlowIntensityUnderload = x.FlowIntensityUnderload,
+				    FlowIntensityWithoutload = x.FlowIntensityWithoutload,
+				    MaximumWorkingPressure = x.MaximumWorkingPressure,
+				    MinimumWorkingPressure = x.MinimumWorkingPressure,
+				    EnvironmentTemperature =
+					  x.EnvironmentTemperature,
+				    DeviceTemperature =
+					  x.DeviceTemperature,
+				    VoltagePowerGrid =
+					  x.VoltagePowerGrid,
+				    AmountDryerDyupoint =
+					  x.AmountDryerDyupoint,
+				    CompressorHouseStatus =
+					  x.CompressorHouseStatus ?? false,
+				    ElectricalPanelStatus =
+					  x.ElectricalPanelStatus ?? false,
+				    PipingStatus =
+					  x.PipingStatus ?? false,
+				    MissionResult =
+					  x.MissionResult ?? 0,
+				    OldRunTime =
+					  x.OldRunTime,
+				    ExpertGuaranteeDateShamsi =
+					  x.ExpertGuaranteeDateShamsi,
+				    ExpertGuaranteeComment =
+					  x.ExpertGuaranteeComment,
+				    OilLevelCheck =
+					  x.OilLevelCheck ?? false,
+				    InspectionOfAllConnections =
+					  x.InspectionOfAllConnections ?? false,
+				    OilSuctionInspection =
+					  x.OilSuctionInspection ?? false,
+				    DustCollectorInspection =
+					  x.DustCollectorInspection ?? false,
+				    InspectionOfTheseRpentinebeltTimingBelt =
+					  x.InspectionOfTheseRpentinebeltTimingBelt ?? false,
+				    OilFilterReplacement =
+					  x.OilFilterReplacement ?? false,
+				    SeparatFilterReplacement =
+					  x.SeparatFilterReplacement ?? false,
+				    AirFilterReplacement =
+					  x.AirFilterReplacement ?? false,
+				    ReplacingTheunLoaderkit =
+					  x.ReplacingTheunLoaderkit ?? false,
+				    MinimumKitReplacement =
+					  x.MinimumKitReplacement ?? false,
+				    Replacingthethermostatkit =
+					  x.Replacingthethermostatkit ?? false,
+				    IrankitReplacement =
+					  x.IrankitReplacement ?? false,
+				    ElectricMotorGreasing =
+					  x.ElectricMotorGreasing ?? false,
+				    CleaningExteriorDevice =
+					  x.CleaningExteriorDevice ?? false,
+				    StatusCompressor =
+					  x.StatusCompressor ?? false,
+				    CoolingSystem =
+					  x.CoolingSystem ?? false,
+				    CompressorRoomPowerSupplyPanelControl =
+					  x.CompressorRoomPowerSupplyPanelControl ?? false,
+				    CompressorElectricalSystemElectricalPanel =
+					  x.CompressorElectricalSystemElectricalPanel ?? false,
+				    StatusPeripheralEquipment =
+					  x.StatusPeripheralEquipment ?? false,
+				    PipingCondition =
+					  x.PipingCondition ?? false,
+				    ServiceMaintenanceManual =
+					  x.ServiceMaintenanceManual ?? false,
+				    TheAboveItemsApprovedCustomer =
+					  x.TheAboveItemsApprovedCustomer ?? false,
+				    TechnicalSupervisorsRemarks =
+					  x.TechnicalSupervisorsRemarks,
+				    ExplanationByThereGionalOfficial =
+					  x.ExplanationByThereGionalOfficial,
+				    OpinionofAfterSalesServiceSupervisor =
+					  x.OpinionofAfterSalesServiceSupervisor,
+				    AfterSalesServiceManagersOpinion =
+					  x.AfterSalesServiceManagersOpinion,
+				    Serial = x.Serial
+			    });
 
-			return Ok(items);
+			return query;
 		}
+
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("خروجی اکسل", ActionAccessType.Api)]
@@ -208,8 +249,6 @@ namespace WebApp.Controllers.Dynamic
 			return Ok(await unitOfWork.Repository<SaleReport>().FetchDataAsync(request, cn));
 		}
 
-
-
 		[HttpGet("[action]")]
 		public IActionResult ShowProductDetailForm(long? serviceRequestId, CancellationToken cancellationToken)
 		{
@@ -220,7 +259,6 @@ namespace WebApp.Controllers.Dynamic
 			};
 			return PartialView(@"\Views\Panel\Sale\ServiceRequest\ProductDetail\Edit.cshtml", model);
 		}
-
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره جزئیات", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -237,8 +275,6 @@ namespace WebApp.Controllers.Dynamic
 				return Ok(new { isSuccess = true, message = "با موفقیت ویرایش شد", data = entity });
 			}
 		}
-
-
 
 		[HttpDelete("[action]")]
 		public async Task<IActionResult> DeleteServiceRequest([FromQuery] long? id, CancellationToken cancellationToken)
@@ -284,95 +320,234 @@ namespace WebApp.Controllers.Dynamic
 		[HttpGet("[action]")]
 		public async Task<IActionResult> GetServiceRequest(long? serviceRequestId, CancellationToken cancellationToken)
 		{
-			try
-			{
-				var list = await unitOfWork.Repository<ServiceRequestDetail>()
-				    .TableNoTracking
-				    .Where(it => it.ServiceRequestId == serviceRequestId)
-				    .ToListAsync();
 
-				return Ok(list);
-			}
-			catch (Exception ex)
-			{
-				if (ex.InnerException != null)
-				{
-					Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
-				}
+			var list = await unitOfWork.Repository<ServiceRequestDetail>()
+			    .TableNoTracking
+			    .Where(it => it.ServiceRequestId == serviceRequestId)
+			    .ToListAsync();
 
-				return BadRequest(new
+			return Ok(list);
+		}
+
+		/// <summary>
+		/// دریافت شماره ماموریت
+		/// </summary>
+		/// <param name="serviceRequestId"></param>
+		/// <param name="cancellationToken"></param>
+		/// <returns></returns>
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetMissionsNumber(long? serviceRequestId, CancellationToken cancellationToken)
+		{
+			if (!serviceRequestId.HasValue)
+			{
+				return Ok(new
 				{
-					success = false,
-					message = ex.Message,
-					innerMessage = ex.InnerException?.Message
+					isSuccess = false,
+					data = new List<object>(),
+					message = "ServiceRequestId is required"
 				});
 			}
+
+			var missions = await unitOfWork.Repository<SaleMission>()
+			    .TableNoTracking
+			    .Include(it => it.Personel)
+			    .Where(it => it.ServiceRequestId == serviceRequestId.Value)
+			    .ToListAsync(cancellationToken);
+
+			var missionList = new List<object>();
+
+			foreach (var p in missions)
+			{
+				string personelName = "بدون پرسنل";
+
+				if (p?.Personel != null)
+				{
+					personelName = $"{p.Personel.Name} {p.Personel.Family}";
+				}
+
+				int statementNumber = p?.StatementNumber ?? -1;
+
+				missionList.Add(new
+				{
+					Id = p?.ServiceRequestId,
+					Text = $"ش حکم : {statementNumber} - {personelName}"
+				});
+			}
+
+			return Ok(missionList);
+		}
+		//public async Task<IActionResult> GetMissionsNumber(long? serviceRequestId, CancellationToken cancellationToken)
+		//{
+
+		//    if (!serviceRequestId.HasValue)
+		//    {
+		//        return Ok(new
+		//        {
+		//            isSuccess = false,
+		//            data = new List<object>(),
+		//            message = "ServiceRequestId is required"
+		//        });
+		//    }
+
+		//    var missions = await unitOfWork.Repository<SaleMission>()
+		//        .TableNoTracking
+		//        .Include(it => it.Personel)
+		//        .Where(it => it.ServiceRequestId == serviceRequestId.Value)
+		//        .ToListAsync(cancellationToken);
+
+		//    var missionList = missions.Select(p => new
+		//    {
+		//        Id = p?.ServiceRequestId,
+		//        Text = "ش حکم : " + p?.StatementNumber + " -" + p?.Personel.Name + " " + p?.Personel.Family
+		//    }).ToList();
+
+		//    return Ok(missionList);
+		//}
+
+
+		/// <summary>
+		/// دریافت گزارش‌های ماموریت مربوط به درخواست خدمات
+		/// </summary>
+		/// <param name="serviceRequestId"></param>
+		/// <param name="cancellationToken"></param>
+		/// <returns></returns>
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetSameReport(long? serviceRequestId, CancellationToken cancellationToken)
+		{
+			var list = await unitOfWork.Repository<SaleReport>()
+			    .TableNoTracking
+			    .Where(report => report.SaleMission.ServiceRequestId == serviceRequestId)
+			    .Select(report => new SameReportDto(
+				   Id: report.Id,
+				   Text: "ش گزارش : " + report.ReportNumber + " - " + report.SaleMission.Personel.Name + " " + report.SaleMission.Personel.Family
+			    ))
+			    .ToListAsync(cancellationToken);
+
+			return Ok(list);
+		}
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetProductRelated(long? serviceRequestId, CancellationToken cancellationToken)
+		{
+			var list = await unitOfWork.Repository<ServiceRequestDetail>()
+			    .TableNoTracking
+			    .Where(srd => srd.ServiceRequestId == serviceRequestId)
+			    .Join(
+				   unitOfWork.Repository<OrderDetail>().TableNoTracking,
+				   srd => srd.Id,
+				   od => od.Id,
+				   (srd, od) => od
+			    )
+			    .Join(
+				   unitOfWork.Repository<Part>().TableNoTracking,
+				   od => od.PartId,
+				   p => p.Id,
+				   (od, p) => new SameReportDto(
+					  Id: p.Id,
+					  Text: "محصول : " + p.Code + " - " + p.Name
+				   )
+			    )
+			    .ToListAsync(cancellationToken);
+
+			return Ok(list);
+		}
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetReportByParentId(long parentId, CancellationToken cancellationToken)
+		{
+			var report = await unitOfWork.Repository<SaleReport>()
+			    .TableNoTracking
+			    .Where(x => x.Id == parentId)
+			    .FirstOrDefaultAsync(cancellationToken);
+
+			if (report == null)
+				return NotFound("گزارش مورد نظر پیدا نشد.");
+
+			return Ok(report);
+		}
+
+
+
+
+		public record SameReportDto(long? Id, string Text);
+
+		public record MissionNumberDto(long? Id, string text);
+
+
+		public class SaleReportListByParentViewModel
+		{
+			public long ServiceRequestId { get; set; }
+			public List<SaleReportListItemViewModel> Items { get; set; } = new();
+		}
+
+		public class SaleReportListItemViewModel
+		{
+			public long? Id { get; set; }
+			public long? ServiceRequestId { get; set; }
+			public long? SaleMissionId { get; set; }
+			public int? ReportNumber { get; set; }
+			public string? ServiceStartShamsiDate { get; set; }
+			public string? ServiceStartTime { get; set; }
+			public string? ServiceEndShamsiDate { get; set; }
+			public string? ServiceEndTime { get; set; }
+			public long? FailureTypeId { get; set; }
+			public string? ExpertNameId { get; set; }
+			public string? ExpertName { get; set; }
+			public long? SaleReportId { get; set; }
+
+			public long? PartId { get; set; }
+			public string? PartCode { get; set; }
+			public string? PartName { get; set; }
+
+			public string? FailureTypeTitle { get; set; }
+			public string? RepairsTypeId { get; set; }
+			public string? RepairsTypeTitle { get; set; }
+			public string? ExecutiveBarriersDescription { get; set; }
+			public long? TotalRunTime { get; set; }
+			public long? WorkHoursUnderload { get; set; }
+			public decimal? FlowIntensityUnderload { get; set; }
+			public decimal? FlowIntensityWithoutload { get; set; }
+			public decimal? MaximumWorkingPressure { get; set; }
+			public decimal? MinimumWorkingPressure { get; set; }
+			public decimal? EnvironmentTemperature { get; set; }
+			public decimal? DeviceTemperature { get; set; }
+			public int? VoltagePowerGrid { get; set; }
+			public decimal? AmountDryerDyupoint { get; set; }
+			public bool CompressorHouseStatus { get; set; }
+			public bool ElectricalPanelStatus { get; set; }
+			public bool PipingStatus { get; set; }
+			public MissionResultEnum MissionResult { get; set; }
+			public int? OldRunTime { get; set; }
+			public string? ExpertGuaranteeDateShamsi { get; set; }
+			public string? ExpertGuaranteeComment { get; set; }
+			public bool OilLevelCheck { get; set; }
+			public bool InspectionOfAllConnections { get; set; }
+			public bool OilSuctionInspection { get; set; }
+			public bool DustCollectorInspection { get; set; }
+			public bool InspectionOfTheseRpentinebeltTimingBelt { get; set; }
+			public bool OilFilterReplacement { get; set; }
+			public bool SeparatFilterReplacement { get; set; }
+			public bool AirFilterReplacement { get; set; }
+			public bool ReplacingTheunLoaderkit { get; set; }
+			public bool MinimumKitReplacement { get; set; }
+			public bool Replacingthethermostatkit { get; set; }
+			public bool IrankitReplacement { get; set; }
+			public bool ElectricMotorGreasing { get; set; }
+			public bool CleaningExteriorDevice { get; set; }
+			public bool StatusCompressor { get; set; }
+			public bool CoolingSystem { get; set; }
+			public bool CompressorRoomPowerSupplyPanelControl { get; set; }
+			public bool CompressorElectricalSystemElectricalPanel { get; set; }
+			public bool StatusPeripheralEquipment { get; set; }
+			public bool PipingCondition { get; set; }
+			public bool ServiceMaintenanceManual { get; set; }
+			public bool TheAboveItemsApprovedCustomer { get; set; }
+			public string? TechnicalSupervisorsRemarks { get; set; }
+			public string? ExplanationByThereGionalOfficial { get; set; }
+			public string? OpinionofAfterSalesServiceSupervisor { get; set; }
+			public string? AfterSalesServiceManagersOpinion { get; set; }
+			public string? Serial { get; set; }
 		}
 	}
-
-	public class SaleReportListByParentViewModel
-	{
-		public long ServiceRequestId { get; set; }
-		public List<SaleReportListItemViewModel> Items { get; set; } = new();
-	}
-
-	public class SaleReportListItemViewModel
-	{
-		public long? Id { get; set; }
-		public long? ServiceRequestId { get; set; }
-		public long? SaleMissionId { get; set; }
-		public int? ReportNumber { get; set; }
-		public string? ServiceStartShamsiDate { get; set; }
-		public string? ServiceStartTime { get; set; }
-		public string? ServiceEndShamsiDate { get; set; }
-		public string? ServiceEndTime { get; set; }
-		public long? FailureTypeId { get; set; }
-		public string? FailureTypeTitle { get; set; }
-		public string? RepairsTypeId { get; set; }
-		public string? RepairsTypeTitle { get; set; }
-		public string? ExecutiveBarriersDescription { get; set; }
-		public long? TotalRunTime { get; set; }
-		public long? WorkHoursUnderload { get; set; }
-		public decimal? FlowIntensityUnderload { get; set; }
-		public decimal? FlowIntensityWithoutload { get; set; }
-		public decimal? MaximumWorkingPressure { get; set; }
-		public decimal? MinimumWorkingPressure { get; set; }
-		public decimal? EnvironmentTemperature { get; set; }
-		public decimal? DeviceTemperature { get; set; }
-		public int? VoltagePowerGrid { get; set; }
-		public decimal? AmountDryerDyupoint { get; set; }
-		public bool CompressorHouseStatus { get; set; }
-		public bool ElectricalPanelStatus { get; set; }
-		public bool PipingStatus { get; set; }
-		public MissionResultEnum MissionResult { get; set; }
-		public int? OldRunTime { get; set; }
-		public string? ExpertGuaranteeDateShamsi { get; set; }
-		public string? ExpertGuaranteeComment { get; set; }
-		public bool OilLevelCheck { get; set; }
-		public bool InspectionOfAllConnections { get; set; }
-		public bool OilSuctionInspection { get; set; }
-		public bool DustCollectorInspection { get; set; }
-		public bool InspectionOfTheseRpentinebeltTimingBelt { get; set; }
-		public bool OilFilterReplacement { get; set; }
-		public bool SeparatFilterReplacement { get; set; }
-		public bool AirFilterReplacement { get; set; }
-		public bool ReplacingTheunLoaderkit { get; set; }
-		public bool MinimumKitReplacement { get; set; }
-		public bool Replacingthethermostatkit { get; set; }
-		public bool IrankitReplacement { get; set; }
-		public bool ElectricMotorGreasing { get; set; }
-		public bool CleaningExteriorDevice { get; set; }
-		public bool StatusCompressor { get; set; }
-		public bool CoolingSystem { get; set; }
-		public bool CompressorRoomPowerSupplyPanelControl { get; set; }
-		public bool CompressorElectricalSystemElectricalPanel { get; set; }
-		public bool StatusPeripheralEquipment { get; set; }
-		public bool PipingCondition { get; set; }
-		public bool ServiceMaintenanceManual { get; set; }
-		public bool TheAboveItemsApprovedCustomer { get; set; }
-		public string? TechnicalSupervisorsRemarks { get; set; }
-		public string? ExplanationByThereGionalOfficial { get; set; }
-		public string? OpinionofAfterSalesServiceSupervisor { get; set; }
-		public string? AfterSalesServiceManagersOpinion { get; set; }
-	}
 }
+

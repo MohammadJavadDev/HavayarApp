@@ -99,5 +99,13 @@ namespace Entities.Hts.Edms
 
 		[StringLength(512)]
 		public string? BeneficiariesIds { get; set; }
+
+		public short CreatedUserId { get; set; }
+
+		public short UpdatedUserId { get; set; }
+
+		public DateTime CreatedDate { get; set; }
+
+		public DateTime UpdatedDate { get; set; }
 	}
 }

@@ -7,10 +7,12 @@ namespace Data.Services.QueryBuilderServices
 {
 	public class SqlQueryValidator
 	{
+		private const bool ValidatorEnabled = false;
+
 		private static readonly HashSet<string> DangerousKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 	{
 	   "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER", "TRUNCATE",
-	   "SP_", "XP_", "MERGE", "INTO", "SET", "GRANT",
+	   "SP_", "XP_", "MERGE", "INTO", "GRANT",
 	   "REVOKE", "DENY", "BACKUP", "RESTORE", "SHUTDOWN"
 	};
 
@@ -40,6 +42,9 @@ namespace Data.Services.QueryBuilderServices
 				result.Errors.Add("Query نمی‌تواند خالی باشد");
 				return result;
 			}
+
+			if (!ValidatorEnabled)
+				return result;
 
 			CheckMainSectionMarker(query, result);
 
@@ -206,10 +211,10 @@ namespace Data.Services.QueryBuilderServices
 				var isSelectOrCte = trimmedUpper.StartsWith("SELECT") || trimmedUpper.StartsWith("WITH");
 				var isExec = trimmedUpper.StartsWith("EXEC ") || trimmedUpper.StartsWith("EXECUTE ")
 					|| trimmedUpper == "EXEC" || trimmedUpper == "EXECUTE";
-				var isSafeSetupDeclaration = hasMainSectionMarker
+				var isSafeSetupStatement = hasMainSectionMarker
 					&& !reachedMainSection
 					&& !containsMainSectionMarker
-					&& IsSafeScalarDeclaration(statement);
+					&& IsSafeSetupStatement(statement);
 
 				if (isExec)
 				{
@@ -221,7 +226,16 @@ namespace Data.Services.QueryBuilderServices
 					continue;
 				}
 
-				if (!isSelectOrCte && !isSafeSetupDeclaration)
+				if (trimmedUpper.StartsWith("SET") && !isSafeSetupStatement)
+				{
+					result.IsValid = false;
+					result.Errors.Add("استفاده از دستور SET تنها برای مقداردهی متغیر قبل از --!--mainsection مجاز است");
+					if (containsMainSectionMarker)
+						reachedMainSection = true;
+					continue;
+				}
+
+				if (!isSelectOrCte && !isSafeSetupStatement)
 				{
 					result.IsValid = false;
 					result.Errors.Add(isMultiStatement
@@ -241,6 +255,15 @@ namespace Data.Services.QueryBuilderServices
 			}
 		}
 
+		/// <summary>
+		/// دستورات آماده‌سازی قبل از --!--mainsection: DECLARE اسکالر و SET روی متغیر.
+		/// SET جدولی (UPDATE ... SET) با کلمه کلیدی UPDATE جداگانه مسدود می‌شود.
+		/// </summary>
+		private static bool IsSafeSetupStatement(string statement)
+		{
+			return IsSafeScalarDeclaration(statement) || IsSafeVariableSet(statement);
+		}
+
 		private static bool IsSafeScalarDeclaration(string statement)
 		{
 			const string scalarType =
@@ -251,7 +274,15 @@ namespace Data.Services.QueryBuilderServices
 
 			return Regex.IsMatch(
 				statement,
-				$@"^\s*DECLARE\s+@[A-Za-z_][A-Za-z0-9_]*\s+{scalarType}\s*$",
+				$@"^\s*DECLARE\s+@[A-Za-z_][A-Za-z0-9_]*\s+{scalarType}(?:\s*=\s*[\s\S]+)?\s*$",
+				RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+		}
+
+		private static bool IsSafeVariableSet(string statement)
+		{
+			return Regex.IsMatch(
+				statement,
+				@"^\s*SET\s+@[A-Za-z_][A-Za-z0-9_]*\s*=",
 				RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 		}
 

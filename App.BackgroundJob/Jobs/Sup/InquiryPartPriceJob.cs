@@ -222,13 +222,13 @@ LEFT JOIN USR3.Gnr_DimDate AS CreationDate ON CreationDate.Date = CAST(SupInquir
 		}
 
 		/// <summary>
-		/// به‌روزرسانی CurrencyActualPrice و TotalActualPrice برای رکوردهایی با واحد ارز دلار و CurrencyActualPrice خالی
+		/// به‌روزرسانی CurrencyActualPrice و TotalActualPrice برای رکوردهای دلاری با CurrencyActualPrice خالی
 		/// </summary>
 		private async Task UpdateCurrencyActualPriceFromExchangeRate(IJobLogger? jobLogger, CancellationToken cn)
 		{
-			// PriceUnitId=1 معمولاً دلار است؛ نرخ ارز با PriceUnitId=4 (دلار) از ExchangeRateArchive
-			const int dollarPriceUnitId = 1;
-			const int exchangeRatePriceUnitId = 4;
+			// طبق جدول Acc.PriceUnit شناسه 1 ریال، 2 دلار و 4 یورو است.
+			const int dollarPriceUnitId = 2;
+			const int exchangeRatePriceUnitId = 2;
 			var minDate = new DateTime(2023, 3, 21); // 1402/01/01
 
 			var toUpdate = await unitOfWork.Repository<InquiryPartPrice>()
@@ -463,6 +463,7 @@ DROP TABLE #LocalItems;
 						PartId = partId,
 						BuyCount = row.BuyCount,
 						PriceUnitValue = row?.UnitPrice ??0,
+						PriceUnitId = 1, // فاکتورهای خرید راهکاران ریالی هستند
 						TransportationCost = 0,
 						UnitPrice = row?.UnitPrice ?? 0,
 						IsFixedPrice = false,

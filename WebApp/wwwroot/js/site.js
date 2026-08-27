@@ -2031,6 +2031,8 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		c.sortable = c.sortable !== false;
 		c.searchable = c.filterable;
 		c.orderable = c.sortable;
+		c.name = toCamelCase(c.name);
+		c.data = toCamelCase(c.data);
 
 		const cls = (c.className == null ? '' : String(c.className))
 			.trim()
@@ -3667,6 +3669,7 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	var table = new DataTable($el, {
 		rowCallback: function (row, data) {
+			debugger
 			const $row = $(row);
 			const rowIndex = table.row(row).index();
 
@@ -14139,3 +14142,10 @@ $(function () {
 
 	loadUI(current);
 });
+
+function toCamelCase(str) {
+	if (!str) return "";
+
+	if (!str || str.length === 0) return str;
+	return str.charAt(0).toLowerCase() + str.slice(1);
+}

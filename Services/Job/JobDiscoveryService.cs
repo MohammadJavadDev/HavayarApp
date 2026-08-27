@@ -14,6 +14,9 @@ namespace Services.Job
 {
 	public class JobDiscoveryService : IHostedService
 	{
+		private const string ProductPriceSnapshotJobId =
+			"App.BackgroundJob.Jobs.Bom.ProductPriceSnapshotJob.CaptureDailyProductPriceSnapshot";
+
 		private readonly IServiceProvider _serviceProvider;
 
 		public JobDiscoveryService(IServiceProvider serviceProvider)
@@ -82,6 +85,29 @@ namespace Services.Job
 				}
 			}
 			await dbContext.SaveChangesAsync();
+
+			// این جاب ماهیت زیرساختی دارد و باید از اولین استقرار، روزانه فعال باشد.
+			// اجرای اول چند ثانیه بعد انجام می‌شود تا اولین snapshot بدون انتظار تا روز بعد ساخته شود.
+			var snapshotJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == ProductPriceSnapshotJobId, cancellationToken);
+
+			if (snapshotJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == snapshotJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = snapshotJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Daily,
+					DailyIntervalDays = 1,
+					DailyTime = TimeSpan.FromHours(1),
+					IntervalSeconds = 86400,
+					NextRunTime = DateTime.Now.AddSeconds(10),
+					LastStatus = JobStatus.Idle
+				});
+
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

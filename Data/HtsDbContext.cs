@@ -25,6 +25,10 @@ namespace Data
  		public DbSet<Hts_Edms_Project_Progress> Hts_Edms_Project_Progresses { get; set; }
  		public DbSet<Hts_Edms_Project_Attachment> Hts_Edms_Project_Attachments { get; set; }
  		public DbSet<Hts_Edms_ConfidentialProject_User> Hts_Edms_ConfidentialProject_Users { get; set; }
+ 		public DbSet<Hts_Edms_Project_Vpis> Hts_Edms_Project_Vpis { get; set; }
+ 		public DbSet<Hts_Edms_Project_Vpis_Responsible> Hts_Edms_Project_Vpis_Responsibles { get; set; }
+ 		public DbSet<Hts_Edms_Document> Hts_Edms_Documents { get; set; }
+ 		public DbSet<Hts_Edms_Document_Comment> Hts_Edms_Document_Comments { get; set; }
  		public DbSet<Hts_Pln_ProductionOrder> Hts_Pln_ProductionOrders { get; set; }
  		public DbSet<Hts_Pln_ProductionOrderItem> Hts_Pln_ProductionOrderItems { get; set; }
  		public DbSet<Hts_Pln_ProductionOrderItemBom> Hts_Pln_ProductionOrderItemBoms { get; set; }

@@ -1,0 +1,34 @@
+@using Stimulsoft.Report.Mvc
+@{
+	Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>Compressor Sizing Report</title>
+	<style>
+		html, body {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+		}
+	</style>
+</head>
+<body>
+<div style="direction: ltr; height: 100%;">
+	@Html.StiNetCoreViewer(new StiNetCoreViewerOptions()
+	{
+		Actions =
+		{
+			GetReport = "GetViewReport",
+			ViewerEvent = "ViewerEvent"
+		},
+		Server =
+		{
+			AllowLoadingCustomFontsToClientSide = true
+		}
+	})
+</div>
+</body>
+</html>

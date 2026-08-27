@@ -220,18 +220,36 @@ namespace WebApp.Controllers.Dynamic
 		private async Task<object?> CalculateOrderDelayRangeAsync(long productionOrderId, CancellationToken cn)
 		{
 			var today = DateTime.Today;
+			var orderEligibility = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
+				.Where(po => po.Id == productionOrderId)
+				.Select(po => new
+				{
+					po.ProductionOrderNumber,
+					po.ProjectManagerId,
+					po.DelayNotCalculated
+				})
+				.FirstOrDefaultAsync(cn);
+
+			// سفارش‌های پروژه‌ای (واقعی یا علامت‌گذاری‌شده) از سیکل تأخیرات خارج هستند.
+			if (orderEligibility == null ||
+				orderEligibility.ProjectManagerId.HasValue ||
+				orderEligibility.DelayNotCalculated)
+				return null;
 
 			var items = await unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
 				.Where(poi => poi.ProductionOrderId == productionOrderId
 					&& poi.IsDeleted == false
 					&& poi.IsLatestVersion == true
-					&& poi.Status != ProductionOrderItemStatusEnum.Invalid)
+					&& poi.Status != ProductionOrderItemStatusEnum.Invalid
+					// تاریخ ارسال، ملاک قطعی ورود قلم به کارتابل صنایع است.
+					&& poi.SendToIndustrialMiladiDate.HasValue)
 				.Select(poi => new
 				{
 					poi.Id,
 					poi.PreparationMiladiDate,
 					poi.AgreedDeliverDate,
-					poi.StandardDeliveryMiladiDate
+					poi.StandardDeliveryMiladiDate,
+					poi.SendToIndustrialMiladiDate
 				})
 				.ToListAsync(cn);
 
@@ -247,13 +265,29 @@ namespace WebApp.Controllers.Dynamic
 				return agreed.Value.Date >= standard.Value.Date ? agreed.Value.Date : standard.Value.Date;
 			}
 
-			static int CalcItemDelayDays(DateTime? itemDeliverDate, DateTime? preparationDate, DateTime todayDate)
+			static int CalcItemDelayDays(
+				DateTime? itemDeliverDate,
+				DateTime? preparationDate,
+				DateTime? agreedDeliverDate,
+				DateTime? standardDeliverDate,
+				DateTime? sendToIndustrialDate,
+				DateTime todayDate)
 			{
 				if (itemDeliverDate == null)
 					return 0;
 
+				// وقتی زمان استاندارد وجود ندارد، فروش تاریخ مجاز را پیش از ورود قلم به
+				// کارتابل صنایع ثبت کرده و صنایع نیز قلم را همان روز آماده کرده است، تأخیر صفر است.
+				if (!standardDeliverDate.HasValue &&
+					agreedDeliverDate.HasValue &&
+					sendToIndustrialDate.HasValue &&
+					preparationDate.HasValue &&
+					agreedDeliverDate.Value.Date < sendToIndustrialDate.Value.Date &&
+					preparationDate.Value.Date == sendToIndustrialDate.Value.Date)
+					return 0;
+
 				if (preparationDate != null)
-					return (int)(preparationDate.Value.Date - itemDeliverDate.Value.Date).TotalDays;
+					return Math.Max(0, (int)(preparationDate.Value.Date - itemDeliverDate.Value.Date).TotalDays);
 
 				if (todayDate > itemDeliverDate.Value.Date)
 					return (int)(todayDate - itemDeliverDate.Value.Date).TotalDays;
@@ -271,7 +305,13 @@ namespace WebApp.Controllers.Dynamic
 					PreparationMiladiDate = preparationDate,
 					IsPreparationMissing = preparationDate == null ? 1 : 0,
 					ItemDeliverDate = itemDeliverDate,
-					ItemDelayDays = CalcItemDelayDays(itemDeliverDate, preparationDate, today)
+					ItemDelayDays = CalcItemDelayDays(
+						itemDeliverDate,
+						preparationDate,
+						i.AgreedDeliverDate,
+						i.StandardDeliveryMiladiDate,
+						i.SendToIndustrialMiladiDate,
+						today)
 				};
 			}).ToList();
 
@@ -292,21 +332,12 @@ namespace WebApp.Controllers.Dynamic
 				.ThenBy(i => i.Id)
 				.First();
 
-			var maxDeliverDateOfOrder = itemDelays
-				.Where(i => i.ItemDeliverDate.HasValue)
-				.Select(i => i.ItemDeliverDate!.Value)
-				.DefaultIfEmpty()
-				.Max();
-
-			DateTime? maxDeliverNullable = maxDeliverDateOfOrder == default ? null : maxDeliverDateOfOrder;
+			// تاریخ مجاز نمایش‌داده‌شده باید متعلق به همان قلمی باشد که بیشترین تأخیر را ساخته است؛
+			// نمایش بیشترین تاریخ مجاز کل سفارش کنار تأخیر یک قلم دیگر، عدد را متناقض نشان می‌داد.
+			var maxDeliverNullable = maxDelayItem.ItemDeliverDate;
 			var preparationDate = maxDelayItem.PreparationMiladiDate;
 			var delayRangeStart = maxDelayItem.ItemDeliverDate;
 			var delayRangeEnd = preparationDate ?? today;
-
-			var productionOrderNumber = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
-				.Where(po => po.Id == productionOrderId)
-				.Select(po => po.ProductionOrderNumber)
-				.FirstOrDefaultAsync(cn);
 
 			var missingPreparationCount = itemDelays.Sum(i => i.IsPreparationMissing);
 			var needsDelayRegistrationDays = maxDelayDays - registeredDelayDays;
@@ -314,7 +345,7 @@ namespace WebApp.Controllers.Dynamic
 			return new
 			{
 				ProductionOrderId = productionOrderId,
-				ProductionOrderNumber = productionOrderNumber,
+				ProductionOrderNumber = orderEligibility.ProductionOrderNumber,
 				MaxDeliverDateOfOrder = maxDeliverNullable,
 				MaxDeliverDateOfOrderShamsi = maxDeliverNullable?.ToShamsiDate(),
 				PreparationDate = preparationDate,

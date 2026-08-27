@@ -4,6 +4,8 @@ using Data.Contracts;
 using Data.Repositories;
 using Data.Services;
 using Data.Services.Edms;
+using Data.Services.Eng.CompressorSizing;
+using Data.Services.Pln;
 using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Auth;
@@ -213,6 +215,38 @@ builder.Services.AddScoped<IQueryBuilderService, QueryBuilderService>();
 builder.Services.AddScoped<IQueryService, QueryService>();
 
 builder.Services.AddScoped<IEdmsMdrReportService, EdmsMdrReportService>();
+
+// گزارش انحراف از تحویل به‌موقع سفارش ساخت
+builder.Services.AddScoped<ITimelyDeliveryReportService, TimelyDeliveryReportService>();
+
+builder.Services.AddSingleton<ICompressorSizingService>(sp =>
+{
+	var env = sp.GetRequiredService<IWebHostEnvironment>();
+	var config = sp.GetRequiredService<IConfiguration>();
+	var directories = new List<string>();
+
+	var configured = config["CompressorSizing:DataDirectory"];
+	if (!string.IsNullOrWhiteSpace(configured))
+	{
+		directories.Add(Path.IsPathRooted(configured)
+			? configured
+			: Path.Combine(env.ContentRootPath, configured));
+	}
+
+	directories.Add(Path.Combine(env.ContentRootPath, "App_Data", "SizingExcels"));
+	if (!string.IsNullOrWhiteSpace(env.WebRootPath))
+		directories.Add(Path.Combine(env.WebRootPath, "SizingExcels"));
+
+	var uploads = config["Storage:UploadsPath"];
+	if (!string.IsNullOrWhiteSpace(uploads))
+	{
+		var uploadsFull = Path.IsPathRooted(uploads) ? uploads : Path.Combine(env.ContentRootPath, uploads);
+		directories.Add(Path.Combine(uploadsFull, "SizingExcels"));
+	}
+
+	directories.Add(@"E:\Uploads\SizingExcels");
+	return new CompressorSizingService(directories);
+});
 
 // سرویس جایگزینی پارامترها
 builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>();

@@ -1,4 +1,3 @@
-@using Entities.App.Inv
 @using WebFramework.TagHelpers;
 @model ServiceRequestDetail
 
@@ -15,15 +14,27 @@
 
                <div class="col-md-6">
                     <label>محصول مرتبط</label>
-                    @(Html.EntitySelector<Part>(
-                                        "PartSelector",
-                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        c => new { Id = c.Id, Code = c.Code, Title = c.Name },
-                                        c => new { c.Code, c.Name },
-                                        "{Code} {Title}",
-                                        "PartId",
-                                        "PartName",
-                                        Model?.PartId.ToString()
+                    @(Html.EntitySelector<OrderDetailSerial>(
+                                        "OrderDetailSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.OrderDetailId != null,
+                                        c => new
+                                        {
+                                             Id = c.OrderDetailId,
+                                             Code = c.OrderDetail.Part.Code,
+                                             Name = c.OrderDetail.Part.Name,
+                                             Serial = c.Serial
+                                        },
+                                        c => new
+                                        {
+                                             c.Id,
+                                             c.OrderDetail.Part.Code,
+                                             c.OrderDetail.Part.Name,
+                                             c.Serial
+                                        },
+                                        "{Id} -  {Code} |  {Name} | سریال: {Serial}",
+                                        "OrderDetailId",
+                                        "OrderDetailName",
+                                        Model?.OrderDetailId.ToString()
                                         ))
                </div>
 
@@ -84,8 +95,8 @@
 </div>
 <script>
      $(function() {
-         var serviceRequestId = '@Model?.Id';
-         var lastPartId = $('#PartId').val();
+         var serviceRequestId = '@ViewBag.serviceRequestId';
+         var lastPartId = $('#id').val();
          var serialRequest = null;
 
          function resetSerials() {
@@ -106,7 +117,8 @@
              $serial.empty();
 
              if (!list.length) {
-                 $serial.append('<option value="">سریال را انتخاب کنید</option>');
+                 $serial.append($('<option></option>').val('').text('بدون سریال...')
+                 );
                  return;
              }
 
@@ -119,7 +131,7 @@
                  $serial.append(
                      $('<option></option>')
                          .val(id)
-                         .text('Serial:' + '' + text)
+                         .text('سریال :' + '' + text)
                  );
              });
 
@@ -127,7 +139,7 @@
          }
 
          function loadSerials() {
-             var partId = $('input[name="PartSelector"]').val();
+             var partId = $('input[name="OrderDetailSelector"]').val();
 
              resetSerials();
 
@@ -161,7 +173,7 @@
          }
 
          function checkPartChanged() {
-             var currentPartId = $('input[name="PartSelector"]').val();
+             var currentPartId = $('input[name="OrderDetailSelector"]').val();
 
              if (currentPartId !== lastPartId) {
                  lastPartId = currentPartId;
@@ -183,7 +195,7 @@
              setTimeout(checkPartChanged, 200);
          });
 
-         $(document).on('click', '#PartSelector, #PartSelector *', function() {
+         $(document).on('click', '#OrderDetailSelector, #OrderDetailSelector *', function() {
              setTimeout(checkPartChanged, 300);
          });
 

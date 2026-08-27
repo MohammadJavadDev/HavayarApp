@@ -1,4 +1,5 @@
 using Common.Attributes;
+using Common.Utilities;
 using Data;
 using Data.Contracts;
 using Entities.App.Edms;
@@ -379,6 +380,7 @@ namespace App.BackgroundJob.Jobs.Edms
 
 			var personelToUser = new Dictionary<short, long>();
 			var htsUserToAppUser = new Dictionary<short, long>();
+			var htsUserNames = new Dictionary<short, string>();
 
 			foreach (var personel in htsPersonels)
 			{
@@ -391,6 +393,9 @@ namespace App.BackgroundJob.Jobs.Edms
 
 			foreach (var htsUser in htsUsers)
 			{
+				if (!string.IsNullOrWhiteSpace(htsUser.FullName))
+					htsUserNames[htsUser.User_ID] = htsUser.FullName.Trim();
+
 				if (!string.IsNullOrWhiteSpace(htsUser.Username)
 					&& usersByUsername.TryGetValue(htsUser.Username.Trim(), out var byName))
 				{
@@ -409,7 +414,7 @@ namespace App.BackgroundJob.Jobs.Edms
 				$"نگاشت کاربر: {personelToUser.Count} پرسنل و {htsUserToAppUser.Count} کاربر HTS",
 				cn);
 
-			return new UserMaps(personelToUser, htsUserToAppUser, usersById);
+			return new UserMaps(personelToUser, htsUserToAppUser, usersById, htsUserNames);
 		}
 
 		private async Task<OrgUnitMaps> BuildOrgUnitMapAsync(CancellationToken cn)
@@ -503,7 +508,11 @@ namespace App.BackgroundJob.Jobs.Edms
 				UserBenefitTakvinIds = takvinIds,
 				UserBenefitTakvin = takvinNames,
 				LegalDelayHavayar = hts.AllowedHavayar_DelayDay,
-				LegalClientDayDelay = hts.AllowedEmployer_DelayDay
+				LegalClientDayDelay = hts.AllowedEmployer_DelayDay,
+				CreatedOnMiladiDateTime = hts.CreatedDate == default ? null : hts.CreatedDate,
+				CreatedOnShamsiDateTime = hts.CreatedDate == default ? null : Truncate(hts.CreatedDate.ToShamsiDateTime(), 30),
+				CreatedById = ResolveHtsUser(hts.CreatedUserId, users, unmatchedUsers),
+				CreatedByName = Truncate(ResolveCreatedByName(hts.CreatedUserId, users), 150)
 			};
 		}
 
@@ -551,6 +560,10 @@ namespace App.BackgroundJob.Jobs.Edms
 			target.LegalDelayHavayar = source.LegalDelayHavayar;
 			target.LegalClientDayDelay = source.LegalClientDayDelay;
 			target.HtsId = source.HtsId;
+			target.CreatedOnMiladiDateTime = source.CreatedOnMiladiDateTime;
+			target.CreatedOnShamsiDateTime = source.CreatedOnShamsiDateTime;
+			target.CreatedById = source.CreatedById;
+			target.CreatedByName = source.CreatedByName;
 		}
 
 		private static void ParseProjectTitle(
@@ -633,13 +646,31 @@ namespace App.BackgroundJob.Jobs.Edms
 
 		private static long? ResolveHtsUser(short? htsUserId, UserMaps users, HashSet<string> unmatched)
 		{
-			if (!htsUserId.HasValue)
+			if (!htsUserId.HasValue || htsUserId.Value == 0)
 				return null;
 
 			if (users.HtsUserToAppUser.TryGetValue(htsUserId.Value, out var userId))
 				return userId;
 
 			unmatched.Add($"U:{htsUserId.Value}");
+			return null;
+		}
+
+		private static string? ResolveCreatedByName(short htsUserId, UserMaps users)
+		{
+			if (htsUserId == 0)
+				return null;
+
+			if (users.HtsUserToAppUser.TryGetValue(htsUserId, out var appUserId)
+				&& users.UsersById.TryGetValue(appUserId, out var appUser)
+				&& !string.IsNullOrWhiteSpace(appUser.DisplayName))
+			{
+				return appUser.DisplayName;
+			}
+
+			if (users.HtsUserNames.TryGetValue(htsUserId, out var htsName) && !string.IsNullOrWhiteSpace(htsName))
+				return htsName.Trim();
+
 			return null;
 		}
 
@@ -758,7 +789,8 @@ namespace App.BackgroundJob.Jobs.Edms
 		private sealed record UserMaps(
 			Dictionary<short, long> PersonelToUser,
 			Dictionary<short, long> HtsUserToAppUser,
-			Dictionary<long, AppUserInfo> UsersById);
+			Dictionary<long, AppUserInfo> UsersById,
+			Dictionary<short, string> HtsUserNames);
 
 		private sealed record AppUserInfo(long Id, string DisplayName);
 

@@ -99,4 +99,7 @@ public class OrderDetail : BaseEntity
 	public virtual Customer Customer { get; set; }
 	public long? CustomerId { get; set; }
 
+
+	public virtual ICollection<OrderDetailSerial> OrderDetailSerials { get; set; } = new List<OrderDetailSerial>();
+
 }

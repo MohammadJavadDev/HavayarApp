@@ -21,6 +21,39 @@
 
           <div class="row g-3">
 
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">ماموریت</label>
+
+                    <select class="form-control" data-bind="saleMissionIds" id="SaleMissionIdSelector">
+                         <option value="">-- انتخاب ماموریت --</option>
+                    </select>
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
+
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">گزارش مشابه</label>
+
+                    <div class="input-group">
+                         <select class="form-control" data-bind="sameReportId" id="SameReportIdSelector">
+                              <option value="">-- انتخاب گزارش مشابه --</option>
+                         </select>
+
+                         <button type="button"
+                                 class="btn btn-primary"
+                                 id="btnGetSameReport"
+                                 title="دریافت گزارش مشابه">
+                              <i class="fas fa-download"></i>
+                              دریافت
+                         </button>
+                    </div>
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
 
                <div class="col-md-3">
                     <label class="form-label fw-bold">شماره گزارش</label>
@@ -34,7 +67,17 @@
                     </div>
                </div>
 
+               <div class="col-md-3">
+                    <label class="form-label fw-bold">محصول</label>
 
+                    <select class="form-control" data-bind="saleReportProductsId" id="saleReportProductsIdIdSelector">
+                         <option value="">-- انتخاب نمایید --</option>
+                    </select>
+
+                    <div data-invalidmessagespan class="mt-1">
+                         <span class="text-danger"></span>
+                    </div>
+               </div>
 
                <div class='col-md-3'>
                     <label class='form-label fw-bold'>
@@ -99,7 +142,6 @@
                     </div>
                </div>
 
-
                <div class="col-md-3">
                     <label class="form-label fw-bold">کد های عملیاتی</label>
 
@@ -126,14 +168,10 @@
                     </div>
                </div>
 
-
-
-
                <div class="col-md-3">
                     <label class="form-label fw-bold">شرح موانع اجرایی</label>
                     <textarea class="form-control" data-bind="executiveBarriersDescription" asp-for="ExecutiveBarriersDescription" rows="2"></textarea>
                </div>
-
 
                <div class='col-md-3'>
                     <label class="form-label fw-bold">ساعت کارکرد</label>
@@ -155,7 +193,6 @@
                     <input class='form-control' data-bind='flowIntensityWithoutload' asp-for='FlowIntensityWithoutload' />
                </div>
 
-
                <div class='col-md-3'>
                     <label class="form-label fw-bold">حداکثر فشار کاری</label>
                     <input class='form-control' data-bind='maximumWorkingPressure' asp-for='MaximumWorkingPressure' />
@@ -166,7 +203,6 @@
                     <input class='form-control' data-bind='minimumWorkingPressure' asp-for='MinimumWorkingPressure' />
                </div>
 
-
                <div class='col-md-3'>
                     <label class="form-label fw-bold">دمای محیط</label>
                     <input class='form-control' data-bind='environmentTemperature' asp-for='EnvironmentTemperature' />
@@ -176,7 +212,6 @@
                     <label class="form-label fw-bold">دمای دستگاه</label>
                     <input class='form-control' data-bind='deviceTemperature' asp-for='DeviceTemperature' />
                </div>
-
 
                <div class='col-md-3'>
                     <label class="form-label fw-bold">ولتاژ تابلو برق</label>
@@ -189,32 +224,6 @@
                </div>
 
 
-               <div class='col-md-1 align-content-center'>
-                    <div class="form-check">
-                         <input data-bind='compressorHouseStatus' class="form-check-input" type="checkbox" asp-for='CompressorHouseStatus' />
-                         <label class="form-check-label form-label fw-bold" asp-for='CompressorHouseStatus'>
-                              وضعیت کمپرسور خانه
-                         </label>
-                    </div>
-               </div>
-
-               <div class='col-md-1 align-content-center'>
-                    <div class="form-check">
-                         <input data-bind='electricalPanelStatus' class="form-check-input" type="checkbox" asp-for='ElectricalPanelStatus' />
-                         <label class="form-check-label form-label fw-bold" asp-for='ElectricalPanelStatus'>
-                              وضعیت تابلو برق
-                         </label>
-                    </div>
-               </div>
-
-               <div class='col-md-1 align-content-center'>
-                    <div class="form-check">
-                         <input data-bind='pipingStatus' class="form-check-input" type="checkbox" asp-for='PipingStatus' />
-                         <label class="form-check-label form-label fw-bold" asp-for='PipingStatus'>
-                              وضعیت پایپینگ
-                         </label>
-                    </div>
-               </div>
 
                <div class='col-md-3'>
                     <label class='form-label fw-bold'>نتیجه</label>
@@ -223,27 +232,46 @@
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
-
                <div class='col-md-3'>
                     <label class='form-label fw-bold'>تعویض برد</label>
                     <input class='form-control' data-bind='oldRunTime' asp-for='OldRunTime' />
                </div>
 
 
-               <div class="col-md-3">
-                    <label class='form-label fw-bold'>توضیحات گارانتی کارشناس</label>
-                    <textarea class="form-control" data-bind="expertGuaranteeDateShamsi" asp-for="ExpertGuaranteeDateShamsi" rows="1"></textarea>
-               </div>
-
 
                <div class="col-md-3">
-
                     <fileuploader bind="SaleReportAttachmentId" file-id="@Model?.SaleReportAttachmentId" file-entity="@Model?.SaleReportAttachment"
                                   Label="پیوست فایل" entity-type="@typeof(SaleReport).FullName" entity-prop-name="SaleReportAttachment" max-file-size="10"
                                   accepted-file-types=".jpg,.png,.pdf,.rar,.zip,.excel,.word"></fileuploader>
                </div>
 
-               <div class='col-md-2 align-content-center'></div>
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='compressorHouseStatus' class="form-check-input" type="checkbox" asp-for='CompressorHouseStatus' />
+                         <label class="form-check-label form-label fw-bold" asp-for='CompressorHouseStatus'>
+                              وضعیت کمپرسور خانه
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='electricalPanelStatus' class="form-check-input" type="checkbox" asp-for='ElectricalPanelStatus' />
+                         <label class="form-check-label form-label fw-bold" asp-for='ElectricalPanelStatus'>
+                              وضعیت تابلو برق
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-2 align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='pipingStatus' class="form-check-input" type="checkbox" asp-for='PipingStatus' />
+                         <label class="form-check-label form-label fw-bold" asp-for='PipingStatus'>
+                              وضعیت پایپینگ
+                         </label>
+                    </div>
+               </div>
+
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='oilLevelCheck' class="form-check-input" type="checkbox" asp-for='OilLevelCheck' />
@@ -262,7 +290,6 @@
                     </div>
                </div>
 
-
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='oilSuctionInspection' class="form-check-input" type="checkbox" asp-for='OilSuctionInspection' />
@@ -271,7 +298,6 @@
                          </label>
                     </div>
                </div>
-
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
@@ -291,7 +317,6 @@
                     </div>
                </div>
 
-
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='oilFilterReplacement' class="form-check-input" type="checkbox" asp-for='OilFilterReplacement' />
@@ -300,7 +325,6 @@
                          </label>
                     </div>
                </div>
-
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
@@ -311,15 +335,16 @@
                     </div>
                </div>
 
-
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='airFilterReplacement' class="form-check-input" type="checkbox" asp-for='AirFilterReplacement' />
                          <label class="form-check-label form-label fw-bold" asp-for='AirFilterReplacement'>
-                              تعويض فيلتر سپراتور
+                              تعويض فيلتر هوا
                          </label>
                     </div>
                </div>
+
+
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='replacingTheunLoaderkit' class="form-check-input" type="checkbox" asp-for='ReplacingTheunLoaderkit' />
@@ -328,7 +353,6 @@
                          </label>
                     </div>
                </div>
-
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
@@ -357,7 +381,6 @@
                     </div>
                </div>
 
-
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='electricMotorGreasing' class="form-check-input" type="checkbox" asp-for='ElectricMotorGreasing' />
@@ -366,7 +389,6 @@
                          </label>
                     </div>
                </div>
-
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
@@ -379,23 +401,12 @@
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
-                         <input data-bind='statusCompressor' class="form-check-input" type="checkbox" asp-for='StatusCompressor' />
-                         <label class="form-check-label form-label fw-bold" asp-for='StatusCompressor'>
-                              وضعيت كمپرسور خانه
-                         </label>
-                    </div>
-               </div>
-
-
-               <div class='col-md-2 align-content-center'>
-                    <div class="form-check">
                          <input data-bind='coolingSystem' class="form-check-input" type="checkbox" asp-for='CoolingSystem' />
                          <label class="form-check-label form-label fw-bold" asp-for='CoolingSystem'>
                               سيستم خنك كننده
                          </label>
                     </div>
                </div>
-
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
@@ -406,16 +417,15 @@
                     </div>
                </div>
 
-
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='compressorElectricalSystemElectricalPanel' class="form-check-input" type="checkbox" asp-for='CompressorElectricalSystemElectricalPanel' />
-                         <label class="form-check-label form-label fw-bold" asp-for='CompressorElectricalSystemElectricalPanel'>
+                         <label class="form-check-label form-label fw-bold" asp-for='CompressorElectricalSystemElectricalPanel' dir="ltr">
                               (سيستم برق كمپرسور(تابلو برق
+
                          </label>
                     </div>
                </div>
-
 
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
@@ -444,7 +454,6 @@
                     </div>
                </div>
 
-
                <div class='col-md-2 align-content-center'>
                     <div class="form-check">
                          <input data-bind='theAboveItemsApprovedCustomer' class="form-check-input" type="checkbox" asp-for='TheAboveItemsApprovedCustomer' />
@@ -454,6 +463,10 @@
                     </div>
                </div>
 
+               <div class="col-md-12">
+                    <label class='form-label fw-bold'>توضیحات گارانتی کارشناس</label>
+                    <textarea class="form-control" data-bind="expertGuaranteeDateShamsi" asp-for="ExpertGuaranteeDateShamsi" rows="5"></textarea>
+               </div>
 
                <div class="col-md-12">
                     <label class='form-label fw-bold'>توضیحات سرپرست فنی</label>
@@ -475,16 +488,13 @@
                     <textarea class="form-control" data-bind="afterSalesServiceManagersOpinion" rows="5" asp-for="AfterSalesServiceManagersOpinion" rows="1"></textarea>
                </div>
 
-
                <div class="col-md-12">
                     <label class='form-label fw-bold'>توضیحات کارشناس</label>
                     <textarea class="form-control" data-bind="expertGuaranteeComment" asp-for="ExpertGuaranteeComment" rows="5"></textarea>
                </div>
 
-
                <div class="card border mt-5">
                     <div class="card-body">
-
                          <div class="row g-3 align-items-end mb-4">
                          </div>
                     </div>
@@ -521,104 +531,436 @@
           </div>
      </div>
 </div>
-
 <script>
 
-     const serviceRequestId = sessionStorage.getItem("ServiceRequestId") || "@Model?.ServiceRequestId";
-
-
-        function formatTimeInput($input) {
-         if (!$input || $input.length === 0) return;
-
-         var val = $input.val().replace(/[^0-9]/g, '');
-
-         if (val.length === 0) {
-             $input.val('');
-             return '';
+         function getUrlParameter(name) {
+             const urlParams = new URLSearchParams(window.location.search);
+             return urlParams.get(name);
          }
 
-         if (val.length >= 3) {
-             var hours = val.substring(0, val.length - 2);
-             var minutes = val.substring(val.length - 2);
+         const urlParams = new URLSearchParams(window.location.search);
 
+         const serviceRequestIdFromUrl =
+             urlParams.get('servicerequestid') ||
+             urlParams.get('serviceRequestId') ||
+             urlParams.get('ServiceRequestId');
 
-             if (hours.length === 1) hours = '0' + hours;
-             var hourNum = parseInt(hours);
-             var minuteNum = parseInt(minutes);
+         const parentIdFromUrl =
+             urlParams.get('parentid') ||
+             urlParams.get('parentId') ||
+             urlParams.get('ParentId');
 
-             if (hourNum > 23) hours = '23';
-             if (minuteNum > 59) minutes = '59';
+         const serviceRequestId =
+             serviceRequestIdFromUrl ||
+             sessionStorage.getItem("ServiceRequestId") ||
+             "@Model?.ServiceRequestId";
 
-             var formattedTime = hours + ':' + minutes;
-             $input.val(formattedTime);
+         const currentSaleReportId =
+             "@Model?.Id" || null;
 
-             return formattedTime;
-         } else {
-             $input.val(val);
-             return val;
-         }
-     }
+         function loadMissions() {
 
-     $(document).ready(function() {
-         $(document).on('blur', '.time-input', function() {
-             formatTimeInput($(this));
-         });
-
-         $(document).on('input', '.time-input', function() {
-             var val = $(this).val().replace(/[^0-9]/g, '');
-             if (val.length > 4) {
-                 val = val.substring(0, 4);
-             }
-             $(this).val(val);
-         });
-
-         $(document).on('keydown', '.time-input', function(e) {
-             if (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab' ||
-                 e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home' ||
-                 e.key === 'End' || e.key === 'Enter') {
+             if (!serviceRequestId) {
                  return;
              }
 
-             if (!/^[0-9]$/.test(e.key)) {
-                 e.preventDefault();
-                 return false;
+             const $select = $('#SaleMissionIdSelector');
+
+             $select.prop('disabled', true);
+             $select.html('<option value="">در حال بارگذاری...</option>');
+
+             $$.get(
+                 `GetMissionsNumber?serviceRequestId=${serviceRequestId}`,
+                 function (response) {
+
+                     $select.prop('disabled', false);
+
+                     if (!response.isSuccess) {
+                         toastr.error(
+                             response.message || 'خطا در دریافت اطلاعات ماموریت',
+                             'خطا'
+                         );
+                         $select.html('<option value="">خطا در بارگذاری</option>');
+                         return;
+                     }
+
+                     $select.empty();
+                     $select.append('<option value="">-- انتخاب ماموریت --</option>');
+
+                     const missions = response.data || [];
+
+                     if (missions.length === 0) {
+                         $select.append('<option value="" disabled>ماموریتی یافت نشد</option>');
+                         return;
+                     }
+
+                     missions.forEach(function (mission) {
+                         const optionText = mission.text || mission.Text;
+                         const optionValue = mission.id || mission.Id;
+
+                         const $option = $('<option>')
+                             .val(optionValue)
+                             .text(optionText);
+
+                         $select.append($option);
+                     });
+                 }
+             );
+         }
+
+     function loadProducts() {
+
+         if (!serviceRequestId) {
+             return;
+         }
+
+         const $select = $('#saleReportProductsIdIdSelector');
+
+         $select.prop('disabled', true);
+         $select.html('<option value="">در حال بارگذاری...</option>');
+
+         $$.get(
+             `GetProductRelated?serviceRequestId=${serviceRequestId}`,
+             function (response) {
+
+                 $select.prop('disabled', false);
+
+                 if (response && response.isSuccess === false) {
+                     toastr.error(
+                         response.message || 'خطا در دریافت اطلاعات محصول',
+                         'خطا'
+                     );
+                     $select.html('<option value="">خطا در بارگذاری</option>');
+                     return;
+                 }
+
+                 $select.empty();
+                 $select.append('<option value="">-- انتخاب نمایید --</option>');
+
+                 let products = [];
+
+                 if (Array.isArray(response)) {
+                     products = response;
+                 } else if (response && response.data) {
+                     if (Array.isArray(response.data)) {
+                         products = response.data;
+                     } else if (response.data.data && Array.isArray(response.data.data)) {
+                         products = response.data.data;
+                     }
+                 }
+
+                 if (products.length === 0) {
+                     $select.append('<option value="" disabled>محصولی یافت نشد</option>');
+                     return;
+                 }
+
+                 // پر کردن لیست
+                 products.forEach(function (product) {
+                     const optionText = product.text || product.Text;
+                     const optionValue = product.id || product.Id;
+                     $select.append(new Option(optionText, optionValue));
+                 });
+
+                 // انتخاب خودکار اولین محصول از API
+                 if (products.length > 0) {
+                     const firstProduct = products[0];
+                     const firstId = firstProduct.id || firstProduct.Id;
+                     $select.val(firstId);
+                     console.log('اولین محصول از API به صورت خودکار انتخاب شد:', firstId);
+                 }
              }
-         });
-     });
+         ).fail(function(xhr) {
+             $select.prop('disabled', false);
 
+             let errorMessage = 'خطا در ارتباط با سرور';
 
-     function savefn($btnAction) {
-
-         if (validateError(page.$pageEl)) return;
-
-         const model = page.$pageEl.dataBind();
-         model.ServiceRequestId = serviceRequestId || sessionStorage.getItem("ServiceRequestId");
-         const $btn = $(this.element).block();
-
-         $$.post('save', model, function(r) {
-
-             $btn.block(false);
-
-             if (!r.isSuccess) {
-                 toastr.error(r.message, 'خطا');
-                 return;
+             if (xhr.responseJSON && xhr.responseJSON.message) {
+                 errorMessage = xhr.responseJSON.message;
              }
 
-             toastr.success('ذخیره سازی با موفقیت انجام شد');
-
-             page.$pageEl.dataBind(r.data);
-
-             const parentId = r.data?.serviceRequestId || r.data?.ServiceRequestId || model.ServiceRequestId || serviceRequestId;
-             if (typeof window.reloadSaleReportList === 'function' && parentId) {
-                 window.reloadSaleReportList(parentId);
-             }
-
-             $btnAction.baseaction();
+             toastr.error(errorMessage, 'خطا');
+             $select.html('<option value="">خطا در بارگذاری</option>');
          });
      }
 
-     self.FormActionButtons.save.onclick(function() { savefn(this); });
-     self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
-     self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
+
+         function loadSameReports() {
+
+             if (!serviceRequestId) {
+                 return;
+             }
+
+             const $select = $('#SameReportIdSelector');
+
+             $select.prop('disabled', true);
+             $select.html('<option value="">در حال بارگذاری...</option>');
+
+             $$.get(
+                 `GetSameReport?serviceRequestId=${serviceRequestId}`,
+                 function (response) {
+
+                     $select.prop('disabled', false);
+
+                     if (!response.isSuccess) {
+                         toastr.error(
+                             response.message || 'خطا در دریافت گزارش‌های مشابه',
+                             'خطا'
+                         );
+                         $select.html('<option value="">خطا در بارگذاری</option>');
+                         return;
+                     }
+
+                     $select.empty();
+                     $select.append('<option value="">-- انتخاب گزارش مشابه --</option>');
+
+                     const reports = response.data || [];
+
+                     if (reports.length === 0) {
+                         $select.append('<option value="" disabled>گزارشی یافت نشد</option>');
+                         return;
+                     }
+
+                     reports.forEach(function (report) {
+                         const reportId = report.id || report.Id;
+                         const reportText = report.text || report.Text;
+
+                         const $option = $('<option>')
+                             .val(reportId)
+                             .text(reportText);
+
+                         $select.append($option);
+                     });
+                     if (parentIdFromUrl) {
+                         $select.val(parentIdFromUrl);
+                     }
+                 }
+             );
+         }
+
+
+         function getSameReportData() {
+             const missionId = $('#SaleMissionIdSelector').val();
+             let sameReportId = $('#SameReportIdSelector').val();
+
+             if (!sameReportId && parentIdFromUrl) {
+                 sameReportId = parentIdFromUrl;
+                 $('#SameReportIdSelector').val(parentIdFromUrl);
+             }
+
+             if (!missionId) {
+                 toastr.warning('لطفاً ابتدا ماموریت را انتخاب کنید', 'هشدار');
+                 return;
+             }
+
+             if (currentSaleReportId && sameReportId == currentSaleReportId) {
+                 toastr.warning('گزارش مشابه نمی‌تواند خود گزارش فعلی باشد', 'هشدار');
+                 return;
+             }
+
+             const $btn = $('#btnGetSameReport');
+             const originalHtml = $btn.html();
+
+             $btn.prop('disabled', true);
+             $btn.html('<i class="fas fa-spinner fa-spin"></i>');
+
+             const url = `GetReportByParentId?parentId=${encodeURIComponent(sameReportId)}`;
+
+             $$.get(
+                 url,
+                 function (reportData) {
+                     if (!reportData) {
+                         toastr.warning('داده‌ای برای نمایش یافت نشد', 'هشدار');
+                         return;
+                     }
+
+                     const currentId = $('#SaleMissionIdSelector').val();
+                     const currentServiceRequestId = serviceRequestId;
+                     delete reportData.id;
+                     delete reportData.serviceRequestId;
+                     delete reportData.saleMissionIds;
+                     delete reportData.sameReportId;
+
+                     page.$pageEl.dataBind(reportData.data);
+
+                     $('#SaleMissionIdSelector')
+                         .val(currentId)
+                         .trigger('change');
+
+                     $('#SameReportIdSelector')
+                         .val(sameReportId)
+                         .trigger('change');
+
+                     toastr.success('اطلاعات گزارش مشابه با موفقیت بارگذاری شد', 'موفق');
+                 }
+             )
+             .fail(function (xhr) {
+                 if (xhr.status === 404) {
+                     toastr.warning('گزارش مشابه پیدا نشد', 'هشدار');
+                     return;
+                 }
+
+                 toastr.error('خطا در دریافت اطلاعات گزارش مشابه', 'خطا');
+             })
+             .always(function () {
+
+                 $btn.prop('disabled', false);
+                 $btn.html(originalHtml);
+             });
+         }
+
+
+         function formatTimeInput($input) {
+
+             if (!$input || $input.length === 0)
+                 return;
+
+             var val = $input.val().replace(/[^0-9]/g, '');
+
+             if (val.length === 0) {
+                 $input.val('');
+                 return '';
+             }
+
+             if (val.length >= 3) {
+
+                 var hours = val.substring(0, val.length - 2);
+                 var minutes = val.substring(val.length - 2);
+
+                 if (hours.length === 1)
+                     hours = '0' + hours;
+
+                 var hourNum = parseInt(hours);
+                 var minuteNum = parseInt(minutes);
+
+                 if (hourNum > 23)
+                     hours = '23';
+
+                 if (minuteNum > 59)
+                     minutes = '59';
+
+                 var formattedTime = hours + ':' + minutes;
+
+                 $input.val(formattedTime);
+
+                 return formattedTime;
+             } else {
+
+                 $input.val(val);
+
+                 return val;
+             }
+         }
+
+         $(document).ready(function () {
+             loadMissions();
+             loadProducts();
+             loadSameReports();
+
+             if (parentIdFromUrl && !currentSaleReportId) {
+                 setTimeout(function() {
+
+                     $('#SameReportIdSelector').val(parentIdFromUrl);
+
+                     getSameReportData();
+
+                 }, 1000);
+             }
+
+             $('#btnGetSameReport').on('click', function () {
+                 getSameReportData();
+             });
+
+             $(document).on('blur', '.time-input', function () {
+                 formatTimeInput($(this));
+             });
+
+             $(document).on('input', '.time-input', function () {
+
+                 var val = $(this).val().replace(/[^0-9]/g, '');
+
+                 if (val.length > 4) {
+                     val = val.substring(0, 4);
+                 }
+
+                 $(this).val(val);
+             });
+
+             $(document).on('keydown', '.time-input', function (e) {
+
+                 if (
+                     e.key === 'Backspace' ||
+                     e.key === 'Delete' ||
+                     e.key === 'Tab' ||
+                     e.key === 'ArrowLeft' ||
+                     e.key === 'ArrowRight' ||
+                     e.key === 'Home' ||
+                     e.key === 'End' ||
+                     e.key === 'Enter'
+                 ) {
+                     return;
+                 }
+
+                 if (!/^[0-9]$/.test(e.key)) {
+                     e.preventDefault();
+                     return false;
+                 }
+             });
+         });
+
+         function savefn($btnAction) {
+             if (validateError(page.$pageEl))
+                 return;
+
+             const model = page.$pageEl.dataBind();
+             model.ServiceRequestId =
+                 serviceRequestId ||
+                 serviceRequestIdFromUrl ||
+                 sessionStorage.getItem("ServiceRequestId");
+             // model.SaleMissionId = $('#SaleMissionIdSelector').val();
+
+             model.SameReportId =
+                 $('#SameReportIdSelector').val() ||
+                 parentIdFromUrl;
+
+             if (parentIdFromUrl) {
+                 model.ParentId = parentIdFromUrl;
+             }
+
+             const $btn = $(this.element).block();
+
+             $$.post(
+                 'save',
+                 model,
+                 function (r) {
+
+                     $btn.block(false);
+
+                     if (!r.isSuccess) {
+                         toastr.error(r.message, 'خطا');
+                         return;
+                     }
+
+                     toastr.success('ذخیره سازی با موفقیت انجام شد');
+
+                     page.$pageEl.dataBind(r.data);
+
+                     const parentId =
+                         r.data?.serviceRequestId ||
+                         r.data?.ServiceRequestId ||
+                         model.ServiceRequestId ||
+                         serviceRequestId;
+
+                     if (typeof window.reloadSaleReportList === 'function' && parentId) {
+                         window.reloadSaleReportList(parentId);
+                     }
+
+                     $btnAction.baseaction();
+                 }
+             );
+         }
+
+         self.FormActionButtons.save.onclick(function() { savefn(this); });
+         self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
+         self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
 
 </script>

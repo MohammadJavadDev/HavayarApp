@@ -15,6 +15,14 @@
      var savedQueries = ViewBag.SavedQueries as List<Entities.Base.SavedQuery> ?? new List<Entities.Base.SavedQuery>();
 
      var isAdmin = sdk.CurrentUser.IsAdministrator;
+     var matchingTables = objects
+         .Where(c => Model?.Name != null && (c.ObjectSchema + "." + c.ObjectName) == Model.Name)
+         .ToList();
+     var isCustomReport = Model?.Id > 0 && (
+         string.Equals(Model.ObjectType, "Custom", StringComparison.OrdinalIgnoreCase)
+         || ((Model.SavedQueryId == null || Model.SavedQueryId == 0)
+             && !matchingTables.Any()
+             && Model.Type != ReportType.Table));
 }
 
 <div class="card">
@@ -69,9 +77,24 @@
                         </div>
                     </div>
                }
-               else if (Model?.Name?.HasValue(true) ?? false)
+               else if (isCustomReport)
                {
-                    @foreach (var r in objects.Where(c => c.ObjectSchema + "." + c.ObjectName == Model?.Name))
+                    <div class="col-md-8 mt-3" data-sectionItem="">
+                        <div class="input-group mb-5">
+                            <span class="input-group-text">
+                                <input type="radio" class="mx-3" id="custom_datasource" name="reportItems" data-objectName="@Model.Name" data-objectType="Custom" checked="checked" disabled="disabled" />
+                                <label for="custom_datasource">گزارش سفارشی (بدون جدول SQL)</label>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="alert alert-info">
+                        این گزارش به View یا جدول دیتابیس وصل نیست. داده از برنامه محاسبه می‌شود.
+                        روی «بعدی» بزنید تا طراح Stimulsoft باز شود.
+                    </div>
+               }
+               else if (matchingTables.Any())
+               {
+                    @foreach (var r in matchingTables)
 	               {
 		               var objName = r.ObjectSchema +"."+r.ObjectName;
 
@@ -262,21 +285,45 @@
 
         let isSavedQuery = @(Model?.SavedQueryId > 0 ? "true" : "false");
         let savedQueryId = @(Model?.SavedQueryId > 0 ? Model.SavedQueryId.ToString() : "null");
+        let isCustomDataSource = false;
+
+        function openStimulsoftDesigner() {
+            var id = $$("[data-bind=id]").val();
+            let fromSavedQueryParam = isSavedQuery ? "&fromSavedQuery=true" : "";
+            let queryParames = {};
+            $$("[data-param]").each((c, i) => {
+                queryParames[$(i).attr("data-param")] = $(i).val();
+            });
+
+            const queryString = new URLSearchParams(queryParames).toString();
+            let designerUrl = `/System/ReportBuilder/StimulSoftReport?reportId=${id}${fromSavedQueryParam}`;
+            if (itemId) {
+                designerUrl += `&itemId=${itemId}`;
+            }
+            if (queryString.length > 0) {
+                designerUrl += `&${queryString}`;
+            }
+
+            $$("#tableViewDesigne").addClass("d-none");
+            $$("#StimulsoftViewDesigne").removeClass("d-none").html("");
+            $$("#StimulsoftViewDesigne").append(
+                `<iframe src="${designerUrl}" style="width: 100%;min-height: 1200px;"></iframe>`
+            );
+            $$('#nav-tab button[data-bs-target="#nav-selectItems"]').tab('show');
+        }
 
         $$("#selectTable")
             .click(function() {
-                 debugger
-                if ($$("input:checked").length === 0) {
+                let $checked = $$("#nav-reportItem input:checked");
+                if ($checked.length === 0) {
                     return toastr.error(`هیچ آیتمی انتخاب نشده است`, 'خطا');
                 }
 
-                let $checked = $$("#nav-reportItem input:checked");
-                 
-
                 let dataObjectType = $checked.attr("data-objectType");
                 isSavedQuery = dataObjectType === "SavedQuery";
+                isCustomDataSource = dataObjectType === "Custom";
                 savedQueryId = isSavedQuery ? $checked.attr("data-savedqueryid") : null;
-                itemId = isSavedQuery ? savedQueryId : $checked.attr("id");
+                itemId = isCustomDataSource ? "" : (isSavedQuery ? savedQueryId : $checked.attr("id"));
 
                 reportType = $$("[data-bind='type']").val();
 
@@ -285,6 +332,14 @@
                 }
 
                 $$("[data-bind='type']").prop("disabled", true);
+
+                if (isCustomDataSource) {
+                    itemData = { filters: [], items: [] };
+                    $$("#filtersPlace").html("");
+                    $$("#itemPlace").html("");
+                    openStimulsoftDesigner();
+                    return;
+                }
 
                 let getItemsUrl = "/System/ReportBuilder/GetItems?id=" + itemId + (isSavedQuery ? "&fromSavedQuery=true" : "");
                 get(getItemsUrl,
@@ -406,46 +461,24 @@
         $$("#filterNext").click(function() {
 
             if (reportType === "1" || reportType === "2") {
-                $$("#tableViewDesigne").addClass("d-none");
-                $$("#StimulsoftViewDesigne").removeClass("d-none");
-
-                // designer = LoadStimulsoft(itemId, dataSets, reportContent);
-                var id = $$("[data-bind=id]").val();
-                let fromSavedQueryParam = isSavedQuery ? "&fromSavedQuery=true" : "";
-                let queryParames = {};
-                     $$("[data-param]").each((c,i)=>{
-                      queryParames[$(i).attr("data-param")] =$(i).val();
-                    });
-
-              const queryString = new URLSearchParams(queryParames).toString();
-              let iframUrl ="";
-
-              if(queryString.length >0){
-                 iframUrl =`<iframe src="/System/ReportBuilder/StimulSoftReport?itemId=${itemId}&reportId=${id}${fromSavedQueryParam}&${queryString}" style="width: 100%;min-height: 1200px;"></iframe>`
-              }
-              else{
-                 iframUrl =`<iframe src="/System/ReportBuilder/StimulSoftReport?itemId=${itemId}&reportId=${id}${fromSavedQueryParam}" style="width: 100%;min-height: 1200px;"></iframe>`
-              }
-          $$("#StimulsoftViewDesigne").append(iframUrl);
-
-            } else {
-                $$("#tableViewDesigne").removeClass("d-none");
-                $$("#StimulsoftViewDesigne").addClass("d-none");
+                openStimulsoftDesigner();
+                return;
             }
 
-
+            $$("#tableViewDesigne").removeClass("d-none");
+            $$("#StimulsoftViewDesigne").addClass("d-none");
             $$('#nav-tab button[data-bs-target="#nav-selectItems"]').tab('show');
-
-
         });
 
 
         $$("#selectItemsPrevious")
             .click(function() {
-
-                $$('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
                 $$("#StimulsoftViewDesigne").html("");
-
+                if (isCustomDataSource) {
+                    $$('#nav-tab button[data-bs-target="#nav-reportItem"]').tab('show');
+                    return;
+                }
+                $$('#nav-tab button[data-bs-target="#nav-filters"]').tab('show');
             });
 
     
@@ -500,7 +533,9 @@
             }
 
 
-            model.reportBuilderReportSelects = itemData.items;
+            model.reportBuilderReportSelects = itemData?.items ?? [];
+            if (!model.reportBuilderReportFilters)
+                model.reportBuilderReportFilters = [];
            model.reportBuilderReportFilters.forEach(x=>x.id = null)
             
 

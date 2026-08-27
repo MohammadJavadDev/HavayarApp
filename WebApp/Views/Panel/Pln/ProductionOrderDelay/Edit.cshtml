@@ -6,6 +6,7 @@
 @{
 	var isEdit = Model?.Id != null && Model.Id > 0;
 	var hasLockedProductionOrder = !isEdit && Model?.ProductionOrderId != null && Model.ProductionOrderId > 0;
+	var selectedProductionOrderId = Model?.ProductionOrderId;
 	var existingDelays = ViewBag.ExistingDelays as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
 	var calculatedRangeJson = ViewBag.CalculatedDelayRange != null
 		? System.Text.Json.JsonSerializer.Serialize(ViewBag.CalculatedDelayRange)
@@ -34,7 +35,14 @@
 			<label class=''>سفارش ساخت</label>
 			@(Html.EntitySelector<ProductionOrder>(
 				"ProductionOrderSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active &&
+					(c.Id == selectedProductionOrderId ||
+					 (!c.DelayNotCalculated &&
+					  c.ProjectManagerId == null &&
+					  c.Items.Any(i => !i.IsDeleted &&
+						  i.IsLatestVersion &&
+						  i.Status != Entities.App.Sale.Enums.ProductionOrderItemStatusEnum.Invalid &&
+						  i.SendToIndustrialMiladiDate.HasValue))),
 				c => new
 				{
 					Id = c.Id,
@@ -105,7 +113,7 @@
 						<span class="fw-semibold text-primary" id="calcProductionOrderNumber">-</span>
 					</div>
 					<div class="col-md-3">
-						<span class="text-muted d-block">حداکثر تاریخ تحویل</span>
+						<span class="text-muted d-block">تاریخ مجاز قلم دارای بیشترین تأخیر</span>
 						<span class="fw-semibold text-primary" id="calcMaxDeliverDateShamsi">-</span>
 					</div>
 					<div class="col-md-3">

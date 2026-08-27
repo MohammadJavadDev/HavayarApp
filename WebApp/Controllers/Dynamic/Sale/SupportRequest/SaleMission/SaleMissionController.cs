@@ -1,6 +1,7 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
+using Entities.App.Hcm;
 using Entities.App.Sale;
 using Entities.App.Sale.DTO;
 using Entities.Base.DataTable;
@@ -81,7 +82,7 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
-		public IActionResult Edit(long? id)
+		public IActionResult Edit(long? id, long? serviceRequestId, CancellationToken cancellationToken)
 		{
 			if (id != null && id != 0)
 			{
@@ -164,7 +165,7 @@ namespace WebApp.Controllers.Dynamic
 				    ToHour = it.First().ToHour,
 				    WorkOvertimeFee = it.First().WorkOvertimeFee,
 				    WorkOvertimeHour = it.First().WorkOvertimeHour,
-				    Mission_Right_Factor = it.First().Mission_Right_Factor,
+				    Mission_Right_Factor = it.First().MissionRightFactor,
 				    MissionRight = it.First().MissionRight,
 				    TransportationPersonal = it.First().TransportationPersonal,
 				    TransportationDriving = it.First().TransportationDriving,
@@ -251,34 +252,29 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		[HttpGet("[action]")]
-		public async Task<IActionResult> GetServiceRequest(long serviceRequestId)
+		[ActionDisplayName("دریافت جزئیات درخواست پشتیبانی", ActionAccessType.Api, ActionAccessItemType.FetchData)]
+		public async Task<IActionResult> GetServiceRequest(long serviceRequestId, CancellationToken cancellationToken)
 		{
-			try
+			if (serviceRequestId <= 0)
 			{
-				var list = await _unitOfWork.Repository<ServiceRequestDetail>()
-				    .TableNoTracking
-				    .Where(it => it.ServiceRequestId == serviceRequestId)
-				    .ToListAsync();
-
-				return Ok(list);
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"Error: {ex.Message}");
-				Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-
-				if (ex.InnerException != null)
-				{
-					Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
-				}
-
 				return BadRequest(new
 				{
 					success = false,
-					message = ex.Message,
-					innerMessage = ex.InnerException?.Message
+					message = "شناسه درخواست پشتیبانی معتبر نیست."
 				});
 			}
+
+			var list = await _unitOfWork
+			    .Repository<ServiceRequestDetail>()
+			    .TableNoTracking
+			    .Where(x => x.ServiceRequestId == serviceRequestId)
+			    .ToListAsync(cancellationToken);
+
+			return Ok(new
+			{
+				success = true,
+				data = list
+			});
 		}
 
 		[HttpDelete("[action]")]
@@ -325,6 +321,66 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult LoadServiceRequestForm()
 		{
 			return PartialView(@"\Views\Panel\Sale\ServiceRequest\MissionStatement\ServiceRequestPaperReportHtml.cshtml");
+		}
+
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetMissionPersonelsWithServiceRequest(long serviceRequestId, CancellationToken cancellationToken)
+		{
+			if (serviceRequestId <= 0)
+			{
+				return BadRequest(new
+				{
+					success = false,
+					message = "شناسه درخواست معتبر نیست."
+				});
+			}
+
+			var rawExpertNameIds = await _unitOfWork.Repository<ServiceRequest>()
+			    .TableNoTracking
+			    .Where(sr => sr.Id == serviceRequestId)
+			    .Select(sr => sr.ExpertNameId)
+			    .FirstOrDefaultAsync(cancellationToken);
+
+			if (string.IsNullOrWhiteSpace(rawExpertNameIds))
+			{
+				return Ok(new
+				{
+					success = true,
+					data = new List<PersonelDto>()
+				});
+			}
+
+			var ids = rawExpertNameIds
+			    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+			    .Select(x => long.TryParse(x.Trim(), out var id) ? id : (long?)null)
+			    .Where(x => x.HasValue)
+			    .Select(x => x.Value)
+			    .Distinct()
+			    .ToList();
+
+			if (ids.Count == 0)
+			{
+				return Ok(new
+				{
+					success = true,
+					data = new List<PersonelDto>()
+				});
+			}
+			var persons = await _unitOfWork.Repository<Personel>()
+			    .TableNoTracking
+			    .Where(p => p.Id.HasValue && ids.Contains(p.Id.Value))
+			    .Select(p => new PersonelDto(
+				   p.Id,
+				   p.Name,
+				   p.Family))
+			    .ToListAsync(cancellationToken);
+
+			return Ok(new
+			{
+				success = true,
+				data = persons
+			});
 		}
 
 		#endregion
@@ -376,7 +432,7 @@ namespace WebApp.Controllers.Dynamic
 			var subtractResult = toDateInEurope.Subtract(fromDateInEurope);
 			var missionDays = (int)Math.Ceiling(subtractResult.TotalDays);
 			var durationInMinutes = (int)DateTimeHelper.DurationInMinutes(fromDateInEurope, toDateInEurope);
-			var (breakfastCount, lunchCount, dinnerCount, wentExtraWorkHours, finalMissionDays, nightShiftCoefficient) =
+			var (breakfastCount, lunchCount, dinnerCount, wentExtraWorkHours, finalMissionDays, nightShiftCoefficient, workOvertimeHour, missionRightFactor) =
 			    _missionService.CalculateMissionMeals(fromDateInEurope, toDateInEurope, missionDays);
 
 			var result = new MissionSalaryPersonnelDTO
@@ -396,12 +452,53 @@ namespace WebApp.Controllers.Dynamic
 				MissionDays = finalMissionDays,
 				DurationInMinutes = durationInMinutes,
 				WentExtraWorkHours = wentExtraWorkHours,
-				nightShiftCoefficient = nightShiftCoefficient
+				MissionRightFactor = missionRightFactor,
+				NightShiftCoefficient = nightShiftCoefficient,
+				WorkOvertimeHour = workOvertimeHour
 			};
 
 			return Ok(new { success = true, result });
 		}
 
+
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> GetSaleReportById(long id, CancellationToken cancellationToken)
+		{
+			try
+			{
+				var report = await _unitOfWork.Repository<SaleReport>()
+				    .TableNoTracking
+				    .Where(r => r.Id == id)
+				    .FirstOrDefaultAsync(cancellationToken);
+
+				if (report == null)
+				{
+					return Ok(new
+					{
+						isSuccess = false,
+						data = (object)null,
+						message = "گزارش مورد نظر یافت نشد"
+					});
+				}
+
+				return Ok(new
+				{
+					isSuccess = true,
+					data = report,
+					message = "عملیات با موفقیت انجام شد"
+				});
+			}
+			catch (Exception ex)
+			{
+				return Ok(new
+				{
+					isSuccess = false,
+					data = (object)null,
+					message = "خطا در دریافت اطلاعات: " + ex.Message
+				});
+			}
+		}
 		#endregion
 
 		#region ViewModels
@@ -451,3 +548,4 @@ namespace WebApp.Controllers.Dynamic
 		#endregion
 	}
 }
+public record PersonelDto(long? Id, string Name, string Family);

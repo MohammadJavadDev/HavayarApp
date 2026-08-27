@@ -99,6 +99,7 @@ namespace WebApp.Controllers.Dynamic
 			oldEntity.ProjectDlCode = productionOrder.ProjectDlCode;
 			oldEntity.EdmsProject = productionOrder.EdmsProject;
 			oldEntity.IntroducerExpertId = productionOrder.IntroducerExpertId;
+			oldEntity.DelayNotCalculated = productionOrder.DelayNotCalculated;
 			// State ،FinancialConfirmedById/OnMiladiDate/OnShamsiDate ،ObsoletedById/OnMiladiDate/OnShamsiDate و
 			// HamkaranId عمداً از ورودی productionOrder کپی نمی‌شوند تا فقط از طریق DoFinancialConfirm/DoObsolete
 			// و همگام‌سازی راهکاران تغییر کنند

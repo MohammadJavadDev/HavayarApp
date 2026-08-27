@@ -4889,12 +4889,7 @@ class QueryDesigner {
      }
 }
 
-function toCamelCase(str) {
-     if (!str) return "";
 
-     if (!str || str.length === 0) return str;
-     return str.charAt(0).toLowerCase() + str.slice(1);
-}
 
 /**
 * capitalize اول کلمه برای ساخت id textarea

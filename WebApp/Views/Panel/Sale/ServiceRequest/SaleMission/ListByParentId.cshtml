@@ -65,219 +65,267 @@
      </div>
 </div>
 <script>
-     (function () {
-          const serviceRequestId = @Model.ServiceRequestId;
-          const tableSelector = "#@tableId";
-          const listApiUrl = "/Panel/Sale/SaleMission/GetListByParentId?serviceRequestId=" + serviceRequestId;
+     (function() {
+         const serviceRequestId = @Model.ServiceRequestId;
+         const tableSelector = "#@tableId";
+         const listApiUrl = "/Panel/Sale/SaleMission/GetListByParentId?serviceRequestId=" + serviceRequestId;
 
-          sessionStorage.setItem("ServiceRequestId", serviceRequestId);
+         sessionStorage.setItem("ServiceRequestId", serviceRequestId);
 
-          function dash(val) {
-               return val === null || val === undefined || val === "" ? "-" : val;
-          }
+         function dash(val) {
+             return val === null || val === undefined || val === "" ? "-" : val;
+         }
 
-          function formatBool(val) {
-               return val === true || val === "true" || val === 1 ? "بله" : "خیر";
-          }
+         function formatBool(val) {
+             return val === true || val === "true" || val === 1 ? "بله" : "خیر";
+         }
 
-          function formatNumber(val) {
-               if (val === null || val === undefined || val === "") return "-";
-               const num = Number(val);
-               if (isNaN(num)) return val;
-               return num.toLocaleString("fa-IR");
-          }
+         function formatNumber(val) {
+             if (val === null || val === undefined || val === "") return "-";
+             const num = Number(val);
+             if (isNaN(num)) return val;
+             return num.toLocaleString("fa-IR");
+         }
 
-          function deleteSaleMission(id) {
-               Swal.fire({
-                    icon: "warning",
-                    title: "آیا از حذف این اطلاعات مطمئن هستید؟",
-                    showDenyButton: true,
-                    confirmButtonText: "بله",
-                    denyButtonText: "خیر"
-               }).then(function (result) {
-                    if (!result.isConfirmed) return;
+         function deleteSaleMission(id) {
+             Swal.fire({
+                 icon: "warning",
+                 title: "آیا از حذف این اطلاعات مطمئن هستید؟",
+                 showDenyButton: true,
+                 confirmButtonText: "بله",
+                 denyButtonText: "خیر"
+             }).then(function(result) {
+                 if (!result.isConfirmed) return;
 
-                    $$.get("/Panel/Sale/SaleMission/Delete?id=" + id, function (response) {
-                         if (response && response.isSuccess === false) {
-                              toastr.error(response.message || "خطا در حذف رکورد");
-                              return;
-                         }
-                         toastr.success("رکورد با موفقیت حذف شد");
-                         reloadSaleMissionList(serviceRequestId);
-                    });
-               });
-          }
+                 $$.get("/Panel/Sale/SaleMission/Delete?id=" + id, function(response) {
+                     if (response && response.isSuccess === false) {
+                         toastr.error(response.message || "خطا در حذف رکورد");
+                         return;
+                     }
+                     toastr.success("رکورد با موفقیت حذف شد");
+                     reloadSaleMissionList(serviceRequestId);
+                 });
+             });
+         }
 
-          function measureTextWidth(text, sampleEl) {
-               const $probe = $("<span/>").css({
-                    position: "absolute",
-                    visibility: "hidden",
-                    whiteSpace: "nowrap",
-                    font: sampleEl ? window.getComputedStyle(sampleEl).font : "14px Vazirmatn, Tahoma, sans-serif"
-               }).text(text || "").appendTo("body");
-               const width = $probe.outerWidth();
-               $probe.remove();
-               return width;
-          }
+         function measureTextWidth(text, sampleEl) {
+             const $probe = $("<span/>").css({
+                 position: "absolute",
+                 visibility: "hidden",
+                 whiteSpace: "nowrap",
+                 font: sampleEl ? window.getComputedStyle(sampleEl).font : "14px Vazirmatn, Tahoma, sans-serif"
+             }).text(text || "").appendTo("body");
+             const width = $probe.outerWidth();
+             $probe.remove();
+             return width;
+         }
 
-          function fitColumnWidths(api) {
-               const $container = $(api.table().container());
-               const $scrollHead = $container.find(".dataTables_scrollHead");
-               const $scrollBody = $container.find(".dataTables_scrollBody");
-               const sortIconExtra = 28;
+         function fitColumnWidths(api) {
+             const $container = $(api.table().container());
+             const $scrollHead = $container.find(".dataTables_scrollHead");
+             const $scrollBody = $container.find(".dataTables_scrollBody");
+             const sortIconExtra = 28;
 
-               api.columns().every(function (colIdx) {
-                    const headerEl = this.header();
-                    const headerText = $(headerEl).text().trim();
-                    let maxWidth = measureTextWidth(headerText, headerEl) + sortIconExtra;
+             api.columns().every(function(colIdx) {
+                 const headerEl = this.header();
+                 const headerText = $(headerEl).text().trim();
+                 let maxWidth = measureTextWidth(headerText, headerEl) + sortIconExtra;
 
-                    this.nodes().to$().each(function () {
-                         const cellWidth = measureTextWidth($(this).text().trim(), this) + 24;
-                         if (cellWidth > maxWidth) maxWidth = cellWidth;
-                    });
+                 this.nodes().to$().each(function() {
+                     const cellWidth = measureTextWidth($(this).text().trim(), this) + 24;
+                     if (cellWidth > maxWidth) maxWidth = cellWidth;
+                 });
 
-                    maxWidth = Math.ceil(maxWidth);
+                 maxWidth = Math.ceil(maxWidth);
 
-                    $(headerEl).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
-                    this.nodes().to$().css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
-                    $scrollHead.find("thead th").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
-                    $scrollBody.find("tbody tr").each(function () {
-                         $(this).children("td").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
-                    });
-               });
+                 $(headerEl).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                 this.nodes().to$().css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                 $scrollHead.find("thead th").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                 $scrollBody.find("tbody tr").each(function() {
+                     $(this).children("td").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+                 });
+             });
 
-               api.columns.adjust();
-          }
+             api.columns.adjust();
+         }
 
-          if ($.fn.DataTable.isDataTable(tableSelector)) {
-               $$(tableSelector).DataTable().clear().destroy();
-          }
+         if ($.fn.DataTable.isDataTable(tableSelector)) {
+             $$(tableSelector).DataTable().clear().destroy();
+         }
 
-          const table = $$(tableSelector).DataTable({
-               destroy: true,
-               processing: true,
-               serverSide: false,
-               autoWidth: false,
-               scrollX: true,
-               pageLength: 10,
-               lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "همه"]],
-               order: [[1, "asc"]],
-               ajax: {
-                    url: listApiUrl,
-                    type: "GET",
-                    dataSrc: function (json) {
-                         if (json && json.isSuccess === false) {
-                              toastr.error(json.message || "خطا در دریافت اطلاعات");
-                              return [];
-                         }
-                         return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
-                    }
-               },
-               columns: [
-                    {
-                         data: "id",
-                         orderable: false,
-                         searchable: false,
-                         className: "text-center",
-                         render: function (id) {
-                              return `
-                                   <button type="button" class="btn btn-sm btn-warning btn-edit-sale-mission" data-id="${id}" title="ویرایش">
-                                        <i class="fa fa-edit"></i>
-                                   </button>
-                                   <button type="button" class="btn btn-sm btn-danger btn-delete-sale-mission" data-id="${id}" title="حذف">
-                                        <i class="fa fa-trash"></i>
-                                   </button>
-                              `;
-                         }
-                    },
-                    {
-                         data: null,
-                         orderable: false,
-                         searchable: false,
-                         className: "text-center",
-                         render: function (data, type, row, meta) {
-                              return meta.row + meta.settings._iDisplayStart + 1;
-                         }
-                    },
-                    { data: "statementNumber", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "personelName", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "costCenterTitle", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "haveGurantee", className: "text-center", render: formatBool },
-                    { data: "dispatchShamsiDate", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "fromHour", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "returnShamsiDate", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "toHour", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "workOvertimeFee", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "workOvertimeHour", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "mission_Right_Factor", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "missionRight", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "transportationPersonal", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "transportationDriving", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "missionHolidayRight", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "missionHolidayRightFactor", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "dailySalary", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "breakfastPrice", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "breakfastQuantity", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "lunchPrice", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "lunchQuantity", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "dinnerPrice", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "dinnerQuantity", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-                    { data: "nightShiftAllowance", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "nightShiftCoefficient", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "otherCost", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "totalCost", className: "text-end", defaultContent: "-", render: function (d) { return formatNumber(d); } },
-                    { data: "comment", defaultContent: "-", render: function (d) { return dash(d); } }
-               ],
-               language: {
-                    url: "/panelLib/plugins/custom/datatables/fa.json",
-                    emptyTable: "هیچ اطلاعاتی یافت نشد",
-                    zeroRecords: "هیچ اطلاعاتی یافت نشد"
-               },
-               initComplete: function () {
-                    fitColumnWidths(this.api());
-               }
-          });
+         const table = $$(tableSelector).DataTable({
+             destroy: true,
+             processing: true,
+             serverSide: false,
+             autoWidth: false,
+             scrollX: true,
+             pageLength: 10,
+             lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, "همه"]],
+             order: [[1, "asc"]],
+             ajax: {
+                 url: listApiUrl,
+                 type: "GET",
+                 dataSrc: function(json) {
+                     if (json && json.isSuccess === false) {
+                         toastr.error(json.message || "خطا در دریافت اطلاعات");
+                         return [];
+                     }
+                     return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+                 }
+             },
+             columns: [
+                 {
+                     data: "id",
+                     orderable: false,
+                     searchable: false,
+                     className: "text-center",
+                     render: function (id) {
+                         return `
+                                                                                <button type="button" class="btn btn-sm btn-warning btn-edit-sale-mission" data-id="${id}" title="ویرایش">
+                                                                                     <i class="fa fa-edit"></i>
+                                                                                </button>
+                                                                                <button type="button" class="btn btn-sm btn-danger btn-delete-sale-mission" data-id="${id}" title="حذف">
+                                                                                     <i class="fa fa-trash"></i>
+                                                                                </button>
+                                                                           `;
+                     }
+                 },
+                 {
+                     data: null,
+                     orderable: false,
+                     searchable: false,
+                     className: "text-center",
+                     render: function(data, type, row, meta) {
+                         return meta.row + meta.settings._iDisplayStart + 1;
+                     }
+                 },
+                 { data: "statementNumber", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "personelName", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "costCenterTitle", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "haveGurantee", className: "text-center", render: formatBool },
+                 { data: "dispatchShamsiDate", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "fromHour", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "returnShamsiDate", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "toHour", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "workOvertimeFee", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "workOvertimeHour", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "mission_Right_Factor", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "missionRight", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "transportationPersonal", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "transportationDriving", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "missionHolidayRight", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "missionHolidayRightFactor", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "dailySalary", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "breakfastPrice", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "breakfastQuantity", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "lunchPrice", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "lunchQuantity", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "dinnerPrice", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "dinnerQuantity", className: "text-center", defaultContent: "-", render: function(d) { return dash(d); } },
+                 { data: "nightShiftAllowance", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "nightShiftCoefficient", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "otherCost", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "totalCost", className: "text-end", defaultContent: "-", render: function(d) { return formatNumber(d); } },
+                 { data: "comment", defaultContent: "-", render: function(d) { return dash(d); } }
+             ],
+             language: {
+                 url: "/panelLib/plugins/custom/datatables/fa.json",
+                 emptyTable: "هیچ اطلاعاتی یافت نشد",
+                 zeroRecords: "هیچ اطلاعاتی یافت نشد"
+             },
+             initComplete: function() {
+                 fitColumnWidths(this.api());
+             }
+         });
 
-          window["saleMissionListTable_" + serviceRequestId] = table;
+         window["saleMissionListTable_" + serviceRequestId] = table;
 
-          window.reloadSaleMissionList = function (id) {
-               const targetId = id || serviceRequestId;
-               const dt = window["saleMissionListTable_" + targetId];
-               if (dt && typeof dt.ajax === "object") {
-                    dt.ajax.reload(function () {
-                         fitColumnWidths(dt);
-                    }, false);
-               }
-          };
+         window.reloadSaleMissionList = function(id) {
+             const targetId = id || serviceRequestId;
+             const dt = window["saleMissionListTable_" + targetId];
+             if (dt && typeof dt.ajax === "object") {
+                 dt.ajax.reload(function() {
+                     fitColumnWidths(dt);
+                 }, false);
+             }
+         };
 
-          $$("#btnNewSaleMission").on("click", function () {
-               appController.addPage("/Panel/Sale/SaleMission/New?serviceRequestId=" + serviceRequestId);
-          });
+         $$("#btnNewSaleMission").on("click", function() {
+             appController.addPage("/Panel/Sale/SaleMission/New?serviceRequestId=" + serviceRequestId);
+         });
 
-          $$(tableSelector).on("click", ".btn-edit-sale-mission", function () {
-               const id = $(this).data("id");
-               appController.addPage("/Panel/Sale/SaleMission/Edit?id=" + id);
-          });
+         // $$(tableSelector).on("click", ".btn-edit-sale-mission", function() {
+         //     const id = $(this).data("id");
 
-          $$(tableSelector).on("click", ".btn-delete-sale-mission", function () {
-               const id = $(this).data("id");
-               deleteSaleMission(id);
-          });
+         //     if (!serviceRequestId || serviceRequestId <= 0) {
+         //         toastr.error("شناسه درخواست معتبر نیست.");
+         //         return;
+         //     }
 
-          $$("#btnRefreshSaleMissionPage").on("click", function () {
-               reloadSaleMissionList(serviceRequestId);
-          });
+         //     const url = "/Panel/Sale/SaleMission/GetMissionPersonels?serviceRequestId=" + encodeURIComponent(serviceRequestId);
+
+         //     $$.get(url, function(response) {
+         //         var inner = response && response.data ? response.data : null;
+         //         var persons = [];
+
+         //         if (inner && $.isArray(inner.data)) {
+         //             persons = inner.data;
+         //         } else if ($.isArray(response.data)) {
+         //             persons = response.data;
+         //         } else if ($.isArray(response)) {
+         //             persons = response;
+         //         }
+
+         //         if (!response || response.isSuccess === false || (inner && inner.success === false)) {
+         //             var msg =
+         //                 (response && response.message) ||
+         //                 (inner && inner.message) ||
+         //                 "خطا در دریافت پرسنل‌های ماموریت";
+         //             toastr.error(msg);
+         //             return;
+         //         }
+
+         //         sessionStorage.setItem(
+         //             "SaleMissionPersonels_" + serviceRequestId,
+         //             JSON.stringify(persons || [])
+         //         );
+
+         //         appController.addPage("/Panel/Sale/SaleMission/Edit?id=" + id + "&serviceRequestId=" + serviceRequestId
+         //         );
+         //     });
+         // });
+
+
+
+         $$(tableSelector).on("click", ".btn-edit-sale-mission", function() {
+             debugger
+             const id = $(this).data("id");
+
+             const row = table.row($(this).closest("tr")).data();
+             const serviceRequestId = row.serviceRequestId;
+
+             appController.addPage("/Panel/Sale/SaleMission/Edit?id=" + id + "&serviceRequestId=" + serviceRequestId);
+         });
+
+         $$(tableSelector).on("click", ".btn-delete-sale-mission", function() {
+             const id = $(this).data("id");
+             deleteSaleMission(id);
+         });
+
+         $$("#btnRefreshSaleMissionPage").on("click", function() {
+             reloadSaleMissionList(serviceRequestId);
+         });
      })();
 </script>
 
 <style>
-     #saleMissionListPage # @tableId {
+     #saleMissionListPage #@tableId {
           width: max-content !important;
           table-layout: auto;
      }
 
-          #saleMissionListPage # @tableId th,
-          #saleMissionListPage # @tableId td,
+          #saleMissionListPage #@tableId th,
+          #saleMissionListPage #@tableId td,
           #saleMissionListPage .dataTables_scrollHead th,
           #saleMissionListPage .dataTables_scrollBody td {
                white-space: nowrap !important;
@@ -285,7 +333,7 @@
                padding-inline: 0.75rem;
           }
 
-          #saleMissionListPage # @tableId tbody tr:hover {
+          #saleMissionListPage #@tableId tbody tr:hover {
                background-color: #f5f5f5;
           }
 

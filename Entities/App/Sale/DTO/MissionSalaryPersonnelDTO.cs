@@ -83,9 +83,14 @@
 		public int? WentExtraWorkHours { get; set; }
 
 		/// <summary>
-		/// ضریب حق شب
+		/// ضریب  ماموریت
 		/// </summary>
-		public int? nightShiftCoefficient { get; set; }
+		public int? MissionRightFactor { get; set; }
 
+		/// <summary>
+		/// ضریب  حق شب
+		/// </summary>
+		public int? NightShiftCoefficient { get; set; }
+		public int WorkOvertimeHour { get; set; }
 	}
 }

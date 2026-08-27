@@ -120,9 +120,9 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, false, type: SystemType.String)]
 		public string? Description { get; set; }
 
-
-	 
-
-
+		/// <summary>
+		/// شناسه VPIS در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 }

@@ -80,7 +80,7 @@ public class SaleMission : BaseEntity
 
 	[DisplayName("ضریب ماموریت")]
 	[DisplayInfo(null, true, type: SystemType.Long)]
-	public long? Mission_Right_Factor { get; set; }
+	public long? MissionRightFactor { get; set; }
 
 
 	[DisplayName("حق ماموریت")]

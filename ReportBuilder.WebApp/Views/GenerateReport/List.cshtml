@@ -191,6 +191,15 @@
                                             <i class="bi bi-eye"></i>
                                             مشاهده
                                         </a>
+                                        @if (report.Type == ReportBuilder.Entities.ReportType.StimulSoft || report.Type == ReportBuilder.Entities.ReportType.Dashboard)
+                                        {
+                                            <a href="/System/ReportBuilder/StimulSoftReport?reportId=@report.Id"
+                                               class="btn btn-sm btn-outline-info"
+                                               title="طراح Stimulsoft">
+                                                <i class="bi bi-brush"></i>
+                                                طراح
+                                            </a>
+                                        }
                                         <a href="/System/ReportBuilder/Report/Edit?id=@report.Id"
                                            class="btn btn-sm btn-outline-secondary"
                                            title="ویرایش">

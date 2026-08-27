@@ -3,6 +3,7 @@ using Common.Auth.Enums;
 using Data.Contracts;
 using Entities.App.Inv;
 using Entities.App.Sale;
+using Entities.App.Sale.DTO;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -179,6 +180,62 @@ namespace WebApp.Controllers.Dynamic
 			return PartialView(@"\Views\Panel\Sale\ServiceRequest\ProductDetail\Edit.cshtml", entity);
 		}
 
+
+		/// <summary>
+		/// محصولات مرتبط
+		/// </summary>
+		/// <param name="serviceRequestId"></param>
+		/// <param name="onlyApprovedSaleOrder"></param>
+		/// <returns></returns>
+		[HttpGet("[action]")]
+		public async Task<List<ProductDTO>> GetRelatedProduct(long serviceRequestId)
+		{
+			var query = unitOfWork.Repository<OrderDetail>()
+			    .TableNoTracking
+			    .Include(it => it.Sale_Order)
+			    .Include(it => it.Part)
+			    .Include(it => it.OrderDetailSerials)
+			    .Where(x => x.Sale_Order.CustomerId == serviceRequestId);
+
+			return await query
+			    .Select(x => new ProductDTO
+			    {
+				    Id = x.SaleOrderId,
+				    Code = x.PartId,
+				    Text =
+					  x.Part.Code + " | " +
+					  x.Part.Name + " | " +
+					  string.Join(", ", x.OrderDetailSerials.Select(s => s.Serial)) +
+					  " | ت خ: " +
+					  x.Sale_Order.VchDateShamsiDate
+			    })
+			    .ToListAsync();
+		}
+		/// <summary>
+		/// سریال مرتبط 
+		/// </summary>
+		/// <param name="orderDetailId"></param>
+		/// <returns></returns>
+
+		public async Task<List<SerialDTO>> GetRelatedSerial(long orderDetailId)
+		{
+			var query = unitOfWork.Repository<OrderDetailSerial>()
+			    .TableNoTracking
+			    .Where(it => it.OrderDetailId == orderDetailId);
+
+			return await query
+			    .Select(it => new SerialDTO
+			    {
+				    Id = it.Id,
+				    Code = it.ProductionOrderNumber,
+				    Serial = it.Serial,
+				    Text = "Serial : " + it.Serial + "  PON : " + it.ProductionOrderNumber,
+			    })
+			    .ToListAsync();
+		}
+
+
+
 		[HttpGet("[action]")]
 		public async Task<IActionResult> GetServiceRequest(long? serviceRequestId)
 		{
@@ -199,14 +256,6 @@ namespace WebApp.Controllers.Dynamic
 			}
 			catch (Exception ex)
 			{
-				Console.WriteLine($"Error: {ex.Message}");
-				Console.WriteLine($"Stack Trace: {ex.StackTrace}");
-
-				if (ex.InnerException != null)
-				{
-					Console.WriteLine($"Inner Error: {ex.InnerException.Message}");
-				}
-
 				return BadRequest(new
 				{
 					success = false,

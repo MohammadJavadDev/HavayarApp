@@ -115,6 +115,13 @@ namespace Entities.App.Edms
 		public long? ReplySheetId { get; set; }
 
 
+		[DisplayName("فایل ReplySheet دوم")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
+		public FileEntity? SecondReplySheet { get; set; }
+
+		public long? SecondReplySheetId { get; set; }
+
+
 		[DisplayName("وضعیت مدرک")]
 		[DisplayInfo(null, false, type: SystemType.Select)]
 		public DocumentStatusEnums? Status { get; set; }
@@ -132,6 +139,11 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, false, type: SystemType.ListEntity)]
  
 		public List<DocumentComment> Comments { get; set; }=new List<DocumentComment>();
+
+		/// <summary>
+		/// شناسه مدرک در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 	[Display(Name = "کامنت های مدارک مهندسی")]
 	[Table("DocumentComment", Schema = "Edms")]
@@ -172,6 +184,11 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, false, type: SystemType.String)]
 		[MaxLength(2000)]
 		public string? HoldDetails { get; set; }
+
+		/// <summary>
+		/// شناسه کامنت مدرک در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 
 

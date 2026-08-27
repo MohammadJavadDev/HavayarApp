@@ -14,6 +14,11 @@ namespace Entities.Hts.Gnr
 		[StringLength(160)]
 		public string? Username { get; set; }
 
+		public bool IsActive { get; set; }
+
+		[StringLength(800)]
+		public string? ActiveDirectoryUsername { get; set; }
+
 		[StringLength(1024)]
 		public string? FullName { get; set; }
 	}

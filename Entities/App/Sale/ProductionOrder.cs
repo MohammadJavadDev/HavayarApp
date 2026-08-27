@@ -310,6 +310,11 @@ namespace Entities.App.Sale
 		[MaxLength(1024)]
 		public string? DisableForTimelyDeliveryReportComment { get; set; }
 
+		[DisplayName("پروژه‌ای (عدم محاسبه تاخیر)")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool DelayNotCalculated { get; set; } = false;
+
+		public List<ProductionOrderItem> Items { get; set; } = new();
 
 		[DisplayName("کامنت های سفارش ساخت")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]

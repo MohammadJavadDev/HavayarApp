@@ -295,6 +295,10 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? AfterSalesServiceManagersOpinion { get; set; }
 
+		[DisplayName("شرح درخواست")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		public string? RequestDescription { get; set; }
+
 	}
 }
 

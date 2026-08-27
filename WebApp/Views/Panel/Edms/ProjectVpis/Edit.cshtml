@@ -5,7 +5,7 @@
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProjectVpis)"></form-action-buttons></div>
 	<div class="card-body row">
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class="col-md-3">
+		<div class="col-md-3 form-group-inline">
 			<label class="form-label">پروژه</label>
 			@(Html.EntitySelector<Project>
 						(
@@ -26,60 +26,60 @@
 						))
  		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>کد</label>
 			<input class='form-control' data-bind='code'  asp-for='Code' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>عنوان</label>
 			<input class='form-control' data-bind='title'  asp-for='Title' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>وزن</label>
 			<input class='form-control' data-bind='weight' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+([\\.][\u06F0-\u06F90-9]{1,2})?$'" placeholder="مثال: ۱۲۳.۴۵" asp-for='Weight' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>نوع</label>
 			<select class='form-control' data-bind='type'  asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisDocTypeEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>کلاس مدرک</label>
 			<select class='form-control' data-bind='classDocument'  asp-for='ClassDocument' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisClassDocumentEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>دیسپلین</label>
 			<select class='form-control' data-bind='displaying'  asp-for='Displaying' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisDisplayingEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>سایز صفحه</label>
 			<select class='form-control' data-bind='pageSize'  asp-for='PageSize' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.ProjectVpisPageSizeEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>تاریخ مبنای اولین مدرک</label>
 			<input class='form-control' data-bind='firstDegreeDocumentShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.FirstDegreeDocumentMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 		 
 
-		<div class='col-md-3'>
+		<div class='col-md-3 form-group-inline'>
 			<label class=''>تاریخ برنامه جایگزین</label>
 			<input class='form-control' data-bind='replaceShamsiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.ReplaceMiladiDate' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -89,31 +89,31 @@
 		<div class="col-md-12">
 
 		</div>
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>نفر ساعت برای ریویژن 00</label>
 			<input class='form-control ltr' data-bind='personHourRevisionZero' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"   />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>نفر ساعت برای ریویژن 01</label>
 			<input class='form-control ltr' data-bind='personHourRevisionOne' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"  />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>نفر ساعت برای ریویژن 02</label>
 			<input class='form-control ltr' data-bind='personHourRevisionTwo' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"   />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>نفر ساعت برای ریویژن 03</label>
 			<input class='form-control ltr' data-bind='personHourRevisionThree' data-invalidMessage='فقط عداد' type="text" data-inputmask="'mask': '999:99'"   />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class="form-label">بررسی کنندگان مدرک</label>
 			@(Html.EntitySelector<User>
 						(
@@ -135,7 +135,7 @@
 						))
  		</div>
 
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class="form-label">تایید کننده</label>
 			@(Html.EntitySelector<User>
 						(
@@ -156,7 +156,7 @@
 						))
  		</div>
 
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class="form-label">تهیه کننده</label>
 			@(Html.EntitySelector<User>
 						(
@@ -177,7 +177,7 @@
 						))
 		</div>
 
-		<div class='col-md-12'>
+		<div class='col-md-12 form-group-inline'>
 			<label class=''>توضیحات</label>
 			<input class='form-control' data-bind='description'  asp-for='Description' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>

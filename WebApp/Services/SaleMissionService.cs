@@ -32,7 +32,7 @@ namespace WebApp.Services
 				}
 				long overtimeTotal = (long)((mission.WorkOvertimeFee ?? 0) * overtimeHours);
 
-				long missionRightTotal = (mission.MissionRight ?? 0) * (mission.Mission_Right_Factor ?? 0);
+				long missionRightTotal = (mission.MissionRight ?? 0) * (mission.MissionRightFactor ?? 0);
 				long holidayRightTotal = (mission.MissionHolidayRight ?? 0) * (mission.MissionHolidayRightFactor ?? 0);
 
 				long dailySalary = mission.DailySalary ?? 0;
@@ -47,7 +47,7 @@ namespace WebApp.Services
 				mission.TotalCost = totalLong;
 			}
 
-			public (int breakfastCount, int lunchCount, int dinnerCount, int wentExtraWorkHours, int finalMissionDays, int nightShiftCoefficient)
+			public (int breakfastCount, int lunchCount, int dinnerCount, int wentExtraWorkHours, int finalMissionDays, int nightShiftCoefficient, int workOvertimeHour, int mission_Right_Factor)
 			    CalculateMissionMeals(DateTime fromDate, DateTime toDate, int missionDays)
 			{
 				var departureHour = 8;
@@ -59,6 +59,8 @@ namespace WebApp.Services
 				var wentExtraWorkHours = 0;
 				var finalMissionDays = missionDays;
 				var nightShiftCoefficient = missionDays;
+				var mission_Right_Factor = missionDays;
+				var workOvertimeHour = 0;
 
 				if (missionDays <= 1)
 				{
@@ -142,7 +144,7 @@ namespace WebApp.Services
 						finalMissionDays += 1;
 				}
 
-				return (breakfastCount, lunchCount, dinnerCount, wentExtraWorkHours, finalMissionDays, nightShiftCoefficient);
+				return (breakfastCount, lunchCount, dinnerCount, wentExtraWorkHours, finalMissionDays, nightShiftCoefficient, workOvertimeHour, mission_Right_Factor);
 			}
 
 			public async Task<MissionSalaryPersonnel> GetMissionSalaryAsync(long? personelId)

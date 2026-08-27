@@ -2,6 +2,7 @@ using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
 using Data.Contracts;
+using Data.Services.Eng.CompressorSizing;
 using Data.Services.QueryBuilderServices;
 using Entities.Base;
 using Entities.Base.DataTable;
@@ -36,7 +37,8 @@ namespace ReportBuilder.WebApp.Controllers
     [ControllerInfo("گزارش ساز")]
     public class ReportBuilderController(IReportBuilderService reportBuilderService ,
          IUnitOfWork unitOfWork,
-	   IQueryService _queryService) 
+	   IQueryService _queryService,
+	   ICompressorSizingService compressorSizingService) 
           : BaseController
     {
         
@@ -838,6 +840,8 @@ namespace ReportBuilder.WebApp.Controllers
 				report.RegData(dataSet);
 
 			AddFontResourcesToReport(report);
+			if (string.Equals(report.ReportName, "CompressorSizing", StringComparison.OrdinalIgnoreCase))
+				CompressorSizingReportLetterhead.Apply(report, compressorSizingService.ResolveWatermarkImagePath());
 			report.Dictionary.Synchronize();
 
 			return StiNetCoreDesigner.GetReportResult(this, report);

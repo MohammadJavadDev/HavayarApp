@@ -1,0 +1,858 @@
+@using Entities.App.Edms
+@using Entities.App.SLS
+@using Entities.Base
+@{
+	ViewBag.Title = "Compressor Sizing";
+	var compressorModels = ViewBag.CompressorModels as string[] ?? Array.Empty<string>();
+}
+
+<style>
+	#compressorSizingPage {
+		direction: ltr;
+		text-align: left;
+	}
+
+	#compressorSizingPage .entity-icons {
+		left: auto;
+		right: 10px;
+	}
+
+	#compressorSizingPage .entity-selector-multi-container {
+		padding-left: 8px;
+		padding-right: 25px;
+	}
+
+	#compressorSizingPage .entity-selector-input {
+		padding-right: 1.75rem;
+	}
+
+	#compressorSizingPage .form-label {
+		font-weight: 600;
+		color: var(--bs-gray-800);
+	}
+
+	#compressorSizingPage .cs-unit {
+		min-width: 108px;
+		max-width: 130px;
+	}
+
+	#compressorSizingPage .cs-unit-fixed {
+		min-width: 72px;
+	}
+
+	#compressorSizingPage .cs-action-btn {
+		min-height: 42px;
+	}
+
+	#compressorSizingPage .is-invalid {
+		border-color: var(--bs-danger);
+	}
+</style>
+
+<div id="compressorSizingPage" dir="ltr">
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">Compressor Sizing</h3>
+					<div class="text-muted fs-7">Select inlet conditions and customer requirements, then choose a compressor model.</div>
+				</div>
+			</div>
+			<div class="card-toolbar">
+				<button type="button" class="btn btn-sm btn-light-danger" id="csBtnReset">
+					<i class="fas fa-undo me-1"></i> Reset defaults
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Project</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3">
+				<div class="col-md-6">
+					<label class="form-label">Project Name</label>
+					@(Html.EntitySelector<Project>(
+						"csProjectSelector",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Code = c.Code, Title = c.Title },
+						c => new { c.Code, c.Title },
+						"{Code} | {Title}",
+						"projectId",
+						"projectName",
+						null,
+						false,
+						false,
+						false,
+						false,
+						null,
+						"Search..."))
+				</div>
+				<div class="col-md-6">
+					<label class="form-label">Customer</label>
+					@(Html.EntitySelector<Customer>(
+						"csCustomerSelector",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Title = c.Party.FullName },
+						c => new { c.Party.FullName },
+						"{Title}",
+						"customerId",
+						"customerName",
+						null,
+						false,
+						false,
+						false,
+						false,
+						null,
+						"Search..."))
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csContact">Contact</label>
+					<input id="csContact" class="form-control" type="text" autocomplete="off" />
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csDate">Date</label>
+					<input id="csDate" class="form-control" type="date" />
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="csStandardConditionCard" class="d-none" aria-hidden="true">
+		<input id="csStdPressure" type="hidden" />
+		<input id="csStdPressureUnit" type="hidden" />
+		<input id="csStdTemperature" type="hidden" />
+		<input id="csStdTemperatureUnit" type="hidden" />
+		<input id="csStdRelativeHumidity" type="hidden" />
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Inlet Condition</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3">
+				<div class="col-md-6">
+					<label class="form-label" for="csBarometricPressure">Barometric Pressure</label>
+					<div class="input-group">
+						<input id="csBarometricPressure" class="form-control" type="number" step="0.001" inputmode="decimal" autocomplete="off" data-validate="barometric" />
+						<select id="csBarometricPressureUnit" class="form-select cs-unit" data-unit-kind="pressure" data-target="#csBarometricPressure">
+							<option value="bara">bara</option>
+							<option value="atm">atm</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csInletPressureDrop">Inlet Pressure Drop</label>
+					<div class="input-group">
+						<input id="csInletPressureDrop" class="form-control" type="number" step="0.01" inputmode="decimal" autocomplete="off" data-validate="inletDrop" />
+						<select id="csInletPressureDropUnit" class="form-select cs-unit" data-unit-kind="pressure" data-target="#csInletPressureDrop">
+							<option value="bara">bara</option>
+							<option value="atm">atm</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csInletTemperature">Inlet Temperature</label>
+					<div class="input-group">
+						<input id="csInletTemperature" class="form-control" type="number" step="0.1" inputmode="decimal" autocomplete="off" data-validate="inletTemp" />
+						<select id="csInletTemperatureUnit" class="form-select cs-unit" data-unit-kind="temperature" data-target="#csInletTemperature">
+							<option value="C">C</option>
+							<option value="K">K</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csRelativeHumidity">Relative Humidity</label>
+					<div class="input-group">
+						<input id="csRelativeHumidity" class="form-control" type="number" step="1" min="0" max="100" inputmode="numeric" autocomplete="off" data-validate="humidity" />
+						<span class="input-group-text cs-unit-fixed">%</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Cooling Water Condition</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3">
+				<div class="col-md-6">
+					<label class="form-label" for="csCoolingWaterTemperature">Cooling Water Temperature</label>
+					<div class="input-group">
+						<input id="csCoolingWaterTemperature" class="form-control" type="number" step="1" inputmode="numeric" autocomplete="off" data-validate="coolingWater" />
+						<span class="input-group-text cs-unit-fixed">°C</span>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csMaximumTemperatureRise">Maximum Temperature Rise</label>
+					<div class="input-group">
+						<input id="csMaximumTemperatureRise" class="form-control" type="number" step="1" inputmode="numeric" autocomplete="off" data-validate="tempRise" />
+						<span class="input-group-text cs-unit-fixed">°C</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Customer Requirement</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3">
+				<div class="col-md-6">
+					<label class="form-label" for="csFlowRate">Flow Rate</label>
+					<div class="input-group">
+						<input id="csFlowRate" class="form-control" type="number" step="0.1" inputmode="decimal" autocomplete="off" />
+						<select id="csFlowRateUnit" class="form-select cs-unit" data-unit-kind="flow" data-target="#csFlowRate">
+							<option value="Nm^3/h">Nm^3/h</option>
+							<option value="Im^3/h">Im^3/h</option>
+							<option value="Kg/h">Kg/h</option>
+						</select>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<label class="form-label" for="csDischargePressure">Discharge Pressure</label>
+					<div class="input-group">
+						<input id="csDischargePressure" class="form-control" type="number" step="0.1" inputmode="decimal" autocomplete="off" />
+						<select id="csDischargePressureUnit" class="form-select cs-unit" data-unit-kind="pressure" data-target="#csDischargePressure">
+							<option value="bara">bara</option>
+							<option value="atm">atm</option>
+						</select>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Operation</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3 align-items-end">
+				<div class="col-lg-4">
+					<button type="button" class="btn btn-light-primary w-100 cs-action-btn" id="csBtnSelectEfficiency">
+						Compressor Selection (Efficiency Based)
+					</button>
+				</div>
+				<div class="col-lg-4">
+					<button type="button" class="btn btn-light-primary w-100 cs-action-btn" id="csBtnSelectReliability">
+						Compressor Selection (Reliability Based)
+					</button>
+				</div>
+				<div class="col-lg-4">
+					<label class="form-label" for="csCompressor">Compressor</label>
+					<select id="csCompressor" class="form-select">
+						<option value="">Please Select</option>
+						@foreach (var compressorModel in compressorModels)
+						{
+							<option value="@compressorModel">@compressorModel</option>
+						}
+					</select>
+				</div>
+				<div class="col-12">
+					<button type="button" class="btn btn-success w-100 cs-action-btn fw-bold" id="csBtnAnalyze">
+						ANALYZE
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4 d-none" id="csResultsCard">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<h3 class="mb-0">Analysis Result</h3>
+			</div>
+			<div class="card-toolbar">
+				<span class="badge badge-light-success fs-7" id="csResultModelBadge"></span>
+			</div>
+		</div>
+		<div class="card-body">
+			<div class="row g-4">
+				<div class="col-lg-6">
+					<div class="fw-bold mb-3">Project</div>
+					<div class="table-responsive">
+						<table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-2 mb-0">
+							<tbody>
+								<tr><th class="text-muted w-50">Project</th><td id="csResProject">-</td></tr>
+								<tr><th class="text-muted">Customer</th><td id="csResCustomer">-</td></tr>
+								<tr><th class="text-muted">Contact</th><td id="csResContact">-</td></tr>
+								<tr><th class="text-muted">Date</th><td id="csResDate">-</td></tr>
+								<tr><th class="text-muted">Compressor Model</th><td id="csResModel">-</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="fw-bold mb-3">Inlet Condition</div>
+					<div class="table-responsive">
+						<table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-2 mb-0">
+							<tbody>
+								<tr><th class="text-muted w-50">Barometric Pressure</th><td id="csResBarometric">-</td></tr>
+								<tr><th class="text-muted">Inlet Pressure Drop</th><td id="csResInletDrop">-</td></tr>
+								<tr><th class="text-muted">Inlet Temperature</th><td id="csResInletTemp">-</td></tr>
+								<tr><th class="text-muted">Relative Humidity</th><td id="csResHumidity">-</td></tr>
+								<tr><th class="text-muted">Cooling Water Inlet / Rise</th><td id="csResCooling">-</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="fw-bold mb-3">Performance</div>
+					<div class="table-responsive">
+						<table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-2 mb-0">
+							<tbody>
+								<tr><th class="text-muted w-50">Designed Turn Down Ratio</th><td id="csResDtr">-</td></tr>
+								<tr><th class="text-muted">Required Turn Down Ratio</th><td id="csResRtr">-</td></tr>
+								<tr><th class="text-muted">Inlet Flow</th><td id="csResInletFlow">-</td></tr>
+								<tr><th class="text-muted">Discharge Pressure</th><td id="csResDischarge">-</td></tr>
+								<tr><th class="text-muted">Coupling Power at Inlet Flow</th><td id="csResCpf">-</td></tr>
+								<tr><th class="text-muted">Maximum Inlet Flow</th><td id="csResMaxFlow">-</td></tr>
+								<tr><th class="text-muted">Coupling Power at Maximum Inlet Flow</th><td id="csResMaxPower">-</td></tr>
+								<tr><th class="text-muted">Compressor Discharge Temperature</th><td id="csResDischargeTemp">-</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+				<div class="col-lg-6">
+					<div class="fw-bold mb-3">Cooling Water</div>
+					<div class="table-responsive">
+						<table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-2 mb-0">
+							<tbody>
+								<tr><th class="text-muted w-50">Intercoolers Consumption</th><td id="csResMic">-</td></tr>
+								<tr><th class="text-muted">Intercooler Pressure Drop</th><td id="csResDpMic">-</td></tr>
+								<tr><th class="text-muted">Aftercooler Consumption</th><td id="csResMac">-</td></tr>
+								<tr><th class="text-muted">Aftercooler Pressure Drop</th><td id="csResDpMac">-</td></tr>
+								<tr><th class="text-muted">Oil Cooler Consumption</th><td id="csResMoc">-</td></tr>
+								<tr><th class="text-muted">Oil Cooler Pressure Drop</th><td id="csResDpMoc">-</td></tr>
+								<tr><th class="text-muted">Total Cooling Water Consumption</th><td id="csResMtot">-</td></tr>
+								<tr><th class="text-muted">Cooling Water Maximum Temperature Rise</th><td id="csResWtrise">-</td></tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="csReportFrameWrap" class="d-none mt-4">
+			<div class="fw-bold mb-3">Stimulsoft Report</div>
+			<iframe id="csReportFrame" title="Compressor Sizing Report" style="width:100%;min-height:1100px;border:1px solid var(--bs-gray-300);border-radius:6px;"></iframe>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Datasheet</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3 align-items-end">
+				<div class="col-md-6">
+					<label class="form-label" for="csSystemUnit">System Unit</label>
+					<select id="csSystemUnit" class="form-select">
+						<option value="">Please Select</option>
+						<option value="SI-bar">SI-bar</option>
+						<option value="SI-kpa">SI-kpa</option>
+					</select>
+				</div>
+				<div class="col-md-6">
+					<button type="button" class="btn btn-success w-100 cs-action-btn" id="csBtnDatasheet" disabled>
+						Datasheet
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+ 
+		const $page = $$('#compressorSizingPage');
+		if (!$page.length) return;
+
+		const defaults = {
+			stdPressure: 1.013,
+			stdPressureUnit: 'bara',
+			stdTemperature: 15,
+			stdTemperatureUnit: 'C',
+			stdRelativeHumidity: 0,
+			barometricPressure: 1.013,
+			barometricPressureUnit: 'bara',
+			inletPressureDrop: 0.03,
+			inletPressureDropUnit: 'bara',
+			inletTemperature: 35,
+			inletTemperatureUnit: 'C',
+			relativeHumidity: 0,
+			coolingWaterTemperature: 27,
+			maximumTemperatureRise: 10,
+			flowRate: 5600,
+			flowRateUnit: 'Nm^3/h',
+			dischargePressure: 8.0,
+			dischargePressureUnit: 'bara'
+		};
+
+		const urls = {
+			selectEfficiency: '/Panel/Eng/CompressorSizing/SelectByEfficiency',
+			selectReliability: '/Panel/Eng/CompressorSizing/SelectByReliability',
+			analyze: '/Panel/Eng/CompressorSizing/Analyze',
+			exportDatasheet: '/Panel/Eng/CompressorSizing/ExportDatasheet',
+			reportViewer: '/Panel/Eng/CompressorSizing/ReportViewer'
+		};
+
+		function unwrap(response) {
+			return response && response.data !== undefined ? response.data : response;
+		}
+
+		function errorMessage(response) {
+			return response?.message || response?.Message || 'Request failed.';
+		}
+
+		function postJson(url, payload) {
+			return $$.ajax({
+				url: url,
+				method: 'POST',
+				contentType: 'application/json',
+				data: JSON.stringify(payload)
+			});
+		}
+
+		function setBusy($buttons, busy) {
+			$buttons.prop('disabled', busy);
+		}
+
+		function toNumber(value) {
+			if (value === null || value === undefined || value === '') return NaN;
+			return Number(String(value).replace(',', '.'));
+		}
+
+		function round(value, digits) {
+			const factor = Math.pow(10, digits);
+			return Math.round((value + Number.EPSILON) * factor) / factor;
+		}
+
+		function setNumber($input, value, digits) {
+			if (!Number.isFinite(value)) return;
+			$input.val(round(value, digits));
+		}
+
+		function val($el) {
+			return toNumber($el.val());
+		}
+
+		function selectorText(id) {
+			const $wrap = $page.find('#' + id);
+			const named = $wrap.find('.entity-selector-text').val();
+			if (named) return named;
+			return $wrap.find('.entity-selector-input').val() || '';
+		}
+
+		function clearSelector(id) {
+			const $wrap = $page.find('#' + id);
+			const instance = $wrap.data('entitySelector') || $wrap.data('entitySelectorInstance');
+			if (instance && typeof instance.clearAll === 'function') {
+				instance.clearAll();
+				return;
+			}
+			$wrap.find('.entity-selector-value').val('');
+			$wrap.find('.entity-selector-text').val('');
+			$wrap.find('.entity-selector-input').val('');
+		}
+
+		function markInvalid($input, invalid) {
+			$input.toggleClass('is-invalid', invalid);
+		}
+
+		function warn(message) {
+			toastr.warning(message, 'Warning', { timeOut: 5000 });
+		}
+
+		function toBara(value, unit) {
+			return unit === 'atm' ? value * 1.01325 : value;
+		}
+
+		function fromBara(value, unit) {
+			return unit === 'atm' ? value / 1.01325 : value;
+		}
+
+		function toKelvin(value, unit) {
+			return unit === 'C' ? value + 273.15 : value;
+		}
+
+		function fromKelvin(value, unit) {
+			return unit === 'C' ? value - 273.15 : value;
+		}
+
+		function normalizeFlowUnit(unit) {
+			return unit === 'Kg/h' ? 'kg/h' : unit;
+		}
+
+		function convertFlow(fromUnit, toUnit, q, pressureBara, temperatureKelvin, humidity) {
+			if (fromUnit === toUnit) return q;
+
+			const c1 = -8.391384e-10;
+			const c2 = 2.942852e-6;
+			const c3 = 2.598317e-4;
+			const c4 = 2.667707e-2;
+			const c5 = 1.422996;
+			const c6 = 4.362130e1;
+			const c7 = 6.047532e2;
+
+			const tC = temperatureKelvin - 273.15;
+			const pws = (c1 * Math.pow(tC, 6) + c2 * Math.pow(tC, 5) + c3 * Math.pow(tC, 4) + c4 * Math.pow(tC, 3) + c5 * Math.pow(tC, 2) + c6 * tC + c7) / 100000.0;
+			const mw = 18.015;
+			const ma = 28.97;
+			const ru = 8.3144;
+			const pw = (humidity / 100.0) * pws;
+			const w = (mw / ma) * (pw / (pressureBara - pw));
+			const xa = 1.0 / (1.0 + w * (ma / mw));
+			const xw = w / ((mw / ma) + w);
+			const mm = xa * ma + xw * mw;
+			const rm = 1000.0 * ru / mm;
+			const rho = (pressureBara * 100000.0) / (rm * temperatureKelvin);
+			const pNorm = 1.01325;
+			const tNorm = 273.15;
+			const xs = (temperatureKelvin / tNorm) * (pNorm / (pressureBara - (humidity / 100) * pws));
+
+			const from = normalizeFlowUnit(fromUnit);
+			const to = normalizeFlowUnit(toUnit);
+
+			let mass = q;
+			if (from === 'Im^3/h') mass = q * rho;
+			else if (from === 'Nm^3/h') mass = q * xs * rho;
+
+			if (to === 'Im^3/h') return mass / rho;
+			if (to === 'Nm^3/h') return mass / xs / rho;
+			return mass;
+		}
+
+		function rangeFor(kind, unit) {
+			if (kind === 'barometric') {
+				return unit === 'bara'
+					? { min: 0.60, max: 1.30, digits: 3, label: 'Barometric Pressure', clamp: 1.30 }
+					: { min: 0.59, max: 1.28, digits: 3, label: 'Barometric Pressure', clamp: 1.28 };
+			}
+			if (kind === 'inletTemp') {
+				return unit === 'C'
+					? { min: -20, max: 60, digits: 2, label: 'Inlet Temperature', clamp: 60 }
+					: { min: 255, max: 330, digits: 2, label: 'Inlet Temperature', clamp: 330 };
+			}
+			if (kind === 'inletDrop') return { min: 0.0, max: 0.10, digits: 3, label: 'Inlet Pressure Drop', clamp: 0.10 };
+			if (kind === 'humidity') return { min: 0, max: 100, digits: 0, label: 'Relative Humidity', clamp: 100 };
+			if (kind === 'coolingWater') return { min: 5, max: 35, digits: 0, label: 'Cooling Water Temperature', clamp: 35 };
+			if (kind === 'tempRise') return { min: 5, max: 15, digits: 0, label: 'Maximum Temperature Rise', clamp: 15 };
+			return null;
+		}
+
+		function validateField($input, showToast) {
+			const kind = $input.data('validate');
+			if (!kind) return true;
+
+			const unit = kind === 'barometric'
+				? $page.find('#csBarometricPressureUnit').val()
+				: kind === 'inletTemp'
+					? $page.find('#csInletTemperatureUnit').val()
+					: null;
+
+			const spec = rangeFor(kind, unit);
+			const number = val($input);
+			if (!Number.isFinite(number) || number < spec.min || number > spec.max) {
+				markInvalid($input, true);
+				if (showToast !== false) {
+					warn('Valid range for ' + spec.label + ' is ' + spec.min + ' < X < ' + spec.max);
+				}
+				if (Number.isFinite(number) && number > spec.max) setNumber($input, spec.clamp, spec.digits);
+				else if (Number.isFinite(number) && number < spec.min) setNumber($input, spec.min, spec.digits);
+				return false;
+			}
+
+			markInvalid($input, false);
+			return true;
+		}
+
+		function convertOnUnitChange($select) {
+			const kind = $select.data('unit-kind');
+			const $target = $page.find($select.data('target'));
+			const nextUnit = $select.val();
+			const prevUnit = $select.data('prev-unit');
+			if (!prevUnit || prevUnit === nextUnit) {
+				$select.data('prev-unit', nextUnit);
+				return;
+			}
+
+			const current = val($target);
+			if (!Number.isFinite(current)) {
+				$select.data('prev-unit', nextUnit);
+				return;
+			}
+
+			let converted = current;
+			if (kind === 'pressure') {
+				converted = fromBara(toBara(current, prevUnit), nextUnit);
+				setNumber($target, converted, 4);
+			} else if (kind === 'temperature') {
+				converted = fromKelvin(toKelvin(current, prevUnit), nextUnit);
+				setNumber($target, converted, 2);
+			} else if (kind === 'flow') {
+				const pin = toBara(val($page.find('#csBarometricPressure')), $page.find('#csBarometricPressureUnit').val());
+				const tin = toKelvin(val($page.find('#csInletTemperature')), $page.find('#csInletTemperatureUnit').val());
+				const hin = val($page.find('#csRelativeHumidity'));
+				if (!Number.isFinite(pin) || !Number.isFinite(tin) || !Number.isFinite(hin)) {
+					warn('Set inlet pressure, temperature and humidity before converting flow units.');
+					$select.val(prevUnit);
+					return;
+				}
+				converted = convertFlow(prevUnit, nextUnit, current, pin, tin, hin);
+				setNumber($target, converted, 2);
+			}
+
+			$select.data('prev-unit', nextUnit);
+			if ($target.data('validate')) validateField($target, true);
+		}
+
+		function collectPayload() {
+			return {
+				projectName: selectorText('csProjectSelector'),
+				custormer: selectorText('csCustomerSelector'),
+				contact: $page.find('#csContact').val(),
+				stdPressure: val($page.find('#csStdPressure')),
+				stdTemperature: val($page.find('#csStdTemperature')),
+				stdRelativeHumidity: val($page.find('#csStdRelativeHumidity')),
+				pin: val($page.find('#csBarometricPressure')),
+				dPin: val($page.find('#csInletPressureDrop')),
+				tin: val($page.find('#csInletTemperature')),
+				hin: val($page.find('#csRelativeHumidity')),
+				q: val($page.find('#csFlowRate')),
+				pd: val($page.find('#csDischargePressure')),
+				stdPressure_u: $page.find('#csStdPressureUnit').val(),
+				stdTemperature_u: $page.find('#csStdTemperatureUnit').val(),
+				pin_u: $page.find('#csBarometricPressureUnit').val(),
+				dPin_u: $page.find('#csInletPressureDropUnit').val(),
+				tin_u: $page.find('#csInletTemperatureUnit').val(),
+				q_u: $page.find('#csFlowRateUnit').val(),
+				pd_u: $page.find('#csDischargePressureUnit').val(),
+				tcw_in: val($page.find('#csCoolingWaterTemperature')),
+				tcw_rise: val($page.find('#csMaximumTemperatureRise')),
+				modelName: $page.find('#csCompressor').val()
+			};
+		}
+
+		function textOrDash(value, unit) {
+			if (value === null || value === undefined || value === '') return '-';
+			return unit ? (value + ' ' + unit) : String(value);
+		}
+
+		function hideResults() {
+			$page.find('#csResultsCard').addClass('d-none');
+			$page.find('#csBtnDatasheet').prop('disabled', true);
+			$page.find('#csReportFrame').attr('src', 'about:blank');
+			$page.find('#csReportFrameWrap').addClass('d-none');
+		}
+
+		function renderAnalysis(result) {
+			$page.find('#csResProject').text(textOrDash(result.project));
+			$page.find('#csResCustomer').text(textOrDash(result.customer));
+			$page.find('#csResContact').text(textOrDash(result.contact));
+			$page.find('#csResDate').text(textOrDash(result.reportDate));
+			$page.find('#csResModel').text(textOrDash(result.modelName));
+			$page.find('#csResultModelBadge').text(result.modelName || '');
+			$page.find('#csResBarometric').text(textOrDash(result.barometricPressure, result.barometricPressureUnit));
+			$page.find('#csResInletDrop').text(textOrDash(result.inletPressureDrop, result.inletPressureDropUnit));
+			$page.find('#csResInletTemp').text(textOrDash(result.inletTemperature, result.inletTemperatureUnit));
+			$page.find('#csResHumidity').text(textOrDash(result.relativeHumidity, '%'));
+			$page.find('#csResCooling').text(
+				textOrDash(result.coolingWaterInletTemperature, '°C') + ' / ' + textOrDash(result.coolingWaterTemperatureRise, '°C')
+			);
+			$page.find('#csResDtr').text(textOrDash(result.designedTurnDownRatio, '%'));
+			$page.find('#csResRtr').text(textOrDash(result.requiredTurnDownRatio, '%'));
+			$page.find('#csResInletFlow').text(textOrDash(result.inletFlow, result.inletFlowUnit));
+			$page.find('#csResDischarge').text(textOrDash(result.dischargePressure, result.dischargePressureUnit));
+			$page.find('#csResCpf').text(textOrDash(result.couplingPowerAtInletFlow, 'kW'));
+			$page.find('#csResMaxFlow').text(textOrDash(result.maximumInletFlow, result.inletFlowUnit));
+			$page.find('#csResMaxPower').text(textOrDash(result.couplingPowerAtMaximumInletFlow, 'kW'));
+			$page.find('#csResDischargeTemp').text(textOrDash(result.compressorDischargeTemperature, '°C'));
+			$page.find('#csResMic').text(textOrDash(result.intercoolersConsumption, 'm³/h'));
+			$page.find('#csResDpMic').text(textOrDash(result.intercoolerPressureDrop, 'bar'));
+			$page.find('#csResMac').text(textOrDash(result.aftercoolerConsumption, 'm³/h'));
+			$page.find('#csResDpMac').text(textOrDash(result.aftercoolerPressureDrop, 'bar'));
+			$page.find('#csResMoc').text(textOrDash(result.oilCoolerConsumption, 'm³/h'));
+			$page.find('#csResDpMoc').text(textOrDash(result.oilCoolerPressureDrop, 'bar'));
+			$page.find('#csResMtot').text(textOrDash(result.totalCoolingWaterConsumption, 'm³/h'));
+			$page.find('#csResWtrise').text(textOrDash(result.coolingWaterMaximumTemperatureRise, '°C'));
+			$page.find('#csResultsCard').removeClass('d-none');
+			$page.find('#csBtnDatasheet').prop('disabled', false);
+			$page.find('#csReportFrameWrap').removeClass('d-none');
+			$page.find('#csReportFrame').attr('src', urls.reportViewer + '?t=' + Date.now());
+		}
+
+		function applyDefaults() {
+			const today = new Date();
+			const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+
+			clearSelector('csProjectSelector');
+			clearSelector('csCustomerSelector');
+			$page.find('#csContact').val('');
+			$page.find('#csDate').val(iso);
+
+			$page.find('#csStdPressure').val(defaults.stdPressure);
+			$page.find('#csStdPressureUnit').val(defaults.stdPressureUnit);
+			$page.find('#csStdTemperature').val(defaults.stdTemperature);
+			$page.find('#csStdTemperatureUnit').val(defaults.stdTemperatureUnit);
+			$page.find('#csStdRelativeHumidity').val(defaults.stdRelativeHumidity);
+
+			$page.find('#csBarometricPressure').val(defaults.barometricPressure);
+			$page.find('#csBarometricPressureUnit').val(defaults.barometricPressureUnit);
+			$page.find('#csInletPressureDrop').val(defaults.inletPressureDrop);
+			$page.find('#csInletPressureDropUnit').val(defaults.inletPressureDropUnit);
+			$page.find('#csInletTemperature').val(defaults.inletTemperature);
+			$page.find('#csInletTemperatureUnit').val(defaults.inletTemperatureUnit);
+			$page.find('#csRelativeHumidity').val(defaults.relativeHumidity);
+			$page.find('#csCoolingWaterTemperature').val(defaults.coolingWaterTemperature);
+			$page.find('#csMaximumTemperatureRise').val(defaults.maximumTemperatureRise);
+			$page.find('#csFlowRate').val(defaults.flowRate);
+			$page.find('#csFlowRateUnit').val(defaults.flowRateUnit);
+			$page.find('#csDischargePressure').val(defaults.dischargePressure);
+			$page.find('#csDischargePressureUnit').val(defaults.dischargePressureUnit);
+			$page.find('#csCompressor').val('');
+			$page.find('#csSystemUnit').val('');
+			hideResults();
+			$page.find('.is-invalid').removeClass('is-invalid');
+
+			$page.find('select[data-prev-unit], select[data-unit-kind]').each(function () {
+				$$(this).data('prev-unit', $$(this).val());
+			});
+		}
+
+		$page.on('blur', 'input[data-validate]', function () {
+			validateField($$(this), true);
+		});
+
+		$page.on('change', 'select[data-unit-kind]', function () {
+			convertOnUnitChange($$(this));
+		});
+
+		$page.on('click', '#csBtnReset', function () {
+			applyDefaults();
+			toastr.info('Default values restored.', 'Reset');
+		});
+
+		$page.on('click', '#csBtnSelectEfficiency, #csBtnSelectReliability', function () {
+			const $btn = $$(this);
+			const url = $btn.is('#csBtnSelectEfficiency') ? urls.selectEfficiency : urls.selectReliability;
+			const $pair = $page.find('#csBtnSelectEfficiency, #csBtnSelectReliability');
+			setBusy($pair, true);
+			postJson(url, collectPayload())
+				.done(function (response) {
+					if (!response || response.isSuccess === false) {
+						toastr.error(errorMessage(response), 'Compressor selection');
+						return;
+					}
+					const result = unwrap(response) || {};
+					if (!result.success) {
+						warn(result.message || 'No compressor matched the duty.');
+						return;
+					}
+					$page.find('#csCompressor').val(result.modelName);
+					hideResults();
+					toastr.success(result.modelName, 'Selected compressor');
+				})
+				.fail(function (xhr) {
+					toastr.error(xhr.responseJSON?.message || errorMessage(xhr.responseJSON) || 'Request failed.', 'Compressor selection');
+				})
+				.always(function () {
+					setBusy($pair, false);
+				});
+		});
+
+		$page.on('click', '#csBtnAnalyze', function () {
+			const modelName = $page.find('#csCompressor').val();
+			if (!modelName) {
+				warn('Compressor cannot be empty.');
+				return;
+			}
+			const $btn = $page.find('#csBtnAnalyze');
+			setBusy($btn, true);
+			postJson(urls.analyze, collectPayload())
+				.done(function (response) {
+					if (!response || response.isSuccess === false) {
+						toastr.error(errorMessage(response), 'ANALYZE');
+						hideResults();
+						return;
+					}
+					renderAnalysis(unwrap(response) || {});
+					toastr.success('Analysis completed.', 'ANALYZE');
+				})
+				.fail(function (xhr) {
+					hideResults();
+					toastr.error(xhr.responseJSON?.message || errorMessage(xhr.responseJSON) || 'Request failed.', 'ANALYZE');
+				})
+				.always(function () {
+					setBusy($btn, false);
+				});
+		});
+
+		function fileNameFromResponse(response, fallback) {
+			const header = response.headers.get('Content-Disposition') || '';
+			const utf = /filename\*=UTF-8''([^;]+)/i.exec(header);
+			if (utf) return decodeURIComponent(utf[1]);
+			const simple = /filename="?([^";]+)"?/i.exec(header);
+			return simple ? simple[1] : fallback;
+		}
+
+		$page.on('click', '#csBtnDatasheet', async function () {
+			const systemUnit = $page.find('#csSystemUnit').val();
+			if (!systemUnit) {
+				warn('Datasheet cannot be empty.');
+				return;
+			}
+			const modelName = $page.find('#csCompressor').val();
+			if (!modelName) {
+				warn('Compressor cannot be empty.');
+				return;
+			}
+
+			const $btn = $page.find('#csBtnDatasheet');
+			setBusy($btn, true);
+			try {
+				const response = await fetch(urls.exportDatasheet, {
+					method: 'POST',
+					credentials: 'same-origin',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(Object.assign(collectPayload(), { systemUnit: systemUnit }))
+				});
+
+				const contentType = (response.headers.get('content-type') || '').toLowerCase();
+				if (!response.ok || contentType.indexOf('application/json') >= 0) {
+					let message = 'Datasheet export failed.';
+					try {
+						const payload = await response.json();
+						message = errorMessage(payload) || message;
+					} catch (e) { }
+					toastr.error(message, 'Datasheet');
+					return;
+				}
+
+				const blob = await response.blob();
+				const downloadUrl = window.URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.href = downloadUrl;
+				link.download = fileNameFromResponse(response, modelName + '_' + systemUnit + '.xlsx');
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				window.URL.revokeObjectURL(downloadUrl);
+				toastr.success('Datasheet downloaded.', 'Datasheet');
+			} catch (e) {
+				toastr.error('Datasheet export failed.', 'Datasheet');
+			} finally {
+				setBusy($btn, false);
+			}
+		});
+
+		applyDefaults();
+ 
+</script>

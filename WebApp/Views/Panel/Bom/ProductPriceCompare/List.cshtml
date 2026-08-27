@@ -1,0 +1,484 @@
+@using Common.Utilities
+@{
+	ViewBag.Title = "مقایسه قیمت محصولات";
+	var today = DateTime.Today;
+}
+
+<style>
+	#productPriceComparePage .price-summary-card {
+		min-height: 92px;
+	}
+
+	#productPriceComparePage .price-summary-value {
+		font-size: 1.35rem;
+		font-weight: 700;
+	}
+
+	#productPriceComparePage .price-positive {
+		color: var(--bs-danger);
+	}
+
+	#productPriceComparePage .price-negative {
+		color: var(--bs-success);
+	}
+
+	#productPriceComparePage .price-neutral {
+		color: var(--bs-gray-600);
+	}
+
+	#productPriceComparePage table.dataTable tbody tr.selected {
+		background-color: var(--bs-primary-light) !important;
+	}
+
+	#productPriceComparePage .price-details-column {
+		width: 46px !important;
+		min-width: 46px !important;
+		max-width: 46px !important;
+		padding-inline: 4px !important;
+	}
+
+	#productPriceComparePage .price-select-column {
+		width: 38px !important;
+		min-width: 38px !important;
+		max-width: 38px !important;
+		padding-inline: 4px !important;
+	}
+
+	#productPriceComparePage .price-row-column {
+		width: 48px !important;
+		min-width: 48px !important;
+		max-width: 48px !important;
+		padding-inline: 4px !important;
+		white-space: nowrap;
+	}
+
+	#productPriceComparePage .details-container {
+		min-width: 1180px;
+		padding: .5rem;
+	}
+
+	#productPriceComparePage .details-container table {
+		margin-bottom: 0;
+	}
+
+	#productPriceComparePage .table-responsive {
+		overflow-x: auto;
+	}
+</style>
+
+<div id="productPriceComparePage">
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">مقایسه قیمت محصولات</h3>
+					<div class="text-muted fs-7">مقایسه قیمت جاری با snapshot ثبت‌شده در تاریخ مبنا</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<div class="d-flex align-items-center gap-2">
+					<label class="text-nowrap" for="productPriceSourceDate">تاریخ مبنا</label>
+					<input id="productPriceSourceDate" class="form-control form-control-sm w-150px" value="@today"
+						list="productPriceSnapshotDates" data-persionDatePicker="true"
+						persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+					<datalist id="productPriceSnapshotDates"></datalist>
+				</div>
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadProductPrices">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+				<button type="button" class="btn btn-sm btn-light-success" id="btnExportProductPrices">
+					<i class="fa fa-file-excel"></i> اکسل
+				</button>
+				<button type="button" class="btn btn-sm btn-light-info" id="btnSendProductPriceEmail" disabled>
+					<i class="ki-duotone ki-send fs-4"></i> ارسال ایمیل
+				</button>
+			</div>
+		</div>
+		<div class="card-body py-3">
+			<div class="form-check form-switch form-check-custom form-check-solid">
+				<input class="form-check-input" type="checkbox" id="onlyChangedProductPrices" />
+				<label class="form-check-label" for="onlyChangedProductPrices">فقط محصولات دارای تغییر قیمت نمایش داده
+					شوند</label>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card price-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد فرمول محصول</div>
+					<div class="price-summary-value" id="summaryProductCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card price-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">محصول دارای تغییر</div>
+					<div class="price-summary-value" id="summaryChangedCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card price-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">نرخ آزاد ارز</div>
+					<div class="price-summary-value" id="summaryCurrencyRate">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="alert alert-info d-flex align-items-start mb-4">
+		<i class="ki-duotone ki-information-5 fs-2 me-3"></i>
+		<div>
+			قیمت مبنا از snapshot روزانه و قیمت جاری از آخرین اطلاعات استعلام/فاکتور خرید محاسبه می‌شود.
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table id="productPriceCompareTable"
+					class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th class="price-details-column"></th>
+							<th class="price-select-column"><input type="checkbox" class="form-check-input" id="selectAllProductPrices" /></th>
+							<th class="price-row-column">#</th>
+							<th>کد کالا</th>
+							<th>نام کالا</th>
+							<th>گروه محصول</th>
+							<th>قیمت خرید مبنا</th>
+							<th>قیمت خرید جاری</th>
+							<th>درصد تغییر خرید</th>
+							<th>قیمت فروش مبنا</th>
+							<th>قیمت فروش جاری</th>
+							<th>درصد تغییر فروش</th>
+							<th>خرید مبنا (یورو)</th>
+							<th>خرید جاری (یورو)</th>
+							<th>درصد تغییر یورو</th>
+							<th>قیمت داخلی</th>
+							<th>قیمت خارجی جاری</th>
+							<th>آخرین ارسال ایمیل</th>
+							<th>روتین</th>
+							<th>تاریخ ایجاد</th>
+							<th>توضیحات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="modal fade" id="productPriceEmailModal" tabindex="-1" aria-hidden="true">
+	<div class="modal-dialog modal-lg">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">ارسال ایمیل تغییر قیمت</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+			</div>
+			<div class="modal-body">
+				<div class="alert alert-light-primary">تعداد <strong id="selectedProductPriceCount">0</strong> محصول
+					انتخاب شده است.</div>
+				<label class="form-label required" for="productPriceEmailComment">متن ایمیل</label>
+				<textarea id="productPriceEmailComment" class="form-control" rows="5"></textarea>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-light" data-bs-dismiss="modal">انصراف</button>
+				<button type="button" class="btn btn-primary" id="btnConfirmProductPriceEmail">ثبت در صف ارسال</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	(function () {
+		const selectedIds = new Set();
+		let table;
+		let allRows = [];
+
+		const $page = $$('#productPriceComparePage');
+		const $sourceDate = $$('#productPriceSourceDate');
+		const $loadButton = $$('#btnLoadProductPrices');
+		const $sendButton = $$('#btnSendProductPriceEmail');
+		const $exportButton = $$('#btnExportProductPrices');
+		const $table = $$('#productPriceCompareTable');
+		const $emailModal = $$('#productPriceEmailModal');
+		const emailModal = bootstrap.Modal.getOrCreateInstance($emailModal[0]);
+
+		function escapeHtml(value) {
+			const element = document.createElement('div');
+			element.textContent = value == null ? '' : String(value);
+			return element.innerHTML;
+		}
+
+		function formatNumber(value, maximumFractionDigits) {
+			if (value === null || value === undefined || value === '') return '-';
+			const number = Number(value);
+			if (!Number.isFinite(number)) return escapeHtml(value);
+			return number.toLocaleString('fa-IR', {
+				minimumFractionDigits: 0,
+				maximumFractionDigits: maximumFractionDigits ?? 0
+			});
+		}
+
+		function formatPercent(value) {
+			if (value === null || value === undefined) return '<span class="price-neutral">-</span>';
+			const number = Number(value);
+			const cssClass = number > 0 ? 'price-positive' : (number < 0 ? 'price-negative' : 'price-neutral');
+			const icon = number > 0 ? '↑' : (number < 0 ? '↓' : '');
+			return `<span class="${cssClass}" dir="ltr">${icon} ${formatNumber(number, 2)}%</span>`;
+		}
+
+		function formatDate(value) {
+			if (!value) return '-';
+			const date = new Date(value);
+			if (Number.isNaN(date.getTime())) return escapeHtml(value);
+			return date.toLocaleDateString('fa-IR');
+		}
+
+		function unwrap(response) {
+			return response && response.data !== undefined ? response.data : response;
+		}
+
+		function errorMessage(response) {
+			return response?.message || response?.Message || 'خطا در دریافت اطلاعات';
+		}
+
+		function updateSelectionState() {
+			$sendButton.prop('disabled', selectedIds.size === 0);
+			$$('#selectedProductPriceCount').text(formatNumber(selectedIds.size));
+			$page.find('.row-selector').each(function () {
+				this.checked = selectedIds.has(Number(this.value));
+			});
+		}
+
+		function updateSummary(rows) {
+			const snapshotRows = rows.filter(x => x.snapshotExists);
+			const changed = snapshotRows.filter(x => Number(x.currentBuyPrice) !== Number(x.previousBuyPrice)).length;
+			$page.find('#summaryProductCount').text(formatNumber(rows.length));
+			$page.find('#summaryChangedCount').text(formatNumber(changed));
+			$page.find('#summaryCurrencyRate').text(rows.length ? formatNumber(rows[0].currencyRate) : '-');
+			if (rows.length && snapshotRows.length === 0) {
+				toastr.warning('برای تاریخ انتخاب‌شده snapshot قیمت ثبت نشده است.', 'هشدار');
+			}
+		}
+
+		function initTable() {
+			if ($table.hasClass('dataTable')) {
+				$table.DataTable().destroy();
+			}
+
+			table = $table.DataTable({
+				data: [],
+				processing: true,
+				serverSide: false,
+				searching: true,
+				pageLength: 30,
+				lengthMenu: [[30, 100, 500, -1], [30, 100, 500, 'همه']],
+				scrollX: true,
+				scrollCollapse: true,
+				autoWidth: false,
+				order: [[3, 'asc']],
+				language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+				colResize: { isEnabled: true, resize: true, reorder: true, dataProfileId: 'productPriceCompareTable' },
+				columns: [
+					{ data: null, width: '46px', orderable: false, searchable: false, className: 'text-center price-details-column', render: () => '<button type="button" class="btn btn-icon btn-sm btn-light-primary details-toggle"><i class="ki-duotone ki-plus fs-4"></i></button>' },
+					{ data: 'productFormulId', width: '38px', orderable: false, searchable: false, className: 'text-center price-select-column', render: d => `<input type="checkbox" class="form-check-input row-selector" value="${d}" />` },
+					{ data: null, width: '48px', orderable: false, searchable: false, className: 'text-center price-row-column', render: (_d, _t, _r, meta) => meta.row + 1 },
+					{ data: 'partCode', render: d => escapeHtml(d || '-') },
+					{ data: 'partName', render: d => escapeHtml(d || '-') },
+					{ data: 'productNameGroupName', render: d => escapeHtml(d || '-') },
+					{ data: 'previousBuyPrice', className: 'text-end', render: (d, _t, row) => row.snapshotExists ? formatNumber(d) : '-' },
+					{ data: 'currentBuyPrice', className: 'text-end', render: d => formatNumber(d) },
+					{ data: 'buyPriceDifferencePercent', className: 'text-center', render: d => formatPercent(d) },
+					{ data: 'previousSalePrice', className: 'text-end', render: (d, _t, row) => row.snapshotExists ? formatNumber(d) : '-' },
+					{ data: 'currentSalePrice', className: 'text-end', render: d => formatNumber(d) },
+					{ data: 'salePriceDifferencePercent', className: 'text-center', render: d => formatPercent(d) },
+					{ data: 'previousBuyPriceInEuro', className: 'text-end', render: (d, _t, row) => row.snapshotExists ? formatNumber(d, 2) : '-' },
+					{ data: 'currentBuyPriceInEuro', className: 'text-end', render: d => formatNumber(d, 2) },
+					{ data: 'euroDifferencePercent', className: 'text-center', render: d => formatPercent(d) },
+					{ data: 'currentInternalBuyPrice', className: 'text-end', render: d => formatNumber(d) },
+					{ data: 'currentExternalBuyPrice', className: 'text-end', render: d => formatNumber(d) },
+					{ data: 'emailSentOnMiladiDateTime', render: d => formatDate(d) },
+					{ data: 'isRoutine', className: 'text-center', render: d => d ? '<i class="ki-duotone ki-check fs-2 text-success"></i>' : '' },
+					{ data: 'createdDate', render: d => formatDate(d) },
+					{ data: 'comment', render: d => `<span title="${escapeHtml(d || '')}">${escapeHtml(d || '-')}</span>` }
+				],
+				drawCallback: function () { updateSelectionState(); }
+			});
+		}
+
+		function refreshTableRows() {
+			const onlyChanged = $$('#onlyChangedProductPrices').is(':checked');
+			const rows = onlyChanged
+				? allRows.filter(row => row.snapshotExists && Number(row.currentBuyPrice) !== Number(row.previousBuyPrice))
+				: allRows;
+			table.clear().rows.add(rows).draw();
+		}
+
+		function loadPrices() {
+			const sourceDate = $sourceDate.val();
+			if (!sourceDate) return toastr.warning('تاریخ مبنا را وارد کنید.', 'هشدار');
+
+			$loadButton.prop('disabled', true);
+			$page.find('.card').first().block();
+
+			$$.post('/Panel/Bom/ProductPriceCompare/FetchData', { sourceDate: sourceDate }, function (response) {
+				$loadButton.prop('disabled', false);
+				$page.find('.card').first().block(false);
+
+				if (!response || response.isSuccess === false) {
+					toastr.error(errorMessage(response), 'خطا');
+					return;
+				}
+
+				const data = unwrap(response) || [];
+				allRows = Array.isArray(data) ? data : [];
+				selectedIds.clear();
+				refreshTableRows();
+				updateSummary(allRows);
+				updateSelectionState();
+			});
+		}
+
+		function priceTypeTitle(value) {
+			const titles = { 289: 'استعلام', 290: 'تدارکات داخلی', 291: 'بازرگانی خارجی', 1675: 'خدمات پس از فروش', 1676: 'فاکتور خرید' };
+			return titles[value] || '-';
+		}
+
+		function renderDetails(rows) {
+			if (!rows || rows.length === 0) return '<div class="alert alert-warning m-0">قلمی برای BOM این محصول یافت نشد.</div>';
+			let html = '<div class="details-container"><table class="table table-sm table-bordered table-striped"><thead><tr>' +
+				'<th>#</th><th>کد قلم</th><th>نام قلم</th><th>ضریب</th><th>قیمت مبنا</th><th>قیمت جاری</th><th>تغییر</th>' +
+				'<th>یورو مبنا</th><th>یورو جاری</th><th>تغییر یورو</th><th>تاریخ مبنا</th><th>تاریخ جاری</th><th>نوع مبنا</th><th>نوع جاری</th></tr></thead><tbody>';
+			rows.forEach(function (row, index) {
+				html += `<tr><td>${index + 1}</td><td>${escapeHtml(row.partCode || '-')}</td><td>${escapeHtml(row.partName || '-')}</td>` +
+					`<td>${formatNumber(row.usingRate, 4)}</td><td>${formatNumber(row.previousTotalPrice)}</td><td>${formatNumber(row.currentTotalPrice)}</td>` +
+					`<td>${formatPercent(row.priceDifferencePercent)}</td><td>${formatNumber(row.previousUnitPriceInEuro, 5)}</td>` +
+					`<td>${formatNumber(row.currentUnitPriceInEuro, 5)}</td><td>${formatPercent(row.euroDifferencePercent)}</td>` +
+					`<td title="${escapeHtml(row.previousCompanyName || '')}">${formatDate(row.previousPriceDate)}</td>` +
+					`<td title="${escapeHtml(row.currentCompanyName || '')}">${formatDate(row.currentPriceDate)}</td>` +
+					`<td>${priceTypeTitle(row.previousPriceType)}</td><td>${priceTypeTitle(row.currentPriceType)}</td></tr>`;
+			});
+			return html + '</tbody></table></div>';
+		}
+
+		function loadDetails(tr, row) {
+			const data = row.data();
+			row.child('<div class="p-5 text-center"><span class="spinner-border spinner-border-sm"></span> در حال بارگذاری...</div>').show();
+			tr.addClass('shown');
+			tr.find('.details-toggle i').removeClass('ki-plus').addClass('ki-minus');
+
+			$$.post('/Panel/Bom/ProductPriceCompare/Details', {
+				productFormulId: data.productFormulId,
+				sourceDate: $sourceDate.val()
+			}, function (response) {
+				if (!response || response.isSuccess === false) {
+					row.child(`<div class="alert alert-danger m-2">${escapeHtml(errorMessage(response))}</div>`).show();
+					return;
+				}
+
+				row.child(renderDetails(unwrap(response) || [])).show();
+			});
+		}
+
+		function exportExcel() {
+			const rows = table.rows({ search: 'applied' }).data().toArray();
+			if (!rows.length) return toastr.warning('اطلاعاتی برای خروجی وجود ندارد.', 'هشدار');
+			const output = rows.map((row, index) => ({
+				'ردیف': index + 1,
+				'کد کالا': row.partCode,
+				'نام کالا': row.partName,
+				'گروه محصول': row.productNameGroupName,
+				'قیمت خرید مبنا': row.previousBuyPrice,
+				'قیمت خرید جاری': row.currentBuyPrice,
+				'درصد تغییر خرید': row.buyPriceDifferencePercent,
+				'قیمت فروش مبنا': row.previousSalePrice,
+				'قیمت فروش جاری': row.currentSalePrice,
+				'درصد تغییر فروش': row.salePriceDifferencePercent,
+				'خرید مبنا (یورو)': row.previousBuyPriceInEuro,
+				'خرید جاری (یورو)': row.currentBuyPriceInEuro,
+				'درصد تغییر یورو': row.euroDifferencePercent,
+				'قیمت داخلی': row.currentInternalBuyPrice,
+				'قیمت خارجی جاری': row.currentExternalBuyPrice
+			}));
+			const worksheet = XLSX.utils.json_to_sheet(output);
+			const workbook = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(workbook, worksheet, 'ProductPriceCompare');
+			XLSX.writeFile(workbook, `ProductPriceCompare-${$sourceDate.val().replaceAll('/', '-')}.xlsx`);
+		}
+
+		function sendEmail() {
+			const comment = $$('#productPriceEmailComment').val();
+			if (!comment || !comment.trim()) return toastr.warning('متن ایمیل را وارد کنید.', 'هشدار');
+			const $button = $$('#btnConfirmProductPriceEmail').prop('disabled', true);
+			$$.post('/Panel/Bom/ProductPriceCompare/SendEmail', {
+				productFormulIds: Array.from(selectedIds),
+				sourceDate: $sourceDate.val(),
+				comment: comment
+			}, function (response) {
+				$button.prop('disabled', false);
+				if (!response || response.isSuccess === false) {
+					toastr.error(errorMessage(response), 'خطا');
+					return;
+				}
+
+				toastr.success('ایمیل در صف ارسال قرار گرفت.', 'موفق');
+				emailModal.hide();
+				$$('#productPriceEmailComment').val('');
+			});
+		}
+
+		initTable();
+		$loadButton.on('click', loadPrices);
+		$exportButton.on('click', exportExcel);
+		$sendButton.on('click', function () { $$('#selectedProductPriceCount').text(formatNumber(selectedIds.size)); emailModal.show(); });
+		$$('#btnConfirmProductPriceEmail').on('click', sendEmail);
+		$$('#onlyChangedProductPrices').on('change', refreshTableRows);
+		$page.on('change', '.row-selector', function () {
+			const id = Number(this.value);
+			this.checked ? selectedIds.add(id) : selectedIds.delete(id);
+			updateSelectionState();
+		});
+		$$('#selectAllProductPrices').on('change', function () {
+			const checked = this.checked;
+			table.rows({ search: 'applied' }).data().each(function (row) {
+				checked ? selectedIds.add(Number(row.productFormulId)) : selectedIds.delete(Number(row.productFormulId));
+			});
+			updateSelectionState();
+		});
+		$$('#productPriceCompareTable tbody').on('click', '.details-toggle', function () {
+			const tr = $$(this).closest('tr');
+			const row = table.row(tr);
+			if (row.child.isShown()) {
+				row.child.hide();
+				tr.removeClass('shown');
+				tr.find('.details-toggle i').removeClass('ki-minus').addClass('ki-plus');
+			} else {
+				loadDetails(tr, row);
+			}
+		});
+
+		$$.get('/Panel/Bom/ProductPriceCompare/AvailableDates', function (response) {
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				loadPrices();
+				return;
+			}
+
+			const dates = unwrap(response) || [];
+			const $list = $$('#productPriceSnapshotDates').empty();
+			dates.forEach(item => $list.append(`<option value="${escapeHtml(item.snapshotShamsiDate)}">${formatNumber(item.count)} رکورد</option>`));
+			if (dates.length && !dates.some(item => item.snapshotShamsiDate === $sourceDate.val())) {
+				$sourceDate.val(dates[0].snapshotShamsiDate);
+			}
+			loadPrices();
+		});
+	})();
+</script>

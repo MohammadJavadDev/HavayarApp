@@ -2075,15 +2075,16 @@ html.btn-display-large .dt-layout-start .btn-icon {
 
  
 .entity-selector-multi-container {
-     padding-left: 25px;  
-     padding-right:10px;
+     padding-inline-end: 25px;
+     padding-inline-start: 10px;
 }
 
  
 .entity-icons {
      position: absolute;
      top: 50%;
-     left: 10px;  
+     inset-inline-end: 10px;
+     inset-inline-start: auto;
      transform: translateY(-50%);
      z-index: 10;
      display: flex;
@@ -2113,19 +2114,9 @@ html.btn-display-large .dt-layout-start .btn-icon {
      }
 
  
-[dir="ltr"] .entity-icons {
-    left: auto;
-    right: 10px;
-}
-[dir="ltr"] .entity-selector-multi-container {
-    padding-left: 8px;
-    padding-right: 25px;
-}
-
-
 .entity-selector-input {
-     border-top-left-radius: 0.475rem !important;
-     border-bottom-left-radius:0.475rem !important;
+     border-radius: 0.475rem !important;
+     padding-inline-end: 1.75rem;
 }
 
 
@@ -2337,7 +2328,7 @@ table.dataTable thead > tr > td.dt-ordering-asc span.dt-column-order,
 table.dataTable thead > tr > td.dt-ordering-desc span.dt-column-order {
 	right: auto !important;
 	left: 8px !important;
-	top: 8px !important;
+	top: 4px !important;
 	bottom: auto !important;
 	height: 18px;
 	width: 12px;

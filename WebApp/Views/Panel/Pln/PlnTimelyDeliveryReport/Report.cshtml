@@ -1,0 +1,816 @@
+﻿@using Common.Utilities
+@using Entities.App.Sale
+@using Entities.Auth
+@{
+	ViewData["Title"] = "گزارش تحویل به‌موقع";
+	var today = DateTime.Today;
+	var todayShamsi = today.ToShamsiDate();
+	var minimumDate = string.Concat(today.AddYears(-2).ToShamsiDate().Split('/')[0], "/01/01");
+}
+
+<style>
+	#timelyDeliveryPage .tdr-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#timelyDeliveryPage .tdr-summary-card {
+		min-height: 92px;
+	}
+
+	#timelyDeliveryPage .tdr-danger {
+		color: var(--bs-danger);
+	}
+
+	#timelyDeliveryPage .tdr-success {
+		color: var(--bs-success);
+	}
+
+	#timelyDeliveryPage svg text {
+		font-family: inherit !important;
+	}
+
+	#timelyDeliveryPage table.dataTable tbody tr.shown {
+		background-color: var(--bs-primary-light) !important;
+	}
+
+	#timelyDeliveryPage .tdr-control-column {
+		width: 46px !important;
+		min-width: 46px !important;
+		padding-inline: 4px !important;
+	}
+
+	#timelyDeliveryPage .tdr-row-column {
+		width: 48px !important;
+		min-width: 48px !important;
+		padding-inline: 4px !important;
+		white-space: nowrap;
+	}
+
+	#timelyDeliveryPage .tdr-unidentified-row td {
+		background: #ffe431;
+	}
+
+	/* جلوگیری از روی‌هم‌افتادن متن‌های بلند در سلول‌ها؛ متن کامل با hover نمایش داده می‌شود */
+	#timelyDeliveryPage .tdr-truncate {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		cursor: default;
+	}
+
+	#timelyDeliveryPage .tdr-col-customer .tdr-truncate {
+		max-width: 200px;
+	}
+
+	#timelyDeliveryPage .tdr-col-part .tdr-truncate {
+		max-width: 230px;
+	}
+
+	#timelyDeliveryPage .tdr-col-text .tdr-truncate {
+		max-width: 180px;
+	}
+
+	.tdr-tooltip .tooltip-inner {
+		max-width: 420px;
+		text-align: right;
+		direction: rtl;
+		white-space: pre-line;
+	}
+</style>
+
+<div id="timelyDeliveryPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">گزارش انحراف از تحویل به‌موقع</h3>
+					<div class="text-muted fs-7">
+						سهم هر واحد سازمانی از تاخیر تحویل سفارش‌های ساخت، بر مبنای تاخیرهای ثبت‌شده
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadTimelyDelivery">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+				<button type="button" class="btn btn-sm btn-light-success" id="btnExportTimelyDelivery">
+					<i class="fa fa-file-excel"></i> اکسل
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">از تاریخ</label>
+				<input class="form-control ltr" id="timelyDeliveryFromDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تا تاریخ</label>
+				<input class="form-control ltr" id="timelyDeliveryToDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">شماره سفارش ساخت</label>
+				<select class="form-select" id="timelyDeliveryOrderNumber">
+					<option value="">همه سفارش‌ها</option>
+				</select>
+				@* <div class="form-text ">انتخاب شماره سفارش، بازه تاریخ را نادیده می‌گیرد.</div> *@
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">دپارتمان فروش</label>
+				@(Html.EntitySelector<Branch>(
+					"TimelyDeliveryBranchSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Id, c.Title },
+					"{Title}",
+					"branchId",
+					null,
+					null,
+					false))
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">کارشناس فروش</label>
+				@(Html.EntitySelector<User>(
+					"TimelyDeliverySalesExpertSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, Username = c.Username },
+					c => new { c.Id, c.Name, c.Username },
+					"{Name}",
+					"salesExpertId",
+					null,
+					null,
+					false))
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-3">
+			<div class="card tdr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد کل سفارشات</div>
+					<div class="tdr-summary-value" id="tdrOrdersCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card tdr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">سفارشات با تحویل به‌موقع</div>
+					<div class="tdr-summary-value tdr-success" id="tdrTimelyCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card tdr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">سفارشات در تاخیر</div>
+					<div class="tdr-summary-value tdr-danger" id="tdrDelayedCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card tdr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">سفارشات غیرفعال</div>
+					<div class="tdr-summary-value" id="tdrInactiveCount">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="alert alert-warning d-none" id="tdrUnregisteredAlert">
+		<div class="d-flex align-items-start">
+			<i class="fa fa-exclamation-triangle fs-3 me-3 mt-1"></i>
+			<div class="flex-grow-1">
+				<div class="fw-bold mb-1">مغایرت تاخیر ثبت‌نشده</div>
+				<div id="tdrUnregisteredText"></div>
+				<div class="mt-2" id="tdrUnregisteredList"></div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">انحراف از تحویل بموقع</h3>
+		</div>
+		<div class="card-body">
+			<div id="tdrDeviationChart" style="min-height:520px"></div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-body p-3">
+					<table class="table table-bordered table-striped table-hover mb-0">
+						<thead>
+							<tr>
+								<th>عنوان</th>
+								<th class="text-center">مقدار</th>
+							</tr>
+						</thead>
+						<tbody id="tdrOutsideExecutiveBody"></tbody>
+						<tfoot>
+							<tr class="fw-bold">
+								<td>جمع</td>
+								<td class="text-center" id="tdrOutsideExecutiveSum">-</td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-body p-3">
+					<table class="table table-bordered table-striped table-hover mb-0">
+						<thead>
+							<tr>
+								<th>عنوان</th>
+								<th class="text-center">مقدار</th>
+							</tr>
+						</thead>
+						<tbody id="tdrExecutiveBody"></tbody>
+						<tfoot>
+							<tr class="fw-bold">
+								<td>جمع</td>
+								<td class="text-center" id="tdrExecutiveSum">-</td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">روند ماهانه تحویل به‌موقع</h3>
+		</div>
+		<div class="card-body">
+			<div id="tdrMonthlyChart" style="min-height:420px"></div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-header">
+			<h3 class="card-title mb-0">سفارش‌های دارای تاخیر</h3>
+			<div class="card-toolbar text-muted fs-7">برای دیدن تاخیرهای ثبت‌شده، روی علامت + کلیک کنید</div>
+		</div>
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table id="tdrOrdersTable"
+					class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th class="tdr-control-column"></th>
+							<th class="tdr-row-column">#</th>
+							<th>شماره سفارش ساخت</th>
+							<th>مشتری</th>
+							<th>کالا / سریال</th>
+							<th>تاریخ مجاز تحویل</th>
+							<th>تاریخ آماده‌سازی</th>
+							<th>روز تاخیر</th>
+							<th>مهلت توافقی (روز)</th>
+							<th>درصد انحراف</th>
+							<th>تاخیر ثبت‌شده</th>
+							<th>تاخیر ثبت‌نشده</th>
+							<th>اقلام بدون آماده‌سازی</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	(function () {
+		const dataUrl = '/Panel/Pln/PlnTimelyDeliveryReport/GetData';
+		const lookupUrl = '/Panel/Pln/PlnTimelyDeliveryReport/GetProductionOrderNumbers';
+		const exportUrl = '/Panel/Pln/PlnTimelyDeliveryReport/ExportToExcel';
+		const minimumDate = '@minimumDate';
+		const todayShamsi = '@todayShamsi';
+
+		// رنگ‌های نمودار عیناً مطابق گزارش سیستم قدیم، کلید = مقدار DelayResponsibleEnum
+		const unitColors = {
+			752: 'silver',
+			753: 'orange',
+			754: 'yellow',
+			755: 'tan',
+			2376: '#c9a227',
+			756: '#69a169',
+			2422: 'slategray',
+			757: 'purple',
+			758: '#a6a6a6',
+			2423: '#1a72ed',
+			2540: '#3c87f0',
+			2424: '#5894e8',
+			2425: '#7faceb',
+			2426: '#92b6e8',
+			2427: '#9cbbe6',
+			2428: '#acc3e3',
+			2429: '#b8c7db',
+			2430: '#cedaeb',
+			2431: '#e4ecf7',
+			759: '#d0c7e8',
+			760: 'brown',
+			761: 'pink'
+		};
+
+		const $page = $$('#timelyDeliveryPage');
+		const $fromDate = $$('#timelyDeliveryFromDate');
+		const $toDate = $$('#timelyDeliveryToDate');
+		const $orderNumber = $$('#timelyDeliveryOrderNumber');
+		const $loadButton = $$('#btnLoadTimelyDelivery');
+		const $exportButton = $$('#btnExportTimelyDelivery');
+
+		let deviationChart = null;
+		let monthlyChart = null;
+		let ordersTable = null;
+
+		function escapeHtml(value) {
+			const element = document.createElement('div');
+			element.textContent = value == null ? '' : String(value);
+			return element.innerHTML;
+		}
+
+		// escapeHtml برای مقدار داخل attribute کافی نیست چون کوتیشن را escape نمی‌کند
+		function escapeAttr(value) {
+			return escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+		}
+
+		// سلولی که متن بلندش با ellipsis کوتاه می‌شود و متن کامل روی hover به‌صورت tooltip می‌آید
+		function truncatedCell(value) {
+			const text = (value === null || value === undefined || value === '') ? '-' : String(value);
+			return '<span class="tdr-truncate" title="' + escapeAttr(text) + '">' + escapeHtml(text) + '</span>';
+		}
+
+		function formatNumber(value, fractionDigits) {
+			if (value === null || value === undefined || value === '') return '-';
+			const number = Number(value);
+			if (!Number.isFinite(number)) return escapeHtml(value);
+			return number.toLocaleString('fa-IR', {
+				minimumFractionDigits: 0,
+				maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+			});
+		}
+
+		function formatPercent(value) {
+			if (value === null || value === undefined) return '-';
+			return formatNumber(value, 2) + '%';
+		}
+
+		function unwrap(response) {
+			return response && response.data !== undefined ? response.data : response;
+		}
+
+		function errorMessage(response) {
+			return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+		}
+
+		function getSelectorValue(selector) {
+			const value = $page.find(selector + ' .entity-selector-value').val();
+			const id = parseInt(value, 10);
+			return Number.isFinite(id) && id > 0 ? id : null;
+		}
+
+		function getFilter() {
+			const orderNumber = parseInt($orderNumber.val(), 10);
+			return {
+				fromDateShamsi: $fromDate.val() || null,
+				toDateShamsi: $toDate.val() || null,
+				productionOrderNumber: Number.isFinite(orderNumber) && orderNumber > 0 ? orderNumber : null,
+				branchId: getSelectorValue('#TimelyDeliveryBranchSelector'),
+				salesExpertId: getSelectorValue('#TimelyDeliverySalesExpertSelector')
+			};
+		}
+
+		function whenApexReady(callback) {
+			if (typeof window.ApexCharts !== 'undefined') {
+				callback();
+				return;
+			}
+
+			let attempts = 0;
+			const timer = setInterval(function () {
+				attempts++;
+				if (typeof window.ApexCharts !== 'undefined') {
+					clearInterval(timer);
+					callback();
+				} else if (attempts > 100) {
+					clearInterval(timer);
+					toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+				}
+			}, 100);
+		}
+
+		function renderSummary(report) {
+			$$('#tdrOrdersCount').text(formatNumber(report.ordersCount));
+			$$('#tdrTimelyCount').text(formatNumber(report.timelyDeliveryOrdersCount));
+			$$('#tdrDelayedCount').text(formatNumber(report.delayedOrdersCount));
+			$$('#tdrInactiveCount').text(formatNumber(report.inactiveOrdersCount));
+		}
+
+		function renderUnitTables(report) {
+			const units = report.units || [];
+			const $executive = $$('#tdrExecutiveBody').empty();
+			const $outside = $$('#tdrOutsideExecutiveBody').empty();
+
+			units.filter(u => u.group === 0).forEach(function (unit) {
+				$executive.append('<tr><td>' + escapeHtml(unit.title) + '</td><td class="text-center">' +
+					formatPercent(unit.percentage) + '</td></tr>');
+			});
+
+			if (report.unidentifiedDelayProductionOrders) {
+				$executive.append('<tr class="tdr-unidentified-row"><td>سفارش‌های دارای توقف شناسایی‌نشده</td>' +
+					'<td style="word-break:break-word;text-align:left">' +
+					escapeHtml(report.unidentifiedDelayProductionOrders) + '</td></tr>');
+			}
+
+			$outside.append('<tr><td>مجموع درصد توقفات واحدهای فروش</td><td class="text-center">' +
+				formatPercent(report.salesUnitsSumPercentage) + '</td></tr>');
+			$outside.append('<tr><td>درصد توقفات بازرگانی</td><td class="text-center">' +
+				formatPercent(report.commercialPercentage) + '</td></tr>');
+			$outside.append('<tr><td>درصد توقفات مالی</td><td class="text-center">' +
+				formatPercent(report.financialPercentage) + '</td></tr>');
+
+			$$('#tdrExecutiveSum').text(formatPercent(report.executiveSumPercentage));
+			$$('#tdrOutsideExecutiveSum').text(formatPercent(report.outOfExecutiveSumPercentage));
+		}
+
+		function renderDeviationChart(report) {
+			const units = (report.units || []).filter(u => Number(u.percentage) > 0);
+			const labels = units.map(u => u.title);
+			const series = units.map(u => Number(u.percentage));
+			const colors = units.map(u => unitColors[u.code] || '#b5b5c3');
+
+			const onTime = Number(report.onTimeDeliveryPercentage);
+			labels.push('تحویل بموقع');
+			series.push(onTime);
+			colors.push(onTime < 0 ? 'red' : '#9de219');
+
+			const options = {
+				chart: { type: 'pie', height: 520, fontFamily: 'inherit' },
+				labels: labels,
+				series: series,
+				colors: colors,
+				legend: { position: 'left', fontSize: '12px' },
+				dataLabels: {
+					formatter: function (value, opts) {
+						return [opts.w.globals.labels[opts.seriesIndex], Number(value).toFixed(2) + '%'];
+					}
+				},
+				tooltip: {
+					y: {
+						formatter: function (value) { return Number(value).toFixed(2) + '%'; }
+					}
+				},
+				noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+			};
+
+			if (deviationChart) {
+				deviationChart.updateOptions(options);
+				return;
+			}
+
+			deviationChart = new ApexCharts($$('#tdrDeviationChart')[0], options);
+			deviationChart.render();
+		}
+
+				function renderMonthlyChart(report) {
+	  const trend = report.monthlyTrend || [];
+	  const options = {
+	    chart: {
+		 type: 'line',
+		 height: 420,
+		 fontFamily: 'inherit',
+		 toolbar: { show: false },
+		 offsetY: 0
+	    },
+	    series: [
+		 { name: 'تعداد سفارش', type: 'column', data: trend.map(t => t.ordersCount) },
+		 { name: 'در تاخیر', type: 'column', data: trend.map(t => t.delayedOrdersCount) },
+		 { name: 'درصد تحویل به‌موقع', type: 'line', data: trend.map(t => Number(t.onTimePercentage)) }
+	    ],
+	    stroke: { width: [0, 0, 3] },
+	    colors: ['#009ef7', '#f1416c', '#50cd89'],
+	    xaxis: {
+		 categories: trend.map(t => t.shamsiMonth),
+		 tickPlacement: 'on',
+		 labels: {
+		   rotate: -55,
+		   rotateAlways: true,
+		   trim: false,
+		   offsetY: 25,
+		   style: { fontSize: '10px' }
+		 }
+	    },
+	    yaxis: [
+		 {
+		   title: {
+			text: 'تعداد سفارش',
+			offsetX: -30   // ← عنوان را به چپ منتقل می‌کند تا از نمودار فاصله بگیرد
+		   },
+		   labels: {
+			offsetX: -10   // ← اعداد محور را نیز به چپ می‌برد
+		   }
+		 },
+		 { show: false },
+		 {
+		   opposite: true,
+		   max: 100,
+		   min: 0,
+		   title: { text: 'درصد تحویل به‌موقع' },
+		   labels: {
+			offsetX: -20    // (اختیاری) برای محور راست هم می‌توان فاصله تنظیم کرد
+		   }
+		 }
+	    ],
+	    grid: {
+		 padding: { bottom: 80 }
+	    },
+	    legend: { position: 'top' },
+	    noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+	  };
+
+	  if (monthlyChart) {
+	    monthlyChart.updateOptions(options);
+	    return;
+	  }
+
+	  monthlyChart = new ApexCharts(document.querySelector('#tdrMonthlyChart'), options);
+	  monthlyChart.render();
+	}
+
+		function renderUnregisteredAlert(report) {
+			const rows = report.unregisteredOrders || [];
+			const $alert = $$('#tdrUnregisteredAlert');
+
+			if (!rows.length) {
+				$alert.addClass('d-none');
+				return;
+			}
+
+			const totalDays = rows.reduce((sum, r) => sum + Number(r.unregisteredDelayDays || 0), 0);
+			$$('#tdrUnregisteredText').text('برای ' + formatNumber(rows.length) + ' سفارش، مجموع ' +
+				formatNumber(totalDays) + ' روز تاخیر محاسبه شده که در سیستم ثبت نشده است. ' +
+				'این روزها در گروه «توقفات شناسایی نشده معاونت اجرایی» محاسبه شده‌اند.');
+
+			const $list = $$('#tdrUnregisteredList').empty();
+			rows.slice(0, 30).forEach(function (row) {
+				$list.append('<a href="javascript:void(0)" class="btn btn-sm btn btn-outline btn-outline-dark me-2 mb-2 tdr-register-delay" ' +
+					'data-order-id="' + row.productionOrderId + '">' +
+					escapeHtml(row.productionOrderNumber || row.productionOrderId) +
+					' (' + formatNumber(row.unregisteredDelayDays) + ' روز)</a>');
+			});
+
+			if (rows.length > 30) {
+				$list.append('<span class="text-muted">و ' + formatNumber(rows.length - 30) + ' سفارش دیگر…</span>');
+			}
+
+			$alert.removeClass('d-none');
+		}
+
+		function buildPartLabel(row) {
+			const parts = [row.partName, row.serial].filter(v => v);
+			return parts.length ? parts.join(' / ') : '-';
+		}
+
+		function renderDelayDetails(row) {
+			const delays = row.delays || [];
+			if (!delays.length) {
+				return '<div class="alert alert-warning m-2">برای این سفارش تاخیری ثبت نشده است.</div>';
+			}
+
+			let html = '<div class="p-3"><table class="table table-sm table-bordered table-striped mb-0"><thead><tr>' +
+				'<th>#</th><th>عامل توقف</th><th>تعداد روز</th><th>از تاریخ</th><th>تا تاریخ</th>' +
+				'<th>علت تاخیر</th><th>توضیحات</th><th>ثبت‌کننده</th></tr></thead><tbody>';
+
+			delays.forEach(function (delay, index) {
+				html += '<tr>' +
+					'<td class="text-center">' + (index + 1) + '</td>' +
+					'<td class="tdr-col-text">' + truncatedCell(delay.delayResponsibleTitle) + '</td>' +
+					'<td class="text-center">' + formatNumber(delay.delayDays) + '</td>' +
+					'<td class="text-center">' + escapeHtml(delay.fromDateShamsi || '-') + '</td>' +
+					'<td class="text-center">' + escapeHtml(delay.toDateShamsi || '-') + '</td>' +
+					'<td class="tdr-col-text">' + truncatedCell(delay.delayReason) + '</td>' +
+					'<td class="tdr-col-text">' + truncatedCell(delay.description) + '</td>' +
+					'<td class="tdr-col-text">' + truncatedCell(delay.createdByName) + '</td>' +
+					'</tr>';
+			});
+
+			return html + '</tbody></table></div>';
+		}
+
+		// یک نمونه tooltip روی خودِ جدول با delegation؛ سلول‌هایی که بعداً توسط DataTables
+		// ساخته می‌شوند (از جمله سطرهای جزئیات) هم بدون init مجدد پوشش داده می‌شوند.
+		// نکته: site.js متد createBootstrapTooltips را غیرفعال کرده، پس اینجا خودمان می‌سازیم.
+		function initTruncateTooltips(tableElement) {
+			if (!tableElement || tableElement.tdrTooltipReady) return;
+			if (typeof bootstrap === 'undefined' || !bootstrap || !bootstrap.Tooltip) return;
+
+			new bootstrap.Tooltip(tableElement, {
+				selector: '.tdr-truncate',
+				trigger: 'hover',
+				placement: 'top',
+				container: 'body',
+				customClass: 'tdr-tooltip'
+			});
+
+			tableElement.tdrTooltipReady = true;
+		}
+
+		function initOrdersTable() {
+			const $table = $$('#tdrOrdersTable');
+			if ($table.hasClass('dataTable')) {
+				$table.DataTable().destroy();
+				$table.find('tbody').empty();
+			}
+
+			ordersTable = $table.DataTable({
+				data: [],
+				processing: true,
+				serverSide: false,
+				searching: true,
+				pageLength: 25,
+				lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'همه']],
+				scrollX: true,
+				autoWidth: false,
+				order: [[9, 'desc']],
+				language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+				columns: [
+					{
+						data: null, orderable: false, searchable: false,
+						className: 'text-center tdr-control-column',
+						render: () => '<button type="button" class="btn btn-icon btn-sm btn-light-primary tdr-details-toggle">' +
+							'<i class="ki-duotone ki-plus fs-4"></i></button>'
+					},
+					{
+						data: null, orderable: false, searchable: false,
+						className: 'text-center tdr-row-column',
+						render: (_d, _t, _r, meta) => meta.row + 1
+					},
+					{ data: 'productionOrderNumber', className: 'text-center', render: d => escapeHtml(d || '-') },
+					{ data: 'customerTitle', className: 'tdr-col-customer', render: d => truncatedCell(d) },
+					{ data: null, className: 'tdr-col-part', render: d => truncatedCell(buildPartLabel(d)) },
+					{ data: 'deliverDateShamsi', className: 'text-center', render: d => escapeHtml(d || '-') },
+					{ data: 'preparationDateShamsi', className: 'text-center', render: d => escapeHtml(d || '-') },
+					{ data: 'maxDelayDays', className: 'text-center', render: d => formatNumber(d) },
+					{ data: 'agreedWindowDays', className: 'text-center', render: d => formatNumber(d) },
+					{
+						data: 'totalDeviationPercentage', className: 'text-center',
+						render: d => '<span class="' + (Number(d) > 0 ? 'tdr-danger' : 'tdr-success') + '">' +
+							formatPercent(d) + '</span>'
+					},
+					{ data: 'registeredDelayDays', className: 'text-center', render: d => formatNumber(d) },
+					{
+						data: 'unregisteredDelayDays', className: 'text-center',
+						render: d => Number(d) > 0
+							? '<span class="tdr-danger fw-bold">' + formatNumber(d) + '</span>'
+							: formatNumber(d)
+					},
+					{
+						data: null, className: 'text-center',
+						render: d => formatNumber(d.missingPreparationCount) + ' / ' + formatNumber(d.totalItemsCount)
+					},
+					{
+						data: 'productionOrderId', orderable: false, searchable: false, className: 'text-center',
+						render: d => '<button type="button" class="btn btn-sm btn-light-warning tdr-register-delay" ' +
+							'data-order-id="' + d + '">ثبت تاخیر</button>'
+					}
+				]
+			});
+
+			initTruncateTooltips($table.get(0));
+		}
+
+		function renderOrdersTable(report) {
+			ordersTable.clear().rows.add(report.orders || []).draw();
+		}
+
+		function renderReport(report) {
+			renderSummary(report);
+			renderUnitTables(report);
+			renderUnregisteredAlert(report);
+			renderOrdersTable(report);
+			whenApexReady(function () {
+				renderDeviationChart(report);
+				renderMonthlyChart(report);
+			});
+		}
+
+		function loadReport() {
+			$loadButton.prop('disabled', true);
+			$page.find('.card').first().block();
+
+			$$.post(dataUrl, getFilter(), function (response) {
+				$loadButton.prop('disabled', false);
+				$page.find('.card').first().block(false);
+
+				if (!response || response.isSuccess === false) {
+					toastr.error(errorMessage(response), 'خطا');
+					return;
+				}
+
+				renderReport(unwrap(response) || {});
+			});
+		}
+
+		async function exportExcel() {
+			$exportButton.prop('disabled', true);
+			try {
+				const response = await fetch(exportUrl, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(getFilter())
+				});
+
+				if (!response.ok) {
+					const text = await response.text();
+					toastr.error(text || 'خطا در ایجاد فایل اکسل', 'خطا');
+					return;
+				}
+
+				const blob = await response.blob();
+				const url = window.URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = 'TimelyDeliveryReport_' +
+					new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.xlsx';
+				document.body.appendChild(link);
+				link.click();
+				link.remove();
+				window.URL.revokeObjectURL(url);
+				toastr.success('فایل اکسل دانلود شد.', 'موفق');
+			} catch (e) {
+				toastr.error('خطا در دانلود فایل اکسل', 'خطا');
+			} finally {
+				$exportButton.prop('disabled', false);
+			}
+		}
+
+		function loadOrderNumbers() {
+			$$.get(lookupUrl, function (response) {
+				if (!response || response.isSuccess === false) {
+					toastr.error(errorMessage(response), 'خطا');
+					return;
+				}
+
+				const rows = unwrap(response) || [];
+				rows.forEach(function (row) {
+					$orderNumber.append('<option value="' + row.productionOrderNumber + '">' +
+						escapeHtml(row.text) + '</option>');
+				});
+			});
+		}
+
+		function initDates() {
+			// پیش‌فرض مطابق گزارش سیستم قدیم: از حداقل تاریخ مجاز تا امروز.
+			// هر دو تاریخ سمت سرور تولید می‌شوند تا با ارقام لاتین و قالب YYYY/MM/DD سازگار باشند.
+			$fromDate.val(minimumDate);
+			$toDate.val(todayShamsi);
+		}
+
+		$loadButton.on('click', loadReport);
+		$exportButton.on('click', exportExcel);
+
+		$$('#tdrOrdersTable tbody').on('click', '.tdr-details-toggle', function () {
+			const tr = $(this).closest('tr');
+			const row = ordersTable.row(tr);
+
+			if (row.child.isShown()) {
+				row.child.hide();
+				tr.removeClass('shown');
+				$(this).find('i').removeClass('ki-minus').addClass('ki-plus');
+				return;
+			}
+
+			row.child(renderDelayDetails(row.data())).show();
+			tr.addClass('shown');
+			$(this).find('i').removeClass('ki-plus').addClass('ki-minus');
+		});
+
+		$page.on('click', '.tdr-register-delay', function () {
+			const orderId = $(this).data('order-id');
+			if (!orderId) return;
+			appController.addPage('/Panel/ProductionOrderDelay/New?productionOrderId=' + orderId);
+		});
+
+		initDates();
+		initOrdersTable();
+		loadOrderNumbers();
+		loadReport();
+	})();
+</script>

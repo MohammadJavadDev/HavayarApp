@@ -271,8 +271,10 @@ public class ApplicationDbContext(
 	public virtual DbSet<SavedQuery> SavedQueries { get; set; }
 	public virtual DbSet<vw_PartDocumentPrice> vw_PartDocumentPrices { get; set; }
 	public virtual DbSet<vw_ProductItems> vw_ProductItems { get; set; }
-	
-	
+	public virtual DbSet<Vw_ServiceRequest_Detail> Vw_ServiceRequest_Details { get; set; }
+
+
+
 
 
 }

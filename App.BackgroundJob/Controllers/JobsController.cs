@@ -160,17 +160,14 @@ namespace App.BackgroundJob.Controllers
 					return now.AddSeconds(schedule.IntervalSeconds);
 
 				case ScheduleType.Daily:
-					// محاسبه زمان بعدی برای زمان‌بندی روزانه با فاصله
 					var nextDailyTime = schedule.DailyTime ?? TimeSpan.Zero;
-					var nextDate = now.Date.AddDays(schedule.DailyIntervalDays);
+					var dailyIntervalDays = Math.Max(1, schedule.DailyIntervalDays);
+					var nextDailyRun = now.Date.Add(nextDailyTime);
 
-					// اگر زمان مشخص شده امروز گذشته است، به روز بعد برو
-					if (now.TimeOfDay >= nextDailyTime)
-					{
-						nextDate = nextDate.AddDays(schedule.DailyIntervalDays);
-					}
+					if (nextDailyRun <= now)
+						nextDailyRun = nextDailyRun.AddDays(dailyIntervalDays);
 
-					return nextDate.Add(nextDailyTime);
+					return nextDailyRun;
 
 				case ScheduleType.Weekly:
 					// محاسبه زمان بعدی برای زمان‌بندی هفتگی
@@ -267,14 +264,13 @@ namespace App.BackgroundJob.Controllers
 
 				case ScheduleType.Daily:
 					var nextDailyTime = dailyTime ?? TimeSpan.Zero;
-					var nextDate = now.Date.AddDays(dailyIntervalDays);
+					var normalizedIntervalDays = Math.Max(1, dailyIntervalDays);
+					var nextDailyRun = now.Date.Add(nextDailyTime);
 
-					if (now.TimeOfDay >= nextDailyTime)
-					{
-						nextDate = nextDate.AddDays(dailyIntervalDays);
-					}
+					if (nextDailyRun <= now)
+						nextDailyRun = nextDailyRun.AddDays(normalizedIntervalDays);
 
-					return nextDate.Add(nextDailyTime);
+					return nextDailyRun;
 
 				case ScheduleType.Weekly:
 					if (string.IsNullOrEmpty(weeklyDays))
