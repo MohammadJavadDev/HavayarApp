@@ -87,3 +87,9 @@
 /HavayarApp.rar
 /WebApp/wwwroot/panelLib/panelLib.rar
 /_tools
+/temp_dump
+/Tests/DataProfileExport
+/WebApp/tests
+/_build_tmp_mission
+/add-migration.ps1
+/update-database.ps1
