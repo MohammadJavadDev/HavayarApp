@@ -1,0 +1,419 @@
+@using Entities.App.Sale
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<style>
+	#srWorkReportChildCard .sr-workreport-table-wrap { overflow-x: auto; width: 100%; }
+	#srWorkReportChildCard .dt-container { width: max-content !important; }
+	#srWorkReportChildCard #srWorkReportChildTable,
+	#srWorkReportChildCard table.ellipsis-tooltip-table {
+		width: max-content !important;
+		min-width: 0 !important;
+		table-layout: auto;
+	}
+	#srWorkReportChildCard #srWorkReportChildTable th,
+	#srWorkReportChildCard #srWorkReportChildTable td {
+		white-space: nowrap;
+		box-sizing: border-box;
+	}
+	.work-report-product-select .select2-container--default .select2-selection--single {
+		height: auto;
+		min-height: 38px;
+		padding: 4px 8px;
+	}
+	.work-report-product-select .select2-selection__rendered {
+		white-space: normal;
+		line-height: 1.4;
+	}
+	.work-report-product-dropdown .select2-results__option {
+		white-space: normal;
+		line-height: 1.6;
+	}
+</style>
+<div class="card" id="srWorkReportChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">گزارش کار درخواست پشتیبانی</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<div class="sr-workreport-table-wrap">
+			<table class="table table-striped table-row-bordered gy-2 nowrap" id="srWorkReportChildTable">
+				<thead>
+					<tr class="fw-bold fs-6 text-muted">
+						<th style="min-width:160px;">عملیات</th>
+						<th style="min-width:100px;">شماره</th>
+						<th style="min-width:100px;">ماموریت</th>
+						<th style="min-width:250px;">کارشناس</th>
+						<th style="min-width:120px;">کد قطعه</th>
+						<th style="min-width:300px;">نام قطعه</th>
+						<th style="min-width:110px;">سریال</th>
+						<th style="min-width:250px;">شرح خرابی</th>
+						<th style="min-width:250px;">کد عملیاتی</th>
+						<th style="min-width:100px;">شروع</th>
+						<th style="min-width:100px;">ساعت شروع</th>
+						<th style="min-width:100px;">پایان</th>
+						<th style="min-width:100px;">ساعت پایان</th>
+						<th style="min-width:100px;">ساعت کارکرد</th>
+						<th style="min-width:140px;">نتیجه</th>
+				
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+<script>
+	const srWorkReportParentId = @parentId;
+	const wrMissionResult = { 140: 'انجام شده', 141: 'انجام نشده', 142: 'انجام شده با نقص' };
+	const srWorkReportTable = $$('#srWorkReportChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		scrollX: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		initComplete: function () {
+			if (typeof bindEmbeddedTableCellTooltips === 'function')
+				bindEmbeddedTableCellTooltips(this.api());
+		},
+		ajax: {
+			url: '/Panel/Sale/WorkReport/GetListByParentId?serviceRequestId=' + srWorkReportParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{
+				data: 'id',
+				orderable: false,
+				width: '160px',
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '" title="ویرایش"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-info" data-action="attachChild" data-id="' + id + '" title="پیوست"><i class="fa fa-paperclip"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+				}
+			},
+			{ data: 'reportNumber', defaultContent: '-', width: '100px' },
+			{ data: 'hokmNumber', defaultContent: '-', width: '100px' },
+			{ data: 'expertName', defaultContent: '-', width: '250px', render: renderEllipsisCell },
+			{ data: 'partCode', defaultContent: '-', width: '120px' },
+			{ data: 'partName', defaultContent: '-', width: '300px', render: renderEllipsisCell },
+			{ data: 'serial', defaultContent: '-', width: '110px' },
+			{ data: 'failureTypeInText', defaultContent: '-', width: '250px', render: renderEllipsisCell },
+			{ data: 'repairsTypeInText', defaultContent: '-', width: '250px', render: renderEllipsisCell },
+			{ data: 'serviceStartShamsiDate', defaultContent: '-', width: '100px' },
+			{ data: 'serviceStartTime', defaultContent: '-', width: '100px' },
+			{ data: 'serviceEndShamsiDate', defaultContent: '-', width: '100px' },
+			{ data: 'serviceEndTime', defaultContent: '-', width: '100px' },
+			{ data: 'totalRunTime', defaultContent: '-', width: '100px' },
+			{
+				data: 'missionResult',
+				width: '140px',
+				render: function (v) { return wrMissionResult[v] || v || '-'; }
+			}
+			
+		]
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function formatWorkReportProduct(state) {
+		if (!state.id) return state.text;
+		const $el = $(state.element);
+		const $wrap = $('<div class="wr-product-tpl"></div>');
+		$wrap.append($('<span></span>').text('نام کالا: ' + ($el.attr('data-part-name') || '')));
+		$wrap.append('<br>');
+		$wrap.append($('<span></span>').text('کد کالا: ' + ($el.attr('data-part-code') || '')));
+		$wrap.append('<br>');
+		$wrap.append($('<span></span>').text('سریال : ' + ($el.attr('data-serial') || '')));
+		return $wrap;
+	}
+
+		function formatWorkReportProductSelection(state) {
+			if (!state.id) return state.text;
+			const $el = $(state.element);
+			const $wrap = $('<div class="wr-product-tpl"></div>');
+			$wrap.append($('<span></span>').text('نام کالا: ' + ($el.attr('data-part-name') || '')));
+			$wrap.append($('<span></span>').text(' | کد کالا: ' + ($el.attr('data-part-code') || '')));
+			$wrap.append($('<span></span>').text(' | سریال : ' + ($el.attr('data-serial') || '')));
+			return $wrap;
+		}
+
+	function initWorkReportProductSelect($root, dropdownParent) {
+		const $sel = $root.find('#WorkReportDetailSelector');
+		if (!$sel.length) return;
+		if ($sel.hasClass('select2-hidden-accessible')) $sel.select2('destroy');
+		const opts = {
+			width: '100%',
+			placeholder: 'انتخاب کنید',
+			allowClear: true,
+			dir: 'rtl',
+			dropdownCssClass: 'work-report-product-dropdown',
+			templateResult: formatWorkReportProduct,
+			templateSelection: formatWorkReportProductSelection
+		};
+		if (dropdownParent && dropdownParent.length) opts.dropdownParent = dropdownParent;
+		$sel.select2(opts);
+	}
+
+	function initWorkReportSelectors($root) {
+		const missionOpts = { filters: function () { return { ServiceRequestId: String(srWorkReportParentId) }; } };
+		const $mission = $root.find('#WorkReportMissionSelector');
+		let inst = $mission.data('entitySelector') || $mission.data('entitySelectorInstance');
+		if (inst) inst.extraFilters = missionOpts.filters;
+		else if ($mission.length && typeof $mission.entitySelector === 'function') $mission.entitySelector(missionOpts);
+
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function' && !$(this).data('entitySelector') && !$(this).data('entitySelectorInstance'))
+				$(this).entitySelector();
+		});
+
+		initWorkReportProductSelect($root, $root);
+	}
+
+	function loadSameReports($root) {
+		$$.get('/Panel/Sale/WorkReport/GetSameReports?serviceRequestId=' + srWorkReportParentId, function (r) {
+			const items = (r && r.data) ? r.data : (Array.isArray(r) ? r : []);
+			const $sel = $root.find('#WorkReportSameReports');
+			$sel.empty().append('<option value="">انتخاب کنید</option>');
+			items.forEach(function (it) {
+				$sel.append($('<option></option>').val(it.id).text(it.text));
+			});
+		});
+	}
+
+	function initWorkReportAttachments($root) {
+		const $card = $root.find('#wrAttachmentsCard');
+		if (!$card.length || $card.data('wr-att-inited')) return;
+		$card.data('wr-att-inited', true);
+
+		function getWrId() {
+			return $root.find('#wrFormRoot [data-bind="id"]').val();
+		}
+		function hasWrId() {
+			const id = getWrId();
+			return id && id !== '0';
+		}
+		function escapeHtml(text) {
+			if (text === null || text === undefined) return '-';
+			return String(text)
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;');
+		}
+		function loadAttachments() {
+			const id = getWrId();
+			if (!id || id === '0') return;
+			$$.get('/Panel/Sale/WorkReportAttachment/GetListByParentId?workReportId=' + id, function (r) {
+				if (r && r.isSuccess === false) {
+					toastr.error(r.message || 'خطا در دریافت پیوست‌ها');
+					return;
+				}
+				renderAttachments((r && r.data) ? r.data : (Array.isArray(r) ? r : []));
+			});
+		}
+		function renderAttachments(items) {
+			const $tbody = $card.find('#wrAttachmentsTable tbody');
+			$tbody.find('tr[data-saved="1"]').remove();
+			(items || []).forEach(function (row) {
+				const title = escapeHtml(row.title);
+				let fileHtml = '-';
+				if (row.fileId) {
+					fileHtml = '<a href="/File/download/' + row.fileId + '" target="_blank">' + escapeHtml(row.fileName || 'دانلود فایل') + '</a>';
+				} else if (row.fileName) {
+					fileHtml = escapeHtml(row.fileName);
+				}
+				const actions = '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteWrAttachment" data-id="' + row.id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+				$tbody.prepend('<tr data-saved="1"><td>' + title + '</td><td>' + fileHtml + '</td><td class="text-center">' + actions + '</td></tr>');
+			});
+			syncEmpty();
+		}
+		function syncEmpty() {
+			const hasRows = $card.find('#wrAttachmentsTable tbody tr').length > 0;
+			$card.find('#wrAttachmentsEmpty').toggleClass('d-none', hasRows);
+		}
+		function syncSection() {
+			const ready = hasWrId();
+			$card.find('#wrAttachmentsNeedSaveHint').toggleClass('d-none', ready);
+			$card.find('#wrAttachmentsTableWrap').toggleClass('d-none', !ready);
+			$card.find('[data-action="addWrAttachmentRow"]').prop('disabled', !ready);
+			if (ready) loadAttachments();
+			else syncEmpty();
+		}
+		function addDraftRow() {
+			if (!hasWrId()) {
+				toastr.error('ابتدا گزارش کار را ذخیره کنید');
+				return;
+			}
+			const uid = 'wrAttFile_' + Date.now();
+			const $tr = $('<tr data-draft="1"></tr>');
+			$tr.append('<td><input type="text" class="form-control form-control-sm" data-wr-att-title placeholder="عنوان پیوست" /></td>');
+			$tr.append(
+				'<td><div class="file-uploader-container file-uploader-table">'
+				+ '<div class="file-uploader-wrapper"><div class="dropzone-area" data-file-uploader="true"'
+				+ ' data-bindid="' + uid + '" data-file-id="" data-multiple="false" data-max-files="1"'
+				+ ' data-max-file-size="20" data-accepted-file-types=".pdf,.zip,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"'
+				+ ' data-entity-type="Entities.App.Sale.WorkReportAttachment" data-entity-id=""'
+				+ ' data-show-preview="true" data-show-download="true" data-show-delete="true"'
+				+ ' data-entity-prop-name="FileId" data-required="true">'
+				+ '<div class="dz-message"><p>فایل را اینجا رها کنید یا کلیک کنید</p></div>'
+				+ '</div></div><input type="hidden" data-bind="' + uid + '" value="" /></div></td>'
+			);
+			$tr.append(
+				'<td class="text-center text-nowrap">'
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-success" data-action="saveWrAttachmentRow" title="ذخیره"><i class="fa fa-check"></i></button> '
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-secondary" data-action="cancelWrAttachmentRow" title="حذف ردیف"><i class="fa fa-times"></i></button>'
+				+ '</td>'
+			);
+			$card.find('#wrAttachmentsTable tbody').append($tr);
+			$card.find('#wrAttachmentsEmpty').addClass('d-none');
+			if (typeof initFileUploaders === 'function') initFileUploaders($tr);
+		}
+		function saveDraftRow($tr) {
+			const title = ($tr.find('[data-wr-att-title]').val() || '').trim();
+			const fileId = $tr.find('input[type="hidden"]').val();
+			if (!title) { toastr.error('عنوان پیوست را وارد کنید'); return; }
+			if (!fileId) { toastr.error('فایل را آپلود کنید'); return; }
+			const $btn = $tr.find('[data-action="saveWrAttachmentRow"]').block();
+			$$.post('/Panel/Sale/WorkReportAttachment/save', {
+				workReportId: getWrId(),
+				title: title,
+				fileId: fileId
+			}, function (resp) {
+				$btn.block(false);
+				if (!resp.isSuccess) { toastr.error(resp.message || 'خطا در ذخیره پیوست', 'خطا'); return; }
+				toastr.success('پیوست ذخیره شد');
+				$tr.remove();
+				loadAttachments();
+			});
+		}
+
+		$card.on('click', '[data-action="addWrAttachmentRow"]', function () { addDraftRow(); });
+		$card.on('click', '[data-action="saveWrAttachmentRow"]', function () { saveDraftRow($(this).closest('tr')); });
+		$card.on('click', '[data-action="cancelWrAttachmentRow"]', function () {
+			$(this).closest('tr').remove();
+			syncEmpty();
+		});
+		$card.on('click', '[data-action="deleteWrAttachment"]', function () {
+			const id = $(this).data('id');
+			Swal.fire({
+				title: 'حذف پیوست',
+				text: 'آیا از حذف این پیوست مطمئن هستید؟',
+				icon: 'warning',
+				showCancelButton: true,
+				confirmButtonText: 'بله',
+				cancelButtonText: 'خیر'
+			}).then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/WorkReportAttachment/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('پیوست حذف شد');
+					loadAttachments();
+				});
+			});
+		});
+
+		$card.data('wr-att-sync', syncSection);
+		syncSection();
+	}
+
+	function openSrWorkReportModal(id) {
+		const url = id
+			? '/Panel/Sale/WorkReport/Edit?id=' + id + '&serviceRequestId=' + srWorkReportParentId
+			: '/Panel/Sale/WorkReport/New?serviceRequestId=' + srWorkReportParentId;
+		const $trigger = id
+			? $$('#srWorkReportChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#srWorkReportChildCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش گزارش کار' : 'افزودن گزارش کار',
+				columnClass: 'col-md-11',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							const $form = $content.find('#wrFormRoot');
+							if (validateError($form.length ? $form : $content)) return false;
+							const model = ($form.length ? $form : $content).dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Sale/WorkReport/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) { toastr.error(resp.message || 'خطا در ذخیره', 'خطا'); return; }
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								if ($form.length) $form.dataBind(resp.data);
+								else $content.dataBind(resp.data);
+								const sync = $content.find('#wrAttachmentsCard').data('wr-att-sync');
+								if (typeof sync === 'function') sync();
+								srWorkReportTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initPersionDatePicker === 'function')
+							initPersionDatePicker(selfConfirm.$body);
+						if (typeof initTimeInputs === 'function')
+							initTimeInputs(selfConfirm.$body);
+						initWorkReportSelectors(selfConfirm.$body);
+						loadSameReports(selfConfirm.$body);
+						initWorkReportAttachments(selfConfirm.$body);
+						selfConfirm.$body.on('click', '[data-action="loadSameReport"]', function () {
+							const sameId = selfConfirm.$body.find('#WorkReportSameReports').val();
+							if (!sameId) { toastr.error('گزارش مشابه را انتخاب کنید'); return; }
+							$$.get('/Panel/Sale/WorkReport/GetSameReportInfo?id=' + sameId, function (r) {
+								if (!r || r.isSuccess === false) { toastr.error((r && r.message) || 'بارگذاری انجام نشد'); return; }
+								const $form = selfConfirm.$body.find('#wrFormRoot');
+								($form.length ? $form : selfConfirm.$body).dataBind(r.data || r);
+							});
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	$$('#srWorkReportChildCard').on('click', '[data-action="newChild"]', function () { openSrWorkReportModal(null); });
+	$$('#srWorkReportChildCard').on('click', '[data-action="editChild"]', function () { openSrWorkReportModal($(this).data('id')); });
+	$$('#srWorkReportChildCard').on('click', '[data-action="attachChild"]', function () {
+		const id = $(this).data('id');
+		appController.addPage('/Panel/Sale/WorkReportAttachment/ListByParentId?workReportId=' + id, true, 'پیوست گزارش کار');
+	});
+	$$('#srWorkReportChildCard').on('click', '[data-action="deleteChild"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/WorkReport/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					srWorkReportTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

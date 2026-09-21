@@ -1,0 +1,191 @@
+@using Entities.App.Crm
+@using Entities.App.Crm.Enums
+@using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Auth
+@using Entities.Base
+@model CustomerSatisfactionSurvey
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(CustomerSatisfactionSurvey)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-sms"
+				action-name="sendLink" title="ارسال لینک رضایت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-print"
+				action-name="printLikert" title="چاپ طیف لیکرت"></form-action-button>
+		</form-action-buttons>
+	</div>
+	<div class="card-body row">
+		<span class="section-box-title">رضایت‌سنجی</span>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع فرم</label>
+				<select class="form-control" data-bind="typeId" data-required="true" asp-for="TypeId" asp-items="Html.GetEnumSelectList(typeof(CustomerSatisfactionSurveyTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"SurveyCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party, c.Code },
+					"{Party.FullName} {Code}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">مصاحبه‌گر</label>
+				@(Html.EntitySelector<User>(
+					"SurveyInterviewerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"interviewerId",
+					"interviewerName",
+					Model?.InterviewerId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">حواله فروش</label>
+				@(Html.EntitySelector<Order>(
+					"SurveyOrderSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, OrderNumber = c.OrderNumber },
+					c => new { c.OrderNumber },
+					"{OrderNumber}",
+					"saleOrderId",
+					"saleOrderName",
+					Model?.SaleOrderId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">قلم حواله</label>
+				@(Html.EntitySelector<OrderDetail>(
+					"SurveyOrderDetailSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Seq = c.Seq, Part_Name = c.Part.Name },
+					c => new { c.Seq, c.Part },
+					"{Part.Name}",
+					"saleOrderDetailId",
+					"saleOrderDetailName",
+					Model?.SaleOrderDetailId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">ماموریت</label>
+				@(Html.EntitySelector<Mission>(
+					"SurveyMissionSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, HokmNumber = c.HokmNumber },
+					c => new { c.HokmNumber },
+					"{HokmNumber}",
+					"missionId",
+					"missionName",
+					Model?.MissionId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">گزارش کار</label>
+				@(Html.EntitySelector<WorkReport>(
+					"SurveyWorkReportSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, ReportNumber = c.ReportNumber },
+					c => new { c.ReportNumber },
+					"{ReportNumber}",
+					"workReportId",
+					"workReportName",
+					Model?.WorkReportId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال فرم</label>
+				<input class="form-control" data-bind="formSerial" asp-for="FormSerial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">وضعیت</label>
+				<input class="form-control" data-bind="currentStatusId" asp-for="CurrentStatusId" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تلفن</label>
+				<input class="form-control" data-bind="customerTell" asp-for="CustomerTell" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">موبایل</label>
+				<input class="form-control" data-bind="customerMobile" asp-for="CustomerMobile" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نام پاسخ‌دهنده</label>
+				<input class="form-control" data-bind="responderFullname" asp-for="ResponderFullname" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">آدرس</label>
+				<input class="form-control" data-bind="customerAddress" asp-for="CustomerAddress" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">بازخورد مشتری</label>
+				<textarea class="form-control" data-bind="customerFeedbackText" asp-for="CustomerFeedbackText" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات تکمیلی</label>
+				<textarea class="form-control" data-bind="additionalComments" asp-for="AdditionalComments" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.sendLink) {
+		self.FormActionButtons.sendLink.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			Swal.fire({ title: 'ارسال لینک رضایت', text: 'پیامک و ایمیل رضایت‌سنجی ارسال شود؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+				.then(function (result) {
+					if (!result.isConfirmed) return;
+					$$.post('sendSatisfactionLink?id=' + id, {}, function (r) {
+						if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+						toastr.success('لینک رضایت ارسال شد');
+					});
+				});
+		});
+	}
+	if (self.FormActionButtons.printLikert) {
+		self.FormActionButtons.printLikert.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/System/ReportBuilder/ViewReportByName/CustomerSatisfactionLikert?surveyId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+		});
+	}
+</script>

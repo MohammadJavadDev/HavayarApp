@@ -1,0 +1,123 @@
+@using Entities.App.Trn
+@using Entities.App.Trn.Enums
+@model CourseBank
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(CourseBank)">
+          </form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         بانک دوره‌ها
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>زمینه دوره</label>
+                    <select class='form-control' data-bind='courseField' data-required="true"
+                            asp-for='CourseField'
+                            asp-items="Html.GetEnumSelectList(typeof(CourseFieldEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نوع دوره</label>
+                    <select class='form-control' data-bind='type'
+                            asp-for='Type'
+                            asp-items="Html.GetEnumSelectList(typeof(CourseBankTypeEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>مدت زمان (ساعت)</label>
+                    <input class='form-control' data-bind='duration' data-required="true"
+                           data-invalidMessage='فقط عدد'
+                           data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                           asp-for='Duration' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold required'>عنوان زمینه دوره</label>
+                    <input class='form-control' data-bind='courseFieldTitle' data-required="true"
+                           asp-for='CourseFieldTitle' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>عنوان زمینه دوره (لاتین)</label>
+                    <input class='form-control' dir="ltr" data-bind='courseFieldTitleInLatin'
+                           asp-for='CourseFieldTitleInLatin' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+<script>
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+          const $btn = $($btnAction.element).block();
+
+          $$.post('save', model, function (r) {
+               $btn.block(false);
+
+               if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+               }
+
+               toastr.success('ذخیره سازی با موفقیت انجام شد');
+               page.$pageEl.dataBind(r.data);
+               $btnAction.baseaction();
+          });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

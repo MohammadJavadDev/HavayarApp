@@ -15,5 +15,9 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.String, required: true, showInRelationData: true)]
 		[MaxLength(500)]
 		public string Title { get; set; }
+
+		[DisplayName("شناسه HTS")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long HtsId { get; set; }
 	}
 }

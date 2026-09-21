@@ -1,0 +1,432 @@
+@using Entities.App.Sale
+@using Entities.App.SLS
+@model OrderDetail
+
+@{
+	var customerName = Model?.Customer?.Party?.FullName
+		?? Model?.Sale_Order?.Customer?.Party?.FullName
+		?? "-";
+	var orderNumber = Model?.Sale_Order?.OrderNumber?.ToString() ?? "-";
+	var vchDateShamsi = Model?.Sale_Order?.VchDateShamsiDate ?? "-";
+	var branchTitle = Model?.Sale_Order?.Branch?.Title ?? "-";
+	var partCode = Model?.Part?.Code ?? "-";
+	var partName = Model?.Part?.Name ?? "-";
+	var unitTitle = Model?.Unit?.Title ?? "-";
+	var serials = ViewBag.Serials as List<OrderDetailSerial> ?? new List<OrderDetailSerial>();
+	var canIndustrialConfirm = ViewBag.CanIndustrialConfirm as bool? == true;
+}
+
+<div class="card mb-4 shadow-sm border-0 order-detail-serials-page" data-order-detail-id="@Model.Id">
+	<div class="card-header bg-light-primary py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+		<div class="d-flex align-items-center">
+			<i class="ki-outline ki-barcode fs-1 text-primary me-2"></i>
+			<div>
+				<h4 class="mb-0 fw-bold text-gray-800">شماره سریال‌های قلم حواله فروش</h4>
+			</div>
+		</div>
+		<div class="d-flex align-items-center gap-2">
+			<button type="button" class="btn btn-sm btn-primary" id="btnNewSerial">
+				<i class="fa fa-plus ms-1"></i> افزودن سریال جدید
+			</button>
+			<button type="button" class="btn btn-sm btn-light-primary" id="btnRefreshSerials" title="بروزرسانی">
+				<i class="fa fa-refresh ms-1"></i> بروزرسانی
+			</button>
+			<button type="button" class="btn btn-sm btn-light-secondary" id="btnClosePage" title="بستن">
+				<i class="fa fa-times ms-1"></i> بستن
+			</button>
+		</div>
+	</div>
+
+	<div class="card-body p-4">
+		<!-- کارت خلاصه مشخصات قلم حواله -->
+		<div class="card bg-light border mb-4">
+			<div class="card-body py-3 px-4">
+				<div class="row g-3">
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">شماره حواله فروش:</span>
+						<span class="fw-bold text-gray-800 fs-6">@orderNumber</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">تاریخ حواله:</span>
+						<span class="fw-bold text-gray-800 fs-6">@vchDateShamsi</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">مشتری:</span>
+						<span class="fw-bold text-gray-800 fs-6">@customerName</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">شعبه فروش:</span>
+						<span class="fw-bold text-gray-800 fs-6">@branchTitle</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">کد کالا:</span>
+						<span class="fw-bold text-primary fs-6">@partCode</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">نام کالا:</span>
+						<span class="fw-bold text-gray-800 fs-6">@partName</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">تعداد حواله:</span>
+						<span class="fw-bold text-success fs-6">@Model.Qty @unitTitle</span>
+					</div>
+					<div class="col-md-3 col-sm-6">
+						<span class="text-muted d-block fs-7">ردیف:</span>
+						<span class="fw-bold text-gray-800 fs-6">@Model.Seq</span>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- جدول سریال‌ها -->
+		<div class="table-responsive">
+			<table class="table table-bordered table-striped table-hover align-middle nowrap" id="orderDetailSerialTable" style="width:100%">
+				<thead class="table-light">
+					<tr class="fw-bold fs-7 text-gray-700">
+						<th style="width: 45px" class="text-center">#</th>
+						<th>سریال</th>
+						<th>مدل</th>
+						<th>سفارش ساخت</th>
+						<th>پروژه</th>
+						<th>مشتری</th>
+						<th>کارکرد روزانه</th>
+						<th>گارانتی (ماه)</th>
+						<th>روز ارسال</th>
+						<th>روز راه‌اندازی</th>
+						<th>تاریخ ارسال</th>
+						<th>تاریخ راه‌اندازی</th>
+						<th>تاریخ خروج</th>
+						<th>توضیحات صنایع</th>
+						<th class="text-center">بیمه</th>
+						<th class="text-center">تایید صنایع</th>
+						<th style="width: 140px" class="text-center">عملیات</th>
+					</tr>
+				</thead>
+				<tbody>
+					@if (serials.Count == 0)
+					{
+						<tr class="empty-row text-center text-muted">
+							<td colspan="17" class="py-4">هیچ شماره سریالی برای این قلم ثبت نشده است</td>
+						</tr>
+					}
+					else
+					{
+						var idx = 1;
+						foreach (var s in serials)
+						{
+							<tr data-serial-id="@s.Id">
+								<td class="text-center">@(idx++)</td>
+								<td class="fw-bold text-primary">@(s.Serial ?? "-")</td>
+								<td>@(s.Model ?? "-")</td>
+								<td>@(s.ProductionOrderNumber ?? "-")</td>
+								<td>@(s.PlaningProject?.Name ?? "-")</td>
+								<td>@(s.Customer?.Party?.FullName ?? "-")</td>
+								<td>@(s.HoursDaily ?? "-")</td>
+								<td>@(s.GuaranteeTime?.ToString() ?? "-")</td>
+								<td>@(s.GuaranteeSendDay?.ToString() ?? "-")</td>
+								<td>@(s.GuaranteeLaunchDay?.ToString() ?? "-")</td>
+								<td>@(s.SendShamsiDate ?? "-")</td>
+								<td>@(s.LaunchShamsiDate ?? "-")</td>
+								<td>@(s.ExitFactoryShamsiDate ?? "-")</td>
+								<td style="max-width:200px;text-overflow:ellipsis;overflow:hidden;" title="@s.IndustrialComment">@(s.IndustrialComment ?? "-")</td>
+								<td class="text-center">
+									@if (s.HasInsurance == true)
+									{
+										<span class="badge badge-light-success">دارد</span>
+									}
+									else
+									{
+										<span class="badge badge-light-secondary">ندارد</span>
+									}
+								</td>
+								<td class="text-center">
+									@if (s.IndustrialConfirm == true)
+									{
+										<span class="badge badge-light-success">تایید شده</span>
+									}
+									else
+									{
+										<span class="badge badge-light-secondary">تایید نشده</span>
+									}
+								</td>
+								<td class="text-center text-nowrap">
+									@if (canIndustrialConfirm)
+									{
+										var confirmTitle = s.IndustrialConfirm == true ? "عدم تایید صنایع" : "تایید صنایع";
+										var confirmClass = s.IndustrialConfirm == true ? "btn-light-success" : "btn-light-primary";
+										<button type="button" class="btn btn-sm btn-icon @confirmClass me-1" data-action="industrialConfirm" data-id="@s.Id" data-confirmed="@(s.IndustrialConfirm == true ? "true" : "false")" title="@confirmTitle">
+											<i class="fa fa-check"></i>
+										</button>
+									}
+									<button type="button" class="btn btn-sm btn-icon btn-light-warning me-1" data-action="editSerial" data-id="@s.Id" title="ویرایش">
+										<i class="fa fa-edit"></i>
+									</button>
+									<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteSerial" data-id="@s.Id" title="حذف">
+										<i class="fa fa-trash"></i>
+									</button>
+								</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+	const orderDetailId = '@Model.Id';
+	const canIndustrialConfirm = @(canIndustrialConfirm ? "true" : "false");
+
+	function escapeHtml(val) {
+		if (val == null || val === undefined) return '-';
+		return String(val)
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;');
+	}
+
+	function renderSerialRows(list) {
+		const $tbody = $$('#orderDetailSerialTable tbody');
+		if (!list || !list.length) {
+			$tbody.html('<tr class="empty-row text-center text-muted"><td colspan="17" class="py-4">هیچ شماره سریالی برای این قلم ثبت نشده است</td></tr>');
+			return;
+		}
+
+		const rows = list.map(function (s, idx) {
+			const insuranceBadge = s.hasInsurance
+				? '<span class="badge badge-light-success">دارد</span>'
+				: '<span class="badge badge-light-secondary">ندارد</span>';
+			const industrialConfirmed = s.industrialConfirm === true;
+			const industrialBadge = industrialConfirmed
+				? '<span class="badge badge-light-success">تایید شده</span>'
+				: '<span class="badge badge-light-secondary">تایید نشده</span>';
+			const industrialBtn = canIndustrialConfirm
+				? `<button type="button" class="btn btn-sm btn-icon ${industrialConfirmed ? 'btn-light-success' : 'btn-light-primary'} me-1" data-action="industrialConfirm" data-id="${s.id}" data-confirmed="${industrialConfirmed ? 'true' : 'false'}" title="${industrialConfirmed ? 'عدم تایید صنایع' : 'تایید صنایع'}">
+					<i class="fa fa-check"></i>
+				</button>`
+				: '';
+
+			return `<tr data-serial-id="${s.id}">
+				<td class="text-center">${idx + 1}</td>
+				<td class="fw-bold text-primary">${escapeHtml(s.serial)}</td>
+				<td>${escapeHtml(s.model)}</td>
+				<td>${escapeHtml(s.productionOrderNumber)}</td>
+				<td>${escapeHtml(s.planingProjectName)}</td>
+				<td>${escapeHtml(s.customerName)}</td>
+				<td>${escapeHtml(s.hoursDaily)}</td>
+				<td>${escapeHtml(s.guaranteeTime)}</td>
+				<td>${escapeHtml(s.guaranteeSendDay)}</td>
+				<td>${escapeHtml(s.guaranteeLaunchDay)}</td>
+				<td>${escapeHtml(s.sendShamsiDate)}</td>
+				<td>${escapeHtml(s.launchShamsiDate)}</td>
+				<td>${escapeHtml(s.exitFactoryShamsiDate)}</td>
+				<td style="max-width:200px;text-overflow:ellipsis;overflow:hidden;" title="${escapeHtml(s.industrialComment)}">${escapeHtml(s.industrialComment)}</td>
+				<td class="text-center">${insuranceBadge}</td>
+				<td class="text-center">${industrialBadge}</td>
+				<td class="text-center text-nowrap">
+					${industrialBtn}
+					<button type="button" class="btn btn-sm btn-icon btn-light-warning me-1" data-action="editSerial" data-id="${s.id}" title="ویرایش">
+						<i class="fa fa-edit"></i>
+					</button>
+					<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteSerial" data-id="${s.id}" title="حذف">
+						<i class="fa fa-trash"></i>
+					</button>
+				</td>
+			</tr>`;
+		});
+
+		$tbody.html(rows.join(''));
+	}
+
+	function reloadSerials() {
+		const $btn = $$('#btnRefreshSerials').block();
+		$.ajax({
+			url: '/Panel/Sale/OrderDetail/GetSerials?orderDetailId=' + orderDetailId,
+			type: 'GET',
+			dataType: 'json',
+			success: function (r) {
+				$btn.block(false);
+				const list = Array.isArray(r) ? r : (r?.data || []);
+				renderSerialRows(list);
+			},
+			error: function (xhr) {
+				$btn.block(false);
+				toastr.error('خطا در بارگذاری مجدد سریال‌ها', 'خطا');
+			}
+		});
+	}
+
+	function openSerialModal(serialId) {
+		const url = serialId
+			? ('/Panel/Sale/OrderDetail/GetSerialEditModal?id=' + serialId + '&orderDetailId=' + orderDetailId)
+			: ('/Panel/Sale/OrderDetail/GetSerialEditModal?orderDetailId=' + orderDetailId);
+
+		const $activeBtn = serialId
+			? page.$pageEl.find(`[data-action="editSerial"][data-id="${serialId}"]`).block()
+			: $$('#btnNewSerial').block();
+
+		$.ajax({
+			url: url,
+			type: 'GET',
+			dataType: 'html',
+			success: function (html) {
+				$activeBtn.block(false);
+
+				if (typeof html === 'object' && html.isSuccess === false) {
+					toastr.error(html.message || 'خطا در دریافت فرم', 'خطا');
+					return;
+				}
+
+				const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(html);
+
+				$.confirm({
+					title: serialId ? 'ویرایش سریال' : 'افزودن سریال جدید',
+					columnClass: 'col-md-10',
+					content: $bodyCn,
+					rtl: true,
+					buttons: {
+						save: {
+							text: 'ذخیره',
+							btnClass: 'btn-primary',
+							action: function () {
+								const $content = this.$content;
+								if (validateError($content)) return false;
+
+								const model = $content.dataBind();
+								const selfConfirm = this;
+								const $saveBtn = $(this.buttons.save.el).block();
+
+								$.ajax({
+									url: '/Panel/Sale/OrderDetail/SaveSerial',
+									type: 'POST',
+									data: JSON.stringify(model),
+									contentType: 'application/json',
+									success: function (r) {
+										$saveBtn.block(false);
+										if (!r.isSuccess) {
+											toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+											return;
+										}
+										toastr.success(r.message || 'با موفقیت ذخیره شد');
+										selfConfirm.close();
+										reloadSerials();
+									},
+									error: function (xhr) {
+										$saveBtn.block(false);
+										toastr.error('خطا در ارتباط با سرور هنگام ذخیره سریال', 'خطا');
+									}
+								});
+								return false;
+							}
+						},
+						cancel: {
+							text: 'انصراف',
+							btnClass: 'btn-secondary'
+						}
+					},
+					onContentReady: function () {
+						const selfConfirm = this;
+						setTimeout(function () {
+							initPersionDatePicker(selfConfirm.$body);
+							selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+								if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function') {
+									$(this).entitySelector();
+								}
+							});
+						}, 100);
+					}
+				});
+			},
+			error: function (xhr) {
+				$activeBtn.block(false);
+				toastr.error('خطا در دریافت فرم سریال (کد ' + xhr.status + ')', 'خطا');
+			}
+		});
+	}
+
+	function industrialConfirmSerial(serialId, alreadyConfirmed) {
+		Swal.fire({
+			title: alreadyConfirmed ? 'عدم تایید صنایع' : 'تایید صنایع',
+			text: alreadyConfirmed
+				? 'آیا از لغو تایید صنایع این سریال مطمئن هستید؟'
+				: 'آیا از تایید صنایع این سریال مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله',
+			cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+
+			$$.post('/Panel/Sale/OrderDetailSerial/IndustrialConfirm?id=' + serialId, {}, function (r) {
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || 'خطا در تغییر وضعیت تایید صنایع', 'خطا');
+					return;
+				}
+
+				const confirmed = r.data && r.data.industrialConfirm === true;
+				toastr.success(confirmed ? 'تایید صنایع ثبت شد' : 'تایید صنایع لغو شد');
+				reloadSerials();
+			});
+		});
+	}
+
+	function deleteSerial(serialId) {
+		Swal.fire({
+			title: 'حذف سریال',
+			text: 'آیا از حذف این سریال مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله، حذف شود',
+			cancelButtonText: 'انصراف'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+
+			$.ajax({
+				url: '/Panel/Sale/OrderDetail/DeleteSerial?id=' + serialId,
+				type: 'GET',
+				success: function (r) {
+					if (r && r.isSuccess === false) {
+						toastr.error(r.message || 'خطا در حذف', 'خطا');
+						return;
+					}
+					toastr.success(r.message || 'با موفقیت حذف شد');
+					reloadSerials();
+				},
+				error: function (xhr) {
+					toastr.error('خطا در حذف سریال (کد ' + xhr.status + ')', 'خطا');
+				}
+			});
+		});
+	}
+
+	// اتصالات رویدادها
+	$$('#btnNewSerial').on('click', function () {
+		openSerialModal(null);
+	});
+
+	$$('#btnRefreshSerials').on('click', function () {
+		reloadSerials();
+	});
+
+	$$('#btnClosePage').on('click', function () {
+		appController.closeCurrentPage();
+	});
+
+	page.$pageEl.on('click', '[data-action="editSerial"]', function () {
+		const id = $(this).data('id');
+		openSerialModal(id);
+	});
+
+	page.$pageEl.on('click', '[data-action="deleteSerial"]', function () {
+		const id = $(this).data('id');
+		deleteSerial(id);
+	});
+
+	page.$pageEl.on('click', '[data-action="industrialConfirm"]', function () {
+		const id = $(this).data('id');
+		const alreadyConfirmed = $(this).attr('data-confirmed') === 'true';
+		industrialConfirmSerial(id, alreadyConfirmed);
+	});
+</script>

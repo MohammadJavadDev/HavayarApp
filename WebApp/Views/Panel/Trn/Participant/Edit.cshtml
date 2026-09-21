@@ -1,0 +1,270 @@
+@using Entities.App.Trn
+@using Entities.App.Trn.Enums
+@model Participant
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(Participant)">
+          </form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         مشتری حقیقی / شرکت‌کننده
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>نام</label>
+                    <input class='form-control' data-bind='firstName' data-required="true"
+                           asp-for='FirstName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>نام خانوادگی</label>
+                    <input class='form-control' data-bind='lastName' data-required="true"
+                           asp-for='LastName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نام لاتین</label>
+                    <input class='form-control' dir="ltr" data-bind='firstNameInLatin'
+                           asp-for='FirstNameInLatin' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نام خانوادگی لاتین</label>
+                    <input class='form-control' dir="ltr" data-bind='lastNameInLatin'
+                           asp-for='LastNameInLatin' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نام پدر</label>
+                    <input class='form-control' data-bind='fatherName'
+                           asp-for='FatherName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>کد ملی</label>
+                    <input class='form-control' dir="ltr" maxlength="10" data-bind='nationalCode'
+                           asp-for='NationalCode' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>شماره شناسنامه</label>
+                    <input class='form-control' dir="ltr" data-bind='birthCertificateNo'
+                           asp-for='BirthCertificateNo' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>سال تولد</label>
+                    <input class='form-control' dir="ltr" data-bind='birthdayYear'
+                           asp-for='BirthdayYear' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>محل صدور</label>
+                    <input class='form-control' data-bind='issuedPlace'
+                           asp-for='IssuedPlace' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>جنسیت</label>
+                    <select class='form-control' data-bind='gender'
+                            asp-for='Gender'
+                            asp-items="Html.GetEnumSelectList(typeof(GenderEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تحصیلات</label>
+                    <select class='form-control' data-bind='education'
+                            asp-for='Education'
+                            asp-items="Html.GetEnumSelectList(typeof(EducationEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>رشته تحصیلی</label>
+                    <input class='form-control' data-bind='fieldOfStudy'
+                           asp-for='FieldOfStudy' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تلفن همراه</label>
+                    <input class='form-control' dir="ltr" data-bind='mobile'
+                           asp-for='Mobile' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تلفن</label>
+                    <input class='form-control' dir="ltr" data-bind='phone'
+                           asp-for='Phone' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>ایمیل</label>
+                    <input class='form-control' dir="ltr" data-bind='email'
+                           asp-for='Email' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>محل کار</label>
+                    <input class='form-control' data-bind='workplace'
+                           asp-for='Workplace' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>سمت شغلی</label>
+                    <input class='form-control' data-bind='jobPosition'
+                           asp-for='JobPosition' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class="form-label fw-bold">شرکت (محل اشتغال)</label>
+                    @(Html.EntitySelector<Company>(
+                                        "CompanySelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Title = c.Title
+                                        },
+                                        c => new { c.Title },
+                                        "{Title}",
+                                        "CompanyId",
+                                        Model?.Company?.Title,
+                                        Model?.CompanyId?.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <fileuploader bind="PhotoFileId" file-id="@Model?.PhotoFileId" file-entity="@Model?.PhotoFile"
+                                  Label="عکس" entity-type="@typeof(Participant).FullName" entity-prop-name="PhotoFile" max-file-size="10"
+                                  accepted-file-types=".jpg,.jpeg,.png,.pdf"></fileuploader>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>کد پستی</label>
+                    <input class='form-control' dir="ltr" maxlength="10" data-bind='postalCode'
+                           asp-for='PostalCode' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>آدرس</label>
+                    <textarea class='form-control' data-bind='address'
+                              asp-for='Address'>@Model?.Address</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>توضیحات</label>
+                    <textarea class='form-control' data-bind='description'
+                              asp-for='Description'>@Model?.Description</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+<script>
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+          const isNew = !model.id || model.id === '0' || model.id === 0;
+
+          const doSave = function () {
+               const $btn = $($btnAction.element).block();
+
+               $$.post('save', model, function (r) {
+                    $btn.block(false);
+
+                    if (!r.isSuccess) {
+                         toastr.error(r.message, 'خطا');
+                         return;
+                    }
+
+                    toastr.success('ذخیره سازی با موفقیت انجام شد');
+                    page.$pageEl.dataBind(r.data);
+                    $btnAction.baseaction();
+               });
+          };
+
+          // Duplicate-name warning (legacy behavior): warning only, never blocks the save.
+          if (!isNew) {
+               doSave();
+               return;
+          }
+
+          $$.get('checkDuplicateName?firstName=' + encodeURIComponent(model.firstName || '') + '&lastName=' + encodeURIComponent(model.lastName || ''), function (r) {
+               const dup = r && r.data && (r.data.isDuplicate === true || r.data.IsDuplicate === true);
+               if (dup) {
+                    toastr.warning('شرکت‌کننده‌ای با همین نام وجود دارد', 'هشدار');
+               }
+               doSave();
+          });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

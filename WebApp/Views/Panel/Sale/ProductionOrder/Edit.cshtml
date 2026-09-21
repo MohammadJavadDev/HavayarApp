@@ -12,12 +12,9 @@
 @{
 	var isAdmin = sdk.IsAdministrator;
 
-	//Seed Role => Sale.ProductionOrder.FinancialConfirm => سفارش ساخت - تایید مالی
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد مالی را به آن انتساب بده
-	var canFinancialConfirm = isAdmin || sdk.HasRole("Sale.ProductionOrder.FinancialConfirm");
+	// تایید مالی فقط در راهکاران انجام می‌شود (مثل HTS) و با Job همگام می‌شود؛ دکمه پنل حذف شد (2026-09-17).
 
 	//Seed Role => Sale.ProductionOrder.Obsolete => سفارش ساخت - منسوخ‌سازی
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران مجاز به منسوخ‌سازی سفارش ساخت را به آن انتساب بده
 	var canObsolete = isAdmin || sdk.HasRole("Sale.ProductionOrder.Obsolete");
 
 	var delays = ViewBag.ProductionOrderDelayViewData as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
@@ -25,8 +22,6 @@
 <div class="card">
 	<div class="form-action-buttons">
 		<form-action-buttons entity-type="typeof(ProductionOrder)">
-			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check-circle"
-				action-name="financialConfirm" title="تایید مالی"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-dark" icon-class="fa fa-ban"
 				action-name="obsolete" title="منسوخ کردن"></form-action-button>
 		</form-action-buttons>
@@ -435,7 +430,31 @@
 							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 						</div>
 
+						@* معادل SalesBranchId فرم/گرید HTS (صفحه ۴۶۳) *@
+						<div class="col-md-3">
+							<label class=''>شعبه / دپارتمان فروش</label>
+							@(Html.EntitySelector<Branch>(
+								"BranchSelector",
+								c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+								c => new
+								{
+									Id = c.Id, Title = c.Title
+								},
+								c => new { c.Title },
+								"{Title}",
+								"BranchId",
+								"BranchName",
+								Model?.BranchId?.ToString()
+							))
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
 
+						@* معادل DeliveryLocation فرم HTS *@
+						<div class='col-md-3'>
+							<label class=''>محل تحویل</label>
+							<input class='form-control' data-bind='deliveryLocation' asp-for='DeliveryLocation' />
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
 
 						<div class='col-md-3'>
 							<label class=''>پروژه مهندسی</label>
@@ -564,6 +583,16 @@
 							max-file-size="10" label="پیوست قرارداد">
 						</fileuploader>
 					</div>
+					@* پنجمین پیوست سربرگ HTS (AttachmentFile* — ریبون «مهندسی/متره» صفحه ۴۶۳) *@
+					<div class="col-md-6">
+						<fileuploader bind="engineeringAttachmentId" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar"
+							file-id="@Model?.EngineeringAttachmentId"
+							file-entity="@Model?.EngineeringAttachmentFile"
+							entity-prop-name="EngineeringAttachmentFile"
+							entity-type="@typeof(ProductionOrder).FullName"
+							max-file-size="20" label="پیوست مهندسی / متره">
+						</fileuploader>
+					</div>
 				</div>
 			</div>
 
@@ -583,6 +612,7 @@
 								<tr>
 									<th>عملیات</th>
 									<th>قلم سفارش ساخت</th>
+									<th>عامل تاخیر</th>
 									<th>تعداد روز تاخیر</th>
 									<th>تاریخ شروع</th>
 									<th>تاریخ پایان</th>
@@ -600,6 +630,7 @@
 											</button>
 										</td>
 										<td>@(delay.ProductionOrderItem != null ? $"{delay.ProductionOrderItem.Serial} - {delay.ProductionOrderItem.Part?.Name}" : "-")</td>
+										<td>@(delay.DelayResponsible.ToDisplay())</td>
 										<td>@(delay.DelayDays?.ToString() ?? "-")</td>
 										<td>@(delay.DelayStartShamsiDate ?? "-")</td>
 										<td>@(delay.DelayEndShamsiDate ?? "-")</td>
@@ -622,9 +653,7 @@
 </div>
 
 <script>
-	// TODO(Role): Sale.ProductionOrder.FinancialConfirm / Sale.ProductionOrder.Obsolete - نگاه کن به بالای فایل Razor
 	var permissions = @Html.Raw(Json.Serialize(new {
-		   canFinancialConfirm,
 		   canObsolete
 	   }));
 	var productionOrder = @Html.Raw(Json.Serialize(Model));
@@ -640,57 +669,13 @@
 		self.FormActionButtons.history.element.disabled = false;
 
 		// وضعیت‌های ProductionOrderStateEnum: Submit=1, FinancialUnitReview=2, FinancialApproval=3, Obsolete=4
-		if (permissions.canFinancialConfirm && (productionOrder.state == 1 || productionOrder.state == 2)) {
-			self.FormActionButtons.financialConfirm.element.disabled = false;
-		}
-
+		// تایید مالی فقط از راهکاران (Job) انجام می‌شود؛ منسوخ‌سازی فقط روی سفارش تایید مالی شده (مثل HTS گروه 77)
 		if (permissions.canObsolete && productionOrder.state == 3) {
 			self.FormActionButtons.obsolete.element.disabled = false;
 		}
 	}
 
 	initializePage()
-
-	//#region Financial Confirm
-	self.FormActionButtons.financialConfirm.onclick(function () {
-		const id = page.$pageEl.find('[data-bind="id"]').val();
-		if (!id || id == '0') {
-			toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
-			return;
-		}
-
-		if (!permissions.canFinancialConfirm) {
-			toastr.error('شما دسترسی تایید مالی سفارش ساخت را ندارید');
-			return;
-		}
-
-		$.confirm({
-			title: 'تایید مالی',
-			content: 'آیا از تایید مالی این سفارش ساخت اطمینان دارید؟',
-			rtl: true,
-			buttons: {
-				confirm: {
-					text: 'بله',
-					btnClass: 'btn-success',
-					action: function () {
-						$$.post('/Panel/ProductionOrder/DoFinancialConfirm/' + id, null, function (r) {
-							if (!r.isSuccess) {
-								toastr.error(`${r.message}`, 'خطا');
-								return;
-							}
-							toastr.success('تایید مالی با موفقیت انجام شد');
-							appController.refreshCurrentPage();
-						});
-					}
-				},
-				cancel: {
-					text: 'انصراف',
-					btnClass: 'btn-secondary'
-				}
-			}
-		});
-	});
-	//#endregion
 
 	//#region Obsolete
 	self.FormActionButtons.obsolete.onclick(function () {

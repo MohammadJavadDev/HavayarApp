@@ -1,0 +1,213 @@
+---
+description: HavayarApp JavaScript / jQuery conventions for Panel pages and standalone tool scripts — $$ vs $, appController, AJAX envelope, forms, dialogs
+globs: WebApp/Views/**/*.cshtml,WebApp/wwwroot/js/**/*.js
+alwaysApply: true
+---
+
+# HavayarApp JavaScript / jQuery Conventions
+
+## 1. How Panel page scripts actually execute (read this first)
+
+Panel Edit/List pages do **not** have a separate `wwwroot/js` file per page. The `<script>` block is written **inline, at the bottom of the `.cshtml`** (see `WebApp/Views/Panel/Sale/ProductionOrderItem/Edit.cshtml`, `WebApp/Views/Panel/Pln/ProductionOrderDelay/Edit.cshtml`).
+
+On the server, `WebFramework/Page/ProcessedViewResult.cs` strips every `<script>` block from the rendered HTML and rewraps it as:
+
+```js
+(function (page, $$, self) { /* your script content */ })(page, $$, self)
+```
+
+On the client, `Page.execScripts()` in `WebApp/wwwroot/js/site.js` runs that code via `new Function("page", "$$", "self", code)`. This means:
+
+- Every inline page script already runs inside an IIFE with `page`, `$$`, `self` in scope — **do not** wrap your own script in another `(function(){...})()`; it's redundant and can break the intended parameter injection.
+- `page`, `$$`, `self` are **always available as-is** — do not redeclare or shadow them with `var page = ...` etc.
+- `self.FormActionButtons`, `self.table`, `self.TabItemManagers` are pre-populated by the framework before your script runs.
+
+## 2. `$$` has two different, legitimate meanings — pick the right one for where you are
+
+### A. Inside a Panel Edit/List page's inline `<script>` (the common case)
+
+`$$` is **tab-scoped**, created per open tab in `site.js` (`Page` class, `this.$$ = function (selector) { return selector ? self.$pageEl.find(selector) : self.$pageEl; }`):
+
+- `$$('#id')` / `$$('.class')` → searches **only inside the current tab**, not the whole document. This is required because multiple tabs can be open simultaneously; a plain `$('#id')` can match an element in a *different* open tab.
+- `$$()` with no argument → returns the tab root (`page.$pageEl`).
+- `$$.post(url, data, callback)` / `$$.get(url, callback)` → AJAX helpers (aliases of the global `post`/`get`), resolve relative URLs (e.g. `'save'`) against the current controller action.
+- `$$.dataBind` → alias for `page.$pageEl.dataBind`.
+
+```javascript
+// Correct — scoped to current tab
+$$('#mySelect').on('change', function () {
+    const $sel = $(this); // inside a callback, use plain $(this)
+});
+```
+
+### B. Inside a standalone/reusable tool script loaded via `<script src="...">` (e.g. `formBuilder.js`, `formBuilderModalHelper.js`)
+
+These load **outside** the tab sandbox, so the tab-scoped `$$` does not apply. Here, per the root `JQUERY_USAGE_GUIDE.md`, `$$` is a plain **global jQuery alias** (`window.$$ || window.jQuery`):
+
+- Use `$$('#id')`, `$$('.class')`, `$$('<div></div>')` for **all** DOM selection and element creation.
+- Use plain `$(this)` / `$(e.target)` only inside callbacks/`.each()`/event handlers, to wrap the already-selected element.
+
+```javascript
+// formBuilder.js style — $$ is full jQuery
+const $option = $$('<option></option>');
+$$('#moduleSelect').append($option);
+$$('#container .item').each(function () {
+    $(this).find('.property-data').val(); // $(this), not $$(this)
+});
+```
+
+### Decision rule
+
+| You are editing... | `$$` means |
+|---|---|
+| Inline `<script>` in a Panel `Edit.cshtml` / `List.cshtml` / partial | Tab-scoped `page.$pageEl.find(...)` |
+| A new/edited file under `wwwroot/js/*.js` loaded via `<script src>` (FormBuilder-style tooling) | Global jQuery alias |
+
+### Rule that holds in **both** contexts
+
+Inside `.each()`, `.on()`, or any callback, always wrap `this` / `e.target` with plain `$`, **never** `$$`:
+
+```javascript
+// ✅ correct
+$$('.card').each(function () { $(this).addClass('x'); });
+// ❌ wrong
+$$('.card').each(function () { $$(this).addClass('x'); });
+```
+
+## 3. `appController` — navigation (see also `havayar-appcontroller-navigation.mdc`)
+
+`window.appController` manages tabs. The real API (from `site.js`):
+
+- `appController.addPage(address, pushState = true, tabTitle = null)` — open/navigate to a page in a new or existing tab. **This is the only "open page" method — there is no `openPage`.**
+- `appController.refreshCurrentPage()` — soft-refresh the active tab (close + reopen). Use after save/workflow/attachment actions.
+- `appController.closeCurrentPage()` — close the active tab.
+- `appController.closePage(address)` — close a specific tab by address.
+
+Never use `window.reload()`, `location.reload()`, or `window.location`/`location.href` for panel navigation or refresh — use the methods above instead.
+
+## 4. Standard Edit-page save pattern (canonical — copy this shape)
+
+```javascript
+function savefn($btnAction) {
+    if (validateError(page.$pageEl)) return;
+
+    var model = page.$pageEl.dataBind();
+    const $btn = $($btnAction.element).block();
+
+    $$.post('save', model, function (r) {
+        $btn.block(false);
+
+        if (!r.isSuccess) {
+            toastr.error(r.message, 'خطا');
+            return;
+        }
+
+        toastr.success('ذخیره سازی با موفقیت انجام شد');
+        page.$pageEl.dataBind(r.data);
+        $btnAction.baseaction();
+    });
+}
+
+self.FormActionButtons.save.onclick(function () { savefn(this); });
+self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+```
+
+Key pieces:
+- **Read the form model:** `page.$pageEl.dataBind()` (reads every `data-bind="propertyName"` input into a JS object).
+- **Write the model back after save:** `page.$pageEl.dataBind(r.data)`.
+- **Validate before submit:** `validateError($container)` — checks required fields, highlights invalid inputs, shows a `toastr.error`.
+- **AJAX response envelope is always** `{ isSuccess: boolean, message: string, data: ... }`. Always check `r.isSuccess` before treating a call as successful — HTTP 200 does not imply business success.
+- **Loading state:** `$(element).block()` to show a spinner overlay on a button/container, `$(element).block(false)` to remove it.
+
+## 5. Notifications, confirmations, and modals
+
+| Need | Use |
+|---|---|
+| Success/error toast feedback | `toastr.success(msg)` / `toastr.error(msg, title)` |
+| Destructive-action confirmation (delete, etc.) | `Swal.fire({ title, text, icon: 'warning', showCancelButton: true, confirmButtonText, cancelButtonText }).then(result => { if (!result.isConfirmed) return; ... })` |
+| Inline modal CRUD form (add/edit a child row) | `$.confirm({ title, content, rtl: true, buttons: { save: { action: fn }, cancel: {} } })` — **always set `rtl: true`** |
+| Loading a partial view into a modal | `page.getPartialView(url, callback)` then `appController.decodePartialResponse(r)` before putting HTML in `$.confirm` |
+
+Never use raw `alert()` or `confirm()` — always use `toastr` / `Swal.fire` / `$.confirm` instead.
+
+### Child list Add/Edit — always a modal, never a new tab
+
+This applies whenever a **child** table has افزودن / ویرایش:
+
+- The grid is **embedded on the parent Edit** (محصولات، سوابق پیگیری), **or**
+- The grid is a **ListByParentId tab** opened from the parent toolbar (پیوست، یادداشت).
+
+In both cases:
+
+- `appController.addPage` may open the **list tab itself** from the parent toolbar. It must **not** open child New/Edit.
+- Open New/Edit in `$.confirm({ rtl: true })`: `page.getPartialView` of `New`/`Edit?parentId=...`, `appController.decodePartialResponse`, strip `.form-action-buttons`, save with `validateError` + `$content.dataBind()` + `$$.post('/Panel/.../save', ...)`.
+- After save or delete, refresh **that** table (`table.ajax.reload(null, false)`). Do **not** `refreshCurrentPage` / `location.reload`.
+- Do **not** run the child Edit page script inside the modal. Hide `form-action-buttons` / skip the save script when `RenderLayout == false`.
+- In `onContentReady` re-init what the form needs: EntitySelector, `initPersionDatePicker`, `initFileUploaders`, `initMoneyInputs`, `initTimeInputs`.
+
+Canonical: `Sale/TenderPart/ListByParentId.cshtml`, `Sale/TenderAttachment/ListByParentId.cshtml`, `Sale/TenderComment/ListByParentId.cshtml`.
+
+## 6. Forms, grids, and dates
+
+- **List pages** need only: `<datatableprofile entity-Type="typeof(EntityName)"></datatableprofile>`. DataTable initialization is automatic via `appController.initPage`.
+- **Custom / embedded DataTables** (not Data Profile): for one-line cells + hover full text, use `renderEllipsisCell` on text columns and `bindEmbeddedTableCellTooltips(table)` after init. Do **not** call `bindDataTableCellTooltips` — that is Data Profile only. Skip action columns with `className: 'text-center'` or `dt-ellipsis-skip`. Canonical: `Sale/ServiceRequest/Edit.cshtml`.
+- **Form fields** use `data-bind="propertyName"` (camelCase-friendly binding key) alongside `asp-for="PropertyName"`. Read/write the whole form via `.dataBind()` rather than field-by-field `.val()` calls.
+- **Persian (Shamsi) dates:**
+  ```html
+  <input data-bind="startShamsiDate"
+         data-persionDatePicker="true"
+         persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}' />
+  ```
+  `dataBind` auto-converts Shamsi ↔ Miladi (`MJUtil.shamsiToMiladi`/`miladiToShamsi`). If you inject HTML dynamically (e.g. into a `$.confirm` modal), call `initPersionDatePicker($container)` on it afterward.
+- **Money / price inputs (thousand separators):** every مبلغ / قیمت field must show `16,000,000` while typing and **save a raw number**. Canonical (see `Sale/TenderManagement/Edit.cshtml`):
+
+```html
+<input type="text" class="form-control" data-bind="preInvoicePrice" data-money="true" asp-for="PreInvoicePrice" />
+```
+
+  - **`type="text"` is required.** `asp-for` on `long`/`decimal` emits `type="number"`, which rejects commas — grouping will not appear.
+  - `data-money="true"` — `initMoneyInputs` / `initPage` apply Inputmask (`groupSeparator: ','`). Do **not** put `groupSeparator: ','` inside a `data-inputmask="..."` string (JSON parse of `','` is fragile).
+  - `dataBind` reads with `MJUtil.unformatMoney` and writes via `inputmask.setvalue`.
+  - After save / in JS math, use `MJUtil.unformatMoney($el.val())` — never `parseFloat($el.val())` on a grouped value (`parseFloat('1,234') === 1`).
+  - Display-only / DataTable: `MJUtil.formatMoney(value)` (see `havayar-dataprofile-savedquery.mdc`).
+  - Injected `$.confirm` money inputs: `Inputmask(moneyInputmaskOptions).mask($content.find('[data-money="true"]'))`.
+- **Time / hour inputs (`__:__`):** every ساعت / زمان ورود فیلد that is a clock time (HH:MM), **not** a Shamsi date and **not** a duration-in-hours number (گارانتی ساعتی, ساعت کارکرد روزانه), must show and accept `__:__`. Canonical: `Sale/OrderDetailSerial/MonitoringEdit.cshtml`.
+
+```html
+<input class="form-control ltr" type="text" data-bind="sendTime" data-time="true" placeholder="__:__" />
+```
+
+  - **`type="text"` is required.** Do **not** use `<input type="time">` as the panel standard.
+  - `data-time="true"` — `initTimeInputs` / `initPage` apply Inputmask (`mask: '99:99'`, `placeholder: '__:__'`).
+  - `dataBind` writes via `inputmask.setvalue` / `MJUtil.formatTime` and reads `MJUtil.unformatTime` (empty / incomplete `__:__` → `null`). Backend `string` time properties stay `"HH:MM"`.
+  - Injected `$.confirm` time inputs: `Inputmask(timeInputmaskOptions).mask($content.find('[data-time="true"]'))` or `initTimeInputs($content)`.
+- **Event binding:** use `data-action="myAction"` attributes plus a delegated handler (`page.$pageEl.on('click', '[data-action="myAction"]', fn)` or `$$('.container').on('click', '[data-action="myAction"]', fn)`) — never inline `onclick="..."` in the `.cshtml`.
+  - Note: `$$(document).on(...)` does **not** work for tab-scoped delegation, because `document` is not inside `page.$pageEl`. Delegate from `page.$pageEl` or a `$$(...)`-selected container instead.
+
+## 7. Style conventions
+
+- Prefix jQuery-object variables with `$` (`$btn`, `$el`, `$content`).
+- Function/variable names: camelCase (`savefn`, `loadResponsibleUsers`, `openSubPage`).
+- Prefer `const`/`let` over `var` in new/edited code.
+- No manual IIFE wrapping needed (see §1) and no `"use strict"` boilerplate — not used in this codebase's page scripts.
+- Avoid leaving `console.log` debug statements in page scripts; `console.warn`/`console.error` are acceptable for genuine failure paths.
+
+## 8. Must NOT do (legacy anti-patterns present in older files — do not copy them into new code)
+
+| Don't | Do instead | Seen in (legacy, don't imitate) |
+|---|---|---|
+| `location.reload()` / `window.reload()` | `appController.refreshCurrentPage()` | `Prd/StopsManagement/Report.cshtml` |
+| `window.location.href = '/Panel/...'` | `appController.addPage('/Panel/...')` | `System/PageBuilder/Edit.cshtml`, `System/QueryDesigner/List.cshtml` |
+| `alert(msg)` / `confirm(msg)` | `toastr.error(msg)` / `Swal.fire({...})` | `System/ImportDefinition/ImportData.cshtml`, `Eng/PartList/_Form.cshtml` |
+| Inline `onclick="..."` in `.cshtml` | `data-action="..."` + delegated handler | `System/QueryDesigner/List.cshtml`, `Eng/PartList/_Form.cshtml` |
+| Plain `$('#id')` / `$(document).on(...)` inside a Panel page's inline script | `$$('#id')` / `page.$pageEl.on(...)` (tab-scoped) | `System/Role/Edit.cshtml` and `System/Notification/List.cshtml` mix this — treat as legacy, not a pattern to extend |
+| `$$(this)` / `$$(e.target)` in a callback | `$(this)` / `$(e.target)` | — |
+| Raw `$.ajax({...})` for a standard save/list/delete call | `$$.post(url, data, cb)` / `$$.get(url, cb)` (or global `post`/`get`) | `Sale/OrderDetail/ListByParentId.cshtml`, `Sale/ProductionOrderItem/ListByParentId.cshtml` |
+| Adding `@section Scripts` or `<script src="~/js/...">` for a normal Panel page | Inline `<script>` at the bottom of the `.cshtml` — external files are only for reusable cross-page tooling like FormBuilder | — |
+| DataTable row/cell coloring in a List `.cshtml` (`draw.dt`, `createdRow`, `rowCallback`) | Data Profile `EventScriptsJson.onRowAdded` (`function(ctx){...}` on `system.SavedQuery`) — see `havayar-dataprofile-savedquery.mdc` §8 | `Sale/TenderManagement/List.cshtml` (removed) |
+| `appController.addPage` for افزودن/ویرایش of a child row (embedded grid **or** ListByParentId tab) | `$.confirm` modal + `ajax.reload` (see §5) | older `ListByParentId` pages that still open a tab |
+| Bare price `<input>` with no thousand grouping | `data-money="true"` + numeric `data-inputmask` (see §6) | older money fields that still show `1234567` |
+| `<input type="time">` or a bare ساعت field | `type="text"` + `data-time="true"` (`__:__` / `99:99`, see §6) | older `SendTime` placeholders like `12:00` |
+
+When editing an existing legacy file that already uses one of the "don't" patterns, prefer matching the surrounding file's existing style over a partial rewrite, unless the user explicitly asks for cleanup.

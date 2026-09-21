@@ -44,6 +44,7 @@ namespace Entities.Base.Notification
 		public DateTime? SendDateTime { get; set; }
 		public List<string>? ToEmails { get; set; }
 		public List<string>? CcEmails { get; set; }
+		public List<long>? AttachmentFileIds { get; set; }
 		public string? ErrorMessage { get; set; }
 
 		public Notification Clone()

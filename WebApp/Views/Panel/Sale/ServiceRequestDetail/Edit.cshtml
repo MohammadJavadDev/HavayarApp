@@ -1,0 +1,147 @@
+@using Entities.App.Inv
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.Base
+@model ServiceRequestDetail
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+	var customerId = ViewBag.CustomerId as long? ?? 0;
+	var productKind = Model?.OtherPartId != null && Model.OtherPartId != 0 ? "other" : "havayar";
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(ServiceRequestDetail)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body row">
+		<span class="section-box-title">جزئیات محصول</span>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="serviceRequestId" value="@Model?.ServiceRequestId" type="hidden" />
+		<input type="hidden" data-parent-customer-id value="@customerId" />
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold required">نوع محصول</label>
+			<select class="form-control" data-product-kind>
+				@if (productKind == "other")
+				{
+					<option value="havayar">محصول هوایاری</option>
+					<option value="other" selected>محصول غیر هوایاری</option>
+				}
+				else
+				{
+					<option value="havayar" selected>محصول هوایاری</option>
+					<option value="other">محصول غیر هوایاری</option>
+				}
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold required">نوع درخواست</label>
+			<select class="form-control" data-bind="requestType" data-required="true" asp-for="RequestType" asp-items="Html.GetEnumSelectList(typeof(ServiceRequestTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		@* <div class="col-md-8 form-group-inline js-havayar-fields">
+			<label class="form-label fw-bold"></label>
+			@(Html.EntitySelector<OrderDetail>(
+				"ServiceRequestDetailOrderSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Seq = c.Seq, Part_Code = c.Part.Code, Part_Name = c.Part.Name, CustomerId = c.Sale_Order.CustomerId },
+				c => new { c.Seq, c.Part.Code, c.Part.Name },
+				"{Part.Code} {Part.Name}",
+				"orderDetailId",
+				"orderDetailName",
+				Model?.OrderDetailId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div> *@
+		<div class="col-md-12 form-group-inline js-havayar-fields">
+			<label class="form-label fw-bold">سریال محصول مرتبط</label>
+			@(Html.EntitySelector<OrderDetailSerial>(
+				"ServiceRequestDetailSerialSelector",
+						c => c.IsActive == IsActiveEnum.Active && c.OrderDetail.Sale_Order.CustomerId == customerId,
+						c => new { Id = c.Id, Serial = c.Serial, OrderDetailId = c.OrderDetailId, Seq = c.OrderDetail.Seq, Part_Code = c.OrderDetail.Part.Code, Part_Name = c.OrderDetail.Part.Name, CustomerId = c.OrderDetail.Sale_Order.CustomerId },
+						c => new { c.Serial, c.OrderDetail.Part.Code },
+						"{Part_Name}  | {Part_Code}  |  {Serial}",
+						"orderDetailSerialId",
+						"orderDetailSerialName",
+						Model?.OrderDetailSerialId?.ToString(),
+						false,
+						false,
+						false,
+						false,
+						@"<div  >
+						<span>نام کالا: {Part_Name}</span>
+						</br>
+						<span>کد کالا: {Part_Code}</span>
+						</br>
+						<span>سریال : {Serial}</span>
+						</div>"
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-8 form-group-inline js-other-fields">
+			<label class="form-label fw-bold">محصول غیرمرتبط</label>
+			@(Html.EntitySelector<Part>(
+				"ServiceRequestDetailOtherPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"otherPartId",
+				"otherPartName",
+				Model?.OtherPartId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline js-other-fields">
+			<label class="form-label fw-bold">سریال غیرمرتبط</label>
+			<input class="form-control" data-bind="otherPartSerial" asp-for="OtherPartSerial" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold required">تاریخ ابلاغ</label>
+			<input class="form-control" data-bind="noticeShamsiDate" data-required="true" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.NoticeShamsiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold required">ساعت ابلاغ</label>
+			<input class="form-control ltr" type="text" data-bind="noticeTime" data-time="true" data-required="true" asp-for="NoticeTime" placeholder="__:__" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function applyProductKind() {
+		const isHavayar = $$('[data-product-kind]').val() !== 'other';
+		$$('.js-havayar-fields').toggle(isHavayar);
+		$$('.js-other-fields').toggle(!isHavayar);
+	}
+	$$('[data-product-kind]').on('change', function () { applyProductKind(); });
+	applyProductKind();
+	 
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

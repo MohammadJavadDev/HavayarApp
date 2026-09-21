@@ -53,5 +53,42 @@ namespace Entities.App.Gnr
 		public string? DlCode { get; set; }
 
 
+		/// <summary>
+		/// گرید تامین‌کننده (HTS: Gnr_ManCompany.Grade، nvarchar(50)) — D16 / Q5-a
+		/// </summary>
+		[DisplayName("گرید")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? Grade { get; set; }
+
+
+		/// <summary>
+		/// خدمات/محصولات (HTS: Gnr_ManCompany.ServicesAndProducts، nvarchar(256)) — D16 / Q5-a
+		/// </summary>
+		[DisplayName("خدمات/محصولات")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(256)]
+		public string? ServicesAndProducts { get; set; }
+
+
+		/// <summary>
+		/// شخص مرتبط (HTS: Gnr_ManCompany.RelatedPersonName، nvarchar(128)) — D16 / Q5-a
+		/// </summary>
+		[DisplayName("شخص مرتبط")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(128)]
+		public string? RelatedPersonName { get; set; }
+
+
+		/// <summary>
+		/// آدرس کامل تامین‌کننده (HTS: Gnr_ManCompany.Address، nvarchar(1024)).
+		/// روی Supplier مانده تا Gnr.Party.Address (مشتری/عمومی) آلوده نشود — D16 / Q5-a
+		/// </summary>
+		[DisplayName("آدرس کامل")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(2000)]
+		public string? Address { get; set; }
+
+
 	}
 }

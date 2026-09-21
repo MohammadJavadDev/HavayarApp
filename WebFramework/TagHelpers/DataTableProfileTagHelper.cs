@@ -1,4 +1,4 @@
-﻿using Common.Attributes;
+using Common.Attributes;
 using Common.Auth.Enums;
 using Common.System;
 using Common.Utilities;
@@ -29,6 +29,13 @@ namespace WebFramework.TagHelpers
 	   public string? editEntityPath { get; set; }
         public string? deleteEntityPath { get; set; }
 	   public string? exportExcelPath { get; set; }
+	   public string? fetchDataPath { get; set; }
+	   /// <summary>
+	   /// Optional comma-separated SavedQuery.Name keys. When set, only these profiles
+	   /// appear as tabs (admin and RoleAccess users). Use this so List and Monitoring
+	   /// of the same entity do not share every profile.
+	   /// </summary>
+	   public string? ProfileNames { get; set; }
 
         public override void Process(TagHelperContext context, TagHelperOutput output)
         {
@@ -72,7 +79,12 @@ namespace WebFramework.TagHelpers
 
 
 				var existEntityCreateAction = controller?.Actions.FirstOrDefault(c => c.ActionAccessType == ActionAccessType.View && c.ActionAccessItemType == ActionAccessItemType.Create);
-				var existEntityUpdateAction = controller?.Actions.FirstOrDefault(c => c.ActionAccessType == ActionAccessType.View && c.ActionAccessItemType == ActionAccessItemType.Update);
+				var updateActions = controller?.Actions
+					.Where(c => c.ActionAccessType == ActionAccessType.View && c.ActionAccessItemType == ActionAccessItemType.Update)
+					.ToList();
+				var existEntityUpdateAction = updateActions?
+					.FirstOrDefault(c => c.Path != null && c.Path.EndsWith("/Edit", StringComparison.OrdinalIgnoreCase))
+					?? updateActions?.FirstOrDefault();
 				var existEntityDelteAction = controller?.Actions.FirstOrDefault(c => c.ActionAccessType == ActionAccessType.Api && c.ActionAccessItemType == ActionAccessItemType.Delete);
 
 
@@ -112,9 +124,20 @@ namespace WebFramework.TagHelpers
 				.Select(c => c.RowId) .ToList();
 				profiles = queryService.GetDataTableProfileById(profilesAccess , entityName);
 			}
-				
 
- 
+			if (!string.IsNullOrWhiteSpace(ProfileNames) && profiles != null)
+			{
+				var wanted = ProfileNames
+					.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+				var byName = profiles
+					.Where(c => !string.IsNullOrWhiteSpace(c.Name))
+					.GroupBy(c => c.Name!, StringComparer.OrdinalIgnoreCase)
+					.ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+				profiles = wanted
+					.Where(n => byName.ContainsKey(n))
+					.Select(n => byName[n])
+					.ToList();
+			}
 
 		   var listOptions = "";
 	        if (profiles == null || profiles.Count == 0)
@@ -174,7 +197,11 @@ namespace WebFramework.TagHelpers
 						            <i class=""ki-copy-success ki-outline fs-2"">
 						            </i>
 					            </a>
-					            <select class=""form-select"" data-action=""dataProfile"" data-entityName=""{entityName}"" data-edit-path=""{editEntityPath}"" data-delete-path=""{deleteEntityPath}""    data-new-path=""{newEntityPath}"" data-exportExcell-path=""{exportExcelPath}"">
+							<a class="" btn btn-icon   btn-active-color-primary  me-1 {disableActions} "" data-action=""saveDataProfileColumnWidths"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره عرض ستون‌ها"" >
+						            <i class=""fa fa-arrows-h fs-2"">
+						            </i>
+					            </a>
+					            <select class=""form-select"" data-action=""dataProfile"" data-entityName=""{entityName}"" data-edit-path=""{editEntityPath}"" data-delete-path=""{deleteEntityPath}""    data-new-path=""{newEntityPath}"" data-exportExcell-path=""{exportExcelPath}"" data-fetch-path=""{fetchDataPath}"">
 						            {listOptions}
 					            </select>
 				            </div>

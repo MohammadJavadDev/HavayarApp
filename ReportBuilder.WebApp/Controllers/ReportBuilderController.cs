@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using ReportBuilder.Entities;
 using ReportBuilder.Services;
 using ReportBuilder.Services.Contracts;
@@ -38,7 +39,8 @@ namespace ReportBuilder.WebApp.Controllers
     public class ReportBuilderController(IReportBuilderService reportBuilderService ,
          IUnitOfWork unitOfWork,
 	   IQueryService _queryService,
-	   ICompressorSizingService compressorSizingService) 
+	   ICompressorSizingService compressorSizingService,
+	   IConfiguration configuration) 
           : BaseController
     {
         
@@ -63,6 +65,11 @@ namespace ReportBuilder.WebApp.Controllers
 
 		static ReportBuilderController()
 		{
+			// Seed reports include a dummy C# Script. Stimulsoft compiles it via Roslyn and
+			// loads Microsoft.CodeAnalysis.VisualBasic 4.8, which does not implement
+			// CommonGetSemanticModel from CodeAnalysis 4.14 (used by FormBuilder). Interpretation
+			// skips that compile path for all viewers/designers in this process.
+			StiOptions.Engine.ForceInterpretationMode = true;
 			RegisterStimulsoftFonts();
 		}
 
@@ -116,6 +123,17 @@ namespace ReportBuilder.WebApp.Controllers
 			}
 
 			return null;
+		}
+
+		private string? ResolveUploadsRoot()
+		{
+			var uploadsPath = configuration["Storage:UploadsPath"];
+			if (string.IsNullOrWhiteSpace(uploadsPath))
+				return null;
+
+			return Path.IsPathRooted(uploadsPath)
+				? uploadsPath
+				: Path.Combine(Directory.GetCurrentDirectory(), uploadsPath);
 		}
 
         [HttpGet("{action}")]
@@ -802,7 +820,10 @@ namespace ReportBuilder.WebApp.Controllers
 				    .FirstOrDefault(c => c.Id == reportId);
 
 				if (existReport?.Content != null && existReport.Content.HasValue())
+				{
 					report.LoadFromJson(existReport.Content);
+					report.CalculationMode = StiCalculationMode.Interpretation;
+				}
 			}
 
 			// نکته مهم: اینجا دیگر Dictionary/DataSources/Databases به‌صورت کامل پاک نمی‌شوند.
@@ -837,11 +858,15 @@ namespace ReportBuilder.WebApp.Controllers
 			}
 
 			if (dataSet.Tables.Count > 0)
+			{
+				CertificatePhotoResolver.ResolveToFullPaths(dataSet, ResolveUploadsRoot());
 				report.RegData(dataSet);
+			}
 
 			AddFontResourcesToReport(report);
 			if (string.Equals(report.ReportName, "CompressorSizing", StringComparison.OrdinalIgnoreCase))
 				CompressorSizingReportLetterhead.Apply(report, compressorSizingService.ResolveWatermarkImagePath());
+			CertificateReportWatermark.Apply(report);
 			report.Dictionary.Synchronize();
 
 			return StiNetCoreDesigner.GetReportResult(this, report);
@@ -1142,6 +1167,7 @@ namespace ReportBuilder.WebApp.Controllers
 
             var report = StiReport.CreateNewReport();
             report.LoadFromJson(existReport.Content);
+            report.CalculationMode = StiCalculationMode.Interpretation;
 
             // نکته مهم: Dictionary/DataSources/Databases اینجا دیگر پاک نمی‌شوند تا Resource هایی که کاربر
             // خودش در طراح اضافه کرده (مثلاً فایل اکسل/JSON/CSV/XML) از بین نروند. RegData به‌صورت خودکار
@@ -1150,8 +1176,10 @@ namespace ReportBuilder.WebApp.Controllers
                 ? BuildDataSetFromStoreProc(existReport, filters)
                 : await BuildDataSetFromTableOrQuery(existReport, filters);
 
+			CertificatePhotoResolver.ResolveToFullPaths(dataSet, ResolveUploadsRoot());
 			report.RegData(dataSet);
 			AddFontResourcesToReport(report);
+			CertificateReportWatermark.Apply(report);
             report.Dictionary.Synchronize();
 
             return StiNetCoreViewer.GetReportResult(this, report);

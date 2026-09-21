@@ -36,6 +36,7 @@ namespace Data
  		public DbSet<Hts_Pln_ProductionOrderItemComment> Hts_Pln_ProductionOrderItemComments { get; set; }
  		public DbSet<Hts_Sup_OpenOrderRequest> Hts_Sup_OpenOrderRequests { get; set; }
  		public DbSet<Hts_Sup_OpenOrderRequest_Attachment> Hts_Sup_OpenOrderRequest_Attachments { get; set; }
+ 		public DbSet<Hts_Sup_OpenOrderRequestVpis> Hts_Sup_OpenOrderRequestVpis { get; set; }
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{

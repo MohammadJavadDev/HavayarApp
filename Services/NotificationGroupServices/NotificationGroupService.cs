@@ -34,7 +34,8 @@ namespace Services.NotificationGroupServices
 
 		public async Task<List<GroupMembersViewModel>> GetGroupMembersAsync(string groupCode, CancellationToken ct = default)
 		{
-			var cacheKey = $"{CACHE_KEY_PREFIX}{groupCode}";
+			var normalizedCode = NormalizeGroupCode(groupCode);
+			var cacheKey = GetCacheKey(normalizedCode);
 
 			if (_cache.TryGetValue(cacheKey, out List<GroupMembersViewModel>? cachedUsers) && cachedUsers != null)
 			{
@@ -43,7 +44,9 @@ namespace Services.NotificationGroupServices
 
 			var users = await _db.NotificationGroupMembers
 			    .AsNoTracking()
-			    .Where(m => m.NotificationGroup.Code == groupCode && m.IsActive == IsActiveEnum.Active)
+			    .Where(m => m.NotificationGroup.Code == normalizedCode
+				    && m.NotificationGroup.IsActive == IsActiveEnum.Active
+				    && m.IsActive == IsActiveEnum.Active)
 			    .Include(m => m.User)
 			    .Select(m =>  new GroupMembersViewModel() 
 			    {Username= m.User.Username,
@@ -60,8 +63,9 @@ namespace Services.NotificationGroupServices
 
 		public async Task<bool> AddMemberToGroupAsync(string groupCode, long userId, CancellationToken ct = default)
 		{
+			var normalizedCode = NormalizeGroupCode(groupCode);
 			var group = await _db.NotificationGroups
-			    .FirstOrDefaultAsync(g => g.Code == groupCode, ct);
+			    .FirstOrDefaultAsync(g => g.Code == normalizedCode, ct);
 
 			if (group == null)
 				return false;
@@ -100,15 +104,17 @@ namespace Services.NotificationGroupServices
 			await _db.SaveChangesAsync(ct);
 
 			// Clear cache
-			_cache.Remove($"{CACHE_KEY_PREFIX}{groupCode}");
+			InvalidateGroupCache(group.Code);
 
 			return true;
 		}
 
 		public async Task<bool> RemoveMemberFromGroupAsync(string groupCode, long userId, CancellationToken ct = default)
 		{
+			var normalizedCode = NormalizeGroupCode(groupCode);
 			var member = await _db.NotificationGroupMembers
-			    .FirstOrDefaultAsync(m => m.NotificationGroup.Code == groupCode && m.UserId == userId, ct);
+			    .Include(m => m.NotificationGroup)
+			    .FirstOrDefaultAsync(m => m.NotificationGroup.Code == normalizedCode && m.UserId == userId, ct);
 
 			if (member == null)
 				return false;
@@ -117,7 +123,7 @@ namespace Services.NotificationGroupServices
 			await _db.SaveChangesAsync(ct);
 
 			// Clear cache
-			_cache.Remove($"{CACHE_KEY_PREFIX}{groupCode}");
+			InvalidateGroupCache(member.NotificationGroup.Code);
 
 			return true;
 		}
@@ -136,17 +142,29 @@ namespace Services.NotificationGroupServices
 		    string code,
 		    string displayName,
 		    string? description = null,
-		    CancellationToken ct = default)
+		    CancellationToken ct = default,
+		    IsActiveEnum? isActive = null)
 		{
+			var normalizedCode = NormalizeGroupCode(code);
+			var normalizedDisplayName = NormalizeDisplayName(displayName);
+
+			var codeExists = await _db.NotificationGroups
+				.AsNoTracking()
+				.AnyAsync(g => g.Code == normalizedCode, ct);
+			if (codeExists)
+				throw new InvalidOperationException("گروهی با این کد قبلاً ثبت شده است.");
+
 			var now = DateTime.Now;
 			var group = new NotificationGroup
 			{
-				Code = code,
-				DisplayName = displayName,
-				Description = description,
-				IsActive = IsActiveEnum.Active,
+				Code = normalizedCode,
+				DisplayName = normalizedDisplayName,
+				Description = NormalizeDescription(description),
+				IsActive = isActive ?? IsActiveEnum.Active,
 				CreatedById = _sdk.CurrentUser.Id,
+				CreatedByName = _sdk.CurrentUser.FullName ?? _sdk.CurrentUser.Username,
 				ModifiedById = _sdk.CurrentUser.Id,
+				ModifiedByName = _sdk.CurrentUser.FullName ?? _sdk.CurrentUser.Username,
 				CreatedOnMiladiDateTime = now,
 				CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
 				ModifiedDateMiladiDateTime = now,
@@ -155,8 +173,84 @@ namespace Services.NotificationGroupServices
 
 			await _db.NotificationGroups.AddAsync(group, ct);
 			await _db.SaveChangesAsync(ct);
+			InvalidateGroupCache(group.Code);
 
 			return group;
+		}
+
+		public async Task<NotificationGroup?> UpdateGroupAsync(
+			long id,
+			string code,
+			string displayName,
+			string? description = null,
+			IsActiveEnum? isActive = null,
+			CancellationToken ct = default)
+		{
+			var normalizedCode = NormalizeGroupCode(code);
+			var normalizedDisplayName = NormalizeDisplayName(displayName);
+			var group = await _db.NotificationGroups.FirstOrDefaultAsync(g => g.Id == id, ct);
+
+			if (group == null)
+				return null;
+
+			var codeExists = await _db.NotificationGroups
+				.AsNoTracking()
+				.AnyAsync(g => g.Id != id && g.Code == normalizedCode, ct);
+			if (codeExists)
+				throw new InvalidOperationException("گروهی با این کد قبلاً ثبت شده است.");
+
+			var oldCode = group.Code;
+			var now = DateTime.Now;
+
+			group.Code = normalizedCode;
+			group.DisplayName = normalizedDisplayName;
+			group.Description = NormalizeDescription(description);
+			group.IsActive = isActive ?? group.IsActive ?? IsActiveEnum.Active;
+			group.ModifiedById = _sdk.CurrentUser.Id;
+			group.ModifiedByName = _sdk.CurrentUser.FullName ?? _sdk.CurrentUser.Username;
+			group.ModifiedDateMiladiDateTime = now;
+			group.ModifiedDateShamsiDateTime = now.ToShamsiDateTime();
+
+			await _db.SaveChangesAsync(ct);
+
+			// تغییر کد، کلید کش را نیز تغییر می‌دهد؛ هر دو کلید باید پاک شوند.
+			InvalidateGroupCache(oldCode, group.Code);
+
+			return group;
+		}
+
+		private static string NormalizeGroupCode(string groupCode)
+		{
+			if (string.IsNullOrWhiteSpace(groupCode))
+				throw new ArgumentException("کد گروه نمی‌تواند خالی باشد.", nameof(groupCode));
+
+			return groupCode.Trim();
+		}
+
+		private static string NormalizeDisplayName(string displayName)
+		{
+			if (string.IsNullOrWhiteSpace(displayName))
+				throw new ArgumentException("نام گروه نمی‌تواند خالی باشد.", nameof(displayName));
+
+			return displayName.Trim();
+		}
+
+		private static string? NormalizeDescription(string? description)
+		{
+			return string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+		}
+
+		private static string GetCacheKey(string groupCode)
+		{
+			return $"{CACHE_KEY_PREFIX}{groupCode.Trim().ToUpperInvariant()}";
+		}
+
+		private void InvalidateGroupCache(params string?[] groupCodes)
+		{
+			foreach (var groupCode in groupCodes.Where(code => !string.IsNullOrWhiteSpace(code)).Distinct(StringComparer.OrdinalIgnoreCase))
+			{
+				_cache.Remove(GetCacheKey(groupCode!));
+			}
 		}
 	}
 }

@@ -1,0 +1,195 @@
+@using Entities.App.Rpr
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<style>
+	#rrContractorChildCard #rrContractorChildTable,
+	#rrContractorChildCard table.ellipsis-tooltip-table {
+		width: 2100px !important;
+		min-width: 2100px !important;
+		table-layout: fixed;
+	}
+</style>
+<div class="card" id="rrContractorChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">پیمانکار درخواست تعمیر</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100 nowrap ellipsis-tooltip-table" id="rrContractorChildTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th style="width:120px;">عملیات</th>
+					<th style="min-width:220px;">پیمانکار</th>
+					<th style="min-width:140px;">مبلغ تعمیر</th>
+					<th style="min-width:220px;">عنوان کالا</th>
+					<th style="min-width:150px;">تاریخ ارسال قطعه</th>
+					<th style="min-width:150px;">تاریخ اعلام هزینه</th>
+					<th style="min-width:130px;">تاریخ تایید</th>
+					<th style="min-width:130px;">تاریخ توافقی</th>
+					<th style="min-width:130px;">تاریخ برگشت</th>
+					<th style="min-width:180px;">کاربر ایجادکننده</th>
+					<th style="min-width:140px;">تاریخ ایجاد</th>
+					<th style="min-width:250px;">توضیحات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const rrContractorParentId = @parentId;
+	function shamsiDateOnly(v) {
+		if (v == null || v === '') return '-';
+		return String(v).replace(/\s.*$/, '');
+	}
+	const rrContractorTable = $$('#rrContractorChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		scrollX: true,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Rpr/RepairRequestContractor/GetListByParentId?repairRequestId=' + rrContractorParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{
+				data: 'id',
+				orderable: false,
+				width: '120px',
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				}
+			},
+			{ data: 'contractorTitle', defaultContent: '-', width: '220px', render: renderEllipsisCell },
+			{ data: 'cost', width: '140px', render: function (v) { return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : (v ?? '-'); } },
+			{ data: 'partTitle', defaultContent: '-', width: '220px', render: renderEllipsisCell },
+			{ data: 'sendPartShamsiDate', defaultContent: '-', width: '150px', render: shamsiDateOnly },
+			{ data: 'costAnnouncementShamsiDate', defaultContent: '-', width: '150px', render: shamsiDateOnly },
+			{ data: 'acceptShamsiDate', defaultContent: '-', width: '130px', render: shamsiDateOnly },
+			{ data: 'agreementShamsiDate', defaultContent: '-', width: '130px', render: shamsiDateOnly },
+			{ data: 'returnShamsiDate', defaultContent: '-', width: '130px', render: shamsiDateOnly },
+			{ data: 'createdByName', defaultContent: '-', width: '180px', render: renderEllipsisCell },
+			{ data: 'createdOnShamsiDateTime', defaultContent: '-', width: '140px', render: shamsiDateOnly },
+			{ data: 'comment', defaultContent: '-', width: '250px', render: renderEllipsisCell }
+		]
+	});
+	if (typeof bindEmbeddedTableCellTooltips === 'function')
+		bindEmbeddedTableCellTooltips(rrContractorTable);
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function initChildModalForm($root) {
+		if (typeof initPersionDatePicker === 'function')
+			initPersionDatePicker($root);
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+		$root.on('change', '#RepairReqContractorPartSelector .entity-selector-value', function () {
+			const id = $(this).val();
+			const text = $root.find('#RepairReqContractorPartSelector .entity-selector-text').val();
+			const $title = $root.find('[data-bind="partTitle"]');
+			if (id && text && !$title.val())
+				$title.val(text);
+		});
+		if (typeof initFileUploaders === 'function')
+			initFileUploaders($root);
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($root);
+		else if (window.Inputmask && window.moneyInputmaskOptions)
+			Inputmask(moneyInputmaskOptions).mask($root.find('[data-money="true"]'));
+		if (typeof initTimeInputs === 'function')
+			initTimeInputs($root);
+		else if (window.Inputmask && window.timeInputmaskOptions)
+			Inputmask(timeInputmaskOptions).mask($root.find('[data-time="true"]'));
+	}
+
+	function openRrContractorModal(id) {
+		const url = id
+			? '/Panel/Rpr/RepairRequestContractor/Edit?id=' + id + '&repairRequestId=' + rrContractorParentId
+			: '/Panel/Rpr/RepairRequestContractor/New?repairRequestId=' + rrContractorParentId;
+		const $trigger = id
+			? $$('#rrContractorChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#rrContractorChildCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش پیمانکار' : 'افزودن پیمانکار',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Rpr/RepairRequestContractor/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								rrContractorTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { initChildModalForm(selfConfirm.$body); }, 100);
+				}
+			});
+		});
+	}
+
+	$$('#rrContractorChildCard').on('click', '[data-action="newChild"]', function () {
+		openRrContractorModal(null);
+	});
+	$$('#rrContractorChildCard').on('click', '[data-action="editChild"]', function () {
+		openRrContractorModal($(this).data('id'));
+	});
+	$$('#rrContractorChildCard').on('click', '[data-action="deleteChild"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Rpr/RepairRequestContractor/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					rrContractorTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

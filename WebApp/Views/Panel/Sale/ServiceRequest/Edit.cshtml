@@ -1,676 +1,521 @@
-@using Entities.App.Gnr
+@using Entities.App.Crm
 @using Entities.App.Hcm
 @using Entities.App.Rpr
-@using Entities.App.SLS
 @using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Base
 @model ServiceRequest
 
-<div class="card shadow-sm border-0">
-
-     <div class="form-action-buttons border-bottom p-3">
-          <form-action-buttons entity-type="typeof(ServiceRequest)">
-          </form-action-buttons>
-     </div>
-
-     <div class="card-body">
-
-          <div class="row mb-4">
-               <div class="col-12">
-                    <h4 class="fw-bold text-dark mb-0">
-                         اطلاعات اصلی
-                    </h4>
-               </div>
-          </div>
-
-          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
-
-          <div class="row g-3">
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">مشتری</label>
-
-                    @(Html.EntitySelector<Customer>(
-                                        "CustomerSelector",
-                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        c => new
-                                        {
-                                             Id = c.Id,
-                                             Title = c.Party.FullName
-                                        },
-                                        c => new { c.Party.FullName },
-                                        "{Title}",
-                                        "CustomerId",
-                                        Model?.Customer?.Party?.FullName,
-                                        Model?.CustomerId?.ToString()
-                                        ))
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">سایت مشتری</label>
-
-                    @(Html.EntitySelector<Customer>(
-                                        "CustomerAgencySelector",
-                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        c => new
-                                        {
-                                             Id = c.Id,
-                                             Title = c.Party.FullName
-                                        },
-                                        c => new { c.Party.FullName },
-                                        "{Title}",
-                                        "CustomerAgencyId",
-                                        Model?.CustomerAgency?.Party?.FullName,
-                                        Model?.CustomerAgencyId?.ToString()
-                                        ))
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">نام نماینده مشتری</label>
-
-                    <input class="form-control"
-                           data-bind="customerAgentName"
-                           asp-for="CustomerAgentName" />
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">سمت نماینده مشتری</label>
-
-                    <input class="form-control"
-                           data-bind="customerAgentJobPosition"
-                           asp-for="CustomerAgentJobPosition" />
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">شماره همراه نماینده مشتری</label>
-
-                    <input class="form-control"
-                           data-bind="customerAgentMobile"
-                           asp-for="CustomerAgentMobile" />
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">آدرس ایمیل نماینده مشتری</label>
-
-                    <input class="form-control"
-                           data-bind="customerAgentEmailAddress"
-                           asp-for="CustomerAgentEmailAddress" />
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class='col-md-3'>
-                    <label class='form-label fw-bold'>
-                         تاریخ تماس
-                    </label>
-                    <input class='form-control' data-bind='contactShamsiDate' data-persionDatePicker="true"
-                           persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                           value='@Model?.ContactMiladiDate' />
-               </div>
-
-               <div class="col-md-3">
-                    <label class="form-label fw-bold">شماره شناسنامه‌های تعمیرات</label>
-
-                    @(Html.EntitySelector<RepairRequest>(
-                                        "RepairRequestIdSelector",
-                                        r => r.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        r => new
-                                        {
-                                             Id = r.Id,
-                                             CustomerTitle = r.Customer.Party.FullName,
-                                        },
-                                        r => new { r.Id },
-                                        "{Id} - {CustomerTitle} ",
-                                        "RepairRequestId",
-                                        Model?.RepairRequest != null
-                                        ? Model.RepairRequest.Customer.Party.FullName + " - " + Model.RepairRequest.Id
-                                        : "",
-                                        Model?.RepairRequestId?.ToString()
-                                        ))
-
-                    <div data-invalidmessagespan class="mt-1">
-                         <span class="text-danger"></span>
-                    </div>
-               </div>
-
-               <div class="col-md-2 d-flex align-items-center mt-4">
-                    <div class="form-check">
-                         <input data-bind="unreal"
-                                class="form-check-input"
-                                type="checkbox"
-                                asp-for="Unreal" />
-
-                         <label class="form-check-label fw-bold form-label fw-bold"
-                                asp-for="Unreal">
-                              غیر واقعی
-                         </label>
-                    </div>
-               </div>
-
-               <div class='col-md-12'>
-                    <label class='form-label fw-bold'>علت اعزام کارشناس</label>
-                    <textarea class='form-control' data-bind='reasonSendingExpert' asp-for="ReasonSendingExpert" rows="4"></textarea>
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-          </div>
-
-          <div class="card border mt-5">
-               <div class="card-body">
-
-                    <div class="row g-3 align-items-end mb-4">
-
-                         <div class="col-md-4">
-                              <label class="form-label fw-bold">مسئول منطقه</label>
-                              @(Html.EntitySelector<Personel>(
-                                                            "ResponsibleZoneSelector",
-                                                            c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                                            c => new
-                                                            {
-                                                                 Id = c.Id,
-                                                                 Name = c.Name + " " + c.Family,
-                                                                 Code = c.Code
-                                                            },
-                                                            c => new { c.Name, c.Family },
-                                                            "{Name}",
-                                                            "ResponsibleZoneId",
-                                                            Model?.ResponsibleZone != null
-                                                            ? Model.ResponsibleZone.Name + " " + Model.ResponsibleZone.Family
-                                                            : "",
-                                                            Model?.ResponsibleZoneId?.ToString()
-                                                            ))
-                         </div>
-
-                         <div class="col-md-4">
-                              <label class="form-label fw-bold">نام منطقه</label>
-                              @(Html.EntitySelector<Region>(
-                                                            "DispachZoneSelector",
-                                                            c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                                            c => new
-                                                            {
-                                                                 Id = c.Id,
-                                                                 Name = c.Name,
-                                                                 Code = c.Code
-                                                            },
-                                                            c => new { c.Name },
-                                                            "{Name}",
-                                                            "DispachZoneId",
-                                                            Model?.DispachZone?.Name,
-                                                            Model?.DispachZoneId?.ToString()
-                                                            ))
-                         </div>
-
-                         <div class='col-md-4'>
-                              <label class="form-label fw-bold">نام کارشناس</label>
-
-                              @(Html.EntitySelector<Personel>
-                                                            (
-                                                            "ExpertNameIdSelector",
-                                                            c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                                            c => new
-                                                            {
-                                                                 Id = c.Id,
-                                                                 Name = c.Name + " " + c.Family,
-
-                                                            },
-                                                            c => new { c.Id, c.Name, c.Family },
-                                                            "{Name}",
-                                                            "ExpertNameId",
-                                                            "ExpertName",
-                                                            Model?.ExpertNameId,
-                                                            false,
-                                                            true
-                                                            ))
-
-                              <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-                         </div>
-                    </div>
-
-                    <div style="width:100%; text-align:right; margin-bottom:10px;">
-                         <button type="button"
-                                 class="btn btn-primary btn-sm"
-                                 data-action="addNewContractor">
-
-                              <i class="fa fa-plus ms-1"></i>
-                              جدید
-
-                         </button>
-                    </div>
-
-                    <div class="table-responsive">
-
-                         <table id="contractorTable"
-                                class="table table-bordered table-hover align-middle text-center">
-
-                              <thead class="table-light">
-                                   <tr>
-                                        <th>عملیات</th>
-                                        <th>شناسه</th>
-                                        <th>نوع درخواست</th>
-                                        <th>کد کالا</th>
-                                        <th>نام کالا</th>
-                                        <th>سریال</th>
-                                        <th>شماره سفارش ساخت</th>
-                                        <th>تاریخ ابلاغ</th>
-                                        <th>ساعت ابلاغ</th>
-                                   </tr>
-                              </thead>
-
-                              <tbody id="contractorTableBody">
-                                   <tr id="contractorLoadingRow">
-                                        <td colspan="9" class="text-center py-5">
-                                             <div class="spinner-border text-primary" role="status">
-                                                  <span class="visually-hidden">در حال بارگذاری...</span>
-                                             </div>
-                                        </td>
-                                   </tr>
-                              </tbody>
-
-                         </table>
-
-                    </div>
-
-               </div>
-          </div>
-
-     </div>
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(ServiceRequest)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-print"
+				action-name="printSheet" title="چاپ برگه درخواست"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-paper-plane"
+				action-name="sendDispatch" title="ثبت اعزام"></form-action-button>
+			@if (ViewBag.IsCompanyUser as bool? != true)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-cogs"
+					action-name="openParts" title="درخواست کالا"></form-action-button>
+			}
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-cogs"
+				action-name="openPartsAgency" title="درخواست کالا-نمایندگان"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-plane"
+				action-name="openMissions" title="ماموریت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-file-alt"
+				action-name="openWorkReports" title="گزارش کار"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-paperclip"
+				action-name="openAttachments" title="پیوست‌ها"></form-action-button>
+		</form-action-buttons>
+	</div>
 </div>
 
-<div class="card mt-4 border-0 shadow-sm">
-     <div class="card-body">
-          <div class="row text-muted">
+ 
 
-               <div class="col-md-3">
-                    <span class="fw-bold">ایجاد کننده :</span>
-                    <span data-bind="createdByName">@Model?.CreatedByName</span>
-               </div>
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">عمومی</span>
 
-               <div class="col-md-3">
-                    <span class="fw-bold">تاریخ ایجاد :</span>
-                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
-               </div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره اندیکاتور</label>
+			<input class="form-control" data-bind="id" value="@Model?.Id" readonly placeholder="ایجاد به صورت اتوماتیک" />
+		</div>
 
-               <div class="col-md-3">
-                    <span class="fw-bold">ویرایش کننده :</span>
-                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
-               </div>
-
-               <div class="col-md-3">
-                    <span class="fw-bold">تاریخ ویرایش :</span>
-                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
-               </div>
-
-          </div>
-     </div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مشتری</label>
+			@(Html.EntitySelector<Customer>(
+				"ServiceRequestCustomerSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+				c => new { c.Party.FullName, c.Code },
+				"{Party.FullName} {Code}",
+				"customerId",
+				"customerName",
+				Model?.CustomerId?.ToString(),
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">سایت مشتری</label>
+			@(Html.EntitySelector<CustomerAddress>(
+				"ServiceRequestAddressSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Address = c.Address, CustomerId = c.CustomerId },
+				c => new { c.Title, c.Address },
+				"{Title} {Address}",
+				"customerAddressId",
+				"customerAddressTitle",
+				Model?.CustomerAddressId?.ToString(),
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">نام نماینده</label>
+			<input class="form-control" data-bind="customerAgentName" data-required="true" asp-for="CustomerAgentName" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">سمت نماینده</label>
+			<input class="form-control" data-bind="customerAgentJobPosition" asp-for="CustomerAgentJobPosition" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">تلفن نماینده</label>
+			<input class="form-control" data-bind="customerAgentTell" data-required="true" asp-for="CustomerAgentTell" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">ایمیل نماینده</label>
+			<input class="form-control" data-bind="customerAgentEmailAddress" asp-for="CustomerAgentEmailAddress" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">تاریخ تماس</label>
+			<input class="form-control" data-bind="contactShamsiDate" data-required="true" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.ContactMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره شناسنامه تعمیرات</label>
+			@(Html.EntitySelector<RepairRequest>(
+				"ServiceRequestRepairSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, IdNumber = c.IdNumber },
+				c => new { c.IdNumber },
+				"{IdNumber}",
+				"legacyRepairRequestIds",
+				null,
+				Model?.LegacyRepairRequestIds,
+				false,
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">غیر واقعی</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="unreal" asp-for="Unreal" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">علت اعزام کارشناس</label>
+			<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
 </div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">جزئیات</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مسئول منطقه</label>
+			@(Html.EntitySelector<Personel>(
+				"ServiceRequestResponsiblePersonelSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, Family = c.Family, Code = c.Code },
+				c => new { c.Name, c.Family, c.Code },
+				"{Name} {Family}",
+				"responsiblePersonelId",
+				null,
+				Model?.ResponsiblePersonelId?.ToString(),
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">نام منطقه</label>
+			@(Html.EntitySelector<Zone>(
+				"ServiceRequestDispatchZoneSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"dispatchZoneId",
+				"dispatchZoneTitle",
+				Model?.DispatchZoneId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">کارشناس</label>
+			@(Html.EntitySelector<Personel>(
+				"ServiceRequestExpertPersonelSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, Family = c.Family, Code = c.Code },
+				c => new { c.Name, c.Family, c.Code },
+				"{Name} {Family}",
+				"expertPersonelIds",
+				null,
+				Model?.ExpertPersonelIds,
+				true,
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2" id="serviceRequestProductCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">محصولات</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newProduct">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100 nowrap ellipsis-tooltip-table" id="serviceRequestProductTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>نوع درخواست</th>
+					<th>کد قطعه</th>
+					<th>نام قطعه</th>
+					<th>سریال</th>
+					<th>شماره سفارش ساخت</th>
+					<th>تاریخ ابلاغ</th>
+					<th>ساعت ابلاغ</th>
+					<th style="width:120px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+
 <script>
-
-     var customerId = $('[data-bind="customerId"]').val();
-
-     function getServiceRequestId() {
-         return $('[data-bind="id"]').val();
-     }
-
-     function loadServiceRequestDetails(serviceRequestId) {
-
-         if (!serviceRequestId || serviceRequestId === '0') {
-             $('#contractorTableBody').html(
-                 '<tr>' +
-                 '<td colspan="13" class="text-center text-warning">' +
-                 'شناسه معتبر نیست' +
-                 '</td>' +
-                 '</tr>'
-             );
-             return;
-         }
-
-         $.ajax({
-             url: '/Panel/Sale/ServiceRequest/GetServiceRequest',
-             type: 'GET',
-             data: { serviceRequestId: serviceRequestId },
-             dataType: 'json',
-             success: function(res) {
-                 if (res && res.isSuccess === true && $.isArray(res.data.data)) {
-                     renderServiceRequestDetails(res.data.data);
-                 }
-                 else {
-                     $('#contractorTableBody').html(
-                         '<tr>' +
-                         '<td colspan="13" class="text-center text-warning">' +
-                         'اطلاعاتی یافت نشد' +
-                         '</td>' +
-                         '</tr>'
-                     );
-                 }
-             },
-             error: function() {
-                 $('#contractorTableBody').html(
-                     '<tr>' +
-                     '<td colspan="13" class="text-center text-danger">' +
-                     'خطا در دریافت اطلاعات' +
-                     '</td>' +
-                     '</tr>'
-                 );
-             }
-         });
-     }
-
-     function renderServiceRequestDetails(list) {
-         var SaleRequestTypeEnum = {
-             1: 'آموزش',
-             2: 'اورهال',
-             3: 'بازدید و مشاوره',
-             4: 'تعمیرات گارانتی',
-             5: 'تعمیرات وارانتی',
-             6: 'راه اندازی اولیه',
-             7: 'پایپینگ',
-             8: 'سرویس دوره ای',
-             9: 'سایر موارد',
-             10: 'OPI',
-             11: 'راه اندازی تجهیز تعمیری',
-             12: 'پیش راه اندازی',
-             13: 'نصب'
-         };
-
-         var tbody = $('#contractorTableBody');
-         tbody.empty();
-
-         $.each(list, function(index, item) {
-             var requestTypeName = SaleRequestTypeEnum[item.requestType] || 'نامشخص';
-             var row =
-                 '<tr data-id="' + (item.id || 0) + '">' +
-                 '<td class="text-center">' +
-                 '<button class="btn btn-warning btn-sm" data-action="editDetail" data-id="' + item.id + '">' +
-                 '<i class="fa fa-pencil"></i>' +
-                 '</button>' +
-                 '<button class="btn btn-danger btn-sm" data-action="deleteDetail" data-id="' + item.id + '">' +
-                 '<i class="fa fa-trash"></i>' +
-                 '</button>' +
-                 '</td>' +
-                 '<td>' + (index + 1) + '</td>' +
-                 '<td>' + requestTypeName + '</td>' +
-                 '<td>' + (item.part ? (item.part.code || '-') : '-') + '</td>' +
-                 '<td>' + (item.part ? (item.part.name || '-') : '-') + '</td>' +
-                 '<td>' + (item.part ? (item.part.code || '-') : '-') + '</td>' +
-                 '<td>' + (item.contractorAcceptShamsiDate || '-') + '</td>' +
-                 '<td>' + (item.noticeShamsiDate || '-') + '</td>' +
-                 '<td>' + (item.noticeTime || '-') + '</td>' +
-                 '</tr>';
-
-             tbody.append(row);
-         });
-     }
-
-     function refreshServiceRequestDetails() {
-
-         var serviceRequestId = getServiceRequestId();
-
-         if (!serviceRequestId)
-             return;
-
-         $('#contractorTableBody').html(
-             '<tr>' +
-             '<td colspan="13" class="text-center py-4">' +
-             '<div class="spinner-border text-primary"></div>' +
-             '</td>' +
-             '</tr>'
-         );
-
-         loadServiceRequestDetails(serviceRequestId);
-     }
-
-     $(document).on('click', '[data-action="addNewContractor"]', function() {
-
-         var serviceRequestId = getServiceRequestId();
-
-         if (!serviceRequestId) {
-             toastr.error('ابتدا اطلاعات را ذخیره کنید');
-             return;
-         }
-         var url = '/Panel/Sale/ServiceRequest/ShowProductDetailForm?serviceRequestId=' + serviceRequestId;
-         $$.get(url, function(html) {
-
-             var bodyCn = $('<div style="overflow-y:auto;max-height:70vh;"></div>').append(html);
-
-             initPersionDatePicker(bodyCn);
-
-             $.confirm({
-
-                 title: 'افزودن آیتم',
-                 columnClass: 'col-md-6',
-                 content: bodyCn,
-                 rtl: true,
-
-                 buttons: {
-
-                     save: {
-
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-
-                         action: function() {
-
-                             var $content = this.$content;
-
-                             if (validateError($content))
-                                 return false;
-
-                             var model = $content.dataBind();
-                             model.ServiceRequestId = serviceRequestId;
-
-                             var self = this;
-
-                             $$.post(
-                                 '/Panel/Sale/ServiceRequest/AddRepairProductDetail',
-                                 model,
-                                 function(r) {
-
-                                     if (!r.isSuccess) {
-                                         toastr.error(r.message || 'خطا در ذخیره');
-                                         return;
-                                     }
-
-                                     toastr.success('با موفقیت ذخیره شد');
-
-                                     refreshServiceRequestDetails();
-
-                                     self.close();
-                                 }
-                             );
-
-                             return false;
-                         }
-                     },
-
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 }
-             });
-         });
-     });
-
-     $(document).on('click', '[data-action="editDetail"]', function() {
-
-         var selectedRow = $(this).data('id');
-         var serviceRequestId = getServiceRequestId();
-         var url = selectedRow
-             ? '/Panel/Sale/ServiceRequest/EditServiceRequest?id=' + selectedRow + '&serviceRequestId=' + serviceRequestId
-             : '/Panel/Sale/ServiceRequest/EditServiceRequest?serviceRequestId=' + serviceRequestId;
-
-         $$.get(url, function(html) {
-
-             var bodyCn = $('<div style="overflow-y:auto;max-height:70vh;"></div>').append(html);
-
-             initPersionDatePicker(bodyCn);
-
-             $.confirm({
-
-                 title: selectedRow ? 'ویرایش' : 'افزودن',
-                 columnClass: 'col-md-6',
-                 content: bodyCn,
-                 rtl: true,
-
-                 buttons: {
-
-                     save: {
-
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-
-                         action: function() {
-
-                             var $content = this.$content;
-
-                             if (validateError($content))
-                                 return false;
-
-                             var model = $content.dataBind();
-                             if (model.noticeTime) {
-                                 model.NoticeTime = model.noticeTime;
-                             }
-                             delete model.noticetime;
-                             delete model.noticeTime;
-                             model.ServiceRequestId = serviceRequestId;
-
-                             if (selectedRow)
-                                 model.Id = selectedRow;
-
-                             var self = this;
-
-                             $$.post(
-                                 '/Panel/Sale/ServiceRequest/AddRepairProductDetail',
-                                 model,
-                                 function(r) {
-
-                                     if (!r.isSuccess) {
-                                         toastr.error(r.message || 'خطا');
-                                         return;
-                                     }
-
-                                     toastr.success(selectedRow ? 'ویرایش انجام شد' : 'با موفقیت ثبت شد');
-
-                                     refreshServiceRequestDetails();
-
-                                     self.close();
-                                 }
-                             );
-
-                             return false;
-                         }
-                     },
-
-                     cancel: {
-                         text: 'انصراف'
-                     }
-                 }
-             });
-         });
-     });
-
-     $(document).on('click', '[data-action="deleteDetail"]', function() {
-         var id = $(this).data('id');
-
-         Swal.fire({
-
-             title: 'آیا از حذف مطمئن هستید؟',
-             text: 'این عملیات قابل بازگشت نیست',
-             icon: 'warning',
-
-             showCancelButton: true,
-
-             confirmButtonText: 'حذف',
-             cancelButtonText: 'انصراف'
-
-         }).then(function(result) {
-
-             if (!result.isConfirmed)
-                 return;
-
-             $.ajax({
-
-                 url: '/Panel/Sale/ServiceRequest/DeleteServiceRequest?id=' + id,
-                 type: 'DELETE',
-
-                 success: function(res) {
-                     if (res && res.data.data.success === true) {
-
-                         toastr.success(res.data.data.message || 'حذف شد');
-
-                         refreshServiceRequestDetails();
-                     }
-                     else {
-
-                         toastr.error(res.data.data.message || 'خطا در حذف');
-                     }
-                 },
-
-                 error: function() {
-
-                     toastr.error('خطا در حذف رکورد');
-                 }
-             });
-         });
-     });
-
-     $(document).ready(function() {
-
-         var serviceRequestId = getServiceRequestId();
-
-         if (serviceRequestId && serviceRequestId !== '0') {
-
-             loadServiceRequestDetails(serviceRequestId);
-         }
-     });
-
-     function savefn($btnAction) {
-
-         if (validateError(page.$pageEl)) return;
-
-         var model = page.$pageEl.dataBind();
-         var $btn = $(this.element).block();
-
-         $$.post('save', model, function(r) {
-
-             $btn.block(false);
-
-             if (!r.isSuccess) {
-                 toastr.error(r.message, 'خطا');
-                 return;
-             }
-
-             toastr.success('ذخیره سازی با موفقیت انجام شد');
-
-             page.$pageEl.dataBind(r.data);
-
-             $btnAction.baseaction();
-         });
-     }
-
-     self.FormActionButtons.save.onclick(function() { savefn(this); });
-     self.FormActionButtons.saveandnew.onclick(function() { savefn(this); });
-     self.FormActionButtons.saveandclose.onclick(function() { savefn(this); });
-
+	function getServiceRequestId() {
+		return parseInt($$('[data-bind="id"]').val() || '0', 10) || 0;
+	}
+
+	function setupAddressCascade() {
+		const cascadeOpts = {
+			filters: function () {
+				const customerId = $$('#ServiceRequestCustomerSelector').find('.entity-selector-value').val();
+				return { CustomerId: customerId || '0' };
+			},
+			watchDependencies: ['#ServiceRequestCustomerSelector']
+		};
+		const $addr = $$('#ServiceRequestAddressSelector');
+		let inst = $addr.data('entitySelector') || $addr.data('entitySelectorInstance');
+		if (inst) {
+			inst.extraFilters = cascadeOpts.filters;
+			inst.options.watchDependencies = cascadeOpts.watchDependencies;
+			inst.watchDependencies();
+		} else {
+			$addr.entitySelector(cascadeOpts);
+		}
+	}
+	setupAddressCascade();
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.expertPersonelIds) {
+			toastr.error('حداقل یک کارشناس الزامی است', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			ensureProductTable();
+			if (productTable) productTable.ajax.reload(null, false);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	if (self.FormActionButtons.printSheet) {
+		self.FormActionButtons.printSheet.onclick(function () {
+			const id = getServiceRequestId();
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/System/ReportBuilder/ViewReportByName/ServiceRequestSheet?serviceRequestId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+		});
+	}
+
+	function openChild(path, title) {
+		const id = getServiceRequestId();
+		if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+		appController.addPage(path + id, true, title);
+	}
+	if (self.FormActionButtons.openAttachments) {
+		self.FormActionButtons.openAttachments.onclick(function () {
+			openChild('/Panel/Sale/ServiceRequestAttachment/ListByParentId?serviceRequestId=', 'پیوست‌ها');
+		});
+	}
+	if (self.FormActionButtons.openMissions) {
+		self.FormActionButtons.openMissions.onclick(function () {
+			openChild('/Panel/Sale/Mission/ListByParentId?serviceRequestId=', 'ماموریت');
+		});
+	}
+	if (self.FormActionButtons.openWorkReports) {
+		self.FormActionButtons.openWorkReports.onclick(function () {
+			openChild('/Panel/Sale/WorkReport/ListByParentId?serviceRequestId=', 'گزارش کار');
+		});
+	}
+	if (self.FormActionButtons.openParts) {
+		self.FormActionButtons.openParts.onclick(function () {
+			openChild('/Panel/Sale/ServiceRequestPart/ListByParentId?serviceRequestId=', 'درخواست کالا');
+		});
+	}
+	if (self.FormActionButtons.openPartsAgency) {
+		self.FormActionButtons.openPartsAgency.onclick(function () {
+			openChild('/Panel/Sale/ServiceRequestPart/ListByParentId?manual=true&serviceRequestId=', 'درخواست کالا-نمایندگان');
+		});
+	}
+	if (self.FormActionButtons.sendDispatch) {
+		self.FormActionButtons.sendDispatch.onclick(function () {
+			const id = getServiceRequestId();
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			Swal.fire({ title: 'ثبت اعزام', text: 'درخواست به کارتابل مسئول منطقه برای اعزام ارسال شود؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+				.then(function (result) {
+					if (!result.isConfirmed) return;
+					$$.post('sendDispatch?id=' + id, {}, function (r) {
+						if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+						toastr.success('اعزام ثبت شد');
+						appController.refreshCurrentPage();
+					});
+				});
+		});
+	}
+
+	let lastCustomerId = $$('[data-bind="customerId"]').val();
+	page.$pageEl.on('change', '[data-bind="customerId"]', function () {
+		const customerId = $(this).val();
+		if (customerId === lastCustomerId) return;
+		lastCustomerId = customerId;
+		const $addr = $$('#ServiceRequestAddressSelector');
+		const addrInst = $addr.data('entitySelectorInstance') || $addr.data('entitySelector');
+		if (addrInst && typeof addrInst.clearAll === 'function')
+			addrInst.clearAll();
+		if (!customerId) return;
+		$$.get('GetCustomerInfo?customerId=' + customerId, function (r) {
+			const d = (r && r.data) ? r.data : r;
+			if (d && d.phone) $$('[data-bind="customerPhoneFromHistory"]').val(d.phone);
+		});
+	});
+	page.$pageEl.on('change', '[data-bind="customerAddressId"]', function () {
+		const addressId = $(this).val();
+		if (!addressId) return;
+		$$.get('GetCustomerAddressInfo?customerAddressId=' + addressId, function (r) {
+			const d = (r && r.data) ? r.data : r;
+			if (!d || !d.zoneId) return;
+			const inst = $$('#ServiceRequestDispatchZoneSelector').data('entitySelectorInstance')
+				|| $$('#ServiceRequestDispatchZoneSelector').data('entitySelector');
+			if (inst && typeof inst.addByIds === 'function')
+				inst.addByIds([d.zoneId]);
+		});
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function initServiceRequestDetailForm($root, customerId) {
+		const $kind = $root.find('[data-product-kind]');
+		function applyKind() {
+			const isHavayar = $kind.val() !== 'other';
+			$root.find('.js-havayar-fields').toggle(isHavayar);
+			$root.find('.js-other-fields').toggle(!isHavayar);
+		}
+		if ($kind.length) {
+			if (!$kind.val()) {
+				const hasOther = $root.find('[data-bind="otherPartId"]').val();
+				$kind.val(hasOther ? 'other' : 'havayar');
+			}
+			$kind.off('change.srProduct').on('change.srProduct', applyKind);
+			applyKind();
+		}
+		const $time = $root.find('[data-bind="noticeTime"]');
+		if ($time.length && !$time.val()) {
+			const now = new Date();
+			const hh = String(now.getHours()).padStart(2, '0');
+			const mm = String(now.getMinutes()).padStart(2, '0');
+			const clock = hh + ':' + mm;
+			if ($time[0].inputmask && typeof $time[0].inputmask.setValue === 'function')
+				$time[0].inputmask.setValue(clock);
+			else
+				$time.val(clock);
+		}
+		const $noticeDate = $root.find('[data-bind="noticeShamsiDate"]');
+		if ($noticeDate.length && !$noticeDate.val() && typeof MJUtil !== 'undefined' && MJUtil.miladiToShamsi) {
+			let shamsi = MJUtil.miladiToShamsi(new Date());
+			if (MJUtil.toEnglishNumbers) shamsi = MJUtil.toEnglishNumbers(shamsi);
+			$noticeDate.val((shamsi || '').split(' ')[0]);
+		}
+		 
+	}
+
+	function validateProductForm($content) {
+		if (validateError($content)) return false;
+		const kind = $content.find('[data-product-kind]').val();
+		if (kind === 'other') {
+			$content.find('[data-bind="orderDetailId"]').val('');
+			$content.find('[data-bind="orderDetailSerialId"]').val('');
+			if (!$content.find('[data-bind="otherPartId"]').val()) {
+				toastr.error('قطعه غیر هوایاری الزامی است', 'خطا');
+				return false;
+			}
+		} else {
+			$content.find('[data-bind="otherPartId"]').val('');
+			$content.find('[data-bind="otherPartSerial"]').val('');
+			 
+			if (!$content.find('[data-bind="orderDetailSerialId"]').val()) {
+				toastr.error('سریال مرتبط الزامی است', 'خطا');
+				return false;
+			}
+		}
+		return true;
+	}
+
+	let productTable = null;
+	function ensureProductTable() {
+		const parentId = getServiceRequestId();
+		if (!parentId || productTable) return productTable;
+		productTable = $$('#serviceRequestProductTable').DataTable({
+			serverSide: false,
+			autoWidth: false,
+			pageLength: 10,
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			ajax: {
+				url: '/Panel/Sale/ServiceRequestDetail/GetListByParentId?serviceRequestId=' + parentId,
+				type: 'GET',
+				dataSrc: function (json) {
+					if (json && json.isSuccess === false) {
+						toastr.error(json.message || 'خطا در دریافت اطلاعات');
+						return [];
+					}
+					return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+				}
+			},
+			columns: [
+				{ data: 'requestTypeTitle', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'partCode', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'partName', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'serial', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'productionOrderNumber', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'noticeShamsiDate', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'noticeTime', defaultContent: '-', render: renderEllipsisCell },
+				{
+					data: 'id',
+					orderable: false,
+					className: 'text-center',
+					render: function (id) {
+						return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editProduct" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+							+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteProduct" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+					}
+				}
+			]
+		});
+		bindEmbeddedTableCellTooltips(productTable);
+		return productTable;
+	}
+	ensureProductTable();
+
+	function openProductModal(id) {
+		const parentId = getServiceRequestId();
+		if (!parentId) { toastr.error('ابتدا ذخیره کنید'); return; }
+		const customerId = $$('[data-bind="customerId"]').val() || '0';
+		const url = id
+			? '/Panel/Sale/ServiceRequestDetail/Edit?id=' + id + '&serviceRequestId=' + parentId
+			: '/Panel/Sale/ServiceRequestDetail/New?serviceRequestId=' + parentId;
+		const $trigger = id
+			? $$('#serviceRequestProductCard').find('[data-action="editProduct"][data-id="' + id + '"]')
+			: $$('#serviceRequestProductCard').find('[data-action="newProduct"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش محصول' : 'افزودن محصول',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (!validateProductForm($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Sale/ServiceRequestDetail/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								ensureProductTable();
+								if (productTable) productTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initPersionDatePicker === 'function')
+							initPersionDatePicker(selfConfirm.$body);
+						initServiceRequestDetailForm(selfConfirm.$body, customerId);
+						if (typeof initTimeInputs === 'function')
+							initTimeInputs(selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	$$('#serviceRequestProductCard').on('click', '[data-action="newProduct"]', function () {
+		openProductModal(null);
+	});
+	$$('#serviceRequestProductCard').on('click', '[data-action="editProduct"]', function () {
+		openProductModal($(this).data('id'));
+	});
+	$$('#serviceRequestProductCard').on('click', '[data-action="deleteProduct"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/ServiceRequestDetail/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					if (productTable) productTable.ajax.reload(null, false);
+				});
+			});
+	});
 </script>

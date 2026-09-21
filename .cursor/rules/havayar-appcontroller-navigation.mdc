@@ -11,9 +11,12 @@ In HavayarApp frontend (Razor views / panel JS), **never** use:
 - `location.reload()`
 - `window.location` / `location.href` for panel refresh/navigation
 
-Use `appController` helpers instead:
-- `appController.refreshCurrentPage()` — refresh current page after save/workflow/attachment
-- `appController.openPage(url, ...)` — open/navigate to a page
-- `appController.closeCurrentPage()` — close current page
+Use `appController` helpers instead (verified against `window.appController` / `AppController` class in `WebApp/wwwroot/js/site.js`):
+- `appController.addPage(address, pushState = true, tabTitle = null)` — open/navigate to a **page** in a tab. **This is the correct method — `appController.openPage(...)` does not exist in the codebase; do not use or suggest it.** You may `addPage` a child **ListByParentId** from the parent toolbar. Do **not** `addPage` child New/Edit — that is a `$.confirm` modal, including on the list tab itself (`havayar-js-jquery-conventions.mdc` §5).
+- `appController.refreshCurrentPage()` — refresh current page after save/workflow/attachment (closes + reopens the active tab)
+- `appController.closeCurrentPage()` — close the active tab
+- `appController.closePage(address)` — close a specific tab by its address/URL
 
 After status changes, saves, or attachment uploads on panel forms, prefer `appController.refreshCurrentPage()`.
+
+See `havayar-js-jquery-conventions.mdc` for the broader JS/jQuery conventions used in these same panel scripts.

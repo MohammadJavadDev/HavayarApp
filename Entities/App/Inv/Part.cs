@@ -130,6 +130,9 @@ namespace Entities.App.Inv
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<PartDocument> Documents { get; set; } = new();
 
+		[DisplayName("شناسه HTS")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long HtsId { get; set; }
 
 	}
 
@@ -199,11 +202,8 @@ namespace Entities.App.Inv
 		public FileEntity Attachment { get; set; }
 
 		public long AttachmentId { get; set; }
-
-		public long HtsId { get; set; }
-
-
-	}
+        public int HtsId { get; set; }
+    }
 
 	public class PartConfiguration : IEntityTypeConfiguration<Part>
 	{
@@ -216,6 +216,11 @@ namespace Entities.App.Inv
 
 			builder.HasIndex(x => x.Code)
 				.IsUnique();
+
+			builder.HasIndex(x => x.HtsId)
+				.IsUnique()
+				.HasFilter("[HtsId] <> CAST(0 AS bigint)")
+				.HasDatabaseName("IX_Inv_Part_HtsId");
 
 			builder.HasMany(x => x.SpareParts)
 				  .WithOne(x => x.Part)

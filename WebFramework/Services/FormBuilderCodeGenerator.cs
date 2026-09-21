@@ -937,8 +937,8 @@ namespace WebFramework.Services
 				case SystemType.Boolean:
 					sb.AppendLine($"\t\t<div class='{colSize} align-content-center'>");
 					sb.AppendLine($"\t\t\t<div class=\"form-check\">");
-					sb.AppendLine($"\t\t\t\t<input data-bind='{bindName}' class=\"form-check-input\" type=\"checkbox\" asp-for='{prop.PropertyName}' />");
-					sb.AppendLine($"\t\t\t\t<label class=\"form-check-label\" asp-for='{prop.PropertyName}'>");
+					sb.AppendLine($"\t\t\t\t<input data-bind='{bindName}' class=\"form-check-input\" type=\"checkbox\" id='{prop.PropertyName}' @(Model?.{prop.PropertyName} == true ? \"checked\" : \"\") />");
+					sb.AppendLine($"\t\t\t\t<label class=\"form-check-label\" for='{prop.PropertyName}'>");
 					sb.AppendLine($"\t\t\t\t\t{prop.DisplayName}");
 					sb.AppendLine($"\t\t\t\t</label>");
 					sb.AppendLine($"\t\t\t</div>");

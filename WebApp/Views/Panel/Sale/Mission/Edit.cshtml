@@ -1,0 +1,428 @@
+@using Entities.App.Gnr
+@using Entities.App.Hcm
+@using Entities.App.Sale
+@using Entities.Base
+@model Mission
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+	var personelId = ViewBag.PersonelIds as List<long?> ?? new List<long?>();
+	var overtimeDisplay = Model?.WorkOvertimeHour == null
+		? ""
+		: Common.Utilities.MinutesFromHourMinJsonConverter.MinToHourMin(Model.WorkOvertimeHour, hourLength: 2);
+}
+
+@if (isFullPage)
+{
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(Mission)"></form-action-buttons>
+	</div>
+</div>
+}
+
+<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+<input type="hidden" data-bind="expertId" value="@Model?.ExpertId" />
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">اطلاعات ماموریت</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره حکم</label>
+			<input class="form-control" data-bind="hokmNumber" asp-for="HokmNumber" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold required">کارشناس</label>
+			<div class="d-flex gap-2 align-items-center">
+				<div class="flex-grow-1">
+					@(Html.EntitySelector<Personel>(
+						"MissionPersonelSelector",
+					 c => c.IsActive == IsActiveEnum.Active && (personelId.Count == 0 || personelId.Contains(c.Id)),
+						c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+						c => new { c.Name, c.Family },
+						"{Name} {Family}",
+						"personelId",
+						"personelName",
+						Model?.PersonelId?.ToString()
+					))
+				</div>
+				<button type="button" class="btn btn-sm btn-light-primary text-nowrap" data-action="loadMissionSalary">دریافت حق ماموریت</button>
+			</div>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">مرکز هزینه</label>
+			@(Html.EntitySelector<CostCenter>(
+				"MissionCostCenterSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Number = c.Number, Title = c.Title },
+				c => new { c.Number, c.Title },
+				"{Number} {Title}",
+				"costCenterId",
+				"costCenterTitle",
+				Model?.CostCenterId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline" style="display:none">
+			<label class="form-label fw-bold">درخواست پشتیبانی</label>
+			@(Html.EntitySelector<ServiceRequest>(
+				"MissionServiceRequestSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, CustomerAgentName = c.CustomerAgentName, AllProductName = c.AllProductName },
+				c => new { c.CustomerAgentName, c.AllProductName },
+				"{Id} {CustomerAgentName}",
+				"serviceRequestId",
+				"serviceRequestName",
+				Model?.ServiceRequestId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">گارانتی</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="haveGuarantee" asp-for="HaveGuarantee" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ اعزام</label>
+			<input class="form-control" data-bind="dispatchShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.DispatchMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">ساعت اعزام</label>
+			<input class="form-control ltr" type="text" data-bind="dispatchTime" data-time="true" asp-for="DispatchTime" placeholder="__:__" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ بازگشت</label>
+			<input class="form-control" data-bind="returnShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.ReturnMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">ساعت بازگشت</label>
+			<input class="form-control ltr" type="text" data-bind="returnTime" data-time="true" asp-for="ReturnTime" placeholder="__:__" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline d-flex align-items-end">
+			<button type="button" class="btn btn-sm btn-light-primary text-nowrap" data-action="calcMissionMeals">محاسبه تعداد وعده‌ها</button>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">هزینه‌های اقامت و غذا</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">هزینه صبحانه</label>
+			<input class="form-control" type="text" data-bind="breakfastFee" data-money="true" asp-for="BreakfastFee" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">تعداد صبحانه</label>
+			<input class="form-control" type="text" data-bind="breakfast" asp-for="Breakfast" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">هزینه ناهار</label>
+			<input class="form-control" type="text" data-bind="lunchFee" data-money="true" asp-for="LunchFee" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">تعداد ناهار</label>
+			<input class="form-control" type="text" data-bind="lunch" asp-for="Lunch" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">هزینه شام</label>
+			<input class="form-control" type="text" data-bind="dinnerFee" data-money="true" asp-for="DinnerFee" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">تعداد شام</label>
+			<input class="form-control" type="text" data-bind="dinner" asp-for="Dinner" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">حق شب</label>
+			<input class="form-control" type="text" data-bind="nightRight" data-money="true" asp-for="NightRight" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">ضریب حق شب</label>
+			<input class="form-control" type="text" data-bind="nightRightFactor" asp-for="NightRightFactor" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">حقوق و ایاب و ذهاب</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">اضافه‌کاری</label>
+			<input class="form-control" type="text" data-bind="workOvertimeFee" data-money="true" asp-for="WorkOvertimeFee" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">ساعت اضافه‌کاری</label>
+			<input class="form-control ltr" type="text" data-bind="workOvertimeHour" data-duration="true"
+				value="@overtimeDisplay" placeholder="__:__" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">حق ماموریت</label>
+			<input class="form-control" type="text" data-bind="missionRight" data-money="true" asp-for="MissionRight" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">ضریب حق ماموریت</label>
+			<input class="form-control" type="text" data-bind="missionRightFactor" asp-for="MissionRightFactor" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">حمل شخصی</label>
+			<input class="form-control" type="text" data-bind="transportationPersonal" data-money="true" asp-for="TransportationPersonal" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">حمل رانندگی</label>
+			<input class="form-control" type="text" data-bind="transportationDriving" data-money="true" asp-for="TransportationDriving" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">حق تعطیل</label>
+			<input class="form-control" type="text" data-bind="missionHolidayRight" data-money="true" asp-for="MissionHolidayRight" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">ضریب حق تعطیل</label>
+			<input class="form-control" data-bind="missionHolidayRightFactor" asp-for="MissionHolidayRightFactor" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+<script>
+	function missionHourMinToMin(value) {
+		if (value == null || value === '') return null;
+		const s = String(value).trim();
+		if (!s || s.indexOf('_') >= 0 || s === ':' || s === '-') return null;
+		if (s.indexOf(':') < 0) {
+			const n = parseInt(s, 10);
+			return isNaN(n) ? null : n;
+		}
+		const parts = s.split(':');
+		const hour = parseInt(parts[0] || '0', 10) || 0;
+		const min = parseInt(parts[1] || '0', 10) || 0;
+		return (hour * 60) + min;
+	}
+
+	function missionMinToHourMin(value) {
+		if (value == null || value === '') return '';
+		if (typeof value === 'string' && value.indexOf(':') >= 0) return value;
+		const n = parseInt(value, 10);
+		if (isNaN(n)) return '';
+		const abs = Math.abs(n);
+		const text = String(Math.floor(abs / 60)).padStart(2, '0') + ':' + String(abs % 60).padStart(2, '0');
+		return n < 0 ? ('-' + text) : text;
+	}
+
+	function initMissionDurationFields($root) {
+		if (!$root || !$root.length || !window.Inputmask) return;
+		const $fields = $root.find('[data-duration="true"]').filter(function () { return !this.inputmask; });
+		if (!$fields.length) return;
+		Inputmask({
+			mask: '99:99',
+			placeholder: '__:__',
+			insertMode: true,
+			clearIncomplete: true,
+			autoUnmask: false,
+			showMaskOnHover: true,
+			showMaskOnFocus: true,
+			onKeyDown: function (e) {
+				if (!e || e.key == null || e.key === '')
+					return true;
+			}
+		}).mask($fields);
+	}
+
+	function missionVal(data, key) {
+		if (!data) return undefined;
+		if (data[key] != null) return data[key];
+		const pascal = key.charAt(0).toUpperCase() + key.slice(1);
+		return data[pascal];
+	}
+
+	function missionFormRoot($start) {
+		if ($start && $start.find && $start.find('[data-bind="breakfast"]').length)
+			return $start;
+		if ($start && $start.closest) {
+			const $box = $start.closest('.tab-pane, .jconfirm-content, .jconfirm-box');
+			if ($box.length && $box.find('[data-bind="breakfast"]').length)
+				return $box;
+		}
+		return $start;
+	}
+
+	function setMissionField($root, key, value) {
+		const $el = $root.find('[data-bind="' + key + '"]').first();
+		if (!$el.length) return;
+		const raw = value == null ? '' : value;
+		if ($el[0].inputmask) {
+			if (typeof $el[0].inputmask.setvalue === 'function')
+				$el[0].inputmask.setvalue(raw);
+			else if (typeof $el[0].inputmask.setValue === 'function')
+				$el[0].inputmask.setValue(raw);
+			else
+				$el.val(raw);
+		} else {
+			$el.val(raw);
+		}
+		$el.trigger('input').trigger('change');
+	}
+
+	function fillMissionSalaryFees($root, $btn) {
+		const personelId = $root.find('[data-bind="personelId"]').val();
+		const expertId = $root.find('[data-bind="expertId"]').val();
+		if (!personelId && !expertId) {
+			toastr.warning('هیچ کارشناسی انتخاب نشده است');
+			return;
+		}
+		const qs = personelId
+			? ('personelId=' + encodeURIComponent(personelId))
+			: ('expertId=' + encodeURIComponent(expertId));
+		$btn.block();
+		$$.get('/Panel/Sale/Mission/GetPersonelMissionSalaryInfo?' + qs, function (r) {
+			$btn.block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در دریافت حق ماموریت', 'خطا');
+				return;
+			}
+			const data = r.data;
+			if (!data) {
+				toastr.warning('حق ماموریت برای این کارشناس ثبت نشده است');
+				return;
+			}
+			['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+				setMissionField($root, key, data[key]);
+			});
+			toastr.success('مبالغ حق ماموریت دریافت شد');
+		});
+	}
+
+	function applyMissionInfo($root, data) {
+		if (typeof data === 'string') {
+			try { data = JSON.parse(data); } catch (e) { return false; }
+		}
+		if (!data) return false;
+		const breakfast = missionVal(data, 'breakfast');
+		const lunch = missionVal(data, 'lunch');
+		const dinner = missionVal(data, 'dinner');
+		const nightRightFactor = missionVal(data, 'nightRightFactor');
+		const missionRightFactor = missionVal(data, 'missionRightFactor');
+		if (breakfast == null && lunch == null && dinner == null)
+			return false;
+		setMissionField($root, 'breakfast', breakfast);
+		setMissionField($root, 'lunch', lunch);
+		setMissionField($root, 'dinner', dinner);
+		setMissionField($root, 'nightRightFactor', nightRightFactor);
+		setMissionField($root, 'missionRightFactor', missionRightFactor);
+		['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+			const fee = missionVal(data, key);
+			if (fee == null) return;
+			setMissionField($root, key, fee);
+		});
+		return {
+			breakfast: breakfast == null ? 0 : breakfast,
+			lunch: lunch == null ? 0 : lunch,
+			dinner: dinner == null ? 0 : dinner
+		};
+	}
+
+	function requestMissionInfo($root, $btn) {
+		$root = missionFormRoot($root);
+		const personelId = $root.find('[data-bind="personelId"]').val();
+		const expertId = $root.find('[data-bind="expertId"]').val();
+		const dispatchDate = $root.find('[data-bind="dispatchShamsiDate"]').val();
+		const dispatchTime = $root.find('[data-bind="dispatchTime"]').val();
+		const returnDate = $root.find('[data-bind="returnShamsiDate"]').val();
+		const returnTime = $root.find('[data-bind="returnTime"]').val();
+		if (!dispatchDate || !returnDate) {
+			toastr.warning('تاریخ اعزام و بازگشت را وارد کنید');
+			return;
+		}
+		if (!dispatchTime || String(dispatchTime).indexOf('_') >= 0
+			|| !returnTime || String(returnTime).indexOf('_') >= 0) {
+			toastr.warning('ساعت اعزام و بازگشت را کامل وارد کنید');
+			return;
+		}
+		const qs = [
+			'dispatchShamsiDate=' + encodeURIComponent(dispatchDate),
+			'dispatchTime=' + encodeURIComponent(dispatchTime),
+			'returnShamsiDate=' + encodeURIComponent(returnDate),
+			'returnTime=' + encodeURIComponent(returnTime)
+		];
+		if (personelId) qs.unshift('personelId=' + encodeURIComponent(personelId));
+		else if (expertId) qs.unshift('expertId=' + encodeURIComponent(expertId));
+		if ($btn) $btn.block();
+		$$.get('/Panel/Sale/Mission/GetMissionInfo?' + qs.join('&'), function (r) {
+			if ($btn) $btn.block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در محاسبه تعداد وعده‌ها', 'خطا');
+				return;
+			}
+			const applied = applyMissionInfo($root, r.data != null ? r.data : r);
+			if (!applied) {
+				toastr.error('پاسخ محاسبه خالی بود', 'خطا');
+				return;
+			}
+			toastr.success('صبحانه ' + applied.breakfast + '، ناهار ' + applied.lunch + '، شام ' + applied.dinner);
+		});
+	}
+
+	function normalizeMissionModel(model) {
+		['breakfast', 'lunch', 'dinner', 'nightRightFactor', 'missionRightFactor', 'missionHolidayRightFactor', 'hokmNumber'].forEach(function (key) {
+			if (model[key] === '' || model[key] == null)
+				model[key] = null;
+		});
+		model.workOvertimeHour = missionHourMinToMin(model.workOvertimeHour);
+		return model;
+	}
+
+	initMissionDurationFields(page.$pageEl);
+	page.$pageEl.on('click', '[data-action="loadMissionSalary"]', function () {
+		fillMissionSalaryFees(page.$pageEl, $(this));
+	});
+	page.$pageEl.on('click', '[data-action="calcMissionMeals"]', function () {
+		requestMissionInfo(missionFormRoot(page.$pageEl), $(this));
+	});
+</script>
+@if (isFullPage)
+{
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = normalizeMissionModel(page.$pageEl.dataBind());
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			if (r.data && r.data.workOvertimeHour != null)
+				r.data.workOvertimeHour = missionMinToHourMin(r.data.workOvertimeHour);
+			page.$pageEl.dataBind(r.data);
+			initMissionDurationFields(page.$pageEl);
+			$btnAction.baseaction();
+		});
+	}
+	if (self.FormActionButtons.save)
+		self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandnew)
+		self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

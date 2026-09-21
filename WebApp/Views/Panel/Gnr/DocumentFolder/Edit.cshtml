@@ -1,0 +1,310 @@
+@using Entities.App.Gnr
+@using Entities.App.Hrm
+@using Entities.Auth
+@model DocumentFolder
+@{
+	var isNew = Model?.Id == null || Model.Id == 0;
+	var allowedUserIds = Model?.AllowedUserIds;
+	if (string.IsNullOrWhiteSpace(allowedUserIds) && Model?.AllowedUsers != null)
+		allowedUserIds = string.Join(",", Model.AllowedUsers.Select(u => u.UserId));
+}
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(DocumentFolder)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">پوشه اسناد سازمانی</h4>
+			</div>
+		</div>
+
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="folderLevel" value="@(Model?.FolderLevel == 0 ? 1 : Model?.FolderLevel)" type="hidden" />
+
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">واحد سازمانی</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"OrganizationUnitSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"organizationUnitId",
+					"organizationUnitTitle",
+					Model?.OrganizationUnitId?.ToString(),
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">عنوان</label>
+				<input class="form-control" data-bind="title" required asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">عنوان پوشه (مسیر فایل)</label>
+				<input class="form-control" dir="ltr" data-bind="folderTitle" required asp-for="FolderTitle" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline align-content-center">
+				<div class="form-check">
+					<input data-bind="isPrivate" class="form-check-input" type="checkbox" asp-for="IsPrivate" />
+					<label class="form-check-label form-label fw-bold">خصوصی</label>
+				</div>
+			</div>
+
+			<div class="col-md-8 form-group-inline" id="allowedUsersWrapper">
+				<label class="form-label fw-bold">کاربران مجاز</label>
+				@(Html.EntitySelector<User>(
+					"AllowedUsersSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+					c => new { c.Name, c.NameFa },
+					"{NameFa} {Name}",
+					"allowedUserIds",
+					"allowedUserNames",
+					allowedUserIds,
+					false,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" rows="3" asp-for="Comment"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="card shadow-sm border-0 mt-3" id="childFoldersCard" style="@(isNew ? "display:none;" : "")">
+	<div class="card-body">
+		<div class="d-flex justify-content-between align-items-center mb-3">
+			<h5 class="fw-bold mb-0">پوشه‌های سطح ۲ / ۳</h5>
+			<button type="button" class="btn btn-sm btn-primary" data-action="addChildFolder">افزودن پوشه سطح ۲</button>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-sm table-bordered table-striped" id="childFoldersTable">
+				<thead>
+					<tr>
+						<th>سطح</th>
+						<th>عنوان</th>
+						<th>عنوان پوشه</th>
+						<th>توضیحات</th>
+						<th style="width:180px">عملیات</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+	<div class="card-body">
+		<div class="row text-muted">
+			<div class="col-md-3">
+				<span class="fw-bold">ایجاد کننده :</span>
+				<span data-bind="createdByName">@Model?.CreatedByName</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">تاریخ ایجاد :</span>
+				<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">ویرایش کننده :</span>
+				<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">تاریخ ویرایش :</span>
+				<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	function getFolderId() {
+		return $$('[data-bind="id"]').val();
+	}
+
+	function escapeAttr(value) {
+		return String(value || '')
+			.replace(/&/g, '&amp;')
+			.replace(/"/g, '&quot;')
+			.replace(/</g, '&lt;');
+	}
+
+	function childRowHtml(item, indent) {
+		const pad = indent ? ' class="ps-4"' : '';
+		const addL3 = item.folderLevel === 2
+			? `<button type="button" class="btn btn-sm btn-light-info" data-action="addGrandchildFolder" data-id="${item.id}">سطح ۳</button>`
+			: '';
+		return `<tr data-id="${item.id}">
+			<td>${item.folderLevel}</td>
+			<td${pad}>${escapeAttr(item.title)}</td>
+			<td dir="ltr">${escapeAttr(item.folderTitle)}</td>
+			<td>${escapeAttr(item.comment)}</td>
+			<td>
+				<button type="button" class="btn btn-sm btn-light-primary" data-action="editChildFolder" data-id="${item.id}" data-title="${escapeAttr(item.title)}" data-folder-title="${escapeAttr(item.folderTitle)}" data-comment="${escapeAttr(item.comment)}" data-parent-id="${item.parentId || ''}">ویرایش</button>
+				<button type="button" class="btn btn-sm btn-light-danger" data-action="deleteChildFolder" data-id="${item.id}">حذف</button>
+				${addL3}
+			</td>
+		</tr>`;
+	}
+
+	function loadChildren() {
+		const id = getFolderId();
+		if (!id || id === '0') return;
+		$$('#childFoldersCard').show();
+		$$.get('/Panel/Gnr/DocumentFolder/GetChildren?parentId=' + id, function (r) {
+			const rows = r.data || r.Data || r || [];
+			const $tbody = $$('#childFoldersTable tbody');
+			$tbody.empty();
+			(rows || []).forEach(function (item) {
+				$tbody.append(childRowHtml(item, false));
+				(item.children || []).forEach(function (g) {
+					$tbody.append(childRowHtml(g, true));
+				});
+			});
+		});
+	}
+
+	function openChildModal(opts) {
+		const parentId = opts.parentId || getFolderId();
+		if (!parentId || parentId === '0') {
+			toastr.error('ابتدا پوشه اصلی را ذخیره کنید');
+			return;
+		}
+		$.confirm({
+			title: opts.title,
+			rtl: true,
+			columnClass: 'col-md-6',
+			content: `
+				<div class="form-group-inline mb-2">
+					<label class="form-label required">عنوان</label>
+					<input class="form-control" id="childTitle" value="${opts.itemTitle || ''}" />
+				</div>
+				<div class="form-group-inline mb-2">
+					<label class="form-label required">عنوان پوشه</label>
+					<input class="form-control" id="childFolderTitle" dir="ltr" value="${opts.itemFolderTitle || ''}" />
+				</div>
+				<div class="form-group-inline mb-2">
+					<label class="form-label">توضیحات</label>
+					<textarea class="form-control" id="childComment" rows="2">${opts.itemComment || ''}</textarea>
+				</div>`,
+			buttons: {
+				save: {
+					text: 'ذخیره',
+					btnClass: 'btn-primary',
+					action: function () {
+						const title = this.$content.find('#childTitle').val();
+						const folderTitle = this.$content.find('#childFolderTitle').val();
+						if (!title || !String(title).trim() || !folderTitle || !String(folderTitle).trim()) {
+							toastr.error('عنوان و عنوان پوشه الزامی است');
+							return false;
+						}
+						$$.post('/Panel/Gnr/DocumentFolder/SaveChild', {
+							id: opts.id || 0,
+							parentId: parentId,
+							title: title,
+							folderTitle: folderTitle,
+							comment: this.$content.find('#childComment').val()
+						}, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(r.message, 'خطا');
+								return;
+							}
+							toastr.success('پوشه فرزند ذخیره شد');
+							loadChildren();
+						});
+					}
+				},
+				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+			}
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.organizationUnitId || model.organizationUnitId === '0') {
+			toastr.error('واحد سازمانی الزامی است', 'خطا');
+			return;
+		}
+		if (model.isPrivate && (!model.allowedUserIds || !String(model.allowedUserIds).trim())) {
+			toastr.error('برای پوشه خصوصی حداقل یک کاربر مجاز انتخاب کنید', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$$('#childFoldersCard').show();
+			loadChildren();
+			$btnAction.baseaction();
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="addChildFolder"]', function () {
+		openChildModal({ title: 'افزودن پوشه سطح ۲' });
+	});
+
+	page.$pageEl.on('click', '[data-action="addGrandchildFolder"]', function () {
+		openChildModal({ title: 'افزودن پوشه سطح ۳', parentId: $(this).data('id') });
+	});
+
+	page.$pageEl.on('click', '[data-action="editChildFolder"]', function () {
+		const $el = $(this);
+		openChildModal({
+			title: 'ویرایش پوشه فرزند',
+			id: $el.data('id'),
+			parentId: $el.data('parent-id') || getFolderId(),
+			itemTitle: $el.data('title'),
+			itemFolderTitle: $el.data('folder-title'),
+			itemComment: $el.data('comment')
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="deleteChildFolder"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({
+			title: 'حذف پوشه',
+			text: 'آیا از حذف این پوشه مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'حذف',
+			cancelButtonText: 'انصراف'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.get('/Panel/Gnr/DocumentFolder/Delete?id=' + id, function (r) {
+				if (!r.isSuccess) {
+					toastr.error(r.message, 'خطا');
+					return;
+				}
+				toastr.success('پوشه حذف شد');
+				loadChildren();
+			});
+		});
+	});
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	if (getFolderId() && getFolderId() !== '0') {
+		loadChildren();
+	}
+</script>

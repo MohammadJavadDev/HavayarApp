@@ -1,0 +1,177 @@
+@using Entities.App.Sale
+@model OrderDetailSerial
+@{
+	var canInventory = ViewBag.CanEditInventory as bool? == true;
+	var canExit = ViewBag.CanEditExit as bool? == true;
+	var canIndustries = ViewBag.CanEditIndustries as bool? == true;
+	var partCode = Model?.OrderDetail?.Part?.Code ?? "-";
+	var partName = Model?.OrderDetail?.Part?.Name ?? "-";
+	var orderNo = Model?.OrderDetail?.Sale_Order?.OrderNumber?.ToString() ?? "-";
+	var customerName = Model?.OrderDetail?.Sale_Order?.Customer?.Party?.FullName
+		?? Model?.OrderDetail?.Customer?.Party?.FullName
+		?? "-";
+	var customerCode = Model?.OrderDetail?.Sale_Order?.Customer?.Code?.ToString() ?? "-";
+	var projectName = Model?.PlaningProject?.Name ?? "-";
+	var siteTitle = Model?.CustomerAddress?.Title ?? "-";
+}
+
+<div class="card shadow-sm border-0 mb-3">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(OrderDetailSerial)" new-page-btn="false" save-and-new-btn="false"></form-action-buttons>
+	</div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3 bg-light-primary">
+	<div class="card-body py-3">
+		<div class="row g-3 small">
+			<div class="col-md-3"><strong>شماره سند:</strong> @orderNo</div>
+			<div class="col-md-3"><strong>کد کالا:</strong> @partCode</div>
+			<div class="col-md-3"><strong>عنوان کالا:</strong> @partName</div>
+			<div class="col-md-3"><strong>کد مشتری:</strong> @customerCode</div>
+			<div class="col-md-3"><strong>مشتری:</strong> @customerName</div>
+			<div class="col-md-3"><strong>سریال:</strong> @(Model?.Serial ?? "-")</div>
+			<div class="col-md-3"><strong>مدل:</strong> @(Model?.Model ?? "-")</div>
+			<div class="col-md-3"><strong>نام پروژه:</strong> @projectName</div>
+			<div class="col-md-6"><strong>سایت / آدرس:</strong> @siteTitle</div>
+		</div>
+	</div>
+</div>
+
+<div class="card shadow-sm border-0 mb-3">
+	<div class="card-body row g-3">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="orderDetailId" value="@Model?.OrderDetailId" />
+
+		@if (canInventory || canExit)
+		{
+			<div class="col-12 mb-2 inv-section">
+				<h5 class="fw-bold text-dark border-bottom pb-2">
+					<i class="fa fa-warehouse me-2 text-primary"></i>
+					انبار
+				</h5>
+			</div>
+		}
+
+		@if (canInventory)
+		{
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تاریخ ارسال قبلی</label>
+				<input class="form-control" data-bind="sendShamsiDate"
+					data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.SendMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">ساعت سند</label>
+				<input class="form-control ltr" type="text" data-bind="sendTime" data-time="true" value="@Model?.SendTime" placeholder="__:__" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تاریخ سند تحویل فروش</label>
+				<input class="form-control" data-bind="exitFactoryShamsiDate"
+					data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.ExitFactoryMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">ساعت سند تحویل فروش</label>
+				<input class="form-control ltr" type="text" data-bind="exitFactoryTime" data-time="true" value="@Model?.ExitFactoryTime" placeholder="__:__" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-12 form-group-inline">
+				<label class="form-label">توضیحات انبار</label>
+				<textarea class="form-control" data-bind="invComment" rows="2">@Model?.InvComment</textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		}
+
+		@if (canExit)
+		{
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تاریخ خروج نهایی</label>
+				<input class="form-control" data-bind="finalExitShamsiDate"
+					data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.FinalExitMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">ساعت خروج نهایی</label>
+				<input class="form-control ltr" type="text" data-bind="exitTimeFinal" data-time="true" value="@Model?.ExitTimeFinal" placeholder="__:__" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		}
+
+		@if (canIndustries)
+		{
+			<div class="col-12 mt-4 mb-2 industries-section">
+				<h5 class="fw-bold text-dark border-bottom pb-2">
+					<i class="fa fa-industry me-2 text-success"></i>
+					صنایع / خدمات پس از فروش
+				</h5>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label required">تاریخ راه‌اندازی</label>
+				<input class="form-control" data-bind="launchShamsiDate" data-required="true"
+					data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.LaunchMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label required">گارانتی ساعتی</label>
+				<input class="form-control" type="text" data-bind="guaranteeTime" data-required="true" value="@Model?.GuaranteeTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label required">گارانتی ارسال</label>
+				<input class="form-control" type="text" data-bind="guaranteeSendDay" data-required="true" value="@Model?.GuaranteeSendDay" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label required">گارانتی راه‌اندازی</label>
+				<input class="form-control" type="text" data-bind="guaranteeLaunchDay" data-required="true" value="@Model?.GuaranteeLaunchDay" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline d-flex align-items-center mt-8">
+				<div class="form-check form-switch form-check-custom form-check-solid">
+					<input data-bind="hasInsurance" class="form-check-input" type="checkbox" id="chkMonHasInsurance" @(Model?.HasInsurance == true ? "checked" : "") />
+					<label class="form-check-label ms-3" for="chkMonHasInsurance">وضعیت بیمه</label>
+				</div>
+			</div>
+			<div class="col-12 form-group-inline">
+				<label class="form-label">توضیحات صنایع</label>
+				<textarea class="form-control" data-bind="industrialComment" rows="3">@Model?.IndustrialComment</textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		}
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+
+		var model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+
+		$$.post('/Panel/Sale/OrderDetailSerial/MonitoringSave', model, function (r) {
+			$btn.block(false);
+
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در ذخیره‌سازی', 'خطا');
+				return;
+			}
+
+			toastr.success('ذخیره‌سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

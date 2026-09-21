@@ -1,3 +1,4 @@
+using App.BackgroundJob.Jobs;
 using Common.Attributes;
 using Common.Utilities;
 using Data;
@@ -79,16 +80,32 @@ LEFT JOIN (
 
 				await jobLogger?.LogInfoAsync("در حال بارگذاری entity های مرتبط...", cn);
 
-				var customerMap = (await unitOfWork.Repository<Customer>()
+				var appCustomers = await unitOfWork.Repository<Customer>()
 						.TableNoTracking
-						.ToListAsync(cn))
-					.ToDictionary(x => x.HamkaranId, x => x.Id);
+						.ToListAsync(cn);
+				var customerMap = await JobLookup.ToUniqueValueMapAsync(
+					appCustomers,
+					x => x.HamkaranId,
+					x => x.Id,
+					jobLogger,
+					"Sls.Customer.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
-				var dlMap = (await unitOfWork.Repository<DL>()
+				var appDls = await unitOfWork.Repository<DL>()
 						.TableNoTracking
 						.Where(x => x.HamkaranId.HasValue)
-						.ToListAsync(cn))
-					.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+						.ToListAsync(cn);
+				var dlMap = await JobLookup.ToUniqueValueMapAsync(
+					appDls,
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Fin.DL.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var branchIds = (await unitOfWork.Repository<Branch>()
 						.TableNoTracking
@@ -102,10 +119,22 @@ LEFT JOIN (
 					.Select(x => new { x.Id, x.HamkaranId, x.NameFa, x.Name })
 					.ToListAsync(cn);
 
-				var userMap = users.ToDictionary(x => x.HamkaranId!.Value, x => x.Id!.Value);
-				var userNameMap = users.ToDictionary(
+				var userMap = await JobLookup.ToUniqueValueMapAsync(
+					users,
 					x => x.HamkaranId!.Value,
-					x => !string.IsNullOrWhiteSpace(x.NameFa) ? x.NameFa! : (x.Name ?? string.Empty));
+					x => x.Id!.Value,
+					jobLogger,
+					"system.User.HamkaranId",
+					cn,
+					x => x.Id);
+				var userNameMap = await JobLookup.ToUniqueValueMapAsync(
+					users,
+					x => x.HamkaranId!.Value,
+					x => !string.IsNullOrWhiteSpace(x.NameFa) ? x.NameFa! : (x.Name ?? string.Empty),
+					null,
+					"system.User.HamkaranId (name)",
+					cn,
+					x => x.Id);
 
 				await jobLogger?.LogInfoAsync(
 					$"Entity های مرتبط بارگذاری شدند: {customerMap.Count} مشتری، {dlMap.Count} تفصیل، {branchIds.Count} شعبه، {userMap.Count} کاربر",
@@ -117,9 +146,14 @@ LEFT JOIN (
 
 				await jobLogger?.LogInfoAsync($"تعداد {appContracts.Count} رکورد قرارداد در پایگاه داده برنامه موجود است", cn);
 
-				var appContractsDict = appContracts
-					.Where(x => x.HamkaranId.HasValue)
-					.ToDictionary(x => x.HamkaranId!.Value);
+				var appContractsDict = await JobLookup.ToUniqueMapAsync(
+					appContracts.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					jobLogger,
+					"Sls.Contract.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var newContracts = new List<Contract>();
 				var updatedContractsCount = 0;

@@ -195,6 +195,26 @@ namespace Entities.App.Sale
 		public long? ContractAttachmentId { get; set; }
 
 
+		/// <summary>
+		/// معادل HTS Pln_ProductionOrder.AttachmentFile* — پنجمین پیوست سربرگ (مهندسی / متره) که در ریبون صفحه ۴۶۳ دانلود می‌شد
+		/// </summary>
+		[DisplayName("پیوست مهندسی / متره")]
+		[DisplayInfo(null, true, type: SystemType.File)]
+		[ForeignKey(nameof(EngineeringAttachmentId))]
+		public FileEntity? EngineeringAttachmentFile { get; set; }
+
+		public long? EngineeringAttachmentId { get; set; }
+
+
+		/// <summary>
+		/// معادل HTS Pln_ProductionOrder.DeliveryLocation (فرم و گرید صفحه ۴۶۳)
+		/// </summary>
+		[DisplayName("محل تحویل")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(128)]
+		public string? DeliveryLocation { get; set; }
+
+
 		[DisplayName("GA")]
 		[DisplayInfo(null, true, type: SystemType.Boolean)]
 		public bool HasGA { get; set; } = false;

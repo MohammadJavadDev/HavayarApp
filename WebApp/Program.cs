@@ -6,6 +6,7 @@ using Data.Services;
 using Data.Services.Edms;
 using Data.Services.Eng.CompressorSizing;
 using Data.Services.Pln;
+using Data.Services.Trn;
 using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Auth;
@@ -218,6 +219,7 @@ builder.Services.AddScoped<IEdmsMdrReportService, EdmsMdrReportService>();
 
 // گزارش انحراف از تحویل به‌موقع سفارش ساخت
 builder.Services.AddScoped<ITimelyDeliveryReportService, TimelyDeliveryReportService>();
+builder.Services.AddScoped<ICourseStatisticalReportService, CourseStatisticalReportService>();
 
 builder.Services.AddSingleton<ICompressorSizingService>(sp =>
 {

@@ -19,8 +19,10 @@ using Entities.Base.Notification;
 using Entities.Hts.Pln;
 using Entities.Rahkaran.USR3;
 using Microsoft.EntityFrameworkCore;
+using App.BackgroundJob.Jobs;
 using Services.Job;
- 
+using Services.ProductionOrderServices;
+
 
 namespace App.BackgroundJob.Jobs.Sale
 {
@@ -50,26 +52,56 @@ namespace App.BackgroundJob.Jobs.Sale
 					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
 				// Contract.HamkaranId → (App ContractId, BranchId) — Branch مثل SP قدیمی از قرارداد می‌آید
-				var contractMap = appContracts.ToDictionary(
+				var contractMap = await JobLookup.ToUniqueValueMapAsync(
+					appContracts,
 					x => x.HamkaranId!.Value,
-					x => (ContractId: x.Id, BranchId: x.BranchId));
+					x => (ContractId: x.Id, BranchId: x.BranchId),
+					jobLogger,
+					"Sls.Contract.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appDLs = await unitOfWork.Repository<DL>()
 					.TableNoTracking
 					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
-				var dlMap = appDLs.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var dlMap = await JobLookup.ToUniqueValueMapAsync(
+					appDLs,
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Fin.DL.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appCustomers = await unitOfWork.Repository<Customer>()
 					.TableNoTracking
 					.ToListAsync(cn);
-				var customerMap = appCustomers.ToDictionary(x => x.HamkaranId, x => x.Id);
+				var customerMap = await JobLookup.ToUniqueValueMapAsync(
+					appCustomers,
+					x => x.HamkaranId,
+					x => x.Id,
+					jobLogger,
+					"Sls.Customer.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appRegions = await unitOfWork.Repository<Region>()
 					.TableNoTracking
 					.Where(x => x.RahkaranId.HasValue)
 					.ToListAsync(cn);
-				var regionMap = appRegions.ToDictionary(x => x.RahkaranId!.Value, x => x.Id);
+				var regionMap = await JobLookup.ToUniqueValueMapAsync(
+					appRegions,
+					x => x.RahkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Gnr.Region.RahkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				// بارگذاری Personel ها برای نگاشت Employee → User
 				var appPersonels = await unitOfWork.Repository<Personel>()
@@ -84,7 +116,15 @@ namespace App.BackgroundJob.Jobs.Sale
 					.ToListAsync(cn);
 
 				// ایجاد نگاشت از PartyId به UserId
-				var partyToUserMap = appUsers.ToDictionary(x => x.PartyId!.Value, x => x.Id!.Value);
+				var partyToUserMap = await JobLookup.ToUniqueValueMapAsync(
+					appUsers,
+					x => x.PartyId!.Value,
+					x => x.Id!.Value,
+					jobLogger,
+					"system.User.PartyId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				// ایجاد نگاشت نهایی از HamkaranId (EmployeeId) به UserId
 				var employeeToUserMap = new Dictionary<long, long>();
@@ -106,9 +146,14 @@ namespace App.BackgroundJob.Jobs.Sale
 
 				await jobLogger?.LogInfoAsync($"تعداد {appProductionOrders.Count} رکورد سفارش ساخت در پایگاه داده برنامه موجود است", cn);
 
-				var appProductionOrdersDict = appProductionOrders
-					.Where(x => x.HamkaranId.HasValue)
-					.ToDictionary(x => x.HamkaranId!.Value);
+				var appProductionOrdersDict = await JobLookup.ToUniqueMapAsync(
+					appProductionOrders.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					jobLogger,
+					"Sale.ProductionOrder.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var newProductionOrders = new List<ProductionOrder>();
 				int updatedProductionOrdersCount = 0;
@@ -1607,35 +1652,75 @@ namespace App.BackgroundJob.Jobs.Sale
 				var finalItems = new List<ProductionOrderItem>();
 				var newComments = new List<ProductionOrderItemComment>();
 
+				// معادل HTS: مبنای مهلت، تاریخ آخرین کامنت «مرحله ساخت = ۱۳۸۰» است (Pln_ProductionOrder_Itm_New_Comment
+				// با StatusId=1380). قلم می‌تواند از دو مسیر به ۱۳۸۰ رسیده باشد: ارجاع اولیه به مدیر پروژه (CheckStatus=2258)
+				// یا «تعیین تکلیف BOM» (CheckStatus دست‌نخورده) — در حالت دوم CheckStatusChangedOnMiladiDate مبنای درستی نیست.
+				var itemIds = items.Select(i => i.Id!.Value).ToList();
+				var lastStepCommentDates = itemIds.Count == 0
+					? new Dictionary<long, DateTime?>()
+					: (await unitOfWork.Repository<ProductionOrderItemComment>()
+						.TableNoTracking
+						.Where(c => itemIds.Contains(c.ProductionOrderItemId)
+							&& c.IsForProductionStepStatus
+							&& c.ProductionStep == stepId
+							&& c.IsActive == IsActiveEnum.Active)
+						.GroupBy(c => c.ProductionOrderItemId)
+						.Select(g => new { g.Key, Date = g.Max(c => c.CreatedOnMiladiDateTime) })
+						.ToListAsync(cn))
+						.ToDictionary(x => x.Key, x => x.Date);
+
 				foreach (var item in items)
 				{
-					// باگ رفع‌شده: نسخه قبلی این کد به‌دنبال کامنتی با ProductionStatus == 1380 می‌گشت، اما هیچ
-					// اکشنی هرگز چنین کامنتی نمی‌سازد (1380 حتی عضوی از ProductionOrderItemProductionStatusEnum
-					// نیست)، بنابراین lastComment همیشه null بود و این Job هیچ‌وقت آیتمی را منتقل نمی‌کرد.
-					// درست مثل SendExpiredEngineeringItemsToIndustrial، مبنای تشخیص مهلت اکنون مستقیماً
-					// CheckStatusChangedOnMiladiDate است که در تمام اکشن‌های گردش‌کار به‌روزرسانی می‌شود
-					if (item.CheckStatusChangedOnMiladiDate == null || nowDate <= item.CheckStatusChangedOnMiladiDate.Value.AddDays(deadLineInDay))
+					lastStepCommentDates.TryGetValue(item.Id!.Value, out var stepDate);
+					var deadlineBase = stepDate ?? item.CheckStatusChangedOnMiladiDate ?? item.ModifiedDateMiladiDateTime;
+					if (deadlineBase == null || nowDate <= deadlineBase.Value.AddDays(deadLineInDay))
 						continue;
 
-					// تغییر وضعیت - هم‌زمان با ProductionStep، CheckStatus و تاریخ‌های تغییر وضعیت نیز به‌روزرسانی می‌شوند
-					// تا این دو فیلد همواره هماهنگ باقی بمانند (مطابق نگاشت استفاده‌شده در CheckFinancialConfirmsOrders)
+					// معادل HTS: ProductionStepId → 2744 (در انتظار صنایع).
+					// فقط اگر قلم هنوز در «انتظار تایید مدیر پروژه» (۲۲۵۸ — ارجاع اولیه) است، وضعیت بررسی هم به صنایع داخلی
+					// می‌رود تا در کارتابل صنایع دیده شود (HTS فقط مرحله را عوض می‌کرد و قلم در ۲۲۵۸ معلق می‌ماند).
+					// قلمی که از مسیر BOM به ۱۳۸۰ رسیده، CheckStatus خودش (مثلاً ۱۹۰۴/۲۱۹۷) را نگه می‌دارد.
+					var wasAwaitingProjectManagerApproval = item.CheckStatus == ProductionOrderItemCheckStatusEnum.AwaitingProjectManagerApproval;
+
 					item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry;
-					item.CheckStatus = ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
-					item.CheckStatusChangedOnMiladiDate = nowDate;
-					item.CheckStatusChangedOnShamsiDate = nowDate.ToShamsiDateTime();
-					TrySetSendToIndustrial(item, ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal, nowDate);
+					if (wasAwaitingProjectManagerApproval)
+					{
+						item.CheckStatus = ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
+						item.CheckStatusChangedOnMiladiDate = nowDate;
+						item.CheckStatusChangedOnShamsiDate = nowDate.ToShamsiDateTime();
+						TrySetSendToIndustrial(item, ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal, nowDate);
+					}
 
 					finalItems.Add(item);
 
-					// ایجاد کامنت جدید
-					// باگ رفع‌شده: نسخه قبلی این خط مقدار enum مرحله ساخت (ProductionOrderItemProductionStepEnum.AwaitingIndustry=2744)
-					// را به ProductionOrderItemProductionStatusEnum کست می‌کرد که چنین عضوی ندارد (مقدار نامعتبر/خارج از دامنه
-					// در تاریخچه ذخیره می‌شد)؛ باید مطابق CheckStatus واقعی که چند سطر بالاتر ست شده (IndustrialDashboardInternal)
-					// از عضو معادل و صحیح همان Enum استفاده شود
+					var statusForHistory = item.CheckStatus.HasValue
+						? (ProductionOrderItemProductionStatusEnum)item.CheckStatus.Value
+						: ProductionOrderItemProductionStatusEnum.NotDetermined;
+
+					if (wasAwaitingProjectManagerApproval)
+					{
+						// تب «وضعیت سفارش ساخت»: ورود به کارتابل صنایع
+						newComments.Add(new ProductionOrderItemComment
+						{
+							ProductionOrderItemId = (long)item.Id!,
+							ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
+							Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه",
+							CreatedById = 1,
+							CreatedOnMiladiDateTime = nowDate,
+							CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
+							StartMiladiDateTime = nowDate,
+							StartShamsiDate = nowDate.ToShamsiDateTime(),
+							IsForProductionMode = false,
+							IsForProductionStepStatus = false,
+							IsActive = IsActiveEnum.Active
+						});
+					}
+
+					// تب «مرحله ساخت»: ۲۷۴۴ در انتظار صنایع (معادل کامنت IsForProductionStepStatus HTS)
 					newComments.Add(new ProductionOrderItemComment
 					{
 						ProductionOrderItemId = (long)item.Id!,
-						ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
+						ProductionStatus = statusForHistory,
 						ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry,
 						Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه",
 						CreatedById = 1,
@@ -1674,19 +1759,23 @@ namespace App.BackgroundJob.Jobs.Sale
 				await jobLogger?.LogInfoAsync("شروع بررسی اقلام منقضی‌شده در کارتابل مهندسی", cn);
 
 				var deadLineInDay = 1;
-				var stepId = ProductionOrderItemProductionStepEnum.AwaitingEngineering;
 
+				// معادل HTS SendExpiredOrdersNotification: مبنا BuyStatusId ∈ {۲۱۹۵ مکانیک، ۲۱۹۶ برق} است (در سیستم جدید هر دو
+				// رشته با ۲۱۹۵ + DeviceType نمایش داده می‌شوند)، نه مرحله ساخت — قلمی که پس از تایید مهندسی به کمیته (۲۲۰۲)
+				// رفته هنوز مرحله «در انتظار مهندسی» دارد و نباید دوباره توسط این Job ارجاع شود.
 			var items = await unitOfWork.Repository<ProductionOrderItem>()
 				.Table
-				.Include(p => p.ProductionOrderItemComments)
+				.Include(p => p.Part)
 				.Include(p => p.ProductionOrder)
 				.Where(p => p.IsLatestVersion &&
 							p.IsActive != IsActiveEnum.Deleted &&
-							p.ProductionStep == stepId)
+							p.CheckStatus == ProductionOrderItemCheckStatusEnum.MechanicalEngineeringApprovalPending)
 				.ToListAsync(cn);
 
 				var nowDate = DateTime.Now;
 				var finalItems = new List<ProductionOrderItem>();
+				var industrialItems = new List<ProductionOrderItem>();
+				var committeeItems = new List<ProductionOrderItem>();
 				var newComments = new List<ProductionOrderItemComment>();
 
 				foreach (var item in items)
@@ -1695,34 +1784,61 @@ namespace App.BackgroundJob.Jobs.Sale
 					if (item.CheckStatusChangedOnMiladiDate == null || nowDate <= item.CheckStatusChangedOnMiladiDate.Value.AddDays(deadLineInDay))
 						continue;
 
-					// تغییر وضعیت به صنایع
-					item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingProduction;
-					item.CheckStatus = ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
+					// معادل HTS: (غیرروتین و ساخت داخل) یا پیشوند کالای ساخت داخل → صنایع داخلی ۱۹۰۴؛ وگرنه → کمیته تامین ۲۲۰۲
+					var next = ProductionOrderItemWorkflowRules.ResolveAfterEngineeringApproval(item.IsRoutine, item.IsBuildInside, item.Part?.Code);
+					var goesToIndustrial = next == ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
+
+					item.CheckStatus = next;
 					item.CheckStatusChangedOnMiladiDate = nowDate;
 					item.CheckStatusChangedOnShamsiDate = nowDate.ToShamsiDateTime();
-					TrySetSendToIndustrial(item, ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal, nowDate);
+					if (goesToIndustrial)
+					{
+						item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingProduction;
+						TrySetSendToIndustrial(item, next, nowDate);
+						industrialItems.Add(item);
+					}
+					else
+					{
+						committeeItems.Add(item);
+					}
 
 					finalItems.Add(item);
 
-					// باگ رفع‌شده: مشابه SendHoldedItemsToIndustrialUnitThatWasInProjectManagerCartable - کست از
-					// ProductionOrderItemProductionStepEnum.AwaitingProduction(214) به ProductionOrderItemProductionStatusEnum
-					// مقداری نامعتبر (بدون عضو متناظر) تولید می‌کرد؛ اکنون از عضو صحیح متناظر با CheckStatus واقعاً ست‌شده
-					// (IndustrialDashboardInternal) استفاده می‌شود
+					// تب «وضعیت سفارش ساخت» (معادل کامنت BuyStatus در HTS با متن «تایید خودکار بعلت منقضی شدن زمان انتظار»)
 					newComments.Add(new ProductionOrderItemComment
 					{
 						ProductionOrderItemId = (long)item.Id!,
-						ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
-						ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingProduction,
-						Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی مهندسی",
+						ProductionStatus = (ProductionOrderItemProductionStatusEnum)next,
+						Comment = "تایید خودکار بعلت منقضی شدن زمان انتظار مهندسی",
 						CreatedById = 1,
 						CreatedOnMiladiDateTime = nowDate,
 						CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
 						StartMiladiDateTime = nowDate,
 						StartShamsiDate = nowDate.ToShamsiDateTime(),
 						IsForProductionMode = false,
-						IsForProductionStepStatus = true,
+						IsForProductionStepStatus = false,
 						IsActive = IsActiveEnum.Active
 					});
+
+					if (goesToIndustrial)
+					{
+						// تب «مرحله ساخت»
+						newComments.Add(new ProductionOrderItemComment
+						{
+							ProductionOrderItemId = (long)item.Id!,
+							ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
+							ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingProduction,
+							Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی مهندسی",
+							CreatedById = 1,
+							CreatedOnMiladiDateTime = nowDate,
+							CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
+							StartMiladiDateTime = nowDate,
+							StartShamsiDate = nowDate.ToShamsiDateTime(),
+							IsForProductionMode = false,
+							IsForProductionStepStatus = true,
+							IsActive = IsActiveEnum.Active
+						});
+					}
 				}
 
 				if (finalItems.Any())
@@ -1730,9 +1846,23 @@ namespace App.BackgroundJob.Jobs.Sale
 					await unitOfWork.Repository<ProductionOrderItemComment>().AddRangeAsync(newComments, cn, false);
 					await unitOfWork.SaveChangesAsync(cn);
 
-					await SendEngineeringNotificationAsync(finalItems, "انتقال خودکار اقلام منقضی‌شده در کارتابل مهندسی به صنایع", jobLogger, cn);
+					// اطلاع به تاییدکنندگان مهندسی که مهلت‌شان گذشت (معادل SendExpiredItemsNotification در HTS)
+					await SendEngineeringNotificationAsync(finalItems, "انتقال خودکار اقلام منقضی‌شده در کارتابل مهندسی", jobLogger, cn);
 
-					await jobLogger?.LogInfoAsync($"تعداد {finalItems.Count} قلم کالا به دلیل انقضای زمان بررسی مهندسی به واحد صنعتی منتقل شدند", cn);
+					if (industrialItems.Any())
+						await SendGroupNotificationAsync(
+							ProductionOrderItemNotificationHelper.GroupIndustrial,
+							"ارجاع خودکار اقلام سفارش ساخت به کارتابل صنایع (انقضای مهلت مهندسی)",
+							"اقلام ذیل به‌علت انقضای مهلت بررسی مهندسی به‌صورت خودکار به کارتابل صنایع ارسال شدند",
+							industrialItems, jobLogger, cn);
+
+					if (committeeItems.Any())
+						await SendSupplyCommitteeNotificationAsync(
+							"ارجاع خودکار اقلام سفارش ساخت به رئیس کمیته تامین (انقضای مهلت مهندسی)",
+							"اقلام ذیل به‌علت انقضای مهلت بررسی مهندسی به‌صورت خودکار جهت بررسی پروسه تامین به کارتابل شما ارسال شدند",
+							committeeItems, jobLogger, cn);
+
+					await jobLogger?.LogInfoAsync($"تعداد {finalItems.Count} قلم کالا به دلیل انقضای زمان بررسی مهندسی ارجاع شدند ({industrialItems.Count} به صنایع، {committeeItems.Count} به کمیته تامین)", cn);
 				}
 				else
 				{
@@ -1753,19 +1883,17 @@ namespace App.BackgroundJob.Jobs.Sale
 			{
 				await jobLogger?.LogInfoAsync("شروع بررسی اقلام سفارش ساخت نزدیک به تاریخ تحویل", cn);
 
-				var nowDate = DateTime.Now;
-				var upperBoundDate = nowDate.AddDays(15);
+				// معادل HTS ProductionOrderItemService.GetNearDeliveryItems(15): فقط اقلامی که «تاریخ تحویل مؤثر» آن‌ها دقیقاً
+				// ۱۵ روز دیگر است (نه پنجره ۱۵ روزه — تا هر قلم فقط یک‌بار هشدار بگیرد). تاریخ مؤثر = دیرترینِ تاریخ تحویل توافقی
+				// و تاریخ تحویل استاندارد؛ اقلام ثبت اولیه (۱۹۰۳)، باطل (۵۸۱)، آماده ارسال (۲۲۱) و تحویل فروش (۲۲۳) مستثنا هستند.
+				const int interval = 15;
+				var targetDate = DateTime.Now.Date.AddDays(interval);
+				var nextDay = targetDate.AddDays(1);
 
-				// وضعیت‌هایی که تولید/تحویل آن‌ها به پایان رسیده و نیازی به اطلاع‌رسانی ندارند
 				var excludedSteps = new List<ProductionOrderItemProductionStepEnum>
 				{
-					ProductionOrderItemProductionStepEnum.Completed,
-					ProductionOrderItemProductionStepEnum.Canceled,
 					ProductionOrderItemProductionStepEnum.ReadyForShipping,
-					ProductionOrderItemProductionStepEnum.DeliveredToSales,
-					ProductionOrderItemProductionStepEnum.ConsignmentDelivery,
-					ProductionOrderItemProductionStepEnum.ReturnedFromSales,
-					ProductionOrderItemProductionStepEnum.Unshippable
+					ProductionOrderItemProductionStepEnum.DeliveredToSales
 				};
 
 				var items = await unitOfWork.Repository<ProductionOrderItem>()
@@ -1773,11 +1901,21 @@ namespace App.BackgroundJob.Jobs.Sale
 					.Include(p => p.ProductionOrder)
 					.Include(p => p.Part)
 					.Where(p => p.IsLatestVersion &&
+								!p.IsDeleted &&
 								p.IsActive != IsActiveEnum.Deleted &&
-								p.AgreedDeliverDate != null &&
-								p.AgreedDeliverDate.Value <= upperBoundDate &&
-								p.AgreedDeliverDate.Value >= nowDate &&
-								!excludedSteps.Contains(p.ProductionStep))
+								p.CheckStatus != ProductionOrderItemCheckStatusEnum.InitialRegistration &&
+								p.Status != ProductionOrderItemStatusEnum.Invalid &&
+								!excludedSteps.Contains(p.ProductionStep) &&
+								(
+									(p.StandardDeliveryMiladiDate != null && p.AgreedDeliverDate == null
+										&& p.StandardDeliveryMiladiDate >= targetDate && p.StandardDeliveryMiladiDate < nextDay) ||
+									(p.AgreedDeliverDate != null && p.StandardDeliveryMiladiDate == null
+										&& p.AgreedDeliverDate >= targetDate && p.AgreedDeliverDate < nextDay) ||
+									(p.AgreedDeliverDate != null && p.StandardDeliveryMiladiDate != null && p.AgreedDeliverDate > p.StandardDeliveryMiladiDate
+										&& p.AgreedDeliverDate >= targetDate && p.AgreedDeliverDate < nextDay) ||
+									(p.AgreedDeliverDate != null && p.StandardDeliveryMiladiDate != null && p.StandardDeliveryMiladiDate > p.AgreedDeliverDate
+										&& p.StandardDeliveryMiladiDate >= targetDate && p.StandardDeliveryMiladiDate < nextDay)
+								))
 					.ToListAsync(cn);
 
 				if (!items.Any())
@@ -1788,9 +1926,174 @@ namespace App.BackgroundJob.Jobs.Sale
 
 				await jobLogger?.LogInfoAsync($"تعداد {items.Count} قلم سفارش ساخت با تاریخ تحویل نزدیک یافت شد", cn);
 
-				await SendNearDeliveryDateNotification(items, jobLogger, cn);
+				var sentCount = await SendNearDeliveryDateNotification(items, interval, jobLogger, cn);
 
-				await jobLogger?.LogInfoAsync($"اطلاع‌رسانی برای {items.Count} قلم سفارش ساخت با تاریخ تحویل نزدیک ارسال شد", cn);
+				await jobLogger?.LogInfoAsync($"اطلاع‌رسانی برای {sentCount} قلم سفارش ساخت با تاریخ تحویل نزدیک صف شد", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		/// <summary>
+		/// معادل HTS ProductionOrderItemInquiryService.SendExpiredItemsNotification (زمان‌بندی ۰۹:۰۱ و ۱۵:۰۱ در HTS):
+		/// آخرین استعلام هر قلم اگر در وضعیت «نیاز به استعلام» (۱۹۰۶) یا «نیاز به بررسی وزارت صنایع» (۱۹۰۸) بوده و LeadTime آن
+		/// گذشته باشد، به مسئول استعلام و کارشناسان/رئیس کمیته تامین اعلان انقضا ارسال می‌شود.
+		/// </summary>
+		[JobHandler("اعلان انقضای زمان استعلام اقلام سفارش ساخت")]
+		public async Task SendExpiredInquiryItemsNotification(IJobLogger? jobLogger = null, CancellationToken cn = default)
+		{
+			try
+			{
+				await jobLogger?.LogInfoAsync("شروع بررسی استعلام‌های منقضی‌شده اقلام سفارش ساخت", cn);
+
+				var now = DateTime.Now;
+				var inquiryStatuses = ProductionOrderItemWorkflowRules.InquiryStatuses;
+
+				// آخرین استعلام هر قلم (معادل GroupBy + OrderByDescending(Id).First در HTS)
+				var latestInquiryIds = await unitOfWork.Repository<ProductionOrderItemInquiry>()
+					.TableNoTracking
+					.Where(i => i.IsActive == IsActiveEnum.Active)
+					.GroupBy(i => i.ProductionOrderItemId)
+					.Select(g => g.Max(i => i.Id))
+					.ToListAsync(cn);
+
+				if (!latestInquiryIds.Any())
+				{
+					await jobLogger?.LogInfoAsync("هیچ استعلامی ثبت نشده است", cn);
+					return;
+				}
+
+				var expired = await unitOfWork.Repository<ProductionOrderItemInquiry>()
+					.TableNoTracking
+					.Include(i => i.ProductionOrderItem).ThenInclude(p => p.Part)
+					.Include(i => i.ProductionOrderItem).ThenInclude(p => p.ProductionOrder)
+					.Where(i => latestInquiryIds.Contains(i.Id)
+						&& inquiryStatuses.Contains(i.Status)
+						&& i.LeadTimeMiladiDate != null
+						&& i.LeadTimeMiladiDate < now
+						&& i.ProductionOrderItem.CheckStatus != null
+						&& inquiryStatuses.Contains(i.ProductionOrderItem.CheckStatus.Value))
+					.ToListAsync(cn);
+
+				if (!expired.Any())
+				{
+					await jobLogger?.LogInfoAsync("استعلام منقضی‌شده‌ای یافت نشد", cn);
+					return;
+				}
+
+				var committeeEmails = await ProductionOrderItemNotificationHelper.GetRoleEmailsAsync(appContext, "Sale.ProductionOrderItem.SupplyCommitteeBoss", cn);
+				committeeEmails.AddRange(await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, ProductionOrderItemNotificationHelper.GroupSupplyCommitteeExperts, cn));
+
+				var queued = 0;
+				foreach (var inquiry in expired)
+				{
+					var item = inquiry.ProductionOrderItem;
+					var to = new List<string?>(committeeEmails);
+					if (inquiry.ResponsibleId is > 0)
+						to.AddRange(await ProductionOrderItemNotificationHelper.GetUserEmailsAsync(appContext, new[] { inquiry.ResponsibleId.Value }, cn));
+
+					var creatorEmails = inquiry.CreatedById is > 0
+						? await ProductionOrderItemNotificationHelper.GetUserEmailsAsync(appContext, new[] { inquiry.CreatedById.Value }, cn)
+						: new List<string>();
+
+					var body = ProductionOrderItemNotificationHelper.BuildEmailShell(
+						"بدینوسیله به استحضار می رساند مدت زمان اخذ استعلام تامین اقلام سفارشات ذیل منقضی گشته است.<br /><br /><ul>"
+						+ ProductionOrderItemNotificationHelper.Li("شماره سفارش ساخت", item?.ProductionOrder?.ProductionOrderNumber ?? (object?)item?.ProductionOrder?.Number)
+						+ ProductionOrderItemNotificationHelper.Li("مسئول استعلام", inquiry.ResponsibleName)
+						+ ProductionOrderItemNotificationHelper.Li("مدت زمان اخذ استعلام", inquiry.LeadTimeShamsiDate)
+						+ ProductionOrderItemNotificationHelper.Li("وضعیت", inquiry.Status.ToDisplay())
+						+ ProductionOrderItemNotificationHelper.Li("کامنت آخر", inquiry.Comment)
+						+ ProductionOrderItemNotificationHelper.Li("کد کالا", item?.Part?.Code)
+						+ ProductionOrderItemNotificationHelper.Li("عنوان کالا", item?.Part?.Name)
+						+ ProductionOrderItemNotificationHelper.Li("تعداد/مقدار", item?.Amount)
+						+ "</ul>");
+
+					if (await ProductionOrderItemNotificationHelper.QueueEmailAsync(unitOfWork,
+							"اعلان انقضای زمان استعلام تامین اقلام سفارش ساخت", body, to, creatorEmails,
+							item?.Id, inquiry.ResponsibleId ?? 1, $"Panel/ProductionOrderItem/Edit/{item?.Id}", cn, saveNow: false))
+						queued++;
+				}
+
+				await unitOfWork.SaveChangesAsync(cn);
+				await jobLogger?.LogInfoAsync($"اعلان انقضای استعلام برای {queued} قلم صف شد", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		/// <summary>
+		/// معادل HTS ProductionOrderItemBomService.AddRoutineBomListTask (داخل ModuleTask): برای اقلام روتین در کارتابل صنایع
+		/// (۱۹۰۴/۱۹۰۵) با وضعیت «۰» (۵۷۹) که BOM فعال ندارند، BOM الگوی محصول از Bom.vw_ProductItems درج می‌شود.
+		/// </summary>
+		[JobHandler("درج خودکار BOM روتین برای اقلام سفارش ساخت بدون BOM")]
+		public async Task AddRoutineBomListTask(IJobLogger? jobLogger = null, CancellationToken cn = default)
+		{
+			try
+			{
+				await jobLogger?.LogInfoAsync("شروع درج BOM روتین برای اقلام بدون BOM", cn);
+
+				var industrialStatuses = ProductionOrderItemWorkflowRules.IndustrialDashboardStatuses;
+
+				var candidates = await unitOfWork.Repository<ProductionOrderItem>()
+					.TableNoTracking
+					.Where(p => p.IsLatestVersion
+						&& !p.IsDeleted
+						&& p.IsActive != IsActiveEnum.Deleted
+						&& p.PartId != null
+						&& p.CheckStatus != null
+						&& industrialStatuses.Contains(p.CheckStatus.Value)
+						&& p.Status == ProductionOrderItemStatusEnum.NotCompleted
+						&& (p.IsRoutine || (p.Part != null && p.Part.EngineeringRoutine))
+						&& !p.ProductionOrderItemBom.Any(b => b.IsLatest && b.IsActive == IsActiveEnum.Active))
+					.Select(p => new { Id = p.Id!.Value, PartId = p.PartId!.Value })
+					.ToListAsync(cn);
+
+				if (!candidates.Any())
+				{
+					await jobLogger?.LogInfoAsync("قلم روتین بدون BOM یافت نشد", cn);
+					return;
+				}
+
+				var partIds = candidates.Select(c => c.PartId).Distinct().ToList();
+				var templates = (await appContext.vw_ProductItems
+						.AsNoTracking()
+						.Where(v => partIds.Contains(v.PartId) && v.PartItemId > 0)
+						.Select(v => new { v.PartId, v.PartItemId, v.UsingRate })
+						.ToListAsync(cn))
+					.GroupBy(v => v.PartId)
+					.ToDictionary(g => g.Key, g => g
+						.GroupBy(x => x.PartItemId)
+						.Select(x => new { PartItemId = x.Key, Amount = x.Sum(y => y.UsingRate) })
+						.ToList());
+
+				var newBoms = new List<ProductionOrderItemBom>();
+				var itemsWithBom = 0;
+				foreach (var candidate in candidates)
+				{
+					if (!templates.TryGetValue(candidate.PartId, out var rows) || rows.Count == 0)
+						continue;
+
+					itemsWithBom++;
+					newBoms.AddRange(rows.Select(r => new ProductionOrderItemBom
+					{
+						ProductionOrderItemId = candidate.Id,
+						PartId = r.PartItemId,
+						Amount = r.Amount,
+						IsLatest = true,
+						Description = "افزوده شده از BOM روتین محصول (خودکار)",
+						CreatedById = 1,
+						IsActive = IsActiveEnum.Active
+					}));
+				}
+
+				if (newBoms.Any())
+					await unitOfWork.Repository<ProductionOrderItemBom>().AddRangeAsync(newBoms, cn, true);
+
+				await jobLogger?.LogInfoAsync($"برای {itemsWithBom} قلم روتین، {newBoms.Count} ردیف BOM از الگوی محصول درج شد ({candidates.Count - itemsWithBom} قلم الگو نداشتند)", cn);
 			}
 			catch (Exception ex)
 			{
@@ -3013,17 +3316,10 @@ namespace App.BackgroundJob.Jobs.Sale
 		}
 
 		/// <summary>
-		/// باید دقیقاً با HashSet هم‌نام در ProductionOrderItemController همگام بماند (تشخیص رشته مهندسی
-		/// بر اساس DeviceType). چون این دو کلاس در دو پروژه/اسمبلی متفاوت هستند (WebApp در برابر
-		/// App.BackgroundJob)، امکان اشتراک مستقیم فیلد private وجود ندارد.
+		/// تشخیص رشته مهندسی (برق/مکانیک) از منبع مشترک با ProductionOrderItemController:
+		/// Entities.App.Sale.ProductionOrderItemWorkflowRules.ElectricalDeviceTypes
 		/// </summary>
-		private static readonly HashSet<ProductionOrderItemDeviceTypeEnum> ElectricalDeviceTypes = new()
-		{
-			ProductionOrderItemDeviceTypeEnum.ControlPanel,
-			ProductionOrderItemDeviceTypeEnum.ElectricalPanel,
-			ProductionOrderItemDeviceTypeEnum.InverterPanel,
-			ProductionOrderItemDeviceTypeEnum.Sequencer,
-		};
+		private static HashSet<ProductionOrderItemDeviceTypeEnum> ElectricalDeviceTypes => ProductionOrderItemWorkflowRules.ElectricalDeviceTypes;
 
 		/// <summary>
 		/// معادل HTS: SendEngineeringAndProjectManagerNotification / SendExpiredItemsNotification (بخش مهندسی).
@@ -3195,14 +3491,100 @@ namespace App.BackgroundJob.Jobs.Sale
 			return sb.ToString();
 		}
 
-		private async Task SendNearDeliveryDateNotification(List<ProductionOrderItem> items, IJobLogger? jobLogger, CancellationToken cn)
+		/// <summary>
+		/// معادل HTS HtsTaskService.SendProductionOrderItemsWithNearDeliveryDateNotifications: یک ایمیل به‌ازای هر قلم برای
+		/// گروه اعلان «نزدیک به موعد تحویل» (معادل گروه کاربری 567 در HTS).
+		/// </summary>
+		private async Task<int> SendNearDeliveryDateNotification(List<ProductionOrderItem> items, int interval, IJobLogger? jobLogger, CancellationToken cn)
 		{
-			// TODO: سیم‌کشی کامل به سرویس اطلاع‌رسانی (INotificationService/NotificationGroupService) در فاز بعدی انجام شود.
-			// در حال حاضر صرفاً لاگ پیشرفت ثبت می‌شود، مطابق الگوی موجود SendInitilizeEmailNotification.
+			var receivers = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, ProductionOrderItemNotificationHelper.GroupNearDeliveryDate, cn);
+			if (!receivers.Any())
+			{
+				await jobLogger?.LogInfoAsync($"گروه اعلان {ProductionOrderItemNotificationHelper.GroupNearDeliveryDate} عضوی ندارد؛ هشدار نزدیک‌تحویل ارسال نشد", cn);
+				return 0;
+			}
+
+			var sent = 0;
 			foreach (var item in items)
 			{
-				await jobLogger?.LogInfoAsync($"قلم سفارش ساخت شماره {item.Id} (سفارش ساخت: {item.ProductionOrderId}) در تاریخ {item.AgreedDeliverDate:yyyy-MM-dd} به تحویل نزدیک است", cn);
+				var effectiveDate = item.AgreedDeliverDate == null ? item.StandardDeliveryMiladiDate
+					: item.StandardDeliveryMiladiDate == null ? item.AgreedDeliverDate
+					: item.AgreedDeliverDate > item.StandardDeliveryMiladiDate ? item.AgreedDeliverDate : item.StandardDeliveryMiladiDate;
+
+				var body = ProductionOrderItemNotificationHelper.BuildEmailShell(
+					$"احتراماَ کالای: <strong>{item.Part?.Name} | {item.Part?.Code}</strong> مندرج در سفارش ساخت شماره : <strong>{item.ProductionOrder?.ProductionOrderNumber ?? (object?)item.ProductionOrder?.Number}</strong>"
+					+ $" با موعد تحویل : <strong>{interval}</strong> روز بعد ({effectiveDate?.ToShamsiDate()}) در وضعیت : <strong>{item.ProductionStep.ToDisplay()}</strong> قرار دارد."
+					+ "<br />لطفا بررسی های لازم را انجام دهید.");
+
+				if (await ProductionOrderItemNotificationHelper.QueueEmailAsync(unitOfWork, "هشدار نزدیک بودن زمان تحویل کالا", body,
+						receivers, null, item.Id, 1, $"Panel/ProductionOrderItem/Edit/{item.Id}", cn, saveNow: false))
+					sent++;
 			}
+
+			await unitOfWork.SaveChangesAsync(cn);
+			return sent;
+		}
+
+		/// <summary>
+		/// اعلان گروهی (گروه اعلان پنل) با فهرست اقلام — برای ارجاع‌های خودکار Job به صنایع.
+		/// </summary>
+		private async Task SendGroupNotificationAsync(string groupCode, string title, string intro, List<ProductionOrderItem> items, IJobLogger? jobLogger, CancellationToken cn)
+		{
+			try
+			{
+				var receivers = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, groupCode, cn);
+				if (!receivers.Any())
+				{
+					await jobLogger?.LogInfoAsync($"گروه اعلان {groupCode} عضوی ندارد؛ اعلان «{title}» ارسال نشد", cn);
+					return;
+				}
+
+				await ProductionOrderItemNotificationHelper.QueueEmailAsync(unitOfWork, title,
+					ProductionOrderItemNotificationHelper.BuildEmailShell(intro + BuildItemsListHtml(items)),
+					receivers, null, items.First().Id, 1, $"Panel/ProductionOrderItem/Edit/{items.First().Id}", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		/// <summary>
+		/// اعلان به رئیس کمیته تامین (نقش) + کارشناسان کمیته (گروه اعلان) — معادل بخش WaitingToCheckingSupplyCommitteeBoss در HTS.
+		/// </summary>
+		private async Task SendSupplyCommitteeNotificationAsync(string title, string intro, List<ProductionOrderItem> items, IJobLogger? jobLogger, CancellationToken cn)
+		{
+			try
+			{
+				var receivers = await ProductionOrderItemNotificationHelper.GetRoleEmailsAsync(appContext, "Sale.ProductionOrderItem.SupplyCommitteeBoss", cn);
+				receivers.AddRange(await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, ProductionOrderItemNotificationHelper.GroupSupplyCommitteeExperts, cn));
+				if (!receivers.Any())
+				{
+					await jobLogger?.LogInfoAsync("کاربری با نقش رئیس کمیته تامین یافت نشد؛ اعلان کمیته ارسال نشد", cn);
+					return;
+				}
+
+				await ProductionOrderItemNotificationHelper.QueueEmailAsync(unitOfWork, title,
+					ProductionOrderItemNotificationHelper.BuildEmailShell(intro + BuildItemsListHtml(items)),
+					receivers, null, items.First().Id, 1, $"Panel/ProductionOrderItem/Edit/{items.First().Id}", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		private static string BuildItemsListHtml(List<ProductionOrderItem> items)
+		{
+			var sb = new StringBuilder();
+			sb.Append("<br /><br /><ul>");
+			foreach (var item in items)
+			{
+				sb.Append($"<li>سفارش ساخت <strong>{item.ProductionOrder?.ProductionOrderNumber ?? (object?)item.ProductionOrder?.Number ?? "-"}</strong>");
+				sb.Append($" - کالا <strong>{item.Part?.Code} | {item.Part?.Name}</strong> - تعداد/مقدار <strong>{item.Amount}</strong> - نسخه <strong>{item.Revision}</strong></li>");
+			}
+			sb.Append("</ul>");
+			return sb.ToString();
 		}
 
 

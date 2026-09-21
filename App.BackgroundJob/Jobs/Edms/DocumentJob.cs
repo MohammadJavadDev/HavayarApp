@@ -222,6 +222,16 @@ namespace App.BackgroundJob.Jobs.Edms
 						.GroupBy(c => c.HtsId)
 						.ToDictionary(g => g.Key, g => g.First());
 
+					var documentFks = batch.Select(c => c.Document_FK).Distinct().ToList();
+					var documentRoles = (await htsDb.Hts_Edms_Documents.AsNoTracking()
+							.Where(d => documentFks.Contains(d.Document_ID))
+							.Select(d => new { d.Document_ID, d.CheckedUser_FK, d.ApprovedUser_FK })
+							.ToListAsync(cn))
+						.GroupBy(d => d.Document_ID)
+						.ToDictionary(
+							g => g.Key,
+							g => (CheckedUserId: g.First().CheckedUser_FK, ApprovedUserId: g.First().ApprovedUser_FK));
+
 					foreach (var hts in batch)
 					{
 						try
@@ -232,43 +242,50 @@ namespace App.BackgroundJob.Jobs.Edms
 								continue;
 							}
 
-							var mapped = MapComment(hts, documentId, userMaps, unmatchedUsers);
+							documentRoles.TryGetValue(hts.Document_FK, out var roles);
+							var mapped = MapComment(
+								hts,
+								documentId,
+								userMaps,
+								unmatchedUsers,
+								roles.CheckedUserId,
+								roles.ApprovedUserId);
 
 							if (byHtsId.TryGetValue(hts.Document_Comment_ID, out var current))
 							{
 								ApplyCommentFields(current, mapped);
-								if (!current.AttachmentId.HasValue)
-								{
-									var uploadedId = await TryUploadCommentAttachmentAsync(
-										hts,
-										current.Id,
-										jobLogger,
-										cn);
-									if (uploadedId.HasValue)
-									{
-										current.AttachmentId = uploadedId;
-										attachedCount++;
-									}
-									else if (HasCommentAttachment(hts))
-									{
-										missingFileCount++;
-									}
-								}
+								//if (!current.AttachmentId.HasValue)
+								//{
+								//	var uploadedId = await TryUploadCommentAttachmentAsync(
+								//		hts,
+								//		current.Id,
+								//		jobLogger,
+								//		cn);
+								//	if (uploadedId.HasValue)
+								//	{
+								//		current.AttachmentId = uploadedId;
+								//		attachedCount++;
+								//	}
+								//	else if (HasCommentAttachment(hts))
+								//	{
+								//		missingFileCount++;
+								//	}
+								//}
 
 								updatedCount++;
 							}
 							else
 							{
-								var uploadedId = await TryUploadCommentAttachmentAsync(hts, null, jobLogger, cn);
-								if (uploadedId.HasValue)
-								{
-									mapped.AttachmentId = uploadedId;
-									attachedCount++;
-								}
-								else if (HasCommentAttachment(hts))
-								{
-									missingFileCount++;
-								}
+								//var uploadedId = await TryUploadCommentAttachmentAsync(hts, null, jobLogger, cn);
+								//if (uploadedId.HasValue)
+								//{
+								//	mapped.AttachmentId = uploadedId;
+								//	attachedCount++;
+								//}
+								//else if (HasCommentAttachment(hts))
+								//{
+								//	missingFileCount++;
+								//}
 
 								await unitOfWork.Repository<DocumentComment>().AddAsync(
 									mapped,
@@ -512,7 +529,11 @@ namespace App.BackgroundJob.Jobs.Edms
 				ApproverId = ResolveHtsUser(hts.ApprovedUser_FK, users, unmatchedUsers),
 				ApprovedMiladiDateTime = approvedOn,
 				ApprovedShamsiDateTime = FormatShamsiDateTime(approvedOn, hts.ApprovedDate_Shamsi),
-				Status = MapDocumentStatus(hts.LastStatusId),
+				Status = MapDocumentStatus(
+					hts.LastStatusId,
+					createdUserId: hts.LastStatusUserId,
+					checkedUserId: hts.CheckedUser_FK,
+					approvedUserId: hts.ApprovedUser_FK),
 				Revision = hts.Revision ?? 0,
 				IsLatest = hts.IsLatest,
 				CreatedById = ResolveHtsUser(hts.CreatedUser_FK, users, unmatchedUsers),
@@ -551,9 +572,16 @@ namespace App.BackgroundJob.Jobs.Edms
 			Hts_Edms_Document_Comment hts,
 			long documentId,
 			UserMaps users,
-			HashSet<string> unmatchedUsers)
+			HashSet<string> unmatchedUsers,
+			short? checkedUserId,
+			short? approvedUserId)
 		{
-			var status = MapDocumentStatus(hts.Document_Status_FK, hts.IsForDcc);
+			var status = MapDocumentStatus(
+				hts.Document_Status_FK,
+				hts.IsForDcc,
+				hts.CreatedUser_FK,
+				checkedUserId,
+				approvedUserId);
 			var comment = Truncate(hts.Comment, CommentMaxLength);
 			var createdOn = hts.CreationDateTime ?? CombineDateAndTime(hts.CreatedDate, hts.CreatedTime);
 
@@ -767,15 +795,22 @@ namespace App.BackgroundJob.Jobs.Edms
 				: null;
 		}
 
-		private static DocumentStatusEnums? MapDocumentStatus(byte? statusFk, bool isForDcc = false)
+		private static DocumentStatusEnums? MapDocumentStatus(
+			byte? statusFk,
+			bool isForDcc = false,
+			short? createdUserId = null,
+			short? checkedUserId = null,
+			short? approvedUserId = null)
 		{
 			if (!statusFk.HasValue)
 				return null;
 
+			if (statusFk.Value == 2)
+				return MapHtsApproveStatus(createdUserId, checkedUserId, approvedUserId);
+
 			return statusFk.Value switch
 			{
 				1 => DocumentStatusEnums.RejectByDcc,
-				2 => DocumentStatusEnums.ApproveByApprover,
 				3 => DocumentStatusEnums.CommentedByApprover,
 				4 => isForDcc ? DocumentStatusEnums.CommentedByDcc : DocumentStatusEnums.CommentedByReviewer,
 				5 => DocumentStatusEnums.Issue,
@@ -805,6 +840,23 @@ namespace App.BackgroundJob.Jobs.Edms
 				29 => DocumentStatusEnums.ConvertToGeneralPackage,
 				_ => null
 			};
+		}
+
+		private static DocumentStatusEnums MapHtsApproveStatus(
+			short? createdUserId,
+			short? checkedUserId,
+			short? approvedUserId)
+		{
+			if (!createdUserId.HasValue || createdUserId.Value == 0)
+				return DocumentStatusEnums.ApproveByApprover;
+
+			var createdByReviewer = checkedUserId is > 0 && createdUserId.Value == checkedUserId.Value;
+			var createdByApprover = approvedUserId is > 0 && createdUserId.Value == approvedUserId.Value;
+
+			if (createdByReviewer && !createdByApprover)
+				return DocumentStatusEnums.ApproveByReviewer;
+
+			return DocumentStatusEnums.ApproveByApprover;
 		}
 
 		private static DocumentLegalHolderEnum? MapLegalHolder(short? holdCauseFk)

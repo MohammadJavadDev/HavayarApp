@@ -1,0 +1,196 @@
+@using Entities.App.Trn
+@using Entities.App.Gnr
+@model Company
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(Company)">
+               @if (Model?.Id > 0)
+               {
+                    <form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-phone" action-name="phoneBooks" title="دفتر تلفن"></form-action-button>
+                    <form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-users" action-name="keyParticipants" title="افراد کلیدی"></form-action-button>
+                    <form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-link" action-name="connectors" title="رابطین"></form-action-button>
+                    <form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-clipboard-list" action-name="todoLists" title="تاریخچه مذاکرات"></form-action-button>
+               }
+          </form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         مشتری حقوقی / شرکت
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>عنوان شرکت</label>
+                    <input class='form-control' data-bind='title' data-required="true"
+                           asp-for='Title' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>مدیرعامل</label>
+                    <input class='form-control' data-bind='ceoName'
+                           asp-for='CeoName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class="form-label fw-bold">طرف حساب مرتبط</label>
+                    @(Html.EntitySelector<Party>(
+                                        "PartySelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             Title = c.CompanyName ?? c.FullName
+                                        },
+                                        c => new { c.CompanyName, c.FullName },
+                                        "{Title}",
+                                        "PartyId",
+                                        Model?.Party != null ? (Model.Party.CompanyName ?? Model.Party.FullName) : null,
+                                        Model?.PartyId?.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>وب‌سایت</label>
+                    <input class='form-control' dir="ltr" data-bind='website'
+                           asp-for='Website' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>ایمیل</label>
+                    <input class='form-control' dir="ltr" data-bind='email'
+                           asp-for='Email' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تلفن</label>
+                    <input class='form-control' dir="ltr" data-bind='phone'
+                           asp-for='Phone' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>فکس</label>
+                    <input class='form-control' dir="ltr" data-bind='fax'
+                           asp-for='Fax' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نوع فعالیت</label>
+                    <input class='form-control' data-bind='activityKind'
+                           asp-for='ActivityKind' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>آدرس</label>
+                    <textarea class='form-control' data-bind='address'
+                              asp-for='Address'>@Model?.Address</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>توضیحات</label>
+                    <textarea class='form-control' data-bind='description'
+                              asp-for='Description'>@Model?.Description</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+<script>
+     function getCompanyId() {
+          return $$('[data-bind="id"]').val();
+     }
+
+     function openSubPage(urlTemplate) {
+          const id = getCompanyId();
+          if (!id || id === '0') {
+               toastr.error('ابتدا شرکت را ذخیره کنید');
+               return;
+          }
+          appController.addPage(urlTemplate.replace('{id}', encodeURIComponent(id)));
+     }
+
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+          const $btn = $($btnAction.element).block();
+
+          $$.post('save', model, function (r) {
+               $btn.block(false);
+
+               if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+               }
+
+               toastr.success('ذخیره سازی با موفقیت انجام شد');
+               page.$pageEl.dataBind(r.data);
+               $btnAction.baseaction();
+          });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+     if (self.FormActionButtons.phoneBooks) {
+          self.FormActionButtons.phoneBooks.onclick(function () { openSubPage('/Panel/Trn/PhoneBook/ListByCompanyId?companyId={id}'); });
+     }
+     if (self.FormActionButtons.keyParticipants) {
+          self.FormActionButtons.keyParticipants.onclick(function () { openSubPage('/Panel/Trn/KeyParticipant/ListByCompanyId?companyId={id}'); });
+     }
+     if (self.FormActionButtons.connectors) {
+          self.FormActionButtons.connectors.onclick(function () { openSubPage('/Panel/Trn/ConnectorParticipant/ListByCompanyId?companyId={id}'); });
+     }
+     if (self.FormActionButtons.todoLists) {
+          self.FormActionButtons.todoLists.onclick(function () { openSubPage('/Panel/Trn/TodoList/ListByCompanyId?companyId={id}'); });
+     }
+</script>

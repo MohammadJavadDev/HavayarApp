@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>راهنمای کامل فرآیند سفارش ساخت | هوایار</title>
+<title>راهنمای کاربری فرآیند سفارش ساخت | هوایار</title>
 <style>
 	:root{
 		--primary:#3a57e8; --primary-dark:#2a3fc0; --success:#17c666; --danger:#ea4d4d;
@@ -25,7 +25,7 @@
 		color:#fff; padding:48px 24px 90px; text-align:center; position:relative; overflow:hidden;
 	}
 	.hero h1{font-size:2.1rem; margin:0 0 10px; font-weight:800;}
-	.hero p{font-size:1.05rem; opacity:.92; max-width:760px; margin:0 auto;}
+	.hero p{font-size:1.05rem; opacity:.92; max-width:820px; margin:0 auto;}
 	.hero .badge-row{margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;}
 	.hero .tag{background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.35); border-radius:30px; padding:6px 16px; font-size:.85rem;}
 
@@ -56,9 +56,11 @@
 	}
 	h3{color:var(--dark); font-size:1.08rem; margin:26px 0 10px;}
 	h3:first-child{margin-top:0;}
+	h4{color:var(--primary-dark); font-size:.98rem; margin:18px 0 8px;}
 	p{margin:0 0 12px;}
 	ul, ol{margin:0 0 14px; padding-inline-start:22px;}
 	li{margin-bottom:6px;}
+	.muted{color:var(--muted); font-size:.9rem;}
 
 	/* ===== Callouts ===== */
 	.callout{border-radius:12px; padding:14px 18px; margin:16px 0; display:flex; gap:12px; align-items:flex-start;}
@@ -66,10 +68,11 @@
 	.callout.tip{background:#eef6ff; border:1px solid #cfe4ff;}
 	.callout.warn{background:#fff8e8; border:1px solid #ffe4a8;}
 	.callout.todo{background:#fff0f0; border:1px solid #ffd0d0;}
+	.callout.ok{background:#e9fbf1; border:1px solid #bdeed3;}
 	.callout strong{display:block; margin-bottom:4px;}
 
 	/* ===== Badges (mirrors real UI badges) ===== */
-	.badge{display:inline-block; padding:4px 12px; border-radius:20px; font-size:.8rem; font-weight:600; white-space:nowrap;}
+	.badge{display:inline-block; padding:4px 12px; border-radius:20px; font-size:.8rem; font-weight:600; white-space:nowrap; margin:1px 2px;}
 	.badge-primary{background:#e7ecff; color:var(--primary-dark);}
 	.badge-success{background:#e3faed; color:#0e9e51;}
 	.badge-warning{background:#fff4e0; color:#b9790a;}
@@ -79,39 +82,45 @@
 	.badge-dark{background:#e7e9ee; color:var(--dark);}
 
 	/* ===== Buttons preview ===== */
-	.btn-preview{display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px; font-size:.85rem; font-weight:600; color:#fff; margin:3px;}
+	.btn-preview{display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:8px; font-size:.84rem; font-weight:600; color:#fff; margin:3px; white-space:nowrap;}
 	.btn-preview.b-success{background:var(--success);}
 	.btn-preview.b-danger{background:var(--danger);}
 	.btn-preview.b-warning{background:var(--warning); color:#5a4200;}
 	.btn-preview.b-info{background:var(--info);}
 	.btn-preview.b-primary{background:var(--primary);}
 	.btn-preview.b-dark{background:var(--dark);}
+	.btn-preview.b-secondary{background:#8a94a6;}
 
-	/* ===== Role chip ===== */
-	.role-chip{
+	/* ===== Role chip / code ===== */
+	.role-chip, code{
 		display:inline-block; background:#f0f2ff; border:1px dashed var(--primary); color:var(--primary-dark);
-		border-radius:8px; padding:3px 10px; font-size:.8rem; font-family:monospace,ui-monospace; direction:ltr; unicode-bidi:embed;
+		border-radius:8px; padding:2px 9px; font-size:.8rem; font-family:Consolas,monospace,ui-monospace; direction:ltr; unicode-bidi:embed;
 	}
+	.code-num{font-family:Consolas,monospace; color:var(--muted); font-size:.8rem;}
 
 	/* ===== Tables ===== */
 	table{width:100%; border-collapse:collapse; margin:14px 0 20px; font-size:.93rem;}
 	th, td{border:1px solid var(--border); padding:10px 12px; text-align:right; vertical-align:top;}
 	th{background:#f6f8fd; color:var(--dark); font-weight:700;}
 	tr:nth-child(even) td{background:#fafbfe;}
+	td .badge{margin:0;}
 
 	/* ===== Workflow diagram ===== */
 	.flow{display:flex; flex-direction:column; gap:0; margin:20px 0;}
-	.flow-row{display:flex; align-items:center; justify-content:center; gap:14px; flex-wrap:wrap; position:relative; padding:10px 0;}
+	.flow-row{display:flex; align-items:stretch; justify-content:center; gap:14px; flex-wrap:wrap; position:relative; padding:8px 0;}
 	.node{
 		background:#fff; border:2px solid var(--primary); border-radius:12px; padding:12px 18px; text-align:center;
-		min-width:160px; font-weight:700; font-size:.9rem; box-shadow:0 4px 10px rgba(58,87,232,.08); position:relative;
+		min-width:170px; font-weight:700; font-size:.9rem; box-shadow:0 4px 10px rgba(58,87,232,.08); position:relative;
 	}
 	.node.role{border-color:var(--info); color:#00697a;}
 	.node.action{border-color:var(--success); color:#0e9e51;}
 	.node.end{border-color:var(--dark); color:var(--dark); background:#f6f6f8;}
 	.node.warn{border-color:var(--danger); color:#a52a2a;}
+	.node.auto{border-style:dashed; border-color:#8a94a6; color:#4b5563; background:#fafbfe;}
 	.node small{display:block; font-weight:400; color:var(--muted); margin-top:4px; font-size:.75rem;}
-	.arrow-down{align-self:center; font-size:1.6rem; color:var(--primary); margin:2px 0;}
+	.arrow-down{align-self:center; font-size:1.5rem; color:var(--primary); margin:0; text-align:center;}
+	.arrow-down small{display:block; font-size:.75rem; color:var(--muted);}
+	.branch{display:flex; flex-direction:column; align-items:center;}
 	.branch-label{font-size:.75rem; color:var(--muted); background:#fff; border:1px solid var(--border); border-radius:20px; padding:2px 10px; margin-bottom:4px; display:inline-block;}
 
 	/* ===== Steps ===== */
@@ -129,9 +138,24 @@
 
 	/* ===== Path pill ===== */
 	.path{
-		font-family:monospace, ui-monospace; direction:ltr; unicode-bidi:embed; background:#101828; color:#c9d6ff;
-		padding:3px 10px; border-radius:6px; font-size:.82rem; display:inline-block;
+		font-family:Consolas,monospace,ui-monospace; direction:ltr; unicode-bidi:embed; background:#101828; color:#c9d6ff;
+		padding:3px 10px; border-radius:6px; font-size:.8rem; display:inline-block;
 	}
+	.menu{background:#eef2ff; color:var(--primary-dark); border-radius:6px; padding:2px 9px; font-size:.85rem; display:inline-block; white-space:nowrap;}
+
+	/* ===== Page card ===== */
+	.page-card{border:1px solid var(--border); border-radius:12px; padding:14px 18px; margin:12px 0; background:#fafbfe;}
+	.page-card h4{margin:0 0 8px; display:flex; align-items:center; gap:8px; color:var(--primary-dark);}
+	.kv{display:grid; grid-template-columns:150px 1fr; gap:6px 14px; font-size:.92rem;}
+	.kv dt{color:var(--muted); font-weight:600;}
+	.kv dd{margin:0;}
+	@media (max-width:720px){ .kv{grid-template-columns:1fr;} }
+
+	/* ===== Who-does-what ===== */
+	.who{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin:14px 0;}
+	.who .card{border:1px solid var(--border); border-radius:12px; padding:14px 16px; background:#fff;}
+	.who .card h4{margin:0 0 6px; font-size:.98rem;}
+	.who .card p{font-size:.88rem; margin:0 0 6px;}
 
 	/* ===== back to top ===== */
 	.top-link{position:fixed; inset-inline-end:22px; bottom:22px; background:var(--primary); color:#fff; width:46px; height:46px;
@@ -141,20 +165,22 @@
 
 	@media print{
 		.top-link{display:none;}
-		.hero{background:var(--primary) !important; -webkit-print-color-adjust:exact;}
+		.hero{background:var(--primary) !important; -webkit-print-color-adjust:exact; padding-bottom:40px;}
+		.wrap{margin-top:20px;}
 		section{box-shadow:none; break-inside:avoid;}
+		a{color:inherit;}
 	}
 </style>
 </head>
 <body>
 
 <div class="hero">
-	<h1>راهنمای کامل فرآیند «سفارش ساخت»</h1>
-	<p>مسیر کامل سفارش ساخت از ثبت اولیه تا تحویل نهایی، پیاده‌سازی‌شده در سیستم جدید هوایار (HavayarApp) بر پایه‌ی گردش‌کار سیستم قدیم (HTS)</p>
+	<h1>راهنمای کاربری فرآیند «سفارش ساخت»</h1>
+	<p>مسیر کامل یک سفارش ساخت از ورود سفارش و تایید مالی تا تولید، تست، بسته‌بندی و تحویل — در سیستم جدید هوایار، با همان گردش‌کار سیستم قدیم (HTS). برای هر مرحله مشخص شده است <b>چه کسی</b>، <b>در کدام صفحه</b> و <b>با کدام دکمه</b> کار را انجام می‌دهد.</p>
 	<div class="badge-row">
-		<span class="tag">ماژول: Sale › سفارش ساخت</span>
-		<span class="tag">مسیر: Panel/ProductionOrder</span>
-		<span class="tag">نسخه راهنما: ۱٫۰</span>
+		<span class="tag">منو: فروش › سفارش ساخت / اقلام سفارش ساخت</span>
+		<span class="tag">منو: صنایع › برنامه‌ریزی</span>
+		<span class="tag">نسخه راهنما: ۲٫۰ — شهریور ۱۴۰۵</span>
 	</div>
 </div>
 
@@ -163,383 +189,746 @@
 	<div class="toc">
 		<h2>📑 فهرست مطالب</h2>
 		<ol>
-			<li><a href="#s1">سفارش ساخت چیست و چه چیزی تغییر کرد؟</a></li>
-			<li><a href="#s2">نقشه کامل گردش‌کار</a></li>
-			<li><a href="#s3">ثبت سفارش ساخت و افزودن اقلام</a></li>
-			<li><a href="#s4">تایید مالی</a></li>
-			<li><a href="#s5">مسیریابی خودکار اقلام</a></li>
-			<li><a href="#s6">تایید/رد مهندسی (مکانیک و برق)</a></li>
-			<li><a href="#s7">تایید صنایع</a></li>
-			<li><a href="#s8">تایید/رد مدیر پروژه</a></li>
-			<li><a href="#s9">استعلام، وزارت صنایع و کمیته تامین</a></li>
-			<li><a href="#s10">پیگیری تولید، BOM و ثبت توقف</a></li>
-			<li><a href="#s11">تاخیرات، تاییدکننده تجهیز و پیوست‌ها</a></li>
-			<li><a href="#s12">منسوخ‌سازی سفارش</a></li>
-			<li><a href="#s13">راهنمای وضعیت‌ها (رنگ‌ها و برچسب‌ها)</a></li>
-			<li><a href="#s14">جدول کامل دسترسی‌ها (برای مدیر سیستم)</a></li>
-			<li><a href="#s15">سوالات متداول</a></li>
+			<li><a href="#s1">سفارش ساخت چیست؟ (هدر، قلم و سه نوع وضعیت)</a></li>
+			<li><a href="#s2">صفحات سیستم و مسیر دسترسی به هر کدام</a></li>
+			<li><a href="#s3">راهنمای سریع: من چه نقشی دارم، کجا بروم، چه کار کنم؟</a></li>
+			<li><a href="#s4">نقشه کامل گردش‌کار</a></li>
+			<li><a href="#s5">مرحله ۱ — ورود سفارش، تایید مالی و تکمیل اطلاعات هدر</a></li>
+			<li><a href="#s6">مرحله ۲ — مسیریابی خودکار اقلام</a></li>
+			<li><a href="#s7">مرحله ۳ — تایید/رد مدیر پروژه</a></li>
+			<li><a href="#s8">مرحله ۴ — تایید/رد مهندسی (مکانیک / برق)</a></li>
+			<li><a href="#s9">مرحله ۵ — کمیته تامین، استعلام و وزارت صنایع</a></li>
+			<li><a href="#s10">مرحله ۶ — کارتابل صنایع: برنامه‌ریزی، سریال و BOM</a></li>
+			<li><a href="#s11">مرحله ۷ — تولید، تست و ثبت توقف («تغییر وضعیت»)</a></li>
+			<li><a href="#s12">مرحله ۸ — بسته‌بندی، آماده ارسال، تحویل و اختتام</a></li>
+			<li><a href="#s13">صفحه سفارش ساخت (هدر): تب‌ها، پیوست‌ها، تاخیرات و منسوخ‌سازی</a></li>
+			<li><a href="#s14">ابزارهای تکمیلی: قطعات یدکی، پیوست‌ها، جابه‌جایی قلم، تاییدکننده تجهیز</a></li>
+			<li><a href="#s15">اعلان‌های ایمیلی: چه زمانی و برای چه کسی ارسال می‌شود</a></li>
+			<li><a href="#s16">فرآیندهای خودکار (Job) و مهلت‌ها</a></li>
+			<li><a href="#s17">راهنمای وضعیت‌ها (برچسب‌ها و کدها)</a></li>
+			<li><a href="#s18">نقش‌ها و دسترسی‌ها + چک‌لیست راه‌اندازی (مدیر سیستم)</a></li>
+			<li><a href="#s19">تفاوت‌ها با سیستم قدیم (HTS) — برای کاربران قدیمی</a></li>
+			<li><a href="#s20">سوالات متداول</a></li>
 		</ol>
 	</div>
 
 	<!-- 1 -->
 	<section id="s1">
-		<h2><span class="num">1</span>سفارش ساخت چیست و چه چیزی تغییر کرد؟</h2>
-		<p>
-			«سفارش ساخت» زنجیره‌ی کامل تولید یک محصول است: از لحظه‌ای که یک قرارداد فروش نیاز به ساخت دستگاه دارد،
-			تا زمانی که دستگاه ساخته، تست، بسته‌بندی و تحویل می‌شود. این فرآیند در سیستم قدیم (HTS) پیاده‌سازی شده بود
-			و اکنون به‌صورت کامل، با همان منطق کسب‌وکاری، در سیستم جدید هوایار بازسازی و تکمیل شده است.
-		</p>
-		<p>هر «سفارش ساخت» از دو بخش تشکیل شده:</p>
+		<h2><span class="num">1</span>سفارش ساخت چیست؟ (هدر، قلم و سه نوع وضعیت)</h2>
+		<p>«سفارش ساخت» زنجیره‌ی کامل ساخت یک محصول است: از لحظه‌ای که یک قرارداد فروش نیاز به ساخت دستگاه دارد تا زمانی که دستگاه ساخته، تست، بسته‌بندی و تحویل می‌شود. هر سفارش ساخت از دو سطح تشکیل شده است:</p>
 		<table>
-			<tr><th style="width:220px">بخش</th><th>توضیح</th></tr>
+			<tr><th style="width:220px">سطح</th><th>توضیح</th><th style="width:230px">صفحه</th></tr>
 			<tr>
 				<td><b>سفارش ساخت (هدر)</b></td>
-				<td>اطلاعات کلی سفارش: مشتری، قرارداد، مدیر فروش، مدیر پروژه، تاریخ تحویل توافق‌شده، پیوست‌ها و غیره.</td>
+				<td>اطلاعات کلی سفارش: شماره سفارش ساخت، قرارداد و مشتری، مدیر فروش، مدیر پروژه، تاریخ تحویل توافق‌شده، پیوست‌ها، تاخیرات، وضعیت کلی سفارش.</td>
+				<td><span class="menu">فروش › سفارش ساخت</span></td>
 			</tr>
 			<tr>
 				<td><b>اقلام سفارش ساخت</b></td>
-				<td>هر دستگاه/تجهیزی که باید ساخته شود؛ هرکدام مسیر تایید و تولید مستقل خودش را طی می‌کند.</td>
+				<td>هر دستگاه/تجهیزی که باید ساخته شود. <b>گردش‌کار تایید و تولید روی قلم انجام می‌شود</b> و هر قلم مسیر مستقل خود را طی می‌کند.</td>
+				<td><span class="menu">فروش › اقلام سفارش ساخت</span></td>
+			</tr>
+		</table>
+
+		<h3>سه نوع وضعیت روی هر قلم — این‌ها را با هم اشتباه نگیرید</h3>
+		<table>
+			<tr><th style="width:230px">فیلد روی صفحه قلم</th><th>معنی</th><th>چطور تغییر می‌کند</th></tr>
+			<tr>
+				<td><b>وضعیت بررسی (کارتابل)</b></td>
+				<td><b>الان چه کسی باید اقدام کند؟</b> (مدیر پروژه، مهندسی، رئیس کمیته تامین، استعلام‌گر، صنایع). هر کارتابل یک «نمایه» در لیست اقلام دارد.</td>
+				<td>با دکمه‌های تایید/رد، تصمیم کمیته و نتیجه استعلام، یا به‌صورت خودکار پس از انقضای مهلت.</td>
+			</tr>
+			<tr>
+				<td><b>مرحله ساخت</b></td>
+				<td><b>قلم در کدام مرحله فیزیکی است؟</b> منتظر تولید، در حال تولید، تست، بسته‌بندی، آماده ارسال، تحویل فروش…</td>
+				<td>واحد صنایع/برنامه‌ریزی آن را در فرم قلم ویرایش و ذخیره می‌کند؛ در چند نقطه هم خودکار تغییر می‌کند.</td>
+			</tr>
+			<tr>
+				<td><b>وضعیت تولید (آخرین رخداد)</b></td>
+				<td><b>آخرین اتفاق ثبت‌شده روی قلم:</b> شروع تولید، پایان تولید، شروع بازرسی نهایی، پایان بسته‌بندی، توقف…</td>
+				<td>با دکمه <span class="btn-preview b-primary">↔ تغییر وضعیت</span> در صفحه قلم ثبت می‌شود و در «تاریخچه تغییر وضعیت» می‌ماند.</td>
 			</tr>
 		</table>
 		<div class="callout tip">
 			<div class="icon">💡</div>
-			<div><strong>نکته مهم</strong>یک سفارش ساخت می‌تواند چند قلم (دستگاه) داشته باشد و هر قلم می‌تواند در مرحله متفاوتی از گردش‌کار باشد؛
-			مثلاً یک قلم در انتظار تایید مهندسی و قلم دیگر در حال تولید.</div>
+			<div><strong>نکته</strong>یک سفارش ساخت می‌تواند چند قلم داشته باشد و هر قلم در مرحله متفاوتی باشد؛ مثلاً یک قلم در انتظار تایید مهندسی و قلم دیگر در حال تولید. همیشه اول به فیلد «وضعیت بررسی (کارتابل)» نگاه کنید تا بدانید قلم الان دست کیست.</div>
 		</div>
-		<h3>چه چیزهایی به‌طور کامل به سیستم جدید اضافه شد؟</h3>
-		<ul>
-			<li>گردش‌کار تایید مالی و مسیریابی خودکار اقلام (مهندسی / صنایع / مدیر پروژه)</li>
-			<li>دکمه‌های تایید/رد مهندسی (تفکیک مکانیک و برق)، تایید صنایع، تایید/رد مدیر پروژه</li>
-			<li>مسیر کمکی استعلام، بررسی وزارت صنایع و کمیته تامین</li>
-			<li>تاریخچه کامل تغییرات وضعیت سفارش (تب «تاریخچه»)</li>
-			<li>مدیریت پیوست‌های سفارش (تایید مدیریت، فاکتور پیش‌پرداخت، پیش‌فاکتور، قرارداد)</li>
-			<li>ثبت و پیگیری «تاخیرات» و «تاییدکننده تجهیز»</li>
-			<li>منسوخ‌سازی سفارش (با انتقال خودکار وضعیت تمام اقلام آن)</li>
-			<li>اطلاع‌رسانی و انتقال خودکار اقلامی که در یک کارتابل معطل مانده‌اند</li>
-		</ul>
 	</section>
 
 	<!-- 2 -->
 	<section id="s2">
-		<h2><span class="num">2</span>نقشه کامل گردش‌کار</h2>
-		<p>نمودار زیر مسیر کامل یک «قلم سفارش ساخت» از ثبت تا تحویل را نشان می‌دهد. مسیر دقیق بر اساس نوع دستگاه و اینکه سفارش مدیر پروژه دارد یا نه، متفاوت می‌شود.</p>
+		<h2><span class="num">2</span>صفحات سیستم و مسیر دسترسی به هر کدام</h2>
+		<p>همه صفحات این فرآیند از منوی سمت راست پنل باز می‌شوند و در تب‌های جداگانه نمایش داده می‌شوند. بالای هر جدول (لیست) یک کشوی <b>«نمایه»</b> وجود دارد که ستون‌ها و فیلتر جدول را تعیین می‌کند — کارتابل‌ها همان نمایه‌ها هستند. هر کاربر فقط نمایه‌هایی را می‌بیند که نقش او اجازه دارد.</p>
 
-		<div class="flow">
-			<div class="flow-row"><div class="node">ثبت سفارش ساخت + افزودن اقلام</div></div>
-			<div class="arrow-down">⬇</div>
-			<div class="flow-row"><div class="node action">تایید مالی <small>دکمه «تایید مالی» روی سفارش</small></div></div>
-			<div class="arrow-down">⬇</div>
-			<div class="flow-row"><div class="node">مسیریابی خودکار هر قلم <small>بر اساس نوع دستگاه / مدیر پروژه</small></div></div>
-			<div class="arrow-down">⬇</div>
-
-			<div class="flow-row">
-				<div>
-					<div class="branch-label">روتین / تجهیزات CNG / قطعات یدکی</div>
-					<div class="node role">کارتابل صنایع</div>
-				</div>
-				<div>
-					<div class="branch-label">سفارش دارای مدیر پروژه است</div>
-					<div class="node role">کارتابل مدیر پروژه</div>
-				</div>
-				<div>
-					<div class="branch-label">در غیر این دو حالت</div>
-					<div class="node role">کارتابل مهندسی (مکانیک/برق)</div>
-				</div>
-			</div>
-
-			<div class="arrow-down">⬇</div>
-			<div class="flow-row">
-				<div class="node action">تایید مدیر پروژه</div>
-				<div class="node action">تایید مهندسی</div>
-			</div>
-			<div class="arrow-down">⬇ (پس از تایید، به صنایع می‌رود)</div>
-			<div class="flow-row"><div class="node action">تایید صنایع → شروع تولید</div></div>
-			<div class="arrow-down">⬇</div>
-			<div class="flow-row"><div class="node">تولید ➝ تست ➝ بسته‌بندی ➝ آماده ارسال ➝ تحویل</div></div>
-
-			<div class="arrow-down">⬇ (مسیر کمکی، در صورت نیاز به خرید خارجی/بررسی بیشتر)</div>
-			<div class="flow-row">
-				<div class="node role">استعلام</div>
-				<div class="node role">بررسی وزارت صنایع</div>
-				<div class="node role">کمیته تامین</div>
-			</div>
-			<div class="arrow-down">⬇</div>
-			<div class="flow-row"><div class="node action">تایید کمیته → بازگشت به کارتابل صنایع</div></div>
+		<div class="page-card">
+			<h4>📋 لیست سفارش ساخت (هدر)</h4>
+			<dl class="kv">
+				<dt>مسیر منو</dt><dd><span class="menu">فروش › سفارش ساخت</span> &nbsp;یا&nbsp; <span class="menu">صنایع › برنامه‌ریزی › سفارش ساخت</span></dd>
+				<dt>آدرس</dt><dd><span class="path">/panel/productionorder/list</span></dd>
+				<dt>نمایه‌ها</dt><dd>«سفارش ساخت — همه» (مشاهده همه) · «سفارش ساخت — مرتبط با من» (سفارش‌هایی که مدیر فروش، کارشناس فروش، مدیر پروژه یا معرف آن خودِ شما هستید) · «لیست اطلاعات» (نمایه عمومی صنایع/تامین)</dd>
+				<dt>نوار ابزار</dt><dd>افزودن · ویرایش · حذف · خروجی اکسل · جست‌وجو و فیلتر ستونی</dd>
+				<dt>باز کردن سفارش</dt><dd>دوبار کلیک روی ردیف یا انتخاب ردیف و دکمه «ویرایش»</dd>
+			</dl>
 		</div>
 
-		<div class="callout warn">
-			<div class="icon">⚠️</div>
-			<div><strong>مسیر رد / نیاز به بازنگری</strong>
-			در هر مرحله تایید (مهندسی یا مدیر پروژه)، گزینه «رد» یا «نیاز به بازنگری» هم وجود دارد.
-			«نیاز به بازنگری» یعنی قلم باید توسط تیم فروش/فنی اصلاح و دوباره برای همان تایید ارسال شود.</div>
+		<div class="page-card">
+			<h4>📝 صفحه سفارش ساخت (ویرایش هدر)</h4>
+			<dl class="kv">
+				<dt>تب‌ها</dt><dd><b>اطلاعات کلی</b> · <b>تاریخچه</b> (تغییرات وضعیت کلی سفارش) · <b>پیوست‌ها</b> (۵ پیوست) · <b>تاخیرات</b></dd>
+				<dt>دکمه‌های بالای فرم</dt><dd>ذخیره · ذخیره و بستن · <span class="btn-preview b-dark">🚫 منسوخ کردن</span></dd>
+				<dt>شرح کامل</dt><dd><a href="#s13">بخش ۱۳</a></dd>
+			</dl>
 		</div>
 
-		<div class="callout tip">
-			<div class="icon">⏱️</div>
-			<div><strong>انتقال خودکار در صورت معطلی</strong>
-			اگر یک قلم بیش از <b>۱ روز</b> در کارتابل مهندسی یا بیش از <b>۲ روز</b> در کارتابل مدیر پروژه بدون پاسخ بماند،
-			سیستم به‌صورت خودکار آن را به کارتابل صنایع منتقل می‌کند تا روند تولید متوقف نشود.</div>
+		<div class="page-card">
+			<h4>📦 لیست اقلام سفارش ساخت (کارتابل‌ها)</h4>
+			<dl class="kv">
+				<dt>مسیر منو</dt><dd><span class="menu">فروش › اقلام سفارش ساخت</span> &nbsp;یا&nbsp; <span class="menu">صنایع › برنامه‌ریزی › اقلام سفارش ساخت</span></dd>
+				<dt>آدرس</dt><dd><span class="path">/panel/productionorderitem/list</span></dd>
+				<dt>نمایه‌های کارتابل</dt><dd>
+					<span class="badge badge-primary">کارتابل من — اقلام سفارش ساخت</span>
+					<span class="badge badge-info">کارتابل صنایع — اقلام سفارش ساخت</span>
+					<span class="badge badge-info">کارتابل مهندسی مکانیک</span>
+					<span class="badge badge-info">کارتابل مهندسی برق</span>
+					<span class="badge badge-info">کارتابل مدیر پروژه</span>
+					<span class="badge badge-info">کارتابل رئیس کمیته تامین</span>
+					<span class="badge badge-info">کارتابل استعلام</span>
+					<span class="badge badge-info">کارتابل وزارت صنایع</span>
+				</dd>
+				<dt>نمایه‌های مشاهده</dt><dd>
+					<span class="badge badge-secondary">اقلام سفارش ساخت — همه فعال</span>
+					<span class="badge badge-secondary">اقلام سفارش ساخت — مشاهده فعال</span>
+					<span class="badge badge-secondary">اقلام سفارش ساخت — مرتبط با من</span>
+					<span class="badge badge-secondary">آماده به ارسال</span>
+					<span class="badge badge-secondary">پیشینه اقلام سفارش ساخت (حذف‌شده)</span>
+				</dd>
+				<dt>نوار ابزار</dt><dd>افزودن · ویرایش · حذف · خروجی اکسل · <span class="btn-preview b-primary">⇄ جابه جایی رکورد</span> (روی ردیف انتخاب‌شده — <a href="#s14">بخش ۱۴</a>)</dd>
+			</dl>
+			<div class="callout tip" style="margin-bottom:0">
+				<div class="icon">⭐</div>
+				<div><strong>«کارتابل من» را پیش‌فرض خود کنید</strong>این نمایه فقط اقلامی را نشان می‌دهد که <b>الان منتظر اقدام شما</b> هستند (بر اساس نقش‌های شما، و برای مهندسی بر اساس اینکه تاییدکننده تجهیزِ آن نوع دستگاه باشید). اگر این نمایه را نمی‌بینید، از مدیر سیستم بخواهید دسترسی آن را به نقش شما بدهد.</div>
+			</div>
+		</div>
+
+		<div class="page-card">
+			<h4>🔧 صفحه قلم سفارش ساخت (ویرایش قلم) — قلب گردش‌کار</h4>
+			<dl class="kv">
+				<dt>باز کردن</dt><dd>دوبار کلیک روی ردیف در هر کدام از نمایه‌های بالا</dd>
+				<dt>بخش‌های صفحه</dt><dd><b>اطلاعات پایه</b> (فقط‌خواندنی: سفارش ساخت، کالا، تعداد، نوع تجهیز، تاریخ تحویل توافقی، نسخه، وضعیت بررسی، مرحله ساخت فعلی، مشخصات فنی) · <b>فرم ویرایش</b> (کالا، تعداد، نوع دستگاه، مرحله ساخت، شماره برنامه‌ریزی، سریال، نوع سریال، تاریخ‌های تولید/تست/آماده‌سازی/تحویل، وضعیت، ملاحظات صنایع) · <b>اطلاعات تکمیلی برنامه‌ریزی</b> (فقط‌خواندنی: تاریخ ارسال به صنایع، تاریخ تحویل استاندارد، تاریخ آماده‌سازی مدارک، اولین تغییر صنایع، وضعیت تولید آخرین رخداد، آخرین کامنت تولید، ملاحظات فروش و مهندسی)</dd>
+				<dt>دکمه‌های نوار بالا</dt><dd>
+					<span class="btn-preview b-primary">↔ تغییر وضعیت</span>
+					<span class="btn-preview b-info">☰ تاریخچه تغییر وضعیت</span>
+					<span class="btn-preview b-danger">⏹ ثبت توقف</span>
+					<span class="btn-preview b-warning">🕘 لیست توقفات</span>
+					<span class="btn-preview b-primary">🧩 Bom محصول</span>
+					<span class="btn-preview b-success">✔ تایید/رد مهندسی</span>
+					<span class="btn-preview b-success">✔ تایید/رد مدیر پروژه</span>
+					<span class="btn-preview b-warning">👥 ارسال نتیجه استعلام به کمیته تامین</span>
+					<span class="btn-preview b-success">✔✔ تصمیم کمیته تامین</span>
+					<span class="btn-preview b-secondary">⚙ قطعات یدکی</span>
+					<span class="btn-preview b-secondary">📎 پیوست‌های سفارش ساخت</span>
+				</dd>
+			</dl>
+			<p class="muted" style="margin:6px 0 0">دکمه‌های گردش‌کار (تایید/رد، کمیته، استعلام) فقط وقتی فعال می‌شوند که (۱) قلم در وضعیت متناظر باشد و (۲) شما نقش لازم را داشته باشید. بقیه اوقات خاکستری هستند.</p>
+		</div>
+
+		<div class="page-card">
+			<h4>🧩 صفحه BOM قلم (لیست قطعات)</h4>
+			<dl class="kv">
+				<dt>باز کردن</dt><dd>دکمه «Bom محصول» در صفحه قلم</dd>
+				<dt>آدرس</dt><dd><span class="path">/panel/productionorderitem/bomlistby?productionOrderItemId=…</span></dd>
+				<dt>دکمه‌ها</dt><dd>افزودن · افزودن با اکسل (با دانلود فایل نمونه) · خروجی اکسل · بروزرسانی اطلاعات · ویرایش/حذف هر ردیف</dd>
+			</dl>
+		</div>
+
+		<div class="page-card">
+			<h4>🛠 صفحات پشتیبان (برنامه‌ریزی / مدیر سیستم)</h4>
+			<table style="margin:6px 0 0">
+				<tr><th>صفحه</th><th>آدرس</th><th>کاربرد</th></tr>
+				<tr><td><b>تاییدکننده تجهیز</b></td><td><span class="path">/panel/productionorderequipmentconfirmer/list</span></td><td>برای هر «نوع دستگاه» مشخص می‌کند کارشناس مهندسی مکانیک و برق چه کسی است؛ همین تعریف، گیرنده ایمیل مهندسی و محتوای «کارتابل من» مهندسان را تعیین می‌کند.</td></tr>
+				<tr><td><b>تاخیر سفارش ساخت</b></td><td><span class="path">/panel/productionorderdelay/list</span></td><td>نمایه‌های «سفارش ساخت‌های دارای تاخیر» و «سفارش ساخت‌هایی که نیاز به ثبت علت تاخیر دارند» + دکمه‌های «ثبت علت تاخیر» / «خارج کردن از چرخه تاخیر».</td></tr>
+				<tr><td><b>گروه‌های اعلان</b></td><td><span class="path">/panel/system/notificationgroup/list</span></td><td>اعضای گروه‌های گیرنده ایمیل (واحد صنایع، تغییر وضعیت تولید، شروع تست، کنترل کیفیت، نزدیک موعد تحویل، کارشناسان کمیته تامین) — <a href="#s15">بخش ۱۵</a>.</td></tr>
+				<tr><td><b>مدیریت نقش‌ها</b></td><td>منوی سیستم › نقش‌ها</td><td>انتساب نقش‌های گردش‌کار به کاربران و تیک دسترسی اکشن‌ها/نمایه‌ها — <a href="#s18">بخش ۱۸</a>.</td></tr>
+				<tr><td><b>پنل Job</b></td><td>سرویس پس‌زمینه (App.BackgroundJob)</td><td>زمان‌بندی فرآیندهای خودکار — <a href="#s16">بخش ۱۶</a>.</td></tr>
+			</table>
 		</div>
 	</section>
 
 	<!-- 3 -->
 	<section id="s3">
-		<h2><span class="num">3</span>ثبت سفارش ساخت و افزودن اقلام</h2>
-		<ol class="steps">
-			<li>از منو به مسیر <span class="path">Panel › Sale › سفارش ساخت</span> بروید و روی «افزودن» کلیک کنید.</li>
-			<li>اطلاعات کلی سفارش را وارد کنید: <b>شماره سفارش ساخت</b>، قرارداد، تفصیل پروژه، مدیر فروش، مدیر پروژه (اگر سفارش نیاز به مدیر پروژه دارد)، کارشناس فروش، شهر نصب و تاریخ تحویل توافق‌شده.</li>
-			<li>فیلدهای مربوط به کمپرسور سانتریفیوژ، بسته‌بندی، نوع تحویل و ملاحظات فروش را در صورت نیاز تکمیل کنید.</li>
-			<li>سفارش را ذخیره کنید. پس از ذخیره، وضعیت سفارش به‌صورت پیش‌فرض <span class="badge badge-primary">ثبت اولیه</span> خواهد بود.</li>
-			<li>وارد صفحه <span class="path">اقلام سفارش ساخت</span> شوید و برای هر دستگاه/تجهیزی که باید ساخته شود، یک قلم جدید ثبت کنید (سفارش ساخت مرتبط، کالا، نوع دستگاه، مشخصات فنی و تاریخ تحویل توافقی هر قلم را وارد کنید).</li>
-		</ol>
-		<div class="callout tip">
-			<div class="icon">💡</div>
-			<div><strong>نوع دستگاه اهمیت دارد</strong>
-			فیلد «نوع دستگاه» روی هر قلم مشخص می‌کند این قلم به‌صورت خودکار به کدام کارتابل ارسال می‌شود (صنایع، مهندسی مکانیک یا مهندسی برق)؛
-			پس این فیلد را با دقت انتخاب کنید.</div>
+		<h2><span class="num">3</span>راهنمای سریع: من چه نقشی دارم، کجا بروم، چه کار کنم؟</h2>
+		<div class="who">
+			<div class="card">
+				<h4>👔 کارشناس / مدیر فروش</h4>
+				<p><b>کجا:</b> نمایه «سفارش ساخت — مرتبط با من» و «اقلام سفارش ساخت — مرتبط با من»</p>
+				<p><b>چه کار:</b> پس از ورود سفارش از راهکاران، هدر را تکمیل کنید (مدیر پروژه، کارشناس فروش، شعبه، محل تحویل، پیوست‌ها). به اقلام «نیاز به بازنگری» پاسخ دهید. پیشرفت را از «مرحله ساخت» و «تاریخچه تغییر وضعیت» پیگیری کنید. ایمیل‌های تغییر وضعیت را دریافت می‌کنید.</p>
+			</div>
+			<div class="card">
+				<h4>🧑‍💼 مدیر پروژه</h4>
+				<p><b>کجا:</b> «کارتابل مدیر پروژه» یا «کارتابل من»</p>
+				<p><b>چه کار:</b> روی قلم‌های «در انتظار تایید مدیر پروژه» دکمه <b>تایید/رد مدیر پروژه</b>. روی قلم‌هایی که مرحله‌شان «در انتظار مدیر پروژه» است، در صفحه BOM «تعیین تکلیف» کنید (توضیحات واحد فروش / نیاز به AVL / مرحله). مهلت: ۲ روز.</p>
+			</div>
+			<div class="card">
+				<h4>⚙️ مهندسی مکانیک / برق</h4>
+				<p><b>کجا:</b> «کارتابل مهندسی مکانیک» یا «کارتابل مهندسی برق» یا «کارتابل من»</p>
+				<p><b>چه کار:</b> روی قلم «در انتظار تایید مهندسی» دکمه <b>تایید/رد مهندسی</b> (تایید / رد / نیاز به بازنگری). مهلت: ۱ روز، بعد از آن قلم خودکار جلو می‌رود.</p>
+			</div>
+			<div class="card">
+				<h4>🏛 رئیس کمیته تامین</h4>
+				<p><b>کجا:</b> «کارتابل رئیس کمیته تامین»</p>
+				<p><b>چه کار:</b> روی قلم «در انتظار بررسی رئیس کمیته تامین» یا «ارسال به رئیس کمیته تامین» دکمه <b>تصمیم کمیته تامین</b>: خرید داخلی / خرید خارجی / نیاز به استعلام / نیاز به بررسی وزارت صنایع.</p>
+			</div>
+			<div class="card">
+				<h4>🔎 استعلام‌گر / استعلام‌گر وزارت صنایع</h4>
+				<p><b>کجا:</b> «کارتابل استعلام» / «کارتابل وزارت صنایع»</p>
+				<p><b>چه کار:</b> استعلام را انجام دهید و با دکمه <b>ارسال نتیجه استعلام به کمیته تامین</b> نتیجه (کامنت + پیوست) را برگردانید. اگر مهلت (LeadTime) بگذرد ایمیل هشدار می‌گیرید.</p>
+			</div>
+			<div class="card">
+				<h4>🏭 صنایع / برنامه‌ریزی تولید</h4>
+				<p><b>کجا:</b> «کارتابل صنایع — اقلام سفارش ساخت»</p>
+				<p><b>چه کار:</b> در فرم قلم: مرحله ساخت، شماره برنامه‌ریزی، سریال و نوع سریال، تاریخ‌ها، ملاحظات صنایع → ذخیره. BOM را از دکمه «Bom محصول» تکمیل کنید. وضعیت‌های تولید را با «تغییر وضعیت» ثبت کنید.</p>
+			</div>
+			<div class="card">
+				<h4>🔬 تولید / کنترل کیفیت</h4>
+				<p><b>کجا:</b> «اقلام سفارش ساخت — مشاهده فعال»</p>
+				<p><b>چه کار:</b> با <b>تغییر وضعیت</b> رخدادها را ثبت کنید (شروع/پایان تولید، شروع/پایان بازرسی نهایی، شروع/پایان تست، پایان بسته‌بندی). برای توقف‌ها از <b>ثبت توقف</b> استفاده کنید.</p>
+			</div>
+			<div class="card">
+				<h4>🚚 انبار / ارسال</h4>
+				<p><b>کجا:</b> نمایه «آماده به ارسال»</p>
+				<p><b>چه کار:</b> اقلامی که مرحله «آماده ارسال» دارند را ببینید و پس از تحویل، مرحله را به «تحویل فروش» یا «تحویل امانی» تغییر دهید (یا از صنایع بخواهید).</p>
+			</div>
+			<div class="card">
+				<h4>🛡 مدیر سیستم</h4>
+				<p><b>کجا:</b> نقش‌ها، تاییدکننده تجهیز، گروه‌های اعلان، پنل Job</p>
+				<p><b>چه کار:</b> چک‌لیست <a href="#s18">بخش ۱۸</a> را انجام دهید؛ بدون آن دکمه‌ها برای کاربران خاکستری می‌ماند و ایمیل‌ها ارسال نمی‌شود.</p>
+			</div>
 		</div>
 	</section>
 
 	<!-- 4 -->
 	<section id="s4">
-		<h2><span class="num">4</span>تایید مالی</h2>
-		<p>پیش از آنکه اقلام سفارش وارد چرخه تایید و تولید شوند، سفارش باید از نظر مالی تایید شود.</p>
-		<ol class="steps">
-			<li>وارد صفحه ویرایش سفارش ساخت شوید.</li>
-			<li>روی دکمه <span class="btn-preview b-success">✔ تایید مالی</span> در بالای صفحه کلیک کنید (فقط برای کاربرانی که دسترسی «تایید مالی» دارند فعال است).</li>
-			<li>پس از تایید کادر تاییدی که باز می‌شود، وضعیت سفارش به <span class="badge badge-success">تایید مالی و آغاز فرآیند سفارش ساخت</span> تغییر می‌کند و در تب «تاریخچه» ثبت می‌شود.</li>
-		</ol>
-		<div class="callout todo">
-			<div class="icon">🔐</div>
-			<div><strong>دسترسی لازم</strong> نقش <span class="role-chip">Sale.ProductionOrder.FinancialConfirm</span>
-			باید توسط مدیر سیستم برای کاربران واحد مالی ایجاد و تخصیص شود (جدول کامل در بخش ۱۴).</div>
+		<h2><span class="num">4</span>نقشه کامل گردش‌کار</h2>
+		<p>نمودار زیر مسیر یک «قلم سفارش ساخت» را از ورود تا تحویل نشان می‌دهد. مسیر دقیق بر اساس <b>روتین بودن کالا / نوع دستگاه</b> و اینکه <b>سفارش مدیر پروژه دارد یا نه</b> تعیین می‌شود. گره‌های خط‌چین به‌صورت خودکار توسط سیستم انجام می‌شوند.</p>
+
+		<div class="flow">
+			<div class="flow-row"><div class="node auto">ورود سفارش ساخت و اقلام از راهکاران <small>Job «افزودن سفارش ساخت از راهکاران» — وضعیت هدر: ثبت اولیه / بررسی واحد مالی</small></div></div>
+			<div class="arrow-down">⬇</div>
+			<div class="flow-row"><div class="node auto">تایید مالی در راهکاران <small>وضعیت هدر → «تایید مالی و آغاز فرآیند سفارش ساخت» (در پنل دکمه‌ای ندارد)</small></div></div>
+			<div class="arrow-down">⬇</div>
+			<div class="flow-row"><div class="node auto">مسیریابی خودکار هر قلم <small>Job «بررسی و تغییر وضعیت قلم سفارش ساخت»</small></div></div>
+			<div class="arrow-down">⬇</div>
+
+			<div class="flow-row">
+				<div class="branch">
+					<span class="branch-label">سفارش «مدیر پروژه» دارد</span>
+					<div class="node role">در انتظار تایید مدیر پروژه <small>مرحله: در انتظار مدیر پروژه</small></div>
+				</div>
+				<div class="branch">
+					<span class="branch-label">کالای روتین یا نوع دستگاه CNG / قطعات یدکی</span>
+					<div class="node role">در کارتابل صنایع (داخلی) <small>مرحله: منتظر تولید</small></div>
+				</div>
+				<div class="branch">
+					<span class="branch-label">در غیر این دو حالت</span>
+					<div class="node role">در انتظار تایید مهندسی <small>مکانیک یا برق بر اساس نوع دستگاه</small></div>
+				</div>
+			</div>
+
+			<div class="arrow-down">⬇<small>تایید مدیر پروژه → قلم به کارتابل مهندسی می‌رود (۲ روز بی‌پاسخ → خودکار به صنایع)</small></div>
+			<div class="flow-row"><div class="node action">تایید/رد مهندسی <small>۱ روز بی‌پاسخ → همان قاعده تایید، خودکار اجرا می‌شود</small></div></div>
+			<div class="arrow-down">⬇</div>
+
+			<div class="flow-row">
+				<div class="branch">
+					<span class="branch-label">تایید + (غیرروتین و ساخت داخل) یا کد کالای ساخت داخل</span>
+					<div class="node role">در کارتابل صنایع (داخلی) <small>مرحله: منتظر تولید</small></div>
+				</div>
+				<div class="branch">
+					<span class="branch-label">تایید در سایر حالت‌ها</span>
+					<div class="node role">در انتظار بررسی رئیس کمیته تامین</div>
+				</div>
+				<div class="branch">
+					<span class="branch-label">رد / نیاز به بازنگری</span>
+					<div class="node warn">عدم تایید مهندسی و نیاز به بازنگری <small>بازگشت به فروش + ایمیل</small></div>
+				</div>
+			</div>
+
+			<div class="arrow-down">⬇<small>تصمیم کمیته تامین</small></div>
+			<div class="flow-row">
+				<div class="branch"><span class="branch-label">خرید داخلی</span><div class="node role">کارتابل صنایع (داخلی)</div></div>
+				<div class="branch"><span class="branch-label">خرید خارجی</span><div class="node role">کارتابل صنایع (خارجی)</div></div>
+				<div class="branch"><span class="branch-label">نیاز به استعلام</span><div class="node role">کارتابل استعلام <small>مسئول + مهلت (LeadTime)</small></div></div>
+				<div class="branch"><span class="branch-label">نیاز به بررسی وزارت</span><div class="node role">کارتابل وزارت صنایع <small>مسئول + مهلت (LeadTime)</small></div></div>
+			</div>
+			<div class="arrow-down">⬇<small>استعلام‌گر نتیجه را برمی‌گرداند → «ارسال به رئیس کمیته تامین» → تصمیم مجدد کمیته</small></div>
+
+			<div class="flow-row"><div class="node action">کارتابل صنایع: برنامه‌ریزی، سریال، BOM <small>در صورت وجود مدیر پروژه: تعیین تکلیف BOM توسط مدیر پروژه</small></div></div>
+			<div class="arrow-down">⬇</div>
+			<div class="flow-row"><div class="node">منتظر تولید ➝ در حال تولید ➝ تست ➝ بسته‌بندی ➝ آماده ارسال ➝ تحویل فروش / امانی ➝ اختتام <small>رخدادها با «تغییر وضعیت»، توقف‌ها با «ثبت توقف»</small></div></div>
+		</div>
+
+		<div class="callout warn">
+			<div class="icon">⚠️</div>
+			<div><strong>مسیر رد / نیاز به بازنگری</strong>
+			در تایید مهندسی و تایید مدیر پروژه، «رد» و «نیاز به بازنگری» هر دو قلم را به وضعیت «… و نیاز به بازنگری» می‌برند و به تیم فروش ایمیل می‌شود. قلم در این وضعیت در هیچ کارتابلی نیست؛ فروش/فنی باید آن را اصلاح کند و برای ادامه کار با برنامه‌ریزی/مدیر سیستم هماهنگ شود.</div>
 		</div>
 	</section>
 
 	<!-- 5 -->
 	<section id="s5">
-		<h2><span class="num">5</span>مسیریابی خودکار اقلام</h2>
-		<p>به‌محض تایید مالی سفارش، سیستم به‌صورت خودکار (طی چند دقیقه، توسط یک فرآیند پس‌زمینه) هر قلم را بر اساس این قاعده به کارتابل درست می‌فرستد:</p>
-		<table>
-			<tr><th>شرط</th><th>مقصد</th></tr>
-			<tr><td>کالای این قلم به‌عنوان «روتین مهندسی» علامت خورده، یا نوع دستگاه «تجهیزات CNG» / «قطعات یدکی» است</td><td><span class="badge badge-info">کارتابل صنایع</span></td></tr>
-			<tr><td>سفارش ساخت، مدیر پروژه مشخص‌شده دارد</td><td><span class="badge badge-warning">کارتابل مدیر پروژه</span></td></tr>
-			<tr><td>هیچ‌کدام از دو حالت بالا</td><td><span class="badge badge-primary">کارتابل مهندسی (مکانیک یا برق)</span></td></tr>
-		</table>
-		<p>وضعیت فعلی هر قلم همیشه در فیلد <b>«وضعیت بررسی (کارتابل)»</b> روی صفحه قلم نمایش داده می‌شود؛ نیازی به کار دستی نیست.</p>
+		<h2><span class="num">5</span>مرحله ۱ — ورود سفارش، تایید مالی و تکمیل اطلاعات هدر</h2>
+		<h3>ورود سفارش (خودکار از راهکاران)</h3>
+		<p>سفارش‌های ساخت و اقلام آن‌ها به‌صورت خودکار از سیستم راهکاران خوانده و در پنل ایجاد می‌شوند (Job «افزودن سفارش ساخت از راهکاران»). سفارش تازه‌وارد با وضعیت <span class="badge badge-primary">ثبت اولیه</span> یا <span class="badge badge-primary">بررسی واحد مالی</span> در لیست <span class="menu">فروش › سفارش ساخت</span> دیده می‌شود و هر قلم آن با وضعیت بررسی <span class="badge badge-secondary">ثبت اولیه</span> در لیست اقلام.</p>
+		<div class="callout tip">
+			<div class="icon">✍️</div>
+			<div><strong>ثبت دستی</strong>در موارد خاص می‌توان با دکمه «افزودن» در لیست سفارش ساخت و سپس در لیست اقلام، سفارش و قلم را دستی ثبت کرد. فیلدهای اجباری هدر: وضعیت و شماره سفارش ساخت؛ فیلدهای اجباری قلم: کالا و تعداد/مقدار.</div>
+		</div>
+
+		<h3>تایید مالی (در راهکاران)</h3>
+		<p>تایید مالی <b>در راهکاران</b> انجام می‌شود و در پنل دکمه‌ای برای آن وجود ندارد. با اجرای Job، وضعیت هدر به <span class="badge badge-success">تایید مالی و آغاز فرآیند سفارش ساخت</span> تغییر می‌کند و در تب «تاریخچه» سفارش، رکورد «آغاز فرآیند» به‌صورت خودکار ثبت می‌شود. از این لحظه اقلام سفارش وارد گردش‌کار می‌شوند (<a href="#s6">مرحله ۲</a>).</p>
+
+		<h3>کار واحد فروش: تکمیل هدر پیش از آغاز فرآیند</h3>
+		<ol class="steps">
+			<li>از <span class="menu">فروش › سفارش ساخت</span> نمایه «سفارش ساخت — مرتبط با من» را انتخاب و سفارش را با دوبار کلیک باز کنید.</li>
+			<li>در تب <b>اطلاعات کلی</b> این فیلدها را کنترل/تکمیل کنید: <b>مدیر پروژه</b> و تیک «نیاز به مدیر پروژه»، <b>مدیر فروش</b>، <b>کاربر کارشناس فروش</b> / کارشناس فروش جایگزین، <b>نمایندگی فروش</b>، <b>شعبه / دپارتمان فروش</b>، <b>شهر نصب</b> و <b>محل تحویل</b>، <b>تاریخ تحویل موافقت‌شده</b>، تیک‌های «نیاز به بازرسی قبل از بسته‌بندی»، «پیمانکار دارد»، «کمپرسورخانه آماده است»، «نصب توسط هوایار»، «ضمانت مالی دارد»، نوع بسته‌بندی، نحوه تحویل، نوع محصول، نحوه راه‌اندازی، صنعت مشتری، پروژه مهندسی، کارشناس معرف و <b>توضیحات فروش</b>.</li>
+			<li>در تب <b>پیوست‌ها</b> فایل‌های «تایید مدیریت»، «فاکتور پیش‌پرداخت»، «پیش‌فاکتور»، «قرارداد» و «مهندسی / متره» را بارگذاری کنید. این پیوست‌ها از صفحه هر قلم هم با دکمه «پیوست‌های سفارش ساخت» قابل دانلود هستند.</li>
+			<li>روی هر قلم (لیست اقلام → دوبار کلیک) <b>نوع دستگاه</b> و <b>تاریخ تحویل توافقی</b> را کنترل کنید و ذخیره کنید.</li>
+		</ol>
+		<div class="callout warn">
+			<div class="icon">⚠️</div>
+			<div><strong>مدیر پروژه را قبل از تایید مالی مشخص کنید</strong>
+			مسیریابی خودکار (مرحله ۲) در لحظه اجرا نگاه می‌کند سفارش «مدیر پروژه» دارد یا نه. اگر مدیر پروژه بعد از مسیریابی ثبت شود، قلم‌ها مستقیم به مهندسی رفته‌اند و مدیر پروژه مرحله تایید خودش را از دست می‌دهد (فقط «تعیین تکلیف BOM» برای او باقی می‌ماند).</div>
+		</div>
+		<div class="callout tip">
+			<div class="icon">💡</div>
+			<div><strong>نوع دستگاه اهمیت دارد</strong>
+			«نوع دستگاه» تعیین می‌کند قلم به کارتابل صنایع می‌رود (تجهیزات CNG، قطعات یدکی) یا به مهندسی، و اگر مهندسی، به مکانیک یا برق (تابلو برق، تابلو کنترل، تابلو اینورتر، سکوئنسر → برق؛ بقیه → مکانیک).</div>
+		</div>
 	</section>
 
 	<!-- 6 -->
 	<section id="s6">
-		<h2><span class="num">6</span>تایید/رد مهندسی (مکانیک و برق)</h2>
-		<p>وقتی قلم به کارتابل مهندسی می‌رسد، رشته آن (مکانیک یا برق) به‌صورت خودکار از روی «نوع دستگاه» تشخیص داده می‌شود
-		(مثلاً تابلو برق و اینورتر → مهندسی برق؛ باقی موارد → مهندسی مکانیک).</p>
-		<ol class="steps">
-			<li>وارد صفحه قلم سفارش ساخت شوید.</li>
-			<li>روی دکمه <span class="btn-preview b-success">✔ تایید/رد مهندسی</span> کلیک کنید (فقط زمانی فعال است که قلم در وضعیت انتظار تایید مهندسی باشد و شما نقش مهندسی متناظر با رشته آن را داشته باشید).</li>
-			<li>در کادر باز شده یکی از سه تصمیم را انتخاب کنید و در صورت نیاز توضیح بنویسید:</li>
-		</ol>
+		<h2><span class="num">6</span>مرحله ۲ — مسیریابی خودکار اقلام</h2>
+		<p>پس از تایید مالی، Job «بررسی و تغییر وضعیت قلم سفارش ساخت» هر قلمِ «ثبت اولیه» را بر اساس قاعده زیر به کارتابل درست می‌فرستد. هیچ کار دستی لازم نیست.</p>
 		<table>
-			<tr><th>تصمیم</th><th>نتیجه</th></tr>
-			<tr><td><span class="badge badge-success">تایید</span></td><td>قلم تایید مهندسی می‌شود و به سمت تولید (کارتابل صنایع) حرکت می‌کند</td></tr>
-			<tr><td><span class="badge badge-danger">رد</span></td><td>قلم رد می‌شود و باید بررسی/توقف شود</td></tr>
-			<tr><td><span class="badge badge-warning">نیاز به بازنگری</span></td><td>قلم باید توسط فروش/فنی اصلاح و مجدداً بررسی شود</td></tr>
+			<tr><th>شرط (به ترتیب بررسی)</th><th>وضعیت بررسی (کارتابل)</th><th>مرحله ساخت</th><th>اعلان ایمیل</th></tr>
+			<tr>
+				<td>کالای قلم «روتین» است، یا نوع دستگاه «تجهیزات CNG» / «قطعات یدکی» است</td>
+				<td><span class="badge badge-info">در کارتابل صنایع (داخلی)</span></td>
+				<td><span class="badge badge-secondary">منتظر تولید</span></td>
+				<td>—</td>
+			</tr>
+			<tr>
+				<td>سفارش ساخت «مدیر پروژه» دارد</td>
+				<td><span class="badge badge-warning">در انتظار تایید مدیر پروژه</span></td>
+				<td><span class="badge badge-secondary">در انتظار مدیر پروژه</span></td>
+				<td>به مدیر پروژه</td>
+			</tr>
+			<tr>
+				<td>هیچ‌کدام</td>
+				<td><span class="badge badge-primary">در انتظار تایید مهندسی (مکانیک)</span> <span class="muted">(برای انواع برقی، کارتابل مهندسی برق)</span></td>
+				<td><span class="badge badge-secondary">در انتظار مهندسی</span></td>
+				<td>به «تاییدکننده تجهیز» مکانیک/برق آن نوع دستگاه</td>
+			</tr>
 		</table>
-		<div class="callout todo">
-			<div class="icon">🔐</div>
-			<div><strong>دسترسی لازم</strong>
-			<span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringMechanical</span> برای مهندسی مکانیک و
-			<span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringElectrical</span> برای مهندسی برق.</div>
-		</div>
+		<p>وضعیت هر قلم را در ستون «وضعیت بررسی» لیست اقلام یا در بالای صفحه قلم می‌بینید. تاریخ ورود به کارتابل در فیلد «تاریخ ارسال به صنایع (اخذ)» (برای صنایع) ثبت می‌شود.</p>
 	</section>
 
 	<!-- 7 -->
 	<section id="s7">
-		<h2><span class="num">7</span>تایید صنایع</h2>
-		<p>وقتی قلم در کارتابل صنایع قرار می‌گیرد (چه به‌صورت مستقیم، چه پس از تایید مهندسی/مدیر پروژه)، واحد صنایع آن را برای شروع تولید تایید می‌کند.</p>
+		<h2><span class="num">7</span>مرحله ۳ — تایید/رد مدیر پروژه</h2>
+		<p><b>کی:</b> مدیر پروژه سفارش. <b>کجا:</b> نمایه «کارتابل مدیر پروژه» (یا «کارتابل من») → دوبار کلیک روی قلم → دکمه <span class="btn-preview b-success">✔ تایید/رد مدیر پروژه</span>. <b>شرط فعال بودن:</b> وضعیت بررسی = «در انتظار تایید مدیر پروژه» و نقش <span class="role-chip">Sale.ProductionOrderItem.AcceptProjectManager</span>.</p>
 		<ol class="steps">
-			<li>روی دکمه <span class="btn-preview b-success">✔ تایید صنایع</span> کلیک کنید.</li>
-			<li>پس از تایید، قلم وارد مرحله «منتظر تولید» می‌شود و می‌توانید مراحل ساخت آن را (بخش ۱۰) پیگیری کنید.</li>
+			<li>قلم را باز کنید؛ در «اطلاعات پایه» مشخصات فنی، کالا و تعداد را بررسی کنید. با «پیوست‌های سفارش ساخت» می‌توانید قرارداد/پیش‌فاکتور را ببینید.</li>
+			<li>روی «تایید/رد مدیر پروژه» کلیک کنید، تصمیم را انتخاب و در صورت نیاز توضیح بنویسید، سپس «ثبت».</li>
 		</ol>
-		<div class="callout todo">
-			<div class="icon">🔐</div>
-			<div><strong>دسترسی لازم</strong> نقش <span class="role-chip">Sale.ProductionOrderItem.AcceptIndustrial</span></div>
+		<table>
+			<tr><th style="width:170px">تصمیم</th><th>اتفاقی که خودکار می‌افتد</th></tr>
+			<tr><td><span class="badge badge-success">تایید</span></td><td>وضعیت لحظه‌ای «تایید مدیر پروژه» ثبت و بلافاصله قلم به <span class="badge badge-primary">در انتظار تایید مهندسی</span> با مرحله «در انتظار مهندسی» منتقل می‌شود؛ ایمیل به تاییدکننده تجهیز مهندسی.</td></tr>
+			<tr><td><span class="badge badge-danger">رد</span></td><td>وضعیت لحظه‌ای «عدم تایید مدیر پروژه» ثبت و بلافاصله قلم به <span class="badge badge-warning">عدم تایید مدیر پروژه و نیاز به بازنگری</span> می‌رود؛ ایمیل به تیم فروش سفارش.</td></tr>
+			<tr><td><span class="badge badge-warning">نیاز به بازنگری</span></td><td>مستقیم به <span class="badge badge-warning">عدم تایید مدیر پروژه و نیاز به بازنگری</span>؛ ایمیل به تیم فروش.</td></tr>
+		</table>
+		<div class="callout tip">
+			<div class="icon">⏱️</div>
+			<div><strong>مهلت ۲ روز</strong>اگر قلمی ۲ روز در مرحله «در انتظار مدیر پروژه» بی‌پاسخ بماند، سیستم به‌صورت خودکار مرحله آن را به «در انتظار صنایع» و (اگر هنوز در انتظار تایید مدیر پروژه بود) وضعیت بررسی را به «در کارتابل صنایع (داخلی)» تغییر می‌دهد و به مدیر پروژه ایمیل اطلاع می‌دهد. کامنت «بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه» در تاریخچه ثبت می‌شود.</div>
 		</div>
+		<p class="muted">مدیر پروژه یک وظیفه دیگر هم دارد: «تعیین تکلیف BOM» وقتی مرحله قلم «در انتظار مدیر پروژه» است — در <a href="#s10">بخش ۱۰</a> توضیح داده شده است.</p>
 	</section>
 
 	<!-- 8 -->
 	<section id="s8">
-		<h2><span class="num">8</span>تایید/رد مدیر پروژه</h2>
-		<p>اگر سفارش ساخت، مدیر پروژه داشته باشد، قلم پیش از رفتن به صنایع باید توسط مدیر پروژه بررسی شود.</p>
+		<h2><span class="num">8</span>مرحله ۴ — تایید/رد مهندسی (مکانیک / برق)</h2>
+		<p><b>کی:</b> کارشناس مهندسی مکانیک یا برق (رشته از روی «نوع دستگاه» تعیین می‌شود). <b>کجا:</b> نمایه «کارتابل مهندسی مکانیک» / «کارتابل مهندسی برق» یا «کارتابل من» → صفحه قلم → دکمه <span class="btn-preview b-success">✔ تایید/رد مهندسی</span>. <b>شرط فعال بودن:</b> وضعیت بررسی = «در انتظار تایید مهندسی» و نقش <span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringMechanical</span> یا <span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringElectrical</span> متناظر با رشته قلم.</p>
 		<ol class="steps">
-			<li>روی دکمه <span class="btn-preview b-success">✔ تایید/رد مدیر پروژه</span> کلیک کنید.</li>
-			<li>یکی از تصمیم‌های «تایید»، «رد» یا «نیاز به بازنگری» را انتخاب کنید — دقیقاً مشابه جدول تایید مهندسی در بخش ۶.</li>
-			<li>در صورت تایید، قلم مستقیماً به کارتابل صنایع منتقل می‌شود.</li>
+			<li>قلم را باز کنید؛ مشخصات فنی (مدل، فشار ورودی/خروجی، ظرفیت، نوع گاز، نوع محرک…) و «ملاحظات فروش» را در اطلاعات پایه بررسی کنید. اگر لازم است، «Bom محصول» را هم ببینید.</li>
+			<li>روی «تایید/رد مهندسی» کلیک کنید، تصمیم را انتخاب و توضیح بنویسید، سپس «ثبت».</li>
 		</ol>
-		<div class="callout todo">
-			<div class="icon">🔐</div>
-			<div><strong>دسترسی لازم</strong> نقش <span class="role-chip">Sale.ProductionOrderItem.AcceptProjectManager</span></div>
+		<table>
+			<tr><th style="width:170px">تصمیم</th><th>اتفاقی که خودکار می‌افتد</th></tr>
+			<tr>
+				<td><span class="badge badge-success">تایید</span></td>
+				<td>
+					وضعیت لحظه‌ای «تایید مهندسی» ثبت می‌شود و مقصد بعدی به‌صورت خودکار تعیین می‌شود:
+					<ul style="margin:6px 0 0">
+						<li>اگر قلم <b>غیرروتین و ساخت داخل</b> است، یا <b>کد کالا</b> با یکی از پیشوندهای ساخت داخل (1807101، 180229، 180211، 1808101، 1809101، 1810101، 1811101) شروع می‌شود → <span class="badge badge-info">در کارتابل صنایع (داخلی)</span> + مرحله «منتظر تولید» + ایمیل به گروه «واحد صنایع».</li>
+						<li>در غیر این صورت → <span class="badge badge-warning">در انتظار بررسی رئیس کمیته تامین</span> + ایمیل به رئیس کمیته و کارشناسان کمیته تامین.</li>
+					</ul>
+				</td>
+			</tr>
+			<tr><td><span class="badge badge-danger">رد</span></td><td>وضعیت لحظه‌ای «عدم تایید مهندسی» و بلافاصله <span class="badge badge-warning">عدم تایید مهندسی و نیاز به بازنگری</span>؛ ایمیل به تیم فروش سفارش.</td></tr>
+			<tr><td><span class="badge badge-warning">نیاز به بازنگری</span></td><td>مستقیم به <span class="badge badge-warning">عدم تایید مهندسی و نیاز به بازنگری</span>؛ ایمیل به تیم فروش.</td></tr>
+		</table>
+		<div class="callout tip">
+			<div class="icon">⏱️</div>
+			<div><strong>مهلت ۱ روز</strong>اگر قلم ۲۴ ساعت در «در انتظار تایید مهندسی» بی‌پاسخ بماند، Job «انتقال خودکار اقلام منقضی‌شده در کارتابل مهندسی به صنایع» دقیقاً همان قاعده «تایید» را اجرا می‌کند (صنایع داخلی یا رئیس کمیته تامین) و به مهندسی و صنایع ایمیل می‌دهد.</div>
+		</div>
+		<div class="callout warn">
+			<div class="icon">👤</div>
+			<div><strong>«کارتابل من» برای مهندسان</strong>در نمایه «کارتابل من»، یک مهندس فقط قلم‌هایی را می‌بیند که در صفحه «تاییدکننده تجهیز» برای <b>نوع دستگاهِ آن قلم</b> به‌عنوان کارشناس مکانیک یا برق تعریف شده باشد. اگر قلمی را در «کارتابل مهندسی مکانیک» می‌بینید اما در «کارتابل من» نه، تعریف تاییدکننده تجهیز آن نوع دستگاه را بررسی کنید.</div>
 		</div>
 	</section>
 
 	<!-- 9 -->
 	<section id="s9">
-		<h2><span class="num">9</span>استعلام، وزارت صنایع و کمیته تامین</h2>
-		<p>این مسیر کمکی، برای اقلامی است که نیاز به بررسی بیشتر (مثلاً خرید خارجی یا استعلام قیمت) دارند و از داخل کارتابل صنایع فعال می‌شود.</p>
+		<h2><span class="num">9</span>مرحله ۵ — کمیته تامین، استعلام و وزارت صنایع</h2>
+		<p>اقلامی که پس از تایید مهندسی «ساخت داخل» تشخیص داده نشوند، برای تصمیم خرید/تامین به رئیس کمیته تامین می‌رسند. این مسیر سه بازیگر دارد:</p>
+
+		<h3>الف) تصمیم رئیس کمیته تامین</h3>
+		<p><b>کجا:</b> نمایه «کارتابل رئیس کمیته تامین» → صفحه قلم → <span class="btn-preview b-success">✔✔ تصمیم کمیته تامین</span>. <b>شرط:</b> وضعیت بررسی «در انتظار بررسی رئیس کمیته تامین» یا «ارسال به رئیس کمیته تامین» و نقش <span class="role-chip">Sale.ProductionOrderItem.SupplyCommitteeBoss</span>.</p>
 		<table>
-			<tr><th>دکمه</th><th>کاربرد</th><th>دسترسی لازم</th></tr>
-			<tr>
-				<td><span class="btn-preview b-info">ارسال به استعلام</span></td>
-				<td>قلم را برای استعلام قیمت/تامین ارسال می‌کند</td>
-				<td><span class="role-chip">Sale.ProductionOrderItem.Inquirer</span></td>
-			</tr>
-			<tr>
-				<td><span class="btn-preview b-info">ارسال به بررسی وزارت صنایع</span></td>
-				<td>قلم را برای تایید وزارت صنایع ارسال می‌کند</td>
-				<td><span class="role-chip">Sale.ProductionOrderItem.MinistryOfIndustryInquirer</span></td>
-			</tr>
-			<tr>
-				<td><span class="btn-preview b-warning">ارسال به کمیته تامین</span></td>
-				<td>قلم را برای بررسی نهایی به رئیس کمیته تامین می‌فرستد</td>
-				<td>هر یک از سه نقش استعلام/وزارت صنایع/رئیس کمیته</td>
-			</tr>
-			<tr>
-				<td><span class="btn-preview b-success">تایید کمیته تامین</span></td>
-				<td>قلم تایید و به روند اصلی (کارتابل صنایع) بازمی‌گردد</td>
-				<td><span class="role-chip">Sale.ProductionOrderItem.SupplyCommitteeBoss</span></td>
-			</tr>
-			<tr>
-				<td><span class="btn-preview b-danger">رد کمیته تامین</span></td>
-				<td>قلم به‌طور نهایی <span class="badge badge-dark">منسوخ شده</span> می‌شود</td>
-				<td><span class="role-chip">Sale.ProductionOrderItem.SupplyCommitteeBoss</span></td>
-			</tr>
+			<tr><th style="width:200px">تصمیم / مقصد</th><th>فیلدهای فرم</th><th>نتیجه</th></tr>
+			<tr><td><span class="badge badge-info">خرید داخلی</span></td><td>کامنت</td><td>قلم به <span class="badge badge-info">در کارتابل صنایع (داخلی)</span> می‌رود؛ ایمیل به گروه «واحد صنایع».</td></tr>
+			<tr><td><span class="badge badge-info">خرید خارجی</span></td><td>کامنت</td><td>قلم به <span class="badge badge-info">در کارتابل صنایع (خارجی)</span> می‌رود؛ ایمیل به گروه «واحد صنایع».</td></tr>
+			<tr><td><span class="badge badge-secondary">نیاز به استعلام</span></td><td>مسئول استعلام <b>(اجباری)</b>، مدت زمان اخذ استعلام (LeadTime) <b>(اجباری)</b>، پیوست، کامنت</td><td>قلم به <span class="badge badge-secondary">نیاز به استعلام</span> (کارتابل استعلام) می‌رود؛ به مسئول انتخاب‌شده ایمیل می‌شود و اگر نقش «استعلام‌گر» را نداشته باشد، <b>خودکار به او داده می‌شود</b>.</td></tr>
+			<tr><td><span class="badge badge-secondary">نیاز به بررسی وزارت صنایع</span></td><td>مسئول، LeadTime، پیوست، کامنت</td><td>قلم به <span class="badge badge-secondary">نیاز به بررسی وزارت صنایع</span> (کارتابل وزارت صنایع) می‌رود؛ ایمیل به مسئول + اعطای خودکار نقش «استعلام‌گر وزارت صنایع».</td></tr>
 		</table>
+
+		<h3>ب) انجام استعلام و بازگرداندن نتیجه</h3>
+		<p><b>کجا:</b> نمایه «کارتابل استعلام» (استعلام‌گر) یا «کارتابل وزارت صنایع» (استعلام‌گر وزارت) → صفحه قلم → <span class="btn-preview b-warning">👥 ارسال نتیجه استعلام به کمیته تامین</span>. <b>شرط:</b> استعلام‌گر فقط روی قلم «نیاز به استعلام»؛ استعلام‌گر وزارت فقط روی «نیاز به بررسی وزارت صنایع».</p>
+		<ol class="steps">
+			<li>قلم را باز کنید. مهلت تعیین‌شده (LeadTime) در تب «استعلام» تاریخچه تغییر وضعیت (دکمه «تاریخچه تغییر وضعیت») دیده می‌شود.</li>
+			<li>پس از انجام استعلام، روی «ارسال نتیجه استعلام به کمیته تامین» کلیک کنید، <b>کامنت</b> (نتیجه) را بنویسید و در صورت داشتن فایل، <b>پیوست</b> کنید → «ثبت».</li>
+			<li>قلم به <span class="badge badge-warning">ارسال به رئیس کمیته تامین</span> می‌رود و رئیس کمیته دوباره از همان دکمه «تصمیم کمیته تامین» مقصد نهایی (خرید داخلی/خارجی) را انتخاب می‌کند. ایمیل به رئیس کمیته و کارشناسان کمیته تامین ارسال می‌شود.</li>
+		</ol>
+		<div class="callout tip">
+			<div class="icon">⏱️</div>
+			<div><strong>انقضای مهلت استعلام</strong>اگر تاریخ LeadTime بگذرد و نتیجه برنگشته باشد، Job «اعلان انقضای زمان استعلام اقلام سفارش ساخت» به مسئول استعلام و کارشناسان کمیته تامین ایمیل هشدار می‌فرستد. قلم جابه‌جا نمی‌شود.</div>
+		</div>
 	</section>
 
 	<!-- 10 -->
 	<section id="s10">
-		<h2><span class="num">10</span>پیگیری تولید، BOM و ثبت توقف</h2>
-		<h3>مراحل ساخت</h3>
-		<p>پس از تایید صنایع، مسئول تولید از طریق فیلد «مرحله ساخت» پیشرفت قلم را ثبت می‌کند: برنامه‌ریزی ← منتظر تولید ← در حال تولید ← تست ← بسته‌بندی ← آماده ارسال ← تحویل فروش.</p>
-		<h3>تغییر وضعیت تولید</h3>
-		<p>با دکمه <span class="btn-preview b-primary">↔ تغییر وضعیت</span> می‌توانید وضعیت دقیق‌تر تولید (شروع/پایان تولید، شروع/پایان تست، بسته‌بندی و...) را ثبت کنید. هر تغییر وضعیت به‌طور خودکار در «تاریخچه تغییر وضعیت» ثبت می‌شود که با دکمه <span class="btn-preview b-info">☰ تاریخچه تغییر وضعیت</span> قابل مشاهده است.</p>
-		<h3>لیست قطعات (BOM)</h3>
-		<p>در پایین صفحه هر قلم، جدول BOM قرار دارد. با دکمه «افزودن BOM» می‌توانید قطعات لازم برای ساخت آن قلم را با تعداد، نسخه و وضعیت تامین ثبت کنید. خروجی اکسل این جدول هم از طریق دکمه <span class="btn-preview b-primary">📊 خروجی اکسل BOM</span> در دسترس است.</p>
-		<h3>ثبت توقف</h3>
-		<p>اگر تولید به هر دلیلی متوقف شود، با دکمه <span class="btn-preview b-danger">⏹ ثبت توقف</span> می‌توانید علت و بازه زمانی توقف را ثبت کنید. تمام توقفات قبلی از دکمه <span class="btn-preview b-warning">🕘 لیست توقفات</span> قابل مشاهده‌اند.</p>
+		<h2><span class="num">10</span>مرحله ۶ — کارتابل صنایع: برنامه‌ریزی، سریال و BOM</h2>
+		<p><b>کی:</b> واحد صنایع / برنامه‌ریزی تولید. <b>کجا:</b> نمایه «کارتابل صنایع — اقلام سفارش ساخت» (نقش <span class="role-chip">Sale.ProductionOrderItem.AcceptIndustrial</span>) که همه اقلام «در کارتابل صنایع (داخلی/خارجی)» را نشان می‌دهد. در سیستم جدید دکمه جداگانه‌ای به نام «تایید صنایع» وجود ندارد؛ کار صنایع همان <b>ویرایش و ذخیره فرم قلم</b> است.</p>
+
+		<h3>الف) تکمیل فرم قلم</h3>
+		<ol class="steps">
+			<li>قلم را از کارتابل صنایع باز کنید.</li>
+			<li>در فرم ویرایش این فیلدها را تکمیل کنید: <b>مرحله ساخت</b> (مثلاً منتظر تولید → در حال تولید)، <b>شماره برنامه‌ریزی</b>، <b>سریال</b> و <b>نوع سریال</b>، <b>تاریخ شروع تولید</b>، تاریخ پایان تولید، تاریخ پایان تست، تاریخ آماده‌سازی، <b>تاریخ تحویل</b>، <b>وضعیت</b> (۰ = تکمیل‌نشده / ۱ = تکمیل‌شده / باطل) و <b>ملاحظات صنایع</b>.</li>
+			<li>«ذخیره» کنید. اولین ذخیره صنایع در فیلد «اولین تغییر صنایع» ثبت می‌شود. تاریخ‌های «پایان تولید / پایان تست / آماده‌سازی» بعداً با «تغییر وضعیت» به‌صورت خودکار هم پر می‌شوند (<a href="#s11">بخش ۱۱</a>).</li>
+		</ol>
+		<div class="callout warn">
+			<div class="icon">🔢</div>
+			<div><strong>تغییر سریال</strong>اگر سریال قلمی را تغییر دهید که «بازرسی حین ساخت» دارد، به گروه «تغییر سریال (کنترل کیفیت)» ایمیل اطلاع‌رسانی می‌شود (سریال قبلی و جدید در ایمیل ذکر می‌شود).</div>
+		</div>
+
+		<h3>ب) لیست قطعات (BOM)</h3>
+		<p>با دکمه <span class="btn-preview b-primary">🧩 Bom محصول</span> در صفحه قلم، صفحه BOM باز می‌شود.</p>
+		<ol class="steps">
+			<li><b>افزودن دستی:</b> دکمه «افزودن» → کالا (اجباری)، تعداد/مقدار (اجباری)، نسخه، تعداد تامین‌شده، مرحله ساخت، وضعیت، تیک «آخرین نسخه»، تیک «نیاز به AVL»، توضیحات، توضیحات واحد فروش → ذخیره. پس از ذخیره، سیستم می‌پرسد «آیا تغییرات بر روی سایر محصولات مشابه در این سفارش نیز اعمال شود؟» — با «بله»، همان BOM روی قلم‌های همان کالا در همان سفارش هم درج می‌شود.</li>
+			<li><b>افزودن با اکسل:</b> دکمه «افزودن با اکسل» → «دانلود فایل نمونه» → پر کردن ستون‌ها → انتخاب فایل → بارگذاری. ردیف‌های تکراری با خطا برگردانده می‌شوند.</li>
+			<li><b>خروجی اکسل</b> برای ارسال به تدارکات/تولید، و <b>ویرایش/حذف</b> هر ردیف با دکمه‌های همان ردیف.</li>
+		</ol>
+		<div class="callout ok">
+			<div class="icon">🤖</div>
+			<div><strong>BOM روتین خودکار</strong>برای کالای «روتین»، اگر BOM خالی باشد، با اولین بار باز شدن صفحه BOM (و همچنین توسط Job «درج خودکار BOM روتین») لیست قطعات از الگوی محصول پر می‌شود. فقط بررسی و در صورت نیاز اصلاح کنید.</div>
+		</div>
+
+		<h3>پ) تعیین تکلیف BOM توسط مدیر پروژه</h3>
+		<p>اگر سفارش <b>مدیر پروژه</b> دارد و مرحله قلم هنوز «در انتظار مهندسی» است، با ثبت اولین BOM (دستی یا اکسل) مرحله قلم به <span class="badge badge-secondary">در انتظار مدیر پروژه</span> تغییر می‌کند و به مدیر پروژه ایمیل می‌شود تا خرید/ساخت اقلام BOM را تعیین تکلیف کند:</p>
+		<ol class="steps">
+			<li>مدیر پروژه قلم را باز می‌کند → «Bom محصول» → ردیف را «ویرایش» می‌کند.</li>
+			<li>در ردیف BOM یکی از این‌ها را تغییر می‌دهد: <b>توضیحات واحد فروش</b>، تیک <b>نیاز به AVL</b>، یا <b>مرحله ساخت</b> ردیف → ذخیره.</li>
+			<li>با اولین تغییر از این نوع، مرحله قلم خودکار به <span class="badge badge-secondary">در انتظار صنایع</span> می‌رود و کامنت «تعیین تکلیف اقلام BOM توسط مدیر/کارشناس پروژه و ارسال به صنایع» در تب «مرحله ساخت» تاریخچه ثبت می‌شود. اگر مدیر پروژه ۲ روز اقدام نکند، همین انتقال خودکار انجام می‌شود.</li>
+		</ol>
 	</section>
 
 	<!-- 11 -->
 	<section id="s11">
-		<h2><span class="num">11</span>تاخیرات، تاییدکننده تجهیز و پیوست‌ها</h2>
-		<p>این سه مورد در سطح <b>سفارش ساخت (هدر)</b> قرار دارند و هرکدام یک تب جدا در صفحه ویرایش سفارش دارند:</p>
+		<h2><span class="num">11</span>مرحله ۷ — تولید، تست و ثبت توقف («تغییر وضعیت»)</h2>
+		<p>پیشرفت فیزیکی قلم با دو ابزار ثبت می‌شود: <b>مرحله ساخت</b> (در فرم قلم، توسط صنایع) و <b>تغییر وضعیت</b> (رخدادهای دقیق تولید، توسط تولید/QC/صنایع). همه کاربران دارای دسترسی ویرایش قلم می‌توانند «تغییر وضعیت» را ثبت کنند.</p>
+
+		<h3>الف) ثبت رخداد با «تغییر وضعیت»</h3>
+		<ol class="steps">
+			<li>در صفحه قلم روی <span class="btn-preview b-primary">↔ تغییر وضعیت</span> کلیک کنید.</li>
+			<li>فرم را پر کنید: <b>وضعیت تولید</b> (اجباری)، تاریخ شروع، تاریخ پایان، علت‌های خرابی (در صورت توقف)، <b>کامنت</b> (اجباری)، <b>دریافت‌کنندگان</b> (افراد اضافه برای CC ایمیل) → ثبت.</li>
+		</ol>
 		<table>
-			<tr><th style="width:200px">تب</th><th>کاربرد</th></tr>
-			<tr><td><b>📎 پیوست‌ها</b></td><td>بارگذاری فایل‌های «تایید مدیریت»، «فاکتور پیش‌پرداخت»، «پیش‌فاکتور» و «قرارداد»</td></tr>
-			<tr><td><b>🕐 تاخیرات</b></td><td>ثبت تاخیرهای رخ‌داده روی سفارش یا یک قلم خاص، همراه با تعداد روز و علت تاخیر</td></tr>
-			<tr><td><b>✅ تاییدکننده تجهیز</b></td><td>ثبت اینکه چه کاربری، کدام تجهیز را در چه تاریخی تایید کرده است</td></tr>
-			<tr><td><b>💬 تاریخچه</b></td><td>تاریخچه کامل تغییرات وضعیت کلی سفارش (تایید مالی، منسوخ‌سازی و ...)</td></tr>
+			<tr><th>وضعیت تولید</th><th>اثر خودکار روی قلم</th></tr>
+			<tr><td><span class="badge badge-info">شروع تولید</span></td><td>در تاریخچه ثبت می‌شود؛ ایمیل تغییر وضعیت به تیم فروش.</td></tr>
+			<tr><td><span class="badge badge-info">پایان تولید</span></td><td>فیلد <b>تاریخ پایان تولید</b> قلم پر می‌شود.</td></tr>
+			<tr><td><span class="badge badge-info">شروع بازرسی نهایی</span> / <span class="badge badge-info">پایان بازرسی نهایی</span></td><td>پایان بازرسی نهایی → فیلد <b>تاریخ پایان تست</b> پر می‌شود.</td></tr>
+			<tr><td><span class="badge badge-info">شروع تست تولید</span> / <span class="badge badge-info">پایان تست تولید</span></td><td>شروع تست در سفارش‌های دارای مدیر پروژه → ایمیل به گروه «شروع تست (IT Support)».</td></tr>
+			<tr><td><span class="badge badge-success">پایان بسته‌بندی</span></td><td>فیلد <b>تاریخ آماده‌سازی</b> پر می‌شود و تاریخ اقساط ۲ تا ۵ (۳۰/۶۰/۹۰/۱۲۰ روز بعد) محاسبه می‌شود.</td></tr>
+			<tr><td><span class="badge badge-warning">شروع/پایان توقف</span> در مرحله تولید، بازرسی نهایی، تست تولید، بازدید کارفرما</td><td>بازه توقف در تاریخچه ثبت می‌شود (برای توقف کامل با فرم مخصوص، بند «ب» را ببینید).</td></tr>
 		</table>
-		<p>برای افزودن یک ردیف تاخیر یا تاییدکننده تجهیز، ابتدا سفارش را ذخیره کنید، سپس روی دکمه «افزودن» بالای هر جدول کلیک کنید.</p>
+		<p>هر تغییر وضعیت به تیم فروش سفارش (مدیر فروش، کارشناس فروش، مدیر پروژه)، گروه «تغییر وضعیت تولید» و افراد انتخاب‌شده در «دریافت‌کنندگان» ایمیل می‌شود.</p>
+
+		<h3>ب) ثبت توقف</h3>
+		<p>با <span class="btn-preview b-danger">⏹ ثبت توقف</span> فرم توقف باز می‌شود: تاریخ شروع توقف، محل مشاهده، وضعیت تولید، ساعت کارکرد دستگاه، علت توقف، واحدهای مسئول، مسئول‌های توقف، ذینفعان، ذینفعان جایگزین، شماره عدم انطباق و شرح (فیلدهای ستاره‌دار اجباری). توقف در ماژول «توقفات تولید» ثبت می‌شود و یک کامنت خودکار در تاریخچه قلم درج می‌شود. همه توقف‌های قلم از <span class="btn-preview b-warning">🕘 لیست توقفات</span> قابل مشاهده است.</p>
+
+		<h3>پ) تاریخچه تغییر وضعیت</h3>
+		<p>دکمه <span class="btn-preview b-info">☰ تاریخچه تغییر وضعیت</span> چهار تب دارد: <b>وضعیت سفارش ساخت</b> (تاییدها، رد‌ها، ارجاع‌ها و انتقال‌های خودکار)، <b>استعلام</b> (مسئول، مدت زمان اخذ استعلام، پیوست، نتیجه)، <b>تولید</b> (رخدادهای «تغییر وضعیت») و <b>مرحله ساخت</b> (تغییرات مرحله). این بهترین جا برای پاسخ به «چه شد و چه کسی چه زمانی چه کرد» است.</p>
 	</section>
 
 	<!-- 12 -->
 	<section id="s12">
-		<h2><span class="num">12</span>منسوخ‌سازی سفارش</h2>
-		<p>اگر یک سفارش ساخت به هر دلیلی باید کاملاً کنسل شود، از دکمه <span class="btn-preview b-dark">🚫 منسوخ کردن</span> استفاده کنید.</p>
-		<div class="callout warn">
-			<div class="icon">⚠️</div>
-			<div><strong>این عملیات قابل بازگشت نیست</strong>
-			با منسوخ کردن سفارش، وضعیت آن به <span class="badge badge-dark">منسوخ شده</span> تغییر می‌کند و <b>تمام اقلام فعال آن به‌صورت خودکار منسوخ می‌شوند</b>؛
-			این دکمه فقط برای سفارش‌هایی که تایید مالی شده باشند فعال است.</div>
+		<h2><span class="num">12</span>مرحله ۸ — بسته‌بندی، آماده ارسال، تحویل و اختتام</h2>
+		<ol class="steps">
+			<li>پس از «پایان بسته‌بندی» (تغییر وضعیت)، صنایع در فرم قلم <b>مرحله ساخت</b> را به <span class="badge badge-success">آماده ارسال</span> تغییر می‌دهد و ذخیره می‌کند. قلم در نمایه «آماده به ارسال» برای انبار/ارسال دیده می‌شود.</li>
+			<li>پس از تحویل، مرحله ساخت به <span class="badge badge-success">تحویل فروش</span> یا <span class="badge badge-success">تحویل امانی</span> و <b>تاریخ تحویل</b> ثبت می‌شود؛ فیلد <b>وضعیت</b> قلم را روی «۱» (تکمیل‌شده) قرار دهید.</li>
+			<li>در پایان، مرحله <span class="badge badge-dark">اختتام یافته</span> ثبت می‌شود. اقلام تکمیل‌شده از کارتابل‌ها خارج می‌شوند ولی در نمایه‌های «همه فعال» و «مرتبط با من» قابل مشاهده‌اند.</li>
+		</ol>
+		<div class="callout tip">
+			<div class="icon">📅</div>
+			<div><strong>هشدار نزدیک شدن به موعد تحویل</strong>Job «اطلاع‌رسانی اقلام سفارش ساخت نزدیک به تاریخ تحویل» دقیقاً ۱۵ روز قبل از «تاریخ تحویل مؤثر» قلم (دیرترینِ «تاریخ تحویل توافقی» و «تاریخ تحویل استاندارد») به گروه «نزدیک به موعد تحویل» ایمیل می‌فرستد؛ اقلام «آماده ارسال»، «تحویل فروش»، باطل و ثبت اولیه مستثنا هستند. «تاریخ تحویل استاندارد» به‌صورت خودکار محاسبه و در اطلاعات تکمیلی قلم نمایش داده می‌شود.</div>
 		</div>
-		<div class="callout todo">
-			<div class="icon">🔐</div>
-			<div><strong>دسترسی لازم</strong> نقش <span class="role-chip">Sale.ProductionOrder.Obsolete</span></div>
-		</div>
+		<p>مراحل ساخت دیگری هم برای حالت‌های خاص وجود دارد: «بازرگانی در راه»، «تدارکات در راه»، «انبار تدارکات»، «اصلاحیه»، «برگشت از فروش»، «تحت بررسی»، «تعمیرات»، «غیر قابل ارسال»، «متوقف» و «باطل».</p>
 	</section>
 
 	<!-- 13 -->
 	<section id="s13">
-		<h2><span class="num">13</span>راهنمای وضعیت‌ها (رنگ‌ها و برچسب‌ها)</h2>
-		<h3>وضعیت کلی سفارش ساخت</h3>
+		<h2><span class="num">13</span>صفحه سفارش ساخت (هدر): تب‌ها، پیوست‌ها، تاخیرات و منسوخ‌سازی</h2>
+		<table>
+			<tr><th style="width:180px">تب</th><th>کاربرد</th><th>چطور</th></tr>
+			<tr><td><b>اطلاعات کلی</b></td><td>مشخصات سفارش، مسئولین (مدیر فروش، مدیر پروژه، کارشناس فروش، نمایندگی)، محل نصب/تحویل، تنظیمات (بسته‌بندی، نحوه تحویل، راه‌اندازی)، توضیحات فروش، تیک «عدم محاسبه تاخیر».</td><td>ویرایش و «ذخیره».</td></tr>
+			<tr><td><b>تاریخچه</b></td><td>تغییرات وضعیت کلی سفارش: ثبت اولیه، تایید مالی و آغاز فرآیند، منسوخ‌سازی.</td><td>فقط‌خواندنی.</td></tr>
+			<tr><td><b>پیوست‌ها</b></td><td>پنج پیوست: تایید مدیریت، فاکتور پیش‌پرداخت، پیش‌فاکتور، قرارداد، مهندسی / متره.</td><td>انتخاب فایل در هر کادر → «ذخیره» سفارش. از صفحه قلم هم با «پیوست‌های سفارش ساخت» دانلود می‌شود.</td></tr>
+			<tr><td><b>تاخیرات</b></td><td>ثبت تاخیرهای سفارش یا یک قلم خاص: <b>عامل تاخیر</b> (اجباری)، تعداد روز، تاریخ شروع/پایان تاخیر، علت.</td><td>سفارش را ذخیره کنید، سپس در تب تاخیرات «افزودن» → فرم در پنجره باز می‌شود → ذخیره. ویرایش با دکمه ردیف. نمایش تجمعی در صفحه «تاخیر سفارش ساخت».</td></tr>
+		</table>
+
+		<h3>منسوخ کردن سفارش</h3>
+		<p>اگر سفارش باید کاملاً کنسل شود، در صفحه سفارش روی <span class="btn-preview b-dark">🚫 منسوخ کردن</span> کلیک کنید (نقش <span class="role-chip">Sale.ProductionOrder.Obsolete</span>؛ فقط برای سفارش تایید‌مالی‌شده فعال است).</p>
+		<div class="callout warn">
+			<div class="icon">⚠️</div>
+			<div><strong>این عملیات قابل بازگشت نیست</strong>وضعیت سفارش به <span class="badge badge-dark">منسوخ شده</span> تغییر می‌کند و <b>همه اقلام فعال آن</b> به وضعیت بررسی «منسوخ شده» و مرحله «باطل» می‌روند. اگر سفارش در راهکاران باطل شود هم همین اتفاق از طریق Job می‌افتد.</div>
+		</div>
+	</section>
+
+	<!-- 14 -->
+	<section id="s14">
+		<h2><span class="num">14</span>ابزارهای تکمیلی: قطعات یدکی، پیوست‌ها، جابه‌جایی قلم، تاییدکننده تجهیز</h2>
+		<table>
+			<tr><th style="width:230px">ابزار</th><th>کجا</th><th>کاربرد</th></tr>
+			<tr>
+				<td><span class="btn-preview b-secondary">⚙ قطعات یدکی</span></td>
+				<td>صفحه قلم</td>
+				<td>فهرست فقط‌خواندنی قطعات یدکی تعریف‌شده برای کالای این قلم (از تعریف کالا) — برای مهندسی، صنایع و فروش.</td>
+			</tr>
+			<tr>
+				<td><span class="btn-preview b-secondary">📎 پیوست‌های سفارش ساخت</span></td>
+				<td>صفحه قلم</td>
+				<td>دانلود پیوست‌های هدر (تایید مدیریت، فاکتور پیش‌پرداخت، پیش‌فاکتور، قرارداد، مهندسی/متره) بدون رفتن به صفحه سفارش.</td>
+			</tr>
+			<tr>
+				<td><span class="btn-preview b-primary">⇄ جابه جایی رکورد</span></td>
+				<td>نوار ابزار لیست اقلام (روی ردیف انتخاب‌شده)</td>
+				<td>جابه‌جایی برنامه‌ریزی دو قلم: قلم مقصد را در «جابجایی با» انتخاب کنید؛ با تیک «جابجایی کالاها» کالای دو قلم هم عوض می‌شود. سریال، مرحله ساخت، تاریخ‌ها و کامنت‌های تولید بین دو قلم تعویض می‌شوند. برای مواردی که دستگاهِ ساخته‌شده برای یک سفارش به سفارش دیگری اختصاص می‌یابد.</td>
+			</tr>
+			<tr>
+				<td><b>تاییدکننده تجهیز</b></td>
+				<td><span class="path">/panel/productionorderequipmentconfirmer/list</span></td>
+				<td>برای هر «نوع دستگاه» یک کارشناس مهندسی مکانیک و یک کارشناس مهندسی برق تعیین کنید. ایمیل «ورود به کارتابل مهندسی» به این افراد می‌رود و «کارتابل من» مهندسان بر اساس این جدول پر می‌شود. هر بار مهندسی جدیدی به تیم اضافه شد، این جدول را به‌روز کنید.</td>
+			</tr>
+			<tr>
+				<td><b>تاخیر سفارش ساخت</b></td>
+				<td><span class="path">/panel/productionorderdelay/list</span></td>
+				<td>نمایه «سفارش ساخت‌هایی که نیاز به ثبت علت تاخیر دارند» → دکمه‌های «ثبت علت تاخیر» و «خارج کردن از چرخه تاخیر»؛ نمایه «سفارش ساخت‌های دارای تاخیر» → دکمه «خارج کردن از چرخه تاخیر» (معادل تیک «عدم محاسبه تاخیر» روی هدر). نقش <span class="role-chip">Pln.ProductionOrderDelay.FullAccess</span>.</td>
+			</tr>
+		</table>
+	</section>
+
+	<!-- 15 -->
+	<section id="s15">
+		<h2><span class="num">15</span>اعلان‌های ایمیلی: چه زمانی و برای چه کسی ارسال می‌شود</h2>
+		<p>ایمیل‌ها در صف اعلان سیستم ثبت و توسط سرویس پس‌زمینه ارسال می‌شوند. گیرندگان ثابت در <b>گروه‌های اعلان</b> (<span class="path">/panel/system/notificationgroup/list</span>) مدیریت می‌شوند؛ دیگر لیست ایمیل ثابتی در کد وجود ندارد، پس با تغییر افراد فقط عضویت گروه را عوض کنید.</p>
+		<table>
+			<tr><th>رخداد</th><th>گیرندگان</th></tr>
+			<tr><td>ورود قلم به کارتابل مهندسی (مسیریابی، تایید مدیر پروژه)</td><td>تاییدکننده تجهیز مکانیک/برق آن نوع دستگاه</td></tr>
+			<tr><td>ورود قلم به کارتابل مدیر پروژه؛ انتقال خودکار پس از ۲ روز؛ نیاز به تعیین تکلیف BOM</td><td>مدیر پروژه سفارش</td></tr>
+			<tr><td>ارجاع قلم به کارتابل صنایع (پس از مهندسی، کمیته یا انقضای مهلت)</td><td>گروه <code>Sale.ProductionOrderItem.Industrial</code> «واحد صنایع»</td></tr>
+			<tr><td>رد / نیاز به بازنگری مهندسی یا مدیر پروژه</td><td>تیم فروش سفارش (مدیر فروش، کارشناس فروش، مدیر پروژه)</td></tr>
+			<tr><td>ورود به کارتابل رئیس کمیته تامین؛ بازگشت نتیجه استعلام</td><td>رئیس کمیته تامین + گروه <code>Sale.ProductionOrderItem.SupplyCommitteeExperts</code> «کارشناسان کمیته تامین»</td></tr>
+			<tr><td>ارجاع به استعلام / بررسی وزارت صنایع؛ انقضای مهلت استعلام</td><td>مسئول استعلام انتخاب‌شده + کارشناسان کمیته تامین</td></tr>
+			<tr><td>هر «تغییر وضعیت» تولید</td><td>تیم فروش سفارش + گروه <code>Sale.ProductionOrderItem.ProductionStatusChange</code> «تغییر وضعیت تولید» + «دریافت‌کنندگان» انتخاب‌شده در فرم</td></tr>
+			<tr><td>«شروع تست تولید» در سفارش دارای مدیر پروژه</td><td>گروه <code>Sale.ProductionOrderItem.TestStart</code> «شروع تست (IT Support)»</td></tr>
+			<tr><td>تغییر سریال قلمی که «بازرسی حین ساخت» دارد</td><td>گروه <code>Sale.ProductionOrderItem.SerialChangeQc</code> «تغییر سریال (کنترل کیفیت)»</td></tr>
+			<tr><td>۱۵ روز قبل از تاریخ تحویل مؤثر (توافقی / استاندارد)</td><td>گروه <code>Sale.ProductionOrderItem.NearDeliveryDate</code> «نزدیک به موعد تحویل»</td></tr>
+		</table>
+		<p class="muted">برای دریافت ایمیل، آدرس ایمیل کاربر باید در پروفایل کاربری او ثبت شده باشد.</p>
+	</section>
+
+	<!-- 16 -->
+	<section id="s16">
+		<h2><span class="num">16</span>فرآیندهای خودکار (Job) و مهلت‌ها</h2>
+		<p>این فرآیندها در سرویس پس‌زمینه اجرا می‌شوند و زمان‌بندی هر کدام توسط مدیر سیستم در پنل Job تنظیم می‌شود. اگر یکی از این‌ها فعال نباشد، بخش مربوطه از گردش‌کار «ظاهراً» متوقف می‌ماند.</p>
+		<table>
+			<tr><th>Job</th><th>کار</th></tr>
+			<tr><td><b>افزودن سفارش ساخت از راهکاران</b></td><td>ورود هدر و اقلام جدید و به‌روزرسانی وضعیت (تایید مالی / ابطال) از راهکاران.</td></tr>
+			<tr><td><b>بررسی و تغییر وضعیت قلم سفارش ساخت</b></td><td>مسیریابی اقلام «ثبت اولیه» سفارش‌های تایید‌مالی‌شده به صنایع / مدیر پروژه / مهندسی + ثبت «آغاز فرآیند» در تاریخچه هدر + ایمیل.</td></tr>
+			<tr><td><b>اعمال سفارش‌های تایید مالی بدون آغاز فرآیند</b></td><td>تکمیل رکورد «آغاز فرآیند» برای سفارش‌هایی که تایید مالی شده ولی تاریخچه ندارند.</td></tr>
+			<tr><td><b>انتقال خودکار اقلام منقضی‌شده در کارتابل مهندسی به صنایع</b></td><td>مهلت <b>۱ روز</b>: قلم‌های «در انتظار تایید مهندسی» را با قاعده تایید مهندسی به صنایع داخلی یا رئیس کمیته تامین می‌فرستد.</td></tr>
+			<tr><td><b>تغییر وضعیت اقلامی که بیش از تایم مشخصی در کارتابل مدیر پروژه بوده‌اند</b></td><td>مهلت <b>۲ روز</b>: مرحله «در انتظار مدیر پروژه» → «در انتظار صنایع» (و وضعیت بررسی → صنایع داخلی اگر هنوز منتظر تایید مدیر پروژه بود).</td></tr>
+			<tr><td><b>اعلان انقضای زمان استعلام اقلام سفارش ساخت</b></td><td>ایمیل هشدار برای استعلام‌هایی که LeadTime آن‌ها گذشته و نتیجه برنگشته.</td></tr>
+			<tr><td><b>اطلاع‌رسانی اقلام سفارش ساخت نزدیک به تاریخ تحویل</b></td><td>ایمیل دقیقاً ۱۵ روز قبل از تاریخ تحویل مؤثر (دیرترینِ توافقی / استاندارد) به گروه «نزدیک به موعد تحویل».</td></tr>
+			<tr><td><b>درج خودکار BOM روتین برای اقلام سفارش ساخت بدون BOM</b></td><td>پر کردن BOM اقلام روتین از الگوی محصول.</td></tr>
+			<tr><td><b>محاسبه و بروزرسانی تاریخ تحویل استاندارد اقلام سفارش ساخت</b></td><td>محاسبه «تاریخ تحویل استاندارد» نمایش‌داده‌شده در اطلاعات تکمیلی قلم.</td></tr>
+		</table>
+	</section>
+
+	<!-- 17 -->
+	<section id="s17">
+		<h2><span class="num">17</span>راهنمای وضعیت‌ها (برچسب‌ها و کدها)</h2>
+		<h3>وضعیت کلی سفارش ساخت (هدر)</h3>
 		<table>
 			<tr><th>برچسب</th><th>معنی</th></tr>
-			<tr><td><span class="badge badge-primary">ثبت اولیه</span></td><td>سفارش تازه ایجاد شده، هنوز تایید مالی نشده</td></tr>
-			<tr><td><span class="badge badge-primary">بررسی واحد مالی</span></td><td>در انتظار بررسی واحد مالی</td></tr>
-			<tr><td><span class="badge badge-success">تایید مالی و آغاز فرآیند سفارش ساخت</span></td><td>تایید مالی انجام شده؛ اقلام در حال مسیریابی/گردش‌کار هستند</td></tr>
+			<tr><td><span class="badge badge-primary">ثبت اولیه</span></td><td>سفارش وارد شده، هنوز تایید مالی نشده</td></tr>
+			<tr><td><span class="badge badge-primary">بررسی واحد مالی</span></td><td>در انتظار بررسی واحد مالی (راهکاران)</td></tr>
+			<tr><td><span class="badge badge-success">تایید مالی و آغاز فرآیند سفارش ساخت</span></td><td>تایید مالی انجام شده؛ اقلام در گردش‌کار هستند</td></tr>
 			<tr><td><span class="badge badge-dark">منسوخ شده</span></td><td>سفارش لغو نهایی شده</td></tr>
 		</table>
+
 		<h3>وضعیت بررسی (کارتابل) هر قلم</h3>
 		<table>
-			<tr><th>برچسب</th><th>معنی</th></tr>
-			<tr><td><span class="badge badge-secondary">ثبت اولیه</span></td><td>هنوز مسیریابی نشده (منتظر تایید مالی سفارش)</td></tr>
-			<tr><td><span class="badge badge-info">در کارتابل صنایع (داخلی/خارجی)</span></td><td>منتظر تایید صنایع یا در حال بررسی خرید</td></tr>
-			<tr><td><span class="badge badge-primary">در انتظار تایید مهندسی (مکانیک)</span></td><td>منتظر بررسی مهندسی مکانیک/برق</td></tr>
-			<tr><td><span class="badge badge-success">تایید مهندسی</span></td><td>مهندسی تایید کرده، به سمت صنایع می‌رود</td></tr>
-			<tr><td><span class="badge badge-danger">عدم تایید مهندسی</span></td><td>مهندسی رد کرده است</td></tr>
-			<tr><td><span class="badge badge-warning">عدم تایید مهندسی و نیاز به بازنگری</span></td><td>نیاز به اصلاح و بازبینی مجدد دارد</td></tr>
-			<tr><td><span class="badge badge-warning">در انتظار تایید مدیر پروژه</span></td><td>منتظر بررسی مدیر پروژه</td></tr>
-			<tr><td><span class="badge badge-secondary">نیاز به استعلام / بررسی وزارت صنایع / کمیته تامین</span></td><td>در مسیر کمکی خرید/بررسی خارجی</td></tr>
-			<tr><td><span class="badge badge-dark">منسوخ شده</span></td><td>حذف/باطل شده</td></tr>
+			<tr><th>برچسب</th><th style="width:70px">کد</th><th>یعنی الان دست کیست</th></tr>
+			<tr><td><span class="badge badge-secondary">ثبت اولیه</span></td><td class="code-num">1903</td><td>هنوز مسیریابی نشده (منتظر تایید مالی سفارش / اجرای Job)</td></tr>
+			<tr><td><span class="badge badge-warning">در انتظار تایید مدیر پروژه</span></td><td class="code-num">2258</td><td>مدیر پروژه → دکمه «تایید/رد مدیر پروژه»</td></tr>
+			<tr><td><span class="badge badge-success">تایید مدیر پروژه</span> / <span class="badge badge-danger">عدم تایید مدیر پروژه</span></td><td class="code-num">2259 / 2260</td><td>وضعیت لحظه‌ای؛ سیستم فوراً به مرحله بعد می‌برد</td></tr>
+			<tr><td><span class="badge badge-warning">عدم تایید مدیر پروژه و نیاز به بازنگری</span></td><td class="code-num">2261</td><td>تیم فروش (اصلاح و هماهنگی)</td></tr>
+			<tr><td><span class="badge badge-primary">در انتظار تایید مهندسی (مکانیک)</span></td><td class="code-num">2195</td><td>مهندسی مکانیک یا برق (بر اساس نوع دستگاه) → «تایید/رد مهندسی»</td></tr>
+			<tr><td><span class="badge badge-success">تایید مهندسی (مکانیک)</span> / <span class="badge badge-danger">عدم تایید مهندسی (مکانیک)</span></td><td class="code-num">2197 / 2198</td><td>وضعیت لحظه‌ای؛ سیستم فوراً به مرحله بعد می‌برد</td></tr>
+			<tr><td><span class="badge badge-warning">عدم تایید مهندسی و نیاز به بازنگری</span></td><td class="code-num">2201</td><td>تیم فروش (اصلاح و هماهنگی)</td></tr>
+			<tr><td><span class="badge badge-warning">در انتظار بررسی رئیس کمیته تامین</span></td><td class="code-num">2202</td><td>رئیس کمیته تامین → «تصمیم کمیته تامین»</td></tr>
+			<tr><td><span class="badge badge-secondary">نیاز به استعلام</span></td><td class="code-num">1906</td><td>استعلام‌گر → «ارسال نتیجه استعلام به کمیته تامین»</td></tr>
+			<tr><td><span class="badge badge-secondary">نیاز به بررسی وزارت صنایع</span></td><td class="code-num">1908</td><td>استعلام‌گر وزارت صنایع → «ارسال نتیجه استعلام به کمیته تامین»</td></tr>
+			<tr><td><span class="badge badge-warning">ارسال به رئیس کمیته تامین</span></td><td class="code-num">1909</td><td>رئیس کمیته تامین (تصمیم نهایی پس از استعلام)</td></tr>
+			<tr><td><span class="badge badge-info">در کارتابل صنایع (داخلی)</span></td><td class="code-num">1904</td><td>صنایع / برنامه‌ریزی — ساخت یا خرید داخلی</td></tr>
+			<tr><td><span class="badge badge-info">در کارتابل صنایع (خارجی)</span></td><td class="code-num">1905</td><td>صنایع / برنامه‌ریزی — خرید خارجی</td></tr>
+			<tr><td><span class="badge badge-dark">منسوخ شده</span></td><td class="code-num">2208</td><td>باطل / حذف‌شده</td></tr>
 		</table>
-		<h3>مرحله ساخت (فرآیند فیزیکی تولید)</h3>
+
+		<h3>مرحله ساخت (فرآیند فیزیکی)</h3>
 		<p>
 			<span class="badge badge-secondary">برنامه‌ریزی</span>
 			<span class="badge badge-secondary">در انتظار مهندسی</span>
+			<span class="badge badge-secondary">در انتظار مدیر پروژه</span>
+			<span class="badge badge-secondary">در انتظار صنایع</span>
 			<span class="badge badge-secondary">منتظر تولید</span>
 			<span class="badge badge-info">در حال تولید</span>
 			<span class="badge badge-info">تست</span>
 			<span class="badge badge-info">بسته‌بندی</span>
 			<span class="badge badge-success">آماده ارسال</span>
 			<span class="badge badge-success">تحویل فروش</span>
+			<span class="badge badge-success">تحویل امانی</span>
+			<span class="badge badge-dark">اختتام یافته</span>
 			<span class="badge badge-dark">باطل</span>
+			<span class="badge badge-warning">متوقف</span>
+			<span class="badge badge-warning">تعمیرات</span>
+			<span class="badge badge-warning">اصلاحیه</span>
+			<span class="badge badge-secondary">بازرگانی در راه</span>
+			<span class="badge badge-secondary">تدارکات در راه</span>
+			<span class="badge badge-secondary">انبار تدارکات</span>
+			<span class="badge badge-secondary">برگشت از فروش</span>
+			<span class="badge badge-secondary">تحت بررسی</span>
+			<span class="badge badge-secondary">غیر قابل ارسال</span>
+		</p>
+
+		<h3>وضعیت تولید (رخدادهای «تغییر وضعیت»)</h3>
+		<p>
+			<span class="badge badge-info">شروع تولید</span>
+			<span class="badge badge-info">پایان تولید</span>
+			<span class="badge badge-info">شروع بازرسی نهایی</span>
+			<span class="badge badge-info">پایان بازرسی نهایی</span>
+			<span class="badge badge-info">شروع تست تولید</span>
+			<span class="badge badge-info">پایان تست تولید</span>
+			<span class="badge badge-success">پایان بسته‌بندی</span>
+			<span class="badge badge-warning">شروع/پایان توقف در مرحله تولید</span>
+			<span class="badge badge-warning">شروع/پایان توقف در مرحله بازرسی نهایی</span>
+			<span class="badge badge-warning">شروع/پایان توقف در مرحله تست تولید</span>
+			<span class="badge badge-warning">شروع/پایان توقف به دلیل بازدید کارفرما</span>
 		</p>
 	</section>
 
-	<!-- 14 -->
-	<section id="s14">
-		<h2><span class="num">14</span>جدول کامل دسترسی‌ها (برای مدیر سیستم)</h2>
-		<div class="callout todo">
-			<div class="icon">📌</div>
-			<div><strong>اقدام لازم قبل از استفاده کاربران</strong>
-			هیچ‌کدام از این نقش‌ها (Role) به‌صورت پیش‌فرض در سیستم وجود ندارند. مدیر سیستم باید از منوی <b>مدیریت نقش‌ها</b>،
-			هرکدام از نقش‌های زیر را با همین نام دقیق بسازد و کاربران/گروه مربوطه را به آن نسبت دهد.
-			تا زمانی که یک نقش ساخته و تخصیص نشده، فقط کاربر «Admin» می‌تواند اکشن مربوطه را انجام دهد.</div>
-		</div>
+	<!-- 18 -->
+	<section id="s18">
+		<h2><span class="num">18</span>نقش‌ها و دسترسی‌ها + چک‌لیست راه‌اندازی (مدیر سیستم)</h2>
+		<p>نقش‌های زیر در سیستم ایجاد شده‌اند. مدیر سیستم باید از «مدیریت نقش‌ها» کاربران هر واحد را به نقش مربوطه اضافه کند. کاربر با نقش «مدیر سیستم» (Admin) همه اکشن‌ها را بدون نقش جداگانه می‌بیند.</p>
 		<table>
-			<tr><th>نام نقش (Role)</th><th>کاربرد</th><th>پیشنهاد اختصاص به</th></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrder.FinancialConfirm</span></td><td>تایید مالی سفارش ساخت</td><td>کاربران واحد مالی</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrder.Obsolete</span></td><td>منسوخ‌سازی سفارش ساخت</td><td>سرپرست/مدیر فروش</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrder.ShowAll</span></td><td>مشاهده همه سفارش‌های ساخت (نه فقط سفارش‌های مرتبط با خود کاربر)</td><td>مدیران ارشد / ناظرین</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringMechanical</span></td><td>تایید/رد مهندسی مکانیک</td><td>واحد مهندسی مکانیک</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringElectrical</span></td><td>تایید/رد مهندسی برق</td><td>واحد مهندسی برق</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptIndustrial</span></td><td>تایید صنایع و شروع تولید</td><td>واحد صنایع/برنامه‌ریزی تولید</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptProjectManager</span></td><td>تایید/رد مدیر پروژه</td><td>مدیران پروژه</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.Inquirer</span></td><td>ارسال قلم به استعلام</td><td>کارشناسان استعلام/تامین</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.MinistryOfIndustryInquirer</span></td><td>ارسال قلم به بررسی وزارت صنایع</td><td>مسئول مکاتبات وزارت صنایع</td></tr>
-			<tr><td><span class="role-chip">Sale.ProductionOrderItem.SupplyCommitteeBoss</span></td><td>تایید/رد نهایی در کمیته تامین</td><td>رئیس کمیته تامین</td></tr>
+			<tr><th>نام نقش</th><th>چه چیزی را فعال می‌کند</th><th>به کی بدهید</th></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrder.ShowAll</span></td><td>نمایه «سفارش ساخت — همه»، «اقلام سفارش ساخت — همه فعال»، «پیشینه»</td><td>مدیران ارشد، برنامه‌ریزی، ناظرین</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrder.ViewRelated</span></td><td>نمایه «سفارش ساخت — مرتبط با من»</td><td>مدیران و کارشناسان فروش، مدیران پروژه</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrder.Obsolete</span></td><td>دکمه «منسوخ کردن» سفارش</td><td>سرپرست / مدیر فروش</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.ViewRelated</span></td><td>نمایه «اقلام سفارش ساخت — مرتبط با من»</td><td>مدیران و کارشناسان فروش، مدیران پروژه</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.ViewActive</span></td><td>نمایه «اقلام سفارش ساخت — مشاهده فعال»</td><td>تولید، کنترل کیفیت، تدارکات</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.ReadyForShipping</span></td><td>نمایه «آماده به ارسال»</td><td>انبار / ارسال</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.History</span></td><td>نمایه «پیشینه اقلام سفارش ساخت (حذف‌شده)»</td><td>برنامه‌ریزی، ناظرین</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptProjectManager</span></td><td>«کارتابل مدیر پروژه» + دکمه «تایید/رد مدیر پروژه»</td><td>مدیران پروژه</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringMechanical</span></td><td>«کارتابل مهندسی مکانیک» + «تایید/رد مهندسی» برای انواع مکانیکی</td><td>واحد مهندسی مکانیک</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptEngineeringElectrical</span></td><td>«کارتابل مهندسی برق» + «تایید/رد مهندسی» برای تابلو برق/کنترل/اینورتر/سکوئنسر</td><td>واحد مهندسی برق</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.SupplyCommitteeBoss</span></td><td>«کارتابل رئیس کمیته تامین» + دکمه «تصمیم کمیته تامین»</td><td>رئیس کمیته تامین</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.Inquirer</span></td><td>«کارتابل استعلام» + «ارسال نتیجه استعلام» روی «نیاز به استعلام» (با انتخاب به‌عنوان مسئول، خودکار داده می‌شود)</td><td>کارشناسان استعلام / تامین</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.MinistryOfIndustryInquirer</span></td><td>«کارتابل وزارت صنایع» + «ارسال نتیجه استعلام» روی «نیاز به بررسی وزارت صنایع» (خودکار داده می‌شود)</td><td>مسئول مکاتبات وزارت صنایع</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrderItem.AcceptIndustrial</span></td><td>«کارتابل صنایع — اقلام سفارش ساخت» (دکمه جداگانه‌ای ندارد)</td><td>واحد صنایع / برنامه‌ریزی تولید</td></tr>
+			<tr><td><span class="role-chip">Pln.ProductionOrderDelay.FullAccess</span></td><td>صفحه «تاخیر سفارش ساخت» و نمایه‌های آن</td><td>برنامه‌ریزی</td></tr>
+			<tr><td><span class="role-chip">Sale.ProductionOrder.FinancialConfirm</span></td><td>بلااستفاده — تایید مالی فقط در راهکاران انجام می‌شود</td><td>—</td></tr>
 		</table>
-		<div class="callout tip">
-			<div class="icon">👑</div>
-			<div><strong>کاربر Admin</strong> کاربرانی با نقش سراسری «مدیر سیستم» (Admin) به همه اکشن‌های بالا بدون نیاز به نقش جداگانه دسترسی دارند
-			و می‌توانند تا زمان تنظیم نهایی نقش‌ها، فرآیند را کامل تست/اجرا کنند.</div>
-		</div>
+
+		<h3>چک‌لیست راه‌اندازی</h3>
+		<ol class="steps">
+			<li><b>نقش‌ها:</b> کاربران هر واحد را به نقش‌های بالا اضافه کنید. در صفحه ویرایش هر نقش، تیک اکشن‌های <code>CommitteeDecide</code> (رئیس کمیته)، <code>SendToSupplyCommittee</code> (استعلام‌گر و استعلام‌گر وزارت)، <code>AcceptEngineering</code>، <code>AcceptProjectManager</code> و همچنین دسترسی نمایه‌های مربوطه را کنترل کنید.</li>
+			<li><b>«کارتابل من»:</b> دسترسی نمایه «کارتابل من — اقلام سفارش ساخت» را برای همه نقش‌های گردش‌کار (مدیر پروژه، مهندسی مکانیک و برق، صنایع، استعلام، وزارت، رئیس کمیته) فعال کنید تا هر کاربر کارهای خودش را یک‌جا ببیند.</li>
+			<li><b>تاییدکننده تجهیز:</b> برای هر «نوع دستگاه» کارشناس مکانیک و برق را در <span class="path">/panel/productionorderequipmentconfirmer/list</span> تعریف کنید.</li>
+			<li><b>گروه‌های اعلان:</b> اعضای ۶ گروه <a href="#s15">بخش ۱۵</a> را بازبینی کنید و ایمیل کاربران را در پروفایل‌شان کامل کنید.</li>
+			<li><b>Jobها:</b> زمان‌بندی ۹ Job <a href="#s16">بخش ۱۶</a> را در پنل Job فعال کنید (مسیریابی و ورود از راهکاران: هر چند دقیقه؛ مهلت‌ها و هشدارها: روزانه یا ساعتی).</li>
+			<li><b>منو:</b> «سفارش ساخت» و «اقلام سفارش ساخت» در منوی فروش و در گروه «برنامه‌ریزی» منوی صنایع اضافه شده‌اند؛ منو را به نقش‌های موردنیاز نسبت دهید.</li>
+		</ol>
 	</section>
 
-	<!-- 15 -->
-	<section id="s15">
-		<h2><span class="num">15</span>سوالات متداول</h2>
-		<h3>چرا دکمه یک اکشن (مثلاً «تایید مهندسی») برای من غیرفعال است؟</h3>
-		<p>دو دلیل ممکن دارد: ۱) نقش لازم برای آن اکشن به شما تخصیص داده نشده (به مدیر سیستم اطلاع دهید)، یا ۲) قلم در وضعیت مناسب برای آن اکشن نیست
-		(مثلاً هنوز به کارتابل مهندسی نرسیده). وضعیت فعلی قلم را از برچسب «وضعیت بررسی (کارتابل)» روی صفحه بررسی کنید.</p>
-		<h3>چرا با اینکه سفارش تایید مالی شده، هنوز قلم من در کارتابل مهندسی/صنایع دیده نمی‌شود؟</h3>
-		<p>مسیریابی خودکار توسط یک فرآیند پس‌زمینه انجام می‌شود که هر چند دقیقه یک‌بار اجرا می‌شود، نه بلافاصله لحظه تایید مالی. کمی صبر کنید و صفحه را رفرش کنید.</p>
-		<h3>آیا می‌توان یک تصمیم اشتباه (مثلاً تایید اشتباهی) را برگرداند؟</h3>
-		<p>در حال حاضر بازگشت مستقیم وجود ندارد؛ در صورت اشتباه باید با کاربر Admin هماهنگ شود تا وضعیت به‌صورت مدیریتی اصلاح گردد.</p>
-		<h3>اگر قلم من مدت زیادی در یک کارتابل بماند چه می‌شود؟</h3>
-		<p>اگر بیش از ۱ روز در کارتابل مهندسی یا بیش از ۲ روز در کارتابل مدیر پروژه بدون پاسخ بماند، سیستم آن را به‌صورت خودکار به کارتابل صنایع منتقل می‌کند
-		تا روند کلی سفارش متوقف نشود (به بخش ۲ مراجعه کنید).</p>
+	<!-- 19 -->
+	<section id="s19">
+		<h2><span class="num">19</span>تفاوت‌ها با سیستم قدیم (HTS) — برای کاربران قدیمی</h2>
+		<table>
+			<tr><th>در HTS</th><th>در سیستم جدید</th></tr>
+			<tr><td>گرید «کارتابل» با فیلتر وضعیت و دکمه «تغییر وضعیت» با کمبوی مقصد</td><td>نمایه‌های جداگانه برای هر کارتابل + دکمه‌های مشخص «تایید/رد مهندسی»، «تایید/رد مدیر پروژه»، «تصمیم کمیته تامین»، «ارسال نتیجه استعلام به کمیته تامین». نمایه «کارتابل من» همه کارهای شما را یک‌جا نشان می‌دهد.</td></tr>
+			<tr><td>تایید مالی در HTS</td><td>فقط در راهکاران؛ پنل آن را می‌خواند و وضعیت را به‌روز می‌کند.</td></tr>
+			<tr><td>رئیس کمیته پس از بازگشت نتیجه استعلام (کد ۱۹۰۹) به‌علت اشکال UI نمی‌توانست اقدام کند</td><td>رئیس کمیته روی ۲۲۰۲ و ۱۹۰۹ هر دو با همان دکمه «تصمیم کمیته تامین» اقدام می‌کند.</td></tr>
+			<tr><td>لیست ایمیل‌های ثابت در کد و گروه‌های کاربری HTS (۳۸۰، ۵۳۸، ۵۴۰، ۵۶۷)</td><td>۶ «گروه اعلان» قابل ویرایش در پنل؛ اعضای فعلی از HTS منتقل شده‌اند.</td></tr>
+			<tr><td>پیام کوتاه (SMS) برای برخی رخدادها</td><td>فقط ایمیل.</td></tr>
+			<tr><td>ریبون اقلام: «دانلود پیوست سفارش»، «قطعات یدکی»، «جابه‌جایی»</td><td>همان‌ها با نام «پیوست‌های سفارش ساخت»، «قطعات یدکی» (صفحه قلم) و «جابه جایی رکورد» (نوار ابزار لیست).</td></tr>
+			<tr><td>تاریخچه در چند گرید جدا</td><td>یک پنجره «تاریخچه تغییر وضعیت» با ۴ تب: وضعیت سفارش ساخت / استعلام / تولید / مرحله ساخت.</td></tr>
+			<tr><td>مسئول استعلام باید از قبل نقش می‌داشت</td><td>با انتخاب به‌عنوان مسئول، نقش استعلام‌گر / استعلام‌گر وزارت خودکار به او داده می‌شود.</td></tr>
+		</table>
+	</section>
+
+	<!-- 20 -->
+	<section id="s20">
+		<h2><span class="num">20</span>سوالات متداول</h2>
+		<h3>چرا دکمه‌ای مثل «تایید/رد مهندسی» برای من خاکستری است؟</h3>
+		<p>دو دلیل دارد: (۱) قلم در وضعیت مناسب نیست — «وضعیت بررسی (کارتابل)» بالای صفحه را ببینید؛ هر دکمه فقط روی وضعیت خودش فعال می‌شود (<a href="#s17">بخش ۱۷</a>). (۲) نقش لازم را ندارید — به مدیر سیستم اطلاع دهید (<a href="#s18">بخش ۱۸</a>).</p>
+		<h3>سفارش تایید مالی شده ولی قلم هنوز «ثبت اولیه» است.</h3>
+		<p>مسیریابی توسط Job انجام می‌شود، نه لحظه‌ای. چند دقیقه صبر کنید و لیست را رفرش کنید. اگر بیش از یک ساعت ماند، از مدیر سیستم بخواهید وضعیت Job «بررسی و تغییر وضعیت قلم سفارش ساخت» را کنترل کند.</p>
+		<h3>قلم در «کارتابل مهندسی مکانیک» است ولی در «کارتابل من» نمی‌بینم.</h3>
+		<p>«کارتابل من» برای مهندسان فقط اقلام نوع دستگاه‌هایی را نشان می‌دهد که شما در «تاییدکننده تجهیز» کارشناس آن‌ها هستید. از برنامه‌ریزی/مدیر سیستم بخواهید تعریف تاییدکننده تجهیز آن نوع دستگاه را اصلاح کند.</p>
+		<h3>مدیر پروژه بعد از مسیریابی مشخص شد؛ الان چه می‌شود؟</h3>
+		<p>قلم‌ها مسیر مهندسی را رفته‌اند. مدیر پروژه در این حالت فقط مرحله «تعیین تکلیف BOM» را خواهد داشت (پس از ثبت اولین BOM). برای سفارش‌های بعدی، مدیر پروژه را قبل از تایید مالی ثبت کنید.</p>
+		<h3>قلم «عدم تایید … و نیاز به بازنگری» شده. بعدش چه کنیم؟</h3>
+		<p>این وضعیت در هیچ کارتابلی نمایش داده نمی‌شود و یعنی توپ در زمین فروش/فنی است. پس از اصلاح مشخصات (یا توافق با مشتری)، برای بازگرداندن قلم به گردش‌کار با برنامه‌ریزی/مدیر سیستم هماهنگ کنید.</p>
+		<h3>آیا می‌توان تصمیم اشتباه را برگرداند؟</h3>
+		<p>بازگشت مستقیم وجود ندارد؛ زنجیره خودکار بلافاصله اجرا می‌شود. با مدیر سیستم هماهنگ کنید تا وضعیت به‌صورت مدیریتی اصلاح شود. همه تصمیم‌ها در «تاریخچه تغییر وضعیت» با نام کاربر و زمان ثبت می‌شوند.</p>
+		<h3>ایمیل نمی‌گیرم.</h3>
+		<p>مطمئن شوید ایمیل شما در پروفایل کاربری ثبت است و اگر باید گیرنده ثابت باشید، عضو گروه اعلان مربوطه هستید (<a href="#s15">بخش ۱۵</a>). ایمیل‌ها با تاخیر کوتاهی توسط سرویس پس‌زمینه ارسال می‌شوند.</p>
+		<h3>کجا می‌توانم خروجی اکسل بگیرم؟</h3>
+		<p>در هر لیست (سفارش ساخت، اقلام، BOM) دکمه «خروجی اکسل» در نوار ابزار، ستون‌های نمایه فعلی را با همان فیلترها خروجی می‌دهد.</p>
 	</section>
 
 </div>
@@ -547,7 +936,7 @@
 <a class="top-link" href="#s1" title="بازگشت به بالا">↑</a>
 
 <footer>
-	تهیه‌شده برای کاربران سیستم هوایار — راهنمای فرآیند «سفارش ساخت» (منتقل و تکمیل‌شده از سیستم قدیم HTS)
+	تهیه‌شده برای کاربران سیستم هوایار — راهنمای کاربری فرآیند «سفارش ساخت» (نسخه ۲٫۰ — شهریور ۱۴۰۵؛ منطبق با گردش‌کار HTS)
 </footer>
 
 </body>

@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ارائه: فرصت‌های هوش مصنوعی | هوایار</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap"
+		rel="stylesheet">
+	<style>
+		:root {
+			--red: #e50019;
+			--ink: #121722;
+			--steel: #1c2433;
+			--muted: #9aa3b2;
+			--paper: #f4f5f8;
+			--line: rgba(255, 255, 255, .14);
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html,
+		body {
+			margin: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		body {
+			font-family: Vazirmatn, Tahoma, sans-serif;
+			background: #0d1118;
+			color: #f3f5f8;
+		}
+
+		.deck {
+			height: 100%;
+			position: relative;
+		}
+
+		.slide {
+			display: none;
+			height: 100%;
+			padding: 0;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.slide.on {
+			display: grid;
+		}
+
+		.hero .bg,
+		.split .pic {
+			position: absolute;
+			inset: -5%;
+			background-color: #111;
+			background-position: center;
+			background-size: cover;
+			background-repeat: no-repeat;
+			will-change: transform;
+		}
+
+		.slide.hero {
+			grid-template-rows: 1fr;
+			background: #111;
+		}
+
+		.hero .veil {
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(270deg, rgba(18, 23, 34, .12) 0%, rgba(18, 23, 34, .62) 48%, rgba(18, 23, 34, .88) 100%);
+		}
+
+		.hero .inner {
+			position: relative;
+			z-index: 1;
+			align-self: end;
+			padding: 7vh 7vw 12vh;
+			max-width: 52rem;
+		}
+
+		.hero h1 {
+			margin: 12px 0 16px;
+			font-size: clamp(2.1rem, 4.6vw, 3.4rem);
+			font-weight: 800;
+			line-height: 1.35;
+			letter-spacing: -0.03em;
+		}
+
+		.hero p {
+			margin: 0;
+			font-size: 1.15rem;
+			color: #d5dae3;
+			max-width: 42ch;
+			line-height: 1.8;
+		}
+
+		.split {
+			grid-template-columns: 42% 1fr;
+		}
+
+		.split .photo {
+			position: relative;
+			overflow: hidden;
+			background: #111;
+		}
+
+		.split .photo::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background: linear-gradient(to left, transparent 40%, rgba(13, 17, 24, .35));
+			z-index: 1;
+		}
+
+		.split .copy {
+			padding: 7vh 6vw 12vh;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+		}
+
+		.plain .copy {
+			padding: 8vh 8vw 12vh;
+			max-width: 70rem;
+			margin: 0 auto;
+			width: 100%;
+		}
+
+		.kicker {
+			margin: 0 0 8px;
+			color: var(--red);
+			font-weight: 700;
+			font-size: .95rem;
+		}
+
+		h2 {
+			margin: 0 0 8px;
+			font-size: clamp(1.6rem, 3vw, 2.35rem);
+			font-weight: 800;
+			letter-spacing: -0.02em;
+			line-height: 1.35;
+		}
+
+		h2::after {
+			content: "";
+			display: block;
+			width: 42px;
+			height: 3px;
+			background: var(--red);
+			margin: 14px 0 18px;
+			transform-origin: right;
+		}
+
+		.points {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		.points li {
+			position: relative;
+			padding: 10px 0 10px 0;
+			padding-inline-start: 22px;
+			font-size: 1.12rem;
+			line-height: 1.75;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.points li:last-child {
+			border-bottom: 0;
+		}
+
+		.points li::before {
+			content: "";
+			position: absolute;
+			right: 0;
+			top: 1.15em;
+			width: 8px;
+			height: 8px;
+			background: var(--red);
+			border-radius: 50%;
+		}
+
+		.line {
+			margin-top: 22px;
+			padding: 14px 16px;
+			background: rgba(229, 0, 25, .12);
+			border-inline-start: 3px solid var(--red);
+			color: #f0d5d8;
+			font-size: 1.02rem;
+			line-height: 1.75;
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			font-weight: 700;
+			letter-spacing: -.02em;
+		}
+
+		.brand img {
+			height: 28px;
+		}
+
+		.agenda {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px 28px;
+			margin: 8px 0 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		.agenda button {
+			appearance: none;
+			border: 0;
+			background: transparent;
+			color: inherit;
+			font: inherit;
+			cursor: pointer;
+			display: flex;
+			gap: 12px;
+			align-items: baseline;
+			text-align: start;
+			padding: 12px 4px;
+			border-bottom: 1px solid var(--line);
+			width: 100%;
+		}
+
+		.agenda button:hover {
+			color: #fff;
+		}
+
+		.agenda .n {
+			color: var(--red);
+			font-weight: 800;
+			min-width: 1.6em;
+		}
+
+		.steps {
+			display: grid;
+			gap: 12px;
+			margin-top: 8px;
+		}
+
+		.step {
+			display: grid;
+			grid-template-columns: 9rem 1fr;
+			gap: 16px;
+			padding: 16px 18px;
+			background: rgba(255, 255, 255, .04);
+			border: 1px solid var(--line);
+		}
+
+		.step b {
+			color: var(--red);
+		}
+
+		.step p {
+			margin: 0;
+		}
+
+		.phases {
+			display: grid;
+			gap: 14px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		.phases li {
+			display: grid;
+			grid-template-columns: 6.5rem 1fr;
+			gap: 16px;
+			padding: 14px 0;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.phases .when {
+			color: var(--red);
+			font-weight: 800;
+		}
+
+		.phases p {
+			margin: 0;
+		}
+
+		.bar {
+			position: fixed;
+			inset-inline: 0;
+			bottom: 0;
+			height: 48px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 22px;
+			background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+			z-index: 5;
+			font-size: .82rem;
+			color: var(--muted);
+			pointer-events: none;
+		}
+
+		.bar b {
+			color: #e8ebf0;
+			font-weight: 600;
+		}
+
+		.progress {
+			position: absolute;
+			bottom: 0;
+			inset-inline: 0;
+			height: 3px;
+			background: #2a3140;
+		}
+
+		.progress span {
+			display: block;
+			height: 100%;
+			background: var(--red);
+			width: 0;
+			transition: width .35s ease;
+		}
+
+		.help {
+			position: fixed;
+			top: auto;
+			bottom: 52px;
+			inset-inline-start: 18px;
+			z-index: 6;
+			font-size: .75rem;
+			color: var(--muted);
+			pointer-events: none;
+			opacity: .7;
+		}
+
+		.top-actions {
+			position: fixed;
+			top: 14px;
+			inset-inline-end: 16px;
+			z-index: 6;
+			display: flex;
+			gap: 8px;
+			pointer-events: auto;
+		}
+
+		.top-actions button,
+		.top-actions a {
+			appearance: none;
+			border: 1px solid var(--line);
+			background: rgba(18, 23, 34, .55);
+			color: #eee;
+			font: inherit;
+			font-size: .8rem;
+			padding: 6px 10px;
+			cursor: pointer;
+			text-decoration: none;
+		}
+
+		.top-actions button:hover,
+		.top-actions a:hover {
+			border-color: #fff;
+		}
+
+		.overview {
+			display: none;
+			position: fixed;
+			inset: 0;
+			z-index: 10;
+			background: #0d1118;
+			padding: 84px 28px 32px;
+			overflow: auto;
+		}
+
+		.overview.on {
+			display: block;
+		}
+
+		.overview h3 {
+			margin: 0 0 18px;
+		}
+
+		.ov-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+			gap: 12px;
+		}
+
+		.ov-grid button {
+			appearance: none;
+			border: 1px solid var(--line);
+			background: #161c28;
+			color: #eee;
+			font: inherit;
+			text-align: start;
+			padding: 16px;
+			cursor: pointer;
+			min-height: 96px;
+		}
+
+		.ov-grid button:hover,
+		.ov-grid button.current {
+			border-color: var(--red);
+		}
+
+		.ov-grid small {
+			display: block;
+			color: var(--red);
+			font-weight: 700;
+			margin-bottom: 6px;
+		}
+
+		/* Entrance */
+		[data-a] {
+			opacity: 0;
+			transform: translate3d(0, 18px, 0);
+		}
+
+		.slide.enter [data-a] {
+			animation: rise .62s cubic-bezier(.2, .75, .2, 1) forwards;
+		}
+
+		.slide.enter [data-a="1"] {
+			animation-delay: .06s;
+		}
+
+		.slide.enter [data-a="2"] {
+			animation-delay: .16s;
+		}
+
+		.slide.enter [data-a="3"] {
+			animation-delay: .28s;
+		}
+
+		.slide.enter [data-a="4"] {
+			animation-delay: .40s;
+		}
+
+		.slide.enter [data-a="5"] {
+			animation-delay: .52s;
+		}
+
+		.slide.enter [data-a="6"] {
+			animation-delay: .64s;
+		}
+
+		.slide.enter [data-a="7"] {
+			animation-delay: .76s;
+		}
+
+		.slide.enter [data-a="8"] {
+			animation-delay: .88s;
+		}
+
+		.slide.enter [data-a="9"] {
+			animation-delay: 1s;
+		}
+
+		.slide.enter h2::after {
+			animation: grow .45s .28s cubic-bezier(.2, .75, .2, 1) both;
+		}
+
+		.slide.enter .bg,
+		.slide.enter .pic {
+			animation: ken 9s ease-out forwards;
+		}
+
+		.slide.enter .step {
+			animation-name: in-start;
+		}
+
+		@keyframes rise {
+			from {
+				opacity: 0;
+				transform: translate3d(0, 22px, 0);
+			}
+
+			to {
+				opacity: 1;
+				transform: none;
+			}
+		}
+
+		@keyframes in-start {
+			from {
+				opacity: 0;
+				transform: translate3d(28px, 0, 0);
+			}
+
+			to {
+				opacity: 1;
+				transform: none;
+			}
+		}
+
+		@keyframes grow {
+			from {
+				transform: scaleX(0);
+			}
+
+			to {
+				transform: scaleX(1);
+			}
+		}
+
+		@keyframes ken {
+			from {
+				transform: scale(1.12) translate3d(1.4%, 0, 0);
+			}
+
+			to {
+				transform: scale(1) translate3d(0, 0, 0);
+			}
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+
+			.slide.enter [data-a],
+			.slide.enter h2::after,
+			.slide.enter .bg,
+			.slide.enter .pic {
+				animation: none !important;
+			}
+
+			[data-a] {
+				opacity: 1;
+				transform: none;
+			}
+		}
+
+		@media (max-width: 860px) {
+			.split {
+				grid-template-columns: 1fr;
+			}
+
+			.split .photo {
+				min-height: 28vh;
+			}
+
+			.split .copy,
+			.hero .inner,
+			.plain .copy {
+				padding: 24px 20px 72px;
+			}
+
+			.agenda,
+			.step,
+			.phases li {
+				grid-template-columns: 1fr;
+			}
+
+			h2 {
+				font-size: 1.45rem;
+			}
+
+			.points li {
+				font-size: 1rem;
+			}
+		}
+	</style>
+</head>
+
+<body>
+	<div class="help"> </div>
+	<div class="top-actions">
+		<a href="AI-Proposal.html" style="display: none;">نسخه سندی</a>
+		<a href="AI-Proposal-Motion.html" style="display: none;">موشن‌گرافیک</a>
+		<button type="button" style="display: none;" id="btnFs">تمام‌صفحه</button>
+		<button type="button" style="display: none;" id="btnOv">نمای کلی</button>
+	</div>
+
+	<div class="deck" id="deck">
+
+		<section class="slide hero on" data-title="جلد">
+			<div class="bg" style="background-image:url('ai-proposal-slides/media/screw2.jpg')"></div>
+			<div class="veil"></div>
+			<div class="inner">
+				<div class="brand" data-a="1">
+					<img src="ai-proposal-slides/media/logo.png" alt="">
+					هوایار
+				</div>
+				<h1 data-a="2">فرصت‌های هوش مصنوعی در فرآیندهای سازمان</h1>
+				<p data-a="3"></p>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="اصل کار">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/screw.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">یک اصل</p>
+				<h2 data-a="2">هوش مصنوعی تصمیم نمی‌گیرد؛ پیشنهاد می‌دهد</h2>
+				<ul class="points">
+					<li data-a="3">سند در راهکاران زده نمی‌شود. فرمول سایزینگ هم عوض نمی‌شود.</li>
+					<li data-a="4">سؤال می‌پرسد، اختلاف را نشان می‌دهد، فیلد را پیشنهاد می‌کند.</li>
+					<li data-a="5">ذخیره و تأیید همان‌طور که امروز هست، با کارشناس می‌ماند.</li>
+				</ul>
+				<div class="line" data-a="6">جایگزین پنل یا راهکاران نیست. روی همان فرم‌هایی می‌نشیند که الان کار
+					می‌کنند.</div>
+			</div>
+		</section>
+
+		<section class="slide plain" data-title="هفت مورد">
+			<div class="copy">
+				<p class="kicker" data-a="1"></p>
+				<h2 data-a="2">هفت مورد، از کار روزمره</h2>
+				<ol class="agenda">
+					<li data-a="3"><button type="button" data-go="3"><span class="n">۱</span> مهندسی — مدارک
+							پروژه</button></li>
+					<li data-a="4"><button type="button" data-go="4"><span class="n">۲</span> مهندسی — سایزینگ
+							کمپرسور</button></li>
+					<li data-a="5"><button type="button" data-go="5"><span class="n">۳</span> مهندسی — پارت‌لیست و
+							BOM</button></li>
+					<li data-a="6"><button type="button" data-go="6"><span class="n">۴</span> خدمات پس از فروش — پذیرش و
+							اعزام</button></li>
+					<li data-a="7"><button type="button" data-go="7"><span class="n">۵</span> تعمیرات — تشخیص و
+							برآورد</button></li>
+					<li data-a="8"><button type="button" data-go="8"><span class="n">۶</span> برنامه‌ریزی — پیش‌بینی
+							تأخیر ساخت</button></li>
+					<li data-a="9"><button type="button" data-go="9"><span class="n">۷</span> راهکاران — مغایرت
+							مالی</button></li>
+				</ol>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="مدارک مهندسی">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/factory.webp')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۱ · مهندسی</p>
+				<h2 data-a="2">دستیار مدارک مهندسی</h2>
+				<ul class="points">
+					<li data-a="3">فایل، ReplySheet، رویژن و Hold الان بین چند صفحه پخش است.</li>
+					<li data-a="4">چت‌بات از متن همان مدرک و کامنت‌های همان پروژه جواب می‌دهد.</li>
+					<li data-a="5">قبل از تأیید، اگر مدرک ناقص باشد هشدار می‌دهد و یک خلاصه می‌گذارد.</li>
+				</ul>
+				<div class="line" data-a="6">«آخرین Hold این مدرک چیست؟ مسئولش کیست؟»</div>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="سایزینگ کمپرسور">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/engineered.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۲ · مهندسی</p>
+				<h2 data-a="2">دستیار سایزینگ کمپرسور</h2>
+				<ul class="points">
+					<li data-a="3">ماشین‌حساب فعلی HYTC و HYTB و HYTA سر جایش می‌ماند.</li>
+					<li data-a="4">نیاز مشتری را فارسی می‌نویسید؛ واحد و مدل پیشنهاد می‌شود.</li>
+					<li data-a="5">خروجی هم فارسی است: توان، مصرف آب، دمای تخلیه. دیتاشیت فقط با تأیید مهندس.</li>
+				</ul>
+				<div class="line" data-a="6">«دبی ۱۵۰۰، فشار تخلیه ۸ بار، سایت گرم» — مدل از همان ماشین‌حساب رسمی
+					برمی‌گردد.</div>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="پارت‌لیست و BOM">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/screw2.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۳ · مهندسی</p>
+				<h2 data-a="2">کنترل پارت‌لیست در برابر BOM</h2>
+				<ul class="points">
+					<li data-a="3">پارت‌لیست و فرمول ساخت جدا هستند و تطبیق‌شان هنوز چشمی است.</li>
+					<li data-a="4">سیستم کسری، اضافه و مقدار ناسازگار با ضریب مصرف را می‌گوید.</li>
+					<li data-a="5">اگر فرمول عوض شود و پارت‌لیست عقب بماند، هشدار می‌دهد. اعمال فقط با تأیید.</li>
+				</ul>
+				<div class="line" data-a="6">کسری قطعه را قبل از سفارش ساخت می‌بینید، نه روی خط.</div>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="خدمات پس از فروش">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/service-center.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۴ · خدمات پس از فروش</p>
+				<h2 data-a="2">پذیرش تماس و اعزام کارشناس</h2>
+				<ul class="points">
+					<li data-a="3">از متن تماس: مشتری، سریال، محصول، گارانتی و سابقهٔ همان دستگاه.</li>
+					<li data-a="4">منطقه، کارشناس، علت محتمل و قطعات پرتکرار همان مدل را پیشنهاد می‌کند.</li>
+					<li data-a="5">پیش‌نویس گزارش کار و چک‌لیست را می‌گذارد؛ کارشناس اصلاح می‌کند.</li>
+				</ul>
+				<div class="line" data-a="6">«کمپرسور سایت اهواز روغن می‌پاشد، گارانتی دارد» — ثبت درخواست دیگر به
+					حافظهٔ یک نفر متکی نیست.</div>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="تعمیرات">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/repair-havayar.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۵ · تعمیرات</p>
+				<h2 data-a="2">تشخیص، قطعه و برآورد</h2>
+				<ul class="points">
+					<li data-a="3">از سریال، مدل، علائم و عکس، تعمیرات شبیه قبلی را می‌آورد.</li>
+					<li data-a="4">علت خرابی، قطعات و داغی، نفرساعت و بازهٔ پیشنهاد مالی را می‌گذارد.</li>
+					<li data-a="5">اگر کسری قطعه یا پیمانکار در کار باشد، ریسک تأخیر را هم می‌گوید.</li>
+				</ul>
+				<div class="line" data-a="6">برآورد یکدست‌تر می‌شود چون از تاریخچهٔ تعمیرات هوایار یاد گیری دارد، نه از
+					شیفت
+					همان روز.</div>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="تأخیر سفارش ساخت">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/centrifugal.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۶ · برنامه‌ریزی تولید</p>
+				<h2 data-a="2">پیش‌بینی تأخیر سفارش ساخت</h2>
+				<ul class="points">
+					<li data-a="3">تأخیر معمولاً بعد از موعد ثبت می‌شود.</li>
+					<li data-a="4">کسری قطعه، توقف باز و فاصله تا تحویل توافقی را به هم وصل می‌کند.</li>
+					<li data-a="5">واحد مسئول و متن علت را پیشنهاد می‌دهد؛ ثبت با برنامه‌ریزی است.</li>
+				</ul>
+				<div class="line" data-a="6">کدام سفارش‌های این ماه در معرض تأخیر تدارکات‌اند؟</div>
+			</div>
+		</section>
+
+		<section class="slide split" data-title="راهکاران">
+			<div class="photo">
+				<div class="pic" style="background-image:url('ai-proposal-slides/media/centrifugal-pack.jpg')"></div>
+			</div>
+			<div class="copy">
+				<p class="kicker" data-a="1">۷ · حسابداری و مالی</p>
+				<h2 data-a="2">مغایرت سفارش، فاکتور، حواله</h2>
+				<ul class="points">
+					<li data-a="3">حسابداری در راهکاران است؛ پنل همان داده را همگام می‌کند.</li>
+					<li data-a="4">چت‌بات روی دادهٔ همگام‌شده کار می‌کند. سند مالی نمی‌نویسد.</li>
+					<li data-a="5">فاکتور بدون حواله، مبلغ ناسازگار، جهش غیرعادی قیمت خرید.</li>
+				</ul>
+				<div class="line" data-a="6">هدف بستن مغایرت است، نه ساختن یک حسابداری دوم.</div>
+			</div>
+		</section>
+
+		<section class="slide plain" data-title="معماری">
+			<div class="copy">
+				<p class="kicker" data-a="1">چطور روی سیستم می‌نشیند</p>
+				<h2 data-a="2">در همهٔ موارد، سه کار تکرار می‌شود</h2>
+				<div class="steps">
+					<div class="step" data-a="3"><b>۱. پرسش</b>
+						<p>چت‌بات روی مدرک، درخواست خدمات، شناسنامه تعمیر، سفارش ساخت یا سفارش مالی.</p>
+					</div>
+					<div class="step" data-a="4"><b>۲. پیشنهاد روی فرم</b>
+						<p>فیلد، قطعه، علت تأخیر یا مغایرت از دادهٔ موجود پر می‌شود. انسان می‌بیند.</p>
+					</div>
+					<div class="step" data-a="5"><b>۳. تأیید کارشناس</b>
+						<p>ذخیره، همسان‌سازی BOM، ثبت تأخیر و پیشنهاد مالی فقط بعد از تأیید.</p>
+					</div>
+				</div>
+
+			</div>
+		</section>
+
+
+
+		<section class="slide hero" data-title="جمع‌بندی">
+			<div class="bg" style="background-image:url('ai-proposal-slides/media/centrifugal.jpg')"></div>
+			<div class="veil"></div>
+			<div class="inner">
+				<p class="kicker" data-a="1" style="color:#ff8a96">جمع‌بندی</p>
+				<h1 data-a="2">کار سریع‌تر و دقیق‌تر، روی همین هوایار</h1>
+				<p data-a="3">تصمیم با کارشناس می‌ماند. اگر نکته‌ای هست، بفرمایید.</p>
+			</div>
+		</section>
+	</div>
+
+	<div class="bar">
+		<span>شهریور ۱۴۰۵ </span>
+		<span>اسلاید <b id="pos">۱</b> از <span id="total">۱۳</span></span>
+		<div class="progress"><span id="prog"></span></div>
+	</div>
+
+	<div class="overview" id="overview">
+		<h3>نمای کلی اسلایدها</h3>
+		<div class="ov-grid" id="ovGrid"></div>
+	</div>
+
+	<script>
+		(function () {
+			const slides = Array.from(document.querySelectorAll('.slide'));
+			const posEl = document.getElementById('pos');
+			const totalEl = document.getElementById('total');
+			const prog = document.getElementById('prog');
+			const overview = document.getElementById('overview');
+			const ovGrid = document.getElementById('ovGrid');
+			let i = 0;
+			totalEl.textContent = String(slides.length);
+
+			slides.forEach(function (s, idx) {
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.innerHTML = '<small>' + (idx + 1) + '</small>' + (s.dataset.title || '');
+				b.addEventListener('click', function () { go(idx); overview.classList.remove('on'); });
+				ovGrid.appendChild(b);
+			});
+
+			function playEnter(el) {
+				el.classList.remove('enter');
+				void el.offsetWidth;
+				el.classList.add('enter');
+			}
+
+			function go(n) {
+				i = Math.max(0, Math.min(slides.length - 1, n));
+				slides.forEach(function (s, idx) {
+					s.classList.toggle('on', idx === i);
+					if (idx !== i) s.classList.remove('enter');
+				});
+				posEl.textContent = String(i + 1);
+				prog.style.width = ((i / (slides.length - 1)) * 100) + '%';
+				Array.from(ovGrid.children).forEach(function (b, idx) {
+					b.classList.toggle('current', idx === i);
+				});
+				playEnter(slides[i]);
+			}
+
+			function next() { go(i + 1); }
+			function prev() { go(i - 1); }
+
+			document.addEventListener('keydown', function (e) {
+				if (overview.classList.contains('on') && e.key === 'Escape') {
+					overview.classList.remove('on');
+					return;
+				}
+				if (e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+					e.preventDefault(); next();
+				} else if (e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Backspace') {
+					e.preventDefault(); prev();
+				} else if (e.key === 'Home') go(0);
+				else if (e.key === 'End') go(slides.length - 1);
+				else if (e.key === 'f' || e.key === 'F' || e.key === 'ک') toggleFs();
+				else if (e.key === 'o' || e.key === 'O' || e.key === 'خ') overview.classList.toggle('on');
+				else if (e.key === 'Escape') {
+					if (document.fullscreenElement) document.exitFullscreen();
+				}
+			});
+
+			document.getElementById('deck').addEventListener('click', function (e) {
+				if (e.target.closest('button, a')) return;
+				if (e.clientX < window.innerWidth * 0.22) prev();
+				else next();
+			});
+
+			document.querySelectorAll('[data-go]').forEach(function (btn) {
+				btn.addEventListener('click', function (e) {
+					e.stopPropagation();
+					go(Number(btn.getAttribute('data-go')));
+				});
+			});
+
+			function toggleFs() {
+				if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+				else document.exitFullscreen();
+			}
+			document.getElementById('btnFs').addEventListener('click', function (e) { e.stopPropagation(); toggleFs(); });
+			document.getElementById('btnOv').addEventListener('click', function (e) {
+				e.stopPropagation();
+				overview.classList.toggle('on');
+			});
+
+			let tx = null;
+			document.addEventListener('touchstart', function (e) { tx = e.changedTouches[0].screenX; }, { passive: true });
+			document.addEventListener('touchend', function (e) {
+				if (tx == null) return;
+				const dx = e.changedTouches[0].screenX - tx;
+				if (Math.abs(dx) > 50) { if (dx > 0) next(); else prev(); }
+				tx = null;
+			}, { passive: true });
+
+			go(0);
+		})();
+	</script>
+</body>
+
+</html>

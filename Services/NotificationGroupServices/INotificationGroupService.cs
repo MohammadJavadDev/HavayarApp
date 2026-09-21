@@ -33,6 +33,22 @@ namespace Services.NotificationGroupServices
 		/// <summary>
 		/// ایجاد گروه جدید
 		/// </summary>
-		Task<NotificationGroup> CreateGroupAsync(string code, string displayName, string? description = null, CancellationToken ct = default);
+		Task<NotificationGroup> CreateGroupAsync(
+			string code,
+			string displayName,
+			string? description = null,
+			CancellationToken ct = default,
+			IsActiveEnum? isActive = null);
+
+		/// <summary>
+		/// ویرایش اطلاعات گروه و هماهنگ‌سازی کش وابسته به کد گروه
+		/// </summary>
+		Task<NotificationGroup?> UpdateGroupAsync(
+			long id,
+			string code,
+			string displayName,
+			string? description = null,
+			IsActiveEnum? isActive = null,
+			CancellationToken ct = default);
 	}
 }

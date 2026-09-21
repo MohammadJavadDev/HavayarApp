@@ -276,6 +276,71 @@ public class RoleConfiguration : IEntityTypeConfiguration<Role>
 			IsActive = IsActiveEnum.Active
 		});
 		#endregion
+
+		#region Trn Roles Seed
+
+		builder.HasData(new Role()
+		{
+			Id = 300000,
+			Name = "Trn.FullAccess",
+			Title = "آموزش - دسترسی کامل",
+			CreatedById = 1,
+			CreatedByName = "admin",
+			ModifiedById = 1,
+			ModifiedByName = "admin",
+			CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+			ModifiedDateShamsiDateTime = now.ToShamsiDateTime(),
+			CreatedOnMiladiDateTime = now,
+			ModifiedDateMiladiDateTime = now,
+			IsActive = IsActiveEnum.Active
+		});
+
+		builder.HasData(new Role()
+		{
+			Id = 300001,
+			Name = "Trn.ReadOnly",
+			Title = "آموزش - فقط مشاهده",
+			CreatedById = 1,
+			CreatedByName = "admin",
+			ModifiedById = 1,
+			ModifiedByName = "admin",
+			CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+			ModifiedDateShamsiDateTime = now.ToShamsiDateTime(),
+			CreatedOnMiladiDateTime = now,
+			ModifiedDateMiladiDateTime = now,
+			IsActive = IsActiveEnum.Active
+		});
+
+		#endregion
+
+		#region Bpm.ProcessDocument Role Seed
+
+		Role BpmRole(long id, string name, string title) => new()
+		{
+			Id = id,
+			Name = name,
+			Title = title,
+			CreatedById = 1,
+			CreatedByName = "admin",
+			ModifiedById = 1,
+			ModifiedByName = "admin",
+			CreatedOnShamsiDateTime = now.ToShamsiDateTime(),
+			ModifiedDateShamsiDateTime = now.ToShamsiDateTime(),
+			CreatedOnMiladiDateTime = now,
+			ModifiedDateMiladiDateTime = now,
+			IsActive = IsActiveEnum.Active
+		};
+
+		builder.HasData(
+			BpmRole(400000, "Bpm.ProcessDocument.ShowAll", "اسناد فرآیندی - نمایش همه"),
+			BpmRole(400001, "Bpm.ProcessDocument.Supervisor", "اسناد فرآیندی - سرپرست سیستم‌ها و روش‌ها"),
+			BpmRole(400002, "Bpm.ProcessDocument.Expert", "اسناد فرآیندی - کارشناس سیستم‌ها و روش‌ها"),
+			BpmRole(400003, "Bpm.ProcessDocument.ViewManage", "اسناد فرآیندی - مشاهده مدیریت درخواست‌ها"),
+			BpmRole(400004, "Bpm.ProcessDocument.PublishedList", "اسناد فرآیندی - لیست اسناد ابلاغ‌شده"),
+			BpmRole(400005, "Bpm.ProcessDocument.ViewAllAttachments", "اسناد فرآیندی - مشاهده همه پیوست‌ها")
+		);
+
+		#endregion
 	}
 }
 

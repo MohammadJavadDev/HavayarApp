@@ -1,0 +1,5 @@
+﻿"TABLE_SCHEMA","TABLE_NAME"
+"system","JobDefinition"
+"system","JobSchedule"
+"system","SavedQuery"
+"system","SystemMenu"

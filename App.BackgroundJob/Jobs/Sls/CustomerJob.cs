@@ -1,9 +1,11 @@
+using App.BackgroundJob.Jobs;
 using Common.Attributes;
 using Data;
 using Data.Contracts;
 using Entities.App.Gnr;
 using Entities.App.Sale;
 using Entities.App.SLS;
+using Entities.Base;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
 using System.Linq;
@@ -38,8 +40,15 @@ namespace App.BackgroundJob.Jobs.Sls
 					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
 
-				var partyMap = appParties
-					.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var partyMap = await JobLookup.ToUniqueValueMapAsync(
+					appParties,
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Gnr.Party.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				await jobLogger?.LogInfoAsync($"تعداد {partyMap.Count} Party با HamkaranId در پایگاه داده برنامه موجود است", cn);
 
@@ -50,8 +59,14 @@ namespace App.BackgroundJob.Jobs.Sls
 
 				await jobLogger?.LogInfoAsync($"تعداد {appCustomers.Count} مشتری در پایگاه داده برنامه موجود است", cn);
 
-				var appCustomersDict = appCustomers
-					.ToDictionary(x => x.HamkaranId);
+				var appCustomersDict = await JobLookup.ToUniqueMapAsync(
+					appCustomers,
+					x => x.HamkaranId,
+					jobLogger,
+					"Sls.Customer.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var newCustomers = new List<Customer>();
 				int updatedCustomersCount = 0;

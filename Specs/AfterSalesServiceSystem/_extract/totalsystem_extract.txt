@@ -1,0 +1,4 @@
+﻿Msg 207, Level 16, State 1, Server TMS, Line 18
+Invalid column name 'LookupType_Title'.
+Msg 207, Level 16, State 1, Server TMS, Line 25
+Invalid column name 'LookupType_Title'.

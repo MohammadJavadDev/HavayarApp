@@ -1,0 +1,79 @@
+@using Entities.App.Rpr
+@using Entities.Base
+@model RepairRequestWbs
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(RepairRequestWbs)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">WBS نفرساعت تعمیر</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">نفرساعت</label>
+				@(Html.EntitySelector<RepairRequestManHour>(
+					"WbsManHourSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, WorkShamsiDate = c.WorkShamsiDate, StartTime = c.StartTime },
+					c => new { c.WorkShamsiDate, c.StartTime },
+					"{WorkShamsiDate} {StartTime}",
+					"repairRequestManHourId",
+					"repairRequestManHourName",
+					Model?.RepairRequestManHourId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">شرح کار</label>
+				@(Html.EntitySelector<RepairRequestWorkExplanation>(
+					"WbsWorkExplanationSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+					c => new { c.Title, c.Code },
+					"{Code} {Title}",
+					"workExplanationId",
+					"workExplanationTitle",
+					Model?.WorkExplanationId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نفرساعت</label>
+				<input class="form-control" data-bind="manHour" asp-for="ManHour" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="description" asp-for="Description" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

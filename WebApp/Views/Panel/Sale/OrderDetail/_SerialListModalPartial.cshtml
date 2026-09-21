@@ -1,0 +1,58 @@
+@using Entities.App.SLS
+@using Entities.App.Sale
+@model OrderDetail
+@{
+	Layout = null;
+	var customerName = Model?.Customer?.Party?.FullName
+		?? Model?.Sale_Order?.Customer?.Party?.FullName
+		?? "-";
+	var orderNo = Model?.Sale_Order?.OrderNumber?.ToString() ?? "-";
+	var partCode = Model?.Part?.Code ?? "-";
+	var partName = Model?.Part?.Name ?? "-";
+}
+
+<div class="order-detail-serial-list" data-order-detail-id="@Model?.Id">
+	<div class="card border mb-3">
+		<div class="card-body py-2">
+			<div class="row g-2 small">
+				<div class="col-md-3"><strong>کد کالا:</strong> @partCode</div>
+				<div class="col-md-3"><strong>نام کالا:</strong> @partName</div>
+				<div class="col-md-2"><strong>تعداد:</strong> @Model?.Qty</div>
+				<div class="col-md-2"><strong>شماره حواله:</strong> @orderNo</div>
+				<div class="col-md-2"><strong>مشتری:</strong> @customerName</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="d-flex justify-content-between align-items-center mb-2">
+		<h6 class="mb-0">سریال‌های ثبت‌شده</h6>
+		<button type="button" class="btn btn-sm btn-primary" id="btnNewSerial" data-action="newSerial">
+			<i class="fa fa-plus"></i> افزودن سریال جدید
+		</button>
+	</div>
+
+	<div class="table-responsive">
+		<table class="table table-sm table-striped table-bordered table-hover align-middle mb-0" id="orderDetailSerialTable">
+			<thead class="table-light">
+				<tr>
+					<th style="width:40px">ردیف</th>
+					<th>سریال</th>
+					<th>مدل</th>
+					<th>شماره سفارش ساخت</th>
+					<th>پروژه</th>
+					<th>مشتری</th>
+					<th>مدت گارانتی</th>
+					<th>روز ارسال</th>
+					<th>روز راه‌اندازی</th>
+					<th>توضیحات صنایع</th>
+					<th style="width:100px">عملیات</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr class="text-muted">
+					<td colspan="11" class="text-center">در حال بارگذاری...</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+</div>

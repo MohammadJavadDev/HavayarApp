@@ -1,0 +1,43 @@
+---
+description: Never corrupt Persian in SQL seeds / Data Profile JSON — UTF-8 BOM + sqlcmd -f 65001
+globs: Data/Scripts/**/*.sql,_tools/DataProfile/**
+alwaysApply: true
+---
+
+# Persian encoding for SQL seeds and Data Profiles
+
+Incident 2026-09-18: After-Sales cartable SavedQuery **197** / **198** (`AfterSales_ServiceRequest_Cartable` / `_List`) showed mojibake headers (`Ø´Ù†Ø§Ø³Ù‡` instead of `شناسه`). Cause: `Seed_SaleServiceRequest_DataProfiles.sql` was UTF-8 **without BOM**, then applied with `sqlcmd` **without** `-f 65001`. sqlcmd read UTF-8 bytes as the Windows OEM/1256 page and stored garbage in `ColumnsJson.DisplayName`, `Title`, and button titles.
+
+## Must
+
+- Save seed/SQL that contains Persian as **UTF-8 with BOM** (`utf-8-sig` in Python, "UTF-8 with BOM" in the editor).
+- Apply live scripts with Unicode, not the default code page:
+
+```powershell
+sqlcmd -S <server> -d HavayarApp -C -b -I -f 65001 -i "Data\Scripts\Seed_....sql"
+```
+
+`Invoke-Sqlcmd -InputFile ... -Encoding UTF8` is also acceptable. SSMS: confirm the file opened as UTF-8 before Execute.
+
+- Data Profile **DisplayName**, SavedQuery **Title**, `ActionOptions.title`, and custom-button **title** stay the intended Persian (HTS caption / last known-good). Never leave English column names as grid headers.
+- After writing live `system.SavedQuery`, **verify in SQL Server**, not only in the editor:
+
+```sql
+SELECT JSON_VALUE(j.value, '$.Alliance'), JSON_VALUE(j.value, '$.DisplayName')
+FROM system.SavedQuery q
+CROSS APPLY OPENJSON(q.ColumnsJson) j
+WHERE q.Name = N'AfterSales_ServiceRequest_Cartable';
+```
+
+`DisplayName` must contain letters in `ی ک گ چ پ ژ` (or the exact Persian title). If you see `Ø`, `Ù`, `Ã`, or `?????`, the apply encoding is wrong — fix the file BOM and re-apply; do not "fix" by inventing new titles.
+
+- Generators that emit `.sql` must `write_text(..., encoding="utf-8-sig")` (see `_tools/DataProfile/gen_servicerequest_seed.py`).
+
+## Must not
+
+- `sqlcmd -i file.sql` without `-f 65001` on a UTF-8 (no BOM) seed.
+- Save Persian `.sql` as UTF-8 no BOM, Windows-1256, or UTF-16 and then apply with the other encoding.
+- Double-encode JSON (UTF-8 string written as if it were Latin-1).
+- Trust the chat/editor screenshot alone after a live seed — query `DisplayName` / `Title`.
+
+WebApp Redis DataTable-profile cache may still show old titles until restart. See `havayar-dataprofile-savedquery.mdc`.

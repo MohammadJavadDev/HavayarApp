@@ -44,7 +44,7 @@
 	</div>
 	<div class="card-body">
 		<div class="table-responsive">
-			<table class="table table-bordered table-striped table-hover nowrap" id="@tableId" style="width: auto;">
+			<table class="table table-bordered table-striped table-hover nowrap ellipsis-tooltip-table" id="@tableId" style="width: auto;">
 				<thead>
 					<tr>
 						<th>عملیات</th>
@@ -96,6 +96,10 @@
 			return (item && (item.exteraData || item.extraData || item.displayName || item.name)) || dash(value);
 		}
 
+		const ellipsisMaxWidths = {
+			partName: 250
+		};
+
 		function measureTextWidth(text, sampleEl) {
 			const $probe = $("<span/>").css({
 				position: "absolute",
@@ -110,13 +114,15 @@
 
 		function fitColumnWidths(api) {
 			const $container = $(api.table().container());
-			const $scrollHead = $container.find(".dataTables_scrollHead");
-			const $scrollBody = $container.find(".dataTables_scrollBody");
+			const $scrollHead = $container.find(".dataTables_scrollHead, .dt-scroll-head");
+			const $scrollBody = $container.find(".dataTables_scrollBody, .dt-scroll-body");
 			const sortIconExtra = 28;
 
 			api.columns().every(function (colIdx) {
 				const headerEl = this.header();
 				const headerText = $(headerEl).text().trim();
+				const dataSrc = typeof this.dataSrc === "function" ? this.dataSrc() : null;
+				const cap = dataSrc && ellipsisMaxWidths[dataSrc];
 				let maxWidth = measureTextWidth(headerText, headerEl) + sortIconExtra;
 
 				this.nodes().to$().each(function () {
@@ -125,11 +131,14 @@
 				});
 
 				maxWidth = Math.ceil(maxWidth);
-				$(headerEl).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
-				this.nodes().to$().css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
-				$scrollHead.find("thead th").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+				if (cap)
+					maxWidth = Math.min(maxWidth, cap);
+
+				$(headerEl).css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
+				this.nodes().to$().css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
+				$scrollHead.find("thead th").eq(colIdx).css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
 				$scrollBody.find("tbody tr").each(function () {
-					$(this).children("td").eq(colIdx).css({ "min-width": maxWidth + "px", width: maxWidth + "px" });
+					$(this).children("td").eq(colIdx).css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
 				});
 			});
 
@@ -190,10 +199,9 @@
 				{
 					data: "partName",
 					defaultContent: "-",
-					render: function (d) {
-						const text = dash(d);
-						return `<span title="${text}" >${text}</span>`;
-					}
+					width: "250px",
+					className: "dt-part-name",
+					render: renderEllipsisCell
 				},
 				{ data: "amount", className: "text-end", defaultContent: "-", render: function (d) { return dash(d); } },
 				{ data: "partUnitName", defaultContent: "-", render: function (d) { return dash(d); } },
@@ -239,7 +247,10 @@
 				zeroRecords: "هیچ BOM یافت نشد"
 			},
 			initComplete: function () {
-				fitColumnWidths(this.api());
+				const api = this.api();
+				fitColumnWidths(api);
+				if (typeof bindEmbeddedTableCellTooltips === "function")
+					bindEmbeddedTableCellTooltips(api);
 			}
 		});
 
@@ -543,18 +554,42 @@
 </script>
 
 <style>
-	#productionOrderItemBomListPage #@tableId {
+	#productionOrderItemBomListPage #@tableId,
+	#productionOrderItemBomListPage table.ellipsis-tooltip-table {
 		width: max-content !important;
-		table-layout: auto;
+		table-layout: fixed;
 	}
 
 	#productionOrderItemBomListPage #@tableId th,
 	#productionOrderItemBomListPage #@tableId td,
 	#productionOrderItemBomListPage .dataTables_scrollHead th,
-	#productionOrderItemBomListPage .dataTables_scrollBody td {
+	#productionOrderItemBomListPage .dataTables_scrollBody td,
+	#productionOrderItemBomListPage .dt-scroll-head th,
+	#productionOrderItemBomListPage .dt-scroll-body td {
 		white-space: nowrap !important;
 		vertical-align: middle;
 		padding-inline: 0.75rem;
+	}
+
+	#productionOrderItemBomListPage #@tableId td.dt-part-name,
+	#productionOrderItemBomListPage #@tableId th.dt-part-name,
+	#productionOrderItemBomListPage .dataTables_scrollHead th.dt-part-name,
+	#productionOrderItemBomListPage .dataTables_scrollBody td.dt-part-name,
+	#productionOrderItemBomListPage .dt-scroll-head th.dt-part-name,
+	#productionOrderItemBomListPage .dt-scroll-body td.dt-part-name {
+		width: 250px !important;
+		max-width: 250px !important;
+		min-width: 0 !important;
+		overflow: hidden;
+	}
+
+	#productionOrderItemBomListPage #@tableId td.dt-part-name .dt-ellipsis-cell {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		width: 100%;
+		max-width: 250px;
 	}
 
 	#productionOrderItemBomListPage #@tableId tbody tr:hover {

@@ -40,11 +40,12 @@
 							</div>
 				  
 							<div class="d-grid mb-10">
-								<button   id="login" class="btn btn-primary">
- 
+								<button type="button" id="login" class="btn btn-primary">
 									<span class="indicator-label">ورود</span>
-								  
-						 
+									<span class="indicator-progress">
+										لطفا منتظر بمانید...
+										<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+									</span>
 								</button>
 							</div>
 				 
@@ -77,13 +78,45 @@
 
 	<script src="~/js/static.js"></script>
 		<script src="~/js/site.js" asp-append-version="true"></script>
- 
+	<script>
+		(function () {
+			const $btn = $('#login');
+			const $form = $('#form');
 
-	 
- 
- 
- 
- 
+			function setLoginLoading(isLoading) {
+				if (isLoading) {
+					$btn.attr('data-kt-indicator', 'on').prop('disabled', true);
+				} else {
+					$btn.removeAttr('data-kt-indicator').prop('disabled', false);
+				}
+			}
+
+			function submitLogin() {
+				if ($btn.prop('disabled')) return;
+				if (validateError($form)) return;
+
+				const model = $form.dataBind();
+				setLoginLoading(true);
+
+				post('/Authenticate/Login', model, function (r) {
+					if (!r.isSuccess) {
+						setLoginLoading(false);
+						toastr.error(r.message, 'خطا');
+						return;
+					}
+					location.assign('/');
+				});
+			}
+
+			$btn.on('click', submitLogin);
+			$form.on('keydown', 'input', function (e) {
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					submitLogin();
+				}
+			});
+		})();
+	</script>
 </body>
  
 </html>

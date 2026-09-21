@@ -2,9 +2,12 @@
 using Entities.App.Pln;
 using Entities.App.SLS;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+namespace Entities.App.Sale;
 
 [Display(Name = "جزئیات سریال سفارش فروش")]
 [Table("OrderDetailSerial", Schema = "Sale")]
@@ -31,8 +34,13 @@ public class OrderDetailSerial : BaseEntity
 
 	[DisplayName("آدرس مشتری")]
 	[DisplayInfo(null, true, type: SystemType.Entity)]
-	public virtual Customer CustomerAddress { get; set; }
+	[ForeignKey(nameof(CustomerAddressId))]
+	public virtual CustomerAddress? CustomerAddress { get; set; }
 	public long? CustomerAddressId { get; set; }
+
+	[DisplayName("شناسه HTS")]
+	[DisplayInfo(null, false, type: SystemType.Long)]
+	public long HtsId { get; set; }
 
 
 	[DisplayName("سریال")]
@@ -65,7 +73,7 @@ public class OrderDetailSerial : BaseEntity
 	public int? GuaranteeSendDay { get; set; }
 
 
-	[DisplayName("روز راه اندازی گارنتی")]
+	[DisplayName("روز راه اندازی گارانتی")]
 	[DisplayInfo(null, true, type: SystemType.Int)]
 	public int? GuaranteeLaunchDay { get; set; }
 
@@ -123,4 +131,46 @@ public class OrderDetailSerial : BaseEntity
 	[DisplayInfo(null, true, type: SystemType.String)]
 	public string? IndustrialComment { get; set; } = null;
 
+	[DisplayName("عمر مفید")]
+	[DisplayInfo(null, true, type: SystemType.Long)]
+	public long? LifeTime { get; set; }
+
+	[DisplayName("توضیحات انبار")]
+	[DisplayInfo(null, true, type: SystemType.String)]
+	[MaxLength(4000)]
+	public string? InvComment { get; set; }
+
+	[DisplayName("تایید صنایع")]
+	[DisplayInfo(null, true, type: SystemType.Boolean)]
+	public bool? IndustrialConfirm { get; set; }
+
+	[DisplayName("تاریخ خروج نهایی میلادی")]
+	[DisplayInfo(null, true, type: SystemType.Date)]
+	public DateTime? FinalExitMiladiDate { get; set; }
+
+	[DisplayName("تاریخ خروج نهایی شمسی")]
+	[DisplayInfo(null, true, type: SystemType.DateShamsi)]
+	public string? FinalExitShamsiDate { get; set; }
+
+	[DisplayName("ساعت خروج نهایی")]
+	[DisplayInfo(null, true, type: SystemType.String)]
+	[MaxLength(5)]
+	public string? ExitTimeFinal { get; set; }
+
+}
+
+public class OrderDetailSerialConfiguration : IEntityTypeConfiguration<OrderDetailSerial>
+{
+	public void Configure(EntityTypeBuilder<OrderDetailSerial> builder)
+	{
+		builder.HasOne(x => x.CustomerAddress)
+			.WithMany()
+			.HasForeignKey(x => x.CustomerAddressId)
+			.OnDelete(DeleteBehavior.Restrict);
+
+		builder.HasIndex(x => x.HtsId)
+			.IsUnique()
+			.HasFilter("[HtsId] <> CAST(0 AS bigint)")
+			.HasDatabaseName("IX_Sale_OrderDetailSerial_HtsId");
+	}
 }

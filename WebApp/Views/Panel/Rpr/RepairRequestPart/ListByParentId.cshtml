@@ -1,0 +1,206 @@
+@using Entities.App.Rpr
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<style>
+	#rrPartChildTable.ellipsis-tooltip-table { min-width: 2600px; }
+</style>
+<div class="card" id="rrPartChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">اقلام مصرفی</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100 nowrap ellipsis-tooltip-table" id="rrPartChildTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>شماره شناسنامه</th>
+					<th>تفضیل</th>
+					<th>شماره درخواست</th>
+					<th>کد کالا</th>
+					<th>عنوان کالا</th>
+					<th>انبار</th>
+					<th>واحد</th>
+					<th>داغی</th>
+					<th>توضیحات قطعه داغی</th>
+					<th>شماره فرم قطعه داغی</th>
+					<th>مبلغ خرید</th>
+					<th>قیمت فروش</th>
+					<th>مقدار مصرفی</th>
+					<th>مقدار برگشتی</th>
+					<th>مجموع قیمت</th>
+					<th>مجموع مبلغ خرید</th>
+					<th>عنوان محصول</th>
+					<th>توضیحات</th>
+					<th>توضیحات راهکاران</th>
+					<th style="width:120px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const rrPartParentId = @parentId;
+	function renderMoneyEllipsisCell(data, type) {
+		if (type && type !== 'display' && type !== 'type') return data == null ? '' : data;
+		if (data == null || data === '') return renderEllipsisCell('-', 'display');
+		const text = (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(data) : String(data);
+		return renderEllipsisCell(text, 'display');
+	}
+	const rrPartTable = $$('#rrPartChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		scrollX: true,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Rpr/RepairRequestPart/GetListByParentId?repairRequestId=' + rrPartParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'idNumber', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'projectCode', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'requestNo', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'partCode', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'partName', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'stockName', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'unitName', defaultContent: '-', render: renderEllipsisCell },
+			{
+				data: 'damagedPart',
+				className: 'text-center',
+				render: function (v, type) {
+					if (type && type !== 'display' && type !== 'type') return v ? 1 : 0;
+					return v ? '<i class="fa fa-check text-success"></i>' : '';
+				}
+			},
+			{ data: 'replacementPartDescription', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'replacementPartFormNumber', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'buyPrice', defaultContent: '-', render: renderMoneyEllipsisCell },
+			{ data: 'salePrice', defaultContent: '-', render: renderMoneyEllipsisCell },
+			{ data: 'usedMount', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'returnMount', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'totalPrice', defaultContent: '-', render: renderMoneyEllipsisCell },
+			{ data: 'totalBuyPrice', defaultContent: '-', render: renderMoneyEllipsisCell },
+			{ data: 'productName', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'description', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'rahkaranDescription', defaultContent: '-', render: renderEllipsisCell },
+			{
+				data: 'id',
+				orderable: false,
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+	bindEmbeddedTableCellTooltips(rrPartTable);
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function initChildModalForm($root) {
+		if (typeof initPersionDatePicker === 'function')
+			initPersionDatePicker($root);
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+		if (typeof initFileUploaders === 'function')
+			initFileUploaders($root);
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($root);
+		else if (window.Inputmask && window.moneyInputmaskOptions)
+			Inputmask(moneyInputmaskOptions).mask($root.find('[data-money="true"]'));
+		if (typeof initTimeInputs === 'function')
+			initTimeInputs($root);
+		else if (window.Inputmask && window.timeInputmaskOptions)
+			Inputmask(timeInputmaskOptions).mask($root.find('[data-time="true"]'));
+	}
+
+	function openRrPartModal(id) {
+		const url = id
+			? '/Panel/Rpr/RepairRequestPart/Edit?id=' + id + '&repairRequestId=' + rrPartParentId
+			: '/Panel/Rpr/RepairRequestPart/New?repairRequestId=' + rrPartParentId;
+		const $trigger = id
+			? $$('#rrPartChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#rrPartChildCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش قلم مصرفی' : 'افزودن قلم مصرفی',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Rpr/RepairRequestPart/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								rrPartTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { initChildModalForm(selfConfirm.$body); }, 100);
+				}
+			});
+		});
+	}
+
+	$$('#rrPartChildCard').on('click', '[data-action="newChild"]', function () {
+		openRrPartModal(null);
+	});
+	$$('#rrPartChildCard').on('click', '[data-action="editChild"]', function () {
+		openRrPartModal($(this).data('id'));
+	});
+	$$('#rrPartChildCard').on('click', '[data-action="deleteChild"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Rpr/RepairRequestPart/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					rrPartTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

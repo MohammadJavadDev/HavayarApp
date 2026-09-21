@@ -1,0 +1,142 @@
+@using Entities.App.Sale
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="tenderAttachmentChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">پیوست مناقصه</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newTenderAttachment">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="tenderAttachmentChildTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>عنوان</th>
+					<th>فایل</th>
+					<th>توضیحات</th>
+					<th style="width:120px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const tenderAttachmentParentId = @parentId;
+	const tenderAttachmentTable = $$('#tenderAttachmentChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Sale/TenderAttachment/GetListByParentId?tenderId=' + tenderAttachmentParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'title', defaultContent: '-' },
+			{ data: 'fileName', defaultContent: '-' },
+			{ data: 'comment', defaultContent: '-' },
+			{
+				data: 'id',
+				orderable: false,
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editTenderAttachment" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteTenderAttachment" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function openTenderAttachmentModal(id) {
+		const url = id
+			? '/Panel/Sale/TenderAttachment/Edit?id=' + id + '&tenderId=' + tenderAttachmentParentId
+			: '/Panel/Sale/TenderAttachment/New?tenderId=' + tenderAttachmentParentId;
+		const $trigger = id
+			? $$('#tenderAttachmentChildCard').find('[data-action="editTenderAttachment"][data-id="' + id + '"]')
+			: $$('#tenderAttachmentChildCard').find('[data-action="newTenderAttachment"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش پیوست' : 'افزودن پیوست',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Sale/TenderAttachment/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								tenderAttachmentTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initFileUploaders === 'function')
+							initFileUploaders(selfConfirm.$body);
+						if (typeof initPersionDatePicker === 'function')
+							initPersionDatePicker(selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	$$('#tenderAttachmentChildCard').on('click', '[data-action="newTenderAttachment"]', function () {
+		openTenderAttachmentModal(null);
+	});
+	$$('#tenderAttachmentChildCard').on('click', '[data-action="editTenderAttachment"]', function () {
+		openTenderAttachmentModal($(this).data('id'));
+	});
+	$$('#tenderAttachmentChildCard').on('click', '[data-action="deleteTenderAttachment"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/TenderAttachment/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					tenderAttachmentTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

@@ -1,0 +1,306 @@
+@using Entities.App.Pln
+@using Entities.App.SLS
+@using Entities.App.Sale
+@model OrderDetailSerial
+
+<div class="card shadow-sm border-0 mb-3">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(OrderDetailSerial)"></form-action-buttons>
+	</div>
+</div>
+
+@if (Model?.OrderDetail != null)
+{
+	var partCode = Model.OrderDetail.Part?.Code ?? "-";
+	var partName = Model.OrderDetail.Part?.Name ?? "-";
+	var orderNo = Model.OrderDetail.Sale_Order?.OrderNumber?.ToString() ?? "-";
+	var customerName = Model.OrderDetail.Customer?.Party?.FullName 
+		?? Model.OrderDetail.Sale_Order?.Customer?.Party?.FullName 
+		?? "-";
+
+	<div class="card shadow-sm border-0 mb-3 bg-light-primary">
+		<div class="card-body py-3">
+			<div class="row g-3 small">
+				<div class="col-md-3"><strong>شماره حواله فروش:</strong> @orderNo</div>
+				<div class="col-md-3"><strong>کد کالا:</strong> @partCode</div>
+				<div class="col-md-3"><strong>نام کالا:</strong> @partName</div>
+				<div class="col-md-3"><strong>مشتری:</strong> @customerName</div>
+			</div>
+		</div>
+	</div>
+}
+
+<div class="card shadow-sm border-0 mb-3">
+	<div class="card-body row g-3">
+		<div class="col-12 mb-2">
+			<h4 class="fw-bold text-dark border-bottom pb-2">
+				<i class="fa fa-barcode me-2 text-primary"></i>
+				@(Model?.Id != null && Model.Id > 0 ? "ویرایش شماره سریال" : "ثبت شماره سریال جدید")
+			</h4>
+		</div>
+
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="orderDetailId" value="@Model?.OrderDetailId" />
+
+		<div class="col-md-4">
+			<label class="form-label ">شماره سریال</label>
+			<input class="form-control" data-bind="serial" asp-for="Serial" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">مدل</label>
+			<input class="form-control" data-bind="model" asp-for="Model" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label required">شماره سفارش ساخت</label>
+			<input class="form-control"  data-required="true" data-bind="productionOrderNumber" asp-for="ProductionOrderNumber" />
+		</div>
+
+		<div class="col-md-6">
+			<label class="form-label">پروژه</label>
+			@(Html.EntitySelector<PlaningProject>(
+				"SerialPlaningProjectSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, Code = c.Code },
+				c => new { c.Name, c.Code },
+				"{Code} - {Name}",
+				"planingProjectId",
+				"planingProjectName",
+				Model?.PlaningProjectId?.ToString()
+			))
+		</div>
+
+		<div class="col-md-6">
+			<label class="form-label">مشتری</label>
+			@(Html.EntitySelector<Customer>(
+				"SerialCustomerSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code
+				},
+				c => new { c.Party, c.Code },
+				"{Party.FullName} {Code}",
+				"customerId",
+				"customerName",
+				Model?.CustomerId?.ToString()
+			))
+		</div>
+
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label">سایت / آدرس مشتری</label>
+			@(Html.EntitySelector<CustomerAddress>(
+				"SerialCustomerAddressSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Address = c.Address, CustomerId = c.CustomerId },
+				c => new { c.Title, c.Address },
+				"{Title} {Address}",
+				"customerAddressId",
+				"customerAddressTitle",
+				Model?.CustomerAddressId?.ToString()
+			))
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">ساعت کارکرد روزانه</label>
+			<input class="form-control" data-bind="hoursDaily" asp-for="HoursDaily" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">زمان اجرا (ساعت)</label>
+			<input class="form-control" data-bind="runtime" asp-for="Runtime" />
+		</div>
+
+		<div class="col-md-4 d-flex align-items-center mt-8">
+			<div class="form-check form-switch form-check-custom form-check-solid">
+				<input data-bind="hasInsurance" class="form-check-input" type="checkbox" id="chkHasInsurance" @(Model?.HasInsurance == true ? "checked" : "") />
+				<label class="form-check-label ms-3" for="chkHasInsurance">دارای بیمه</label>
+			</div>
+		</div>
+
+		<div class="col-12 mt-4 mb-2">
+			<h5 class="fw-bold text-dark border-bottom pb-2">
+				<i class="fa fa-shield-halved me-2 text-success"></i>
+				اطلاعات گارانتی و ارسال
+			</h5>
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">مدت گارانتی (ماه)</label>
+			<input class="form-control" data-bind="guaranteeTime" asp-for="GuaranteeTime" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">روز ارسال گارانتی</label>
+			<input class="form-control" data-bind="guaranteeSendDay" asp-for="GuaranteeSendDay" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">روز راه‌اندازی گارانتی</label>
+			<input class="form-control" data-bind="guaranteeLaunchDay" asp-for="GuaranteeLaunchDay" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">تاریخ ارسال شمسی</label>
+			<input class="form-control" data-bind="sendShamsiDate"
+				data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				asp-for="SendShamsiDate" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">ساعت ارسال</label>
+			<input class="form-control ltr" type="text" data-bind="sendTime" data-time="true" asp-for="SendTime" placeholder="__:__" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">تاریخ راه‌اندازی شمسی</label>
+			<input class="form-control" data-bind="launchShamsiDate"
+				data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				asp-for="LaunchShamsiDate" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">تاریخ خروج از کارخانه شمسی</label>
+			<input class="form-control" data-bind="exitFactoryShamsiDate"
+				data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				asp-for="ExitFactoryShamsiDate" />
+		</div>
+
+		<div class="col-md-4">
+			<label class="form-label">ساعت خروج از کارخانه</label>
+			<input class="form-control ltr" type="text" data-bind="exitFactoryTime" data-time="true" asp-for="ExitFactoryTime" placeholder="__:__" />
+		</div>
+
+		<div class="col-12 mt-4 mb-2">
+			<h5 class="fw-bold text-dark border-bottom pb-2">
+				<i class="fa fa-comment-dots me-2 text-info"></i>
+				توضیحات تکمیلی
+			</h5>
+		</div>
+
+		<div class="col-12">
+			<label class="form-label">توضیحات صنایع</label>
+			<textarea class="form-control" data-bind="industrialComment" asp-for="IndustrialComment" rows="3"></textarea>
+		</div>
+
+		<div class="col-12">
+			<label class="form-label">توضیحات انبار</label>
+			<textarea class="form-control" data-bind="invComment" asp-for="InvComment" rows="2"></textarea>
+		</div>
+
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label">عمر مفید</label>
+			<input class="form-control" data-bind="lifeTime" asp-for="LifeTime" />
+		</div>
+
+		<div class="col-md-4 form-group-inline d-flex align-items-center mt-8">
+			<div class="form-check form-switch form-check-custom form-check-solid">
+				<input data-bind="industrialConfirm" class="form-check-input" type="checkbox" id="chkIndustrialConfirm" @(Model?.IndustrialConfirm == true ? "checked" : "") />
+				<label class="form-check-label ms-3" for="chkIndustrialConfirm">تایید صنایع</label>
+			</div>
+		</div>
+
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label">تاریخ خروج نهایی شمسی</label>
+			<input class="form-control" data-bind="finalExitShamsiDate"
+				data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.FinalExitMiladiDate" />
+		</div>
+
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label">ساعت خروج نهایی</label>
+			<input class="form-control ltr" type="text" data-bind="exitTimeFinal" data-time="true" asp-for="ExitTimeFinal" placeholder="__:__" />
+		</div>
+	</div>
+</div>
+
+@if (Model?.Id != null && Model.Id > 0)
+{
+	<div class="card shadow-sm border-0 mb-3">
+		<div class="card-body row text-muted small">
+			<div class="col-md-3">
+				<span>ایجادکننده:</span>
+				<strong data-bind="createdByName">@(Model?.CreatedByName ?? "-")</strong>
+			</div>
+			<div class="col-md-3">
+				<span>تاریخ ایجاد:</span>
+				<strong data-bind="createdOnShamsiDateTime">@(Model?.CreatedOnShamsiDateTime ?? "-")</strong>
+			</div>
+			<div class="col-md-3">
+				<span>ویرایش‌کننده:</span>
+				<strong data-bind="modifiedByName">@(Model?.ModifiedByName ?? "-")</strong>
+			</div>
+			<div class="col-md-3">
+				<span>تاریخ ویرایش:</span>
+				<strong data-bind="modifiedDateShamsiDateTime">@(Model?.ModifiedDateShamsiDateTime ?? "-")</strong>
+			</div>
+		</div>
+	</div>
+}
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+
+		var model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در ذخیره‌سازی', 'خطا');
+				return;
+			}
+
+			toastr.success('ذخیره‌سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	function setupSerialAddressCascade() {
+		const cascadeOpts = {
+			filters: function () {
+				const customerId = $$('#SerialCustomerSelector').find('.entity-selector-value').val();
+				return { CustomerId: customerId || '0' };
+			},
+			watchDependencies: ['#SerialCustomerSelector']
+		};
+		const $addr = $$('#SerialCustomerAddressSelector');
+		let inst = $addr.data('entitySelector') || $addr.data('entitySelectorInstance');
+		if (inst) {
+			inst.extraFilters = cascadeOpts.filters;
+			inst.options.watchDependencies = cascadeOpts.watchDependencies;
+			if (typeof inst.watchDependencies === 'function') inst.watchDependencies();
+		} else {
+			$addr.entitySelector(cascadeOpts);
+		}
+	}
+	setupSerialAddressCascade();
+	page.$pageEl.on('change', '[data-bind="customerId"]', function () {
+		const inst = $$('#SerialCustomerAddressSelector').data('entitySelectorInstance')
+			|| $$('#SerialCustomerAddressSelector').data('entitySelector');
+		if (inst && typeof inst.clearAll === 'function') inst.clearAll();
+	});
+
+	const serialId = page.$pageEl.dataBind()?.id || @(Model?.Id ?? 0);
+	if (serialId) {
+		page.$pageEl.find('.form-action-buttons').append(
+			'<button type="button" class="btn btn-light-primary ms-2" data-action="openSerialAttachments"><i class="fa fa-paperclip"></i> پیوست‌ها</button>'
+		);
+		page.$pageEl.on('click', '[data-action="openSerialAttachments"]', function () {
+			appController.addPage('/Panel/Sale/OrderDetailSerialAttachment/ListByParentId?orderDetailSerialId=' + serialId, true, 'پیوست سریال');
+		});
+	}
+</script>

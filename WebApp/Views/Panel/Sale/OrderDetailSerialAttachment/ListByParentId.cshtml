@@ -1,0 +1,18 @@
+@using Entities.App.Sale
+@{
+	var serialId = (long)ViewBag.OrderDetailSerialId;
+}
+<div class="card">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">پیوست‌های سریال</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newSerialAttachment">پیوست جدید</button>
+	</div>
+	<div class="card-body">
+		<datatableprofile entity-Type="typeof(OrderDetailSerialAttachment)"></datatableprofile>
+	</div>
+</div>
+<script>
+	page.$pageEl.on('click', '[data-action="newSerialAttachment"]', function () {
+		appController.addPage('/Panel/Sale/OrderDetailSerialAttachment/New?orderDetailSerialId=@serialId', true, 'پیوست سریال');
+	});
+</script>

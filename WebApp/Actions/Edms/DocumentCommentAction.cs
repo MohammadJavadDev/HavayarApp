@@ -1,6 +1,7 @@
 ﻿using Common.Utilities;
 using Data.Contracts;
 using Data.Contracts.Actions;
+using Data.Services.Sup;
 using Data.SystemAuth;
 using Entities.App.Edms;
 using Entities.App.Edms.Enums;
@@ -21,6 +22,7 @@ namespace WebApp.Actions.Edms
 			var now = DateTime.Now;
 			var document = await unitOfWork.Repository<Document>().
 				Table
+				.Include(c => c.DocumentVpis)
 				.FirstAsync(c => c.Id == model.DocumentId);
 			 
 
@@ -43,6 +45,19 @@ namespace WebApp.Actions.Edms
 				}
 
 			}
+
+			// معادل HTS DCC: ApprovedDate روی هر عملیات غیررد مرکز کنترل مدارک
+			if (model.Status == DocumentStatusEnums.ApprovedByDcc)
+			{
+				document.ApprovedShamsiDateTime = now.ToShamsiDateTime();
+				document.ApprovedMiladiDateTime = now;
+			}
+			else if (model.Status == DocumentStatusEnums.RejectByDcc)
+			{
+				document.ApprovedShamsiDateTime = null;
+				document.ApprovedMiladiDateTime = null;
+			}
+
 			document.Status = model.Status;
 			document.ModifiedDateMiladiDateTime = DateTime.Now;
 			document.ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime();
@@ -51,7 +66,15 @@ namespace WebApp.Actions.Edms
 
 			await unitOfWork.SaveChangesAsync(ct);
 
-			await Task.CompletedTask;
+			var title = document.DocumentVpis?.Title;
+			var shouldUpdateOpenOrderLinks =
+				(model.Status == DocumentStatusEnums.ApprovedByDcc
+					&& !string.IsNullOrEmpty(title)
+					&& title.Contains('*'))
+				|| model.Status == DocumentStatusEnums.NotReview;
+
+			if (shouldUpdateOpenOrderLinks)
+				await OpenOrderRequestVpisRevisionHelper.ApplyRevisionChangeForDocumentAsync(unitOfWork, document, ct);
 		}
 	}
 }

@@ -22,6 +22,7 @@ namespace Data.Services.QueryBuilderServices
 		Task<SavedQuery> SaveReportAsync(QueryDesignRequest design, long userId);
 		Task<SavedQuery> SaveReportAsync(SavedQuery design, long userId);
 		Task<SavedQuery> UpdateReportAsync(long id, QueryDesignRequest design, long userId);
+		Task<int> UpdateDataProfileColumnWidthsAsync(long id, IReadOnlyList<DataProfileColumnWidthItem> widths, long userId);
 		Task<bool> DeleteReportAsync(long id);
 		Task<SavedQuery> GetReportAsync(long id);
 		Task<SavedQuery> GetReportByNameAsync(string name);
@@ -183,6 +184,70 @@ namespace Data.Services.QueryBuilderServices
 			await _context.SaveChangesAsync();
 
 			return report;
+		}
+
+		/// <summary>
+		/// ذخیره عرض فعلی ستون‌های جدول به‌عنوان عرض پیش‌فرض نمایه داده (ColumnsJson.Width)
+		/// </summary>
+		public async Task<int> UpdateDataProfileColumnWidthsAsync(long id, IReadOnlyList<DataProfileColumnWidthItem> widths, long userId)
+		{
+			if (widths == null || widths.Count == 0)
+				throw new InvalidOperationException("لیست عرض ستون‌ها خالی است");
+
+			var report = await _context.SavedQueries.FindAsync(id);
+			if (report == null)
+				throw new KeyNotFoundException("نمایه داده مورد نظر یافت نشد");
+
+			var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+			var columns = string.IsNullOrWhiteSpace(report.ColumnsJson)
+				? new List<QueryColumn>()
+				: (JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson, jsonOptions) ?? new List<QueryColumn>());
+
+			if (columns.Count == 0)
+				throw new InvalidOperationException("هیچ ستونی برای این نمایه داده تعریف نشده است");
+
+			var updated = 0;
+			foreach (var col in columns)
+			{
+				var match = widths.FirstOrDefault(w => ColumnWidthItemMatches(col, w));
+				if (match == null)
+					continue;
+
+				col.Width = match.Width < 40 ? 40 : Math.Min(match.Width, 2000);
+				updated++;
+			}
+
+			if (updated == 0)
+				throw new InvalidOperationException("هیچ ستونی از نمایه داده با ستون‌های جدول مطابقت نداشت");
+
+			report.ColumnsJson = JsonSerializer.Serialize(columns);
+			report.ModifiedById = userId;
+			report.ModifiedDateMiladiDateTime = DateTime.Now;
+			report.ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime();
+
+			await _context.SaveChangesAsync();
+			return updated;
+		}
+
+		private static bool ColumnWidthItemMatches(QueryColumn column, DataProfileColumnWidthItem item)
+		{
+			var incoming = new[] { item.Name, item.Data }
+				.Where(s => !string.IsNullOrWhiteSpace(s))
+				.Select(NormalizeColumnWidthKey)
+				.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+			if (incoming.Count == 0)
+				return false;
+
+			return incoming.Contains(NormalizeColumnWidthKey(column.Alliance))
+				|| incoming.Contains(NormalizeColumnWidthKey(column.ColumnName));
+		}
+
+		private static string NormalizeColumnWidthKey(string? value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return string.Empty;
+			return value.Trim().ToCamelCase();
 		}
 
 		/// <summary>
@@ -500,9 +565,10 @@ namespace Data.Services.QueryBuilderServices
 			}
 			else
 			{
-				var colForSort = columns.FirstOrDefault(c => c.Sortable == true);
-
-				orderByQuery = $"[{colForSort?.Alliance ?? colForSort.ColumnName}] DESC";
+				var colForSort = columns.FirstOrDefault(c => c.SortDirection != null)
+					?? columns.FirstOrDefault(c => c.Sortable == true);
+				var dir = colForSort?.SortDirection == SortDirection.Ascending ? "ASC" : "DESC";
+				orderByQuery = $"[{colForSort?.Alliance ?? colForSort.ColumnName}] {dir}";
 			}
 
 			   

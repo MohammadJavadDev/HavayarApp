@@ -1,0 +1,157 @@
+{
+  "Name": "Training",
+  "Title": "سیستم آموزش",
+  "AccessRoles": "[\"ShowAllMenus\"]",
+  "AccessRoleIds": "[200052]",
+  "Content": [
+    {
+      "text": "اطلاعات پایه",
+      "icon": "ki-archive-tick ki-outline",
+      "iconColor": "#e5ca1f",
+      "path": "",
+      "a_attr": { "href": "" },
+      "data": { "iconColor": "#e5ca1f", "path": "" },
+      "children": [
+        {
+          "text": "بانک ها",
+          "icon": "bi-collection bi",
+          "iconColor": "#e5ca1f",
+          "path": "",
+          "a_attr": { "href": "" },
+          "data": { "iconColor": "#e5ca1f", "path": "" },
+          "children": [
+            {
+              "text": "بانک دوره",
+              "icon": "bi-journal-bookmark bi",
+              "iconColor": "#e5ca1f",
+              "path": "/panel/trn/coursebank/list",
+              "a_attr": { "href": "/panel/trn/coursebank/list" },
+              "data": { "iconColor": "#e5ca1f", "path": "/panel/trn/coursebank/list" },
+              "children": []
+            },
+            {
+              "text": "بانک مدرسین",
+              "icon": "bi-person-video3 bi",
+              "iconColor": "#e5ca1f",
+              "path": "/panel/trn/teacherbank/list",
+              "a_attr": { "href": "/panel/trn/teacherbank/list" },
+              "data": { "iconColor": "#e5ca1f", "path": "/panel/trn/teacherbank/list" },
+              "children": []
+            },
+            {
+              "text": "پیوست‌های مدرس",
+              "icon": "bi-paperclip bi",
+              "iconColor": "#e5ca1f",
+              "path": "/panel/trn/teacherbankattachment/list",
+              "a_attr": { "href": "/panel/trn/teacherbankattachment/list" },
+              "data": { "iconColor": "#e5ca1f", "path": "/panel/trn/teacherbankattachment/list" },
+              "children": []
+            }
+          ]
+        },
+        {
+          "text": "مشتریان",
+          "icon": "bi-people bi",
+          "iconColor": "#e5ca1f",
+          "path": "",
+          "a_attr": { "href": "" },
+          "data": { "iconColor": "#e5ca1f", "path": "" },
+          "children": [
+            {
+              "text": "حقوقی",
+              "icon": "bi-building bi",
+              "iconColor": "#e5ca1f",
+              "path": "/panel/trn/company/list",
+              "a_attr": { "href": "/panel/trn/company/list" },
+              "data": { "iconColor": "#e5ca1f", "path": "/panel/trn/company/list" },
+              "children": []
+            },
+            {
+              "text": "حقیقی",
+              "icon": "bi-person bi",
+              "iconColor": "#e5ca1f",
+              "path": "/panel/trn/participant/list",
+              "a_attr": { "href": "/panel/trn/participant/list" },
+              "data": { "iconColor": "#e5ca1f", "path": "/panel/trn/participant/list" },
+              "children": []
+            },
+            {
+              "text": "نماینده‌ها",
+              "icon": "bi-person-badge bi",
+              "iconColor": "#e5ca1f",
+              "path": "/panel/trn/agent/list",
+              "a_attr": { "href": "/panel/trn/agent/list" },
+              "data": { "iconColor": "#e5ca1f", "path": "/panel/trn/agent/list" },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "text": "عملیات",
+      "icon": "ki-setting-2 ki-outline",
+      "iconColor": "#f9fd0d",
+      "path": "",
+      "a_attr": { "href": "" },
+      "data": { "iconColor": "#f9fd0d", "path": "" },
+      "children": [
+        {
+          "text": "سوابق مذاکرات",
+          "icon": "bi-telephone-inbound bi",
+          "iconColor": "#f9fd0d",
+          "path": "/panel/trn/todolist/list",
+          "a_attr": { "href": "/panel/trn/todolist/list" },
+          "data": { "iconColor": "#f9fd0d", "path": "/panel/trn/todolist/list" },
+          "children": []
+        },
+        {
+          "text": "دوره آموزشی",
+          "icon": "bi-book bi",
+          "iconColor": "#f9fd0d",
+          "path": "/panel/trn/course/list",
+          "a_attr": { "href": "/panel/trn/course/list" },
+          "data": { "iconColor": "#f9fd0d", "path": "/panel/trn/course/list" },
+          "children": []
+        }
+      ]
+    },
+    {
+      "text": "گزارش",
+      "icon": "ki-chart-simple ki-outline",
+      "iconColor": "#deed07",
+      "path": "",
+      "a_attr": { "href": "" },
+      "data": { "iconColor": "#deed07", "path": "" },
+      "children": [
+        {
+          "text": "گزارش دوره های آموزشی",
+          "icon": "bi-file-earmark-bar-graph bi",
+          "iconColor": "#deed07",
+          "path": "/System/ReportBuilder/ViewReportByName/Trn_CourseReport",
+          "a_attr": { "href": "/System/ReportBuilder/ViewReportByName/Trn_CourseReport" },
+          "data": { "iconColor": "#deed07", "path": "/System/ReportBuilder/ViewReportByName/Trn_CourseReport" },
+          "children": []
+        },
+        {
+          "text": "گزارش شرکت کنندگان",
+          "icon": "bi-file-earmark-bar-graph bi",
+          "iconColor": "#deed07",
+          "path": "/System/ReportBuilder/ViewReportByName/Trn_ParticipantReport",
+          "a_attr": { "href": "/System/ReportBuilder/ViewReportByName/Trn_ParticipantReport" },
+          "data": { "iconColor": "#deed07", "path": "/System/ReportBuilder/ViewReportByName/Trn_ParticipantReport" },
+          "children": []
+        },
+        {
+          "text": "گزارش آماری دوره ها",
+          "icon": "bi-file-earmark-bar-graph bi",
+          "iconColor": "#deed07",
+          "path": "/System/ReportBuilder/ViewReportByName/Trn_StatisticalReport",
+          "a_attr": { "href": "/System/ReportBuilder/ViewReportByName/Trn_StatisticalReport" },
+          "data": { "iconColor": "#deed07", "path": "/System/ReportBuilder/ViewReportByName/Trn_StatisticalReport" },
+          "children": []
+        }
+      ]
+    }
+  ]
+}

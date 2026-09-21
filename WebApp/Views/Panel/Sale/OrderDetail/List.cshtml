@@ -1,0 +1,177 @@
+@using Entities.App.Sale
+<datatableprofile entity-Type="typeof(OrderDetail)"></datatableprofile>
+
+<script>
+	function escapeOrderDetailHtml(value) {
+		if (value == null || value === undefined) return '';
+		return String(value)
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;');
+	}
+
+	function renderOrderDetailSerialRows($modal, serials) {
+		const $tbody = $modal.find('#orderDetailSerialTable tbody');
+		if (!$tbody.length) return;
+
+		if (!serials || !serials.length) {
+			$tbody.html('<tr><td colspan="11" class="text-center text-muted">سریالی ثبت نشده است</td></tr>');
+			return;
+		}
+
+		const rows = serials.map(function (s, idx) {
+			return `<tr data-serial-id="${s.id}">
+				<td>${idx + 1}</td>
+				<td>${escapeOrderDetailHtml(s.serial)}</td>
+				<td>${escapeOrderDetailHtml(s.model)}</td>
+				<td>${escapeOrderDetailHtml(s.productionOrderNumber)}</td>
+				<td>${escapeOrderDetailHtml(s.planingProjectName)}</td>
+				<td>${escapeOrderDetailHtml(s.customerName)}</td>
+				<td>${escapeOrderDetailHtml(s.guaranteeTime)}</td>
+				<td>${escapeOrderDetailHtml(s.guaranteeSendDay)}</td>
+				<td>${escapeOrderDetailHtml(s.guaranteeLaunchDay)}</td>
+				<td>${escapeOrderDetailHtml(s.industrialComment)}</td>
+				<td class="text-nowrap">
+					<button type="button" class="btn btn-sm btn-icon btn-light-primary me-1" data-action="editSerial" data-id="${s.id}" title="ویرایش">
+						<i class="fa fa-edit"></i>
+					</button>
+					<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteSerial" data-id="${s.id}" title="حذف">
+						<i class="fa fa-trash"></i>
+					</button>
+				</td>
+			</tr>`;
+		});
+		$tbody.html(rows.join(''));
+	}
+
+	function refreshOrderDetailSerials($modal, orderDetailId) {
+		const id = orderDetailId || $modal.find('[data-order-detail-id]').first().data('order-detail-id');
+		get('/Panel/Sale/OrderDetail/GetSerials?orderDetailId=' + id, function (r) {
+			const serials = Array.isArray(r) ? r : (r?.data || []);
+			renderOrderDetailSerialRows($modal, serials);
+		});
+	}
+
+	function openSerialEditModal(orderDetailId, serialId, $listModal) {
+		const url = serialId
+			? ('/Panel/Sale/OrderDetail/GetSerialEditModal?id=' + serialId + '&orderDetailId=' + orderDetailId)
+			: ('/Panel/Sale/OrderDetail/GetSerialEditModal?orderDetailId=' + orderDetailId);
+
+		get(url, function (html) {
+			const bodyCn = `<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;">${html}</div>`;
+			$.confirm({
+				title: serialId ? 'ویرایش سریال' : 'افزودن سریال جدید',
+				columnClass: 'col-md-10',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+
+							const model = $content.dataBind();
+							const selfConfirm = this;
+
+							post('/Panel/Sale/OrderDetail/SaveSerial', model, function (r) {
+								if (!r.isSuccess) {
+									toastr.error(r.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success(r.message || 'با موفقیت ذخیره شد');
+								selfConfirm.close();
+								refreshOrderDetailSerials($listModal, orderDetailId);
+							});
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						initPersionDatePicker(selfConfirm.$body);
+						selfConfirm.$body.find('select.select2-hidden-accessible').each(function () {
+							const $select = $(this);
+							const currentVal = $select.val();
+							$select.select2('destroy');
+							$select.select2({
+								dropdownParent: selfConfirm.$body,
+								width: '100%',
+								placeholder: $select.attr('placeholder') || 'انتخاب کنید'
+							});
+							if (currentVal != null && currentVal !== '') {
+								$select.val(currentVal).trigger('change');
+							}
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	function openOrderDetailSerials(ctx) {
+		const orderDetailId = ctx?.primaryKeyValue
+			|| ctx?.primaryKeyValues?.[0]
+			|| ctx?.selectedRow?.t1_Id
+			|| ctx?.selectedRow?.id
+			|| ctx?.selectedRow?.Id;
+
+		if (!orderDetailId) {
+			toastr.error('لطفاً یک ردیف حواله فروش را انتخاب کنید');
+			return;
+		}
+
+		appController.addPage('/Panel/Sale/OrderDetail/ListByParentId?orderDetailId=' + orderDetailId, true, 'سریال‌های اقلام حواله فروش');
+	}
+
+	window.openOrderDetailSerials = openOrderDetailSerials;
+
+	// اکشن پروفایل داده باید این را صدا بزند:
+	// function(ctx){ window.openOrderDetailSerials(ctx); }
+	// توجه: مدال $.confirm خارج از page.$pageEl است؛ delegation روی document لازم است.
+
+	$(document).off('click.orderDetailSerials')
+		.on('click.orderDetailSerials', '.order-detail-serial-modal [data-action="newSerial"]', function () {
+			const $modal = $(this).closest('.jconfirm-content');
+			const orderDetailId = $(this).closest('[data-order-detail-id]').data('order-detail-id');
+			openSerialEditModal(orderDetailId, null, $modal);
+		})
+		.on('click.orderDetailSerials', '.order-detail-serial-modal [data-action="editSerial"]', function () {
+			const $btn = $(this);
+			const $modal = $btn.closest('.jconfirm-content');
+			const orderDetailId = $btn.closest('[data-order-detail-id]').data('order-detail-id');
+			openSerialEditModal(orderDetailId, $btn.data('id'), $modal);
+		})
+		.on('click.orderDetailSerials', '.order-detail-serial-modal [data-action="deleteSerial"]', function () {
+			const $btn = $(this);
+			const $modal = $btn.closest('.jconfirm-content');
+			const orderDetailId = $btn.closest('[data-order-detail-id]').data('order-detail-id');
+			const serialId = $btn.data('id');
+
+			Swal.fire({
+				title: 'حذف سریال',
+				text: 'آیا از حذف این سریال مطمئن هستید؟',
+				icon: 'warning',
+				showCancelButton: true,
+				confirmButtonText: 'بله، حذف شود',
+				cancelButtonText: 'انصراف'
+			}).then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/OrderDetail/DeleteSerial?id=' + serialId, function (r) {
+					if (!r.isSuccess) {
+						toastr.error(r.message || 'خطا در حذف', 'خطا');
+						return;
+					}
+					toastr.success(r.message || 'با موفقیت حذف شد');
+					refreshOrderDetailSerials($modal, orderDetailId);
+				});
+			});
+		});
+</script>

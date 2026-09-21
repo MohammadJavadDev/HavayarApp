@@ -1,0 +1,36 @@
+<div id="repairDelayChartPage">
+	<div class="card mb-4">
+		<div class="card-header">
+			<div class="card-title"><h3 class="mb-0">نمودار تاخیر تعمیرات</h3></div>
+			<div class="card-toolbar">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadRepairDelay">نمایش</button>
+			</div>
+		</div>
+		<div class="card-body">
+			<div id="repairDelayChart"></div>
+		</div>
+	</div>
+</div>
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	let repairDelayChart;
+	function loadRepairDelay() {
+		$$.post('DelayChartData', {}, function (r) {
+			if (!r || !r.isSuccess) { toastr.error((r && r.message) || 'خطا', 'خطا'); return; }
+			const rows = r.data || [];
+			const options = {
+				chart: { type: 'bar', height: 360 },
+				series: [{ name: 'تعداد', data: rows.map(x => x.count) }],
+				xaxis: { categories: rows.map(x => x.status ?? 'نامشخص') }
+			};
+			if (!repairDelayChart) {
+				repairDelayChart = new ApexCharts($$('#repairDelayChart')[0], options);
+				repairDelayChart.render();
+			} else {
+				repairDelayChart.updateOptions(options);
+			}
+		});
+	}
+	$$('#btnLoadRepairDelay').on('click', loadRepairDelay);
+	loadRepairDelay();
+</script>

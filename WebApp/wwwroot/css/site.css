@@ -1899,24 +1899,8 @@ body[class*=jconfirm-no-scroll-] {
 
 }
 
-     /* ===== حالت پیش‌فرض: آیکن کوچک ===== */
-     .form-action-buttons .btn-icon {
-          transition: all 0.2s ease;
-     }
-
-          /* ===== hover حالت کوچک ===== */
-          .form-action-buttons .btn-icon:hover {
-               transform: translateY(-2px);
-               box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-          }
-
-          .form-action-buttons .btn-icon:active {
-               transform: translateY(0px);
-               box-shadow: none;
-          }
-
-/* ===== حالت بزرگ ===== */
-html.btn-display-large .form-action-buttons .btn-icon:not(.d-none) {
+/* ===== دکمه‌های فرم: آیکن بزرگ + عنوان ===== */
+.form-action-buttons .btn-icon:not(.d-none) {
      display: inline-flex !important;
      flex-direction: column;
      align-items: center;
@@ -1934,17 +1918,17 @@ html.btn-display-large .form-action-buttons .btn-icon:not(.d-none) {
      margin: 1px 1.7px;
 }
 
-html.btn-display-large .form-action-buttons {
+.form-action-buttons {
      padding: 1.7px;
      margin: 0;
 }
 
-     html.btn-display-large .form-action-buttons .btn-icon i {
+     .form-action-buttons .btn-icon i {
           font-size: var(--site-font-size) !important;
           transition: transform 0.2s ease;
      }
 
-     html.btn-display-large .form-action-buttons .btn-icon::after {
+     .form-action-buttons .btn-icon::after {
           content: attr(title);
           font-size: var(--site-font-size);
           font-weight: 500;
@@ -1953,18 +1937,17 @@ html.btn-display-large .form-action-buttons {
           transition: opacity 0.2s ease;
      }
 
-     /* ===== hover حالت بزرگ ===== */
-     html.btn-display-large .form-action-buttons .btn-icon:hover {
+     .form-action-buttons .btn-icon:hover {
           background-color: color-mix(in srgb, currentColor 10%, transparent);
           transform: translateY(-2px);
           box-shadow: 0 4px 12px color-mix(in srgb, currentColor 25%, transparent);
      }
 
-          html.btn-display-large .form-action-buttons .btn-icon:hover i {
+          .form-action-buttons .btn-icon:hover i {
                transform: scale(1.15);
           }
 
-     html.btn-display-large .form-action-buttons .btn-icon:active {
+     .form-action-buttons .btn-icon:active {
           transform: translateY(0px);
           box-shadow: none;
           background-color: color-mix(in srgb, currentColor 18%, transparent);
@@ -1974,6 +1957,69 @@ html.btn-display-large .form-action-buttons {
      border-bottom: 1px solid var(--bs-card-border-color);
      margin-bottom: 15px !important;
      padding-bottom: 5px;
+}
+
+/* تولتیپ متن کامل سلول‌های بریده‌شده‌ی جدول */
+.dt-cell-tooltip {
+     --bs-tooltip-max-width: 420px;
+     --bs-tooltip-opacity: 1;
+     z-index: 1090;
+}
+
+.dt-cell-tooltip .tooltip-inner {
+     text-align: right;
+     direction: rtl;
+     white-space: pre-line;
+     word-break: break-word;
+     line-height: 1.7;
+}
+
+/* جداول سفارشی (غیر Data Profile): یک خط + ellipsis + تولتیپ متن کامل */
+table.ellipsis-tooltip-table {
+	table-layout: fixed;
+	width: 100%;
+}
+
+table.ellipsis-tooltip-table th {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+table.ellipsis-tooltip-table td {
+	overflow: hidden;
+}
+
+table.ellipsis-tooltip-table td .dt-ellipsis-cell {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 100%;
+	cursor: default;
+}
+
+table.ellipsis-tooltip-table td.text-center,
+table.ellipsis-tooltip-table td.dt-ellipsis-skip {
+	overflow: visible;
+}
+
+.dt-ellipsis-cell-tooltip {
+	position: fixed;
+	z-index: 10900;
+	max-width: 420px;
+	padding: 6px 10px;
+	background: #1e1e2d;
+	color: #fff;
+	border-radius: 4px;
+	font-size: 12px;
+	line-height: 1.7;
+	text-align: right;
+	direction: rtl;
+	pointer-events: none;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+	white-space: pre-wrap;
+	word-break: break-word;
 }
 
 /* ===== جلوگیری از wrap و اعمال اسکرول افقی ===== */
@@ -1999,12 +2045,6 @@ html.btn-display-large .form-action-buttons {
      .dt-layout-start .btn-icon {
           flex-shrink: 0;
      }
-
-/* در حالت large هم دکمه‌ها کوچک نشن */
-html.btn-display-large .form-action-buttons .btn-icon,
-html.btn-display-large .dt-layout-start .btn-icon {
-     flex-shrink: 0;
-}
 /* Multi-Select Container (Looks like a Bootstrap Input) */
 .entity-selector-multi-container {
      display: flex;
@@ -2574,8 +2614,9 @@ button[data-action="multiSelect"].active {
      }
 
      .form-group-inline > select,
-     .form-group-inline > input,
+     .form-group-inline > input:not([type="checkbox"]),
      .form-group-inline > textarea,
+     .form-group-inline > div,
      .form-group-inline > .entity-selector-wrapper {
           flex: 1 1 0;
           min-width: 0;
@@ -2609,6 +2650,47 @@ button[data-action="multiSelect"].active {
           .form-group-inline > [data-invalidmessagespan] {
                margin-inline-start: 0;
           }
+}
+
+/* DataTable body fills remaining viewport so paging stays on-screen */
+div.dt-container.dt-page-fit {
+	margin-bottom: 0;
+}
+
+div.dt-container.dt-page-fit div.dt-scroll-body {
+	overflow-y: auto !important;
+}
+
+.table-responsive:has(> div.dt-container.dt-page-fit) {
+	overflow: visible;
+}
+
+.dt-cell-fulltext-tooltip {
+	position: fixed;
+	z-index: 10900;
+	display: none;
+	max-width: min(32rem, calc(100vw - 1.5rem));
+	padding: 0.5rem 0.75rem;
+	border-radius: 0.475rem;
+	font-size: 0.8125rem;
+	line-height: 1.6;
+	color: var(--bs-body-color, #181c32);
+	background: var(--bs-body-bg, #fff);
+	border: 1px solid var(--bs-border-color, #e4e6ef);
+	box-shadow: 0 0.5rem 1.5rem rgba(15, 20, 34, 0.12);
+	pointer-events: none;
+	white-space: pre-wrap;
+	word-break: break-word;
+	direction: rtl;
+	text-align: right;
+}
+
+.dt-cell-fulltext-tooltip.is-visible {
+	display: block;
+}
+
+[data-bs-theme="dark"] .dt-cell-fulltext-tooltip {
+	box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.45);
 }
 
  

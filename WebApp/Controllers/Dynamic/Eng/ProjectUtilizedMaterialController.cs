@@ -3,6 +3,7 @@ using Common.Auth.Enums;
 using Data;
 using Data.Contracts;
 using Entities.App.Eng;
+using Entities.App.Sale;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
@@ -116,6 +117,7 @@ namespace WebApp.Controllers.Dynamic.Eng
 
                 if (dlId.HasValue && dlId.Value > 0)
                 {
+                    await EnsurePartListFromUtilizedMaterialAsync(dlId.Value, CancellationToken.None);
                     pdfBytes = await GetPartListSectionItemsPdf(dlId.Value);
                 }
                 else if (partId.HasValue && partId.Value > 0)
@@ -142,6 +144,81 @@ namespace WebApp.Controllers.Dynamic.Eng
             {
                 return StatusCode(500, new { success = false, message = $"خطا در ایجاد PDF: {ex.Message}" });
             }
+        }
+
+        /// <summary>
+        /// معادل HTS EngPartListDlBomService.GetModelByDlId:
+        /// اقلام مصرفی تفصیل به‌جز برگشت از مصرف (VchTypeId=7) وارد پارت‌لیست می‌شوند.
+        /// </summary>
+        [HttpGet("[action]")]
+        public async Task<IActionResult> GenerateByDlId(long dlId, CancellationToken cancellation)
+        {
+            var inserted = await EnsurePartListFromUtilizedMaterialAsync(dlId, cancellation);
+            return Ok(new { inserted });
+        }
+
+        private async Task<int> EnsurePartListFromUtilizedMaterialAsync(long dlId, CancellationToken cn)
+        {
+            var materials = await _unitOfWork.Repository<ProjectUtilizedMaterial>()
+                .TableNoTracking
+                .Where(p => p.DLId == dlId && p.VchTypeId != 7 && p.PartId != null)
+                .Select(p => new { p.PartId, p.Qty, DlTitle = p.DL != null ? p.DL.Title : null })
+                .ToListAsync(cn);
+
+            if (materials.Count == 0)
+                return 0;
+
+            var grouped = materials
+                .GroupBy(p => p.PartId!.Value)
+                .Select(g => new { PartId = g.Key, Qty = g.Sum(s => s.Qty), DlTitle = g.First().DlTitle })
+                .ToList();
+
+            var existPartIds = await _unitOfWork.Repository<PartList>()
+                .TableNoTracking
+                .Where(p => p.DlId == dlId && p.PartId != null)
+                .Select(p => p.PartId!.Value)
+                .ToListAsync(cn);
+            var missing = grouped.Where(p => !existPartIds.Contains(p.PartId)).ToList();
+            if (missing.Count == 0)
+                return 0;
+
+            var dlTitle = grouped.First().DlTitle ?? "";
+            string? productSerial = null;
+            var slash = dlTitle.LastIndexOf('/');
+            if (slash >= 0 && slash < dlTitle.Length - 1)
+                productSerial = dlTitle[(slash + 1)..];
+
+            long? productId = null;
+            if (!string.IsNullOrWhiteSpace(productSerial))
+            {
+                productId = await _unitOfWork.Repository<ProductionOrderItem>()
+                    .TableNoTracking
+                    .Where(p => p.Serial == productSerial)
+                    .Select(p => p.PartId)
+                    .FirstOrDefaultAsync(cn);
+            }
+
+            if (productId is null or 0)
+                return 0;
+
+            var added = 0;
+            foreach (var row in missing)
+            {
+                await _unitOfWork.Repository<PartList>().AddAsync(new PartList
+                {
+                    DlId = dlId,
+                    ProductId = productId,
+                    PartId = row.PartId,
+                    Qty = Convert.ToInt32(Math.Round(row.Qty)),
+                    Order = 0
+                }, cn, false);
+                added++;
+            }
+
+            if (added > 0)
+                await _unitOfWork.SaveChangesAsync(cn);
+
+            return added;
         }
 
         #region Private Method PDF

@@ -641,18 +641,18 @@
             <td>پس از تایید صنایع/مهندسی/PM</td>
           </tr>
           <tr>
-            <td><code>POI_All_ReadyForShipping</code> <span class="chip ok">Id=123 — پیاده‌سازی‌شده</span></td>
-            <td>آماده به ارسال</td>
+            <td><code>POI_All_ReadyForShipping</code> <span class="chip ok">Id=123 — مطابق گزارش HTS</span></td>
+            <td>آماده ارسال اقلام سفارش ساخت</td>
             <td>
-              <code>Status = 579</code> (NotCompleted) و <strong>هیچ</strong> قلم هم‌سفارش دیگری با
-              <code>Status = 579</code> که <code>ProductionStep &lt;&gt; 221</code> باشد وجود نداشته باشد
-              (یعنی کل اقلامِ ناتمام همان سفارش ساخت آماده ارسال باشند)
+              معادل ویو گزارش <code>Vw_Pln_ProductionOrderItem_ReadyToSend</code>:
+              <code>Status = 579</code> و <code>ProductionStep = 221</code> و
+              تعداد اقلام ناتمام سفارش = تعداد اقلام آماده ارسال همان سفارش
+              (+ ستون <code>InWarehouseTimeInDay</code> و <code>Bar</code>)
             </td>
             <td>
-              معادل دقیق HTS <code>ProductionOrderItemController.GetNewGridData(loadReadyToSendItems: true)</code>
-              (L296-L338): <code>GroupBy(ProductionOrder) → فقط اقلام Status=579 → فقط اگر همه آن‌ها
-              ProductionStep=221 باشند</code>. صرفاً <code>ProductionStep=221</code> کافی نیست چون سفارش‌های
-              با ارسال جزئی (بعضی اقلام آماده، بعضی نه) نباید نمایش داده شوند.
+              گزارش HTS (نه فقط دکمه فیلتر گرید مدیریت). ستون‌ها و عناوین از همان ویو +
+              <code>CaptionsLibrary.fa-IR</code>. Seed:
+              <code>Seed_ProductionOrderItem_ReadyForShipping_DataProfile.sql</code>.
             </td>
           </tr>
           <tr>
@@ -675,20 +675,14 @@
         <pre>WHERE
     [t1].[IsDeleted] = 0
     AND [t1].[IsLatestVersion] = 1
-    AND [t1].[Status] = 579                       -- NotCompleted (وضعیت 0 در HTS)
-    AND NOT EXISTS (                              -- هیچ قلم هم‌سفارشِ ناتمامِ غیر-آماده‌ای نباشد
-        SELECT 1 FROM [Sale].[ProductionOrderItem] AS [sib]
-        WHERE [sib].[ProductionOrderId] = [t1].[ProductionOrderId]
-          AND [sib].[IsDeleted] = 0
-          AND [sib].[IsLatestVersion] = 1
-          AND [sib].[Status] = 579
-          AND [sib].[ProductionStep] &lt;&gt; 221        -- ReadyForShipping
-    )</pre>
+    AND [t1].[Status] = 579                       -- NotCompleted
+    AND [t1].[ProductionStep] = 221               -- ReadyForShipping
+    AND (COUNT Status=579 per order) = (COUNT ProductionStep=221 per order)
+        -- معادل Vw_Pln_ProductionOrderItem_ReadyToSend: A.ItemCount = B.ItemCount</pre>
         <p class="note">
-          تست روی داده واقعی: از ۱۲۴ قلم با <code>Status=579 AND ProductionStep=221</code>، فقط
-          <strong>۱۶ قلم</strong> این شرط را برآورده می‌کنند (یعنی متعلق به سفارش‌هایی هستند که
-          <em>تمام</em> اقلام ناتمام‌شان آماده ارسال است). این تفاوت (۱۲۴ در برابر ۱۶) دقیقاً همان
-          چیزی است که فرمول HTS با <code>GroupBy + Items.Count(ready) == Items.Count</code> هدفش بود.
+          روی داده هوایار: از اقلام <code>Status=579 AND ProductionStep=221</code> فقط آن‌هایی می‌مانند
+          که کل اقلام ناتمام همان سفارش آماده ارسال باشند (نمونه زنده: ۲۵ ردیف). ویو HTS الان ۳۳ ردیف دارد؛
+          اختلاف به‌خاطر همگام‌نبودن داده است نه فرمول.
         </p>
       </div>
     </section>

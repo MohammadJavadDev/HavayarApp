@@ -1,0 +1,132 @@
+@using Entities.App.Inv
+@using Entities.App.Sale
+@using Entities.Base
+@model ProjectUtilizedMaterial
+@{
+	var hasId = Model?.Id != null && Model.Id != 0;
+	var dlText = (Model?.DL != null) ? $"{Model.DL.Code} | {Model.DL.Title}" : "";
+	var partText = (Model?.Part != null) ? $"{Model.Part.Code} {Model.Part.Name}" : "";
+}
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(ProjectUtilizedMaterial)">
+			@if (hasId)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-history"
+					action-name="openChanges" title="سوابق تغییرات"></form-action-button>
+			}
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">اقلام مصرفی در پروژه</h4></div></div>
+		@if (!hasId)
+		{
+			<div class="alert alert-warning">ردیف‌های این صفحه از اسناد انبار وارد می‌شوند و درج دستی ندارند. از لیست یک ردیف را ویرایش کنید.</div>
+		}
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="vchItemId" value="@Model?.VchItemId" type="hidden" />
+		<input class="form-control" data-bind="vchHdrId" value="@Model?.VchHdrId" type="hidden" />
+		<input class="form-control" data-bind="dlId" value="@Model?.DLId" type="hidden" />
+		<input class="form-control" data-bind="partId" value="@Model?.PartId" type="hidden" />
+		<input class="form-control" data-bind="dlTypeId" value="@Model?.DLTypeId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">تفصیل</label>
+				<input class="form-control" value="@dlText" readonly />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نوع رسید</label>
+				<input class="form-control" data-bind="vchTypeId" value="@Model?.VchTypeId" readonly />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">سال</label>
+				<input class="form-control" data-bind="year" value="@Model?.Year" readonly />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">شماره سند</label>
+				<input class="form-control" data-bind="vchNum" value="@Model?.VchNum" readonly />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ سند</label>
+				<input class="form-control" data-bind="vchDateShamsiDate" value="@Model?.VchDateShamsiDate" readonly />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مقدار</label>
+				<input class="form-control" data-bind="qty" value="@Model?.Qty" readonly />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">کالا</label>
+				<input class="form-control" value="@partText" readonly />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">کالای جایگزین</label>
+				@(Html.EntitySelector<Part>(
+					"ProjectUtilizedMaterialReplacedPartSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"replacedPartId",
+					"replacedPartName",
+					Model?.ReplacedPartId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تعداد/مقدار جایگزین</label>
+				<input class="form-control" data-bind="replacedQty" data-required="true" asp-for="ReplacedQty" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-8 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="2"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		const model = page.$pageEl.dataBind();
+		if (!model.id) {
+			toastr.error('ردیف‌های اقلام مصرفی از اسناد انبار وارد می‌شوند و درج دستی ندارند.');
+			return;
+		}
+		if (!model.replacedPartId) {
+			toastr.warning('کالای جایگزین نمی‌تواند خالی باشد');
+			return;
+		}
+		const replacedQty = Number(model.replacedQty);
+		if (!replacedQty) {
+			toastr.warning('تعداد/مقدار جایگزین نمی‌تواند خالی باشد');
+			return;
+		}
+		if (validateError(page.$pageEl)) return;
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	if (self.FormActionButtons.save)
+		self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandnew) {
+		self.FormActionButtons.saveandnew.onclick(function () {
+			toastr.warning('درج دستی برای اقلام مصرفی پروژه وجود ندارد');
+		});
+	}
+	if (self.FormActionButtons.openChanges) {
+		self.FormActionButtons.openChanges.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ردیف را از لیست باز کنید'); return; }
+			appController.addPage('/Panel/Sale/ProjectUtilizedMaterialChange/ListByParentId?projectUtilizedMaterialId=' + id, true, 'سوابق تغییرات اقلام مصرفی');
+		});
+	}
+</script>

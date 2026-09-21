@@ -1,0 +1,305 @@
+{
+  "ReportGuid": "89059e60f00442ed985b6bfba2a95863",
+  "ReportName": "Certificate1",
+  "ReportAlias": "Certificate1",
+  "ReportCreated": "/Date(1788956667732+0330)/",
+  "ReportChanged": "/Date(1789300000000+0330)/",
+  "EngineVersion": "EngineV2",
+  "ReportUnit": "Centimeters",
+  "CalculationMode": "Interpretation",
+  "Script": "using System;\r\nusing System.Drawing;\r\nusing System.Windows.Forms;\r\nusing System.Data;\r\nusing Stimulsoft.Controls;\r\nusing Stimulsoft.Base.Drawing;\r\nusing Stimulsoft.Report;\r\nusing Stimulsoft.Report.Dialogs;\r\nusing Stimulsoft.Report.Components;\r\n\r\nnamespace Reports\r\n{\r\n    public class Certificate1 : Stimulsoft.Report.StiReport\r\n    {\r\n        public Certificate1()        {\r\n            this.InitializeComponent();\r\n        }\r\n\r\n        #region StiReport Designer generated code - do not modify\r\n        #endregion StiReport Designer generated code - do not modify\r\n    }\r\n}\r\n",
+  "ReferencedAssemblies": {
+    "0": "System.Dll",
+    "1": "System.Drawing.Dll",
+    "2": "System.Windows.Forms.Dll",
+    "3": "System.Data.Dll",
+    "4": "System.Xml.Dll",
+    "5": "Stimulsoft.Controls.Dll",
+    "6": "Stimulsoft.Base.Dll",
+    "7": "Stimulsoft.Report.Dll"
+  },
+  "Pages": {
+    "0": {
+      "Ident": "StiPage",
+      "Name": "Page1",
+      "Guid": "8baa89e7f7f64011bcdb18b66dde8144",
+      "Interaction": {
+        "Ident": "StiInteraction"
+      },
+      "Border": ";;2;;;;;solid:Black",
+      "Brush": "empty",
+      "RightToLeft": false,
+      "Components": {
+        "0": {
+          "Ident": "StiDataBand",
+          "Name": "DataBand1",
+          "ClientRectangle": "0,0,29.7,20.5269",
+          "Interaction": {
+            "Ident": "StiBandInteraction"
+          },
+          "Border": ";;;;;;;solid:Black",
+          "Brush": "solid:",
+          "DataSourceName": "Report",
+          "StartNewPage": true,
+          "Components": {
+            "0": {
+              "Ident": "StiText",
+              "Name": "LblCertNo",
+              "ClientRectangle": "21.4577,2.431,1.905,0.5842",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "Cert.No:"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "Arial;10.5;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "1": {
+              "Ident": "StiText",
+              "Name": "ValCertNo",
+              "ClientRectangle": "23.495,2.431,3.5983,0.5842",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.CertificateNo}"
+              },
+              "HorAlignment": "Left",
+              "VertAlignment": "Center",
+              "Font": "Arial;10.5;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "2": {
+              "Ident": "StiText",
+              "Name": "LblDate",
+              "ClientRectangle": "21.4577,3.0152,1.905,0.5842",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "Date:"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "Arial;10.5;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "3": {
+              "Ident": "StiText",
+              "Name": "ValDate",
+              "ClientRectangle": "23.495,3.0152,3.5983,0.5842",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.IssueDateEn}"
+              },
+              "HorAlignment": "Left",
+              "VertAlignment": "Center",
+              "Font": "Arial;10.5;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "4": {
+              "Ident": "StiText",
+              "Name": "ValFullNameLatin",
+              "ClientRectangle": "1.0054,6.3489,27.94,1.2457",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.FullNameLatin}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Times New Roman;18;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "5": {
+              "Ident": "StiText",
+              "Name": "LblRecognition",
+              "ClientRectangle": "1.0054,7.7512,27.94,1.2457",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "In recognition of attendance in"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Times New Roman;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "6": {
+              "Ident": "StiText",
+              "Name": "ValCourseLatin",
+              "ClientRectangle": "1.0054,9.234,27.94,1.2457",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.CourseFieldTitleInLatin}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Times New Roman;18;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "7": {
+              "Ident": "StiText",
+              "Name": "LblTrainingCourse",
+              "ClientRectangle": "1.0054,10.7818,27.94,1.2457",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "Training Course."
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Times New Roman;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "8": {
+              "Ident": "StiText",
+              "Name": "ValDurationDate",
+              "ClientRectangle": "1.0054,12.3428,27.94,1.2457",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.DurationDate}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Times New Roman;15.75;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "9": {
+              "Ident": "StiText",
+              "Name": "ValCompanyLatin",
+              "ClientRectangle": "1.0054,13.7716,27.94,1.2457",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.CompanyTitleInLatin}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Times New Roman;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": true
+              }
+            },
+            "10": {
+              "Ident": "StiImage",
+              "Name": "Sign2",
+              "ClientRectangle": "13.3154,15.5519,2.7252,3.5518",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "empty",
+              "Stretch": true,
+              "AspectRatio": true,
+              "HorAlignment": "Center",
+              "VertAlignment": "Center"
+            },
+            "11": {
+              "Ident": "StiImage",
+              "Name": "Sign1",
+              "ClientRectangle": "18.3092,15.2024,3.8629,3.5518",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "empty",
+              "Stretch": true,
+              "AspectRatio": true,
+              "HorAlignment": "Center",
+              "VertAlignment": "Center"
+            }
+          }
+        }
+      },
+      "PaperSize": "A4",
+      "Orientation": "Landscape",
+      "PageWidth": 29.7,
+      "PageHeight": 21.0,
+      "Watermark": {
+        "TextBrush": "solid:50,0,0,0",
+        "ShowBehind": true,
+        "Enabled": true,
+        "ImageStretch": true,
+        "AspectRatio": true
+      },
+      "Margins": {
+        "Left": 0,
+        "Right": 0,
+        "Top": 0,
+        "Bottom": 0
+      }
+    }
+  }
+}

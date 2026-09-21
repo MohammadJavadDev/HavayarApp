@@ -153,6 +153,24 @@ namespace WebFramework.Controllers
 			return Ok();
 		}
 
+		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("ذخیره عرض ستون‌ها", ActionAccessType.Api, ActionAccessItemType.Custom)]
+		public async Task<IActionResult> SetColumnWidths(long id, [FromBody] List<DataProfileColumnWidthItem> columns)
+		{
+			if (id <= 0)
+				return NotFound("هیچ نمایه داده ای با این شناسه یافت نشد.");
+
+			if (!CurrentUserId.HasValue)
+				throw new Exception("کاربر جاری مشخص نیست.");
+
+			var report = await _queryService.GetReportAsync(id);
+			if (report == null)
+				return NotFound();
+
+			var updated = await _queryService.UpdateDataProfileColumnWidthsAsync(id, columns ?? new List<DataProfileColumnWidthItem>(), CurrentUserId.Value);
+			return Ok(new { updated });
+		}
+
 		#region API Methods
 
 		/// <summary>

@@ -23,28 +23,28 @@
 		? sdk.HasRole("Sale.ProductionOrderItem.AcceptEngineeringElectrical")
 		: sdk.HasRole("Sale.ProductionOrderItem.AcceptEngineeringMechanical"));
 
-	//Seed Role => Sale.ProductionOrderItem.AcceptIndustrial => سفارش ساخت - تایید صنایع
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد صنایع را به آن انتساب بده
-	var canAcceptIndustrial = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.AcceptIndustrial");
-
 	//Seed Role => Sale.ProductionOrderItem.AcceptProjectManager => سفارش ساخت - تایید مدیر پروژه
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و مدیران پروژه را به آن انتساب بده
 	var canAcceptProjectManager = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.AcceptProjectManager");
 
-	//Seed Role => Sale.ProductionOrderItem.Inquirer => سفارش ساخت - استعلام
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران مسئول استعلام را به آن انتساب بده
+	//Seed Role => Sale.ProductionOrderItem.Inquirer => سفارش ساخت - استعلام (اقدام روی ۱۹۰۶ — عین HTS Pln_Inquirer)
 	var canInquiry = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.Inquirer");
 
-	//Seed Role => Sale.ProductionOrderItem.MinistryOfIndustryInquirer => سفارش ساخت - استعلام وزارت صنایع
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران مسئول بررسی وزارت صنایع را به آن انتساب بده
+	//Seed Role => Sale.ProductionOrderItem.MinistryOfIndustryInquirer => سفارش ساخت - استعلام وزارت صنایع (اقدام روی ۱۹۰۸)
 	var canMinistryReview = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.MinistryOfIndustryInquirer");
 
-	//Seed Role => Sale.ProductionOrderItem.SupplyCommitteeBoss => سفارش ساخت - رئیس کمیته تامین
-	// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و رئیس کمیته تامین را به آن انتساب بده
+	//Seed Role => Sale.ProductionOrderItem.SupplyCommitteeBoss => سفارش ساخت - رئیس کمیته تامین (اقدام روی ۲۲۰۲/۱۹۰۹)
 	var canSupplyCommitteeBoss = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.SupplyCommitteeBoss");
 
-	// مطابق دقیق منطق ProductionOrderItemController.SendToSupplyCommittee: هر یک از سه نقش زیر کافی است
-	var canSendToSupplyCommittee = canInquiry || canMinistryReview || canSupplyCommitteeBoss;
+	// پیوست‌های سربرگ سفارش ساخت (معادل دکمه «دانلود پیوست سفارش» ریبون اقلام در HTS)
+	var po = Model?.ProductionOrder;
+	var orderAttachments = new[]
+	{
+		new { title = "پیوست تایید مدیریت", id = po?.ManagementConfirmationAttachmentId, name = po?.ManagementConfirmationAttachmentFile?.OriginalName },
+		new { title = "پیوست فاکتور پیش پرداخت", id = po?.DepositFactorAttachmentId, name = po?.DepositFactorAttachmentFile?.OriginalName },
+		new { title = "پیوست پیش فاکتور", id = po?.PreFactorAttachmentId, name = po?.PreFactorAttachmentFile?.OriginalName },
+		new { title = "پیوست قرارداد", id = po?.ContractAttachmentId, name = po?.ContractAttachmentFile?.OriginalName },
+		new { title = "پیوست مهندسی / متره", id = po?.EngineeringAttachmentId, name = po?.EngineeringAttachmentFile?.OriginalName }
+	}.Where(a => a.id.HasValue && a.id > 0).ToList();
 }
 
 <div class="card">
@@ -61,20 +61,16 @@
 							action-name="viewBom" title="Bom محصول"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-cog"
 				action-name="acceptEngineering" title="تایید/رد مهندسی"></form-action-button>
-			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-industry"
-				action-name="acceptIndustrial" title="تایید صنایع"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-tie"
 				action-name="acceptProjectManager" title="تایید/رد مدیر پروژه"></form-action-button>
-			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-question-circle"
-				action-name="sendToInquiry" title="ارسال به استعلام"></form-action-button>
-			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-landmark"
-				action-name="sendToMinistryReview" title="ارسال به صنایع"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-users"
-				action-name="sendToSupplyCommittee" title="ارسال به کمیته تامین"></form-action-button>
+				action-name="sendToSupplyCommittee" title="ارسال نتیجه استعلام به کمیته تامین"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check-double"
-				action-name="committeeAccept" title="تایید کمیته تامین"></form-action-button>
-			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-times-circle"
-				action-name="committeeReject" title="رد کمیته تامین"></form-action-button>
+				action-name="committeeDecide" title="تصمیم کمیته تامین"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-secondary" icon-class="fa fa-cogs"
+				action-name="viewSpareParts" title="قطعات یدکی"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-secondary" icon-class="fa fa-paperclip"
+				action-name="viewOrderAttachments" title="پیوست‌های سفارش ساخت"></form-action-button>
 		</form-action-buttons>
 </div>
 
@@ -111,9 +107,6 @@
 					</div>
 			
 					}
-
-				
-
 
 				
 					 @if (!newMode)
@@ -467,8 +460,14 @@
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
 
-
-				  
+				@* معادل فیلد «تاریخ تحویل» فرم HTS (DeliveryDateInText) *@
+				<div class='col-md-4 form-group-inline'>
+					<label class=''>تاریخ تحویل</label>
+					<input class='form-control' data-bind='deliveryShamsiDate' data-persionDatePicker="true"
+						persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+						value='@Model?.DeliveryMiladiDate' />
+					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				</div>
 
 				<div class='col-md-4 form-group-inline'>
 					<label class=''>وضعیت</label>
@@ -477,9 +476,6 @@
 					</select>
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
-				 
-				 
-			 
 
 				<div class='col-md-12 form-group-inline'>
 					<label class=''>ملاحظات صنایع</label>
@@ -490,6 +486,59 @@
 
 			</div>
 		</div>
+
+@if (!newMode)
+{
+	@* ستون‌های فقط‌خواندنی گرید HTS که روی فرم ویرایش نبودند — برای دید صنایع/برنامه‌ریزی *@
+	<div class="card my-2">
+		<div class="card-body row">
+			<span class="section-box-title">اطلاعات تکمیلی برنامه‌ریزی</span>
+			<div class='col-md-3 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">تاریخ ارسال به صنایع (اخذ)</label>
+				<span class='fw-semibold fs-6'>@(Model?.SendToIndustrialShamsiDate ?? "-")</span>
+			</div>
+			<div class='col-md-3 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">تاریخ تحویل استاندارد</label>
+				<span class='fw-semibold fs-6'>@(Model?.StandardDeliveryShamsiDate ?? "-")</span>
+			</div>
+			<div class='col-md-3 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">تاریخ آماده‌سازی مدارک</label>
+				<span class='fw-semibold fs-6'>@(Model?.DocumentPreparationShamsiDate ?? "-")</span>
+			</div>
+			<div class='col-md-3 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">اولین تغییر صنایع</label>
+				<span class='fw-semibold fs-6'>@(Model?.FirstIndustrialChangeShamsiDate ?? "-")</span>
+			</div>
+			<div class='col-md-3 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">وضعیت تولید (آخرین رخداد)</label>
+				<span class='badge badge-light-warning fs-6 px-3 py-2'>@(Model?.ProductionStatus.ToDisplay() ?? "-")</span>
+			</div>
+			<div class='col-md-3 form-group-inline'>
+				<span class='text-muted me-2'>روتین:</span>
+				@if (Model?.IsRoutine == true)
+				{
+					<span class="badge badge-success">بله</span>
+				}
+				else
+				{
+					<span class="badge badge-secondary">خیر</span>
+				}
+			</div>
+			<div class='col-md-6 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">آخرین کامنت تولید</label>
+				<span class='fw-semibold fs-6'>@(string.IsNullOrWhiteSpace(Model?.LastComment) ? "-" : Model?.LastComment)</span>
+			</div>
+			<div class='col-md-6 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">ملاحظات فروش</label>
+				<span class='fw-semibold fs-6'>@(string.IsNullOrWhiteSpace(Model?.SalesConsideration) ? "-" : Model?.SalesConsideration)</span>
+			</div>
+			<div class='col-md-6 form-group-inline'>
+				<label class='text-muted d-block' style="font-size: 0.9rem;">ملاحظات مهندسی</label>
+				<span class='fw-semibold fs-6'>@(string.IsNullOrWhiteSpace(Model?.EngineeringConsideration) ? "-" : Model?.EngineeringConsideration)</span>
+			</div>
+		</div>
+	</div>
+}
  
 
 <div class="card">
@@ -519,14 +568,15 @@
 	// TODO(Role): نگاه کن به بالای فایل Razor برای فهرست کامل Roleهای مورد نیاز هر پرچم زیر
 	var permissions = @Html.Raw(Json.Serialize(new {
 		   canAcceptEngineering,
-		   canAcceptIndustrial,
 		   canAcceptProjectManager,
 		   canInquiry,
 		   canMinistryReview,
-		   canSendToSupplyCommittee,
 		   canSupplyCommitteeBoss
 	   }));
 	var productionOrderItem = @Html.Raw(Json.Serialize(Model));
+	var isNewMode = @(newMode ? "true" : "false");
+	// پیوست‌های سربرگ سفارش ساخت برای دانلود از همین صفحه (معادل ViewProductionOrderAttachedFile در HTS)
+	var orderAttachments = @Html.Raw(Json.Serialize(orderAttachments));
 
 	// مقادیر عددی دقیقاً منطبق بر Entities.App.Sale.Enums.ProductionOrderItemCheckStatusEnum
 	var CHECK_STATUS = {
@@ -563,29 +613,24 @@
 			self.FormActionButtons.acceptEngineering.element.disabled = false;
 		}
 
-		if (permissions.canAcceptIndustrial && (checkStatus == CHECK_STATUS.IndustrialDashboardInternal || checkStatus == CHECK_STATUS.ForeignIndustryCatalog)) {
-			self.FormActionButtons.acceptIndustrial.element.disabled = false;
-		}
-
 		if (permissions.canAcceptProjectManager && checkStatus == CHECK_STATUS.AwaitingProjectManagerApproval) {
 			self.FormActionButtons.acceptProjectManager.element.disabled = false;
 		}
 
-		if (permissions.canInquiry && (checkStatus == CHECK_STATUS.IndustrialDashboardInternal || checkStatus == CHECK_STATUS.ForeignIndustryCatalog)) {
-			self.FormActionButtons.sendToInquiry.element.disabled = false;
-		}
-
-		if (permissions.canMinistryReview && [CHECK_STATUS.IndustrialDashboardInternal, CHECK_STATUS.ForeignIndustryCatalog, CHECK_STATUS.InquiryNeeded].includes(checkStatus)) {
-			self.FormActionButtons.sendToMinistryReview.element.disabled = false;
-		}
-
-		if (permissions.canSendToSupplyCommittee && [CHECK_STATUS.IndustrialDashboardInternal, CHECK_STATUS.ForeignIndustryCatalog, CHECK_STATUS.InquiryNeeded, CHECK_STATUS.IndustrialMinistryReviewRequired].includes(checkStatus)) {
+		// عین شرط دکمه «تغییر وضعیت» HTS: استعلام‌گر فقط روی ۱۹۰۶، استعلام‌گر وزارت فقط روی ۱۹۰۸ (نتیجه → ۱۹۰۹)
+		if ((permissions.canInquiry && checkStatus == CHECK_STATUS.InquiryNeeded)
+			|| (permissions.canMinistryReview && checkStatus == CHECK_STATUS.IndustrialMinistryReviewRequired)) {
 			self.FormActionButtons.sendToSupplyCommittee.element.disabled = false;
 		}
 
+		// معادل HTS: رئیس کمیته تامین روی ۲۲۰۲ (و ۱۹۰۹ که در HTS به‌علت باگ UI قابل اقدام نبود) مقصد را انتخاب می‌کند
 		if (permissions.canSupplyCommitteeBoss && [CHECK_STATUS.SendToSupplyCommitteeChair, CHECK_STATUS.CommitteeHeadReviewPending].includes(checkStatus)) {
-			self.FormActionButtons.committeeAccept.element.disabled = false;
-			self.FormActionButtons.committeeReject.element.disabled = false;
+			self.FormActionButtons.committeeDecide.element.disabled = false;
+		}
+
+		if (!isNewMode) {
+			self.FormActionButtons.viewSpareParts.element.disabled = false;
+			self.FormActionButtons.viewOrderAttachments.element.disabled = false;
 		}
 	}
 
@@ -661,44 +706,6 @@
 	});
 	//#endregion
 
-	//#region Accept Industrial
-	self.FormActionButtons.acceptIndustrial.onclick(function () {
-		const id = currentProductionOrderItemId();
-		if (!id || id == '0') {
-			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
-			return;
-		}
-
-		if (!permissions.canAcceptIndustrial) {
-			toastr.error('شما دسترسی تایید صنایع را ندارید');
-			return;
-		}
-
-		$.confirm({
-			title: 'تایید صنایع',
-			content: 'آیا از تایید صنایع و ارسال این قلم به تولید اطمینان دارید؟',
-			rtl: true,
-			buttons: {
-				confirm: {
-					text: 'بله',
-					btnClass: 'btn-success',
-					action: function () {
-						$$.post('/Panel/ProductionOrderItem/AcceptIndustrial/' + id, null, function (r) {
-							if (!r.isSuccess) {
-								toastr.error(`${r.message}`, 'خطا');
-								return;
-							}
-							toastr.success('تایید صنایع با موفقیت انجام شد');
-							appController.refreshCurrentPage();
-						});
-					}
-				},
-				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
-			}
-		});
-	});
-	//#endregion
-
 	//#region Accept/Reject Project Manager
 	self.FormActionButtons.acceptProjectManager.onclick(function () {
 		const id = currentProductionOrderItemId();
@@ -716,13 +723,17 @@
 			title: 'تایید/رد مدیر پروژه',
 			content: `
 				<div class="row">
-					<div class="col-12">
+					<div class="col-12 mb-3">
 						<label class="required">تصمیم</label>
 						<select class="form-control" id="pmDecisionSelect">
 							<option value="1">تایید</option>
 							<option value="2">رد</option>
 							<option value="3">نیاز به بازنگری</option>
 						</select>
+					</div>
+					<div class="col-12">
+						<label>توضیحات</label>
+						<textarea class="form-control" id="pmDecisionComment" rows="3"></textarea>
 					</div>
 				</div>`,
 			rtl: true,
@@ -732,7 +743,8 @@
 					btnClass: 'btn-success',
 					action: function () {
 						const decision = this.$content.find('#pmDecisionSelect').val();
-						$$.post(`/Panel/ProductionOrderItem/AcceptProjectManager/${id}?decision=${decision}`, null, function (r) {
+						const comment = this.$content.find('#pmDecisionComment').val() || '';
+						$$.post(`/Panel/ProductionOrderItem/AcceptProjectManager/${id}?decision=${decision}&comment=${encodeURIComponent(comment)}`, null, function (r) {
 							if (!r.isSuccess) {
 								toastr.error(`${r.message}`, 'خطا');
 								return;
@@ -748,69 +760,155 @@
 	});
 	//#endregion
 
-	//#region Send To Inquiry / Ministry Review / Supply Committee / Committee Accept / Reject
-	function postSimpleWorkflowAction(actionName, id, successMessage) {
-		$$.post(`/Panel/ProductionOrderItem/${actionName}/${id}`, null, function (r) {
-			if (!r.isSuccess) {
-				toastr.error(`${r.message}`, 'خطا');
-				return;
-			}
-			toastr.success(successMessage);
-			appController.refreshCurrentPage();
-		});
-	}
+	//#region Supply Committee (تصمیم کمیته / ارسال نتیجه استعلام)
+	// معادل پنجره «تغییر وضعیت» HTS در حالت استعلام: committeeMode=true → رئیس کمیته مقصد را انتخاب می‌کند؛
+	// committeeMode=false → استعلام‌گر/وزارت نتیجه را با کامنت/پیوست به رئیس کمیته (۱۹۰۹) برمی‌گرداند
+	function openInquiryModal(committeeMode) {
+		const id = currentProductionOrderItemId();
+		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
 
-	function confirmSimpleWorkflowAction(title, content, btnClass, actionName, id, successMessage) {
-		$.confirm({
-			title: title,
-			content: content,
-			rtl: true,
-			buttons: {
-				confirm: {
-					text: 'بله',
-					btnClass: btnClass,
-					action: function () {
-						postSimpleWorkflowAction(actionName, id, successMessage);
-					}
+		const url = `/Panel/ProductionOrderItem/ProductionOrderItemInquiryPartial?productionOrderItemId=${id}&committeeMode=${committeeMode}`;
+		$$.get(url, function (result) {
+			const bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
+			$.confirm({
+				title: committeeMode ? 'تصمیم کمیته تامین' : 'ارسال نتیجه استعلام به رئیس کمیته تامین',
+				columnClass: 'col-md-8',
+				content: bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: committeeMode ? 'ثبت تصمیم' : 'ارسال به کمیته',
+						btnClass: committeeMode ? 'btn-success' : 'btn-warning',
+						action: function () {
+							const $content = this.$content;
+							const modalSelf = this;
+							const model = $content.dataBind();
+
+							if (!model.comment || !String(model.comment).trim()) {
+								toastr.error('کامنت الزامی است');
+								return false;
+							}
+
+							const INQUIRY_DESTINATIONS = [CHECK_STATUS.InquiryNeeded, CHECK_STATUS.IndustrialMinistryReviewRequired];
+							if (committeeMode) {
+								const destination = parseInt(model.destination);
+								if (INQUIRY_DESTINATIONS.includes(destination)) {
+									if (!model.ResponsibleId) { toastr.error('مسئول استعلام الزامی است'); return false; }
+									if (!model.leadTimeShamsiDate) { toastr.error('مدت زمان اخذ استعلام (LeadTime) الزامی است'); return false; }
+								}
+
+								const payload = {
+									destination: destination,
+									responsibleId: model.ResponsibleId ? parseInt(model.ResponsibleId) : null,
+									leadTimeShamsiDate: model.leadTimeShamsiDate || null,
+									attachmentFileId: model.attachmentFileId ? parseInt(model.attachmentFileId) : null,
+									comment: model.comment
+								};
+								$$.post(`/Panel/ProductionOrderItem/CommitteeDecide/${id}`, payload, function (r) {
+									if (!r.isSuccess) { toastr.error(`${r.message}`, 'خطا'); return; }
+									toastr.success('تصمیم کمیته تامین با موفقیت ثبت شد');
+									modalSelf.close();
+									appController.refreshCurrentPage();
+								});
+							} else {
+								const payload = {
+									comment: model.comment,
+									attachmentFileId: model.attachmentFileId ? parseInt(model.attachmentFileId) : null
+								};
+								$$.post(`/Panel/ProductionOrderItem/SendToSupplyCommittee/${id}`, payload, function (r) {
+									if (!r.isSuccess) { toastr.error(`${r.message}`, 'خطا'); return; }
+									toastr.success('نتیجه استعلام با موفقیت به رئیس کمیته تامین ارسال شد');
+									modalSelf.close();
+									appController.refreshCurrentPage();
+								});
+							}
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
 				},
-				cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
-			}
+				onContentReady: function () {
+					const modalSelf = this;
+					setTimeout(function () {
+						initPersionDatePicker(modalSelf.$body);
+						initFileUploaders(modalSelf.$body);
+						modalSelf.$body.find('select.select2-hidden-accessible').each(function () {
+							const $select = $(this);
+							const currentData = $select.select2('data');
+							$select.select2('destroy');
+							$select.select2({ dropdownParent: modalSelf.$body, width: '100%', placeholder: $select.attr('placeholder') || 'انتخاب کنید' });
+							if (currentData && currentData.length > 0) { $select.val($select.val()).trigger('change'); }
+						});
+
+						// فیلدهای مسئول/LeadTime فقط برای مقصدهای استعلام (۱۹۰۶/۱۹۰۸) — عین HTS
+						const $destination = modalSelf.$body.find('#inquiryDestinationSelect');
+						const toggleInquiryOnly = function () {
+							const dest = parseInt($destination.val());
+							const show = [CHECK_STATUS.InquiryNeeded, CHECK_STATUS.IndustrialMinistryReviewRequired].includes(dest);
+							modalSelf.$body.find('.inquiry-only').toggleClass('d-none', !show);
+						};
+						$destination.on('change', toggleInquiryOnly);
+						toggleInquiryOnly();
+					}, 100);
+				}
+			});
 		});
 	}
-
-	self.FormActionButtons.sendToInquiry.onclick(function () {
-		const id = currentProductionOrderItemId();
-		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
-		if (!permissions.canInquiry) { toastr.error('شما دسترسی ارسال به استعلام را ندارید'); return; }
-		confirmSimpleWorkflowAction('ارسال به استعلام', 'آیا از ارسال این قلم به استعلام اطمینان دارید؟', 'btn-info', 'SendToInquiry', id, 'با موفقیت به استعلام ارسال شد');
-	});
-
-	self.FormActionButtons.sendToMinistryReview.onclick(function () {
-		const id = currentProductionOrderItemId();
-		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
-		if (!permissions.canMinistryReview) { toastr.error('شما دسترسی ارسال به بررسی وزارت صنایع را ندارید'); return; }
-		confirmSimpleWorkflowAction('ارسال به بررسی وزارت صنایع', 'آیا از ارسال این قلم به بررسی وزارت صنایع اطمینان دارید؟', 'btn-info', 'SendToMinistryReview', id, 'با موفقیت به بررسی وزارت صنایع ارسال شد');
-	});
 
 	self.FormActionButtons.sendToSupplyCommittee.onclick(function () {
-		const id = currentProductionOrderItemId();
-		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
-		if (!permissions.canSendToSupplyCommittee) { toastr.error('شما دسترسی ارسال به کمیته تامین را ندارید'); return; }
-		confirmSimpleWorkflowAction('ارسال به کمیته تامین', 'آیا از ارسال این قلم به رئیس کمیته تامین اطمینان دارید؟', 'btn-warning', 'SendToSupplyCommittee', id, 'با موفقیت به کمیته تامین ارسال شد');
+		if (!permissions.canInquiry && !permissions.canMinistryReview) { toastr.error('شما دسترسی ارسال نتیجه استعلام به کمیته تامین را ندارید'); return; }
+		openInquiryModal(false);
 	});
 
-	self.FormActionButtons.committeeAccept.onclick(function () {
+	self.FormActionButtons.committeeDecide.onclick(function () {
+		if (!permissions.canSupplyCommitteeBoss) { toastr.error('شما دسترسی تصمیم کمیته تامین را ندارید'); return; }
+		openInquiryModal(true);
+	});
+	//#endregion
+
+	//#region Spare parts / order attachments (معادل دکمه‌های «قطعه یدکی» و «دانلود پیوست سفارش» ریبون HTS)
+	self.FormActionButtons.viewSpareParts.onclick(function () {
 		const id = currentProductionOrderItemId();
 		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
-		if (!permissions.canSupplyCommitteeBoss) { toastr.error('شما دسترسی تایید کمیته تامین را ندارید'); return; }
-		confirmSimpleWorkflowAction('تایید کمیته تامین', 'آیا از تایید رئیس کمیته تامین و بازگشت این قلم به روند اصلی اطمینان دارید؟', 'btn-success', 'CommitteeAccept', id, 'تایید کمیته تامین با موفقیت ثبت شد');
+
+		$$.get(`/Panel/ProductionOrderItem/SparePartListPartial?productionOrderItemId=${id}`, function (result) {
+			$.confirm({
+				title: 'قطعات یدکی کالای این قلم',
+				columnClass: 'col-md-10',
+				content: `<div style="overflow-x: auto; max-height: 70vh; overflow-y: auto;">${result}</div>`,
+				rtl: true,
+				buttons: { close: { text: 'بستن', btnClass: 'btn-secondary' } }
+			});
+		});
 	});
 
-	self.FormActionButtons.committeeReject.onclick(function () {
-		const id = currentProductionOrderItemId();
-		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
-		if (!permissions.canSupplyCommitteeBoss) { toastr.error('شما دسترسی رد کمیته تامین را ندارید'); return; }
-		confirmSimpleWorkflowAction('رد کمیته تامین', 'آیا از رد رئیس کمیته تامین اطمینان دارید؟ این عملیات وضعیت را به «منسوخ شده» تغییر می‌دهد.', 'btn-danger', 'CommitteeReject', id, 'رد کمیته تامین با موفقیت ثبت شد');
+	self.FormActionButtons.viewOrderAttachments.onclick(function () {
+		if (!orderAttachments || orderAttachments.length === 0) {
+			toastr.info('برای سفارش ساخت این قلم پیوستی ثبت نشده است');
+			return;
+		}
+
+		let html = '<ul class="list-group">';
+		orderAttachments.forEach(function (a) {
+			html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+				<span><i class="fa fa-paperclip me-2 text-muted"></i>${a.title}${a.name ? ' — <span class="text-muted">' + a.name + '</span>' : ''}</span>
+				<button type="button" class="btn btn-sm btn-light-primary" data-action="downloadOrderAttachment" data-file-id="${a.id}"><i class="fa fa-download me-1"></i>دانلود</button>
+			</li>`;
+		});
+		html += '</ul>';
+
+		$.confirm({
+			title: 'پیوست‌های سفارش ساخت',
+			columnClass: 'col-md-8',
+			content: html,
+			rtl: true,
+			buttons: { close: { text: 'بستن', btnClass: 'btn-secondary' } },
+			onContentReady: function () {
+				this.$content.on('click', '[data-action="downloadOrderAttachment"]', function () {
+					downloadFile($(this).data('file-id'));
+				});
+			}
+		});
 	});
 	//#endregion
 
@@ -840,7 +938,7 @@
 			}
 			model.ProductionOrderId  = $$("[data-bind=ProductionOrderId]").val();
 		}
-		if (validateError($$("#changeDataSection"))) { return; }
+		// if (validateError($$("#changeDataSection"))) { return; }
 		
 		const $btn = $(this.element).block();
 		$$.post('save',

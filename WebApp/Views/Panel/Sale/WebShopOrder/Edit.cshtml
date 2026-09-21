@@ -1,0 +1,118 @@
+@using Entities.App.Sale
+@using Entities.Auth
+@using Entities.Base
+@model WebShopOrder
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(WebShopOrder)"></form-action-buttons>
+	</div>
+	<div class="card-body row">
+		<span class="section-box-title">سفارش</span>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="hamkaranFactorId" value="@Model?.HamkaranFactorId" type="hidden" />
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">حواله فروش</label>
+				@(Html.EntitySelector<Order>(
+					"WebShopOrderSaleOrderSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, OrderNumber = c.OrderNumber, Year = c.Year },
+					c => new { c.OrderNumber, c.Year },
+					"{OrderNumber} {Year}",
+					"saleOrderId",
+					"saleOrderOrderNumber",
+					Model?.SaleOrderId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">کد مشتری</label>
+				<input class="form-control" data-bind="customerCode" asp-for="CustomerCode" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">کد سفارش</label>
+				<input class="form-control" data-bind="orderCode" asp-for="OrderCode" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نام</label>
+				<input class="form-control" data-bind="firstName" asp-for="FirstName" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نام خانوادگی</label>
+				<input class="form-control" data-bind="lastName" asp-for="LastName" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مبلغ خرید</label>
+				<input class="form-control" data-bind="buyPrice" asp-for="BuyPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">ارزش افزوده</label>
+				<input class="form-control" data-bind="vatPrice" asp-for="VatPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تخفیف</label>
+				<input class="form-control" data-bind="totalDiscount" asp-for="TotalDiscount" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مالیات</label>
+				<input class="form-control" data-bind="taxPrice" asp-for="TaxPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مبلغ کل</label>
+				<input class="form-control" data-bind="totalPrice" asp-for="TotalPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مبلغ فاکتور شده</label>
+				<input class="form-control" data-bind="factoredPrice" asp-for="FactoredPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ فاکتور</label>
+				<input class="form-control" data-bind="factoredShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.FactoredShamsiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">تاییدکننده</label>
+				@(Html.EntitySelector<User>(
+					"WebShopOrderConfirmedUserSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"confirmedUserId",
+					"confirmedUserName",
+					Model?.ConfirmedUserId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

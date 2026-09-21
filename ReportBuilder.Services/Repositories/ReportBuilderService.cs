@@ -1,5 +1,6 @@
 using System.Data;
 using System.Text;
+using System.Text.RegularExpressions;
 using Aspose.Cells;
 using Common.Utilities;
 using Data;
@@ -345,7 +346,17 @@ namespace ReportBuilder.Services.Repositories
             foreach (var kv in parameters)
             {
                 var paramName = kv.Key.StartsWith("@") ? kv.Key : "@" + kv.Key;
-                command.Parameters.AddWithValue(paramName, kv.Value ?? DBNull.Value);
+                object value = kv.Value ?? DBNull.Value;
+                if (value is string s && string.IsNullOrWhiteSpace(s))
+                    value = DBNull.Value;
+                command.Parameters.AddWithValue(paramName, value);
+            }
+
+            foreach (Match match in Regex.Matches(query, @"(?<!@)@([a-zA-Z_][a-zA-Z0-9_]*)"))
+            {
+                var paramName = "@" + match.Groups[1].Value;
+                if (!command.Parameters.Contains(paramName))
+                    command.Parameters.AddWithValue(paramName, DBNull.Value);
             }
 
             using var reader = command.ExecuteReader();

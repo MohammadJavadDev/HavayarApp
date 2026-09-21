@@ -1,0 +1,54 @@
+@using Entities.App.Sale
+@model PriceConfig
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(PriceConfig)"></form-action-buttons>
+	</div>
+	<div class="card-body row">
+		<span class="section-box-title">جزئیات</span>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold required">عنوان</label>
+				<input class="form-control" data-bind="title" data-required="true" asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">سود</label>
+				<input class="form-control" data-bind="profit" data-required="true" asp-for="Profit" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">سربار</label>
+				<input class="form-control" data-bind="overhead" data-required="true" asp-for="Overhead" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">حمل</label>
+				<input class="form-control" data-bind="shipping" data-required="true" asp-for="Shipping" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">گمرک</label>
+				<input class="form-control" data-bind="gomrok" data-required="true" asp-for="Gomrok" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

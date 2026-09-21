@@ -130,8 +130,13 @@ namespace Entities.App.Gnr
 
 		[DisplayName("تلفن")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(20)]
+		[MaxLength(50)]
 		public string? Phone { get; set; }
+
+		[DisplayName("آدرس")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(2000)]
+		public string? Address { get; set; }
 
 
 		[DisplayName("نام کامل به انگیسی")]

@@ -512,6 +512,37 @@ namespace WebApp.Controllers.Dynamic
         }
 
         [HttpGet("[action]")]
+        public IActionResult RevisionDetailsPartial(long id)
+        {
+            var document = unitOfWork.Repository<Document>()
+                .TableNoTracking
+                .Include(d => d.Reviewer)
+                .Include(d => d.Approver)
+                .Include(d => d.MainFile)
+                .Include(d => d.MotherFile)
+                .Include(d => d.SecondaryFile)
+                .Include(d => d.ReplySheet)
+                .FirstOrDefault(d => d.Id == id);
+
+            if (document?.Id.HasValue != true || document.Id.Value == 0)
+            {
+                return Content("<div class='alert alert-danger m-0'>مدرک مورد نظر یافت نشد.</div>", "text/html; charset=utf-8");
+            }
+
+            document.Comments = unitOfWork.Repository<DocumentComment>()
+                .TableNoTracking
+                .Include(c => c.Attachment)
+                .Include(c => c.HOLDOwner)
+                .Where(c => c.DocumentId == document.Id.Value)
+                .OrderByDescending(c => c.CreatedOnMiladiDateTime)
+                .ToList();
+
+            ViewData["CanEditDocument"] = false;
+
+            return PartialView(@"\Views\Panel\Edms\Document\_DocumentRevisionDetailsPartial.cshtml", document);
+        }
+
+        [HttpGet("[action]")]
         public IActionResult NewRevisionEditorPartial(long projectId, long documentVpisId)
         {
             var maxRevision = unitOfWork.Repository<Document>().TableNoTracking

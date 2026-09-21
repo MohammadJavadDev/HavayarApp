@@ -1,0 +1,705 @@
+{
+  "ReportGuid": "ce4847fdec4949d0aa8bed5c25dd0d41",
+  "ReportName": "Cng",
+  "ReportAlias": "Cng",
+  "ReportCreated": "/Date(1788956664665+0330)/",
+  "ReportChanged": "/Date(1789220000000+0330)/",
+  "EngineVersion": "EngineV2",
+  "ReportUnit": "Centimeters",
+  "CalculationMode": "Interpretation",
+  "Script": "using System;\r\nusing System.Drawing;\r\nusing System.Windows.Forms;\r\nusing System.Data;\r\nusing Stimulsoft.Controls;\r\nusing Stimulsoft.Base.Drawing;\r\nusing Stimulsoft.Report;\r\nusing Stimulsoft.Report.Dialogs;\r\nusing Stimulsoft.Report.Components;\r\n\r\nnamespace Reports\r\n{\r\n    public class Cng : Stimulsoft.Report.StiReport\r\n    {\r\n        public Cng()        {\r\n            this.InitializeComponent();\r\n        }\r\n\r\n        #region StiReport Designer generated code - do not modify\r\n        #endregion StiReport Designer generated code - do not modify\r\n    }\r\n}\r\n",
+  "ReferencedAssemblies": {
+    "0": "System.Dll",
+    "1": "System.Drawing.Dll",
+    "2": "System.Windows.Forms.Dll",
+    "3": "System.Data.Dll",
+    "4": "System.Xml.Dll",
+    "5": "Stimulsoft.Controls.Dll",
+    "6": "Stimulsoft.Base.Dll",
+    "7": "Stimulsoft.Report.Dll"
+  },
+  "Pages": {
+    "0": {
+      "Ident": "StiPage",
+      "Name": "Page1",
+      "Guid": "a8a1cba4dbc648d8bad6b9db36236e06",
+      "Interaction": {
+        "Ident": "StiInteraction"
+      },
+      "Border": ";;2;;;;;solid:Black",
+      "Brush": "empty",
+      "RightToLeft": true,
+      "Components": {
+        "0": {
+          "Ident": "StiDataBand",
+          "Name": "DataBand1",
+          "ClientRectangle": "0,0,29.7,15.1077",
+          "Interaction": {
+            "Ident": "StiBandInteraction"
+          },
+          "Border": ";;;;;;;solid:Black",
+          "Brush": "solid:",
+          "DataSourceName": "Report",
+          "StartNewPage": true,
+          "Components": {
+            "0": {
+              "Ident": "StiText",
+              "Name": "TitleFa",
+              "ClientRectangle": "0.0,0.7133,29.7,0.9546",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "گواهینامـه"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;20;Bold, Italic;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Firebrick",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "1": {
+              "Ident": "StiText",
+              "Name": "TitleEn",
+              "ClientRectangle": "0.0,1.8531,29.7,0.9546",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "CERTIFICATE"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "Arial;20;Bold, Italic;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Firebrick",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": false
+              }
+            },
+            "2": {
+              "Ident": "StiText",
+              "Name": "LblCertNo",
+              "ClientRectangle": "24.9767,3.3073,3.0035,0.6636",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "شماره گواهینامه:"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;14;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "3": {
+              "Ident": "StiText",
+              "Name": "ValCertNo",
+              "ClientRectangle": "21.0079,3.3073,3.9688,0.6636",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.CertificateNo}"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "Arial;14;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": false,
+                "WordWrap": false
+              }
+            },
+            "4": {
+              "Ident": "StiText",
+              "Name": "LblIssueDate",
+              "ClientRectangle": "25.7704,4.1296,2.2098,0.6636",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "تاریخ صدور:"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;14;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "5": {
+              "Ident": "StiText",
+              "Name": "ValIssueDate",
+              "ClientRectangle": "21.0079,4.1296,4.7625,0.6636",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.IssueShamsiDate}"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;14;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "6": {
+              "Ident": "StiText",
+              "Name": "LblValidity",
+              "ClientRectangle": "21.0079,4.899,6.9723,0.6636",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "مدت اعتبار:  3 سال"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;14;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "7": {
+              "Ident": "StiImage",
+              "Name": "PhotoBox",
+              "ClientRectangle": "1.905,4.6932,3.3073,4.1825",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Border": "All;;1;;;;;solid:Black",
+              "Brush": "empty",
+              "Stretch": true,
+              "AspectRatio": false,
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "ImageURL": {
+                "Value": "{Report.PhotoUrl}"
+              }
+            },
+            "8": {
+              "Ident": "StiText",
+              "Name": "LblCertifies",
+              "ClientRectangle": "23.9183,6.8913,4.3,1.4044",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "گواهی می شود:"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;20;Bold, Italic;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "9": {
+              "Ident": "StiText",
+              "Name": "LblMr",
+              "ClientRectangle": "25.8233,9.7488,1.125,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "آقای"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "10": {
+              "Ident": "StiText",
+              "Name": "ValFullName",
+              "ClientRectangle": "19.5146,9.7488,6.3087,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.FullName}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "11": {
+              "Ident": "StiText",
+              "Name": "LblBorn",
+              "ClientRectangle": "17.4106,9.7488,2.104,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "متولد"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "12": {
+              "Ident": "StiText",
+              "Name": "ValBirthdayYear",
+              "ClientRectangle": "14.6325,9.7488,2.7781,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.BirthdayYear}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "13": {
+              "Ident": "StiText",
+              "Name": "LblChildOf",
+              "ClientRectangle": "12.7931,9.7488,1.8394,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "فرزند"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "14": {
+              "Ident": "StiText",
+              "Name": "ValFatherName",
+              "ClientRectangle": "9.1948,9.7488,3.5983,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.FatherName}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "15": {
+              "Ident": "StiText",
+              "Name": "LblNational",
+              "ClientRectangle": "6.0325,9.7488,3.03,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "به کد ملی"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "16": {
+              "Ident": "StiText",
+              "Name": "ValNationalCode",
+              "ClientRectangle": "1.0848,9.7488,4.9477,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.NationalCode}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "17": {
+              "Ident": "StiText",
+              "Name": "LblCourse",
+              "ClientRectangle": "25.3471,11.0718,2.6861,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "دوره آموزشی"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "18": {
+              "Ident": "StiText",
+              "Name": "ValCourseTitle",
+              "ClientRectangle": "1.0848,11.0718,24.2623,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.CourseFieldTitle}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "19": {
+              "Ident": "StiText",
+              "Name": "LblFromDate",
+              "ClientRectangle": "25.9556,12.355,2.0775,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "را از تاریخ "
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "20": {
+              "Ident": "StiText",
+              "Name": "ValStartDate",
+              "ClientRectangle": "22.7806,12.355,3.175,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.StartShamsiDate}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "21": {
+              "Ident": "StiText",
+              "Name": "LblUntil",
+              "ClientRectangle": "21.2323,12.355,1.3896,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "لغایت "
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "22": {
+              "Ident": "StiText",
+              "Name": "ValEndDate",
+              "ClientRectangle": "17.8721,12.355,3.3602,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.EndShamsiDate}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "23": {
+              "Ident": "StiText",
+              "Name": "LblDuration",
+              "ClientRectangle": "16.2179,12.355,1.6542,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "به مدت"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "24": {
+              "Ident": "StiText",
+              "Name": "ValDuration",
+              "ClientRectangle": "13.8896,12.355,2.3283,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.DurationInMinute}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "25": {
+              "Ident": "StiText",
+              "Name": "LblHoursScore",
+              "ClientRectangle": "11.0448,12.355,2.686,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "ساعت با نمره"
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "26": {
+              "Ident": "StiText",
+              "Name": "ValCngScore",
+              "ClientRectangle": "9.6425,12.355,1.4023,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.CngScore}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "27": {
+              "Ident": "StiText",
+              "Name": "LblFrom100",
+              "ClientRectangle": "1.0848,12.355,8.5577,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "از 100 با موفقیت به پایان رسانده است."
+              },
+              "HorAlignment": "Right",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;18;;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            },
+            "28": {
+              "Ident": "StiText",
+              "Name": "ValExplain",
+              "ClientRectangle": "0.0,13.956,29.7,0.9017",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "{Report.Explain}"
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;14;Bold, Italic;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:SteelBlue",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            }
+          }
+        },
+        "1": {
+          "Ident": "StiPageFooterBand",
+          "Name": "PageFooterBand1",
+          "ClientRectangle": "0,19.9922,29.7,1.0078",
+          "Interaction": {
+            "Ident": "StiInteraction"
+          },
+          "Border": ";;;;;;;solid:Black",
+          "Brush": "solid:",
+          "Components": {
+            "0": {
+              "Ident": "StiText",
+              "Name": "LblFooter",
+              "ClientRectangle": "0.0,0.0,29.7,0.5051",
+              "Interaction": {
+                "Ident": "StiInteraction"
+              },
+              "Text": {
+                "Value": "گواهینامه صادر شده، بدون مهر برجسته مرکز آموزش هوایار فاقد اعتبار می باشد."
+              },
+              "HorAlignment": "Center",
+              "VertAlignment": "Center",
+              "Font": "IRANSansWeb;10;Bold;",
+              "Border": ";;;;;;;solid:Black",
+              "Brush": "solid:",
+              "TextBrush": "solid:Black",
+              "TextOptions": {
+                "RightToLeft": true,
+                "WordWrap": true
+              }
+            }
+          }
+        }
+      },
+      "PaperSize": "A4",
+      "Orientation": "Landscape",
+      "PageWidth": 29.7,
+      "PageHeight": 21.0,
+      "Watermark": {
+        "TextBrush": "solid:50,0,0,0",
+        "ShowBehind": true,
+        "Enabled": true,
+        "ImageStretch": true,
+        "AspectRatio": true
+      },
+      "Margins": {
+        "Left": 0,
+        "Right": 0,
+        "Top": 0,
+        "Bottom": 0
+      }
+    }
+  }
+}

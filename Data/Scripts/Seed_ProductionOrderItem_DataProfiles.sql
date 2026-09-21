@@ -182,12 +182,26 @@ SELECT
 FROM system.SavedQuery
 WHERE Id = 104;
 
-IF CHARINDEX(N'"Filters":[]', @BaseQueryJson) = 0
+-- 104 ممکن است از اجرای Update_ProductionOrderItem_ListInfo_IndustrialScope.sql
+-- WHERE و Filters صنعتی داشته باشد. قبل از کپی به نمایه‌های دیگر، SELECT را تمیز کن.
+DECLARE @BaseCustomQueryForCopy nvarchar(max);
+SELECT @BaseCustomQueryForCopy = CustomQuery
+FROM OPENJSON(@BaseQueryJson) WITH (CustomQuery nvarchar(max) '$.CustomQuery');
+
+IF @BaseCustomQueryForCopy IS NULL OR LEN(@BaseCustomQueryForCopy) = 0
 BEGIN
-    RAISERROR(N'Base QueryJson does not contain empty Filters:[]. Aborting.', 16, 1);
+    RAISERROR(N'CustomQuery نمایه پایه (Id=104) خالی است. Aborting.', 16, 1);
     ROLLBACK TRANSACTION;
     RETURN;
 END
+
+SET @BaseCustomQueryForCopy = REPLACE(@BaseCustomQueryForCopy, N'[t6].[Name] AS [t9_Name]', N'[t9].[Name] AS [t9_Name]');
+IF CHARINDEX(N'WHERE [t1].[IsDeleted]', @BaseCustomQueryForCopy) > 0
+    SET @BaseCustomQueryForCopy = LEFT(@BaseCustomQueryForCopy, CHARINDEX(N'WHERE [t1].[IsDeleted]', @BaseCustomQueryForCopy) - 1);
+SET @BaseCustomQueryForCopy = RTRIM(@BaseCustomQueryForCopy);
+
+SET @BaseQueryJson = JSON_MODIFY(@BaseQueryJson, '$.CustomQuery', @BaseCustomQueryForCopy);
+SET @BaseQueryJson = JSON_MODIFY(@BaseQueryJson, '$.Filters', JSON_QUERY(N'[]'));
 
 DECLARE @ProfileName nvarchar(100), @ProfileTitle nvarchar(200), @FiltersJson nvarchar(max), @NewQueryJson nvarchar(max), @SqId bigint;
 
@@ -550,6 +564,117 @@ DEALLOCATE map_cur;
 PRINT N'  User role assignments applied: ' + CAST(@Assigned AS nvarchar(20));
 PRINT N'  Already had role (skipped): ' + CAST(@SkippedAlready AS nvarchar(20));
 PRINT N'  Missing users (logged): ' + CAST(@Missing AS nvarchar(20));
+
+PRINT N'=== [5/5] Row-level WHERE for listinfo / cartable / ViewActive / Related ===';
+/*
+  موتور Query وقتی CustomQuery پر باشد Filters JSON را نادیده می‌گیرد؛ شرط باید داخل CustomQuery باشد.
+  HTS GetOriginalGridData:375 — غیر ShowAll فقط اقلام با آغاز فرآیند (State=3).
+  اطلاعات ما (104) برای صنایع: فقط کارتابل صنایع (1904/1905)؛ ثبت اولیه و بقیه وضعیت‌ها نه.
+*/
+DECLARE @BaseCustomQuery nvarchar(max) = @BaseCustomQueryForCopy;
+
+IF @BaseCustomQuery IS NULL OR LEN(@BaseCustomQuery) = 0
+BEGIN
+    RAISERROR(N'CustomQuery نمایه پایه (Id=104) خالی است. Aborting.', 16, 1);
+    ROLLBACK TRANSACTION;
+    RETURN;
+END
+
+DECLARE @WhereViewActive nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t2].[State] = 3';
+
+DECLARE @WhereRelated nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t2].[State] = 3
+  AND (
+        [t1].[CreatedById]  = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t1].[ModifiedById] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t2].[CreatedById]  = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t2].[SalesExpertId] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t2].[SalesManagerId] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t2].[AlternativeExpertId] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t2].[IntroducerExpertId] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t2].[ProjectManagerId] = TRY_CAST(@CurrentUserId AS BIGINT)
+  )';
+
+DECLARE @WhereIndustrial nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] IN (1904, 1905)';
+
+DECLARE @FiltersIndustrial nvarchar(max) = N'[{"Id":"id_poi_isdel","TableName":"Sale.ProductionOrderItem","ColumnName":"IsDeleted","DataType":"bit","Operator":"equals","Value":"false","LogicalOperator":""},{"Id":"id_poi_islat","TableName":"Sale.ProductionOrderItem","ColumnName":"IsLatestVersion","DataType":"bit","Operator":"equals","Value":"true","LogicalOperator":"AND"},{"Id":"id_poi_chk","TableName":"Sale.ProductionOrderItem","ColumnName":"CheckStatus","DataType":"int","Operator":"in","Value":"1904,1905","LogicalOperator":"AND"}]';
+
+DECLARE @WhereAllActive nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1';
+
+DECLARE @WhereEngMech nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] = 2195
+  AND ([t1].[DeviceType] IS NULL OR [t1].[DeviceType] NOT IN (2403, 2404, 2212, 2211))';
+
+DECLARE @WhereEngElec nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] = 2195
+  AND [t1].[DeviceType] IN (2403, 2404, 2212, 2211)';
+
+DECLARE @WherePM nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] = 2258';
+
+DECLARE @WhereInquiry nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] = 1906';
+
+DECLARE @WhereMinistry nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] = 1908';
+
+DECLARE @WhereCommittee nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND [t1].[CheckStatus] IN (1909, 2202)';
+
+DECLARE @WhereHistory nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 1';
+
+UPDATE q
+SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereViewActive),
+    q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE()
+FROM system.SavedQuery q
+WHERE q.Name = N'POI_ViewActive';
+PRINT N'  POI_ViewActive: WHERE سربرگ تایید مالی (State=3) اعمال شد';
+
+UPDATE q
+SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereRelated),
+    q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE()
+FROM system.SavedQuery q
+WHERE q.Name = N'POI_Sales_Related_Active';
+PRINT N'  POI_Sales_Related_Active: WHERE کاربر جاری (ایجاد/ویرایش‌کننده، تیم فروش، مدیر پروژه) اعمال شد';
+
+UPDATE q
+SET q.QueryJson = JSON_MODIFY(
+        JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereIndustrial),
+        '$.Filters', JSON_QUERY(@FiltersIndustrial)),
+    q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE()
+FROM system.SavedQuery q
+WHERE q.Name = N'productionorderitem_listinfonew';
+PRINT N'  productionorderitem_listinfonew (اطلاعات ما): WHERE کارتابل صنایع (1904/1905) اعمال شد';
+
+UPDATE q
+SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereIndustrial),
+    q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE()
+FROM system.SavedQuery q
+WHERE q.Name = N'POI_Cartable_Industrial';
+PRINT N'  POI_Cartable_Industrial: WHERE روی CustomQuery اعمال شد';
+
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereAllActive), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_All_Active';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereEngMech), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_Engineering_Mechanical';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereEngElec), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_Engineering_Electrical';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WherePM), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_ProjectManager';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereInquiry), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_Inquiry';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereMinistry), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_Ministry';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereCommittee), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_SupplyCommittee';
+UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereHistory), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_History_Deleted';
+PRINT N'  سایر نمایه‌های کپی‌شده از 104: WHERE معادل Filters روی CustomQuery اعمال شد';
 
 PRINT N'=== Summary ===';
 SELECT Name, SavedQueryId AS Id FROM #PoiProfiles ORDER BY Name;

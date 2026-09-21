@@ -1,0 +1,30 @@
+@using Entities.App.Gnr
+<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
+
+<div class="row">
+	<div class="col-md-12 form-group-inline">
+		<label>پیمانکار / تامین‌کننده</label>
+		@(Html.EntitySelector<Supplier>(
+			"sendToSupplierSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,
+				Party_FullName = c.Party.FullName,
+				Email = c.Email,
+				Party_Email = c.Party.Email
+			},
+			c => new { c.Party.FullName },
+			"{Party.FullName}",
+			"supplierId",
+			"supplierName",
+			null,
+			true
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline my-3">
+		<label>پیام / توضیحات (اختیاری)</label>
+		<textarea class="form-control" data-bind="message" rows="4" placeholder="متن تکمیلی برای پیمانکار"></textarea>
+	</div>
+</div>

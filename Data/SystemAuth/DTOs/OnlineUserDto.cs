@@ -6,7 +6,7 @@ namespace Data.SystemAuth;
 /// <summary>
 /// DTO برای کاربر آنلاین با RoleAccess ها
 /// </summary>
-public sealed class OnlineUserDto
+public  class OnlineUserDto
 {
 	public long UserId { get; set; }
 	public string Username { get; set; } = string.Empty;
@@ -39,7 +39,7 @@ public class OnlineUserPageDto
 /// <summary>
 /// DTO برای RoleAccess
 /// </summary>
-public sealed class RoleAccessDto
+public  class RoleAccessDto
 {
 	public long Id { get; set; }
 	public string? Path { get; set; }

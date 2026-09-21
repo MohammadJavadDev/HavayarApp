@@ -1,0 +1,146 @@
+@using Common.Utilities
+@using Entities.App.Edms
+@using Entities.App.Edms.Enums
+@model Document
+
+@{
+	var statusText = Model.Status.HasValue ? Model.Status.Value.ToDisplay() : "-";
+	var statusClass = Model.Status switch
+	{
+		DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
+		DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
+		DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
+		DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
+		DocumentStatusEnums.Archived => "badge-light-dark",
+		_ => "badge-light"
+	};
+
+	var files = new[]
+	{
+		new { Label = "فایل اصلی", Id = Model.MainFileId, File = Model.MainFile },
+		new { Label = "فایل مادر", Id = Model.MotherFileId, File = Model.MotherFile },
+		new { Label = "فایل ثانوی", Id = Model.SecondaryFileId, File = Model.SecondaryFile },
+		new { Label = "فایل ReplySheet", Id = Model.ReplySheetId, File = Model.ReplySheet }
+	};
+}
+
+<div id="DocumentRevisionDetails">
+	<div class=" ">
+		<div class="card-body row g-4">
+			<div class="col-12">
+				<div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+					<div class="d-flex flex-wrap align-items-center gap-2">
+						<span class="fw-bold">ریویژن</span>
+						<span class="badge badge-light-primary">@Model.Revision</span>
+						<span class="text-muted">وضعیت:</span>
+						<span class="badge @statusClass">@statusText</span>
+					</div>
+					<div class="text-muted small">
+						آخرین ویرایش: <span class="rtl">@(Model.ModifiedDateShamsiDateTime ?? "-")</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">هدف از تولید مدرک</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px">
+					@(Model.GoalOfProduction.HasValue ? Model.GoalOfProduction.Value.ToDisplay() : "-")
+				</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">نفر-ساعت</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px">
+					@(Model.HourPrePerson?.ToString() ?? "-")
+				</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تاریخ انتشار/ارسال</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px rtl">
+					@(Model.PublicationShamsiDate ?? "-")
+				</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">رویژن</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px">@Model.Revision</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">بررسی کننده</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px">
+					@(Model.Reviewer?.Name ?? "-")
+				</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تایید کننده</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px">
+					@(Model.Approver?.Name ?? "-")
+				</div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">وضعیت مدرک</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px">
+					<span class="badge @statusClass">@statusText</span>
+				</div>
+			</div>
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label">توضیحات</label>
+				<div class="form-control-plaintext border rounded px-3 py-2 min-h-75px text-break">
+					@(string.IsNullOrWhiteSpace(Model.Comment) ? "-" : Model.Comment)
+				</div>
+			</div>
+
+			@foreach (var file in files)
+			{
+				<div class="col-md-6 form-group-inline ">
+					<label class="form-label">@file.Label</label>
+					<div class="border rounded p-3 min-h-75px d-flex align-items-center justify-content-between gap-3">
+						@if (file.Id.HasValue && file.Id.Value > 0)
+						{
+							<div class="d-flex align-items-center gap-2 text-break">
+								<i class="ki-duotone ki-file fs-2x text-primary"></i>
+								<span>@(file.File?.OriginalName ?? $"فایل شماره {file.Id.Value}")</span>
+							</div>
+							<a href="/File/download/@file.Id.Value" class="btn btn-sm btn-light-primary" target="_blank" rel="noopener" title="دانلود @file.Label">
+								<i class="ki-duotone ki-arrow-down fs-5"></i>
+								<span>دانلود</span>
+							</a>
+						}
+						else
+						{
+							<span class="text-muted">فایلی ثبت نشده است.</span>
+						}
+					</div>
+				</div>
+			}
+		</div>
+	</div>
+
+	<div class="card my-1">
+		<div class="card-header pt-5">
+			<div class="card-title d-flex flex-column">
+				<span class="fs-6 fw-bold">کامنت‌ها و گردش فرآیند</span>
+			</div>
+		</div>
+		<div class="card-body">
+			@if (Model.Comments?.Count > 0)
+			{
+				<div class="col-md-12">
+					@foreach (var item in Model.Comments)
+					{
+						@await Html.PartialAsync("_DocumentCommentPartial.cshtml", item, ViewData)
+					}
+				</div>
+			}
+			else
+			{
+				<div class="text-muted">کامنتی برای این مدرک ثبت نشده است.</div>
+			}
+		</div>
+	</div>
+</div>

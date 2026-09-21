@@ -1,0 +1,159 @@
+@using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.Inv
+@using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Base
+@model TechnicalQuery
+
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(TechnicalQuery)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+				action-name="approveTq" title="تایید"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-times"
+				action-name="rejectTq" title="رد"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-comment"
+				action-name="openComments" title="یادداشت‌ها"></form-action-button>
+		</form-action-buttons>
+	</div>
+</div>
+
+<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">پرسش فنی</span>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">مشتری</label>
+			@(Html.EntitySelector<Customer>(
+				"TqCustomerSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+				c => new { c.Party, c.Code },
+				"{Party.FullName} {Code}",
+				"customerId",
+				"customerName",
+				Model?.CustomerId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">نام محصول</label>
+			@(Html.EntitySelector<Part>(
+				"TqPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"partId",
+				"partName",
+				Model?.PartId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">سریال</label>
+			<input class="form-control" data-bind="serial" asp-for="Serial" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ نصب</label>
+			<input class="form-control" data-bind="installationShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.InstallationMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">وضعیت کارتابل</label>
+			<input class="form-control" data-bind="cartableStatusId" asp-for="CartableStatusId" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold required">شرح مشکل فنی</label>
+			<textarea class="form-control" data-bind="technicalProblemDescription" data-required="true" asp-for="TechnicalProblemDescription" rows="7"></textarea>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">استان</label>
+			@(Html.EntitySelector<Region>(
+				"TqProvinceSelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Type == RegionTypeEnum.Province,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"provinceId",
+				"provinceName",
+				Model?.ProvinceId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">اولین بروز مشکل</label>
+			<input class="form-control" data-bind="firstEmergingProblemShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.FirstEmergingProblemMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">آخرین بروز مشکل</label>
+			<input class="form-control" data-bind="lastEmergingProblemShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.LastEmergingProblemMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تعداد بروز مشکل</label>
+			<input class="form-control" data-bind="numberOfEmergedProblem" asp-for="NumberOfEmergedProblem" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">در کارتابل تایید</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="inApproveQueue" asp-for="InApproveQueue" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.openComments) {
+		self.FormActionButtons.openComments.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/Panel/Sale/TechnicalQueryComment/ListByParentId?technicalQueryId=' + id, true, 'یادداشت پرسش فنی');
+		});
+	}
+	function runTqAction(url, title) {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+		Swal.fire({ title: title, text: 'آیا مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.post(url + '?id=' + id, {}, function (r) {
+					if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+					toastr.success(title + ' انجام شد');
+					appController.refreshCurrentPage();
+				});
+			});
+	}
+	if (self.FormActionButtons.approveTq) {
+		self.FormActionButtons.approveTq.onclick(function () { runTqAction('approve', 'تایید پرسش فنی'); });
+	}
+	if (self.FormActionButtons.rejectTq) {
+		self.FormActionButtons.rejectTq.onclick(function () { runTqAction('reject', 'رد پرسش فنی'); });
+	}
+</script>

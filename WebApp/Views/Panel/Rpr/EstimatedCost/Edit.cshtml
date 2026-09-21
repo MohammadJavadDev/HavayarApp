@@ -1,0 +1,106 @@
+@using Entities.App.Crm
+@using Entities.App.Inv
+@using Entities.App.Rpr
+@using Entities.App.SLS
+@using Entities.Base
+@model EstimatedCost
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(EstimatedCost)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">هزینه تقریبی تعمیر</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">درخواست تعمیر</label>
+				@(Html.EntitySelector<RepairRequest>(
+					"EstimatedCostRepairSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, IdNumber = c.IdNumber },
+					c => new { c.IdNumber },
+					"{IdNumber}",
+					"repairRequestId",
+					"repairRequestName",
+					Model?.RepairRequestId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"EstimatedCostCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party, c.Code },
+					"{Party.FullName} {Code}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">عنوان مشتری</label>
+				<input class="form-control" data-bind="customerTitle" data-required="true" asp-for="CustomerTitle" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">منطقه</label>
+				@(Html.EntitySelector<Zone>(
+					"EstimatedCostZoneSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"zoneId",
+					"zoneTitle",
+					Model?.ZoneId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">محصول</label>
+				@(Html.EntitySelector<Part>(
+					"EstimatedCostProductSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"productId",
+					"productName",
+					Model?.ProductId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نفرساعت</label>
+				<input class="form-control" data-bind="manHour" asp-for="ManHour" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

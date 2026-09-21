@@ -65,18 +65,46 @@ LEFT JOIN USR3.Gnr_DimDate AS CreationDate ON CreationDate.Date = CAST(SupInquir
 				// مرحله ۲: بارگذاری داده‌های پایه از Application
 				await jobLogger?.LogInfoAsync("در حال بارگذاری Part، PriceUnit و User از پایگاه داده برنامه...", cn);
 
-				var partsDict = await unitOfWork.Repository<Part>().TableNoTracking
-					.Where(p => p.HamkaranId != null)
-					.ToDictionaryAsync(x => x.HamkaranId!.Value, x => x.Id!.Value, cn);
+				// D12: کلید HamkaranId می‌تواند تکراری باشد؛ ToDictionaryAsync کل جاب را متوقف می‌کرد.
+				// GroupBy + انتخاب قطعی (رکورد فعال، سپس کم‌ترین Id) و لاگ تکراری‌ها.
+				var partsDict = (await unitOfWork.Repository<Part>().TableNoTracking
+						.Where(p => p.HamkaranId != null)
+						.Select(p => new { HamkaranId = p.HamkaranId!.Value, Id = p.Id!.Value, p.IsActive })
+						.ToListAsync(cn))
+					.GroupBy(x => x.HamkaranId)
+					.ToDictionary(
+						g => g.Key,
+						g => g.OrderByDescending(x => x.IsActive == Entities.Base.IsActiveEnum.Active).ThenBy(x => x.Id).First().Id);
 
 				var priceUnits = await unitOfWork.Repository<PriceUnit>().TableNoTracking
 					.Where(p => !string.IsNullOrEmpty(p.Title))
 					.ToListAsync(cn);
-				var priceUnitDict = priceUnits.ToDictionary(x => x.Title!.Trim(), StringComparer.OrdinalIgnoreCase);
+				var priceUnitDict = priceUnits
+					.GroupBy(x => x.Title!.Trim(), StringComparer.OrdinalIgnoreCase)
+					.ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).First(), StringComparer.OrdinalIgnoreCase);
 
-				var usersDict = await dbContext.Users
+				var userRows = await dbContext.Users
 					.Where(u => u.HamkaranId != null)
-					.ToDictionaryAsync(x => x.HamkaranId!.Value, x => x.Id!.Value, cn);
+					.Select(u => new { HamkaranId = u.HamkaranId!.Value, Id = u.Id!.Value, u.IsActive })
+					.ToListAsync(cn);
+
+				var duplicateUserHamkaranIds = userRows
+					.GroupBy(x => x.HamkaranId)
+					.Where(g => g.Count() > 1)
+					.Select(g => g.Key)
+					.ToList();
+				if (duplicateUserHamkaranIds.Count > 0)
+				{
+					await jobLogger?.LogWarningAsync(
+						$"{duplicateUserHamkaranIds.Count} HamkaranId مشترک بین چند کاربر (system.User.HamkaranId) — کاربر فعال / کم‌ترین Id انتخاب شد: {string.Join(", ", duplicateUserHamkaranIds)}",
+						0, cn);
+				}
+
+				var usersDict = userRows
+					.GroupBy(x => x.HamkaranId)
+					.ToDictionary(
+						g => g.Key,
+						g => g.OrderByDescending(x => x.IsActive == Entities.Base.IsActiveEnum.Active).ThenBy(x => x.Id).First().Id);
 
 				var existingInquiryPartPrices = await unitOfWork.Repository<InquiryPartPrice>()
 					.Table
@@ -413,13 +441,25 @@ DROP TABLE #LocalItems;
 				}
 
 				// بارگذاری Part و User از Application (نگاشت User با Username = DomainUserName)
-				var partsDict = await unitOfWork.Repository<Part>().TableNoTracking
-					.Where(p => p.HamkaranId != null)
-					.ToDictionaryAsync(x => x.HamkaranId!.Value, x => x.Id!.Value, cn);
+				// D12: همان گارد GroupBy برای کلیدهای احتمالاً تکراری (HamkaranId کالا / Username کاربر)
+				var partsDict = (await unitOfWork.Repository<Part>().TableNoTracking
+						.Where(p => p.HamkaranId != null)
+						.Select(p => new { HamkaranId = p.HamkaranId!.Value, Id = p.Id!.Value, p.IsActive })
+						.ToListAsync(cn))
+					.GroupBy(x => x.HamkaranId)
+					.ToDictionary(
+						g => g.Key,
+						g => g.OrderByDescending(x => x.IsActive == Entities.Base.IsActiveEnum.Active).ThenBy(x => x.Id).First().Id);
 
-				var usersByUsername = await dbContext.Users
-					.Where(u => !string.IsNullOrEmpty(u.Username))
-					.ToDictionaryAsync(x => x.Username!, x => x.Id!.Value, StringComparer.OrdinalIgnoreCase);
+				var usersByUsername = (await dbContext.Users
+						.Where(u => !string.IsNullOrEmpty(u.Username))
+						.Select(u => new { Username = u.Username!, Id = u.Id!.Value, u.IsActive })
+						.ToListAsync(cn))
+					.GroupBy(x => x.Username, StringComparer.OrdinalIgnoreCase)
+					.ToDictionary(
+						g => g.Key,
+						g => g.OrderByDescending(x => x.IsActive == Entities.Base.IsActiveEnum.Active).ThenBy(x => x.Id).First().Id,
+						StringComparer.OrdinalIgnoreCase);
 
 				// رکوردهای موجود با InvoiceId+InvoiceItemId (برای جلوگیری از تکرار)
 				var existingKeys = await unitOfWork.Repository<InquiryPartPrice>()

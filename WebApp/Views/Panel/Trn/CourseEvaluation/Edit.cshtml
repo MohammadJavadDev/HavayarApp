@@ -1,0 +1,299 @@
+@using Entities.App.Trn
+@model CourseEvaluation
+
+@{
+     long courseId = Model?.CourseId ?? 0;
+}
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(CourseEvaluation)">
+          </form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         ارزیابی دوره
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+          <input class="form-control" data-bind="courseId" value="@Model?.CourseId" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class="form-label fw-bold">ارزیاب (شرکت‌کننده)</label>
+                    @(Html.EntitySelector<Participant>(
+                                        "ParticipantSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active
+                                             && (c.CourseParticipants.Any(x => x.CourseId == courseId)
+                                                  || c.CourseCompanyParticipants.Any(x => x.CourseId == courseId)),
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             FullName = c.FirstName + " " + c.LastName,
+                                             NationalCode = c.NationalCode
+                                        },
+                                        c => new { c.FirstName, c.LastName, c.NationalCode },
+                                        "{FullName}",
+                                        "ParticipantId",
+                                        Model?.Participant != null ? (Model.Participant.FirstName + " " + Model.Participant.LastName) : null,
+                                        Model?.ParticipantId?.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>میانگین امتیاز</label>
+                    <input class='form-control' dir="ltr" readonly data-bind='averageScore'
+                           asp-for='AverageScore' placeholder="خودکار — پس از ذخیره محاسبه می‌شود" />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               @* ---------- سوالات ارزیابی (هر سوال ۱ تا ۵) ---------- *@
+               <div class="col-12 mt-3">
+                    <h5 class="fw-bold text-secondary mb-0">سوالات ارزیابی (امتیاز ۱ تا ۵)</h5>
+                    <hr class="mt-1" />
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱</label>
+                    <input class='form-control' dir="ltr" data-bind='q1'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q1' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۲</label>
+                    <input class='form-control' dir="ltr" data-bind='q2'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q2' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۳</label>
+                    <input class='form-control' dir="ltr" data-bind='q3'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q3' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۴</label>
+                    <input class='form-control' dir="ltr" data-bind='q4'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q4' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۵</label>
+                    <input class='form-control' dir="ltr" data-bind='q5'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q5' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۶</label>
+                    <input class='form-control' dir="ltr" data-bind='q6'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q6' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۷</label>
+                    <input class='form-control' dir="ltr" data-bind='q7'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q7' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۸</label>
+                    <input class='form-control' dir="ltr" data-bind='q8'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q8' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۹</label>
+                    <input class='form-control' dir="ltr" data-bind='q9'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q9' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۰</label>
+                    <input class='form-control' dir="ltr" data-bind='q10'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q10' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۱</label>
+                    <input class='form-control' dir="ltr" data-bind='q11'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q11' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۲</label>
+                    <input class='form-control' dir="ltr" data-bind='q12'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q12' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۳</label>
+                    <input class='form-control' dir="ltr" data-bind='q13'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q13' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۴</label>
+                    <input class='form-control' dir="ltr" data-bind='q14'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q14' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۵</label>
+                    <input class='form-control' dir="ltr" data-bind='q15'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q15' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۶</label>
+                    <input class='form-control' dir="ltr" data-bind='q16'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q16' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۷</label>
+                    <input class='form-control' dir="ltr" data-bind='q17'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q17' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۸</label>
+                    <input class='form-control' dir="ltr" data-bind='q18'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q18' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-2 form-group-inline'>
+                    <label class='form-label fw-bold'>سوال ۱۹</label>
+                    <input class='form-control' dir="ltr" data-bind='q19'
+                           data-invalidMessage='عدد ۱ تا ۵'
+                           data-inputmask="'regex':'^[1-5]$' , 'placeholder' : ''"
+                           asp-for='Q19' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-12 form-group-inline'>
+                    <label class='form-label fw-bold'>نظر / پیشنهاد</label>
+                    <textarea class='form-control' data-bind='comment'
+                              asp-for='Comment'>@Model?.Comment</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+<script>
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+          const $btn = $($btnAction.element).block();
+
+          $$.post('save', model, function (r) {
+               $btn.block(false);
+
+               if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+               }
+
+               toastr.success('ذخیره سازی با موفقیت انجام شد');
+               page.$pageEl.dataBind(r.data);
+               $btnAction.baseaction();
+          });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

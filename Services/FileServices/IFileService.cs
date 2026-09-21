@@ -41,4 +41,10 @@ public interface IFileService
 	// Download as stream (not IFormFile)
 	Task<(Stream Stream, string ContentType, string FileName)>
 	    DownloadAsync(long fileId, CancellationToken ct);
+
+	/// <summary>
+	/// مسیر نسبی FileEntity را به مسیر دیسک/UNC کامل تبدیل می‌کند.
+	/// اگر PhysicalPath خودش rooted باشد (از جمله UNC) همان برمی‌گردد.
+	/// </summary>
+	string GetFullPhysicalPath(string? physicalPath);
 }

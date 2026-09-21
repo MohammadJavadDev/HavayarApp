@@ -1,0 +1,82 @@
+@using Common.Utilities
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.Auth
+@model ProductionOrderItemInquiry
+@{
+	// معادل پنجره «تغییر وضعیت» HTS در حالت استعلام (کمبوی وضعیت + مسئول استعلام + LeadTime + پیوست + کامنت)
+	// committeeMode = true  → رئیس کمیته تامین روی قلم ۲۲۰۲/۱۹۰۹ مقصد را انتخاب می‌کند (۱۹۰۴/۱۹۰۵/۱۹۰۶/۱۹۰۸)
+	// committeeMode = false → استعلام‌گر/وزارت نتیجه را با کامنت و پیوست به رئیس کمیته (۱۹۰۹) برمی‌گرداند
+	var committeeMode = ViewBag.CommitteeMode as bool? ?? false;
+	var currentCheckStatus = ViewBag.CurrentCheckStatus as ProductionOrderItemCheckStatusEnum?;
+}
+
+<div class="row inquiry-form" data-committee-mode="@(committeeMode ? "true" : "false")">
+	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
+
+	@if (committeeMode)
+	{
+		<div class="col-md-6 form-group-inline">
+			<label class="required">تصمیم / مقصد</label>
+			<select class="form-control" data-bind="destination" id="inquiryDestinationSelect">
+				<option value="@((int)ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal)">خرید / ساخت داخلی (کارتابل صنایع داخلی)</option>
+				<option value="@((int)ProductionOrderItemCheckStatusEnum.ForeignIndustryCatalog)">خرید خارجی (کارتابل صنایع خارجی)</option>
+				<option value="@((int)ProductionOrderItemCheckStatusEnum.InquiryNeeded)">نیاز به استعلام</option>
+				<option value="@((int)ProductionOrderItemCheckStatusEnum.IndustrialMinistryReviewRequired)">نیاز به بررسی وزارت صنایع</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		<div class="col-md-6 form-group-inline inquiry-only d-none">
+			<label class="required">مسئول استعلام</label>
+			@(Html.EntitySelector<User>(
+				"InquiryResponsibleSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"ResponsibleId",
+				"ResponsibleName",
+				Model?.ResponsibleId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		<div class="col-md-6 form-group-inline inquiry-only d-none">
+			<label class="required">مدت زمان اخذ استعلام (LeadTime)</label>
+			<input class="form-control" data-bind="leadTimeShamsiDate" data-persionDatePicker="true"
+				   persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				   value="@Model?.LeadTimeMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	}
+	else
+	{
+		<div class="col-md-12">
+			<div class="alert alert-info py-2 mb-3">
+				<i class="fa fa-info-circle me-1"></i>
+				نتیجه استعلام با کامنت و پیوست ثبت و قلم به کارتابل رئیس کمیته تامین (ارسال به رئیس کمیته تامین) برمی‌گردد.
+				@if (currentCheckStatus.HasValue)
+				{
+					<span class="ms-2 text-muted">وضعیت فعلی: <strong>@currentCheckStatus.Value.ToDisplay()</strong></span>
+				}
+			</div>
+		</div>
+	}
+
+	<div class="col-md-12 form-group-inline">
+		<label class="required">کامنت</label>
+		<textarea class="form-control" data-bind="comment" rows="3" required>@Model?.Comment</textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+
+	<div class="col-md-12 form-group-inline">
+		<fileuploader bind="attachmentFileId" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar"
+					  file-id="@Model?.AttachmentFileId"
+					  file-entity="@Model?.AttachmentFile"
+					  entity-prop-name="AttachmentFile"
+					  entity-type="@typeof(ProductionOrderItemInquiry).FullName"
+					  max-file-size="10" label="پیوست استعلام">
+		</fileuploader>
+	</div>
+</div>

@@ -1,10 +1,12 @@
 ﻿using Common.Attributes;
 using Entities.App.Inv;
+using Entities.App.Sale.Enums;
 using Entities.App.SLS;
 using Entities.Base;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+namespace Entities.App.Sale;
 
 [Display(Name = "جزئیات سفارش فروش")]
 [Table("OrderDetail", Schema = "Sale")]
@@ -13,7 +15,10 @@ public class OrderDetail : BaseEntity
 
 	[DisplayName("سفارش")]
 	[DisplayInfo(null, true, type: SystemType.Entity)]
+	[ForeignKey(nameof(SaleOrderId))]
 	public virtual Order Sale_Order { get; set; }
+
+	[Column("Sale_OrderId")]
 	public long? SaleOrderId { get; set; }
 
 
@@ -68,9 +73,13 @@ public class OrderDetail : BaseEntity
 
 
 	[DisplayName("قیمت کاهشی")]
-	[DisplayInfo(null, true, type: SystemType.Select)]
+	[DisplayInfo(null, true, type: SystemType.Long)]
+	public long? DecPrice { get; set; }
 
-	public PayMethodEnum PayMethod { get; set; }
+
+	[DisplayName("روش پرداخت")]
+	[DisplayInfo(null, true, type: SystemType.Select)]
+	public SaleOrderPayMethodEnum PayMethod { get; set; }
 
 
 	[DisplayName("قیمت موقت")]
@@ -98,6 +107,32 @@ public class OrderDetail : BaseEntity
 	[DisplayInfo(null, true, type: SystemType.Entity)]
 	public virtual Customer Customer { get; set; }
 	public long? CustomerId { get; set; }
+
+
+	[DisplayName("شناسه راهکاران")]
+	[DisplayInfo(null, true, type: SystemType.Long)]
+	public long? HamkaranId { get; set; }
+
+
+	[DisplayName("شناسه سفارش راهکاران")]
+	[DisplayInfo(null, true, type: SystemType.Long)]
+	public long? HamkaranOrderHdrId { get; set; }
+
+	[DisplayName("شناسه HTS")]
+	[DisplayInfo(null, false, type: SystemType.Long)]
+	public long HtsId { get; set; }
+
+	[DisplayName("شناسه قلم انبار راهکاران")]
+	[DisplayInfo(null, false, type: SystemType.Long)]
+	public long? HamkaranInvVchItmId { get; set; }
+
+	[DisplayName("پکیج")]
+	[DisplayInfo(null, true, type: SystemType.Boolean)]
+	public bool? IsPackage { get; set; }
+
+	[DisplayName("ناتمام")]
+	[DisplayInfo(null, true, type: SystemType.Boolean)]
+	public bool? NotComplete { get; set; }
 
 
 	public virtual ICollection<OrderDetailSerial> OrderDetailSerials { get; set; } = new List<OrderDetailSerial>();

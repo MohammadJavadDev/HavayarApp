@@ -1,0 +1,116 @@
+@using Entities.App.Trn
+@model ConnectorParticipant
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(ConnectorParticipant)">
+          </form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         رابط شرکت
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+          <input class="form-control" data-bind="companyId" value="@Model?.CompanyId" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class="form-label fw-bold required">شرکت‌کننده (رابط)</label>
+                    @(Html.EntitySelector<Participant>(
+                                        "ParticipantSelector",
+                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                        c => new
+                                        {
+                                             Id = c.Id,
+                                             FullName = c.FirstName + " " + c.LastName,
+                                             NationalCode = c.NationalCode
+                                        },
+                                        c => new { c.FirstName, c.LastName, c.NationalCode },
+                                        "{FullName}",
+                                        "ParticipantId",
+                                        Model?.Participant != null ? (Model.Participant.FirstName + " " + Model.Participant.LastName) : null,
+                                        Model?.ParticipantId.ToString()
+                                        ))
+                    <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>سمت در شرکت</label>
+                    <input class='form-control' data-bind='position'
+                           asp-for='Position' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-12 form-group-inline'>
+                    <label class='form-label fw-bold'>توضیحات</label>
+                    <textarea class='form-control' data-bind='description'
+                              asp-for='Description'>@Model?.Description</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+<script>
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+          const $btn = $($btnAction.element).block();
+
+          $$.post('save', model, function (r) {
+               $btn.block(false);
+
+               if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+               }
+
+               toastr.success('ذخیره سازی با موفقیت انجام شد');
+               page.$pageEl.dataBind(r.data);
+               $btnAction.baseaction();
+          });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

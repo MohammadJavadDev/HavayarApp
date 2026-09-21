@@ -1,0 +1,8 @@
+﻿"Id","DisplayName","JobId","ClassType","MethodName"
+"30","هماهنگ کردن اطلاعات دسته بندی های خرید از راهکاران","App.BackgroundJob.Jobs.Sup.BuyCategoryJob.SyncBuyCategoryJobFromRahkaran","App.BackgroundJob.Jobs.Sup.BuyCategoryJob","SyncBuyCategoryJobFromRahkaran"
+"31","هماهنگ کردن اطلاعات درخواست های باز از راهکاران","App.BackgroundJob.Jobs.Sup.OpenOrderRequestJob.SyncOpenOrderRequestJobFromRahkaran","App.BackgroundJob.Jobs.Sup.OpenOrderRequestJob","SyncOpenOrderRequestJobFromRahkaran"
+"32","بررسی تغییر Revision مدارک VPIS و اعلام به واحد فروش/پروژه","App.BackgroundJob.Jobs.Sup.OpenOrderRequestJob.CheckVpisRevisionChangesAndNotify","App.BackgroundJob.Jobs.Sup.OpenOrderRequestJob","CheckVpisRevisionChangesAndNotify"
+"34","هماهنگ کردن اطلاعات استعلام قیمت کالا از راهکاران","App.BackgroundJob.Jobs.Sup.InquiryPartPriceJob.SyncInquiryPartPriceJobFromRahkaran","App.BackgroundJob.Jobs.Sup.InquiryPartPriceJob","SyncInquiryPartPriceJobFromRahkaran"
+"35","افزودن استعلام قیمت از فاکتورهای خرید راهکاران","App.BackgroundJob.Jobs.Sup.InquiryPartPriceJob.SyncInquiryPartPriceFromPurchaseInvoice","App.BackgroundJob.Jobs.Sup.InquiryPartPriceJob","SyncInquiryPartPriceFromPurchaseInvoice"
+"41","انتقال پیوست‌های درخواست‌های باز فعال از HTS","App.BackgroundJob.Jobs.Sup.OpenOrderRequestJob.SyncOpenOrderRequestAttachmentsFromHts","App.BackgroundJob.Jobs.Sup.OpenOrderRequestJob","SyncOpenOrderRequestAttachmentsFromHts"
+"45","هماهنگ کردن تامین‌کنندگان محصولات از HTS","App.BackgroundJob.Jobs.Inv.PartCompanyJob.SyncPartCompanyFromHts","App.BackgroundJob.Jobs.Inv.PartCompanyJob","SyncPartCompanyFromHts"

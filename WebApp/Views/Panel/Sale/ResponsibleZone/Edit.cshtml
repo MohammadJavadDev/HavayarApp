@@ -1,0 +1,242 @@
+@using Entities.App.Crm
+@using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Auth
+@using Entities.Base
+@using WebApp.Controllers.Dynamic
+@model ResponsibleZone
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(ResponsibleZone)"></form-action-buttons>
+	</div>
+	<div class="card-body row">
+		<span class="section-box-title">جزئیات</span>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="customersTitle" value="@Model?.CustomersTitle" type="hidden" />
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold required">مسئول</label>
+				@(Html.EntitySelector<User>(
+					"ResponsibleZoneUserSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.OrgUnitId == ResponsibleZoneController.AfterSalesOrgUnitId,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"responsibleId",
+					"responsibleName",
+					Model?.ResponsibleId?.ToString(),
+					required: true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold required">استان</label>
+				@(Html.EntitySelector<Region>(
+					"ResponsibleZoneProvinceSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Type == RegionTypeEnum.Province,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"provinceId",
+					"provinceName",
+					Model?.ProvinceId?.ToString(),
+					required: true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">منطقه</label>
+				@(Html.EntitySelector<Zone>(
+					"ResponsibleZoneZoneSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"zoneId",
+					"zoneTitle",
+					Model?.ZoneId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		<div class="col-12 mt-4">
+			<span class="section-box-title">مشتریان</span>
+			<div class="d-flex justify-content-end mb-2">
+				<button type="button" class="btn btn-sm btn-primary" data-action="addCustomer">افزودن</button>
+			</div>
+			<table class="table table-striped table-row-bordered gy-2 w-100" id="rzCustomersTable">
+				<thead>
+					<tr class="fw-bold fs-6 text-muted">
+						<th>کد مشتری</th>
+						<th>مشتری</th>
+						<th style="width:120px;">عملیات</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+<script>
+	let customers = [];
+	const headerId = @(Model?.Id ?? 0);
+
+	function renderCustomers() {
+		const $tb = $$('#rzCustomersTable tbody');
+		$tb.empty();
+		customers.forEach(function (row, idx) {
+			const code = row.customerCode || '-';
+			const name = row.customerName || '-';
+			$tb.append(
+				'<tr>'
+				+ '<td>' + $('<div/>').text(code).html() + '</td>'
+				+ '<td>' + $('<div/>').text(name).html() + '</td>'
+				+ '<td class="text-center">'
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editCustomer" data-idx="' + idx + '"><i class="fa fa-edit"></i></button> '
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteCustomer" data-idx="' + idx + '"><i class="fa fa-trash"></i></button>'
+				+ '</td></tr>'
+			);
+		});
+	}
+
+	function loadCustomers(zoneId) {
+		if (!zoneId) {
+			customers = [];
+			renderCustomers();
+			return;
+		}
+		$$.get('/Panel/Sale/ResponsibleZoneCustomer/GetListByParentId?responsibleZoneId=' + zoneId, function (r) {
+			const rows = (r && r.data) ? r.data : (Array.isArray(r) ? r : []);
+			customers = rows.map(function (x) {
+				return {
+					customerId: x.customerId,
+					customerCode: x.customerCode,
+					customerName: x.customerName
+				};
+			});
+			renderCustomers();
+		});
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function openCustomerModal(idx) {
+		const current = (idx === null || idx === undefined) ? null : customers[idx];
+		const $trigger = (idx === null || idx === undefined)
+			? $$('[data-action="addCustomer"]')
+			: $$('[data-action="editCustomer"][data-idx="' + idx + '"]');
+		$trigger.block();
+		page.getPartialView('/Panel/Sale/ResponsibleZoneCustomer/New', function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: current ? 'ویرایش مشتری' : 'افزودن مشتری',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'تایید',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const picked = $content.dataBind();
+							const customerId = Number(picked.customerId);
+							if (!customerId) {
+								toastr.error('مشتری الزامی است', 'خطا');
+								return false;
+							}
+							const exists = customers.some(function (c, i) {
+								return Number(c.customerId) === customerId && i !== idx;
+							});
+							if (exists) {
+								toastr.error('این مشتری قبلاً اضافه شده است', 'خطا');
+								return false;
+							}
+							const next = {
+								customerId: customerId,
+								customerCode: picked.customerCode || picked.code || '',
+								customerName: picked.customerName || ''
+							};
+							if (current)
+								customers[idx] = next;
+							else
+								customers.push(next);
+							renderCustomers();
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+						if (current)
+							selfConfirm.$content.dataBind({ customerId: current.customerId, customerName: current.customerName });
+					}, 100);
+				}
+			});
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		if (!customers.length) {
+			toastr.error('حداقل یک مشتری الزامی است', 'خطا');
+			return;
+		}
+		const model = page.$pageEl.dataBind();
+		model.customerIds = customers.map(function (c) { return Number(c.customerId); });
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			const savedId = r.data && r.data.id;
+			if (savedId)
+				loadCustomers(savedId);
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	page.$pageEl.on('click', '[data-action="addCustomer"]', function () { openCustomerModal(null); });
+	page.$pageEl.on('click', '[data-action="editCustomer"]', function () { openCustomerModal(Number($(this).data('idx'))); });
+	page.$pageEl.on('click', '[data-action="deleteCustomer"]', function () {
+		const idx = Number($(this).data('idx'));
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				customers.splice(idx, 1);
+				renderCustomers();
+			});
+	});
+	loadCustomers(headerId);
+</script>

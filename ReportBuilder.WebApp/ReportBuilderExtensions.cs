@@ -1,9 +1,10 @@
-﻿ 
+ 
 using Microsoft.Extensions.DependencyInjection;
- using RB.WebApp;
+using RB.WebApp;
 using ReportBuilder.Services.Contracts;
 using ReportBuilder.Services.Repositories;
 using ReportBuilder.WebApp.Controllers;
+using Stimulsoft.Report;
 using Stimulsoft.Report.Dictionary;
 using System.Reflection;
 
@@ -15,6 +16,8 @@ namespace ReportBuilder.WebApp
 
         public static void ConfigureProfilesModule(this IServiceCollection services)
         {
+            StiOptions.Engine.ForceInterpretationMode = true;
+
             var assembly = typeof(ReportBuilderController).GetTypeInfo().Assembly;
 
             services.AddScoped<IReportBuilderService, ReportBuilderService>();

@@ -1,6 +1,8 @@
 ﻿using Common.Attributes;
 using Entities.App.Edms.Enums;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -11,6 +13,10 @@ namespace Entities.App.Pln
     [Table("Project", Schema = "Pln")]
     public class PlaningProject : BaseEntity
     {
+
+        [DisplayName("شناسه HTS")]
+        [DisplayInfo(null, false, type: SystemType.Long)]
+        public long HtsId { get; set; }
 
         [DisplayName("کد پروژه")]
         [DisplayInfo(null, true, type: SystemType.String)]
@@ -50,5 +56,16 @@ namespace Entities.App.Pln
         [DisplayInfo(null, true, type: SystemType.Select)]
         public ProjectStatusEnum ProjectStatus { get; set; }
 
+    }
+
+    public class PlaningProjectConfiguration : IEntityTypeConfiguration<PlaningProject>
+    {
+        public void Configure(EntityTypeBuilder<PlaningProject> builder)
+        {
+            builder.HasIndex(x => x.HtsId)
+                .IsUnique()
+                .HasFilter("[HtsId] <> CAST(0 AS bigint)")
+                .HasDatabaseName("IX_Pln_Project_HtsId");
+        }
     }
 }

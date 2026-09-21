@@ -1,0 +1,242 @@
+@using Entities.App.Trn
+@using WebApp.Controllers.Dynamic
+@model CertificateListByParentViewModel
+
+@{
+     var tableId = "certificateTable_" + Model.CourseId;
+}
+
+<div class="card" id="certificateListPage" data-course-id="@Model.CourseId">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">
+               <i class="fa fa-certificate ms-2"></i>
+               گواهی‌های دوره (@Model.CourseTitle)
+          </h5>
+          <div>
+               <button type="button" class="btn btn-sm btn-primary" id="btnIssueAll">
+                    <i class="fa fa-certificate ms-1"></i>صدور همه
+               </button>
+               <button type="button" class="btn btn-sm btn-light-info" id="btnPrintAll">
+                    <i class="fa fa-print ms-1"></i>چاپ همه
+               </button>
+          </div>
+     </div>
+     <div class="card-body">
+          <table id="@tableId" class="table table-striped table-row-bordered gy-2 w-100">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>نام</th>
+                         <th>نام خانوادگی</th>
+                         <th>کد ملی</th>
+                         <th>شرکت</th>
+                         <th>مسیر</th>
+                         <th>شماره گواهی</th>
+                         <th>قالب</th>
+                         <th>تاریخ صدور</th>
+                         <th style="width:180px;">عملیات</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
+     </div>
+</div>
+<script>
+     const courseId = '@Model.CourseId';
+     const tableSelector = '#@tableId';
+     const listApiUrl = '/Panel/Trn/Certificate/GetListByParentId?courseId=' + courseId;
+
+     function escapeHtml(text) {
+          if (text === null || text === undefined) return '-';
+          return String(text)
+               .replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;');
+     }
+
+     function issueCertificate(enrollment) {
+          Swal.fire({
+               title: 'صدور گواهی',
+               text: 'برای این شرکت‌کننده گواهی صادر شود؟',
+               icon: 'question',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+
+               $$.post('/Panel/Trn/Certificate/Issue', enrollment, function (response) {
+                    if (!response || response.isSuccess === false) {
+                         toastr.error((response && response.message) || 'خطا در صدور گواهی');
+                         return;
+                    }
+                    toastr.success('گواهی با شماره ' + ((response.data && response.data.certificateNo) || '') + ' صادر شد');
+                    reloadCertificateList();
+                    const templateKey = response.data && response.data.templateKey;
+                    const certificateId = response.data && response.data.certificateId;
+                    if (templateKey && certificateId) {
+                         printCertificate(templateKey, certificateId);
+                    }
+               });
+          });
+     }
+
+     function issueAllCertificates() {
+          Swal.fire({
+               title: 'صدور همه گواهی‌ها',
+               text: 'برای همه شرکت‌کنندگان بدون گواهی، گواهی صادر شود؟',
+               icon: 'question',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+
+               const $btn = $$('#btnIssueAll').block();
+               $$.post('/Panel/Trn/Certificate/IssueAll?courseId=' + courseId, {}, function (response) {
+                    $btn.block(false);
+                    if (!response || response.isSuccess === false) {
+                         toastr.error((response && response.message) || 'خطا در صدور گروهی');
+                         return;
+                    }
+                    const data = response.data || {};
+                    const issued = data.issuedCount || 0;
+                    const failed = data.failedCount || 0;
+                    if (issued === 0 && failed === 0) {
+                         toastr.success('همه شرکت‌کنندگان این دوره گواهی دارند');
+                    } else if (failed > 0) {
+                         toastr.error((issued + ' گواهی صادر شد، ' + failed + ' مورد ناموفق. ') + (data.message || ''));
+                    } else {
+                         toastr.success(issued + ' گواهی صادر شد');
+                    }
+                    reloadCertificateList();
+               });
+          });
+     }
+
+     function printAllCertificates() {
+          const dt = window['@tableId'];
+          if (!dt) return;
+          const rows = dt.rows().data().toArray();
+          const issued = rows.filter(function (r) { return r.certificateId; });
+          if (!issued.length) {
+               toastr.error('ابتدا گواهی‌ها را صادر کنید');
+               return;
+          }
+          const templateKey = issued[0].templateKey;
+          if (!templateKey) {
+               toastr.error('قالب چاپ برای این دوره مشخص نشده است');
+               return;
+          }
+          appController.addPage('/System/ReportBuilder/ViewReportByName/' + templateKey + '?courseId={\'values\':[\'' + courseId + '\'],\'condition\':\'=\'}&autoRun=True');
+     }
+
+     function sendCertificateEmail(certificateId) {
+          Swal.fire({
+               title: 'ارسال ایمیل گواهی',
+               text: 'گواهی به ایمیل شرکت‌کننده ارسال شود؟',
+               icon: 'question',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+
+               $$.post('/Panel/Trn/CertificateEmailLog/SendEmail', { certificateId: certificateId }, function (response) {
+                    if (!response || response.isSuccess === false) {
+                         toastr.error((response && response.message) || 'خطا در ارسال ایمیل');
+                         return;
+                    }
+                    const log = response.data;
+                    if (log && log.isSuccess) {
+                         toastr.success('ایمیل با موفقیت ارسال شد');
+                    } else {
+                         toastr.error((log && log.resultMessage) || 'ارسال ناموفق بود — لاگ ثبت شد');
+                    }
+                    reloadCertificateList();
+               });
+          });
+     }
+
+     function printCertificate(templateKey, certificateId) {
+          appController.addPage('/System/ReportBuilder/ViewReportByName/' + templateKey + '?certificateId={\'values\':[\'' + certificateId + '\'],\'condition\':\'=\'}&autoRun=True');
+     }
+
+     function reloadCertificateList() {
+          const dt = window['@tableId'];
+          if (dt && dt.ajax) {
+               dt.ajax.reload(null, false);
+          }
+     }
+
+     const table = $$(tableSelector).DataTable({
+          serverSide: false,
+          autoWidth: false,
+          scrollX: true,
+          pageLength: 10,
+          lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'همه']],
+          order: [[0, 'asc']],
+          language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+          ajax: {
+               url: listApiUrl,
+               type: 'GET',
+               dataSrc: function (json) {
+                    if (json && json.isSuccess === false) {
+                         toastr.error(json.message || 'خطا در دریافت اطلاعات');
+                         return [];
+                    }
+                    return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+               }
+          },
+          columns: [
+               { data: 'firstName', render: function (d) { return escapeHtml(d); } },
+               { data: 'lastName', render: function (d) { return escapeHtml(d); } },
+               { data: 'nationalCode', render: function (d) { return escapeHtml(d); } },
+               { data: 'companyTitle', render: function (d) { return escapeHtml(d); } },
+               { data: 'enrollmentKind', render: function (d) { return escapeHtml(d); } },
+               { data: 'certificateNo', render: function (d) { return escapeHtml(d); } },
+               { data: 'templateKey', render: function (d) { return escapeHtml(d); } },
+               { data: 'issueShamsiDate', render: function (d) { return escapeHtml(d); } },
+               {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: function (d, t, row) {
+                         if (!row.certificateId) {
+                              return '<button type="button" class="btn btn-sm btn-primary btn-issue-row" data-public-id="' + (row.courseParticipantId || '') + '" data-private-id="' + (row.courseCompanyParticipantId || '') + '" title="صدور گواهی"><i class="fa fa-certificate ms-1"></i>صدور گواهی</button>';
+                         }
+                         return '<button type="button" class="btn btn-sm btn-icon btn-light-info btn-print-row" data-template="' + escapeHtml(row.templateKey) + '" data-id="' + row.certificateId + '" title="چاپ"><i class="fa fa-print"></i></button> '
+                              + '<button type="button" class="btn btn-sm btn-icon btn-light-success btn-email-row" data-id="' + row.certificateId + '" title="ارسال ایمیل"><i class="fa fa-envelope"></i></button> '
+                              + '<button type="button" class="btn btn-sm btn-icon btn-light-warning btn-edit-row" data-id="' + row.certificateId + '" title="ویرایش"><i class="fa fa-edit"></i></button>';
+                    }
+               }
+          ]
+     });
+
+     window['@tableId'] = table;
+
+     $$('#btnIssueAll').on('click', function () { issueAllCertificates(); });
+     $$('#btnPrintAll').on('click', function () { printAllCertificates(); });
+
+     $$(tableSelector).on('click', '.btn-issue-row', function () {
+          const $btn = $(this);
+          issueCertificate({
+               courseParticipantId: $btn.data('public-id') || null,
+               courseCompanyParticipantId: $btn.data('private-id') || null
+          });
+     });
+
+     $$(tableSelector).on('click', '.btn-print-row', function () {
+          const $btn = $(this);
+          printCertificate($btn.data('template'), $btn.data('id'));
+     });
+
+     $$(tableSelector).on('click', '.btn-email-row', function () {
+          sendCertificateEmail($(this).data('id'));
+     });
+
+     $$(tableSelector).on('click', '.btn-edit-row', function () {
+          const id = $(this).data('id');
+          appController.addPage('/Panel/Trn/Certificate/Edit?id=' + id);
+     });
+</script>

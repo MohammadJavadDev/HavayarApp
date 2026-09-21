@@ -1,126 +1,301 @@
+@using Entities.Base
 @using WebApp.Controllers.SystemControllers
 @model ManageMembersViewModel
 
 @{
-     ViewData["Title"] = $"مدیریت اعضای {Model.Group.DisplayName}";
+     ViewData["Title"] = Model.IsNew ? "افزودن گروه اعلان" : $"ویرایش گروه اعلان {Model.Group.DisplayName}";
+     var membersCardClass = Model.IsNew ? "d-none" : string.Empty;
+     var saveHintClass = Model.IsNew ? string.Empty : "d-none";
 }
+<div class="card">
+     <form-action-buttons entity-type="typeof(NotificationGroup)"
+                          new-page-btn="false"
+                          save-and-new-btn="false"
+                          history-btn="false">
+     </form-action-buttons>
+</div>
+<div class="card mb-5">
+     
 
-<div class="card ">
-     <div class="card-header col p-3">
-          <div class="text-center col-md-12">
-               <h1>@ViewData["Title"]</h1>
+     <div class="card-body row g-5" data-section="group-form">
+          <input id="notificationGroupId" type="hidden" data-bind="id" value="@Model.Group.Id" />
+
+          <div class="col-md-6">
+               <label class="required form-label" for="notificationGroupCode">کد گروه</label>
+               <input id="notificationGroupCode"
+                      class="form-control"
+                      data-bind="code"
+                      asp-for="Group.Code"
+                      maxlength="100"
+                      pattern="[A-Za-z0-9][A-Za-z0-9._-]*"
+                      required
+                      dir="ltr" />
+               <div class="form-text">نمونه: <span dir="ltr">Sale.ProductionOrder.Engineering</span></div>
+               <div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
           </div>
-          <div class="col-md-12 text-center ">
-               <p>@Model.Group.Code</p>
-               <p>@Model.Group.Description</p>
+
+          <div class="col-md-6">
+               <label class="required form-label" for="notificationGroupDisplayName">نام گروه</label>
+               <input id="notificationGroupDisplayName"
+                      class="form-control"
+                      data-bind="displayName"
+                      asp-for="Group.DisplayName"
+                      maxlength="200"
+                      required />
+               <div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+          </div>
+
+          <div class="col-md-6">
+               <label class="form-label" for="notificationGroupStatus">وضعیت</label>
+               <select id="notificationGroupStatus"
+                       class="form-select"
+                       data-bind="isActive"
+                       asp-for="Group.IsActive"
+                       asp-items="Html.GetEnumSelectList(typeof(IsActiveEnum))">
+               </select>
+          </div>
+
+          <div class="col-12">
+               <label class="form-label" for="notificationGroupDescription">توضیحات</label>
+               <textarea id="notificationGroupDescription"
+                         class="form-control"
+                         data-bind="description"
+                         asp-for="Group.Description"
+                         maxlength="1500"
+                         rows="4"></textarea>
+               <div class="form-text">کاربرد گروه یا بخشی از سیستم که از این گروه استفاده می‌کند را وارد کنید.</div>
+               <div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
           </div>
      </div>
+</div>
 
-     <div class="row card-body">
-          <div class="col-md-6">
-               <h3>اعضای فعلی (<span id="memberCount">@Model.CurrentMembers.Count</span> نفر)</h3>
+<div id="saveGroupHint" class="alert alert-primary d-flex align-items-center @saveHintClass" role="status">
+     <i class="ki-duotone ki-information-5 fs-2x me-3">
+          <span class="path1"></span>
+          <span class="path2"></span>
+          <span class="path3"></span>
+     </i>
+     <div>
+          ابتدا اطلاعات گروه را ذخیره کنید؛ سپس بخش افزودن اعضا فعال می‌شود.
+     </div>
+</div>
+
+<div id="membersCard" class="card @membersCardClass">
+     <div class="card-header align-items-center py-4">
+          <div>
+               <h3 class="card-title fw-bold mb-1">اعضای گروه</h3>
+               <div class="text-muted fs-7">
+                    <span data-role="groupCode">@Model.Group.Code</span>
+               </div>
+          </div>
+          <span class="badge badge-light-primary fs-7">
+               <span id="memberCount">@Model.CurrentMembers.Count</span>&nbsp;نفر
+          </span>
+     </div>
+
+     <div class="card-body row g-6">
+          <div class="col-lg-7">
+               <h4 class="fs-6 fw-semibold mb-3">اعضای فعلی</h4>
                <ul class="list-group" id="memberList">
-                    @foreach (var member in Model.CurrentMembers)
+                    @if (Model.CurrentMembers.Count == 0)
                     {
-                         <li class="list-group-item d-flex justify-content-between align-items-center"
-                              data-user-id="@member.UserId">
-                              <div>
-                                   <strong>@member.FullName</strong>
-                                   <br />
-                                   <small>@member.Email</small>
-                              </div>
-                              <button class="btn btn-sm btn-danger" type="button"
-                                      data-groupcode="@Model.Group.Code" data-userId="@member.UserId" data-action="removeMember">
-                                   حذف
-                              </button>
+                         <li class="list-group-item text-center text-muted" data-role="emptyMembers">
+                              هنوز عضوی به این گروه اضافه نشده است.
                          </li>
+                    }
+                    else
+                    {
+                         @foreach (var member in Model.CurrentMembers)
+                         {
+                              <li class="list-group-item d-flex flex-wrap gap-3 justify-content-between align-items-center notification-group-member"
+                                  data-user-id="@member.UserId"
+                                  data-fullname="@member.FullName"
+                                  data-email="@member.Email">
+                                   <div class="d-flex flex-column">
+                                        <strong>@member.FullName</strong>
+                                        <small class="text-muted">@member.Email</small>
+                                   </div>
+                                   <button class="btn btn-sm btn-light-danger"
+                                           type="button"
+                                           data-user-id="@member.UserId"
+                                           data-action="removeMember">
+                                        حذف
+                                   </button>
+                              </li>
+                         }
                     }
                </ul>
           </div>
 
-          <div class="col-md-6">
-               <h3>افزودن عضو جدید</h3>
-               <select id="userSelect" class="form-control">
-                    <option value="">انتخاب کاربر...</option>
-                    @foreach (var user in Model.AllUsers.Where(u => !Model.CurrentMembers.Any(m => m.UserId == u.Id)))
-                    {
-                         <option value="@user.Id" data-fullname="@user.Name" data-email="@user.Email">@user.Name
-                              (@user.Email)</option>
-                    }
-               </select>
-               <button class="btn btn-success mt-2" type="button" id="addMemberBtn">
-                    افزودن عضو
-               </button>
+          <div class="col-lg-5">
+               <div class="border rounded p-4 h-100">
+                    <h4 class="fs-6 fw-semibold mb-3">افزودن عضو جدید</h4>
+                    <label class="form-label" for="userSelect">کاربر</label>
+                    <select id="userSelect" class="form-select">
+                         <option value="">انتخاب کاربر...</option>
+                         @foreach (var user in Model.AllUsers.Where(u => !Model.CurrentMembers.Any(m => m.UserId == u.Id)))
+                         {
+                              <option value="@user.Id" data-fullname="@user.Name" data-email="@user.Email">
+                                   @user.Name (@user.Email)
+                              </option>
+                         }
+                    </select>
+                    <button class="btn btn-primary w-100 mt-3" type="button" id="addMemberBtn">
+                         <i class="fa fa-plus me-2"></i>
+                         افزودن عضو
+                    </button>
+               </div>
           </div>
      </div>
 </div>
 
 <script>
+     $$("#userSelect").select2({ width: "100%" });
 
-     $$("#userSelect").select2();
-     var _groupCode = '@Model.Group.Code';
+     var _groupCode = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Group.Code));
 
-     $$("#addMemberBtn").click(function(){
-            addMember('@Model.Group.Code')
-     })
-   
+     function refreshMemberCount() {
+          var count = $$("#memberList .notification-group-member").length;
+          $$("#memberCount").text(count);
 
-     function addMember(groupCode) {
-          var $select = $$('#userSelect');
-          var userId = $select.val();
-          if (!userId) {
-               toastr.warning('لطفا یک کاربر انتخاب کنید');
-               return;
+          if (count === 0 && $$("#memberList [data-role='emptyMembers']").length === 0) {
+               $$("#memberList").append(
+                    '<li class="list-group-item text-center text-muted" data-role="emptyMembers">هنوز عضوی به این گروه اضافه نشده است.</li>'
+               );
           }
-          var $opt = $select.find('option:selected');
-          var fullName = $opt.data('fullname') || $opt.text().replace(/\s*\([^)]*\)\s*$/, '').trim();
-          var email = $opt.data('email') || '';
+     }
 
-          $$.post('/Panel/System/NotificationGroup/AddMember', { groupCode: groupCode, userId: parseInt(userId, 10) }, function (r) {
+     function createMemberItem(userId, fullName, email) {
+          var $item = $("<li>")
+               .addClass("list-group-item d-flex flex-wrap gap-3 justify-content-between align-items-center notification-group-member")
+               .attr("data-user-id", userId)
+               .attr("data-fullname", fullName || "")
+               .attr("data-email", email || "");
+
+          var $identity = $("<div>").addClass("d-flex flex-column");
+          $("<strong>").text(fullName || "-").appendTo($identity);
+          $("<small>").addClass("text-muted").text(email || "-").appendTo($identity);
+
+          var $removeButton = $("<button>")
+               .addClass("btn btn-sm btn-light-danger")
+               .attr("type", "button")
+               .attr("data-user-id", userId)
+               .attr("data-action", "removeMember")
+               .text("حذف");
+
+          return $item.append($identity, $removeButton);
+     }
+
+     function saveGroup($btnAction) {
+          var $groupForm = $$('[data-section="group-form"]');
+          if (validateError($groupForm)) return;
+
+          var model = $groupForm.dataBind();
+          model.id = model.id ? parseInt(model.id, 10) : null;
+          var wasNew = !model.id;
+          var $button = $($btnAction.element).block();
+
+          $$.post('/Panel/System/NotificationGroup/Save', model, function (r) {
+               $button.block(false);
+
                if (!r.isSuccess) {
-                    toastr.error(r.message || 'خطا');
+                    toastr.error(r.message || 'خطا در ذخیره گروه اعلان', 'خطا');
                     return;
                }
-               var data = r.data;
-               if (data && !data.success) {
-                    toastr.error(data.message || 'خطا در افزودن عضو');
-                    return;
-               }
-               toastr.success('عضو با موفقیت اضافه شد');
-               var li = '<li class="list-group-item d-flex justify-content-between align-items-center" data-user-id="' + userId + '">' +
-                    '<div><strong>' + (fullName || '') + '</strong><br/><small>' + (email || '') + '</small></div>' +
-                    `<button class="btn btn-sm btn-danger" type="button" data-action="removeMember" data-groupcode="${_groupCode}" data-userId="${userId}" >حذف</button></li>`;
- 
-                  
 
-               $$('#memberList').append(li);
-               $opt.remove();
-               $$('#memberCount').text($$('#memberList li').length);
+               var group = r.data;
+               $groupForm.dataBind(group);
+               _groupCode = group.code;
+               $$("[data-role='groupCode']").text(group.code);
+               $$("[data-role='pageTitle']").text('ویرایش گروه اعلان ' + group.displayName);
+               $$("#saveGroupHint").addClass("d-none");
+               $$("#membersCard").removeClass("d-none");
+
+               toastr.success(wasNew ? 'گروه اعلان با موفقیت ایجاد شد.' : 'اطلاعات گروه با موفقیت ویرایش شد.');
+               $btnAction.baseaction();
           });
      }
 
-     $$("#memberList").on("click","[data-action=removeMember]",function(){
-          var groupCode = $(this).attr("data-groupcode");
-          var userId = $(this).attr("data-userId");
-          removeMember(groupCode,userId);
-     })
+     self.FormActionButtons.save.onclick(function () { saveGroup(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { saveGroup(this); });
 
-     function removeMember(groupCode, userId) {
-          if (!confirm('آیا مطمئن هستید؟')) return;
+     $$("#addMemberBtn").click(function () {
+          addMember();
+     });
 
-          $$.post('/Panel/System/NotificationGroup/RemoveMember', { groupCode: groupCode, userId: userId }, function (r) {
-               if (!r.isSuccess) {
-                    toastr.error(r.message || 'خطا');
+     function addMember() {
+          var $select = $$('#userSelect');
+          var userId = $select.val();
+
+          if (!_groupCode) {
+               toastr.warning('ابتدا اطلاعات گروه را ذخیره کنید.');
+               return;
+          }
+
+          if (!userId) {
+               toastr.warning('لطفاً یک کاربر انتخاب کنید.');
+               return;
+          }
+
+          var $option = $select.find('option:selected');
+          var fullName = $option.data('fullname') || $option.text().replace(/\s*\([^)]*\)\s*$/, '').trim();
+          var email = $option.data('email') || '';
+          var $button = $$("#addMemberBtn").block();
+
+          $$.post('/Panel/System/NotificationGroup/AddMember', {
+               groupCode: _groupCode,
+               userId: parseInt(userId, 10)
+          }, function (r) {
+               $button.block(false);
+
+               if (!r.isSuccess || (r.data && !r.data.success)) {
+                    toastr.error((r.data && r.data.message) || r.message || 'خطا در افزودن عضو');
                     return;
                }
-               var data = r.data;
-               if (data && !data.success) {
-                    toastr.error(data.message || 'خطا در حذف عضو');
+
+               $$("#memberList [data-role='emptyMembers']").remove();
+               $$("#memberList").append(createMemberItem(userId, fullName, email));
+               $option.remove();
+               $select.val('').trigger('change');
+               refreshMemberCount();
+               toastr.success('عضو با موفقیت اضافه شد.');
+          });
+     }
+
+     $$("#memberList").on("click", "[data-action='removeMember']", function () {
+          var userId = $(this).attr("data-user-id");
+          removeMember(userId, $(this));
+     });
+
+     function removeMember(userId, $button) {
+          if (!confirm('آیا از حذف این عضو مطمئن هستید؟')) return;
+
+          var $item = $button.closest('.notification-group-member');
+          var fullName = $item.attr('data-fullname') || '';
+          var email = $item.attr('data-email') || '';
+          $button.block();
+
+          $$.post('/Panel/System/NotificationGroup/RemoveMember', {
+               groupCode: _groupCode,
+               userId: parseInt(userId, 10)
+          }, function (r) {
+               $button.block(false);
+
+               if (!r.isSuccess || (r.data && !r.data.success)) {
+                    toastr.error((r.data && r.data.message) || r.message || 'خطا در حذف عضو');
                     return;
                }
-               toastr.success('عضو با موفقیت حذف شد');
-               $$('#memberList li[data-user-id="' + userId + '"]').remove();
-               $$('#memberCount').text($$('#memberList li').length);
+
+               $item.remove();
+               $$("#userSelect").append(
+                    $("<option>")
+                         .val(userId)
+                         .attr("data-fullname", fullName)
+                         .attr("data-email", email)
+                         .text(fullName + (email ? ' (' + email + ')' : ''))
+               ).trigger('change');
+               refreshMemberCount();
+               toastr.success('عضو با موفقیت حذف شد.');
           });
      }
 </script>

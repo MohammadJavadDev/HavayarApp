@@ -1,0 +1,115 @@
+@using Entities.App.Inv
+@using Entities.App.Rpr
+@using Entities.Base
+@model RepairRequestContractor
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(RepairRequestContractor)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">پیمانکار درخواست تعمیر</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="repairRequestId" value="@Model?.RepairRequestId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">پیمانکار</label>
+				@(Html.EntitySelector<RepairContractor>(
+					"RepairReqContractorSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"contractorId",
+					"contractorTitle",
+					Model?.ContractorId?.ToString()
+				))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">عنوان پیمانکار</label>
+				<input class="form-control" data-bind="contractorTitle" asp-for="ContractorTitle" />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">کالا</label>
+				@(Html.EntitySelector<Part>(
+					"RepairReqContractorPartSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"partId",
+					"partSelectorTitle",
+					Model?.PartId?.ToString()
+				))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">عنوان کالا</label>
+				<input class="form-control" data-bind="partTitle" asp-for="PartTitle" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مبلغ تعمیر</label>
+				<input class="form-control" type="text" data-bind="cost" data-money="true" asp-for="Cost" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ ارسال قطعه</label>
+				<input class="form-control" data-bind="sendPartShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.SendPartMiladiDate" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ اعلام هزینه</label>
+				<input class="form-control" data-bind="costAnnouncementShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.CostAnnouncementMiladiDate" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ تایید</label>
+				<input class="form-control" data-bind="acceptShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.AcceptMiladiDate" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ توافقی</label>
+				<input class="form-control" data-bind="agreementShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.AgreementMiladiDate" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ برگشت</label>
+				<input class="form-control" data-bind="returnShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.ReturnMiladiDate" />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

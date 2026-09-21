@@ -2,6 +2,7 @@
 @using Entities.App.Pln;
 @using Entities.App.Pln.Enums
 @using Entities.App.Sale;
+@using WebApp.Controllers.Dynamic;
 @model ProductionOrderDelay
 @{
 	var isEdit = Model?.Id != null && Model.Id > 0;
@@ -10,6 +11,10 @@
 	var existingDelays = ViewBag.ExistingDelays as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
 	var calculatedRangeJson = ViewBag.CalculatedDelayRange != null
 		? System.Text.Json.JsonSerializer.Serialize(ViewBag.CalculatedDelayRange)
+		: "null";
+	var orderDetails = ViewBag.ProductionOrderDetails as ProductionOrderDetailsDto;
+	var orderDetailsJson = orderDetails != null
+		? System.Text.Json.JsonSerializer.Serialize(orderDetails)
 		: "null";
 }
 <div class="card">
@@ -31,7 +36,7 @@
 		</div>
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
 
-		<div class="col-md-6 form-group-inline">
+		<div class="col-md-4 form-group-inline">
 			<label class=''>سفارش ساخت</label>
 			@(Html.EntitySelector<ProductionOrder>(
 				"ProductionOrderSelector",
@@ -59,7 +64,13 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class="col-md-6   form-group-inline">
+		<div class="col-md-4 form-group-inline">
+			<label>نام مشتری سفارش ساخت</label>
+			<input class="form-control bg-light" id="customerTitleInput" readonly value="@(orderDetails?.CustomerTitle ?? "-")" placeholder="نام مشتری سفارش ساخت" />
+			<div class='my-1 mx-1'></div>
+		</div>
+
+		<div class="col-md-4 form-group-inline">
 			<label>عامل توقف</label>
 			@{
 				var delayResponsibleItems = Html.GetEnumSelectList(typeof(DelayResponsibleEnum)).ToList();
@@ -74,7 +85,82 @@
 		</div>
 
 	</div>
+</div>
+
+<div class="card my-3" id="productionOrderItemsCard">
+	<div class="card-body">
+		<div class="d-flex justify-content-between align-items-center mb-3">
+			<span class="section-box-title mb-0">اقلام سفارش ساخت</span>
+			<div id="productionOrderItemsLegend" style="@(orderDetails?.HasDelay == true ? "" : "display:none;")">
+				<span class="badge badge-light-danger fw-bold">
+					<i class="fa fa-circle text-danger me-1" style="font-size:0.6rem;"></i>عامل تاخیر سفارش ساخت
+				</span>
+			</div>
+		</div>
+
+		<div class="table-responsive">
+			<table class="table table-striped table-bordered table-hover align-middle mb-0" id="productionOrderItemsTable">
+				<thead>
+					<tr class="fw-bold text-gray-800 bg-light">
+						<th style="width: 50px;">#</th>
+						<th>کد محصول</th>
+						<th>نام محصول</th>
+						<th style="width: 110px;">تعداد / مقدار</th>
+						<th>سریال</th>
+						<th>تاریخ تحویل توافقی</th>
+						<th>تاریخ تحویل استاندارد</th>
+						<th>تاریخ آماده‌سازی</th>
+						<th style="width: 150px;">وضعیت تاخیر</th>
+					</tr>
+				</thead>
+				<tbody id="productionOrderItemsTableBody">
+					@if (orderDetails?.Items != null && orderDetails.Items.Any())
+					{
+						foreach (var item in orderDetails.Items)
+						{
+							var rowClass = item.IsDelayCause ? "table-danger" : "";
+							var rowStyle = item.IsDelayCause ? "background-color: #ffe8ec !important; font-weight: 600;" : "";
+							<tr class="@rowClass" style="@rowStyle">
+								<td>@item.Index</td>
+								<td>@item.PartCode</td>
+								<td>@item.PartName</td>
+								<td>@item.Amount</td>
+								<td>@item.Serial</td>
+								<td>@item.AgreedDeliverShamsiDate</td>
+								<td>@item.StandardDeliveryShamsiDate</td>
+								<td>@item.PreparationShamsiDate</td>
+								<td>
+									@if (item.IsDelayCause)
+									{
+										<span class="badge badge-danger fw-bold" title="این قلم با بیشترین تاخیر، عامل تاخیر سفارش ساخت است">
+											عامل تاخیر (@item.ItemDelayDays روز)
+										</span>
+									}
+									else if (item.IsDelayed)
+									{
+										<span class="badge badge-light-warning">
+											تاخیر (@item.ItemDelayDays روز)
+										</span>
+									}
+									else
+									{
+										<span class="badge badge-light-success">به‌موقع</span>
+									}
+								</td>
+							</tr>
+						}
+					}
+					else
+					{
+						<tr class="empty-row">
+							<td colspan="9" class="text-center text-muted">قلمی برای این سفارش ساخت یافت نشد یا سفارشی انتخاب نشده است</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 	</div>
+</div>
 <div class="card my-3">
 	<div class="card-body row">
 		<span class="section-box-title">دریافت‌کنندگان ایمیل این عامل توقف</span>
@@ -108,6 +194,18 @@
 		<div class="col-md-12 mb-4" id="calculatedDelayRangePanel" style="display:none;">
 			<div class="alert alert-light border mb-0">
 				<div class="row g-3">
+					<div class="col-md-3">
+						<span class="text-muted d-block">نام محصول</span>
+						<span class="fw-semibold text-primary" id="calcDelayCausePartName">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">کد محصول</span>
+						<span class="fw-semibold text-primary" id="calcDelayCausePartCode">-</span>
+					</div>
+					<div class="col-md-3">
+						<span class="text-muted d-block">سریال</span>
+						<span class="fw-semibold text-primary" id="calcDelayCauseSerial">-</span>
+					</div>
 					<div class="col-md-3">
 						<span class="text-muted d-block">شماره سفارش ساخت</span>
 						<span class="fw-semibold text-primary" id="calcProductionOrderNumber">-</span>
@@ -267,6 +365,7 @@
 	var lockedProductionOrderId = @(hasLockedProductionOrder ? (Model.ProductionOrderId ?? 0) : 0);
 	var pageProductionOrderId = @(Model?.ProductionOrderId ?? 0);
 	var calculatedDelayRange = @Html.Raw(calculatedRangeJson);
+	var productionOrderDetails = @Html.Raw(orderDetailsJson);
 	var existingDelaysData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
 		existingDelays.Select(d => new
 		{
@@ -431,6 +530,9 @@
 			return;
 		}
 
+		$$('#calcDelayCausePartName').text(getProp(calculatedDelayRange, 'delayCausePartName', 'DelayCausePartName') || '-');
+		$$('#calcDelayCausePartCode').text(getProp(calculatedDelayRange, 'delayCausePartCode', 'DelayCausePartCode') || '-');
+		$$('#calcDelayCauseSerial').text(getProp(calculatedDelayRange, 'delayCauseSerial', 'DelayCauseSerial') || '-');
 		$$('#calcProductionOrderNumber').text(getProp(calculatedDelayRange, 'productionOrderNumber', 'ProductionOrderNumber') || '-');
 		$$('#calcMaxDeliverDateShamsi').text(getProp(calculatedDelayRange, 'maxDeliverDateOfOrderShamsi', 'MaxDeliverDateOfOrderShamsi') || '-');
 		$$('#calcPreparationDateShamsi').text(getProp(calculatedDelayRange, 'preparationDateShamsi', 'PreparationDateShamsi') || '-');
@@ -602,9 +704,112 @@
 		});
 	}
 
+	function renderProductionOrderDetails(data) {
+		productionOrderDetails = data || null;
+		var $customerInput = $$('#customerTitleInput');
+		var $body = $$('#productionOrderItemsTableBody');
+		var $legend = $$('#productionOrderItemsLegend');
+		$body.empty();
+
+		if (!productionOrderDetails) {
+			$customerInput.val('-');
+			$body.append('<tr class="empty-row"><td colspan="9" class="text-center text-muted">سفارش ساختی انتخاب نشده است</td></tr>');
+			$legend.hide();
+			return;
+		}
+
+		$customerInput.val(productionOrderDetails.customerTitle || '-');
+
+		var items = (productionOrderDetails && (productionOrderDetails.items || productionOrderDetails.Items)) || [];
+		if (!items.length) {
+			$body.append('<tr class="empty-row"><td colspan="9" class="text-center text-muted">قلمی برای این سفارش ساخت ثبت نشده است</td></tr>');
+			$legend.hide();
+			return;
+		}
+
+		items = items.slice().sort(function (a, b) {
+			var aCause = !!(a.isDelayCause !== undefined ? a.isDelayCause : a.IsDelayCause);
+			var bCause = !!(b.isDelayCause !== undefined ? b.isDelayCause : b.IsDelayCause);
+			if (aCause !== bCause)
+				return aCause ? -1 : 1;
+			var aDays = (a.itemDelayDays !== undefined ? a.itemDelayDays : a.ItemDelayDays) || 0;
+			var bDays = (b.itemDelayDays !== undefined ? b.itemDelayDays : b.ItemDelayDays) || 0;
+			return bDays - aDays;
+		});
+
+		var hasAnyDelayCause = false;
+		items.forEach(function (item, index) {
+			var isCause = !!(item.isDelayCause !== undefined ? item.isDelayCause : item.IsDelayCause);
+			var isDelayed = !!(item.isDelayed !== undefined ? item.isDelayed : item.IsDelayed);
+			var delayDays = (item.itemDelayDays !== undefined ? item.itemDelayDays : item.ItemDelayDays) || 0;
+			var partCode = (item.partCode !== undefined ? item.partCode : item.PartCode) || '-';
+			var partName = (item.partName !== undefined ? item.partName : item.PartName) || '-';
+			var amount = (item.amount !== undefined ? item.amount : item.Amount);
+			var serial = (item.serial !== undefined ? item.serial : item.Serial) || '-';
+			var agreedDate = (item.agreedDeliverShamsiDate !== undefined ? item.agreedDeliverShamsiDate : item.AgreedDeliverShamsiDate) || '-';
+			var standardDate = (item.standardDeliveryShamsiDate !== undefined ? item.standardDeliveryShamsiDate : item.StandardDeliveryShamsiDate) || '-';
+			var preparationDate = (item.preparationShamsiDate !== undefined ? item.preparationShamsiDate : item.PreparationShamsiDate) || '-';
+			var itemIndex = (item.index !== undefined ? item.index : item.Index) || (index + 1);
+
+			if (isCause) {
+				hasAnyDelayCause = true;
+			}
+
+			var rowClass = isCause ? 'table-danger' : '';
+			var rowStyle = isCause ? 'style="background-color: #ffe8ec !important; font-weight: 600;"' : '';
+
+			var statusHtml = '';
+			if (isCause) {
+				statusHtml = '<span class="badge badge-danger fw-bold" title="این قلم با بیشترین تاخیر، عامل تاخیر سفارش ساخت است">عامل تاخیر (' + delayDays + ' روز)</span>';
+			} else if (isDelayed) {
+				statusHtml = '<span class="badge badge-light-warning">تاخیر (' + delayDays + ' روز)</span>';
+			} else {
+				statusHtml = '<span class="badge badge-light-success">به‌موقع</span>';
+			}
+
+			var tr = '<tr class="' + rowClass + '" ' + rowStyle + '>' +
+				'<td>' + itemIndex + '</td>' +
+				'<td>' + escapeHtml(partCode) + '</td>' +
+				'<td>' + escapeHtml(partName) + '</td>' +
+				'<td>' + escapeHtml(amount != null ? String(amount) : '-') + '</td>' +
+				'<td>' + escapeHtml(serial) + '</td>' +
+				'<td>' + escapeHtml(agreedDate) + '</td>' +
+				'<td>' + escapeHtml(standardDate) + '</td>' +
+				'<td>' + escapeHtml(preparationDate) + '</td>' +
+				'<td>' + statusHtml + '</td>' +
+				'</tr>';
+
+			$body.append(tr);
+		});
+
+		if (hasAnyDelayCause) {
+			$legend.show();
+		} else {
+			$legend.hide();
+		}
+	}
+
+	function loadProductionOrderDetails() {
+		var productionOrderId = getProductionOrderId();
+		if (!productionOrderId) {
+			renderProductionOrderDetails(null);
+			return;
+		}
+
+		$$.get('GetProductionOrderDetails?productionOrderId=' + encodeURIComponent(productionOrderId), function (r) {
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در دریافت اطلاعات و اقلام سفارش ساخت', 'خطا');
+				renderProductionOrderDetails(null);
+				return;
+			}
+			renderProductionOrderDetails(r.data || null);
+		});
+	}
+
 	function onProductionOrderChanged() {
 		loadExistingDelays();
 		loadCalculatedDelayRange();
+		loadProductionOrderDetails();
 	}
 
 	function savefn($btnAction) {
@@ -686,6 +891,7 @@
 		onProductionOrderChanged();
 	} else {
 		renderCalculatedDelayRange(calculatedDelayRange);
+		renderProductionOrderDetails(productionOrderDetails);
 	}
 
 	$$('#delayResponsibleSelect').trigger('change');

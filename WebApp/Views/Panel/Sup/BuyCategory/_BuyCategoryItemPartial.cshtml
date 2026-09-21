@@ -4,6 +4,8 @@
 @model BuyCategoryItem
 <div class="entity-item">
 	<input class='form-control' type="hidden" data-bind='items.id' value='@Model?.Id' />
+	@* شناسه راهکاران باید رفت‌وبرگشت کند؛ در غیر این صورت Update گراف آن را NULL می‌کرد و جاب قلم را دوباره درج می‌کرد *@
+	<input class='form-control' type="hidden" data-bind='items.hamkaranId' value='@Model?.HamkaranId' />
 	<div class='col-md-3'>
 		<label class=''>کالا</label>
 		@(Html.EntitySelector<Part>(
@@ -31,6 +33,7 @@
 	<div class='col-md-3'>
 		<label class=''>تامین کننده</label>
 		<select class='form-control' data-bind='items.supplier' asp-for='Supplier' asp-items="Html.GetEnumSelectList(typeof(BuyCategoryItemSupplierEnum))">
+			<option value="">-</option>
 		</select>
 		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 	</div>

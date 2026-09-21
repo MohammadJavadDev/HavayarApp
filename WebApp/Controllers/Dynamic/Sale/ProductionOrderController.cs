@@ -57,7 +57,7 @@ namespace WebApp.Controllers.Dynamic
 				return BadRequest("سفارش ساخت یافت نشد");
 
 			// جلوگیری از تغییر مستقیم گردش‌کار (State) و فیلدهای ردیابی تایید مالی/منسوخ‌سازی از طریق فرم عمومی ویرایش؛
-			// این فیلدها فقط باید از طریق اکشن‌های اختصاصی DoFinancialConfirm/DoObsolete تغییر کنند (مطابق الگوی
+			// این فیلدها فقط باید از طریق Job همگام‌سازی راهکاران (تایید مالی) و اکشن DoObsolete تغییر کنند (مطابق الگوی
 			// ProductionOrderItemController.Update که فیلدهای گردش‌کار را به‌صورت انتخابی از oldEntity کپی می‌کند)
 			oldEntity.ContractId = productionOrder.ContractId;
 			oldEntity.ProjectDlId = productionOrder.ProjectDlId;
@@ -100,8 +100,14 @@ namespace WebApp.Controllers.Dynamic
 			oldEntity.EdmsProject = productionOrder.EdmsProject;
 			oldEntity.IntroducerExpertId = productionOrder.IntroducerExpertId;
 			oldEntity.DelayNotCalculated = productionOrder.DelayNotCalculated;
+			// فیلدهای فرم زنده HTS (صفحه ۴۶۳) که روی Edit نبودند: شعبه فروش، محل تحویل، پیوست مهندسی/متره
+			oldEntity.BranchId = productionOrder.BranchId;
+			oldEntity.DeliveryLocation = productionOrder.DeliveryLocation;
+			oldEntity.EngineeringAttachmentId = productionOrder.EngineeringAttachmentId;
+			oldEntity.IsDisableForTimelyDeliveryReport = productionOrder.IsDisableForTimelyDeliveryReport;
+			oldEntity.DisableForTimelyDeliveryReportComment = productionOrder.DisableForTimelyDeliveryReportComment;
 			// State ،FinancialConfirmedById/OnMiladiDate/OnShamsiDate ،ObsoletedById/OnMiladiDate/OnShamsiDate و
-			// HamkaranId عمداً از ورودی productionOrder کپی نمی‌شوند تا فقط از طریق DoFinancialConfirm/DoObsolete
+			// HamkaranId عمداً از ورودی productionOrder کپی نمی‌شوند تا فقط از طریق Job راهکاران / DoObsolete
 			// و همگام‌سازی راهکاران تغییر کنند
 
 			var entity = await unitOfWork.Repository<ProductionOrder>().UpdateAsync(oldEntity, cn, true);
@@ -139,6 +145,8 @@ namespace WebApp.Controllers.Dynamic
 					.Include(c => c.DepositFactorAttachmentFile)
 					.Include(c => c.PreFactorAttachmentFile)
 					.Include(c => c.ContractAttachmentFile)
+					.Include(c => c.EngineeringAttachmentFile)
+					.Include(c => c.Branch)
 					.FirstOrDefault(c => c.Id == id);
 
 				// تب‌های «تاخیرات» و «تاییدکننده تجهیز» در Edit.cshtml (فاز ۶ رابط کاربری): چون موتور FetchData
@@ -206,61 +214,10 @@ namespace WebApp.Controllers.Dynamic
 			return Ok(await unitOfWork.Repository<ProductionOrder>().FetchDataAsync(request, cn));
 		}
 
-		#region Financial Confirm / Obsolete Workflow Actions
+		#region Obsolete Workflow Action
 
-		[HttpPost("[action]/{id}")]
-		[ActionDisplayName("تایید مالی", ActionAccessType.Api, ActionAccessItemType.Custom)]
-		public async Task<IActionResult> DoFinancialConfirm(long id, CancellationToken cn)
-		{
-			try
-			{
-				//Seed Role => Sale.ProductionOrder.FinancialConfirm => سفارش ساخت - تایید مالی
-				// TODO(Role): Role را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد مالی را به آن انتساب بده
-				if (!IsAdministrator && !CurrentUserHasAnyRole("Sale.ProductionOrder.FinancialConfirm"))
-					return Unauthorized("شما دسترسی تایید مالی سفارش ساخت را ندارید");
-
-				var productionOrder = await unitOfWork.Repository<ProductionOrder>()
-					.Table
-					.FirstOrDefaultAsync(x => x.Id == id, cn);
-
-				if (productionOrder == null)
-					return BadRequest("سفارش ساخت یافت نشد");
-
-				if (productionOrder.State != ProductionOrderStateEnum.Submit &&
-					productionOrder.State != ProductionOrderStateEnum.FinancialUnitReview)
-					return BadRequest("این سفارش قابل تایید مالی نیست");
-
-				var previousState = productionOrder.State;
-				var now = DateTime.Now;
-
-				// State از طریق ProductionOrderCommentAction پس از درج کامنت همگام می‌شود
-				productionOrder.FinancialConfirmedById = CurrentUserId;
-				productionOrder.FinancialConfirmedOnMiladiDate = now;
-				productionOrder.FinancialConfirmedOnShamsiDate = now.ToShamsiDateTime();
-
-				var comment = new ProductionOrderComment
-				{
-					ProductionOrderId = id,
-					PreviousState = previousState,
-					NewState = ProductionOrderStateEnum.FinancialApproval,
-					Comment = "تایید مالی سفارش ساخت"
-				};
-
-				await unitOfWork.Repository<ProductionOrder>().UpdateAsync(productionOrder, cn, true);
-				await unitOfWork.Repository<ProductionOrderComment>().AddAsync(comment, cn, true);
-				await unitOfWork.SaveChangesAsync(cn);
-
-				// بارگذاری State به‌روزشده توسط Action
-				productionOrder = await unitOfWork.Repository<ProductionOrder>()
-					.TableNoTracking.FirstAsync(x => x.Id == id, cn);
-
-				return Ok(productionOrder);
-			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, "خطا در تایید مالی سفارش ساخت: " + ex.Message);
-			}
-		}
+		// «تایید مالی» از پنل حذف شد (تصمیم 2026-09-17): مثل HTS، منبع حقیقت تایید مالی فقط راهکاران است و State
+		// از طریق Job AddProductionOrderFromRahkaran / CheckFinancialConfirmsOrders همگام می‌شود.
 
 		[HttpPost("[action]/{id}")]
 		[ActionDisplayName("منسوخ‌سازی", ActionAccessType.Api, ActionAccessItemType.Custom)]

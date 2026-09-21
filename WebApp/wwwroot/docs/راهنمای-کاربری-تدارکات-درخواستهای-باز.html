@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>راهنمای کاربری — تدارکات / درخواست‌های باز</title>
+  <style>
+    @font-face {
+      font-family: Vazirmatn;
+      src: local("Vazirmatn"), local("Vazir"),
+           url("../panelLib/fonts/Vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2") format("woff2"),
+           url("/panelLib/fonts/Vazirmatn/fonts/webfonts/Vazirmatn-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: Vazirmatn;
+      src: local("Vazirmatn Medium"),
+           url("../panelLib/fonts/Vazirmatn/fonts/webfonts/Vazirmatn-Medium.woff2") format("woff2"),
+           url("/panelLib/fonts/Vazirmatn/fonts/webfonts/Vazirmatn-Medium.woff2") format("woff2");
+      font-weight: 500;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: Vazirmatn;
+      src: local("Vazirmatn Bold"),
+           url("../panelLib/fonts/Vazirmatn/fonts/webfonts/Vazirmatn-Bold.woff2") format("woff2"),
+           url("/panelLib/fonts/Vazirmatn/fonts/webfonts/Vazirmatn-Bold.woff2") format("woff2");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f4f1ea;
+      --paper: #fffdf8;
+      --panel: #ffffff;
+      --panel2: #eef3f6;
+      --line: #d5dbe3;
+      --text: #1e2937;
+      --muted: #5b6775;
+      --accent: #0f5f73;
+      --accent2: #1d4e89;
+      --ok: #1b7a4a;
+      --warn: #9a6b12;
+      --danger: #b42318;
+      --chip: #0f766e;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Vazirmatn, Vazir, Tahoma, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.85;
+      font-size: 15.5px;
+    }
+    nav.sticky {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 253, 248, .96);
+      border-bottom: 1px solid var(--line);
+      padding: 10px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+    }
+    nav.sticky a {
+      color: var(--accent2);
+      text-decoration: none;
+      font-size: .88rem;
+      white-space: nowrap;
+    }
+    nav.sticky a:hover { text-decoration: underline; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 72px; }
+    .cover {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 28px 26px 22px;
+      margin-bottom: 22px;
+    }
+    .kicker {
+      color: var(--accent);
+      font-size: .86rem;
+      letter-spacing: .02em;
+      margin: 0 0 6px;
+    }
+    h1 { font-size: 1.7rem; margin: 0 0 8px; color: #16324a; }
+    h2 {
+      font-size: 1.22rem;
+      margin: 36px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      color: var(--accent);
+    }
+    h3 { font-size: 1.04rem; margin: 18px 0 8px; color: var(--accent2); }
+    .lead { color: var(--muted); margin: 0 0 12px; }
+    .meta { color: var(--muted); font-size: .9rem; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin: 12px 0;
+    }
+    .grid { display: grid; gap: 12px; }
+    .grid-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      vertical-align: top;
+      text-align: right;
+    }
+    th { background: var(--panel2); color: #16324a; }
+    tr:nth-child(even) td { background: #fbfcfd; }
+    code, .mono {
+      font-family: Consolas, "Courier New", monospace;
+      background: #eef3f6;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: .84em;
+      direction: ltr;
+      unicode-bidi: embed;
+    }
+    .chip {
+      display: inline-block;
+      background: #e6f4f2;
+      color: #0f5f73;
+      border: 1px solid #b7ddd7;
+      border-radius: 999px;
+      padding: 1px 10px;
+      font-size: .78rem;
+      margin: 2px;
+    }
+    .chip.ok { background: #e7f6ee; color: var(--ok); border-color: #b7e0c7; }
+    .chip.warn { background: #fff4d6; color: var(--warn); border-color: #ecd48a; }
+    .chip.danger { background: #fde8e6; color: var(--danger); border-color: #f2b8b3; }
+    .chip.muted { background: #eef1f4; color: #475569; border-color: #d5dbe3; }
+    .note { color: var(--muted); font-size: .92rem; }
+    .callout {
+      border-right: 4px solid var(--accent);
+      background: #f3f8f8;
+      padding: 10px 14px;
+      border-radius: 0 8px 8px 0;
+      margin: 10px 0;
+    }
+    .callout.warn { border-right-color: var(--warn); background: #fff8e8; }
+    .callout.danger { border-right-color: var(--danger); background: #fff4f2; }
+    .toc a { color: var(--accent2); text-decoration: none; }
+    .toc li { margin: 4px 0; }
+    .steps { counter-reset: s; padding: 0; margin: 8px 0 0; list-style: none; }
+    .steps li {
+      counter-increment: s;
+      position: relative;
+      padding: 6px 0 6px 0;
+      padding-right: 40px;
+    }
+    .steps li::before {
+      content: counter(s);
+      position: absolute;
+      right: 0;
+      top: 8px;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--chip);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+    .screen-meta {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 4px 10px;
+      font-size: .93rem;
+      margin: 8px 0 12px;
+    }
+    .screen-meta dt { color: var(--muted); }
+    .screen-meta dd { margin: 0; }
+    .dont { color: var(--danger); }
+    .result { color: var(--ok); }
+    .flow {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      margin: 12px 0;
+    }
+    .flow-box {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-align: center;
+    }
+    .flow-box strong { display: block; color: #16324a; }
+    .flow-box small { color: var(--muted); }
+    .flow-arrow {
+      text-align: center;
+      color: var(--accent);
+      font-size: 1.2rem;
+      line-height: 1.2;
+      padding: 2px 0;
+    }
+    .swatch {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid #94a3b8;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    .ck { list-style: none; padding: 0; }
+    .ck li {
+      padding: 6px 0 6px 0;
+      padding-right: 28px;
+      position: relative;
+    }
+    .ck li::before {
+      content: "☐";
+      position: absolute;
+      right: 0;
+      color: var(--accent);
+    }
+    @media print {
+      nav.sticky { display: none; }
+      body { background: #fff; font-size: 11.5pt; }
+      .wrap { max-width: none; padding: 0; }
+      .cover, .card, .flow-box { break-inside: avoid; box-shadow: none; }
+      h2 { break-after: avoid; }
+      a { color: inherit; text-decoration: none; }
+      .chip { border-color: #999; }
+    }
+    @media (max-width: 700px) {
+      .screen-meta { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="sticky">
+    <a href="#cover">جلد</a>
+    <a href="#notes">نکات مهم</a>
+    <a href="#roles">نقش‌ها</a>
+    <a href="#journey">مسیر کار</a>
+    <a href="#list">لیست</a>
+    <a href="#edit">ویرایش</a>
+    <a href="#config">تنظیمات</a>
+    <a href="#history">پیشینه</a>
+    <a href="#email">ارسال پیمانکار</a>
+    <a href="#master">اطلاعات پایه</a>
+    <a href="#status">وضعیت‌ها</a>
+    <a href="#faq">پرسش‌ها</a>
+    <a href="#trainer">چک‌لیست مربی</a>
+  </nav>
+
+  <div class="wrap">
+    <header class="cover" id="cover">
+      <p class="kicker">سامانه جدید هوایار · ماژول تامین و خرید</p>
+      <h1>راهنمای کاربری درخواست‌های باز</h1>
+      <p class="lead">
+        این سند برای مربی و کاربر نهایی نوشته شده است: تدارکات، مهندسی، صنایع، فروش/پروژه و مشاهده‌گر.
+        مسیر کار در <strong>HavayarApp</strong> است، نه HTS.
+      </p>
+      <p class="meta">
+        نسخه راهنما: ۱۴۰۵/۰۶/۲۷ · 2026-09-18 · مخاطب: آموزش حضوری / چاپ
+      </p>
+      <ul class="toc">
+        <li><a href="#howto">۱. چگونه از این راهنما استفاده کنیم</a></li>
+        <li><a href="#notes">۲. نکات مهم قبل از شروع</a></li>
+        <li><a href="#roles">۳. هر نقش چه می‌بیند و چه می‌تواند بزند</a></li>
+        <li><a href="#journey">۴. مسیر سرتاسری کار</a></li>
+        <li><a href="#screens">۵. صفحه به صفحه</a></li>
+        <li><a href="#status">۶. معنی وضعیت‌های توقف</a></li>
+        <li><a href="#faq">۷. پرسش‌های پرتکرار و خطاهای رایج</a></li>
+        <li><a href="#trainer">۸. چک‌لیست مربی</a></li>
+      </ul>
+    </header>
+
+    <section id="howto">
+      <h2>۱. چگونه از این راهنما استفاده کنیم</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <h3>مربی</h3>
+          <p>مسیر بخش ۴ را به‌ترتیب روی یک درخواست واقعی طی بخوانید. برای هر دکمه، برچسب داخل برنامه را نشان دهید — همین برچسب‌ها در این متن آمده‌اند.</p>
+        </div>
+        <div class="card">
+          <h3>کاربر</h3>
+          <p>ابتدا نقش خود را در بخش ۳ پیدا کنید. سپس فقط صفحه‌ها و دکمه‌هایی را تمرین کنید که برای همان نقش فعال می‌شوند. دکمه‌ای که خاکستری است یعنی نقش شما آن کار را ندارد.</p>
+        </div>
+      </div>
+      <div class="callout">
+        نام منوها، دکمه‌ها و زبانهٔ نمایه‌ها عیناً از رابط جدید برداشته شده‌اند.
+        اگر برچسب روی صفحه با این راهنما فرق داشت، صفحهٔ برنامه مرجع است.
+      </div>
+    </section>
+
+    <section id="notes">
+      <h2>۲. نکات مهم قبل از شروع</h2>
+      <div class="card">
+        <ol>
+          <li>
+            <strong>منبع درخواست راهکاران است.</strong>
+            کاربر در سامانه جدید درخواست باز <em>نمی‌سازد</em>. دکمهٔ «جدید» روی لیست خاموش است.
+            ایجاد دستی از سرور هم رد می‌شود.
+          </li>
+          <li>
+            <strong>یک صفحهٔ لیست، چند نمایه.</strong>
+            تنظیمات، پیشینه، کارتابل مهندسی و مشاهدهٔ عمومی صفحهٔ جدا نیستند.
+            همه روی
+            <code>/panel/sup/openorderrequest/list</code>
+            با زبانهٔ نمایهٔ داده (Data Profile) عوض می‌شوند.
+          </li>
+          <li>
+            <strong>پس از تغییر نقش، دوباره وارد شوید.</strong>
+            نقش جدید تا خروج و ورود مجدد در کارتابل دیده نمی‌شود.
+          </li>
+          <li>
+            <strong>ایمیل تا زمان راه‌اندازی نهایی ممکن است نرود.</strong>
+            ارسال به پیمانکار و یادآوری توقف در صف اعلان ثبت می‌شود.
+            تا وقتی جاب ارسال ایمیل روشن نشده باشد، کاربر معمولاً همان اعلان داخل برنامه را می‌بیند؛ صندوق ایمیل خالی ماندن به‌معنای ثبت‌نشدن کار نیست.
+          </li>
+          <li>
+            <strong>دسته‌های خرید فقط مشاهده‌اند.</strong>
+            عنوان، متولی، نوع و زمان تامین از راهکاران می‌آیند. در این سامانه ویرایش نمی‌شوند.
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="roles">
+      <h2>۳. هر نقش چه می‌بیند و چه می‌تواند بزند</h2>
+      <p class="note">عنوان نقش در مدیریت نقش‌ها با پیشوند «تامین و خرید - درخواست های باز - …» دیده می‌شود. در جدول زیر نام کوتاه آمده است.</p>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>نقش سازمانی</th>
+              <th>نقش سامانه</th>
+              <th>نمایه‌هایی که معمولاً می‌بیند</th>
+              <th>کار اصلی روی صفحهٔ ویرایش</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>مهندسی</td>
+              <td>تایید مهندسی<br />دسترسی قابلیت‌های مهندسی</td>
+              <td>منتظر تایید مهندسی · همه فعال · پیشینه درخواست ها</td>
+              <td>تایید مهندسی · لینک با مدارک پروژه · کامنت · پیوست</td>
+            </tr>
+            <tr>
+              <td>فروش / پروژه</td>
+              <td>تایید فروش/پروژه</td>
+              <td>تأیید مهندسی شده</td>
+              <td>تایید واحد فروش/پروژه — فقط اگر خودش کارشناس فروش، مدیر فروش یا مدیر پروژهٔ همان ردیف باشد و حداقل یک مدرک VPIS لینک شده باشد</td>
+            </tr>
+            <tr>
+              <td>صنایع</td>
+              <td>صنایع · تنظیمات</td>
+              <td>همه فعال · منتظر تایید مهندسی · تنظیمات درخواست های باز · پیشینه</td>
+              <td>کامنت · افزودن درخواست‌کنندگان و ذینفعان</td>
+            </tr>
+            <tr>
+              <td>تدارکات / تامین</td>
+              <td>تامین و خرید · تنظیمات · در راه · استعلام · راه‌اندازی · خاتمه · ثبت توقف</td>
+              <td>تأیید مهندسی شده · درخواست های من · تنظیمات · پیشینه · تمامی درخواست ها (نقش کامل)</td>
+              <td>در راه · استعلام وضعیت · راه اندازی · ثبت توقف · خاتمه · تامین‌کننده منتخب · ارسال به پیمانکار · پیوست · کامنت</td>
+            </tr>
+            <tr>
+              <td>مشاهده‌گر</td>
+              <td>مشاهده · مشاهده پیشینه</td>
+              <td>مشاهده عمومی · پیشینه درخواست ها</td>
+              <td>فقط دیدن و تاریخچه؛ دکمهٔ عملیاتی خاموش است</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout warn">
+        نقش «نمایش همه درخواست‌ها» و نقش کامل «تامین و خرید» نمایه‌های بیشتری می‌بینند.
+        اگر زبانهٔ مورد انتظار نبود: نقش را بررسی کنید، سپس خارج شوید و دوباره وارد شوید.
+      </div>
+    </section>
+
+    <section id="journey">
+      <h2>۴. مسیر سرتاسری کار</h2>
+      <p class="lead">کاربر درخواست نمی‌سازد. کار از لحظه‌ای شروع می‌شود که ردیف از راهکاران در لیست آمده است.</p>
+
+      <div class="flow">
+        <div class="flow-box">
+          <strong>۱. درخواست از راهکاران می‌آید</strong>
+          <small>همگام‌سازی دوره‌ای · دکمهٔ جدید استفاده نمی‌شود</small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۲. کارتابل / زبانهٔ نمایه</strong>
+          <small>لیست واحد · فیلتر با نمایه (منتظر تایید مهندسی، تأیید مهندسی شده، درخواست های من، مشاهده عمومی، تنظیمات، پیشینه)</small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۳. باز کردن ویرایش</strong>
+          <small>انتخاب ردیف → ویرایش → <span class="mono">/panel/sup/openorderrequest/edit?id=</span></small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۴. تایید مهندسی</strong>
+          <small>دکمه «تایید مهندسی» · بعضی کالاها خودکار تایید می‌شوند</small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۵. تایید واحد فروش/پروژه</strong>
+          <small>فقط پس از تایید مهندسی غیرخودکار · نیاز به لینک VPIS · هویت کارشناس/مدیر همان ردیف</small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۶. عملیات تامین</strong>
+          <small>راه اندازی · در راه · استعلام وضعیت · کامنت و پیوست</small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۷. توقف در صورت نیاز</strong>
+          <small>ثبت → بررسی عامل → ادامه / توقف مجدد / حذف · اگر ۱۴ روز بی‌اقدام بماند، خودکار به کارتابل تدارکات (۲۸۲۱) می‌رود</small>
+        </div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-box">
+          <strong>۸. تنظیمات و پیشینه</strong>
+          <small>ذینفع · ارسال به پیمانکار · تامین‌کننده منتخب · پیشینهٔ حذف‌شده‌ها · پیشینهٔ ارسال</small>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>توقف — ترتیب کار</h3>
+        <ol class="steps">
+          <li>دارندهٔ نقش ثبت توقف، دکمهٔ «ثبت توقف» را می‌زند: نوع توقف، عامل توقف، ذینفعان، علت.</li>
+          <li>وضعیت می‌شود «ثبت اولیه و ارسال به کارتابل مسئول توقف» (۲۸۰۷). مهلت پاسخ عامل: ۲ روز اگر درخواست روتین باشد، وگرنه ۳ روز.</li>
+          <li>عامل توقف نتیجه را ثبت می‌کند (نیاز به راه‌اندازی مجدد، اصلاح BOM، اصلاح مدارک، حذف صنایع، انتظار مدیر پروژه).</li>
+          <li>ثبت‌کنندهٔ توقف تصمیم می‌گیرد: راه اندازی مجدد، ثبت توقف مجدد، یا حذف درخواست.</li>
+          <li>اگر نتیجه اعلام شده باشد ولی بیش از ۱۴ روز کسی ادامه ندهد، سامانه خودش وضعیت را به «ارسال به کارتابل تدارکات بعلت عدم بررسی در زمان مشخص» (۲۸۲۱) می‌برد — حتی اگر ایمیل نرفته باشد.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="screens">
+      <h2>۵. صفحه به صفحه</h2>
+
+      <article class="card" id="list">
+        <h3>۵.۱ لیست درخواست های باز</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← درخواست های باز</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/openorderrequest/list</code></dd>
+          <dt>چه کسانی</dt>
+          <dd>هر کسی که به لیست دسترسی دارد؛ زبانهٔ نمایه بر اساس نقش فرق می‌کند</dd>
+        </dl>
+
+        <p><strong>چه می‌بینید.</strong> یک گرید با زبانهٔ نمایه در بالای جدول. دکمهٔ «جدید» خاموش است. دکمه‌های مشترک نمایه‌های عملیاتی:</p>
+        <p>
+          <span class="chip">ویرایش</span>
+          <span class="chip">خروجی اکسل</span>
+          <span class="chip">لیست کامنت ها</span>
+        </p>
+        <p>نمایه‌ها و معنی هر کدام:</p>
+        <table>
+          <thead>
+            <tr>
+              <th>عنوان نمایه</th>
+              <th>چه ردیف‌هایی</th>
+              <th>کاربرد</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>تمامی درخواست ها</td>
+              <td>بدون فیلتر حذف</td>
+              <td>نمای گسترده برای نقش کامل / نمایش همه</td>
+            </tr>
+            <tr>
+              <td>همه فعال</td>
+              <td>حذف‌نشده</td>
+              <td>کارتابل عمومی صنایع و مهندسی</td>
+            </tr>
+            <tr>
+              <td>منتظر تایید مهندسی</td>
+              <td>فعال و هنوز تایید مهندسی نشده</td>
+              <td>کارتابل تایید مهندسی</td>
+            </tr>
+            <tr>
+              <td>تأیید مهندسی شده</td>
+              <td>فعال و تایید مهندسی‌شده</td>
+              <td>کارتابل فروش/پروژه و تدارکات</td>
+            </tr>
+            <tr>
+              <td>درخواست های من</td>
+              <td>فعال و متولی خرید دسته = کاربر جاری</td>
+              <td>کارتابل متولی خرید (همان «کارتابل من»)</td>
+            </tr>
+            <tr>
+              <td>مشاهده عمومی</td>
+              <td>فعال، تایید مهندسی‌شده، و کاربر در فهرست درخواست‌کننده/ذینفع</td>
+              <td>کارتابل مشاهده‌گر</td>
+            </tr>
+            <tr>
+              <td>تنظیمات درخواست های باز</td>
+              <td>همهٔ فعال‌ها بدون فیلتر واحد</td>
+              <td>افزودن ذینفع / ارسال به پیمانکار (انتخاب چندتایی روشن است؛ «ویرایش» این نمایه خاموش است)</td>
+            </tr>
+            <tr>
+              <td>پیشینه درخواست ها</td>
+              <td>حذف‌شده / خاتمه‌یافته</td>
+              <td>آرشیو</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p><strong>رنگ سلول در نمایه‌های عملیاتی</strong> (اولویت از پایین به بالا روی همان سلول اعمال می‌شود):</p>
+        <ul>
+          <li><span class="swatch" style="background:#ee82ee"></span> بنفش: تغییر یافته</li>
+          <li><span class="swatch" style="background:orangered"></span> نارنجی‌قرمز: متوقف شده</li>
+          <li><span class="swatch" style="background:orange"></span> نارنجی (سلول دوم): تایید پروژه/فروش</li>
+          <li><span class="swatch" style="background:deepskyblue"></span> آبی: پنجرهٔ تاریخ تامین (امروز بین تاریخ تامین منهای ۳ روز تا خود تاریخ تامین)</li>
+          <li><span class="swatch" style="background:lightgreen"></span> سبز: قبلاً به پیمانکار ارسال شده (اگر نمایه به‌روز باشد)</li>
+        </ul>
+
+        <p><strong>گام به گام</strong></p>
+        <ol class="steps">
+          <li>از منوی تامین و خرید، «درخواست های باز» را باز کنید.</li>
+          <li>زبانهٔ نمایهٔ مناسب نقش خود را انتخاب کنید.</li>
+          <li>در صورت نیاز با فیلتر ستون، شماره درخواست خرید یا کد کالا را پیدا کنید.</li>
+          <li>ردیف را انتخاب کنید. برای دیدن کامنت‌ها بدون ورود به فرم: «لیست کامنت ها».</li>
+          <li>برای کار روی درخواست: «ویرایش».</li>
+        </ol>
+
+        <p class="dont"><strong>نکنید.</strong> درخواست جدید نسازید. ردیف پیشینه را با این صفحه «زنده» فرض نکنید. اگر دکمهٔ حذف دیدید، آن را حذف فیزیکی ندانید — در این ماژول حذف گرید برای نقش خاتمه یعنی خاتمهٔ نرم، و روی نمایه‌ها خاموش است.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> ردیف‌های نقش شما در گرید است و با «ویرایش» فرم همان درخواست باز می‌شود.</p>
+      </article>
+
+      <article class="card" id="edit">
+        <h3>۵.۲ ویرایش درخواست باز</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>از لیست، دکمهٔ ویرایش</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/openorderrequest/edit?id=…</code></dd>
+          <dt>چه کسانی</dt>
+          <dd>هر نقش دارای مشاهده؛ دکمه‌ها جداگانه روشن می‌شوند</dd>
+        </dl>
+
+        <p><strong>نوار ابزار</strong> (برچسب دقیق برنامه). ذخیره / ذخیره و جدید / صفحهٔ جدید خاموش است. دکمهٔ چارچوب: «تاریخچه».</p>
+        <table>
+          <thead>
+            <tr><th>برچسب دکمه</th><th>کی روشن است</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>افزودن کامنت</td><td>تامین و خرید، تامین، تایید مهندسی، صنایع</td></tr>
+            <tr><td>تایید مهندسی</td><td>نقش تایید مهندسی و هنوز تایید نشده و متوقف نیست</td></tr>
+            <tr><td>تایید واحد فروش/پروژه</td><td>نقش تایید فروش/پروژه + هویت همان ردیف + تایید مهندسی دستی + هنوز تایید فروش نشده</td></tr>
+            <tr><td>لینک با مدارک پروژه</td><td>تایید مهندسی یا قابلیت‌های مهندسی یا تامین و خرید کامل</td></tr>
+            <tr><td>ثبت توقف</td><td>ثبت اولیه: نقش ثبت توقف. بعد از آن فقط عامل توقف یا ثبت‌کنندهٔ همان توقف، بسته به مرحله</td></tr>
+            <tr><td>راه اندازی</td><td>نقش راه‌اندازی یا تامین و خرید کامل</td></tr>
+            <tr><td>در راه</td><td>نقش در راه یا تامین و خرید کامل</td></tr>
+            <tr><td>استعلام وضعیت</td><td>نقش استعلام یا تامین و خرید کامل</td></tr>
+            <tr><td>خاتمه</td><td>نقش خاتمه یا تامین و خرید کامل</td></tr>
+            <tr><td>درخواست کنندگان و ذینفعان</td><td>تنظیمات / صنایع / تامین و خرید کامل</td></tr>
+            <tr><td>تامیین کننده منتخب</td><td>همان نقش‌های تنظیمات (برچسب دکمه در برنامه همین املا را دارد)</td></tr>
+            <tr><td>تاریخچه</td><td>همیشه برای بیننده روشن است</td></tr>
+          </tbody>
+        </table>
+
+        <p><strong>زبانه‌های فرم</strong></p>
+        <ul>
+          <li><strong>اطلاعات کلی:</strong> وضعیت متنی، شماره/تاریخ حواله فروش، تاریخ نیاز، تاریخ تایید، شماره و تاریخ درخواست خرید، پرسنل درخواست کننده، توضیحات سفارش؛ پرچم‌های متوقف شده / عدم تایید QC / حذف شده / ویرایش شده؛ کالا، کد کالا، تفصیل، کالای مرتبط؛ تعداد نیاز / سفارش / ارسال شده / رسیده شده؛ بلوک تاییدات مهندسی و تاییدات واحد فروش.</li>
+          <li><strong>تولید و تامین:</strong> شماره سفارش ساخت، تامین کننده (منتخب)، تاخیر خرید، درخواست روتین؛ تاریخ‌های فاکتوردهی، سند تحویل، سند موقت، سند QC، سند دائم، تامین، اختتام، توقف.</li>
+          <li><strong>مدیریت پیوست‌ها:</strong> جدول نوع فایل، نام، حجم، توضیحات، کاربر و تاریخ. دکمهٔ «افزودن پیوست جدید» فقط با نقش پیوست. ردیف VPIS با نشان VPIS و بدون حذف.</li>
+          <li><strong>تاریخچه کامنت‌ها:</strong> تاریخ، توضیحات، متوقف، راه اندازی، نوع/عامل/نتیجه توقف، تایید فروش، کاربر. دکمهٔ «افزودن کامنت» با همان مجوز نوار.</li>
+        </ul>
+        <p class="dont"><strong>نکنید.</strong> فیلدهای هدر را دستی عوض نکنید؛ ذخیره برای این صفحه تعریف نشده و اطلاعات از راهکاران می‌آید.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> فقط دکمه‌های نقش شما فعال است. پس از هر عمل موفق، پیام سبز بالای صفحه می‌آید.</p>
+      </article>
+
+      <article class="card" id="eng">
+        <h3>۵.۳ تایید مهندسی</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش · دکمه «تایید مهندسی»</dd>
+          <dt>نشانی فراخوان</dt>
+          <dd><code>/Panel/Sup/OpenOrderRequest/EngineeringAccept/{id}</code></dd>
+          <dt>چه کسانی</dt>
+          <dd>نقش «تایید مهندسی»</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> پنجره با عنوان «تایید» و متن «آیا از تایید مهندسی این درخواست اطمینان دارید؟» دکمه‌ها: بله / انصراف.</p>
+        <ol class="steps">
+          <li>نمایهٔ «منتظر تایید مهندسی» را باز کنید.</li>
+          <li>ردیف را با ویرایش باز کنید. در بلوک «تاییدات مهندسی» باید «بدون تایید» باشد.</li>
+          <li>«تایید مهندسی» → بله.</li>
+        </ol>
+        <p class="dont"><strong>نکنید.</strong> درخواست متوقف را تایید نکنید — سرور خطا می‌دهد. اگر «تایید خودکار» بله باشد، فروش/پروژه دیگر لازم نیست.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> پیام «تایید مهندسی با موفقیت انجام شد»؛ نشان «تایید شده»؛ ردیف از نمایهٔ منتظر خارج و در «تأیید مهندسی شده» دیده می‌شود.</p>
+      </article>
+
+      <article class="card" id="vpis">
+        <h3>۵.۴ لینک با مدارک پروژه (VPIS)</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش · دکمه «لینک با مدارک پروژه»</dd>
+          <dt>چه کسانی</dt>
+          <dd>تایید مهندسی، قابلیت‌های مهندسی، تامین و خرید کامل</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> پنجره با عنوان «لینک با مدارک پروژه». هشدار آبی: «در این بخش می‌توانید مدارک پروژه (VPIS) را به درخواست باز لینک کنید». فیلدها: پروژه (الزامی)، مدارک VPIS (چندانتخابی). اگر قبلاً لینک شده باشد، فهرست «مدارک لینک شده فعلی» دیده می‌شود. دکمه‌ها: ذخیره / انصراف.</p>
+        <ol class="steps">
+          <li>پروژه را انتخاب کنید. اگر مدرکی نبود، پیام «هیچ مدرک VPIS مناسبی برای این پروژه یافت نشد» می‌آید.</li>
+          <li>حداقل یک مدرک را از «مدارک را انتخاب کنید» برگزینید.</li>
+          <li>ذخیره. پیوست‌های تب «مدیریت پیوست‌ها» تازه‌سازی می‌شوند و ردیف VPIS نشان لینک می‌گیرد.</li>
+        </ol>
+        <p class="dont"><strong>نکنید.</strong> تایید فروش را قبل از لینک نزنید. مدرک VPIS را از تب پیوست حذف نکنید — حذف از این بخش مجاز نیست.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> پیام «لینک با موفقیت ثبت شد» و مدرک در لیست پیوست با نشان VPIS.</p>
+      </article>
+
+      <article class="card" id="sales">
+        <h3>۵.۵ تایید واحد فروش/پروژه</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش · دکمه «تایید واحد فروش/پروژه»</dd>
+          <dt>چه کسانی</dt>
+          <dd>نقش تایید فروش/پروژه و فقط کارشناس فروش / مدیر فروش / مدیر پروژهٔ همان درخواست</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> پنجره با عنوان «تایید واحد فروش/پروژه». هشدار زرد: «با تایید این بخش، درخواست به واحد تدارکات ارسال خواهد شد». فیلد الزامی: توضیحات تایید. دکمه‌ها: تایید / انصراف.</p>
+        <ol class="steps">
+          <li>نمایهٔ «تأیید مهندسی شده» را باز کنید.</li>
+          <li>مطمئن شوید تایید مهندسی دستی است (تایید خودکار = خیر) و حداقل یک VPIS لینک شده.</li>
+          <li>توضیحات را بنویسید و تایید کنید.</li>
+        </ol>
+        <p class="dont"><strong>نکنید.</strong> به‌جای همکار دیگر تایید نکنید. بدون VPIS ادامه ندهید.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> پیام «تایید با موفقیت انجام شد»؛ بلوک فروش «تایید شده»؛ درخواست در کارتابل تدارکات قابل پیگیری است.</p>
+        <p class="note">خطای رایج سرور: «ابتدا مدارک پروژه (VPIS) را لینک کنید» یا «فقط کارشناس فروش، مدیر فروش یا مدیر پروژه همین درخواست می‌تواند تایید کند».</p>
+      </article>
+
+      <article class="card" id="status-ops">
+        <h3>۵.۶ راه اندازی، در راه، استعلام وضعیت، خاتمه</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش</dd>
+          <dt>چه کسانی</dt>
+          <dd>نقش متناظر هر دکمه، یا تامین و خرید کامل</dd>
+        </dl>
+        <table>
+          <thead>
+            <tr><th>دکمه</th><th>متن تأیید</th><th>وضعیت متنی بعد از تأیید</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>راه اندازی</td>
+              <td>آیا از راه‌اندازی این درخواست اطمینان دارید؟</td>
+              <td>راه اندازی شده</td>
+            </tr>
+            <tr>
+              <td>در راه</td>
+              <td>آیا از تغییر وضعیت این درخواست به «در راه» اطمینان دارید؟</td>
+              <td>در راه</td>
+            </tr>
+            <tr>
+              <td>استعلام وضعیت</td>
+              <td>آیا از تغییر وضعیت این درخواست به «در حال استعلام» اطمینان دارید؟</td>
+              <td>در حال استعلام</td>
+            </tr>
+            <tr>
+              <td>خاتمه</td>
+              <td>آیا از خاتمه یافتن این درخواست اطمینان دارید؟</td>
+              <td>ردیف حذف نرم می‌شود و به نمایهٔ «پیشینه درخواست ها» می‌رود</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>هر چهار پنجره دکمه‌های «بله» و «انصراف» دارند. خاتمه برگشت‌پذیر از این صفحه نیست؛ ردیف در پیشینه می‌ماند.</p>
+        <p class="dont"><strong>نکنید.</strong> خاتمه را با بستن برگهٔ مرورگر اشتباه نگیرید. خاتمه یعنی خارج شدن از کارتابل فعال.</p>
+      </article>
+
+      <article class="card" id="stop">
+        <h3>۵.۷ ثبت و بررسی توقف</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش · دکمه «ثبت توقف»</dd>
+          <dt>چه کسانی</dt>
+          <dd>مرحله‌ای: ثبت اولیه با نقش ثبت توقف؛ بررسی با عامل توقف انتخاب‌شده؛ تصمیم با کسی که توقف را ثبت کرده</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> پنجره با عنوان «ثبت توقف» و نوار «وضعیت فعلی توقف». سه حالت فرم، فقط یکی نشان داده می‌شود.</p>
+
+        <h3>ثبت اولیه (وضعیت خالی یا راه اندازی مجدد ۲۸۱۵)</h3>
+        <ul>
+          <li>نوع توقف: توقف مربوط به واحد مهندسی / توقف مربوط به واحد صنایع / ساير موارد</li>
+          <li>عامل توقف (انتخاب کاربر)</li>
+          <li>ذینفعان (چندانتخابی)</li>
+          <li>علت توقف</li>
+          <li>پیوست توقف (pdf / zip / rar)</li>
+        </ul>
+
+        <h3>بررسی عامل توقف (۲۸۰۷، ۲۸۱۳، ۲۸۱۶)</h3>
+        <ul>
+          <li>نتیجه بررسی: نياز به راه اندازي مجدد / نياز به اصلاح BOM / نياز به اصلاح مدارك/شرح كالا و غیره / حذف درخواست مرتبط با واحد صنایع / در انتظار مدير پروژه / كارفرما</li>
+          <li>توضیحات بررسی · دلیل تأخیر (اختیاری)</li>
+          <li>اگر نتیجه اصلاح BOM باشد: «نیاز به بروزرسانی BOM» و «نیاز به حذف BOM»</li>
+          <li>اگر انتظار مدیر پروژه باشد: «تاریخ تقریبی اعمال نظر مدیر پروژه»</li>
+          <li>پیوست بررسی</li>
+        </ul>
+
+        <h3>تصمیم درخواست‌کننده توقف (۲۸۰۸ تا ۲۸۱۲ و ۲۸۲۱)</h3>
+        <ul>
+          <li>وضعیت بررسی: راه اندازي مجدد درخواست / ثبت توقف مجدد / حذف درخواست</li>
+          <li>توضیحات</li>
+          <li>اگر «ثبت توقف مجدد» باشد: نوع توقف، عامل توقف مجدد، علت توقف مجدد</li>
+        </ul>
+        <p>دکمه‌های پنجره: ذخیره (قرمز) / انصراف.</p>
+        <p class="dont"><strong>نکنید.</strong> مرحلهٔ دیگران را پر نکنید؛ سرور همان مرحله را دوباره چک می‌کند. مهلت عامل را نادیده نگیرید — یادآوری روزانهٔ مهلت و پس از ۱۴ روز ارجاع خودکار به تدارکات انجام می‌شود.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> پیام «توقف با موفقیت ثبت شد»؛ پرچم «متوقف شده = بله»؛ رنگ ردیف در لیست نارنجی‌قرمز.</p>
+      </article>
+
+      <article class="card" id="comment">
+        <h3>۵.۸ کامنت و پیوست</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار «افزودن کامنت» یا دکمهٔ تب «افزودن کامنت» / تب «افزودن پیوست جدید»</dd>
+          <dt>چه کسانی</dt>
+          <dd>کامنت: تامین، مهندسی، صنایع. پیوست: تامین، مهندسی، تامین و خرید کامل</dd>
+        </dl>
+        <p><strong>کامنت.</strong> پنجره «افزودن کامنت»: تاریخ کامنت (شمسی)، توضیحات. ذخیره / انصراف.</p>
+        <p>اگر درخواست‌کننده و ذینفع خالی باشد سرور می‌گوید: «امکان ثبت توضیحات میسر نیست؛ لطفاً ابتدا درخواست‌کننده/ذینفع را وارد نمایید».</p>
+        <p><strong>پیوست.</strong> پنجره «افزودن پیوست»: نوع فایل، فایل پیوست (rar / zip / pdf تا ۱۰ مگابایت)، توضیحات. ذخیره. حذف ردیف غیر‌VPIS با تأیید «آیا از حذف این پیوست اطمینان دارید؟».</p>
+        <p class="dont"><strong>نکنید.</strong> مشاهده‌گر کامنت نزند. پیوست VPIS را حذف فرض نکند.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> «کامنت با موفقیت ذخیره شد» یا «پیوست با موفقیت ذخیره شد»؛ شمارندهٔ زبانه به‌روز می‌شود.</p>
+      </article>
+
+      <article class="card" id="people">
+        <h3>۵.۹ درخواست کنندگان و ذینفعان</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش، یا نمایهٔ تنظیمات با انتخاب چند ردیف</dd>
+          <dt>چه کسانی</dt>
+          <dd>تنظیمات، صنایع، تامین و خرید کامل</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> پنجره «افزودن درخواست کنندگان و ذینفعان»: ذینفعان، درخواست کنندگان، دکمهٔ «نفرات ثابت». ذخیره / انصراف.</p>
+        <p>«نفرات ثابت» اعضای نقش «نفرات ثابت ذینفعان» را به فهرست ذینفعان اضافه می‌کند.</p>
+        <p>از نمایهٔ «تنظیمات درخواست های باز» دکمهٔ هم‌نام روی چند ردیف انتخاب‌شده همان کار را گروهی انجام می‌دهد.</p>
+        <p class="dont"><strong>نکنید.</strong> ذینفع را خالی نگذارید اگر قرار است کسی کامنت بزند. نمایهٔ تنظیمات دکمهٔ ویرایش ندارد؛ برای دیدن فرم کامل از نمایهٔ دیگر ویرایش را بزنید.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> پیام «اطلاعات با موفقیت ثبت شد»؛ نام‌ها در «پرسنل درخواست کننده» / «مهندسین درخواستی» دیده می‌شود.</p>
+      </article>
+
+      <article class="card" id="supplier-sel">
+        <h3>۵.۱۰ تامین‌کننده منتخب</h3>
+        <dl class="screen-meta">
+          <dt>کجا</dt>
+          <dd>نوار ویرایش · دکمه «تامیین کننده منتخب»</dd>
+          <dt>چه کسانی</dt>
+          <dd>تنظیمات / صنایع / تامین و خرید کامل</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> پنجره با عنوان «تامین‌کننده منتخب» و یک انتخاب‌گر «تامین‌کننده منتخب». ذخیره / انصراف.</p>
+        <p>این کار فقط شرکت منتخب را روی درخواست می‌گذارد. نامه نمی‌فرستد.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> «تامین‌کننده منتخب ثبت شد»؛ در زبانهٔ تولید و تامین، فیلد تامین کننده پر می‌شود.</p>
+      </article>
+
+      <article class="card" id="config">
+        <h3>۵.۱۱ تنظیمات درخواست های باز (نمایه، نه منوی جدا)</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← درخواست های باز ← زبانهٔ «تنظیمات درخواست های باز»</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/openorderrequest/list</code> (همان لیست)</dd>
+          <dt>چه کسانی</dt>
+          <dd>تنظیمات، صنایع، تامین و خرید کامل</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> همهٔ درخواست‌های فعال. انتخاب چندتایی روشن است. «ویرایش» و «جدید» خاموش‌اند. دکمه‌ها:</p>
+        <p>
+          <span class="chip">خروجی اکسل</span>
+          <span class="chip">لیست کامنت ها</span>
+          <span class="chip">افزودن درخواست کنندگان و ذینفعان</span>
+          <span class="chip ok">ارسال به پیمانکار</span>
+        </p>
+        <p><strong>ارسال به پیمانکار.</strong> حداقل یک ردیف را انتخاب کنید. پنجره «ارسال به پیمانکار»: پیمانکار / تامین‌کننده، پیام / توضیحات (اختیاری). دکمه‌ها: ارسال / انصراف. اگر ایمیل شرکت خالی باشد: «ایمیل پیمانکار خالی است».</p>
+        <p>پس از ارسال موفق: «ارسال به پیمانکار در صف اعلان ثبت شد»، پرچم تغییر یافته خاموش می‌شود، تامین‌کننده منتخب همان شرکت می‌شود، و یک ردیف در پیشینهٔ ارسال ساخته می‌شود.</p>
+        <p class="dont"><strong>نکنید.</strong> انتظار نداشته باشید همین لحظه ایمیل در Outlook برسد؛ تا روشن شدن جاب ایمیل، کار در اعلان برنامه / صف می‌ماند.</p>
+      </article>
+
+      <article class="card" id="history">
+        <h3>۵.۱۲ پیشینه درخواست ها</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← درخواست های باز ← زبانهٔ «پیشینه درخواست ها»</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/openorderrequest/list</code></dd>
+          <dt>چه کسانی</dt>
+          <dd>مشاهده پیشینه، نمایش همه، صنایع، مهندسی، تامین</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> فقط ردیف‌های حذف‌شده / خاتمه‌یافته (اختتام راهکاران یا خاتمهٔ دستی). دکمه‌ها: ویرایش (مشاهده جزئیات)، خروجی اکسل، لیست کامنت ها. حذف خاموش است.</p>
+        <p>از ویرایش می‌توان پیوست و تاریخچه را دید. این نمایه محل ساخت یا ادامهٔ کارتابل فعال نیست.</p>
+        <p class="dont"><strong>نکنید.</strong> پیشینه را با «پیشینه ارسال به پیمانکاران» عوضی نگیرید؛ آن صفحهٔ جدا است.</p>
+        <p class="result"><strong>نتیجهٔ درست.</strong> درخواست خاتمه‌یافته اینجاست و در نمایه‌های فعال نیست.</p>
+      </article>
+
+      <article class="card" id="email">
+        <h3>۵.۱۳ پیشینه ارسال به پیمانکاران</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← پیشینه ارسال به پیمانکاران</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/openorderrequestemailtosupplier/list</code></dd>
+          <dt>چه کسانی</dt>
+          <dd>نقش مشاهدهٔ پیشینه ارسال، تنظیمات، تامین، تامین و خرید کامل</dd>
+        </dl>
+        <p><strong>چه می‌بینید.</strong> گرید لاگ ارسال‌ها. دکمه‌ها: مشاهده، خروجی اکسل. جدید و حذف خاموش‌اند.</p>
+        <p>باز کردن ردیف (<code>/panel/sup/openorderrequestemailtosupplier/edit?id=</code>) صفحهٔ فقط‌خواندنی «جزئیات ارسال به پیمانکار» است: شماره درخواست خرید، شماره حواله، شماره سفارش ساخت، کد/عنوان کالا، پیمانکار گیرنده، تعداد نیاز، تعداد اعلام‌شده، تاریخ/ساعت ارسال، ارسال‌کننده، ایمیل گیرنده، موضوع، توضیحات، متن نامه. نشان زرد: «فقط‌خواندنی — لاگ ارسال». دکمه: بستن.</p>
+        <p>ارسال جدید از این صفحه نیست؛ از نمایهٔ تنظیمات انجام می‌شود.</p>
+        <p class="dont"><strong>نکنید.</strong> این لیست را ویرایش یا پاک نکنید — سرور فقط‌خواندنی است.</p>
+      </article>
+
+      <article class="card" id="master">
+        <h3>۵.۱۴ اطلاعات پایه</h3>
+
+        <h3>دسته های خرید — فقط مشاهده</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← دسته های خرید</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/buycategory/list</code></dd>
+        </dl>
+        <p>نمایه «دسته های خرید». جدید / ویرایش / حذف خاموش. دکمه‌ها: خروجی اکسل، «مشاهده دسته»، «اقلام دسته های خرید».</p>
+        <p>مشاهده دسته: <code>/panel/sup/buycategory/edit?id=</code> — عنوان، نوع (خرید / ساخت)، متولی خرید، زمان تامین روتین و غیرروتین، همه غیرفعال. نشان‌ها: «همگام از راهکاران» و «فقط‌خواندنی — ویرایش در راهکاران». جدول اقلام تا ۳۰۰ قلم (کد، نام، زمان در راه، تامین کننده، توضیحات). دستهٔ بزرگ‌تر دکمهٔ «مشاهده اقلام دسته» دارد. بستن برگه با دکمهٔ بستن.</p>
+        <p class="dont">عنوان یا lead time را اینجا عوض نکنید؛ پیام سرور این است که دسته‌ها از راهکاران همگام می‌شوند و قابل ویرایش نیستند.</p>
+
+        <h3>اقلام دسته های خرید</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← اقلام دسته های خرید</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/sup/buycategoryitem/list</code></dd>
+        </dl>
+        <p>گرید اقلام، فقط مشاهده و اکسل. افزودن یا ویرایش قلم در این سامانه نیست.</p>
+
+        <h3>زمان در راه</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← زمان در راه</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/pln/leadtime/list</code> · ویرایش <code>/panel/pln/leadtime/edit?id=</code></dd>
+        </dl>
+        <p>نمایه «زمان در راه». دکمه‌ها: جدید، ویرایش، حذف، خروجی اکسل، «ورود از اکسل» (می‌رود به <code>/panel/importData/list</code> با عنوان برگه «ورود اطلاعات زمان در راه»).</p>
+        <p>فرم ویرایش — بخش اطلاعات اصلی: کالا، زمان در راه (روز) الزامی، زمان در راه غیرروتین (روز)، تامین کننده (بازرگانی خارجی / تامین و خرید)، کامنت. ذخیره / ذخیره و جدید / ذخیره و بستن.</p>
+        <p>ورود اکسل: تعریف «ورود اطلاعات زمان در راه (اکسل)». ستون‌ها: کد کالا، زمان در راه (روز)، زمان در راه غیرروتین (روز)، تامین کننده، کامنت. کالا باید در سامانه فعال باشد. کلید کلید کالا+تامین‌کننده است؛ ردیف تکراری به‌روز می‌شود.</p>
+        <p>اگر دسته یا زمان در راه خالی باشد، تاریخ تامین و «تاخیر خرید» روی درخواست ممکن است محاسبه نشود.</p>
+
+        <h3>تامین کننده</h3>
+        <dl class="screen-meta">
+          <dt>منو</dt>
+          <dd>تامین و خرید ← تامین‌کنندگان (لیست)</dd>
+          <dt>نشانی</dt>
+          <dd><code>/panel/supplier/list</code> · ویرایش <code>/panel/supplier/edit?id=</code></dd>
+        </dl>
+        <p>فرم اطلاعات اصلی: شخص شرکت، پیشوند، کد پستی، شماره تماس، فکس، ایمیل، کد تفصیل، گرید، خدمات/محصولات، شخص مرتبط، آدرس کامل.</p>
+        <p>ایمیل همین فرم برای «ارسال به پیمانکار» لازم است. رکوردهای اصلی از همگام‌سازی طرف‌حساب می‌آیند؛ چهار فیلد گرید / خدمات / شخص مرتبط / آدرس برای کار تدارکات روی خود تامین‌کننده نگه داشته می‌شوند.</p>
+      </article>
+    </section>
+
+    <section id="status">
+      <h2>۶. معنی وضعیت‌های توقف (۲۸۰۷ تا ۲۸۲۱)</h2>
+      <p class="note">عنوان‌ها همان برچسب سامانه است. کد ۲۸۰۹ در این فهرست نیست.</p>
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>کد</th><th>عنوان فارسی</th><th>معنی برای کاربر</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>۲۸۰۷</td>
+              <td>ثبت اولیه و ارسال به کارتابل مسئول توقف</td>
+              <td>توقف ثبت شده؛ نوبت عامل توقف است</td>
+            </tr>
+            <tr>
+              <td>۲۸۰۸</td>
+              <td>بررسی عامل توقف _ نیاز به راه اندازی مجدد</td>
+              <td>عامل گفته باید دوباره راه بیفتد؛ نوبت تصمیم ثبت‌کننده است</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۰</td>
+              <td>بررسی عامل توقف _ نياز به اصلاح BOM</td>
+              <td>عامل اصلاح درخت محصول خواسته</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۱</td>
+              <td>بررسی عامل توقف _نياز به اصلاح مدارك/شرح كالا و غیره</td>
+              <td>عامل اصلاح مدرک یا شرح کالا خواسته</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۲</td>
+              <td>بررسی عامل توقف _ حذف درخواست مرتبط با واحد صنایع</td>
+              <td>عامل حذف مرتبط با صنایع را پیشنهاد کرده</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۳</td>
+              <td>بررسی عامل توقف _ در انتظار مدير پروژه / كارفرما</td>
+              <td>منتظر نظر مدیر پروژه؛ هنوز در کارتابل عامل است</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۵</td>
+              <td>بررسی عامل توقف _ راه اندازی مجدد</td>
+              <td>تصمیم ادامه؛ توقف برداشته می‌شود (متوقف = خیر)</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۶</td>
+              <td>بررسی عامل توقف _ ثبت توقف مجدد</td>
+              <td>توقف تازه با عامل/علت جدید</td>
+            </tr>
+            <tr>
+              <td>۲۸۱۷</td>
+              <td>بررسی عامل توقف _ حذف درخواست</td>
+              <td>تصمیم حذف از مسیر توقف</td>
+            </tr>
+            <tr>
+              <td>۲۸۲۱</td>
+              <td>ارسال به کارتابل تدارکات بعلت عدم بررسی در زمان مشخص</td>
+              <td>بیش از ۱۴ روز بی‌اقدام؛ سامانه به تدارکات فرستاده</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>وضعیت متنی روی هدر درخواست (جدا از کد توقف)</h3>
+        <p>فیلد «وضعیت» در اطلاعات کلی می‌تواند خالی، «در راه»، «در حال استعلام» یا «راه اندازی شده» باشد. این متن با دکمهٔ متناظر عوض می‌شود و جایگزین ماشین توقف نیست.</p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>۷. پرسش‌های پرتکرار و خطاهای رایج</h2>
+      <div class="card">
+        <h3>دکمه‌ای را نمی‌بینم / زبانهٔ نمایه نیست</h3>
+        <p>نقش شما آن کار یا آن نمایه را ندارد. پس از اعطای نقش حتماً خارج شوید و دوباره وارد شوید. مشاهده‌گر فقط «مشاهده عمومی» یا «پیشینه» را می‌بیند.</p>
+
+        <h3>پیام دسترسی / «شما دسترسی … را ندارید»</h3>
+        <p>سرور همان نقش دکمه را دوباره چک می‌کند. برای توقف، حتی با نقش ثبت توقف، اگر شما عامل یا ثبت‌کنندهٔ مرحلهٔ فعلی نباشید، مرحله قفل است.</p>
+
+        <h3>تایید فروش: «ابتدا مدارک پروژه (VPIS) را لینک کنید»</h3>
+        <p>مهندسی (یا نقش قابلیت مهندسی) باید از «لینک با مدارک پروژه» حداقل یک مدرک بگذارد. بدون آن دکمه حتی اگر روشن باشد ذخیره نمی‌شود.</p>
+
+        <h3>تایید فروش برای همکار من فعال نیست</h3>
+        <p>فقط کارشناس فروش، مدیر فروش یا مدیر پروژهٔ ثبت‌شده روی همان ردیف می‌تواند تایید کند — مگر مدیر سامانه.</p>
+
+        <h3>کامنت ذخیره نمی‌شود</h3>
+        <p>متن سرور: ابتدا درخواست‌کننده/ذینفع را از تنظیمات یا دکمهٔ «درخواست کنندگان و ذینفعان» وارد کنید.</p>
+
+        <h3>تاخیر خرید یا تاریخ تامین خالی است</h3>
+        <p>محاسبه به زمان تامین دسته (از راهکاران) و در صورت نیاز به ردیف «زمان در راه» کالا وابسته است. اگر دسته بدون زمان تامین باشد یا ردیف زمان در راه نباشد، عدد تاخیر خالی می‌ماند. دسته را اینجا پر نکنید؛ در راهکاران یا صفحهٔ زمان در راه پیگیری کنید.</p>
+
+        <h3>ارسال کردم ولی ایمیل نرسید</h3>
+        <p>تا زمان راه‌اندازی نهایی، جاب ارسال ایمیل خاموش است. ردیف در «پیشینه ارسال به پیمانکاران» و اعلان داخل برنامه معیار ثبت است. اگر گفت «ایمیل پیمانکار خالی است»، اول ایمیل را در <code>/panel/supplier/edit?id=</code> کامل کنید.</p>
+
+        <h3>درخواست را خودم بسازم؟</h3>
+        <p>خیر. منبع راهکاران است. «جدید» عمداً خاموش است.</p>
+
+        <h3>منوی تنظیمات یا پیشینه را در درخت منو نمی‌بینم</h3>
+        <p>عمدی است. هر دو زبانهٔ همان «درخواست های باز» هستند. «پیشینه ارسال به پیمانکاران» منوی جدا دارد.</p>
+      </div>
+    </section>
+
+    <section id="trainer">
+      <h2>۸. چک‌لیست مربی</h2>
+      <div class="card">
+        <ul class="ck">
+          <li>تأکید: این HavayarApp است؛ درخت منوی HTS را نشان ندهید.</li>
+          <li>تأکید: درخواست از راهکاران می‌آید؛ «جدید» را نشان دهید که خاموش است.</li>
+          <li>با یک کاربر مهندسی وارد شوید → زبانهٔ «منتظر تایید مهندسی» → ویرایش → تایید مهندسی.</li>
+          <li>لینک با مدارک پروژه را روی همان ردیف بزنید (یا ردیفی که پروژه دارد).</li>
+          <li>با کاربر فروش/پروژهٔ همان ردیف وارد شوید → «تأیید مهندسی شده» → تایید واحد فروش/پروژه. یک بار بدون VPIS خطا را نشان دهید.</li>
+          <li>با کاربر تدارکات: در راه / استعلام / راه اندازی را جدا نشان دهید.</li>
+          <li>چرخهٔ توقف را روی دادهٔ آزمایشی: ثبت → بررسی عامل → تصمیم. مهلت ۲/۳ روز و ارجاع ۱۴روزه را فقط توضیح دهید.</li>
+          <li>کامنت بدون ذینفع را نشان دهید تا خطای سرور دیده شود؛ سپس ذینفع بگذارید.</li>
+          <li>نمایهٔ تنظیمات: چندانتخابی، افزودن درخواست کنندگان و ذینفعان، ارسال به پیمانکار.</li>
+          <li>پیشینه درخواست ها و پیشینه ارسال به پیمانکاران را کنار هم باز کنید تا اشتباه گرفته نشوند.</li>
+          <li>دسته های خرید و اقلام: فقط مشاهده؛ پیام راهکاران را بخوانید.</li>
+          <li>زمان در راه: یک ویرایش و مسیر «ورود از اکسل».</li>
+          <li>تامین کننده: فیلد ایمیل و آدرس کامل را نشان دهید.</li>
+          <li>پس از اعطای نقش آزمایشی، یک‌بار خروج/ورود اجباری.</li>
+          <li>اعلان داخل برنامه را نشان دهید و بگویید ایمیل ممکن است هنوز نرود.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="admin">
+      <h2>پیوست — برای راهبر سیستم</h2>
+      <div class="card">
+        <ul>
+          <li>پس از استقرار نسخه یا اجرای اسکریپت نمایه/نقش، WebApp را یک‌بار ری‌استارت کنید تا کاتالوگ دسترسی و کش نمایه تازه شود.</li>
+          <li>بعضی برگ‌های منو (مثلاً پیشینه ارسال به پیمانکاران یا دسته های خرید) بعد از استقرار و ثبت منو دیده می‌شوند؛ قبل از آن مسیر مستقیم ۴۰۴ می‌دهد.</li>
+          <li>کاربر پس از تغییر <code>RoleIds</code> باید دوباره وارد شود.</li>
+          <li>جاب ارسال ایمیل تا اعلام go-live خاموش می‌ماند؛ اعلان Type=Email در صف می‌ماند.</li>
+          <li>اگر زبانهٔ نمایه برای نقش درست نیست، RoleAccess همان نمایه را روی نقش کاربر بررسی کنید — یک List بیشتر ساخته نمی‌شود.</li>
+        </ul>
+      </div>
+      <p class="note">پایان راهنما · 2026-09-18 · فایل فقط برای آموزش کاربر است و جایگزین سند فنی استقرار نیست.</p>
+    </section>
+  </div>
+</body>
+</html>

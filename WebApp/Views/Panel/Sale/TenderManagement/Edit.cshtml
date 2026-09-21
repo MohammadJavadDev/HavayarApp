@@ -1,0 +1,687 @@
+@using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.Auth
+@using Entities.Base
+@model TenderManagement
+@{
+	var isManager = ViewBag.IsTenderManager == true;
+	var showCompressor = ViewBag.ShowCompressor == true || Model?.Organization == TenderOrganizationEnum.CompressedAir;
+	var canSend = ViewBag.CanSendForApprove == true;
+	var fieldsLocked = ViewBag.FieldsLocked == true;
+}
+
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(TenderManagement)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-paperclip"
+				action-name="openAttachments" title="پیوست"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-comment"
+				action-name="openComments" title="یادداشت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+				action-name="sendForApprove" title="ارسال به تایید"></form-action-button>
+		</form-action-buttons>
+	</div>
+</div>
+
+<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+<input type="hidden" data-bind="saleProjectReportId" value="@Model?.SaleProjectReportId" />
+<input type="hidden" data-bind="requestNumber" value="@Model?.RequestNumber" />
+<input type="hidden" data-bind="parentId" value="@Model?.ParentId" />
+<input type="hidden" data-bind="inCartable" value="@(Model?.InCartable == true ? "true" : "false")" />
+<input type="hidden" data-bind="hasPrimitiveConfirm" value="@(Model?.HasPrimitiveConfirm == true ? "true" : "false")" />
+<input type="hidden" data-bind="hasSecondaryConfirm" value="@(Model?.HasSecondaryConfirm == true ? "true" : "false")" />
+<input type="hidden" data-bind="isBudget" value="@(Model?.IsBudget == true ? "true" : "false")" />
+<input type="hidden" data-bind="hasBudget" value="@(Model?.HasBudget == true ? "true" : "false")" />
+<input type="hidden" data-bind="hasBudgetChild" value="@(Model?.HasBudgetChild == true ? "true" : "false")" />
+<input type="hidden" data-bind="isHavayar" value="@(Model?.IsHavayar == true ? "true" : "false")" />
+
+<div id="competitorHiddenFields" class="d-none">
+	<select class="form-control" data-bind="ourPriceUnit" asp-for="OurPriceUnit" asp-items="Html.GetEnumSelectList(typeof(PriceUnitEnum))">
+		<option value="">انتخاب کنید</option>
+	</select>
+	<input class="form-control" data-bind="ourPrice" type="text" data-money="true" asp-for="OurPrice" />
+	<input class="form-control" data-bind="fixedPrice" type="text" data-money="true" asp-for="FixedPrice" />
+	<input class="form-control" data-bind="competitivePrice" type="text" data-money="true" asp-for="CompetitivePrice" />
+	<input class="form-control" data-bind="euroPrice" type="text" data-money="true" asp-for="EuroPrice" />
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">مناقصه</span>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">شماره سفارش</label>
+			<input class="form-control" data-bind="id" value="@Model?.Id" readonly />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">نوع مناقصه</label>
+			<select class="form-control" data-bind="tenderType" asp-for="TenderType" asp-items="Html.GetEnumSelectList(typeof(TenderTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">واحد سازمانی</label>
+			<select class="form-control" data-bind="organization" data-required="true" asp-for="Organization" asp-items="Html.GetEnumSelectList(typeof(TenderOrganizationEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">کارشناس فروش</label>
+			@(Html.EntitySelector<User>(
+				"TenderManagementSaleExpertSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.NameFa ?? c.Name },
+				 c => new { c.Name, c.NameFa },
+				"{Name}",
+				"saleExpertId",
+				"saleExpertName",
+				Model?.SaleExpertId?.ToString(),
+				required: true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">نماینده فروش</label>
+			<select class="form-control" data-bind="salesAgent" asp-for="SalesAgent" asp-items="Html.GetEnumSelectList(typeof(TenderSalesAgentEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold required">شرکت هلدینگ</label>
+			@(Html.EntitySelector<Party>(
+				"TenderManagementCompanySelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Type == PartyTypeEnum.Legal,
+			     c => new { Id = c.Id, FullName = c.CompanyName ?? c.FullName, Number = c.Number },
+				c => new { c.FullName, c.CompanyName, c.Number },
+				"{FullName}",
+				"companyId",
+				"companyName",
+				Model?.CompanyId?.ToString(),
+				required: true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">صنعت مشتری</label>
+			<input class="form-control" data-bind="companyIndustryTitle" value="@Model?.CompanyIndustryTitle" readonly />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">ریز صنعت مشتری</label>
+			@(Html.EntitySelector<PartyIndustryItem>(
+				"TenderManagementIndustrySelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"companyIndustryItemId",
+				"companyIndustryItemTitle",
+				Model?.CompanyIndustryItemId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">آدرس شرکت</label>
+			<input class="form-control" data-bind="companyAddress" value="@Model?.CompanyAddress" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">شماره مناقصه</label>
+			<input class="form-control" data-bind="tenderNumber" data-required="true" asp-for="TenderNumber" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تلفن شرکت</label>
+			<input class="form-control" data-bind="companyPhone" value="@Model?.CompanyPhone" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">عنوان مناقصه</label>
+			<input class="form-control" data-bind="projectName" data-required="true" asp-for="ProjectName" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">کشور نصب</label>
+			@(Html.EntitySelector<Region>(
+				"TenderManagementCountrySelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Type == RegionTypeEnum.Cuntry,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"installCountryId",
+				"installCountryName",
+				Model?.InstallCountryId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">استان نصب</label>
+			@(Html.EntitySelector<Region>(
+				"TenderManagementProvinceSelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Type == RegionTypeEnum.Province,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"installProvinceId",
+				"installProvinceName",
+				Model?.InstallProvinceId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">نوع استعلام</label>
+			<select class="form-control" data-bind="inquiryType" asp-for="InquiryType" asp-items="Html.GetEnumSelectList(typeof(TenderInquiryTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">نام و نام خانوادگی نماینده کارفرما</label>
+			<input class="form-control" data-bind="customerAgentInfo" asp-for="CustomerAgentInfo" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تلفن نماینده کارفرما</label>
+			<input class="form-control" data-bind="customerAgentPhone" asp-for="CustomerAgentPhone" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">آخرین وضعیت</label>
+			<select class="form-control" data-bind="currentStatus" asp-for="CurrentStatus" asp-items="Html.GetEnumSelectList(typeof(TenderStatusEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">نتیجه نهایی</label>
+			<select class="form-control" data-bind="finalResult" asp-for="FinalResult" asp-items="Html.GetEnumSelectList(typeof(TenderFinalResultEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">علت راکد بودن</label>
+			<input class="form-control" data-bind="failureReasonText" asp-for="FailureReasonText" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">شرکت رقیب</label>
+			<input class="form-control" data-bind="competitiveCompany" asp-for="CompetitiveCompany" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">توضیحات</label>
+			<textarea class="form-control" data-bind="explain" asp-for="Explain" rows="3"></textarea>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div id="compressorTechFields" class="card my-2" style="@(showCompressor ? "" : "display:none")">
+	<div class="card-body row">
+		<span class="section-box-title">خرید کمپرسور تک</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">جمع کل مبلغ</label>
+			<input class="form-control" data-bind="compressorTechPrice" type="text" data-money="true" asp-for="CompressorTechPrice" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">واحد قیمت</label>
+			<select class="form-control" data-bind="compressorTechPriceUnit" asp-for="CompressorTechPriceUnit" asp-items="Html.GetEnumSelectList(typeof(PriceUnitEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">نرخ به ریال</label>
+			<input class="form-control" data-bind="compressorTechPriceRate" type="text" data-money="true" asp-for="CompressorTechPriceRate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">قیمت تکنیک کمپرسور به ریال</label>
+			<input class="form-control" data-bind="compressorTechPriceInRial" type="text" data-money="true" asp-for="CompressorTechPriceInRial" readonly />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">عملیات تکمیلی</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">مبلغ پیش فاکتور/ قرارداد (ریالی)</label>
+			<input class="form-control" data-bind="preInvoicePrice" type="text" data-money="true" asp-for="PreInvoicePrice" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">واحد قیمت</label>
+			<select class="form-control" data-bind="priceUnit" asp-for="PriceUnit" asp-items="Html.GetEnumSelectList(typeof(PriceUnitEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">مبلغ پیش فاکتور/ قرارداد (ارزی)</label>
+			<input class="form-control" data-bind="preInvoicePrice2" type="text" data-money="true" asp-for="PreInvoicePrice2" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">واحد ارزی</label>
+			<select class="form-control" data-bind="preInvoicePriceUnit2" asp-for="PreInvoicePriceUnit2" asp-items="Html.GetEnumSelectList(typeof(PriceUnitEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ پیش فاکتور</label>
+			<input class="form-control" data-bind="preInvoiceShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.PreInvoiceMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">ارزش مالی پروژه</label>
+			<select class="form-control" data-bind="projectValue" asp-for="ProjectValue" asp-items="Html.GetEnumSelectList(typeof(ProjectFinancialValueEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">کاربر نهایی</label>
+			<input class="form-control" data-bind="endUser" asp-for="EndUser" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره قرارداد</label>
+			<input class="form-control" data-bind="contractNumber" asp-for="ContractNumber" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره پیش سفارش</label>
+			<input class="form-control" data-bind="indicatorId" asp-for="IndicatorId" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">مبلغ قرارداد</label>
+			<input class="form-control" data-bind="contractPrice" type="text" data-money="true" asp-for="ContractPrice" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">اطلاعات اضافی</span>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">تاریخ ثبت مناقصه</label>
+			<input class="form-control" data-bind="tenderRegisterShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.TenderRegisterMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">مهلت ارسال اسناد</label>
+			<input class="form-control" data-bind="sendingDocumentsDeadlineShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.SendingDocumentsDeadlineMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">تاریخ ارسال اسناد فنی</label>
+			<input class="form-control" data-bind="sendingTechnicalDocumentsShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.SendingTechnicalDocumentsMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">تاریخ ارسال پیشنهاد فنی</label>
+			<input class="form-control" data-bind="sendingTechnicalProposalShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.SendingTechnicalProposalMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">تعداد شرکت های شرکت کننده</label>
+			<input class="form-control" data-bind="numberOfParticipatingCompanies" asp-for="NumberOfParticipatingCompanies" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">نام شرکت های شرکت کننده در مناقصه</label>
+			<input class="form-control" data-bind="participatingTenderCompaniesNames" asp-for="ParticipatingTenderCompaniesNames" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">برنده مناقصه</label>
+			<input class="form-control" data-bind="tenderWinnerName" asp-for="TenderWinnerName" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">حد نصاب ارزیابی کیفی</label>
+			<input class="form-control" data-bind="qualitativeAssessmentQuorum" asp-for="QualitativeAssessmentQuorum" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">امتیاز هوایار</label>
+			<input class="form-control" data-bind="havayarScore" asp-for="HavayarScore" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">رتبه هوایار</label>
+			<input class="form-control" data-bind="havayarRank" asp-for="HavayarRank" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">علت شکست</label>
+			<select class="form-control" data-bind="failureCause" asp-for="FailureCause" asp-items="Html.GetEnumSelectList(typeof(TenderFailureCauseEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">پیش فاکتور به پیشنهاد مالی تغییر یابد؟</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="changePreInvoiceToFinancialProposal" @(Model?.ChangePreInvoiceToFinancialProposal == true ? "checked" : "") />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">توضیحات علت شکست</label>
+			<textarea class="form-control" data-bind="failureCauseDescription" asp-for="FailureCauseDescription" rows="3"></textarea>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">ضمانت نامه</span>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">شماره ضمانت نامه (سپام)</label>
+			<input class="form-control" data-bind="warrantyNumber" asp-for="WarrantyNumber" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">نوع ضمانت نامه</label>
+			<select class="form-control" data-bind="warrantyType" asp-for="WarrantyType" asp-items="Html.GetEnumSelectList(typeof(WarrantyTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">مبلغ ضمانت نامه</label>
+			<input class="form-control" data-bind="warrantyPrice" type="text" data-money="true" asp-for="WarrantyPrice" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">تاریخ سر رسید ضمانت نامه</label>
+			<input class="form-control" data-bind="warrantyDueShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.WarrantyDueMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">وضعیت ضمانت نامه</label>
+			<select class="form-control" data-bind="warrantyStatus" asp-for="WarrantyStatus" asp-items="Html.GetEnumSelectList(typeof(WarrantyStatusEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">محصولات</span>
+		<div id="tenderPartsSection">
+			<div class="text-muted p-3">پس از ذخیره مناقصه، محصولات اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">سوابق پیگیری</span>
+		<div id="tenderTasksSection">
+			<div class="text-muted p-3">پس از ذخیره مناقصه، سوابق پیگیری اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const isTenderManager = @(isManager ? "true" : "false");
+	const fieldsLocked = @(fieldsLocked ? "true" : "false");
+	const canSendForApprove = @(canSend ? "true" : "false");
+	const compressedAirOrg = '@((int)TenderOrganizationEnum.CompressedAir)';
+	const competitorResults = ['880', '881', '882', '883', '884', '1116'];
+
+	if (typeof initMoneyInputs === 'function')
+		initMoneyInputs(page.$pageEl);
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			loadChildSections();
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	function requireId() {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) { toastr.error('ابتدا ذخیره کنید'); return null; }
+		return id;
+	}
+	if (self.FormActionButtons.openAttachments) {
+		self.FormActionButtons.openAttachments.onclick(function () {
+			const id = requireId();
+			if (!id) return;
+			appController.addPage('/Panel/Sale/TenderAttachment/ListByParentId?tenderId=' + id, true, 'پیوست مناقصه');
+		});
+	}
+	if (self.FormActionButtons.openComments) {
+		self.FormActionButtons.openComments.onclick(function () {
+			const id = requireId();
+			if (!id) return;
+			appController.addPage('/Panel/Sale/TenderComment/ListByParentId?tenderId=' + id, true, 'یادداشت مناقصه');
+		});
+	}
+	if (self.FormActionButtons.sendForApprove) {
+		if (!canSendForApprove)
+			$(self.FormActionButtons.sendForApprove.element).prop('disabled', true);
+		self.FormActionButtons.sendForApprove.onclick(function () {
+			const id = requireId();
+			if (!id) return;
+			Swal.fire({ title: 'ارسال به تایید', text: 'مناقصه از کارتابل خارج و برای تایید ارسال شود؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+				.then(function (result) {
+					if (!result.isConfirmed) return;
+					$$.post('sendForApprove?id=' + id, {}, function (r) {
+						if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+						toastr.success('ارسال به تایید انجام شد');
+						appController.refreshCurrentPage();
+					});
+				});
+		});
+	}
+
+	function parseMoneyVal($input) {
+		const raw = $input.val();
+		const n = parseFloat(MJUtil.unformatMoney(raw));
+		return isNaN(n) ? 0 : n;
+	}
+
+	function updateCompressorInRial() {
+		const price = parseMoneyVal($$('[data-bind="compressorTechPrice"]'));
+		const rate = parseMoneyVal($$('[data-bind="compressorTechPriceRate"]'));
+		const $rial = $$('[data-bind="compressorTechPriceInRial"]');
+		const total = price * rate;
+		if ($rial[0] && $rial[0].inputmask)
+			$rial.inputmask('setvalue', total);
+		else
+			$rial.val(MJUtil.formatMoney(total));
+	}
+
+	$$('select[data-bind="organization"]').on('change', function () {
+		$$('#compressorTechFields').toggle($(this).val() === compressedAirOrg);
+	});
+	$$('[data-bind="compressorTechPrice"], [data-bind="compressorTechPriceRate"]').on('change input', updateCompressorInRial);
+
+	function isCompetitorResult(val) {
+		return competitorResults.indexOf(String(val || '')) >= 0;
+	}
+
+	const moneyMaskJs = window.moneyInputmaskOptions || { alias: 'numeric', groupSeparator: ',', digits: 2, digitsOptional: true, rightAlign: false, autoUnmask: true, placeholder: '' };
+
+	function moneyInputHtml(id, value) {
+		const shown = value === '' || value == null ? '' : MJUtil.formatMoney(value);
+		return '<input class="form-control" id="' + id + '" data-money="true" value="' + shown + '" />';
+	}
+
+	function setMoneyInput($el, value) {
+		const raw = MJUtil.unformatMoney(value);
+		if ($el[0] && $el[0].inputmask)
+			$el.inputmask('setvalue', raw == null ? '' : raw);
+		else
+			$el.val(raw == null ? '' : raw);
+	}
+
+	function openCompetitorConfirm() {
+		const $hidden = $$('#competitorHiddenFields');
+		const unitOptions = $hidden.find('select[data-bind="ourPriceUnit"]').html();
+		const unitVal = $hidden.find('select[data-bind="ourPriceUnit"]').val() || '';
+		const ourPrice = $hidden.find('[data-bind="ourPrice"]').val() || '';
+		const fixedPrice = $hidden.find('[data-bind="fixedPrice"]').val() || '';
+		const competitivePrice = $hidden.find('[data-bind="competitivePrice"]').val() || '';
+		const euroPrice = $hidden.find('[data-bind="euroPrice"]').val() || '';
+		$.confirm({
+			title: 'خرید از رقبا',
+			rtl: true,
+			columnClass: 'medium',
+			content: '<div class="row">'
+				+ '<div class="col-12 form-group-inline mb-2"><label class="form-label fw-bold">واحد قیمت</label><select class="form-control" id="jcOurPriceUnit">' + unitOptions + '</select></div>'
+				+ '<div class="col-12 form-group-inline mb-2"><label class="form-label fw-bold">قیمت هوایار</label>' + moneyInputHtml('jcOurPrice', ourPrice) + '</div>'
+				+ '<div class="col-12 form-group-inline mb-2"><label class="form-label fw-bold">قیمت برنده مناقصه</label>' + moneyInputHtml('jcFixedPrice', fixedPrice) + '</div>'
+				+ '<div class="col-12 form-group-inline mb-2"><label class="form-label fw-bold">قیمت رقبا</label>' + moneyInputHtml('jcCompetitivePrice', competitivePrice) + '</div>'
+				+ '<div class="col-12 form-group-inline mb-2"><label class="form-label fw-bold">نرخ ارز</label>' + moneyInputHtml('jcEuroPrice', euroPrice) + '</div>'
+				+ '</div>',
+			buttons: {
+				save: {
+					text: 'ثبت',
+					btnClass: 'btn-primary',
+					action: function () {
+						const $c = this.$content;
+						$hidden.find('select[data-bind="ourPriceUnit"]').val($c.find('#jcOurPriceUnit').val());
+						setMoneyInput($hidden.find('[data-bind="ourPrice"]'), $c.find('#jcOurPrice').val());
+						setMoneyInput($hidden.find('[data-bind="fixedPrice"]'), $c.find('#jcFixedPrice').val());
+						setMoneyInput($hidden.find('[data-bind="competitivePrice"]'), $c.find('#jcCompetitivePrice').val());
+						setMoneyInput($hidden.find('[data-bind="euroPrice"]'), $c.find('#jcEuroPrice').val());
+					}
+				},
+				cancel: { text: 'انصراف' }
+			},
+			onContentReady: function () {
+				this.$content.find('#jcOurPriceUnit').val(unitVal);
+				if (window.Inputmask)
+					Inputmask(moneyMaskJs).mask(this.$content.find('[data-money="true"]'));
+			}
+		});
+	}
+
+	$$('select[data-bind="finalResult"]').on('change', function () {
+		if (isCompetitorResult($(this).val()))
+			openCompetitorConfirm();
+	});
+
+	function applyCompanyInfo(d) {
+		if (!d) return;
+		$$('[data-bind="companyPhone"]').val(d.phone || '');
+		$$('[data-bind="companyAddress"]').val(d.address || '');
+		$$('[data-bind="companyIndustryTitle"]').val(d.companyIndustryTitle || '');
+		const itemId = d.companyIndustryItemId == null ? '' : d.companyIndustryItemId;
+		const itemTitle = d.companyIndustryItemTitle || '';
+		const $ind = $$('#TenderManagementIndustrySelector');
+		$ind.find('.entity-selector-value').val(itemId);
+		$ind.find('.entity-selector-input').val(itemTitle);
+		$ind.find('.entity-selector-text').val(itemTitle);
+	}
+
+	page.$pageEl.on('change', '[data-bind="companyId"]', function () {
+		const companyId = $(this).val();
+		if (!companyId) {
+			applyCompanyInfo({});
+			return;
+		}
+		$$.get('GetCompanyInfo?companyId=' + companyId, function (r) {
+			const d = (r && r.data) ? r.data : r;
+			applyCompanyInfo(d);
+		});
+	});
+
+	page.$pageEl.on('change', '#TenderManagementIndustrySelector .entity-selector-value', function () {
+		const itemId = $(this).val();
+		if (!itemId) {
+			$$('[data-bind="companyIndustryTitle"]').val('');
+			return;
+		}
+		$$.get('GetIndustryItemInfo?id=' + itemId, function (r) {
+			const d = (r && r.data) ? r.data : r;
+			if (d && d.companyIndustryTitle != null)
+				$$('[data-bind="companyIndustryTitle"]').val(d.companyIndustryTitle);
+		});
+	});
+
+	function loadEmbeddedPartial(selector, url) {
+		const $box = $$(selector);
+		$box.block();
+		page.getPartialView(url, function (r) {
+			$box.block(false);
+			if (!r) {
+				$box.html('<div class="text-danger p-3">خطا در بارگذاری</div>');
+				return;
+			}
+			const decoded = (window.appController && typeof appController.decodePartialResponse === 'function')
+				? appController.decodePartialResponse(r)
+				: { html: (typeof r === 'string' ? r : ''), scripts: [] };
+			$box.html(decoded.html || '');
+			const scripts = decoded.scripts || [];
+			for (let i = 0; i < scripts.length; i++) {
+				try {
+					new Function('page', '$$', 'self', scripts[i])(page, $$, self);
+				} catch (err) {
+					console.error(err);
+				}
+			}
+		});
+	}
+
+	function loadChildSections() {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) return;
+		loadEmbeddedPartial('#tenderPartsSection', '/Panel/Sale/TenderPart/ListByParentId?tenderId=' + id);
+		loadEmbeddedPartial('#tenderTasksSection', '/Panel/Sale/TenderTask/ListByParentId?tenderId=' + id);
+	}
+
+	loadChildSections();
+
+	if (fieldsLocked && !isTenderManager) {
+		const keep = ['companyAddress', 'companyPhone', 'tenderNumber', 'failureReasonText', 'explain', 'failureCauseDescription'];
+		$$('.card-body input, .card-body select, .card-body textarea').each(function () {
+			const bind = $(this).attr('data-bind');
+			if (bind && keep.indexOf(bind) >= 0) return;
+			if ($(this).attr('type') === 'hidden') return;
+			$(this).prop('readonly', true);
+			if ($(this).is('select') || $(this).is('input[type="checkbox"]'))
+				$(this).css('pointer-events', 'none');
+		});
+	}
+</script>

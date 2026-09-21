@@ -1,0 +1,65 @@
+---
+description: How to implement HavayarApp reports — Data Profile for grids, ApexCharts page for charts, Stimulsoft/ReportBuilder only for print
+globs: WebApp/Views/Panel/**/*Report*.cshtml,WebApp/Controllers/Dynamic/**/*Report*.cs,Data/Scripts/**/*Report*.sql,ReportBuilder.**/**/*.cs,Specs/**/*.md
+alwaysApply: true
+---
+
+# HavayarApp — Choosing how to implement a report
+
+Pick **one** implementation path from the kind of report. Do not mix Stimulsoft into on-screen grids or dashboards.
+
+| Kind of report | Implement as | Do not |
+|---|---|---|
+| **Tabular** (filterable grid, rows, Excel) | **Data Profile** (`system.SavedQuery`, `Type = DataProfile`) on a `<datatableprofile>` List page | Custom HTML tables, Stimulsoft, or a one-off grid page |
+| **Charts / graphs / dashboard** (KPI cards, bar/line/pie, mixed summary + charts) | A dedicated **Report page** that uses the **existing ApexCharts** already in the panel | New chart libraries, Stimulsoft chart bands, DevExpress |
+| **Print / official document** (certificate, form, printable layout) | **ReportBuilder + Stimulsoft only** | New C# report-rendering code, Crystal, DevExpress |
+
+If a report is both a grid **and** charts on one screen, treat it as a **chart page** (see `CourseStatisticalReport`). If the user only needs a printable layout of the same data, add a Stimulsoft template **in addition** — do not replace the on-screen page with Stimulsoft.
+
+## 1. Tabular → Data Profile
+
+Follow `havayar-dataprofile-savedquery.mdc` (seed `SavedQuery` + `RoleAccess`, generators under `_tools/DataProfile/`).
+
+- Prefer attaching the profile to the **existing entity List** page (`<datatableprofile entity-Type="typeof(Entity)">`).
+- If there is no List page yet, add a normal List page per `havayar-add-new-page.mdc` and put the report columns in a Data Profile — not a custom `.cshtml` table.
+- Excel export is the DataTable / Data Profile toolbar (`exportExcell`), not ReportBuilder.
+
+Canonical seed shape: `Data/Scripts/Seed_SaleOrderDetail_DataProfiles.sql`.
+
+## 2. Charts / graphs → dedicated page + existing ApexCharts
+
+Copy the live pattern — do not invent a new chart stack:
+
+| Piece | Canonical example |
+|---|---|
+| Controller (`Report` GET + `GetData` POST, `[ActionAccessItemType.Dashbord]`) | `WebApp/Controllers/Dynamic/Trn/CourseStatisticalReportController.cs`, `.../Pln/PlnTimelyDeliveryReportController.cs` |
+| View | `WebApp/Views/Panel/Trn/CourseStatisticalReport/Report.cshtml`, `.../Pln/PlnTimelyDeliveryReport/Report.cshtml` |
+| Library | `~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js` (already in the panel) |
+| Create chart | `new ApexCharts($$('#elementId')[0], options)` then `.render()` / `.updateOptions()` |
+
+- Filters, Shamsi dates, `$$.post`, `toastr`, and tab-scoped `$$` follow `havayar-js-jquery-conventions.mdc`.
+- Do **not** add Chart.js, Highcharts, Google Charts, or another ApexCharts copy.
+- Do **not** implement on-screen charts as Stimulsoft `.mrt` chart bands.
+
+## 3. Print only → ReportBuilder + Stimulsoft
+
+Use the in-app Report Builder (`/Panel/System/ReportBuilder`, `ReportBuilder.WebApp`). Data comes from a SavedQuery or `ReportBuilderTable`. Preview/print is opened with `appController.addPage(...)`, never `window.location`:
+
+```javascript
+appController.addPage('/System/ReportBuilder/ViewReportByName/' + templateKey
+    + '?certificateId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+```
+
+Entry points: `ReportBuilderController.ViewReport`, `ViewReportByName`, `StimulSoftViewReport`. Live wiring: `WebApp/Views/Panel/Trn/Certificate/ListByCourseId.cshtml`.
+
+- Design the `.mrt` in the ReportBuilder Designer UI — **do not** write new C# that renders a report.
+- Stimulsoft is **only** for print/official documents (certificates, signed forms, printable layouts). Not for List grids and not for dashboard charts.
+
+## 4. Must / must-not
+
+| Do | Don't |
+|---|---|
+| Tabular report = Data Profile on a List page | Build a custom DataTable page "because it's a report" |
+| Chart report = ApexCharts page copied from `CourseStatisticalReport` / `PlnTimelyDeliveryReport` | Use Stimulsoft or a new JS chart library for on-screen charts |
+| Printable document = ReportBuilder Stimulsoft template + `ViewReportByName` | New DevExpress/Crystal/C# report classes |
+| Add a menu entry to the Report / View action (or to the existing List page for a Data Profile) | Open print/report URLs with `location.href` |

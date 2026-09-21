@@ -2,81 +2,132 @@
 @using Entities.App.Sup;
 @using Entities.App.Sup.Enums;
 @using Entities.Auth;
+@using WebApp.Controllers.Dynamic;
 @model  BuyCategory
+@{
+	// Q2 = (a): راهکاران مرجع کامل است — دسته، اقلام، متولی خرید و lead time در این سامانه فقط‌خواندنی‌اند (جاب همگام‌سازی ساعتی برقرار می‌ماند).
+	// این صفحه فقط نمایش است: بدون ذخیره، بدون افزودن/حذف قلم.
+	var isSynced = Model?.HamkaranId != null;
+	var itemCount = Model?.Items?.Count ?? 0;
+	var renderItems = itemCount <= BuyCategoryController.MaxInlineItems;
+	var typeTitle = Model?.Type switch
+	{
+		BuyCategoryTypeEnum.Purchase => "خرید",
+		BuyCategoryTypeEnum.Build => "ساخت",
+		_ => "-"
+	};
+}
 <div class="card">
-		<div class="form-action-buttons"><form-action-buttons entity-type="typeof(BuyCategory)"></form-action-buttons></div>
-
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(BuyCategory)" new-page-btn="false" save-btn="false" save-and-new-btn="false" save-and-close-btn="false">
+			<button type="button" class="btn-sm btn btn-icon btn-active-icon-dark btn-color-danger" data-action="closePage" data-bs-toggle="tooltip" data-bs-placement="top" title="بستن">
+				<i class="fa-light fa-xmark" style="padding-right: 2px;padding-top: 2px;"></i>
+			</button>
+		</form-action-buttons>
+	</div>
 </div>
 <div class="card">
 	<div class="card-body row">
-		<div class="col-12 mb-4">
-			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
-		</div>
-		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class='col-md-6'>
-			<label class='required'>عنوان</label>
-			<input class='form-control' data-bind='title' required asp-for='Title' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
-		<div class="col-md-6">
-			<label class=''>متولی خرید</label>
-			@(Html.EntitySelector<User>(
-				"PurchaseResponsibleSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id, Name = c.Name
-				},
-				c => new { c.Name },
-				"{Name}",
-				"PurchaseResponsibleId",
-				"PurchaseResponsibleName",
-				Model?.PurchaseResponsibleId?.ToString()
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		<div class="col-12 mb-4 d-flex align-items-center gap-3 flex-wrap">
+			<h3 class="fw-bold text-dark mb-0">اطلاعات اصلی</h3>
+			@if (isSynced)
+			{
+				<span class="badge badge-light-info fs-7" data-bs-toggle="tooltip" title="این دسته از راهکاران (USR3.Sup_BuyCategory) هر ساعت همگام‌سازی می‌شود.">
+					همگام از راهکاران — کد @Model?.HamkaranId
+				</span>
+			}
+			<span class="badge badge-light-warning fs-7" data-bs-toggle="tooltip" title="مرجع دسته‌های خرید راهکاران است (تصمیم Q2). ویرایش عنوان، نوع، متولی خرید، زمان تامین و اقلام فقط در راهکاران انجام می‌شود.">
+				فقط‌خواندنی — ویرایش در راهکاران
+			</span>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>زمان در راه غیر روتین (روز)</label>
-			<input class='form-control'  data-bind='nonRoutineLeadTimeInDay'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='NonRoutineLeadTimeInDay' />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		<div class='col-md-6 form-group-inline'>
+			<label class=''>عنوان</label>
+			<input class='form-control' value='@Model?.Title' readonly disabled />
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>نوع</label>
-			<select class='form-control' data-bind='type'  asp-for='Type' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sup.Enums.BuyCategoryTypeEnum))">
-			</select>
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			<input class='form-control' value='@typeTitle' readonly disabled />
 		</div>
 
-		<div class='col-md-12'>
-			<div data-tab-item-manager=" دسته های خریدItems" data-item-selector=".entity-item">
-				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
-					<li class="nav-item" role="presentation">
-						<a class="nav-link active" data-bs-toggle="tab" href="#itemsTab" role="tab" aria-selected="true">
-							<span class="svg-icon svg-icon-2 me-2"></span>
-							اقلام
-						</a>
-					</li>
-				</ul>
-				<div class="tab-content">
-					<div class="tab-pane fade show active" id="itemsTab" role="tabpanel" data-add-url="/Panel/ دسته های خرید/BuyCategoryItemPartial">
-						<div id='ItemsContainer' class="entity-item-container">
-							@if (Model?.Items != null)
-							{
-								@foreach (var item in Model.Items)
-								{
-									<div data-item-id="@(item.Id ?? 0)">
-										@await Html.PartialAsync("_BuyCategoryItemPartial.cshtml", item)
-									</div>
-								}
-							}
-						</div>
-					</div>
-				</div>
-			</div>
+		<div class="col-md-6 form-group-inline">
+			<label class=''>متولی خرید</label>
+			<input class='form-control' value='@(Model?.PurchaseResponsible?.Name ?? "-")' readonly disabled />
 		</div>
+
+		<div class='col-md-3 form-group-inline'>
+			<label class=''>زمان تامین روتین (روز)</label>
+			<input class='form-control' value='@(Model?.RoutineLeadTimeInDay?.ToString() ?? "-")' readonly disabled />
+		</div>
+
+		<div class='col-md-3 form-group-inline'>
+			<label class=''>زمان تامین غیرروتین (روز)</label>
+			<input class='form-control' value='@(Model?.NonRoutineLeadTimeInDay?.ToString() ?? "-")' readonly disabled />
+		</div>
+	</div>
+</div>
+
+<div class="card">
+	<div class="card-body">
+		<div class="mb-4 d-flex align-items-center gap-3 flex-wrap">
+			<h3 class="fw-bold text-dark mb-0">اقلام دسته</h3>
+			<span class="badge badge-light fs-7">@itemCount قلم</span>
+			<span class="badge badge-light-warning fs-7">فقط‌خواندنی — اقلام از راهکاران همگام می‌شوند</span>
+		</div>
+
+		@if (!renderItems)
+		{
+			<div class="alert alert-info d-flex align-items-center justify-content-between mb-0">
+				<span>
+					این دسته <b>@itemCount</b> قلم دارد؛ برای جلوگیری از سنگین شدن صفحه، اقلام در اینجا نمایش داده نمی‌شوند
+					(حد نمایش درون‌خطی: @BuyCategoryController.MaxInlineItems قلم). اقلام را از صفحه «اقلام دسته های خرید» مشاهده کنید.
+				</span>
+				<button type="button" class="btn btn-sm btn-light-primary" data-action="openItemsList">مشاهده اقلام دسته</button>
+			</div>
+		}
+		else if (itemCount == 0)
+		{
+			<div class="text-muted">قلمی برای این دسته ثبت نشده است.</div>
+		}
+		else
+		{
+			<div class="table-responsive">
+				<table class="table table-striped table-row-bordered gy-2 align-middle">
+					<thead>
+						<tr class="fw-bold fs-6 text-muted">
+							<th style="width:50px;">#</th>
+							<th>کد کالا</th>
+							<th>نام کالا</th>
+							<th>زمان در راه</th>
+							<th>تامین کننده</th>
+							<th>توضیحات</th>
+						</tr>
+					</thead>
+					<tbody>
+						@{ var rowNo = 0; }
+						@foreach (var item in Model!.Items)
+						{
+							rowNo++;
+							var supplierTitle = item.Supplier switch
+							{
+								BuyCategoryItemSupplierEnum.ForeignTrade => "بازرگانی خارجی",
+								BuyCategoryItemSupplierEnum.SupplyAndPurchase => "تامین و خرید",
+								_ => "-"
+							};
+							<tr>
+								<td>@rowNo</td>
+								<td>@(item.Part?.Code ?? "-")</td>
+								<td>@(item.Part?.Name ?? "-")</td>
+								<td>@(item.TimeInWay?.ToString() ?? "-")</td>
+								<td>@supplierTitle</td>
+								<td>@(item.Comments ?? "-")</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
 	</div>
 </div>
 
@@ -84,40 +135,30 @@
 	<div class='card-body row'>
 		<div class='col-md-3'>
 			<span>ایجاد کننده :</span>
-			<span data-bind="createdByName">@Model?.CreatedByName</span>
+			<span>@Model?.CreatedByName</span>
 		</div>
 		<div class='col-md-3'>
 			<span>تاریخ ایجاد :</span>
-			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+			<span>@Model?.CreatedOnShamsiDateTime</span>
 		</div>
 		<div class='col-md-3'>
 			<span>ویرایش کننده :</span>
-			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+			<span>@Model?.ModifiedByName</span>
 		</div>
 		<div class='col-md-3'>
-			<span>تاریخ ویرایش :</span>
-			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+			<span>تاریخ ویرایش / آخرین همگام‌سازی :</span>
+			<span>@Model?.ModifiedDateShamsiDateTime</span>
 		</div>
 	</div>
 </div>
 
 <script>
-	function savefn($btnAction) {
-		if (validateError(page.$pageEl)) { return; }
-		var model = page.$pageEl.dataBind();
-		const $btn = $(this.element).block();
-		$$.post('save',
-			model,
-			function (r) {
-				$btn.block(false);
-				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				page.$pageEl.dataBind(r.data);
-				$btnAction.baseaction();
-			})
-	}
+	// صفحه فقط‌نمایش (Q2 = a) — بدون ذخیره
+	page.$pageEl.on('click', '[data-action="closePage"]', function () {
+		appController.closeCurrentPage();
+	});
 
-	self.FormActionButtons.save.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+	page.$pageEl.on('click', '[data-action="openItemsList"]', function () {
+		appController.addPage('/panel/sup/buycategoryitem/list', true, 'اقلام دسته های خرید');
+	});
 </script>

@@ -20781,6 +20781,7 @@
                     white-space: nowrap;
                     text-overflow: ellipsis;
                     box-sizing: border-box !important;
+				text-align: center;
                 }
                 .dt-colmanager-handle {
                     position: absolute;

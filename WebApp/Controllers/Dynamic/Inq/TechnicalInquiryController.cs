@@ -1159,6 +1159,7 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+
 		private async Task<string> BuildEmailBody(TechnicalInquiry inquiry, string action, string? comment = null)
 		{
 			var sb = new StringBuilder();

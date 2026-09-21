@@ -11,7 +11,7 @@
 			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
 		</div>
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class=''>کالا</label>
 			@(Html.EntitySelector<Part>(
 				"PartSelector",
@@ -29,20 +29,26 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class='required'>زمان در راه (روز)</label>
 			<input class='form-control'  data-bind='leadTimeDay' required data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='LeadTimeDay' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
+			<label class=''>زمان در راه غیرروتین (روز)</label>
+			<input class='form-control' data-bind='nonRoutineLeadTimeInDay' data-invalidMessage='فقط عدد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='NonRoutineLeadTimeInDay' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>تامین کننده</label>
 			<select class='form-control' data-bind='supplier'  asp-for='Supplier' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Pln.Enums.LeadTimeSupplierEnum))">
 			</select>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>کامنت</label>
 			<input class='form-control' data-bind='comment'  asp-for='Comment' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -77,7 +83,7 @@
 	function savefn($btnAction) {
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
-		const $btn = $(this.element).block();
+		const $btn = $($btnAction.element).block();
 		$$.post('save',
 			model,
 			function (r) {

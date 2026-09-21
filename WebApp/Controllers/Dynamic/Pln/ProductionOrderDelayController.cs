@@ -88,6 +88,7 @@ namespace WebApp.Controllers.Dynamic
 				{
 					LoadExistingDelays(entity.ProductionOrderId.Value);
 					await LoadCalculatedDelayRangeAsync(entity.ProductionOrderId.Value, cn);
+					await LoadProductionOrderDetailsAsync(entity.ProductionOrderId.Value, cn);
 				}
 
 				return View(@"\Views\Panel\Pln\ProductionOrderDelay\Edit.cshtml", entity);
@@ -113,6 +114,7 @@ namespace WebApp.Controllers.Dynamic
 					newEntity.ProductionOrder = productionOrder;
 					LoadExistingDelays(productionOrder.Id!.Value);
 					await LoadCalculatedDelayRangeAsync(productionOrder.Id!.Value, cn);
+					await LoadProductionOrderDetailsAsync(productionOrder.Id!.Value, cn);
 				}
 			}
 
@@ -176,6 +178,36 @@ namespace WebApp.Controllers.Dynamic
 		{
 			var range = await CalculateOrderDelayRangeAsync(productionOrderId, cn);
 			return Ok(range);
+		}
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("اطلاعات و اقلام سفارش ساخت", ActionAccessType.Api, ActionAccessItemType.FetchData)]
+		public async Task<IActionResult> GetProductionOrderDetails(long productionOrderId, CancellationToken cn)
+		{
+			var details = await GetProductionOrderDetailsInternalAsync(productionOrderId, cn);
+			return Ok(details);
+		}
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("خارج کردن از سیکل تاخیر", ActionAccessType.Api, ActionAccessItemType.Update)]
+		public async Task<IActionResult> ExcludeFromDelayCycle(long productionOrderId, CancellationToken cn)
+		{
+			if (productionOrderId <= 0)
+				return BadRequest("سفارش ساخت انتخاب نشده است");
+
+			var order = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
+				.FirstOrDefaultAsync(c => c.Id == productionOrderId, cn);
+
+			if (order == null)
+				return BadRequest("سفارش ساخت یافت نشد");
+
+			if (!order.DelayNotCalculated)
+			{
+				order.DelayNotCalculated = true;
+				order = await unitOfWork.Repository<ProductionOrder>().UpdateAsync(order, cn, true);
+			}
+
+			return Ok(order);
 		}
 
 		[HttpPost("[action]")]
@@ -249,51 +281,15 @@ namespace WebApp.Controllers.Dynamic
 					poi.PreparationMiladiDate,
 					poi.AgreedDeliverDate,
 					poi.StandardDeliveryMiladiDate,
-					poi.SendToIndustrialMiladiDate
+					poi.SendToIndustrialMiladiDate,
+					poi.Serial,
+					PartCode = poi.Part != null ? poi.Part.Code : poi.PartCode,
+					PartName = poi.Part != null ? poi.Part.Name : null
 				})
 				.ToListAsync(cn);
 
 			if (items.Count == 0)
 				return null;
-
-			static DateTime? GetItemDeliverDate(DateTime? agreed, DateTime? standard)
-			{
-				if (agreed == null)
-					return standard?.Date;
-				if (standard == null)
-					return agreed?.Date;
-				return agreed.Value.Date >= standard.Value.Date ? agreed.Value.Date : standard.Value.Date;
-			}
-
-			static int CalcItemDelayDays(
-				DateTime? itemDeliverDate,
-				DateTime? preparationDate,
-				DateTime? agreedDeliverDate,
-				DateTime? standardDeliverDate,
-				DateTime? sendToIndustrialDate,
-				DateTime todayDate)
-			{
-				if (itemDeliverDate == null)
-					return 0;
-
-				// وقتی زمان استاندارد وجود ندارد، فروش تاریخ مجاز را پیش از ورود قلم به
-				// کارتابل صنایع ثبت کرده و صنایع نیز قلم را همان روز آماده کرده است، تأخیر صفر است.
-				if (!standardDeliverDate.HasValue &&
-					agreedDeliverDate.HasValue &&
-					sendToIndustrialDate.HasValue &&
-					preparationDate.HasValue &&
-					agreedDeliverDate.Value.Date < sendToIndustrialDate.Value.Date &&
-					preparationDate.Value.Date == sendToIndustrialDate.Value.Date)
-					return 0;
-
-				if (preparationDate != null)
-					return Math.Max(0, (int)(preparationDate.Value.Date - itemDeliverDate.Value.Date).TotalDays);
-
-				if (todayDate > itemDeliverDate.Value.Date)
-					return (int)(todayDate - itemDeliverDate.Value.Date).TotalDays;
-
-				return 0;
-			}
 
 			var itemDelays = items.Select(i =>
 			{
@@ -302,6 +298,9 @@ namespace WebApp.Controllers.Dynamic
 				return new
 				{
 					i.Id,
+					i.Serial,
+					i.PartCode,
+					i.PartName,
 					PreparationMiladiDate = preparationDate,
 					IsPreparationMissing = preparationDate == null ? 1 : 0,
 					ItemDeliverDate = itemDeliverDate,
@@ -346,6 +345,9 @@ namespace WebApp.Controllers.Dynamic
 			{
 				ProductionOrderId = productionOrderId,
 				ProductionOrderNumber = orderEligibility.ProductionOrderNumber,
+				DelayCausePartName = string.IsNullOrWhiteSpace(maxDelayItem.PartName) ? "-" : maxDelayItem.PartName,
+				DelayCausePartCode = string.IsNullOrWhiteSpace(maxDelayItem.PartCode) ? "-" : maxDelayItem.PartCode,
+				DelayCauseSerial = string.IsNullOrWhiteSpace(maxDelayItem.Serial) ? "-" : maxDelayItem.Serial,
 				MaxDeliverDateOfOrder = maxDeliverNullable,
 				MaxDeliverDateOfOrderShamsi = maxDeliverNullable?.ToShamsiDate(),
 				PreparationDate = preparationDate,
@@ -456,5 +458,191 @@ namespace WebApp.Controllers.Dynamic
 			sb.AppendLine("</table></div>");
 			return sb.ToString();
 		}
+
+		private async Task LoadProductionOrderDetailsAsync(long productionOrderId, CancellationToken cn = default)
+		{
+			ViewBag.ProductionOrderDetails = await GetProductionOrderDetailsInternalAsync(productionOrderId, cn);
+		}
+
+		private async Task<ProductionOrderDetailsDto?> GetProductionOrderDetailsInternalAsync(long productionOrderId, CancellationToken cn = default)
+		{
+			var order = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
+				.Where(po => po.Id == productionOrderId)
+				.Include(po => po.Contract)
+					.ThenInclude(c => c.Customer)
+						.ThenInclude(cu => cu.Party)
+				.Include(po => po.SalesAgency)
+					.ThenInclude(sa => sa.Party)
+				.FirstOrDefaultAsync(cn);
+
+			if (order == null)
+				return null;
+
+			var customerTitle = order.Contract?.Customer?.Party?.FullName
+				?? order.SalesAgency?.Party?.FullName;
+
+			if (string.IsNullOrWhiteSpace(customerTitle))
+			{
+				customerTitle = order.ProductionOrderNumber == 0 ? "* برنامه ریزی" : "-";
+			}
+
+			var items = await unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
+				.Include(i => i.Part)
+				.Where(poi => poi.ProductionOrderId == productionOrderId
+					&& poi.IsDeleted == false
+					&& poi.IsLatestVersion == true
+					&& poi.Status != ProductionOrderItemStatusEnum.Invalid)
+				.OrderBy(poi => poi.Id)
+				.ToListAsync(cn);
+
+			var today = DateTime.Today;
+			var canCalculateDelay = !order.ProjectManagerId.HasValue && !order.DelayNotCalculated;
+
+			// اقلام ارسالی به صنایع که ملاک ورود به کارتابل صنایع و محاسبه تاریخ مجاز هستند
+			var eligibleItems = items
+				.Where(i => i.SendToIndustrialMiladiDate.HasValue)
+				.ToList();
+
+			var itemDelayMap = new Dictionary<long, int>();
+			if (canCalculateDelay)
+			{
+				foreach (var item in eligibleItems)
+				{
+					if (item.Id.HasValue)
+					{
+						var itemDeliverDate = GetItemDeliverDate(item.AgreedDeliverDate, item.StandardDeliveryMiladiDate);
+						var delay = CalcItemDelayDays(
+							itemDeliverDate,
+							item.PreparationMiladiDate?.Date,
+							item.AgreedDeliverDate,
+							item.StandardDeliveryMiladiDate,
+							item.SendToIndustrialMiladiDate,
+							today);
+						itemDelayMap[item.Id.Value] = delay;
+					}
+				}
+			}
+
+			var maxDelayDays = itemDelayMap.Values.Count > 0 ? itemDelayMap.Values.Max() : 0;
+
+			var itemDtos = items.Select((item, index) =>
+			{
+				var delayDays = (item.Id.HasValue && itemDelayMap.TryGetValue(item.Id.Value, out var d)) ? d : 0;
+				var isCause = maxDelayDays > 0 && delayDays == maxDelayDays;
+				var isDelayed = delayDays > 0;
+				var validStandardDate = GetValidDeliverDate(item.StandardDeliveryMiladiDate);
+
+				return new ProductionOrderItemDetailDto
+				{
+					Index = index + 1,
+					Id = item.Id,
+					PartCode = item.Part?.Code ?? "-",
+					PartName = item.Part?.Name ?? "-",
+					Amount = item.Amount?.ToString("G29") ?? "-",
+					Serial = item.Serial ?? "-",
+					AgreedDeliverDate = item.AgreedDeliverDate,
+					AgreedDeliverShamsiDate = item.AgreedDeliverDate?.ToShamsiDate() ?? "-",
+					StandardDeliveryDate = validStandardDate,
+					StandardDeliveryShamsiDate = validStandardDate?.ToShamsiDate() ?? "-",
+					PreparationDate = item.PreparationMiladiDate,
+					PreparationShamsiDate = (!string.IsNullOrWhiteSpace(item.PreparationShamsiDate) ? item.PreparationShamsiDate : item.PreparationMiladiDate?.ToShamsiDate()) ?? "-",
+					SendToIndustrialMiladiDate = item.SendToIndustrialMiladiDate,
+					ItemDelayDays = delayDays,
+					IsDelayCause = isCause,
+					IsDelayed = isDelayed
+				};
+			})
+			.OrderByDescending(i => i.IsDelayCause)
+			.ThenByDescending(i => i.ItemDelayDays)
+			.ThenBy(i => i.Index)
+			.ToList();
+
+			return new ProductionOrderDetailsDto
+			{
+				ProductionOrderId = order.Id ?? productionOrderId,
+				ProductionOrderNumber = order.ProductionOrderNumber,
+				CustomerTitle = customerTitle,
+				MaxDelayDays = maxDelayDays,
+				HasDelay = maxDelayDays > 0,
+				Items = itemDtos
+			};
+		}
+
+		private static DateTime? GetValidDeliverDate(DateTime? date)
+		{
+			// DateTime.MaxValue وقتی زمان استاندارد قابل محاسبه نبود به‌عنوان نگهبان ذخیره می‌شود.
+			if (date == null || date.Value.Year >= 9000)
+				return null;
+			return date.Value.Date;
+		}
+
+		private static DateTime? GetItemDeliverDate(DateTime? agreed, DateTime? standard)
+		{
+			if (agreed == null)
+				return standard?.Date;
+			if (standard == null)
+				return agreed?.Date;
+			return agreed.Value.Date >= standard.Value.Date ? agreed.Value.Date : standard.Value.Date;
+		}
+
+		private static int CalcItemDelayDays(
+			DateTime? itemDeliverDate,
+			DateTime? preparationDate,
+			DateTime? agreedDeliverDate,
+			DateTime? standardDeliverDate,
+			DateTime? sendToIndustrialDate,
+			DateTime todayDate)
+		{
+			if (itemDeliverDate == null)
+				return 0;
+
+			// وقتی زمان استاندارد وجود ندارد، فروش تاریخ مجاز را پیش از ورود قلم به
+			// کارتابل صنایع ثبت کرده و صنایع نیز قلم را همان روز آماده کرده است، تأخیر صفر است.
+			if (!standardDeliverDate.HasValue &&
+				agreedDeliverDate.HasValue &&
+				sendToIndustrialDate.HasValue &&
+				preparationDate.HasValue &&
+				agreedDeliverDate.Value.Date < sendToIndustrialDate.Value.Date &&
+				preparationDate.Value.Date == sendToIndustrialDate.Value.Date)
+				return 0;
+
+			if (preparationDate != null)
+				return Math.Max(0, (int)(preparationDate.Value.Date - itemDeliverDate.Value.Date).TotalDays);
+
+			if (todayDate > itemDeliverDate.Value.Date)
+				return (int)(todayDate - itemDeliverDate.Value.Date).TotalDays;
+
+			return 0;
+		}
+	}
+
+	public class ProductionOrderDetailsDto
+	{
+		public long ProductionOrderId { get; set; }
+		public long? ProductionOrderNumber { get; set; }
+		public string CustomerTitle { get; set; } = string.Empty;
+		public int MaxDelayDays { get; set; }
+		public bool HasDelay { get; set; }
+		public List<ProductionOrderItemDetailDto> Items { get; set; } = new();
+	}
+
+	public class ProductionOrderItemDetailDto
+	{
+		public int Index { get; set; }
+		public long? Id { get; set; }
+		public string PartCode { get; set; } = string.Empty;
+		public string PartName { get; set; } = string.Empty;
+		public string Amount { get; set; } = string.Empty;
+		public string Serial { get; set; } = string.Empty;
+		public DateTime? AgreedDeliverDate { get; set; }
+		public string AgreedDeliverShamsiDate { get; set; } = string.Empty;
+		public DateTime? StandardDeliveryDate { get; set; }
+		public string StandardDeliveryShamsiDate { get; set; } = string.Empty;
+		public DateTime? PreparationDate { get; set; }
+		public string PreparationShamsiDate { get; set; } = string.Empty;
+		public DateTime? SendToIndustrialMiladiDate { get; set; }
+		public int ItemDelayDays { get; set; }
+		public bool IsDelayCause { get; set; }
+		public bool IsDelayed { get; set; }
 	}
 }

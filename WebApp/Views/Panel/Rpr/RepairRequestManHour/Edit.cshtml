@@ -1,0 +1,99 @@
+@using Entities.App.Rpr
+@using Entities.Auth
+@using Entities.Base
+@model RepairRequestManHour
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(RepairRequestManHour)">
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-sitemap"
+					action-name="openWbs" title="WBS"></form-action-button>
+			</form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">نفرساعت درخواست تعمیر</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="repairRequestId" value="@Model?.RepairRequestId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">کارشناس</label>
+				@(Html.EntitySelector<User>(
+					"RepairManHourExpertSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"expertId",
+					"expertName",
+					Model?.ExpertId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ کار</label>
+				<input class="form-control" data-bind="workShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.WorkMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">ساعت شروع</label>
+				<input class="form-control ltr" type="text" data-bind="startTime" data-time="true" placeholder="__:__" asp-for="StartTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">ساعت پایان</label>
+				<input class="form-control ltr" type="text" data-bind="endTime" data-time="true" placeholder="__:__" asp-for="EndTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نرخ نفرساعت</label>
+				<input class="form-control" type="text" data-bind="manHourPrice" data-money="true" asp-for="ManHourPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نرخ فروش نفرساعت</label>
+				<input class="form-control" type="text" data-bind="manHourSalePrice" data-money="true" asp-for="ManHourSalePrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.openWbs) {
+		self.FormActionButtons.openWbs.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/Panel/Rpr/RepairRequestWbs/ListByParentId?repairRequestManHourId=' + id, true, 'WBS');
+		});
+	}
+</script>
+}

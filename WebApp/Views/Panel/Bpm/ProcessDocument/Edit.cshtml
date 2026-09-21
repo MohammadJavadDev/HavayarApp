@@ -1,0 +1,915 @@
+@using Common.Utilities
+@using Entities.App.Bpm
+@using Entities.App.Bpm.Enums
+@using Entities.App.Hrm
+@using Entities.Auth
+@using Entities.Base
+@using WebApp.Controllers.Dynamic
+@model ProcessDocument
+@{
+	var isNew = Model?.Id == null || Model.Id == 0;
+	var currentId = Model?.Id is > 0 ? Model.Id : null;
+	var isManage = (bool)(ViewBag.IsManage ?? false);
+	var canEdit = (bool)(ViewBag.CanEdit ?? isNew);
+	var canCancel = (bool)(ViewBag.CanCancel ?? false);
+	var canSaveManage = (bool)(ViewBag.CanSaveManage ?? false);
+	var canChangeStatus = (bool)(ViewBag.CanChangeStatus ?? false);
+	var canEditProcess = (bool)(ViewBag.CanEditProcess ?? false);
+	var canDownloadMain = (bool)(ViewBag.CanDownloadMain ?? false);
+	var canDownloadTemp = (bool)(ViewBag.CanDownloadTemp ?? false);
+	var canDownloadFinal = (bool)(ViewBag.CanDownloadFinal ?? false);
+	var canDownloadFinalPdf = (bool)(ViewBag.CanDownloadFinalPdf ?? false);
+	var canDownloadComment = (bool)(ViewBag.CanDownloadComment ?? false);
+	var showForceNotify = (bool)(ViewBag.ShowForceNotify ?? false);
+	var showMainFileSlot = (bool)(ViewBag.ShowMainFileSlot ?? false);
+	var showFinalFileSlot = (bool)(ViewBag.ShowFinalFileSlot ?? false);
+	var showFinalPdfFileSlot = (bool)(ViewBag.ShowFinalPdfFileSlot ?? false);
+	var showCommentFileSlot = (bool)(ViewBag.ShowCommentFileSlot ?? false);
+	var showSendReceive = (bool)(ViewBag.ShowSendReceive ?? false);
+	var parentVisible = Model?.RequestType is ProcessDocumentRequestTypeEnum.Delete or ProcessDocumentRequestTypeEnum.Review;
+	var typeLocked = parentVisible || isManage;
+	var canSave = canEdit || canSaveManage;
+	var allowedNext = ViewBag.AllowedNextStatuses as List<ProcessDocumentStatusOption> ?? new List<ProcessDocumentStatusOption>();
+}
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(ProcessDocument)"
+							 save-btn="@canSave"
+							 save-and-new-btn="@canEdit"
+							 save-and-close-btn="@canSave">
+			@if (canCancel)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-ban"
+									action-name="cancelRequest" title="لغو درخواست"></form-action-button>
+			}
+			@if (isManage && canChangeStatus)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+									action-name="changeStatus" title="ثبت وضعیت"></form-action-button>
+			}
+			@if (canDownloadMain)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-download"
+									action-name="downloadMain" title="دانلود فایل اصلی"></form-action-button>
+			}
+			@if (canDownloadTemp)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-paperclip"
+									action-name="downloadTemp" title="دانلود فایل متفرقه"></form-action-button>
+			}
+			@if (canDownloadFinal)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-file"
+									action-name="downloadFinal" title="دانلود فایل نهایی"></form-action-button>
+			}
+			@if (canDownloadFinalPdf)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-file-pdf"
+									action-name="downloadFinalPdf" title="دانلود PDF نهایی"></form-action-button>
+			}
+			@if (canDownloadComment)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-comment"
+									action-name="downloadComment" title="دانلود فایل کامنت"></form-action-button>
+			}
+		</form-action-buttons>
+	</div>
+
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">@(isManage ? "مدیریت درخواست‌ها" : "درخواست ایجاد/تغییر")</h4>
+			</div>
+		</div>
+
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+		<div class="row g-3">
+			<span class="section-box-title">اطلاعات درخواست</span>
+
+			@if (isManage && Model?.LastStatus != null)
+			{
+				<div class='col-md-4 form-group-inline'>
+					<label class='form-label fw-bold'>وضعیت فعلی</label>
+					<input class='form-control' value="@Model.LastStatus.ToDisplay()" readonly />
+				</div>
+			}
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold required'>نوع درخواست</label>
+				<select class='form-control' data-bind='requestType' data-required="true"
+						asp-for='RequestType'
+						asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentRequestTypeEnum))"
+						disabled="@(!canEdit)">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="parentSelectorRow" style="@(parentVisible ? "" : "display:none")">
+				<label class='form-label fw-bold'>سند والد</label>
+				@(Html.EntitySelector<ProcessDocument>(
+					"ParentSelector",
+					c => c.IsActive == IsActiveEnum.Active
+						&& !c.IsDeprecate
+						&& c.LastStatus == ProcessDocumentStatusEnum.Notified
+						&& (currentId == null || c.Id != currentId),
+					c => new { Id = c.Id, DocumentNumber = c.DocumentNumber, DocumentTitle = c.DocumentTitle, Revision = c.Revision, DocumentType = c.DocumentType, AccessLevel = c.AccessLevel },
+					c => new { c.DocumentNumber, c.DocumentTitle },
+					"{DocumentNumber} | {DocumentTitle} Ver: {Revision}",
+					"parentId",
+					"",
+					Model?.ParentId?.ToString(),
+					false,
+					false,
+					!canEdit,
+					!canEdit
+					))
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>نوع سند</label>
+				<select class='form-control' data-bind='documentType' id="documentTypeSelect"
+						asp-for='DocumentType'
+						asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentTypeEnum))"
+						disabled="@(isManage ? !canEditProcess : (typeLocked || !canEdit))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold required'>عنوان سند</label>
+				<input class='form-control' data-bind='documentTitle' data-required="true" maxlength="128"
+					   asp-for='DocumentTitle' disabled="@(isManage || typeLocked || !canEdit)" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>شماره سند</label>
+				<input class='form-control' dir="ltr" data-bind='documentNumber' maxlength="20"
+					   asp-for='DocumentNumber' readonly="@(!(isManage && canEditProcess))" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold required'>سطح دسترسی</label>
+				<select class='form-control' data-bind='accessLevel' data-required="true"
+						asp-for='AccessLevel'
+						asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentAccessLevelEnum))"
+						disabled="@(isManage ? !canEditProcess : (typeLocked || !canEdit))">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold required'>ورودی سند</label>
+				<select class='form-control' data-bind='source' data-required="true"
+						asp-for='Source'
+						asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentSourceEnum))"
+						disabled="@(!canEdit)">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold required'>فوریت</label>
+				<select class='form-control' data-bind='priority' data-required="true"
+						asp-for='Priority'
+						asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentPriorityEnum))"
+						disabled="@(!canEdit)">
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold required'>درخواست‌کننده</label>
+				@(Html.EntitySelector<User>(
+					"RequesterUserSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"requesterUserId",
+					"",
+					Model?.RequesterUserId > 0 ? Model.RequesterUserId.ToString() : null,
+					true,
+					false,
+					!canEdit,
+					!canEdit
+					))
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-12 form-group-inline'>
+				<label class='form-label fw-bold required'>شرح درخواست</label>
+				<textarea class='form-control' data-bind='comment' data-required="true" rows="3"
+						  asp-for='Comment' disabled="@(!canEdit)">@Model?.Comment</textarea>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+		</div>
+	</div>
+</div>
+
+@if (isManage)
+{
+	<div class="card my-2 shadow-sm border-0">
+		<div class="card-body row g-3">
+			<span class="section-box-title">مشخصات فرآیندی</span>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>مجموعه فرآیندی</label>
+				<select class='form-control' data-bind='processSet'
+						asp-for='ProcessSet'
+						asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentProcessSetEnum))"
+						disabled="@(!canEditProcess)">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>مالک فرآیند</label>
+				@(Html.EntitySelector<User>(
+					"ProcessOwnerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+					c => new { c.Name, c.NameFa },
+					"{NameFa} {Name}",
+					"processOwnerId",
+					"",
+					Model?.ProcessOwnerId?.ToString(),
+					false,
+					false,
+					!canEditProcess,
+					!canEditProcess
+					))
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>تایید کننده</label>
+				@(Html.EntitySelector<User>(
+					"ApproverSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+					c => new { c.Name, c.NameFa },
+					"{NameFa} {Name}",
+					"approverId",
+					"",
+					Model?.ApproverId?.ToString(),
+					false,
+					false,
+					!canEditProcess,
+					!canEditProcess
+					))
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>تصویب کننده</label>
+				@(Html.EntitySelector<User>(
+					"FinalApproverSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+					c => new { c.Name, c.NameFa },
+					"{NameFa} {Name}",
+					"finalApproverId",
+					"",
+					Model?.FinalApproverId?.ToString(),
+					false,
+					false,
+					!canEditProcess,
+					!canEditProcess
+					))
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<label class='form-label fw-bold'>تاریخ پیش‌بینی تکمیل</label>
+				<input class='form-control' data-bind='completionForecastShamsiDate' data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value='@Model?.CompletionForecastMiladiDate' @(canEditProcess ? null : "disabled") />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="notificationDateRow">
+				<label class='form-label fw-bold'>تاریخ ابلاغ</label>
+				<input class='form-control' data-bind='notificationShamsiDate' data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value='@Model?.NotificationMiladiDate' @(canEditProcess ? null : "disabled") />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-12 form-group-inline'>
+				<label class='form-label fw-bold'>اسناد مرتبط</label>
+				<input class='form-control' data-bind='relatedDocumentsText' maxlength="1024"
+					   asp-for='RelatedDocumentsText' disabled="@(!canEditProcess)" />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-6 form-group-inline'>
+				<label class='form-label fw-bold'>واحدهای ویرایش‌کننده</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"EditingOrgUnitsSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"editingOrgUnitIds",
+					"editingOrgUnitNames",
+					Model?.EditingOrgUnitIds,
+					false,
+					true,
+					!canEditProcess
+					))
+			</div>
+
+			<div class='col-md-6 form-group-inline'>
+				<label class='form-label fw-bold'>واحدهای مجری</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"ExecuterOrgUnitsSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"executerOrgUnitIds",
+					"executerOrgUnitNames",
+					Model?.ExecuterOrgUnitIds,
+					false,
+					true,
+					!canEditProcess
+					))
+			</div>
+
+			<div class='col-md-6 form-group-inline'>
+				<label class='form-label fw-bold'>مجریان فرآیند</label>
+				@(Html.EntitySelector<User>(
+					"ProcessExecutersSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+					c => new { c.Name, c.NameFa },
+					"{NameFa} {Name}",
+					"processExecuterIds",
+					"processExecuterNames",
+					Model?.ProcessExecuterIds,
+					false,
+					true,
+					!canEditProcess
+					))
+			</div>
+
+			<div class='col-md-6 form-group-inline'>
+				<label class='form-label fw-bold'>گیرندگان ابلاغ</label>
+				@(Html.EntitySelector<User>(
+					"NotificationRecipientsSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+					c => new { c.Name, c.NameFa },
+					"{NameFa} {Name}",
+					"notificationRecipientIds",
+					"notificationRecipientNames",
+					Model?.NotificationRecipientIds,
+					false,
+					true,
+					!canEditProcess
+					))
+			</div>
+
+			<div class='col-md-6 form-group-inline'>
+				<label class='form-label fw-bold'>واحدهای مرتبط</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"RelatedOrgUnitsSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"relatedOrgUnitIds",
+					"relatedOrgUnitNames",
+					Model?.RelatedOrgUnitIds,
+					false,
+					true,
+					!canEditProcess
+					))
+			</div>
+
+			<div class='col-md-6 form-group-inline'>
+				<label class='form-label fw-bold'>واحدهای ذینفع</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"BeneficiaryOrgUnitsSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"beneficiaryOrgUnitIds",
+					"beneficiaryOrgUnitNames",
+					Model?.BeneficiaryOrgUnitIds,
+					false,
+					true,
+					!canEditProcess
+					))
+			</div>
+		</div>
+	</div>
+}
+
+@if (!isManage)
+{
+	<div class="card my-2 shadow-sm border-0">
+		<div class="card-body row g-3">
+			<span class="section-box-title">فایل‌ها</span>
+
+			<div class='col-md-4 form-group-inline'>
+				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
+							  Label="فایل اصلی" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="MainFile"
+							  max-file-size="20"
+							  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline'>
+				<fileuploader bind="tempFileId" file-id="@Model?.TempFileId" file-entity="@Model?.TempFile"
+							  Label="فایل متفرقه" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="TempFile"
+							  max-file-size="20"
+							  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+		</div>
+	</div>
+}
+
+@if (isManage && canChangeStatus)
+{
+	<div class="card my-2 shadow-sm border-0">
+		<div class="card-body row g-3">
+			<span class="section-box-title">تعیین وضعیت</span>
+
+			<div class='col-md-4 form-group-inline' id="nextStatusRow">
+				<label class='form-label fw-bold'>وضعیت بعدی</label>
+				<select class='form-control' data-bind='nextStatus' id="nextStatusSelect">
+					<option value="">انتخاب کنید</option>
+					@foreach (var item in allowedNext)
+					{
+						<option value="@item.Value">@item.Text</option>
+					}
+				</select>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			@if (showForceNotify)
+			{
+				<div class='col-md-4 form-group-inline align-content-center'>
+					<div class="form-check">
+						<input data-bind="ignoreProcessAndForceNotification" class="form-check-input" type="checkbox" id="forceNotifyCheck" />
+						<label class="form-check-label form-label fw-bold" for="forceNotifyCheck">عدم گردش فرآیند و ابلاغ</label>
+					</div>
+				</div>
+			}
+
+			<div class='col-md-12 form-group-inline'>
+				<label class='form-label fw-bold'>توضیح گردش</label>
+				<textarea class='form-control' data-bind='statusLogComment' rows="3"></textarea>
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="sendDateRow" style="@(showSendReceive ? "" : "display:none")">
+				<label class='form-label fw-bold'>تاریخ ارسال</label>
+				<input class='form-control' data-bind='statusLogSendShamsiDate' data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}' />
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="receiveDateRow" style="@(showSendReceive ? "" : "display:none")">
+				<label class='form-label fw-bold'>تاریخ دریافت</label>
+				<input class='form-control' data-bind='statusLogReceiveShamsiDate' data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}' />
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="manageMainFileRow" style="@(showMainFileSlot ? "" : "display:none")">
+				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
+							  Label="فایل اصلی" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="MainFile"
+							  max-file-size="20"
+							  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="manageCommentFileRow" style="@(showCommentFileSlot ? "" : "display:none")">
+				<fileuploader bind="commentFileId" file-id="@Model?.CommentFileId" file-entity="@Model?.CommentFile"
+							  Label="فایل کامنت" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="CommentFile"
+							  max-file-size="20"
+							  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="manageFinalFileRow" style="@(showFinalFileSlot ? "" : "display:none")">
+				<fileuploader bind="finalFileId" file-id="@Model?.FinalFileId" file-entity="@Model?.FinalFile"
+							  Label="فایل نهایی" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="FinalFile"
+							  max-file-size="20"
+							  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+			</div>
+
+			<div class='col-md-4 form-group-inline' id="manageFinalPdfFileRow" style="@(showFinalPdfFileSlot ? "" : "display:none")">
+				<fileuploader bind="finalPdfFileId" file-id="@Model?.FinalPdfFileId" file-entity="@Model?.FinalPdfFile"
+							  Label="فایل PDF نهایی" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="FinalPdfFile"
+							  max-file-size="20"
+							  accepted-file-types=".pdf"></fileuploader>
+			</div>
+		</div>
+	</div>
+}
+
+<div class="card my-2 shadow-sm border-0">
+	<div class="card-body">
+		<span class="section-box-title">گردش سند</span>
+		@if (Model?.StatusLogs != null && Model.StatusLogs.Any())
+		{
+			<div class="table-responsive">
+				<table class="table table-sm table-bordered mb-0">
+					<thead>
+						<tr>
+							<th>وضعیت</th>
+							<th>توضیح</th>
+							<th>ارسال</th>
+							<th>دریافت</th>
+							<th>ایجادکننده</th>
+							<th>تاریخ ایجاد</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var log in Model.StatusLogs)
+						{
+							<tr>
+								<td>@log.Status.ToDisplay()</td>
+								<td>@log.Comment</td>
+								<td>@log.SendShamsiDate</td>
+								<td>@log.ReceiveShamsiDate</td>
+								<td>@log.CreatedByName</td>
+								<td>@log.CreatedOnShamsiDateTime</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+		else
+		{
+			<p class="text-muted mb-0">گردشی ثبت نشده است.</p>
+		}
+	</div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+	<div class="card-body">
+		<div class="row text-muted">
+			<div class="col-md-3">
+				<span class="fw-bold">ایجاد کننده :</span>
+				<span data-bind="createdByName">@Model?.CreatedByName</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">تاریخ ایجاد :</span>
+				<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">ویرایش کننده :</span>
+				<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">تاریخ ویرایش :</span>
+				<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const isManagePage = @(isManage ? "true" : "false");
+	const canEditForm = @(canEdit ? "true" : "false");
+	const canEditProcessForm = @(canEditProcess ? "true" : "false");
+	const commentRequiredStatuses = [9, 12, 14, 17, 21];
+	const inProgressStatuses = [10, 24];
+	const requestTypeCreate = @((int)ProcessDocumentRequestTypeEnum.Create);
+	const requestTypeDelete = @((int)ProcessDocumentRequestTypeEnum.Delete);
+	const requestTypeReview = @((int)ProcessDocumentRequestTypeEnum.Review);
+	const requestTypeAutomation = @((int)ProcessDocumentRequestTypeEnum.ProcessAutomation);
+	const requestTypeMechanized = @((int)ProcessDocumentRequestTypeEnum.MechanizedProcessChange);
+	const hiddenDocumentTypes = [
+		@((int)ProcessDocumentTypeEnum.BPM),
+		@((int)ProcessDocumentTypeEnum.QM),
+		@((int)ProcessDocumentTypeEnum.QP)
+	];
+	let parentChangeReady = false;
+
+	function getRequestType() {
+		return Number($$('[data-bind="requestType"]').val());
+	}
+
+	function needsParent(requestType) {
+		return requestType === requestTypeDelete || requestType === requestTypeReview;
+	}
+
+	function isAutomation(requestType) {
+		return requestType === requestTypeAutomation || requestType === requestTypeMechanized;
+	}
+
+	function setFieldRequired($el, required) {
+		if (required)
+			$el.attr('data-required', 'true');
+		else
+			$el.removeAttr('data-required');
+	}
+
+	function applyDocumentTypeOptions(requestType) {
+		const $sel = $$('[data-bind="documentType"]');
+		$sel.find('option').each(function () {
+			const val = $(this).val();
+			if (!val)
+				return;
+			const hide = requestType === requestTypeCreate && hiddenDocumentTypes.indexOf(Number(val)) !== -1;
+			$(this).toggle(!hide);
+		});
+		const $selected = $sel.find('option:selected');
+		if ($selected.length && $selected.css('display') === 'none')
+			$sel.val('');
+	}
+
+	function applyRequestTypeUi(resetFields) {
+		const requestType = getRequestType();
+		const showParent = needsParent(requestType);
+		const $parentRow = $$('#parentSelectorRow');
+		if (showParent)
+			$parentRow.show();
+		else
+			$parentRow.hide();
+
+		setFieldRequired($$('#ParentSelector .entity-selector-value'), showParent);
+		setFieldRequired($$('[data-bind="documentType"]'), !isAutomation(requestType));
+		setFieldRequired($$('[data-bind="documentTitle"]'), !isAutomation(requestType));
+
+		if (canEditForm) {
+			$$('[data-bind="documentType"]').prop('disabled', showParent);
+			$$('[data-bind="documentTitle"]').prop('disabled', showParent);
+			$$('[data-bind="accessLevel"]').prop('disabled', showParent);
+		}
+
+		applyDocumentTypeOptions(requestType);
+
+		if (resetFields && canEditForm) {
+			if (!showParent) {
+				$$('#ParentSelector .entity-selector-value').val('');
+				$$('#ParentSelector .entity-selector-input').val('');
+				$$('[data-bind="documentType"]').val('');
+				$$('[data-bind="documentTitle"]').val('');
+				$$('[data-bind="documentNumber"]').val('');
+				$$('[data-bind="accessLevel"]').val('@((int)ProcessDocumentAccessLevelEnum.Public)');
+			}
+		}
+	}
+
+	function applyParent(parentId) {
+		if (!parentId)
+			return;
+
+		$$.get('GetParent?id=' + parentId, function (r) {
+			if (!r.isSuccess || !r.data)
+				return;
+
+			const d = r.data;
+			$$('[data-bind="documentType"]').val(d.documentType == null ? '' : d.documentType);
+			$$('[data-bind="documentTitle"]').val(d.documentTitle || '');
+			$$('[data-bind="accessLevel"]').val(d.accessLevel);
+			$$('[data-bind="documentNumber"]').val(d.documentNumber || '');
+		});
+	}
+
+	function fillAutomationTitleIfEmpty() {
+		if (!isAutomation(getRequestType()))
+			return;
+		const $title = $$('[data-bind="documentTitle"]');
+		if (!$title.val())
+			$title.val($$('[data-bind="requestType"] option:selected').text());
+	}
+
+	function collectModel(unlockSelector) {
+		const $locked = $$(unlockSelector);
+		const wasLocked = $locked.first().prop('disabled');
+		$locked.prop('disabled', false);
+		const model = page.$pageEl.dataBind();
+		$locked.prop('disabled', wasLocked);
+		return model;
+	}
+
+	function saveRequester($btnAction) {
+		if (!canEditForm)
+			return;
+
+		fillAutomationTitleIfEmpty();
+		if (validateError(page.$pageEl))
+			return;
+
+		const model = collectModel('[data-bind="documentType"], [data-bind="documentTitle"], [data-bind="accessLevel"]');
+		delete model.lastStatus;
+		delete model.lastStatusUserId;
+		delete model.processOwnerId;
+		delete model.approverId;
+		delete model.finalApproverId;
+		delete model.processSet;
+		delete model.subProcessTitle;
+		delete model.finalFileId;
+		delete model.finalPdfFileId;
+		delete model.commentFileId;
+		delete model.nextStatus;
+		delete model.ignoreProcessAndForceNotification;
+
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+			if ($btnAction.buttonType === 'save')
+				appController.refreshCurrentPage();
+		});
+	}
+
+	function saveManage($btnAction) {
+		const model = collectModel('[data-bind="documentType"], [data-bind="accessLevel"], [data-bind="processSet"], [data-bind="documentNumber"]');
+		const $btn = $($btnAction.element).block();
+		$$.post('saveManage', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره مشخصات با موفقیت انجام شد');
+			$btnAction.baseaction();
+			appController.refreshCurrentPage();
+		});
+	}
+
+	function isForceNotify() {
+		return $$('#forceNotifyCheck').is(':checked');
+	}
+
+	function postChangeStatus() {
+		const force = isForceNotify();
+		const nextStatus = Number($$('[data-bind="nextStatus"]').val());
+		const comment = ($$('[data-bind="statusLogComment"]').val() || '').trim();
+
+		if (!force && !nextStatus) {
+			toastr.error('وضعیت بعدی الزامی است');
+			return;
+		}
+		if (!force && commentRequiredStatuses.indexOf(nextStatus) !== -1 && !comment) {
+			toastr.error('توضیح برای این وضعیت الزامی است');
+			return;
+		}
+		if (force && !$$('[data-bind="notificationShamsiDate"]').val()) {
+			toastr.error('تاریخ ابلاغ برای عدم گردش فرآیند الزامی است');
+			return;
+		}
+
+		const model = collectModel('[data-bind="documentType"], [data-bind="accessLevel"], [data-bind="processSet"], [data-bind="documentNumber"]');
+		model.nextStatus = force ? null : nextStatus;
+		model.ignoreProcessAndForceNotification = force;
+		model.statusLogComment = comment;
+
+		$$.post('changeStatus', model, function (r) {
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('وضعیت با موفقیت ثبت شد');
+			appController.refreshCurrentPage();
+		});
+	}
+
+	function applyForceNotifyUi() {
+		const force = isForceNotify();
+		$$('#nextStatusRow').toggle(!force);
+		$$('#manageFinalFileRow').toggle(force || @(showFinalFileSlot ? "true" : "false"));
+		$$('#manageFinalPdfFileRow').toggle(force || @(showFinalPdfFileSlot ? "true" : "false"));
+		if (force)
+			$$('[data-bind="nextStatus"]').val('');
+	}
+
+	function openDownload(action) {
+		const id = $$('[data-bind="id"]').val();
+		if (!id || id === '0') {
+			toastr.error('ابتدا درخواست را ذخیره کنید');
+			return;
+		}
+		window.open('/Panel/Bpm/ProcessDocument/' + action + '?id=' + id, '_blank');
+	}
+
+	if (!isManagePage) {
+		page.$pageEl.on('change', '[data-bind="requestType"]', function () {
+			applyRequestTypeUi(true);
+		});
+
+		page.$pageEl.on('change', '#ParentSelector .entity-selector-value', function () {
+			if (!parentChangeReady || !canEditForm)
+				return;
+			applyParent($(this).val());
+		});
+
+		applyRequestTypeUi(false);
+		setTimeout(function () { parentChangeReady = true; }, 400);
+	}
+
+	if (self.FormActionButtons.save) {
+		self.FormActionButtons.save.onclick(function () {
+			if (isManagePage)
+				saveManage(this);
+			else
+				saveRequester(this);
+		});
+	}
+	if (self.FormActionButtons.saveandnew)
+		self.FormActionButtons.saveandnew.onclick(function () { saveRequester(this); });
+	if (self.FormActionButtons.saveandclose) {
+		self.FormActionButtons.saveandclose.onclick(function () {
+			if (isManagePage)
+				saveManage(this);
+			else
+				saveRequester(this);
+		});
+	}
+
+	if (self.FormActionButtons.changeStatus) {
+		self.FormActionButtons.changeStatus.onclick(function () {
+			const nextStatus = Number($$('[data-bind="nextStatus"]').val());
+			if (!isForceNotify() && commentRequiredStatuses.indexOf(nextStatus) !== -1) {
+				$.confirm({
+					title: 'ثبت وضعیت',
+					content: '<div class="form-group"><label>توضیحات</label><textarea class="form-control" id="wfComment" rows="3">' +
+						($$('[data-bind="statusLogComment"]').val() || '') + '</textarea></div>',
+					rtl: true,
+					buttons: {
+						save: {
+							text: 'ثبت',
+							action: function () {
+								const comment = this.$content.find('#wfComment').val();
+								if (!comment || !comment.trim()) {
+									toastr.error('توضیح الزامی است');
+									return false;
+								}
+								$$('[data-bind="statusLogComment"]').val(comment);
+								postChangeStatus();
+							}
+						},
+						cancel: { text: 'انصراف' }
+					}
+				});
+				return;
+			}
+			postChangeStatus();
+		});
+	}
+
+	if (self.FormActionButtons.cancelRequest) {
+		self.FormActionButtons.cancelRequest.onclick(function () {
+			const id = $$('[data-bind="id"]').val();
+			if (!id || id === '0') {
+				toastr.error('ابتدا درخواست را ذخیره کنید');
+				return;
+			}
+
+			Swal.fire({
+				title: 'لغو درخواست',
+				text: 'آیا از لغو این درخواست مطمئن هستید؟ سند حذف نمی‌شود و وضعیت به لغو درخواست تغییر می‌کند.',
+				icon: 'warning',
+				showCancelButton: true,
+				confirmButtonText: 'لغو درخواست',
+				cancelButtonText: 'انصراف'
+			}).then(function (result) {
+				if (!result.isConfirmed)
+					return;
+				$$.post('cancelRequest?id=' + id, {}, function (r) {
+					if (!r.isSuccess) {
+						toastr.error(r.message, 'خطا');
+						return;
+					}
+					toastr.success('درخواست لغو شد');
+					appController.refreshCurrentPage();
+				});
+			});
+		});
+	}
+
+	if (self.FormActionButtons.downloadMain)
+		self.FormActionButtons.downloadMain.onclick(function () { openDownload('DownloadMain'); });
+	if (self.FormActionButtons.downloadTemp)
+		self.FormActionButtons.downloadTemp.onclick(function () { openDownload('DownloadTemp'); });
+	if (self.FormActionButtons.downloadFinal)
+		self.FormActionButtons.downloadFinal.onclick(function () { openDownload('DownloadFinal'); });
+	if (self.FormActionButtons.downloadFinalPdf)
+		self.FormActionButtons.downloadFinalPdf.onclick(function () { openDownload('DownloadFinalPdf'); });
+	if (self.FormActionButtons.downloadComment)
+		self.FormActionButtons.downloadComment.onclick(function () { openDownload('DownloadComment'); });
+
+	page.$pageEl.on('change', '#forceNotifyCheck', applyForceNotifyUi);
+</script>

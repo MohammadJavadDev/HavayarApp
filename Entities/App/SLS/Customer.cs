@@ -79,6 +79,10 @@ namespace Entities.App.SLS
 
 		public long HamkaranId { get; set; }
 
+		[DisplayName("شناسه HTS")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long HtsId { get; set; }
+
 
 	}
 }

@@ -1,11 +1,14 @@
 using Aspose.Cells;
+using Common;
 using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
 using Data.Contracts;
+using Data.Services.Sup;
 using Data.SystemAuth;
 using Entities.App.Edms;
 using Entities.App.Edms.Enums;
+using Entities.App.Gnr;
 using Entities.App.Hrm;
 using Entities.App.Pln;
 using Entities.App.Sup;
@@ -24,6 +27,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using WebApp.ViewModels.Sup;
+using WebFramework.Api;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -41,10 +45,73 @@ namespace WebApp.Controllers.Dynamic
 		INotificationService notificationService
 		) : BaseController
 	{
+		#region Roles / Permission helpers (HTS page 74 «درخواست های باز» + page 71 «پیوست»)
+
+		/// <summary>
+		/// نقش‌های seed (Entities/Auth/Role.cs 100000–100012، 100017 در DB). نگاشت PageAction های HTS:
+		///  FullAccess(2)→SupplyAndPurchase · Accept_Engineering(12)→EngineeringAccept · SalesOrProjectPermission(187)→SalesOrProjectAccept
+		///  Stop(22)→Stop · Start(23)→Start · Sending(24)→Sending · Query(25)→Query · Terminate(101)→Terminate
+		///  HasEngineeringPermission(82)→HasEngineering · ShowAll(7)→ShowAll · صفحه 76→ConfigManage · Read(3)→View · صفحه 77→HistoryView
+		/// </summary>
+		private static class Roles
+		{
+			public const string SupplyAndPurchase = "SupplyAndPurchase";                       // HTS گروه 17 «مدیر سیستم تدارکات» (FullAccess)
+			public const string EngineeringAccept = "Sup.OpenOrderRequest.EngineeringAccept";
+			public const string SalesOrProjectAccept = "Sup.OpenOrderRequest.SalesOrProjectAccept";
+			public const string Stop = "Sup.OpenOrderRequest.Stop";
+			public const string Start = "Sup.OpenOrderRequest.Start";
+			public const string Sending = "Sup.OpenOrderRequest.Sending";
+			public const string Query = "Sup.OpenOrderRequest.Query";
+			public const string Terminate = "Sup.OpenOrderRequest.Terminate";
+			public const string HasEngineering = "Sup.OpenOrderRequest.HasEngineering";
+			public const string Industrial = "Sup.OpenOrderRequest.Industrial";
+			public const string IndustriesLegacy = "Industries";                                 // نقش قدیمی 3 «صنایع» — همان RoleAccess نقش Industrial
+			public const string Supply = "Sup.OpenOrderRequest.Supply";
+			public const string ConfigManage = "Sup.OpenOrderRequest.ConfigManage";
+		}
+
+		/// <summary>
+		/// همان الگوی EngineeringAccept/SalesOrProjectAccept (CurrentUserHasAnyRole) + میان‌بر ادمین
+		/// مثل Edit.cshtml (isAdmin || sdk.HasRole) و AppSdk.hasRole سمت کلاینت.
+		/// </summary>
+		private bool HasOpenOrderRequestPermission(params string[] roleNames)
+			=> IsAdministrator || CurrentUserHasAnyRole(roleNames);
+
+		/// <summary>پاسخ استاندارد عدم دسترسی: { isSuccess:false, statusCode:UnAuthorized, message } با HTTP 403.</summary>
+		private IActionResult AccessDenied(string message)
+			=> new JsonResult(new ApiResult(false, ApiResultStatusCode.UnAuthorized, message))
+			{
+				StatusCode = StatusCodes.Status403Forbidden
+			};
+
+		// HTS 74·Edit(5): ثبت کامنت (DoOperation با OperationType=Update) — گروه‌های 17 (Full)، 27 (تدارکات)، 70 (تایید مهندسی)
+		private bool CanSaveComment => HasOpenOrderRequestPermission(Roles.SupplyAndPurchase, Roles.Supply, Roles.EngineeringAccept, Roles.Industrial, Roles.IndustriesLegacy);
+
+		// HTS صفحه 71 (پیوست): New/Edit/Delete فقط با FullAccess صفحه 71 — گروه‌های 17، 27، 70 (و 33 QC بدون معادل)
+		private bool CanManageAttachments => HasOpenOrderRequestPermission(Roles.SupplyAndPurchase, Roles.Supply, Roles.EngineeringAccept);
+
+		// HTS 74·Terminate(101) با PermissionAuthorize (FullAccess هم شامل می‌شود)
+		private bool CanTerminate => HasOpenOrderRequestPermission(Roles.Terminate, Roles.SupplyAndPurchase);
+
+		// HTS صفحه 76 · SendEmail(27) — تصمیم WP1: نقش ConfigManage (+ FullAccess)
+		private bool CanSendToSupplier => HasOpenOrderRequestPermission(Roles.ConfigManage, Roles.SupplyAndPurchase);
+
+		// HTS AddComponyMansToRequests (کلاس Supp / صفحه 76) — همان نقش تخصیص پرسنل
+		private bool CanSetSelectedSupplier => HasOpenOrderRequestPermission(Roles.ConfigManage, Roles.Industrial, Roles.IndustriesLegacy, Roles.SupplyAndPurchase);
+
+		#endregion
+
+		/// <summary>
+		/// D35: درخواست باز فقط از همگام‌سازی راهکاران ایجاد/ویرایش می‌شود (HTS روی صفحه 74 New/Edit فیلدی نداشت).
+		/// ثبت/ویرایش دستی فقط برای ادمین باقی می‌ماند تا فراخوان‌های احتمالی نشکنند.
+		/// </summary>
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(OpenOrderRequest openOrderRequest, CancellationToken cn)
 		{
+			if (!IsAdministrator)
+				return AccessDenied("ثبت/ویرایش دستی درخواست باز مجاز نیست؛ درخواست‌ها فقط از راهکاران همگام می‌شوند");
+
 			if (openOrderRequest.Id == null || openOrderRequest.Id == 0)
 			{
 				return await Add(openOrderRequest, cn);
@@ -61,6 +128,9 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(OpenOrderRequest openOrderRequest, CancellationToken cn)
 		{
+			if (!IsAdministrator)
+				return AccessDenied("ایجاد دستی درخواست باز مجاز نیست؛ درخواست‌ها فقط از راهکاران همگام می‌شوند");
+
 			var entity = await unitOfWork.Repository<OpenOrderRequest>().SaveAsync(openOrderRequest, cn, true);
 			return Ok(entity);
 		}
@@ -69,17 +139,34 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(OpenOrderRequest openOrderRequest, CancellationToken cn)
 		{
+			if (!IsAdministrator)
+				return AccessDenied("ویرایش فیلدهای درخواست باز مجاز نیست؛ اطلاعات از راهکاران همگام می‌شود");
+
 			var entity = await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, true);
 			return Ok(entity);
 		}
 
+		/// <summary>
+		/// D35: HTS حذف فیزیکی نداشت (فقط Terminate نرم). دکمه «حذف» پروفایل‌های داده به همین اکشن می‌آید،
+		/// بنابراین به مسیر خاتمه نرم (IsDeleted + IsForceDeletedByUser + کامنت) هدایت می‌شود و همان نقش Terminate را می‌خواهد.
+		/// </summary>
 		[HttpGet("[action]")]
-		[ActionDisplayName("حذف", ActionAccessType.Api, ActionAccessItemType.Delete)]
+		[ActionDisplayName("حذف (خاتمه نرم)", ActionAccessType.Api, ActionAccessItemType.Delete)]
 		public async Task<IActionResult> Delete(long id, CancellationToken cn)
 		{
-			var model = unitOfWork.Repository<OpenOrderRequest>().TableNoTracking.FirstOrDefault(c => c.Id == id);
-			if (model != null)
-				await unitOfWork.Repository<OpenOrderRequest>().DeleteAsync(model, cn, true);
+			if (!CanTerminate)
+				return AccessDenied("شما دسترسی خاتمه/حذف درخواست باز را ندارید");
+
+			var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
+				.Table.FirstOrDefaultAsync(x => x.Id == id, cn);
+
+			if (openOrderRequest == null)
+				return BadRequest("درخواست باز یافت نشد");
+
+			if (openOrderRequest.IsDeleted)
+				return BadRequest("این درخواست قبلاً خاتمه یافته است");
+
+			await SoftTerminateAsync(openOrderRequest, "حذف (خاتمه نرم)", cn);
 			return Ok();
 		}
 
@@ -112,10 +199,14 @@ namespace WebApp.Controllers.Dynamic
 			return View(@"\Views\Panel\Sup\OpenOrderRequest\Edit.cshtml", newEntity);
 		}
 
+		/// <summary>D35: ایجاد دستی فقط برای ادمین؛ سایر کاربران به لیست هدایت می‌شوند (HTS روی صفحه 74 New نداشت).</summary>
 		[HttpGet("[action]")]
 		[ActionDisplayName("درج اطلاعات", ActionAccessType.View, ActionAccessItemType.Create)]
 		public IActionResult New()
 		{
+			if (!IsAdministrator)
+				return RedirectToAction(nameof(List));
+
 			ViewBag.AttachmentListItems = new List<OpenOrderRequestAttachmentListItemVm>();
 			var newEntity = new OpenOrderRequest();
 			return View(@"\Views\Panel\Sup\OpenOrderRequest\Edit.cshtml", newEntity);
@@ -174,11 +265,16 @@ namespace WebApp.Controllers.Dynamic
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AddCommentPartial.cshtml");
 		}
 
+		/// <summary>HTS: ویرایش (Edit 5) صفحه 74 → DoOperation(OperationType=Update) = ثبت کامنت.</summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("ثبت کامنت", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> SaveComment(SaveCommentRequest request, CancellationToken cn)
 		{
 			try
 			{
+				if (!CanSaveComment)
+					return AccessDenied("شما دسترسی ثبت کامنت روی درخواست باز را ندارید");
+
 				var openOrderRequest = await unitOfWork
 					.Repository<OpenOrderRequest>()
 					.TableNoTracking
@@ -186,6 +282,16 @@ namespace WebApp.Controllers.Dynamic
 
 				if (openOrderRequest == null)
 					return BadRequest("درخواست باز یافت نشد");
+
+				// D21 — گیت HTS (btnSaveItem_click): بدون درخواست‌کننده/ذینفع، ثبت کامنت ممکن نیست
+				var hasRequestedPersonel =
+					(openOrderRequest.RequestedPersonelIds?.Any() ?? false) ||
+					(openOrderRequest.RequestedEngineeringPersonelIds?.Any() ?? false) ||
+					openOrderRequest.RequestedPersonel.HasValue() ||
+					openOrderRequest.RequestedEngineeringPersonel.HasValue();
+
+				if (!hasRequestedPersonel)
+					return BadRequest("امکان ثبت توضیحات میسر نیست؛ لطفاً ابتدا درخواست‌کننده/ذینفع را وارد نمایید");
 
 				var now = DateTime.Now;
 				var comment = new OpenOrderRequestComment
@@ -228,7 +334,9 @@ namespace WebApp.Controllers.Dynamic
 
 		#region Engineering Accept
 
+		/// <summary>HTS 74·Accept_Engineering(12) — HasAccessWithoutCheckFullAccess (FullAccess شامل نمی‌شود).</summary>
 		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("تایید مهندسی", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> EngineeringAccept(long id, CancellationToken cn)
 		{
 			try
@@ -236,8 +344,8 @@ namespace WebApp.Controllers.Dynamic
 
 				//Seed Role => Sup.OpenOrderRequest.EngineeringAccept => تامین و خرید -درخواست های باز - تایید مهندسی 
 				//برسی داشتن دسترسی برای تایید مهندسی 
-				if (!CurrentUserHasAnyRole("Sup.OpenOrderRequest.EngineeringAccept")) 
-					return Unauthorized("شما دسترسی تایید مهندسی را ندارید");
+				if (!HasOpenOrderRequestPermission(Roles.EngineeringAccept))
+					return AccessDenied("شما دسترسی تایید مهندسی را ندارید");
 
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table
@@ -299,24 +407,37 @@ namespace WebApp.Controllers.Dynamic
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_SalesOrProjectAcceptPartial.cshtml");
 		}
 
+		/// <summary>HTS 74·SalesOrProjectPermission(187) — HasAccessWithoutCheckFullAccess + تطبیق هویت (D20).</summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("تایید فروش/پروژه", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> SalesOrProjectAccept(SalesOrProjectAcceptRequest request, CancellationToken cn)
 		{
 			try
 			{
 				//Seed Role => Sup.OpenOrderRequest.SalesOrProjectAccept => تامین و خرید -درخواست های باز - تایید فروش/پروژه 
 				//برسی داشتن دسترسی برای تایید فروش/پروژه 
-				if (!CurrentUserHasAnyRole("Sup.OpenOrderRequest.SalesOrProjectAccept"))
-					return Unauthorized("شما دسترسی تایید فروش/پروژه را ندارید");
-
-
-				 
+				if (!HasOpenOrderRequestPermission(Roles.SalesOrProjectAccept))
+					return AccessDenied("شما دسترسی تایید فروش/پروژه را ندارید");
 
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table.FirstOrDefaultAsync(x => x.Id == request.OpenOrderRequestId, cn);
 
 				if (openOrderRequest == null)
 					return BadRequest("درخواست باز یافت نشد");
+
+				// D20 (هویت) — HTS: validSalesOrProjectUserIds.any(p => p === userId) || userIsAdmin
+				if (!IsAdministrator)
+				{
+					var validSalesOrProjectUserIds = new[]
+					{
+						openOrderRequest.SalesUnitSalesExpertId,
+						openOrderRequest.SalesUnitSalesManagerId,
+						openOrderRequest.SalesUnitProjectManagerId
+					};
+
+					if (!validSalesOrProjectUserIds.Any(u => u.HasValue && u == CurrentUserId))
+						return AccessDenied("فقط کارشناس فروش، مدیر فروش یا مدیر پروژه همین درخواست می‌تواند تایید فروش/پروژه را ثبت کند");
+				}
 
 				if (!openOrderRequest.EngineeringAccept)
 					return BadRequest("ابتدا باید تایید مهندسی انجام شود");
@@ -326,6 +447,21 @@ namespace WebApp.Controllers.Dynamic
 
 				if (openOrderRequest.HasSalesUnitConfirmation)
 					return BadRequest("این درخواست قبلاً تایید شده است");
+
+				// D20 — HTS: تایید فروش/پروژه فقط پس از لینک VPIS واجد شرط نمایش/افزودن
+				var latestVpisLinks = await unitOfWork.Repository<OpenOrderRequestVpis>()
+					.TableNoTracking
+					.Include(v => v.ProjectVpis)
+						.ThenInclude(pv => pv.ProjectName)
+					.Include(v => v.Project)
+					.Include(v => v.Document)
+						.ThenInclude(d => d!.Comments)
+					.Where(v => v.OpenOrderRequestId == request.OpenOrderRequestId && v.IsLatest)
+					.ToListAsync(cn);
+				var hasVpisLink = latestVpisLinks.Any(v =>
+					OpenOrderRequestVpisRules.IsEligibleForOpenOrderLink(v.Document, v.ProjectVpis, v.Project));
+				if (!hasVpisLink)
+					return BadRequest("ابتدا مدارک پروژه (VPIS) واجد شرط را لینک کنید");
 
 				var now = DateTime.Now;
 				var currentUserId = CurrentUserId;
@@ -378,7 +514,12 @@ namespace WebApp.Controllers.Dynamic
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_StopRequestPartial.cshtml", openOrderRequest);
 		}
 
+		/// <summary>
+		/// HTS: ثبت اولیه توقف (0/2815) → Stop(22) (DoStartStopOperation)؛ مراحل بعدی (DoStopOperation) بدون چک نقش سرور،
+		/// در UI فقط عامل توقف (2807/2813/2816) یا ثبت‌کنندهٔ آخرین کامنت توقف (2808/2810/2811/2812/2821) — ادمین همه.
+		/// </summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("ثبت / بررسی توقف", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> StopOperation(StopOperationRequest request, CancellationToken cn)
 		{
 			try
@@ -391,6 +532,10 @@ namespace WebApp.Controllers.Dynamic
 
 				if (openOrderRequest == null)
 					return BadRequest("درخواست باز یافت نشد");
+
+				var stopAccessError = CheckStopOperationAccess(openOrderRequest);
+				if (stopAccessError != null)
+					return AccessDenied(stopAccessError);
 
 				// Validation
 				var validationError = ValidateStopRequest(request, (int?)openOrderRequest.StopStatus ?? 0);
@@ -591,16 +736,63 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+		/// <summary>
+		/// قاعده دسترسی مراحل توقف (معادل JS صفحه 74 HTS + HasStopStartPermissions(isStop:true)).
+		/// null = مجاز؛ در غیر این صورت پیام خطا.
+		/// </summary>
+		private string? CheckStopOperationAccess(OpenOrderRequest openOrderRequest)
+		{
+			if (IsAdministrator)
+				return null;
+
+			var hasStopRole = CurrentUserHasAnyRole(Roles.Stop, Roles.SupplyAndPurchase);
+			var currentStopStatus = (int?)openOrderRequest.StopStatus ?? 0;
+			var lastStopComment = openOrderRequest.Comments?
+				.Where(c => c.IsStop)
+				.OrderByDescending(c => c.Id)
+				.FirstOrDefault();
+
+			switch (currentStopStatus)
+			{
+				case 0:     // ثبت اولیه
+				case 2815:  // راه‌اندازی مجدد → ثبت توقف جدید
+					return hasStopRole ? null : "شما دسترسی ثبت توقف را ندارید";
+
+				case 2807:  // در کارتابل عامل توقف
+				case 2813:  // در انتظار مدیر پروژه / کارفرما
+				case 2816:  // ثبت توقف مجدد
+					if (lastStopComment?.StopOperatorId.HasValue == true && lastStopComment.StopOperatorId == CurrentUserId)
+						return null;
+					return "فقط عامل توقف این درخواست می‌تواند نتیجه بررسی را ثبت کند";
+
+				case 2808:  // نیاز به راه‌اندازی مجدد
+				case 2810:  // نیاز به اصلاح BOM
+				case 2811:  // نیاز به اصلاح مدارک / شرح کالا
+				case 2812:  // حذف درخواست مرتبط با صنایع
+				case 2821:  // ارسال خودکار به کارتابل تدارکات
+					if (lastStopComment?.CreatedById.HasValue == true && lastStopComment.CreatedById == CurrentUserId)
+						return null;
+					return "فقط ثبت‌کننده توقف (آخرین کامنت توقف) می‌تواند تصمیم نهایی را ثبت کند";
+
+				default:
+					return hasStopRole ? null : "شما دسترسی عملیات توقف را ندارید";
+			}
+		}
+
 		#endregion
 
 		#region Triggering (Start)
 
+		/// <summary>HTS 74·Start(23) — HasStopStartPermissions(isStop:false).</summary>
 		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("راه‌اندازی", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> Triggering(long id, CancellationToken cn)
 		{
 			try
 			{
-				// TODO: بررسی دسترسی
+				if (!HasOpenOrderRequestPermission(Roles.Start, Roles.SupplyAndPurchase))
+					return AccessDenied("شما دسترسی راه‌اندازی درخواست را ندارید");
+
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table.FirstOrDefaultAsync(x => x.Id == id, cn);
 
@@ -642,12 +834,16 @@ namespace WebApp.Controllers.Dynamic
 
 		#region InWay and StatusInquiry
 
+		/// <summary>HTS 74·Sending(24) — HasStatusPermissions(isSending:true)؛ در HTS عملاً فقط FullAccess (گروه 17).</summary>
 		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("در راه", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> SetInWayStatus(long id, CancellationToken cn)
 		{
 			try
 			{
-				// TODO: بررسی دسترسی ارسال
+				if (!HasOpenOrderRequestPermission(Roles.Sending, Roles.SupplyAndPurchase))
+					return AccessDenied("شما دسترسی تغییر وضعیت به «در راه» را ندارید");
+
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table.FirstOrDefaultAsync(x => x.Id == id, cn);
 
@@ -666,12 +862,16 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+		/// <summary>HTS 74·Query(25) — HasStatusPermissions(isSending:false)؛ در HTS عملاً فقط FullAccess (گروه 17).</summary>
 		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("درحال استعلام", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> StatusInquiry(long id, CancellationToken cn)
 		{
 			try
 			{
-				 
+				if (!HasOpenOrderRequestPermission(Roles.Query, Roles.SupplyAndPurchase))
+					return AccessDenied("شما دسترسی تغییر وضعیت به «در حال استعلام» را ندارید");
+
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table.FirstOrDefaultAsync(x => x.Id == id, cn);
 
@@ -694,39 +894,26 @@ namespace WebApp.Controllers.Dynamic
 
 		#region Terminate
 
+		/// <summary>HTS 74·Terminate(101) — PermissionAuthorize(Supp, 74, Terminate) (FullAccess هم مجاز).</summary>
 		[HttpPost("[action]/{id}")]
+		[ActionDisplayName("خاتمه دادن", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> Terminate(long id, CancellationToken cn)
 		{
 			try
 			{
-				// TODO: بررسی دسترسی خاتمه
+				if (!CanTerminate)
+					return AccessDenied("شما دسترسی خاتمه درخواست را ندارید");
+
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table.FirstOrDefaultAsync(x => x.Id == id, cn);
 
 				if (openOrderRequest == null)
 					return BadRequest("درخواست باز یافت نشد");
 
-				var now = DateTime.Now;
+				if (openOrderRequest.IsDeleted)
+					return BadRequest("این درخواست قبلاً خاتمه یافته است");
 
-				openOrderRequest.IsForceDeletedByUser = true;
-				openOrderRequest.IsDeleted = true;
-				openOrderRequest.IsDeletedMiladiDate = now;
-				openOrderRequest.IsDeletedShamsiDate = now.ToShamsiDateTime();
-				openOrderRequest.Comment += " || خاتمه توسط کاربر";
-
-				await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, false);
-
-				// ثبت کامنت خاتمه
-				var comment = new OpenOrderRequestComment
-				{
-					OpenOrderRequestId = id,
-					ShamsiDate = now.ToShamsiDate(),
-					MiladiDate = now,
-					CommentValue = $"اختتام یافته در Portal توسط {CurrentUserId}"
-				};
-
-				await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
-				await unitOfWork.SaveChangesAsync(cn);
+				await SoftTerminateAsync(openOrderRequest, "خاتمه توسط کاربر", cn);
 
 				return Ok(openOrderRequest);
 			}
@@ -734,6 +921,35 @@ namespace WebApp.Controllers.Dynamic
 			{
 				return StatusCode(500, "خطا در خاتمه: " + ex.Message);
 			}
+		}
+
+		/// <summary>
+		/// خاتمه نرم (معادل DoSetTerminateOperation در HTS): IsDeleted + IsForceDeletedByUser + کامنت اختتام.
+		/// مشترک بین Terminate و Delete (D35 — حذف فیزیکی وجود ندارد).
+		/// </summary>
+		private async Task SoftTerminateAsync(OpenOrderRequest openOrderRequest, string reason, CancellationToken cn)
+		{
+			var now = DateTime.Now;
+
+			openOrderRequest.IsForceDeletedByUser = true;
+			openOrderRequest.IsDeleted = true;
+			openOrderRequest.IsDeletedMiladiDate = now;
+			openOrderRequest.IsDeletedShamsiDate = now.ToShamsiDateTime();
+			openOrderRequest.Comment += " || " + reason;
+
+			await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, false);
+
+			// ثبت کامنت خاتمه
+			var comment = new OpenOrderRequestComment
+			{
+				OpenOrderRequestId = openOrderRequest.Id!.Value,
+				ShamsiDate = now.ToShamsiDate(),
+				MiladiDate = now,
+				CommentValue = $"اختتام یافته در Portal توسط {CurrentUserFullName ?? CurrentUserName ?? CurrentUserId?.ToString()}"
+			};
+
+			await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
+			await unitOfWork.SaveChangesAsync(cn);
 		}
 
 		#endregion
@@ -757,11 +973,16 @@ namespace WebApp.Controllers.Dynamic
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AttachmentPartial.cshtml", model);
 		}
 
+		/// <summary>HTS صفحه 71 «پیوست درخواست های باز» — DoAttachmentOperation (New/Edit فقط با FullAccess صفحه 71).</summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("ذخیره پیوست", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> SaveAttachment(SaveAttachmentRequest request, CancellationToken cn)
 		{
 			try
 			{
+				if (!CanManageAttachments)
+					return AccessDenied("شما دسترسی ثبت/ویرایش پیوست درخواست باز را ندارید");
+
 				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
 					.Table.FirstOrDefaultAsync(x => x.Id == request.OpenOrderRequestId, cn);
 
@@ -822,7 +1043,9 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+		/// <summary>HTS صفحه 71 Read/ViewAttachment — همه نقش‌های دارای دید صفحه 74/77.</summary>
 		[HttpGet("[action]")]
+		[ActionDisplayName("لیست پیوست‌ها", ActionAccessType.View, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> AttachmentListPartial(long openOrderRequestId, CancellationToken cn)
 		{
 			var items = await BuildAttachmentListItemsAsync(openOrderRequestId, cn);
@@ -833,6 +1056,7 @@ namespace WebApp.Controllers.Dynamic
 		private async Task<List<OpenOrderRequestAttachmentListItemVm>> BuildAttachmentListItemsAsync(long openOrderRequestId, CancellationToken cn)
 		{
 			var items = new List<OpenOrderRequestAttachmentListItemVm>();
+			var canDeleteAttachment = CanManageAttachments;
 
 			var attachments = await unitOfWork.Repository<OpenOrderRequestAttachment>()
 				.TableNoTracking
@@ -856,7 +1080,7 @@ namespace WebApp.Controllers.Dynamic
 					CreatedByName = attachment.CreatedByName,
 					CreatedOnShamsiDateTime = attachment.CreatedOnShamsiDateTime,
 					CreatedOnMiladiDateTime = attachment.CreatedOnMiladiDateTime,
-					CanDelete = true
+					CanDelete = canDeleteAttachment
 				});
 			}
 
@@ -864,8 +1088,11 @@ namespace WebApp.Controllers.Dynamic
 				.TableNoTracking
 				.Include(v => v.ProjectVpis)
 					.ThenInclude(pv => pv.ProjectName)
+				.Include(v => v.Project)
 				.Include(v => v.Document)
 					.ThenInclude(d => d!.MainFile)
+				.Include(v => v.Document)
+					.ThenInclude(d => d!.Comments)
 				.Where(v => v.OpenOrderRequestId == openOrderRequestId && v.IsLatest)
 				.ToListAsync(cn);
 
@@ -873,6 +1100,8 @@ namespace WebApp.Controllers.Dynamic
 			{
 				var vpis = link.ProjectVpis;
 				var document = link.Document;
+				if (!OpenOrderRequestVpisRules.IsEligibleForOpenOrderLink(document, vpis, link.Project))
+					continue;
 				var fullTitle = $"{vpis?.ProjectName?.ProjectName} | {vpis?.Title} | {vpis?.Code} | Ver({document?.Revision ?? link.RevisionNumber})";
 				var mainFile = document?.MainFile;
 
@@ -899,7 +1128,9 @@ namespace WebApp.Controllers.Dynamic
 				.ToList();
 		}
 
+		/// <summary>HTS صفحه 71 ViewAttachment — ViewAttachedFile.</summary>
 		[HttpGet("[action]")]
+		[ActionDisplayName("دانلود پیوست", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> DownloadAttachment(long id, CancellationToken cn)
 		{
 			var attachment = await unitOfWork.Repository<OpenOrderRequestAttachment>()
@@ -919,11 +1150,16 @@ namespace WebApp.Controllers.Dynamic
 			return File(fileBytes, "application/octet-stream", attachment.Attachment.OriginalName);
 		}
 
+		/// <summary>HTS صفحه 71 Delete — DoAttachmentOperation(Delete) فقط با FullAccess صفحه 71.</summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("حذف پیوست", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> DeleteAttachment(long id, CancellationToken cn)
 		{
 			try
 			{
+				if (!CanManageAttachments)
+					return AccessDenied("شما دسترسی حذف پیوست درخواست باز را ندارید");
+
 				var attachment = await unitOfWork.Repository<OpenOrderRequestAttachment>()
 					.Table
 					.Include(a => a.Attachment)
@@ -1763,13 +1999,6 @@ namespace WebApp.Controllers.Dynamic
 		{
 			try
 			{
-				// پروژه‌هایی که نباید نمایش داده شوند
-				var ignoredProjectStatusIds = new List<short> { 3, 6, 7 };
-
-				// TODO: این قسمت نیاز به بررسی دقیق navigation properties دارد
-				// فعلاً به صورت ساده پیاده می‌شود
-				
-				// دریافت تمام ProjectVpis های پروژه
 				var projectVpisList = await unitOfWork.Repository<ProjectVpis>()
 					.TableNoTracking
 					.Include(pv => pv.ProjectName)
@@ -1779,46 +2008,29 @@ namespace WebApp.Controllers.Dynamic
 				if (!projectVpisList.Any())
 					return Ok(new { vpisList = new List<object>(), linkedDocumentIds = new List<long>() });
 
-				var projectVpisIds = projectVpisList.Select(pv => pv.Id!.Value).ToList();
+				var projectVpisById = projectVpisList
+					.Where(pv => pv.Id.HasValue)
+					.ToDictionary(pv => pv.Id!.Value);
+				var projectVpisIds = projectVpisById.Keys.ToList();
 
-				// دریافت آخرین Documents برای هر ProjectVpis
 				var allDocuments = await unitOfWork.Repository<Document>()
 					.TableNoTracking
 					.Include(d => d.Comments)
-					.Where(d => projectVpisIds.Contains(d.DocumentVpisId!.Value))
+					.Where(d => d.DocumentVpisId != null && projectVpisIds.Contains(d.DocumentVpisId.Value))
 					.ToListAsync(cn);
 
-				// فیلتر بر اساس شرایط سیستم قدیم
-				var validDocuments = allDocuments
-					.Where(d => 
-						// 1. ApprovedDate داشته باشد
-						d.ApprovedMiladiDateTime != null ||
-						// 2. بیش از 1 کامنت داشته باشد
-						(d.Comments != null && d.Comments.Count > 1) ||
-						// 3. کامنت با وضعیت NotReview داشته باشد
-						(d.Comments != null && d.Comments.Any(c => c.Status == DocumentStatusEnums.NotReview))
-					)
-					.GroupBy(d => d.DocumentVpisId)
-					.Select(g => g.OrderByDescending(d => d.Id).FirstOrDefault())
-					.ToList();
-
-				var lastSendedDocuments = validDocuments.Where(d => d != null).ToList();
+				var lastSendedDocuments = OpenOrderRequestVpisRules.SelectLatestEligiblePerVpis(
+					allDocuments,
+					vpisId => projectVpisById.TryGetValue(vpisId, out var vpis) ? vpis.Title : null,
+					vpisId => projectVpisById.TryGetValue(vpisId, out var vpis)
+						&& vpis.ProjectName?.ProjectIsVendoriType == true);
 
 				if (!lastSendedDocuments.Any())
 					return Ok(new { vpisList = new List<object>(), linkedDocumentIds = new List<long>() });
 
-				// دریافت مجدد ProjectVpis برای نمایش
-				var vpisIdsInDocuments = lastSendedDocuments.Select(d => d.DocumentVpisId!.Value).ToList();
-				var projectVpisForDisplay = await unitOfWork.Repository<ProjectVpis>()
-					.TableNoTracking
-					.Include(pv => pv.ProjectName)
-					.Where(pv => vpisIdsInDocuments.Contains(pv.Id!.Value))
-					.ToListAsync(cn);
-
-				// ساخت لیست برای نمایش
 				var vpisList = lastSendedDocuments.Select(d =>
 				{
-					var vpis = projectVpisForDisplay.FirstOrDefault(pv => pv.Id == d.DocumentVpisId);
+					projectVpisById.TryGetValue(d.DocumentVpisId!.Value, out var vpis);
 					return new
 					{
 						id = d.Id!.Value,
@@ -1831,7 +2043,6 @@ namespace WebApp.Controllers.Dynamic
 					};
 				}).ToList();
 
-				// دریافت مدارک لینک شده فعلی
 				var linkedDocumentIds = await unitOfWork.Repository<OpenOrderRequestVpis>()
 					.TableNoTracking
 					.Where(v => v.OpenOrderRequestId == openOrderRequestId && v.IsLatest)
@@ -1846,12 +2057,16 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+		/// <summary>HTS 74·HasEngineeringPermission(82) — DoLinkVpisOperation (PermissionAuthorize: FullAccess هم مجاز). D42: گروه 70 هر دو مجوز را داشت.</summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("اتصال مدارک پروژه (VPIS)", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> DoLinkVpis(LinkVpisRequest request, CancellationToken cn)
 		{
 			try
 			{
-				// TODO: بررسی دسترسی
+				if (!HasOpenOrderRequestPermission(Roles.HasEngineering, Roles.EngineeringAccept, Roles.SupplyAndPurchase))
+					return AccessDenied("شما دسترسی اتصال مدارک پروژه (VPIS) را ندارید");
+
 				if (request.SelectedVpisIds == null || !request.SelectedVpisIds.Any())
 					return BadRequest("لطفاً حداقل یک مدرک VPIS انتخاب کنید");
 
@@ -1864,15 +2079,23 @@ namespace WebApp.Controllers.Dynamic
 				if (openOrderRequest == null)
 					return BadRequest("درخواست باز یافت نشد");
 
-				// دریافت اطلاعات Documents
 				var documents = await unitOfWork.Repository<Document>()
 					.TableNoTracking
+					.Include(d => d.Comments)
 					.Include(d => d.DocumentVpis)
+						.ThenInclude(pv => pv!.ProjectName)
+					.Include(d => d.Project)
 					.Where(d => request.SelectedVpisIds.Contains(d.Id!.Value))
 					.ToListAsync(cn);
 
 				if (!documents.Any())
 					return BadRequest("مدارک انتخاب شده یافت نشد");
+
+				var ineligible = documents
+					.Where(d => !OpenOrderRequestVpisRules.IsEligibleForOpenOrderLink(d, d.DocumentVpis, d.Project ?? d.DocumentVpis?.ProjectName))
+					.ToList();
+				if (ineligible.Count > 0)
+					return BadRequest("برخی مدارک انتخاب‌شده شرط لینک به درخواست باز را ندارند");
 
 				var now = DateTime.Now;
 				var currentUserId = CurrentUserId;
@@ -1936,13 +2159,18 @@ namespace WebApp.Controllers.Dynamic
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AddRequestedPersonelPartial.cshtml");
 		}
 
+		/// <summary>HTS صفحه 76 «تنظیمات درخواست های باز» — DoOperation پرسنل (FullAccess صفحه 76: گروه‌های 430 و 28).</summary>
 		[HttpPost("[action]")]
+		[ActionDisplayName("افزودن درخواست‌کنندگان و ذینفعان", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> AddRequestedPersonelToOpenRequest(
     [FromBody] AddRequestedPersonel request,
     CancellationToken cancellationToken)
 		{
 			try
 			{
+				if (!HasOpenOrderRequestPermission(Roles.ConfigManage, Roles.Industrial, Roles.IndustriesLegacy, Roles.SupplyAndPurchase))
+					return AccessDenied("شما دسترسی افزودن درخواست‌کنندگان و ذینفعان را ندارید");
+
 				// 1. اعتبارسنجی ورودی
 				if (request.OpenOrderRequestIds == null || request.OpenOrderRequestIds.Length == 0)
 					return BadRequest("هیچ شناسه‌ای برای درخواست باز ارسال نشده است.");
@@ -2026,7 +2254,256 @@ namespace WebApp.Controllers.Dynamic
 
 		#endregion
 
+		#region SendToSupplier / SetSelectedSupplier (HTS صفحه 76)
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("فرم ارسال به پیمانکار", ActionAccessType.View, ActionAccessItemType.Custom)]
+		public IActionResult SendToSupplierPartial(long openOrderRequestId)
+		{
+			if (!CanSendToSupplier)
+				return AccessDenied("شما دسترسی ارسال به پیمانکار را ندارید");
+
+			ViewBag.OpenOrderRequestId = openOrderRequestId;
+			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_SendToSupplierPartial.cshtml");
+		}
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("فرم تامین‌کننده منتخب", ActionAccessType.View, ActionAccessItemType.Custom)]
+		public IActionResult SetSelectedSupplierPartial(long openOrderRequestId)
+		{
+			if (!CanSetSelectedSupplier)
+				return AccessDenied("شما دسترسی تعیین تامین‌کننده منتخب را ندارید");
+
+			ViewBag.OpenOrderRequestId = openOrderRequestId;
+			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_SetSelectedSupplierPartial.cshtml");
+		}
+
+		/// <summary>
+		/// HTS صفحه 76 · SendEmailToContractor (Permission SendEmail=27).
+		/// صف Notification Type=Email (Q10: بدون SMTP) + یک ردیف پیشینه به ازای هر درخواست + Changed=false و ManCompanyId.
+		/// </summary>
+		[HttpPost("[action]")]
+		[ActionDisplayName("ارسال به پیمانکار", ActionAccessType.Api, ActionAccessItemType.Custom)]
+		public async Task<IActionResult> SendToSupplier(SendToSupplierRequest request, CancellationToken cn)
+		{
+			try
+			{
+				if (!CanSendToSupplier)
+					return AccessDenied("شما دسترسی ارسال به پیمانکار را ندارید");
+
+				if (request.OpenOrderRequestIds == null || request.OpenOrderRequestIds.Length == 0)
+					return BadRequest("هیچ درخواستی انتخاب نشده است");
+
+				if (request.SupplierId <= 0)
+					return BadRequest("تامین‌کننده را انتخاب کنید");
+
+				var supplier = await unitOfWork.Repository<Supplier>().Table
+					.Include(s => s.Party)
+					.FirstOrDefaultAsync(s => s.Id == request.SupplierId, cn);
+				if (supplier == null)
+					return BadRequest("تامین‌کننده یافت نشد");
+
+				var toEmail = FirstNonEmptyEmail(supplier.Email, supplier.Party?.Email);
+				if (!toEmail.HasValue())
+					return BadRequest("ایمیل پیمانکار خالی است");
+
+				var ids = request.OpenOrderRequestIds.Distinct().ToArray();
+				var openOrderRequests = await unitOfWork.Repository<OpenOrderRequest>().Table
+					.Include(o => o.Part)
+					.Where(o => ids.Contains(o.Id!.Value))
+					.ToListAsync(cn);
+
+				if (openOrderRequests.Count != ids.Length)
+					return BadRequest("برخی از درخواست‌های باز یافت نشدند");
+
+				var now = DateTime.Now;
+				var senderId = CurrentUserId;
+				var companyName = supplier.Party?.FullName ?? supplier.Prefix ?? toEmail;
+				var subject = "سفارش ساخت - لطفا Replay نفرمایید";
+				var body = BuildSendToSupplierBody(openOrderRequests, companyName, request.Message);
+				var ccEmails = await CollectSendToSupplierCcEmails(openOrderRequests, cn);
+
+				foreach (var item in openOrderRequests)
+				{
+					item.Changed = false;
+					item.ManCompanyId = request.SupplierId;
+
+					await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(new OpenOrderRequestEmailToSupplier
+					{
+						OpenOrderRequestId = item.Id!.Value,
+						SupplierId = request.SupplierId,
+						SendMiladiDateTime = now,
+						SendShamsiDateTime = now.ToShamsiDateTime(),
+						SenderUserId = senderId,
+						ToEmail = toEmail,
+						Subject = subject,
+						Body = body,
+						Comment = string.IsNullOrWhiteSpace(request.Message) ? "ارسال شده بدون فایل پیوست" : request.Message,
+						SendingCount = request.SendingCount ?? item.RequiredQty
+					}, cn);
+				}
+
+				await unitOfWork.Repository<Notification>().AddAsync(new Notification
+				{
+					Type = NotificationType.Email,
+					Title = subject,
+					Body = body,
+					EntityId = openOrderRequests[0].Id,
+					OwnerId = senderId ?? 1,
+					ViewPath = "/Panel/Sup/OpenOrderRequest/List",
+					ToEmails = new List<string> { toEmail! },
+					CcEmails = ccEmails.Count == 0 ? null : ccEmails,
+					IsRead = false
+				}, cn);
+
+				await unitOfWork.SaveChangesAsync(cn);
+
+				return Ok(new
+				{
+					message = "ارسال به پیمانکار در صف اعلان ثبت شد",
+					sentCount = openOrderRequests.Count,
+					supplierId = request.SupplierId
+				});
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, "خطا در ارسال به پیمانکار: " + ex.Message);
+			}
+		}
+
+		/// <summary>HTS AddComponyMansToRequests — فقط ManCompanyId.</summary>
+		[HttpPost("[action]")]
+		[ActionDisplayName("تامین‌کننده منتخب", ActionAccessType.Api, ActionAccessItemType.Custom)]
+		public async Task<IActionResult> SetSelectedSupplier(SetSelectedSupplierRequest request, CancellationToken cn)
+		{
+			try
+			{
+				if (!CanSetSelectedSupplier)
+					return AccessDenied("شما دسترسی تعیین تامین‌کننده منتخب را ندارید");
+
+				if (request.OpenOrderRequestIds == null || request.OpenOrderRequestIds.Length == 0)
+					return BadRequest("هیچ درخواستی انتخاب نشده است");
+
+				if (request.SupplierId <= 0)
+					return BadRequest("تامین‌کننده را انتخاب کنید");
+
+				var supplierExists = await unitOfWork.Repository<Supplier>().TableNoTracking
+					.AnyAsync(s => s.Id == request.SupplierId, cn);
+				if (!supplierExists)
+					return BadRequest("تامین‌کننده یافت نشد");
+
+				var ids = request.OpenOrderRequestIds.Distinct().ToArray();
+				var openOrderRequests = await unitOfWork.Repository<OpenOrderRequest>().Table
+					.Where(o => ids.Contains(o.Id!.Value))
+					.ToListAsync(cn);
+
+				if (openOrderRequests.Count != ids.Length)
+					return BadRequest("برخی از درخواست‌های باز یافت نشدند");
+
+				foreach (var item in openOrderRequests)
+					item.ManCompanyId = request.SupplierId;
+
+				await unitOfWork.SaveChangesAsync(cn);
+
+				return Ok(new
+				{
+					message = "تامین‌کننده منتخب ثبت شد",
+					updatedCount = openOrderRequests.Count
+				});
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, "خطا در ثبت تامین‌کننده منتخب: " + ex.Message);
+			}
+		}
+
+		private static string? FirstNonEmptyEmail(params string?[] values)
+			=> values.FirstOrDefault(v => v.HasValue())?.Trim();
+
+		private async Task<List<string>> CollectSendToSupplierCcEmails(List<OpenOrderRequest> requests, CancellationToken cn)
+		{
+			var userIds = requests
+				.SelectMany(r => new[] { r.SalesUnitSalesExpertId, r.SalesUnitSalesManagerId, r.SalesUnitProjectManagerId })
+				.Where(id => id.HasValue)
+				.Select(id => id!.Value)
+				.Distinct()
+				.ToList();
+
+			var partIds = requests.Select(r => r.PartId).Distinct().ToList();
+			var purchaseEmails = await unitOfWork.Repository<BuyCategoryItem>().TableNoTracking
+				.Include(c => c.BuyCategory)
+					.ThenInclude(bc => bc.PurchaseResponsible)
+				.Where(c => c.PartId != null && partIds.Contains(c.PartId.Value)
+					&& c.BuyCategory.PurchaseResponsible != null
+					&& c.BuyCategory.PurchaseResponsible.Email != null)
+				.Select(c => c.BuyCategory.PurchaseResponsible!.Email!)
+				.ToListAsync(cn);
+
+			var userEmails = userIds.Count == 0
+				? new List<string>()
+				: await userService.TableNoTracking
+					.Where(u => userIds.Contains(u.Id!.Value) && u.Email != null)
+					.Select(u => u.Email!)
+					.ToListAsync(cn);
+
+			return userEmails.Concat(purchaseEmails)
+				.Where(e => e.HasValue())
+				.Select(e => e.Trim())
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+		}
+
+		private static string BuildSendToSupplierBody(List<OpenOrderRequest> requests, string companyName, string? extraMessage)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine("<div style='margin:0 auto;width:100%;direction:rtl;font-family:tahoma;font-size:9pt'>");
+			sb.AppendLine("<b>با سلام و احترام</b><br/><br/>");
+			sb.AppendLine("از : گروه صنعتی هوایار<br/><br/>");
+			sb.AppendLine("به : " + companyName + "<br/><br/>");
+			sb.AppendLine("<table border='1' style='direction:rtl;width:100%;border-color:whitesmoke;font-family:tahoma;font-size:9pt'>");
+			sb.AppendLine("<tr style='background-color:#e0e0e0'>");
+			sb.AppendLine("<td>ش درخواست</td><td>ش سفارش</td><td>ش سفارش ساخت</td><td>کد کالا</td><td>عنوان کالا</td><td>تعداد درخواست</td><td>تاریخ نیاز</td></tr>");
+			foreach (var item in requests)
+			{
+				sb.AppendLine("<tr>");
+				sb.AppendLine("<td>" + item.PurchaseRequestNumber + "</td>");
+				sb.AppendLine("<td>" + (item.OrderNo?.ToString() ?? "") + "</td>");
+				sb.AppendLine("<td>" + (item.ProductionOrderNumber?.ToString() ?? "") + "</td>");
+				sb.AppendLine("<td>" + (item.Part?.Code ?? "") + "</td>");
+				sb.AppendLine("<td>" + (item.Part?.Name ?? "") + "</td>");
+				sb.AppendLine("<td>" + item.RequiredQty + "</td>");
+				sb.AppendLine("<td style='direction:ltr'>" + (item.NeedDateShamsiDate ?? "") + "</td>");
+				sb.AppendLine("</tr>");
+			}
+			sb.AppendLine("</table>");
+			if (extraMessage.HasValue())
+			{
+				sb.AppendLine("<br/><div>" + extraMessage + "</div>");
+			}
+			sb.AppendLine("<br/>پیمانکار متعهد می‌باشد تا در طول مدت گارانتی، در صورت بروز خرابی در اقلام مورد سفارش، نسبت به تعویض یا تعمیر اقلام (در صورت تایید کارفرما) اقدام نماید.");
+			sb.AppendLine("<br/>لطفا در صورت عدم امکان تحویل در تاریخ نیاز اعلام‌شده، مراتب را حداکثر چهار ساعت پس از دریافت درخواست با مسئول خرید اعلام فرمایید.");
+			sb.AppendLine("<br/><br/>**** لطفا این ایمیل را Replay نفرمایید ****");
+			sb.AppendLine("</div>");
+			return sb.ToString();
+		}
+
+		#endregion
+
 		#region Request DTOs
+
+		public class SendToSupplierRequest
+		{
+			public long[] OpenOrderRequestIds { get; set; } = [];
+			public long SupplierId { get; set; }
+			public string? Message { get; set; }
+			public decimal? SendingCount { get; set; }
+		}
+
+		public class SetSelectedSupplierRequest
+		{
+			public long[] OpenOrderRequestIds { get; set; } = [];
+			public long SupplierId { get; set; }
+		}
 
 		public class AddRequestedPersonel
 		{

@@ -1,0 +1,137 @@
+@using Entities.App.Trn
+@using WebApp.Controllers.Dynamic
+@model TeacherBankAttachmentListByParentViewModel
+
+@{
+     var tableId = "teacherAttachmentTable_" + Model.TeacherBankId;
+}
+
+<div class="card" id="teacherAttachmentListPage" data-teacher-bank-id="@Model.TeacherBankId">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">
+               <i class="fa fa-paperclip ms-2"></i>
+               پیوست‌های مدرس (@Model.TeacherName)
+          </h5>
+          <div>
+               <button type="button" class="btn btn-sm btn-primary" id="btnNewTeacherAttachment">
+                    <i class="fa fa-plus ms-1"></i>
+                    پیوست جدید
+               </button>
+          </div>
+     </div>
+     <div class="card-body">
+          <table id="@tableId" class="table table-striped table-row-bordered gy-2 w-100">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>عنوان</th>
+                         <th>فایل</th>
+                         <th style="width:120px;">عملیات</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
+     </div>
+</div>
+<script>
+     const teacherBankId = '@Model.TeacherBankId';
+     const tableSelector = '#@tableId';
+     const listApiUrl = '/Panel/Trn/TeacherBankAttachment/GetListByParentId?teacherBankId=' + teacherBankId;
+
+     function escapeHtml(text) {
+          if (text === null || text === undefined) return '-';
+          return String(text)
+               .replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;');
+     }
+
+     function deleteTeacherAttachment(id) {
+          Swal.fire({
+               title: 'حذف پیوست',
+               text: 'آیا از حذف این پیوست مطمئن هستید؟',
+               icon: 'warning',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+
+               $$.get('/Panel/Trn/TeacherBankAttachment/Delete?id=' + id, function (response) {
+                    if (response && response.isSuccess === false) {
+                         toastr.error(response.message || 'خطا در حذف رکورد');
+                         return;
+                    }
+                    toastr.success('رکورد با موفقیت حذف شد');
+                    reloadTeacherAttachmentList();
+               });
+          });
+     }
+
+     function reloadTeacherAttachmentList() {
+          const dt = window['@tableId'];
+          if (dt && dt.ajax) {
+               dt.ajax.reload(null, false);
+          }
+     }
+
+     const table = $$(tableSelector).DataTable({
+          serverSide: false,
+          autoWidth: false,
+          scrollX: true,
+          pageLength: 10,
+          lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'همه']],
+          order: [[0, 'asc']],
+          language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+          ajax: {
+               url: listApiUrl,
+               type: 'GET',
+               dataSrc: function (json) {
+                    if (json && json.isSuccess === false) {
+                         toastr.error(json.message || 'خطا در دریافت اطلاعات');
+                         return [];
+                    }
+                    return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+               }
+          },
+          columns: [
+               { data: 'title', render: function (d) { return escapeHtml(d); } },
+               {
+                    data: null,
+                    orderable: false,
+                    render: function (d, t, row) {
+                         if (row.fileId) {
+                              const label = escapeHtml(row.fileName || 'دانلود فایل');
+                              return '<a href="/File/download/' + row.fileId + '" target="_blank" class="btn btn-sm btn-light-primary">' + label + '</a>';
+                         }
+                         return '-';
+                    }
+               },
+               {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: function (d, t, row) {
+                         return '<button type="button" class="btn btn-sm btn-icon btn-light-warning btn-edit-attachment" data-id="' + row.id + '" title="ویرایش"><i class="fa fa-edit"></i></button> '
+                              + '<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete-attachment" data-id="' + row.id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+                    }
+               }
+          ]
+     });
+
+     window['@tableId'] = table;
+
+     $$('#btnNewTeacherAttachment').on('click', function () {
+          appController.addPage('/Panel/Trn/TeacherBankAttachment/New?teacherBankId=' + teacherBankId);
+     });
+
+     $$(tableSelector).on('click', '.btn-edit-attachment', function () {
+          const id = $(this).data('id');
+          appController.addPage('/Panel/Trn/TeacherBankAttachment/Edit?id=' + id);
+     });
+
+     $$(tableSelector).on('click', '.btn-delete-attachment', function () {
+          const id = $(this).data('id');
+          deleteTeacherAttachment(id);
+     });
+</script>

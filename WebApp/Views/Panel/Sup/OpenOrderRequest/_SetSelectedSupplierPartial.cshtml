@@ -1,0 +1,24 @@
+@using Entities.App.Gnr
+<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
+
+<div class="row">
+	<div class="col-md-12 form-group-inline">
+		<label>تامین‌کننده منتخب</label>
+		@(Html.EntitySelector<Supplier>(
+			"setSelectedSupplierSelector",
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+			c => new
+			{
+				Id = c.Id,
+				Party_FullName = c.Party.FullName
+			},
+			c => new { c.Party.FullName },
+			"{Party.FullName}",
+			"supplierId",
+			"supplierName",
+			null,
+			true
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

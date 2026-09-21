@@ -1,0 +1,360 @@
+{
+  "profiles": [
+    {
+      "name": "AfterSales_AfterSalesMobileUser_List",
+      "title": "کاربر موبایل خدمات پس از فروش",
+      "entity": "Entities.App.Sale.AfterSalesMobileUser"
+    },
+    {
+      "name": "AfterSales_AgencyCartable_List",
+      "title": "کارتابل نمایندگی",
+      "entity": "Entities.App.Sale.AgencyCartable"
+    },
+    {
+      "name": "AfterSales_AgencyPartCardex_List",
+      "title": "کاردکس قطعه نمایندگی",
+      "entity": "Entities.App.Sale.AgencyPartCardex"
+    },
+    {
+      "name": "AfterSales_CollectionClaim_List",
+      "title": "وصول مطالبات",
+      "entity": "Entities.App.Sale.CollectionClaim"
+    },
+    {
+      "name": "AfterSales_CollectionClaimPayFish_List",
+      "title": "فیش وصول",
+      "entity": "Entities.App.Sale.CollectionClaimPayFish"
+    },
+    {
+      "name": "AfterSales_ContractorOrder_List",
+      "title": "سفارش پیمانکار تعمیر",
+      "entity": "Entities.App.Rpr.ContractorOrder"
+    },
+    {
+      "name": "AfterSales_CustomerAddress_List",
+      "title": "سایت مشتری",
+      "entity": "Entities.App.SLS.CustomerAddress"
+    },
+    {
+      "name": "AfterSales_CustomerAllowedGuarantee_List",
+      "title": "گارانتی مجاز مشتری",
+      "entity": "Entities.App.Sale.CustomerAllowedGuarantee"
+    },
+    {
+      "name": "AfterSales_CustomerSatisfactionSurvey_List",
+      "title": "رضایت‌سنجی مشتری",
+      "entity": "Entities.App.Crm.CustomerSatisfactionSurvey"
+    },
+    {
+      "name": "AfterSales_EquipmentMonitoring_List",
+      "title": "مانیتورینگ تجهیزات",
+      "entity": "Entities.App.Sale.EquipmentMonitoring"
+    },
+    {
+      "name": "AfterSales_EstimatedCost_List",
+      "title": "هزینه تقریبی تعمیر",
+      "entity": "Entities.App.Rpr.EstimatedCost"
+    },
+    {
+      "name": "AfterSales_Mission_List",
+      "title": "ماموریت خدمات پس از فروش",
+      "entity": "Entities.App.Sale.Mission"
+    },
+    {
+      "name": "AfterSales_MissionSalary_List",
+      "title": "حق ماموریت پرسنل",
+      "entity": "Entities.App.Sale.MissionSalary"
+    },
+    {
+      "name": "AfterSales_OilGasWorkReport_List",
+      "title": "گزارش کار نفت و گاز",
+      "entity": "Entities.App.Sale.OilGasWorkReport"
+    },
+    {
+      "name": "AfterSales_OrderDetailProduct_List",
+      "title": "اختصاص قطعه به محصول",
+      "entity": "Entities.App.Sale.OrderDetailProduct"
+    },
+    {
+      "name": "AfterSales_OrderDetailSerial_List",
+      "title": "جزئیات سریال سفارش فروش",
+      "entity": "Entities.App.Sale.OrderDetailSerial"
+    },
+    {
+      "name": "AfterSales_OrderDetailSerialAttachment_List",
+      "title": "پیوست سریال حواله فروش",
+      "entity": "Entities.App.Sale.OrderDetailSerialAttachment"
+    },
+    {
+      "name": "AfterSales_OrderPoint_List",
+      "title": "نقطه سفارش",
+      "entity": "Entities.App.Sale.OrderPoint"
+    },
+    {
+      "name": "AfterSales_OrderPointComment_List",
+      "title": "یادداشت نقطه سفارش",
+      "entity": "Entities.App.Sale.OrderPointComment"
+    },
+    {
+      "name": "AfterSales_PartPrice_List",
+      "title": "قیمت مصوب کالا",
+      "entity": "Entities.App.Sale.PartPrice"
+    },
+    {
+      "name": "AfterSales_PriceConfig_List",
+      "title": "تنظیمات قیمت فروش",
+      "entity": "Entities.App.Sale.PriceConfig"
+    },
+    {
+      "name": "AfterSales_ProductActivityItem_List",
+      "title": "جزئیات سرویس دوره‌ای",
+      "entity": "Entities.App.Sale.ProductActivityItem"
+    },
+    {
+      "name": "AfterSales_ProjectUtilizedMaterial_List",
+      "title": "پارت لیست مصرفی",
+      "entity": "Entities.App.Sale.ProjectUtilizedMaterial"
+    },
+    {
+      "name": "AfterSales_RepairRequest_List",
+      "title": "درخواست تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequest"
+    },
+    {
+      "name": "AfterSales_RepairRequestAttachment_List",
+      "title": "پیوست درخواست تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestAttachment"
+    },
+    {
+      "name": "AfterSales_RepairRequestComment_List",
+      "title": "یادداشت درخواست تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestComment"
+    },
+    {
+      "name": "AfterSales_RepairRequestManHour_List",
+      "title": "نفرساعت درخواست تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestManHour"
+    },
+    {
+      "name": "AfterSales_RepairRequestPart_List",
+      "title": "قطعه درخواست تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestPart"
+    },
+    {
+      "name": "AfterSales_RepairRequestPartFraction_List",
+      "title": "کسر قطعات تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestPartFraction"
+    },
+    {
+      "name": "AfterSales_RepairRequestWbs_List",
+      "title": "WBS نفرساعت تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestWbs"
+    },
+    {
+      "name": "AfterSales_RepairRequestWorkExplanation_List",
+      "title": "شرح کار تعمیر",
+      "entity": "Entities.App.Rpr.RepairRequestWorkExplanation"
+    },
+    {
+      "name": "AfterSales_ResponsibleZone_List",
+      "title": "مسئول منطقه",
+      "entity": "Entities.App.Sale.ResponsibleZone"
+    },
+    {
+      "name": "AfterSales_ResponsibleZoneCustomer_List",
+      "title": "مشتری مسئول منطقه",
+      "entity": "Entities.App.Sale.ResponsibleZoneCustomer"
+    },
+    {
+      "name": "AfterSales_ResponsibleZoneReceipt_List",
+      "title": "وصول مسئول منطقه",
+      "entity": "Entities.App.Sale.ResponsibleZoneReceipt"
+    },
+    {
+      "name": "AfterSales_ServiceRequest_List",
+      "title": "درخواست پشتیبانی",
+      "entity": "Entities.App.Sale.ServiceRequest"
+    },
+    {
+      "name": "AfterSales_ServiceRequestAttachment_List",
+      "title": "پیوست درخواست پشتیبانی",
+      "entity": "Entities.App.Sale.ServiceRequestAttachment"
+    },
+    {
+      "name": "AfterSales_ServiceRequestDetail_List",
+      "title": "جزئیات درخواست پشتیبانی",
+      "entity": "Entities.App.Sale.ServiceRequestDetail"
+    },
+    {
+      "name": "AfterSales_ServiceRequestExpertMission_List",
+      "title": "اعزام کارشناس",
+      "entity": "Entities.App.Sale.ServiceRequestExpertMission"
+    },
+    {
+      "name": "AfterSales_ServiceRequestPart_List",
+      "title": "قطعه درخواست پشتیبانی",
+      "entity": "Entities.App.Sale.ServiceRequestPart"
+    },
+    {
+      "name": "AfterSales_ServiceRequestSalesResponsible_List",
+      "title": "مسئول فروش شعبه",
+      "entity": "Entities.App.Sale.ServiceRequestSalesResponsible"
+    },
+    {
+      "name": "AfterSales_TechnicalQuery_List",
+      "title": "پرسش فنی",
+      "entity": "Entities.App.Sale.TechnicalQuery"
+    },
+    {
+      "name": "AfterSales_TechnicalQueryComment_List",
+      "title": "یادداشت پرسش فنی",
+      "entity": "Entities.App.Sale.TechnicalQueryComment"
+    },
+    {
+      "name": "AfterSales_TenderAttachment_List",
+      "title": "پیوست مناقصه",
+      "entity": "Entities.App.Sale.TenderAttachment"
+    },
+    {
+      "name": "AfterSales_TenderComment_List",
+      "title": "یادداشت مناقصه",
+      "entity": "Entities.App.Sale.TenderComment"
+    },
+    {
+      "name": "AfterSales_TenderManagement_List",
+      "title": "مناقصه خدمات پس از فروش",
+      "entity": "Entities.App.Sale.TenderManagement"
+    },
+    {
+      "name": "AfterSales_TenderPart_List",
+      "title": "قلم مناقصه",
+      "entity": "Entities.App.Sale.TenderPart"
+    },
+    {
+      "name": "AfterSales_TenderProductGroup_List",
+      "title": "گروه کالای مناقصه",
+      "entity": "Entities.App.Sale.TenderProductGroup"
+    },
+    {
+      "name": "AfterSales_TenderTask_List",
+      "title": "تسک مناقصه",
+      "entity": "Entities.App.Sale.TenderTask"
+    },
+    {
+      "name": "AfterSales_WebShopOrder_List",
+      "title": "سفارش فروشگاه اینترنتی",
+      "entity": "Entities.App.Sale.WebShopOrder"
+    },
+    {
+      "name": "AfterSales_WebShopPartForSale_List",
+      "title": "محصول فروشگاه اینترنتی",
+      "entity": "Entities.App.Sale.WebShopPartForSale"
+    },
+    {
+      "name": "AfterSales_WebShopPartGroup_List",
+      "title": "گروه کالای فروشگاه",
+      "entity": "Entities.App.Sale.WebShopPartGroup"
+    },
+    {
+      "name": "AfterSales_WorkReport_List",
+      "title": "گزارش کار ماموریت",
+      "entity": "Entities.App.Sale.WorkReport"
+    },
+    {
+      "name": "AfterSales_Zone_List",
+      "title": "منطقه خدمات پس از فروش",
+      "entity": "Entities.App.Crm.Zone"
+    },
+    {
+      "name": "AfterSales_ServiceRequest_Cartable",
+      "title": "کارتابل مسئول منطقه",
+      "entity": "Entities.App.Sale.ServiceRequest"
+    },
+    {
+      "name": "AfterSales_RepairRequest_Delay",
+      "title": "تاخیرات تعمیرات",
+      "entity": "Entities.App.Rpr.RepairRequest"
+    },
+    {
+      "name": "AfterSales_TenderManagement_ApproveQueue",
+      "title": "بررسی و تایید مناقصات",
+      "entity": "Entities.App.Sale.TenderManagement"
+    },
+    {
+      "name": "AfterSales_TechnicalQuery_ApproveQueue",
+      "title": "بررسی و تایید پرسش فنی",
+      "entity": "Entities.App.Sale.TechnicalQuery"
+    },
+    {
+      "name": "AfterSales_Survey_AfterSales",
+      "title": "رضایت‌سنجی بعد از فروش",
+      "entity": "Entities.App.Crm.CustomerSatisfactionSurvey"
+    },
+    {
+      "name": "AfterSales_Survey_Cng",
+      "title": "رضایت‌سنجی بعد از فروش CNG",
+      "entity": "Entities.App.Crm.CustomerSatisfactionSurvey"
+    },
+    {
+      "name": "AfterSales_Survey_CompressedAir",
+      "title": "رضایت‌سنجی خدمات هوای فشرده",
+      "entity": "Entities.App.Crm.CustomerSatisfactionSurvey"
+    }
+  ],
+  "action_count": 560,
+  "list_entities": [
+    "AfterSalesMobileUser",
+    "AgencyCartable",
+    "AgencyPartCardex",
+    "CollectionClaim",
+    "CollectionClaimPayFish",
+    "ContractorOrder",
+    "CustomerAddress",
+    "CustomerAllowedGuarantee",
+    "CustomerSatisfactionSurvey",
+    "EquipmentMonitoring",
+    "EstimatedCost",
+    "Mission",
+    "MissionSalary",
+    "OilGasWorkReport",
+    "OrderDetailProduct",
+    "OrderDetailSerial",
+    "OrderDetailSerialAttachment",
+    "OrderPoint",
+    "OrderPointComment",
+    "PartPrice",
+    "PriceConfig",
+    "ProductActivityItem",
+    "ProjectUtilizedMaterial",
+    "RepairRequest",
+    "RepairRequestAttachment",
+    "RepairRequestComment",
+    "RepairRequestManHour",
+    "RepairRequestPart",
+    "RepairRequestPartFraction",
+    "RepairRequestWbs",
+    "RepairRequestWorkExplanation",
+    "ResponsibleZone",
+    "ResponsibleZoneCustomer",
+    "ResponsibleZoneReceipt",
+    "ServiceRequest",
+    "ServiceRequestAttachment",
+    "ServiceRequestDetail",
+    "ServiceRequestExpertMission",
+    "ServiceRequestPart",
+    "ServiceRequestSalesResponsible",
+    "TechnicalQuery",
+    "TechnicalQueryComment",
+    "TenderAttachment",
+    "TenderComment",
+    "TenderManagement",
+    "TenderPart",
+    "TenderProductGroup",
+    "TenderTask",
+    "WebShopOrder",
+    "WebShopPartForSale",
+    "WebShopPartGroup",
+    "WorkReport",
+    "Zone"
+  ]
+}

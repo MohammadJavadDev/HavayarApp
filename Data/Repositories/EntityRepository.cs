@@ -164,6 +164,13 @@ namespace Data.Repositories
 			if (!workbook.IsLicensed)
 				new License().SetLicense(licensePath);
 
+			if (request.displayExport != null)
+			{
+				WriteDisplayExport(workbook.Worksheets[0], request.displayExport);
+				workbook.Save(outputStream, SaveFormat.Xlsx);
+				return;
+			}
+
 			var savedQueryId = request.profileId;
 			var paramValues = queryService.ExtractParameterValuesFromRequest(request);
 
@@ -202,6 +209,45 @@ namespace Data.Repositories
 			await Task.CompletedTask;
 		}
 
+
+		private static void WriteDisplayExport(Worksheet worksheet, DataTableDisplayExport export)
+		{
+			if (export.Headers == null || export.Rows == null || export.Headers.Count == 0
+				|| export.Headers.Count > 16384 || export.Rows.Count > 1048575)
+				throw new ArgumentException("ابعاد خروجی اکسل معتبر نیست.");
+
+			worksheet.Name = "LargeData";
+			worksheet.DisplayRightToLeft = true;
+			for (var column = 0; column < export.Headers.Count; column++)
+				worksheet.Cells[0, column].PutValue(export.Headers[column] ?? string.Empty, false);
+
+			for (var row = 0; row < export.Rows.Count; row++)
+			{
+				var values = export.Rows[row];
+				if (values == null || values.Count != export.Headers.Count)
+					throw new ArgumentException("تعداد ستون‌های خروجی اکسل یکسان نیست.");
+
+				for (var column = 0; column < values.Count; column++)
+				{
+					var value = values[column];
+					var cell = worksheet.Cells[row + 1, column];
+					if (value?.Number is double number)
+					{
+						if (!double.IsFinite(number))
+							throw new ArgumentException("مقدار سلول خروجی اکسل معتبر نیست.");
+						cell.PutValue(number);
+					}
+					else
+					{
+						var text = value?.Text ?? string.Empty;
+						if (text.Length > 32767)
+							throw new ArgumentException("متن یک سلول از ظرفیت اکسل بیشتر است.");
+						// Keep formatted dates, leading zeros and formula-like text literally.
+						cell.PutValue(text, false);
+					}
+				}
+			}
+		}
 
 		private Task AddChunkDataToWorksheet(
 		    Worksheet worksheet,

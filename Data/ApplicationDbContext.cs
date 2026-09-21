@@ -258,9 +258,9 @@ public class ApplicationDbContext(
 
 
 	public DbSet<AuditLog> AuditLogs { get; set; }
-    public DbSet<AuditLogDetail> AuditLogDetails { get; set; }
-    public DbSet<JobLog> JobLogs { get; set; }
-    public virtual DbSet<User> Users { get; set; }
+     public DbSet<AuditLogDetail> AuditLogDetails { get; set; }
+     public DbSet<JobLog> JobLogs { get; set; }
+     public virtual DbSet<User> Users { get; set; }
 	public virtual DbSet<Role> Roles { get; set; }
 	public virtual DbSet<RoleAccess> RoleAccesses { get; set; }
 	public virtual DbSet<JobDefinition> JobDefinitions { get; set; }
@@ -271,10 +271,6 @@ public class ApplicationDbContext(
 	public virtual DbSet<SavedQuery> SavedQueries { get; set; }
 	public virtual DbSet<vw_PartDocumentPrice> vw_PartDocumentPrices { get; set; }
 	public virtual DbSet<vw_ProductItems> vw_ProductItems { get; set; }
-	public virtual DbSet<Vw_ServiceRequest_Detail> Vw_ServiceRequest_Details { get; set; }
-
-
-
-
+  
 
 }

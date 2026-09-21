@@ -1,0 +1,1266 @@
+[
+    {
+        "path":  "/panel/trn/agent/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/agent/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Agent",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/issue",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/listbycourseid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificate/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Certificate",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificateemaillog/listbycourseid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.CertificateEmailLog",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificateemaillog/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CertificateEmailLog",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificateemaillog/sendemail",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CertificateEmailLog",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificateemaillog/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.CertificateEmailLog",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/certificateemaillog/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CertificateEmailLog",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/company/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Company",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/listbycompanyid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/connectorparticipant/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.ConnectorParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursebank/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/listbycourseid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/coursecompanyparticipant/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseCompanyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/course/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Course",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/listbycourseid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseevaluation/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseEvaluation",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/listbycourseid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/courseparticipant/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.CourseParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/listbycompanyid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/keyparticipant/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.KeyParticipant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/checkduplicatename",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/participant/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.Participant",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/listbycompanyid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/phonebook/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.PhoneBook",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/listbyteacherbankid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbankattachment/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.TeacherBankAttachment",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/teacherbank/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.TeacherBank",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/save",
+        "actionAccessType":  2,
+        "actionAccessItemType":  3,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/add",
+        "actionAccessType":  2,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/update",
+        "actionAccessType":  2,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/delete",
+        "actionAccessType":  2,
+        "actionAccessItemType":  6,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/edit",
+        "actionAccessType":  1,
+        "actionAccessItemType":  5,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/new",
+        "actionAccessType":  1,
+        "actionAccessItemType":  4,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/list",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/listbycompanyid",
+        "actionAccessType":  1,
+        "actionAccessItemType":  1,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/getlistbyparentid",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/getmylist",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/exporttoexcel",
+        "actionAccessType":  2,
+        "actionAccessItemType":  null,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "/panel/trn/todolist/fetchdata",
+        "actionAccessType":  2,
+        "actionAccessItemType":  2,
+        "entityName":  "Entities.App.Trn.TodoList",
+        "rowId":  null,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_149",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.coursebank",
+        "rowId":  149,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_150",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.teacherbank",
+        "rowId":  150,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_151",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.agent",
+        "rowId":  151,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_152",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.company",
+        "rowId":  152,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_153",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.participant",
+        "rowId":  153,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_154",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.course",
+        "rowId":  154,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_155",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.teacherbankattachment",
+        "rowId":  155,
+        "roleId":  300000
+    },
+    {
+        "path":  "dataProfile_156",
+        "actionAccessType":  3,
+        "actionAccessItemType":  7,
+        "entityName":  "entities.app.trn.todolist",
+        "rowId":  156,
+        "roleId":  300000
+    }
+]

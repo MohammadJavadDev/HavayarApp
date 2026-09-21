@@ -1,0 +1,94 @@
+Page_ID	PageTitle	PageName	Report_FK	Page_Ordering
+91	تنظیمات فروش	Sale_Price_Config		2
+132	حواله های فروش	Sale_Order_Detail		4
+133	سریال حواله های فروش	Sale_Order_Detail_Serial		5
+134	حواله های برگشتی	Sale_Return_OrderDetail		6
+135	سریال حواله های برگشتی	Sale_Return_OrderDetail_Serial		7
+136	درخواست پشتیبانی	Sale_ServiceRequest		8
+137	مدیریت درخواست های پشتیبانی	Sale_ServiceRequest_Manage		9
+139	پیوست درخواست پشتیبانی	Sale_ServiceRequest_Attachment		10
+140	ماموریت	Sale_Mission		13
+141	حق ماموریت پرسنل	Sale_Personel_MissionSalary		3
+143	گزارش کار	Sale_Report		15
+144	پیوست گزارش کار	Sale_Report_Attachment		18
+147	درخواست کالا	Sale_ServiceRequest_Part		11
+148	فعالیت های ماموریت	Sale_Mission_Action		12
+151	مانیتورینگ فروش	Sale_Order_Detail_Serial_Public		14
+152	اقلام محصول پروژه	ProjectProduct_Item		16
+157	گزارشات خدمات پس از فروش	Sale_AllReport		21
+158	کارتابل مسئول منطقه	Sale_ServiceRequest_Kartabl		17
+159	پیوست محصولات	Sale_Order_Detail_Serial_View		19
+160	پیوست سریال محصولات	Sale_Order_Detail_Serial_Attachment		20
+173	گارانتی مجاز سفارش ساخت	Sale_AllowedGuarantee		22
+188			6	1
+189			7	2
+190			8	3
+191			9	4
+192			10	5
+193			11	6
+194			12	7
+195			13	8
+196			14	9
+197			16	10
+198			19	12
+199			20	13
+200			18	11
+206	گارانتی مجاز مشتریان	Sale_Customer_AllowedGuarantee		22
+207			21	14
+208			22	15
+211	سرویس دوره ای	Sale_ProductActivity		16
+212	جزئیات سرویس دوره ای	Sale_ProductActivity_Itm		17
+215	قیمت مصوب کالا	Sale_PartPrice		3
+217			23	16
+222	اختصاص قطعه به محصول	Sale_OrderDetail_Product		23
+234	سایت های مشتریان	Sale_Customer_Address		24
+237	استطاعت مشتریان	Sale_Customer_Forecast		25
+247	سفارشات فروشگاه اینترنتی	Sale_WebShop_Order		26
+258			24	17
+266	محصولات فروشی فروشگاه	Sale_WebdShop_SalablePart		19
+270	درخواست تعمیر	Sale_Rpr_RepairRequest		1
+271	اقلام مصرفی تعمیرات	Sale_Rpr_RepairRequest_Part		2
+277	توضیحات کارشناس تعمیرات	Sale_Rpr_RepairRequest_Comment		3
+278	نفر ساعت در تعمیرات	Sale_Rpr_RepairRequest_ManHours		4
+283	هزینه تقریبی تعمیرات	Sale_Rpr_EstimatedCost		5
+284	بازدید قبل از تعمیر	Sale_Rpr_InspectionBeforeRepair		6
+285	پیوست مدارک درخواست تعمیر	Sale_Rpr_RepairRequest_Attachment		7
+295	 	 	29	19
+301	وصول مطالبات	Sale_CollectionClaim		20
+302	پیوست وصول مطالبات	Sale_CollectionClaim_Attachment		21
+303	گزارش وصول مطالبات	SaleCollectionClaimPayFishReport		22
+304	کارتابل نمایندگی	Sale_AgencyCartable		23
+305	پیوست کارتابل نمایندگی	Sale_AgencyCartable_Attachment		24
+310	گزارش مانده حساب مشتری	Sale_DebtBalanceReport		25
+321	 	 	26	20
+322	 	 	27	26
+324	 	 	28	28
+329	گزارش جامع فروش	Sale_TotalReport		29
+356	مسئولین مناطق-خدمات پس از فروش	Sale_ResponsibleZone		29
+357	وصول مسئولین مناطق -خدمات پس از فروش	Sale_ResponsibleZoneReceipt		30
+358	داشبورد فروش	Sale_Dahsboard		31
+408	اقلام مصرفی پروژه (خدمات پس از فروش)	Sale_ProjectUtilizedMaterial		33
+413			30	20
+419	درخواست مشتریان	CustomerRequest		32
+440	قیمت فروش کالا (خدمات پس از فروش)	Sale_SalePrice	31	21
+442	گزارش شناسنامه تعمیر	Sale_RepairsReport	32	22
+451	گزارش هزینه تقریبی	Sale_EstimateCost	33	23
+452	گزتارش تاخیرات (خدمات پس از فروش)	Sale_RepairRequestDelaysReport		24
+461	درخواست اعزام کارشناس	SaleSendRequestExpert		23
+464	گزارش وضعیت پیمانکاران	Sale_ContractorsStatusReport	34	24
+467	گزارش فاکتور فروش و برگشت از فروش (خدمات)	SalesAndReturnSalesFactorsReport	35	26
+468	سفارش به پیمانکار	RepairRequestContractorOrder		27
+482	نقطه سفارش HY	Sale_OrderPoint		28
+493	مدیریت مناقصات خدمات پس از فروش	Sale_TenderManagement		1
+503	مدیریت تایید و رد مناقصات خدمات پس از فروش	Sale_TenderApproveQueue		2
+504	پرسش فنی	Sale_TQ		1
+505	مدیریت پرسش فنی	Sale_TQManagement		2
+516	مدیریت نمایشگاه	Sale_Exhibition		3
+517	مدیریت حضور در نمایشگاه	Sale_ExhibitionManagement		3
+518	کاردکس کالا نمایندگان (خدمات پس از فروش)	Sale_AgencyPartCardex		4
+539			36	18
+540	مدیریت کاربران نرم افزار موبایل	MobileAppUsersManagement		1
+544			37	19
+547	گزارش اقلام مصرفی در شناسنامه تعمیرها	Sale_ConsumableItemsReport	38	20
+548	گزارش نفرساعت تعمیرات	Sale_ConsumableItemsReport	39	20
+560	مانیتورینگ تجهیزات	Sale_EquipmentMonitoring		1

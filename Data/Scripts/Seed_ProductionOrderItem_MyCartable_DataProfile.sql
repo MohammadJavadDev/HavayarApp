@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 نمایه داده «کارتابل من» برای اقلام سفارش ساخت (Sale.ProductionOrderItem)
 ================================================================================
@@ -40,7 +40,7 @@ BEGIN TRY
 
     DECLARE @Now DATETIME2 = GETDATE();
     DECLARE @NowShamsi NVARCHAR(30) = CONVERT(NVARCHAR(30), @Now, 120);
-    DECLARE @SeedUser NVARCHAR(150) = N'seed-poi-mycartable';
+    DECLARE @SeedUser NVARCHAR(150) = N'seed-poi-mycartable-hts-align';
 
     -----------------------------------------------------------------------------
     -- 1) بازیابی نمایه پایه (Id = 104) برای استخراج ستون‌ها/Joinهای آماده
@@ -55,7 +55,9 @@ BEGIN TRY
     IF @BaseQueryJson IS NULL
         THROW 51000, N'نمایه پایه (SavedQuery Id=104) یافت نشد؛ عملیات متوقف شد.', 1;
 
-    DECLARE @BaseCustomQuery NVARCHAR(MAX) = JSON_VALUE(@BaseQueryJson, '$.CustomQuery');
+    DECLARE @BaseCustomQuery NVARCHAR(MAX);
+    SELECT @BaseCustomQuery = CustomQuery
+    FROM OPENJSON(@BaseQueryJson) WITH (CustomQuery NVARCHAR(MAX) '$.CustomQuery');
 
     IF @BaseCustomQuery IS NULL OR LEN(@BaseCustomQuery) = 0
         THROW 51001, N'CustomQuery نمایه پایه (Id=104) خالی است؛ عملیات متوقف شد.', 1;
@@ -63,6 +65,11 @@ BEGIN TRY
     -- رفع اشکالِ از پیش موجود در ۱۰۴/کپی‌های آن: ستون «نام مدیر پروژه» به‌اشتباه
     -- به Alias کارشناس فروش (t6) متصل بود؛ در نمایه جدید به‌درستی به t9 وصل می‌شود.
     SET @BaseCustomQuery = REPLACE(@BaseCustomQuery, N'[t6].[Name] AS [t9_Name]', N'[t9].[Name] AS [t9_Name]');
+
+    -- اگر 104 WHERE صنعتی (اطلاعات ما) داشته باشد آن را جدا کن تا کارتابل من دو WHERE نگیرد.
+    IF CHARINDEX(N'WHERE [t1].[IsDeleted]', @BaseCustomQuery) > 0
+        SET @BaseCustomQuery = LEFT(@BaseCustomQuery, CHARINDEX(N'WHERE [t1].[IsDeleted]', @BaseCustomQuery) - 1);
+    SET @BaseCustomQuery = RTRIM(@BaseCustomQuery);
 
     -----------------------------------------------------------------------------
     -- 2) شناسه Roleهای مرتبط با هر کارتابل (باید از قبل موجود باشند - این اسکریپت
@@ -99,7 +106,6 @@ SELECT @CuRoles = Roles, @CuRoleIds = RoleIds FROM system.[User] WHERE Id = @CuI
 
 DECLARE @IsAdmin BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoles) WHERE [value] = N''admin'') THEN 1 ELSE 0 END;
 DECLARE @HasShowAll BIT = CASE WHEN @IsAdmin = 1 OR EXISTS (SELECT 1 FROM OPENJSON(@CuRoleIds) WHERE TRY_CAST([value] AS BIGINT) = ' + CAST(@RoleShowAll AS NVARCHAR(20)) + N') THEN 1 ELSE 0 END;
-DECLARE @HasFinancial BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoleIds) WHERE TRY_CAST([value] AS BIGINT) = ' + CAST(@RoleFinancial AS NVARCHAR(20)) + N') THEN 1 ELSE 0 END;
 DECLARE @HasIndustrial BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoleIds) WHERE TRY_CAST([value] AS BIGINT) = ' + CAST(@RoleIndustrial AS NVARCHAR(20)) + N') THEN 1 ELSE 0 END;
 DECLARE @HasEngMech BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoleIds) WHERE TRY_CAST([value] AS BIGINT) = ' + CAST(@RoleEngMechanical AS NVARCHAR(20)) + N') THEN 1 ELSE 0 END;
 DECLARE @HasEngElec BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoleIds) WHERE TRY_CAST([value] AS BIGINT) = ' + CAST(@RoleEngElectrical AS NVARCHAR(20)) + N') THEN 1 ELSE 0 END;
@@ -114,72 +120,91 @@ DECLARE @HasCommittee BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoleIds)
     -- 4) WHERE نهایی کارتابل - بر اساس CheckStatus/ProductionStep واقعی و اکشن‌های
     --    مجاز در ProductionOrderItemController (نگاشت کامل در کامنت‌های زیر)
     -----------------------------------------------------------------------------
+    -- نکته: «کارتابل من» فقط اقلامِ منتظر اقدامِ خود کاربر است؛ Admin/ShowAll عمداً شاخه جدا ندارند (همه‌فعال را در
+    -- POI_All_Active می‌بینند). مهندسی مکانیک/برق مطابق نسخه زنده DB (2026-08-07) به تاییدکننده تجهیز
+    -- (Pln.ProductionOrderEquipmentConfirmer) حساس است: اگر برای نوع دستگاه تاییدکننده تعریف شده باشد فقط همان
+    -- کاربر می‌بیند؛ وگرنه هر کاربر با نقش مهندسی همان رشته.
     DECLARE @WhereClause NVARCHAR(MAX) = N'
 WHERE
     [t1].[IsDeleted] = 0
     AND [t1].[IsLatestVersion] = 1
     AND (
-        -- کارتابل صنایع (داخلی ۱۹۰۴ / خارجی ۱۹۰۵): AcceptIndustrial کلید CheckStatus را
-        -- تغییر نمی‌دهد، فقط ProductionStep را به AwaitingProduction(214) می‌برد؛ بنابراین
-        -- فقط اقلامی که هنوز مسیریابی‌نشده (ProductionStep=0) یا صراحتاً در انتظار صنایع
-        -- (ProductionStep=2744) هستند واقعاً «در انتظار اقدام» محسوب می‌شوند (نه هزاران قلم
-        -- قدیمی که سال‌ها پیش تحویل/ارسال شده‌اند ولی هنوز CheckStatus=1904 دارند).
-        -- طبق SendToInquiry/SendToMinistryReview/SendToSupplyCommittee، صنایع، استعلام،
-        -- وزارت صنایع و رئیس کمیته هرکدام می‌توانند از همین وضعیت اقدام کنند. Admin/ShowAll
-        -- نیز همین مجموعه (نه کل اقلام فعال) را می‌بیند.
+        -- کارتابل صنایع (داخلی ۱۹۰۴ / خارجی ۱۹۰۵): مثل HTS، صنایع «تأیید» جدایی ندارد و قلم را ویرایش می‌کند
+        -- (مرحله ساخت/سریال/تاریخ‌ها). فقط اقلامی که هنوز مسیریابی‌نشده (ProductionStep=0) یا صراحتاً در انتظار
+        -- صنایع (ProductionStep=2744) هستند «در انتظار اقدام» محسوب می‌شوند (نه هزاران قلم قدیمی تحویل‌شده).
+        -- ارسال به استعلام/وزارت از این کارتابل حذف شد (فقط رئیس کمیته روی ۲۲۰۲/۱۹۰۹ — عین HTS).
         (
-            (@HasShowAll = 1 OR @HasIndustrial = 1 OR @HasInquirer = 1 OR @HasMinistry = 1 OR @HasCommittee = 1)
+            @HasIndustrial = 1
             AND [t1].[CheckStatus] IN (1904, 1905)
             AND ([t1].[ProductionStep] = 2744 OR [t1].[ProductionStep] = 0)
         )
 
-        -- کارتابل مهندسی مکانیک: CheckStatus=2195 با DeviceType غیر برقی
+        -- کارتابل مهندسی مکانیک: CheckStatus=2195 با DeviceType غیر برقی؛ تاییدکننده مکانیک همان نوع دستگاه
+        -- (یا در نبود تنظیم تاییدکننده، هر کاربر با نقش مهندسی مکانیک)
         OR (
-            (@HasShowAll = 1 OR @HasEngMech = 1)
-            AND [t1].[CheckStatus] = 2195
+            [t1].[CheckStatus] = 2195
             AND ([t1].[DeviceType] IS NULL OR [t1].[DeviceType] NOT IN (2403, 2404, 2212, 2211))
+            AND (
+                EXISTS (
+                    SELECT 1 FROM [Pln].[ProductionOrderEquipmentConfirmer] pec
+                    WHERE pec.[DeviceType] = [t1].[DeviceType] AND pec.[MechanicalUserId] = @CuId
+                )
+                OR (
+                    @HasEngMech = 1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM [Pln].[ProductionOrderEquipmentConfirmer] pec2
+                        WHERE pec2.[DeviceType] = [t1].[DeviceType] AND pec2.[MechanicalUserId] IS NOT NULL
+                    )
+                )
+            )
         )
 
-        -- کارتابل مهندسی برق: CheckStatus=2195 با DeviceType برقی (تابلو کنترل/برق/اینورتر/سکوئنسر)
+        -- کارتابل مهندسی برق: CheckStatus=2195 با DeviceType برقی (تابلو کنترل/برق/اینورتر/سکوئنسر)؛ تاییدکننده برق
         OR (
-            (@HasShowAll = 1 OR @HasEngElec = 1)
-            AND [t1].[CheckStatus] = 2195
+            [t1].[CheckStatus] = 2195
             AND [t1].[DeviceType] IN (2403, 2404, 2212, 2211)
+            AND (
+                EXISTS (
+                    SELECT 1 FROM [Pln].[ProductionOrderEquipmentConfirmer] pec
+                    WHERE pec.[DeviceType] = [t1].[DeviceType] AND pec.[ElectricalUserId] = @CuId
+                )
+                OR (
+                    @HasEngElec = 1
+                    AND NOT EXISTS (
+                        SELECT 1 FROM [Pln].[ProductionOrderEquipmentConfirmer] pec2
+                        WHERE pec2.[DeviceType] = [t1].[DeviceType] AND pec2.[ElectricalUserId] IS NOT NULL
+                    )
+                )
+            )
         )
 
         -- کارتابل مدیر پروژه: نقش عمومی AcceptProjectManager یا مدیر پروژه واقعیِ همان
         -- سفارش ساخت (Sale.ProductionOrder.ProjectManagerId = شناسه شخص جاری)
         OR (
-            (@HasShowAll = 1 OR @HasPM = 1 OR [t2].[ProjectManagerId] = @CuId)
+            (@HasPM = 1 OR [t2].[ProjectManagerId] = @CuId)
             AND [t1].[CheckStatus] = 2258
         )
 
-        -- نیاز به استعلام (۱۹۰۶): طبق SendToSupplyCommittee، استعلام‌گر/وزارت صنایع/رئیس
-        -- کمیته هرکدام می‌توانند اقدام بعدی را انجام دهند
+        -- نیاز به استعلام (۱۹۰۶): فقط استعلام‌گر (Pln_Inquirer در HTS) نتیجه را به کمیته برمی‌گرداند
         OR (
-            (@HasShowAll = 1 OR @HasInquirer = 1 OR @HasMinistry = 1 OR @HasCommittee = 1)
+            @HasInquirer = 1
             AND [t1].[CheckStatus] = 1906
         )
 
-        -- نیاز به بررسی وزارت صنایع (۱۹۰۸): طبق SendToSupplyCommittee
+        -- نیاز به بررسی وزارت صنایع (۱۹۰۸): فقط استعلام‌گر وزارت (Pln_MinistryOfIndustryInquirer در HTS)
         OR (
-            (@HasShowAll = 1 OR @HasMinistry = 1 OR @HasInquirer = 1 OR @HasCommittee = 1)
+            @HasMinistry = 1
             AND [t1].[CheckStatus] = 1908
         )
 
-        -- در کارتابل رئیس کمیته تامین (۱۹۰۹ / ۲۲۰۲): فقط CommitteeAccept/CommitteeReject
-        -- که منحصراً نیازمند SupplyCommitteeBoss است
+        -- در کارتابل رئیس کمیته تامین (۱۹۰۹ / ۲۲۰۲): تصمیم کمیته (CommitteeDecide) که منحصراً نیازمند
+        -- SupplyCommitteeBoss است — مقصد ۱۹۰۴/۱۹۰۵/۱۹۰۶/۱۹۰۸ (عین HTS)
         OR (
-            (@HasShowAll = 1 OR @HasCommittee = 1)
+            @HasCommittee = 1
             AND [t1].[CheckStatus] IN (1909, 2202)
         )
 
-        -- سرفصل سفارش ساخت منتظر تایید مالی (State=2/FinancialUnitReview) - این عملیات از
-        -- صفحه سرفصل به صفحه اقلام منتقل شده، بنابراین اقلام همان سفارش‌ها اینجا نمایش داده می‌شود
-        OR (
-            (@HasShowAll = 1 OR @HasFinancial = 1)
-            AND [t2].[State] = 2
-        )
+        -- تایید مالی سربرگ (State=2) دیگر در پنل انجام نمی‌شود (فقط راهکاران — تصمیم 2026-09-17)؛ شاخه آن حذف شد.
     )';
 
     DECLARE @FinalCustomQuery NVARCHAR(MAX) = @DeclareBlock + @BaseCustomQuery + @WhereClause;
@@ -249,7 +274,6 @@ WHERE
     DECLARE @CartableRoles TABLE (RoleId BIGINT);
     INSERT INTO @CartableRoles (RoleId) VALUES
         (@RoleShowAll),
-        (@RoleFinancial),
         (@RoleIndustrial),
         (@RoleEngMechanical),
         (@RoleEngElectrical),

@@ -1,0 +1,122 @@
+@using Entities.App.Trn
+@using WebApp.Controllers.Dynamic
+@model CertificateEmailLogListByParentViewModel
+
+@{
+     var tableId = "certificateEmailLogTable_" + Model.CourseId;
+}
+
+<div class="card" id="certificateEmailLogListPage" data-course-id="@Model.CourseId">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">
+               <i class="fa fa-envelope ms-2"></i>
+               لاگ ارسال ایمیل گواهی (@Model.CourseTitle)
+          </h5>
+     </div>
+     <div class="card-body">
+          <table id="@tableId" class="table table-striped table-row-bordered gy-2 w-100">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>گیرنده</th>
+                         <th>شماره گواهی</th>
+                         <th>وضعیت</th>
+                         <th>پیام نتیجه</th>
+                         <th>تاریخ</th>
+                         <th style="width:120px;">عملیات</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
+     </div>
+</div>
+<script>
+     const tableSelector = '#@tableId';
+     const listApiUrl = '/Panel/Trn/CertificateEmailLog/GetListByParentId?courseId=@Model.CourseId';
+
+     function escapeHtml(text) {
+          if (text === null || text === undefined) return '-';
+          return String(text)
+               .replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;');
+     }
+
+     // "ارسال مجدد" — همیشه یک ردیف لاگ جدید می‌سازد، تاریخچه بازنویسی نمی‌شود.
+     function resendEmail(logId) {
+          Swal.fire({
+               title: 'ارسال مجدد',
+               text: 'ارسال ایمیل مجدداً تلاش شود؟',
+               icon: 'question',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+
+               $$.post('/Panel/Trn/CertificateEmailLog/SendEmail', { logId: logId }, function (response) {
+                    if (!response || response.isSuccess === false) {
+                         toastr.error((response && response.message) || 'خطا در ارسال ایمیل');
+                         return;
+                    }
+                    const log = response.data;
+                    if (log && log.isSuccess) {
+                         toastr.success('ایمیل با موفقیت ارسال شد');
+                    } else {
+                         toastr.error((log && log.resultMessage) || 'ارسال ناموفق بود — لاگ ثبت شد');
+                    }
+                    reloadLogList();
+               });
+          });
+     }
+
+     function reloadLogList() {
+          const dt = window['@tableId'];
+          if (dt && dt.ajax) {
+               dt.ajax.reload(null, false);
+          }
+     }
+
+     const table = $$(tableSelector).DataTable({
+          serverSide: false,
+          autoWidth: false,
+          scrollX: true,
+          pageLength: 10,
+          lengthMenu: [[5, 10, 25, 50, -1], [5, 10, 25, 50, 'همه']],
+          order: [[4, 'desc']],
+          language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+          ajax: {
+               url: listApiUrl,
+               type: 'GET',
+               dataSrc: function (json) {
+                    if (json && json.isSuccess === false) {
+                         toastr.error(json.message || 'خطا در دریافت اطلاعات');
+                         return [];
+                    }
+                    return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+               }
+          },
+          columns: [
+               { data: 'recipientEmail', render: function (d) { return escapeHtml(d); } },
+               { data: 'certificateNo', render: function (d) { return escapeHtml(d); } },
+               { data: 'isSuccess', render: function (d) { return d ? '<span class="badge badge-light-success">موفق</span>' : '<span class="badge badge-light-danger">ناموفق</span>'; } },
+               { data: 'resultMessage', render: function (d) { return escapeHtml(d); } },
+               { data: 'createdOnShamsiDateTime', render: function (d) { return escapeHtml(d); } },
+               {
+                    data: null,
+                    orderable: false,
+                    className: 'text-center',
+                    render: function (d, t, row) {
+                         if (row.isSuccess) return '-';
+                         return '<button type="button" class="btn btn-sm btn-icon btn-light-success btn-resend-row" data-id="' + row.id + '" title="ارسال مجدد"><i class="fa fa-redo"></i></button>';
+                    }
+               }
+          ]
+     });
+
+     window['@tableId'] = table;
+
+     $$(tableSelector).on('click', '.btn-resend-row', function () {
+          resendEmail($(this).data('id'));
+     });
+</script>

@@ -1979,7 +1979,233 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
 
 	return table;
 }
- 
+
+var DT_PAGE_FIT_MIN_BODY = 140;
+var DT_PAGE_FIT_STICKY_PX = 2;
+
+function isDataTableViewportFitTarget($el) {
+	return !$el.closest('[data-entitySelectCard="true"]').length;
+}
+
+function getDataTableScrollBody($container) {
+	return $container.find('div.dt-scroll-body').first();
+}
+
+function getDataTableBottomChromeHeight($container) {
+	const $paging = $container.find('.dt-paging').first();
+	const $row = $paging.length
+		? $paging.closest('.dt-layout-row')
+		: $container.children('.dt-layout-row').last();
+	if (!$row.length) return 52;
+	return Math.ceil($row.outerHeight(true)) || 52;
+}
+
+function getDataTableViewportFitGap($scrollBody) {
+	let gap = 8;
+	const $pages = $scrollBody.closest('#pagesContainer');
+	if ($pages.length) {
+		gap += parseFloat(window.getComputedStyle($pages[0]).paddingBottom) || 16;
+	}
+	const $cardBody = $scrollBody.closest('.card-body');
+	if ($cardBody.length) {
+		gap += parseFloat(window.getComputedStyle($cardBody[0]).paddingBottom) || 0;
+	}
+	const $card = $scrollBody.closest('.card');
+	if ($card.length) {
+		gap += parseFloat(window.getComputedStyle($card[0]).marginBottom) || 0;
+	}
+	return Math.ceil(gap);
+}
+
+function estimateDataTableScrollY($el) {
+	if (!isDataTableViewportFitTarget($el)) return '70vh';
+	const node = $el && $el[0];
+	if (!node || typeof node.getBoundingClientRect !== 'function') return '50vh';
+	const top = node.getBoundingClientRect().top;
+	if (top <= 0) return '50vh';
+	const reserved = 180;
+	return Math.max(DT_PAGE_FIT_MIN_BODY, Math.floor(window.innerHeight - top - reserved)) + 'px';
+}
+
+function calcDataTableBodyHeight(table) {
+	const $container = $(table.table().container());
+	const $scrollBody = getDataTableScrollBody($container);
+	if (!$scrollBody.length) return null;
+
+	const el = $scrollBody[0];
+	if (!el.getClientRects().length) return null;
+
+	const top = el.getBoundingClientRect().top;
+	const bottomH = getDataTableBottomChromeHeight($container);
+	const gap = getDataTableViewportFitGap($scrollBody);
+	return Math.max(
+		DT_PAGE_FIT_MIN_BODY,
+		Math.floor(window.innerHeight - top - bottomH - gap)
+	);
+}
+
+function applyDataTableBodyHeight(table, height) {
+	const $container = $(table.table().container());
+	const $scrollBody = getDataTableScrollBody($container);
+	if (!$scrollBody.length) return false;
+
+	const currentMax = parseInt($scrollBody.css('max-height'), 10);
+	const currentH = parseInt($scrollBody.css('height'), 10);
+	if (currentMax === height && currentH === height) return false;
+
+	const px = height + 'px';
+	const settings = table.settings()[0];
+	if (settings && settings.oScroll) {
+		settings.oScroll.sY = px;
+	}
+	$scrollBody.css({
+		maxHeight: px,
+		height: px
+	});
+	return true;
+}
+
+function bindDataTablePageFit(table) {
+	const $container = $(table.table().container());
+	if (!$container.length) return;
+	if ($container.closest('[data-entitySelectCard="true"]').length) return;
+
+	$container.addClass('dt-page-fit');
+
+	let fitting = false;
+	let raf = 0;
+	let lastHeight = null;
+	let destroyed = false;
+
+	function applyFit() {
+		if (fitting || destroyed) return;
+		const height = calcDataTableBodyHeight(table);
+		if (height == null) return;
+		if (lastHeight != null && Math.abs(lastHeight - height) < DT_PAGE_FIT_STICKY_PX) return;
+
+		fitting = true;
+		lastHeight = height;
+		const changed = applyDataTableBodyHeight(table, height);
+		if (changed) {
+			try { table.columns.adjust(); } catch (_) { /* ignore */ }
+		}
+		fitting = false;
+	}
+
+	function scheduleFit() {
+		if (destroyed) return;
+		if (raf) cancelAnimationFrame(raf);
+		raf = requestAnimationFrame(function () {
+			raf = 0;
+			applyFit();
+		});
+	}
+
+	window.addEventListener('resize', scheduleFit);
+
+	const $card = $container.closest('.card');
+	const $collapse = $card.find('[data-place=searchBuilderCollapse]');
+	$collapse.on('shown.bs.collapse.dtPageFit hidden.bs.collapse.dtPageFit', function () {
+		lastHeight = null;
+		scheduleFit();
+	});
+
+	const $page = $container.closest('.tab-pane, [data-sys="system-tab"]');
+	$page.on('page:activated.dtPageFit', function () {
+		lastHeight = null;
+		scheduleFit();
+	});
+
+	let ro = null;
+	if (typeof ResizeObserver !== 'undefined') {
+		ro = new ResizeObserver(function () { scheduleFit(); });
+		const head = $container.find('.dt-scroll-head')[0];
+		if (head) ro.observe(head);
+		if ($page.length) ro.observe($page[0]);
+	}
+
+	table.on('draw.dtPageFit', scheduleFit);
+	table.on('destroy.dtPageFit', function () {
+		destroyed = true;
+		window.removeEventListener('resize', scheduleFit);
+		$collapse.off('.dtPageFit');
+		$page.off('page:activated.dtPageFit');
+		table.off('.dtPageFit');
+		if (ro) ro.disconnect();
+		if (raf) cancelAnimationFrame(raf);
+	});
+
+	scheduleFit();
+	setTimeout(function () {
+		if (destroyed) return;
+		lastHeight = null;
+		scheduleFit();
+	}, 0);
+}
+
+// Export the display result, not the raw value or the renderer's sort/filter result.
+function dataProfileExportCellValue(value) {
+	if (value == null) return '';
+	if (typeof value === 'number' && Number.isFinite(value)) return value;
+	if (typeof value === 'boolean') return String(value);
+	const template = document.createElement('template');
+	if (value.nodeType) template.content.appendChild(value.cloneNode(true));
+	else template.innerHTML = String(value);
+	template.content.querySelectorAll('script, style, [hidden], .d-none').forEach(el => el.remove());
+	template.content.querySelectorAll('br').forEach(el => el.replaceWith('\n'));
+	return template.content.textContent || '';
+}
+
+async function buildDataProfileDisplayExport(table, columns, request, fetchUrl) {
+	const settings = table.settings()[0];
+	const exportColumns = settings.aoColumns.map((column, index) => ({ column, index }))
+		.filter(({ column }) => column.bVisible !== false
+			&& !['button', 'rowSelect'].includes(column.type || column.sType)
+			&& column.data !== '_rowSelect' && column.customColType !== 'button');
+	if (!exportColumns.length) throw new Error('هیچ ستون قابل نمایشی برای خروجی وجود ندارد.');
+	const result = {
+		headers: exportColumns.map(({ column }) => String(dataProfileExportCellValue(column.sTitle || column.title || ''))),
+		rows: []
+	};
+	// Take a snapshot: exporting must not change the live table's page, filters or selection.
+	const exportRequest = JSON.parse(JSON.stringify(request));
+	delete exportRequest.displayExport;
+	const renderSettings = { ...settings, _iDisplayStart: 0 };
+	let total = null;
+	do {
+		exportRequest.start = result.rows.length;
+		exportRequest.length = total === null ? 1000 : Math.min(1000, total - result.rows.length);
+		const response = await $.ajax({
+			url: fetchUrl, method: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify(exportRequest)
+		});
+		if (!response?.isSuccess) throw new Error(response?.message || 'خطا در دریافت داده‌های خروجی اکسل.');
+		const page = response.data;
+		const count = Number(page?.recordsFiltered);
+		if (!Array.isArray(page?.data) || !Number.isSafeInteger(count) || count < 0)
+			throw new Error('پاسخ دریافت داده‌های خروجی اکسل معتبر نیست.');
+		if (count > 1048575) throw new Error('تعداد ردیف‌ها از ظرفیت اکسل بیشتر است؛ فیلترها را محدود کنید.');
+		if (total !== null && count !== total)
+			throw new Error('داده‌ها هنگام تهیه خروجی تغییر کردند؛ دوباره تلاش کنید.');
+		total = count;
+		if ((page.data.length === 0 && result.rows.length < total) || result.rows.length + page.data.length > total)
+			throw new Error('دریافت همه ردیف‌های خروجی اکسل کامل نشد.');
+
+		const rows = _processRows(page.data, columns);
+		rows.forEach(row => {
+			const rowIndex = result.rows.length;
+			result.rows.push(exportColumns.map(({ column, index }) => {
+				const meta = { settings: renderSettings, row: rowIndex, col: index };
+				let value = column.fnGetData(row, 'display', meta);
+				if (value === undefined || (value === null && column.sDefaultContent !== null)
+					|| value === row) value = column.sDefaultContent;
+				if (typeof value === 'function') value = value.call(row);
+				return dataProfileExportCellValue(value);
+			}));
+		});
+	} while (result.rows.length < total);
+	return result;
+}
 
 function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton = true) {
 	 
@@ -2053,7 +2279,7 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	let fetchUrl = "/System/FetchDataProfile";
 	let exportPath = "/System/ExportToExcelProfile";
 
-	let searchBuilderCollapseId = $el.parent().parent()
+	let searchBuilderCollapseId = $el.closest(".card")
 		.find("[data-place=searchBuilderCollapse]").attr("id");
 
 	let dataProfileSelector = $el.closest(".card").find(`[data-action=dataProfile]`);
@@ -2064,6 +2290,10 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	if (dataProfileSelector.data("exportExcell-path")?.length > 0) {
 		exportPath = dataProfileSelector.data("exportExcell-path");
+	}
+
+	if (dataProfileSelector.data("fetchPath")?.length > 0) {
+		fetchUrl = dataProfileSelector.data("fetchPath");
 	}
 
 	let canNew = !!(newPath && newPath.length > 0);
@@ -3663,13 +3893,17 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	 
 	 
 	let order = [];
-	columns.filter(c => c.sortOrder && c.sortable !== false).forEach(c => {
-		order.push({ name: c.name, dir: c.sortOrder === 1 ? 'DESC' : 'ASC' });
+	columns.forEach((c, i) => {
+		if (c.type === 'rowNumber' || c.type === 'rowSelect') return;
+		if (c.sortable === false) return;
+		if (c.sortOrder == null && c.sortDirection == null) return;
+		const desc = c.sortOrder === 1 || c.sortDirection === 1;
+		order.push([i, desc ? 'desc' : 'asc']);
 	});
 
 	var table = new DataTable($el, {
 		rowCallback: function (row, data) {
-			debugger
+			 
 			const $row = $(row);
 			const rowIndex = table.row(row).index();
 
@@ -3735,8 +3969,12 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 			table.clearAllColumnFilters = api.clearAllColumnFilters;
 
 			// searchBuilder container
-			const sb = api.searchBuilder.container();
-			$('body').find(`#${searchBuilderCollapseId}`).append(sb);
+			const $sbHost = searchBuilderCollapseId
+				? $(document.getElementById(searchBuilderCollapseId))
+				: $();
+			if ($sbHost.length) {
+				$sbHost.append(api.searchBuilder.container());
+			}
 		},
 	 
 		order,
@@ -3845,11 +4083,11 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		},
 		"columns": columns,
 		fixedColumns: false,
-		scrollCollapse: true,
+		scrollCollapse: !isDataTableViewportFitTarget($el),
 		scrollX: true,
 		autoWidth: false,
 		pageLength:50,
-		scrollY: '70vh',
+		scrollY: estimateDataTableScrollY($el),
 		colResize: {
 			isEnabled: true,
 			resize: true,   
@@ -4081,33 +4319,46 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 		$drawBtn.on('click', () => table.draw());
 
-		$exportEcellBtn.on('click', function () {
+		$exportEcellBtn.on('click', async function () {
+			if ($exportEcellBtn.data('exporting') || $exportEcellBtn.attr('forcedisabled') === 'true') return;
+			$exportEcellBtn.data('exporting', true);
 			const $btn = $(this).block();
-			$.ajax({
-				url: exportPath,
-				method: 'POST',
-				data: JSON.stringify(dataTableRequest),
-				contentType: 'application/json',
-				xhrFields: { responseType: 'blob' },
-				success: (data, status, xhr) => {
-					const blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
-					let filename = "download.xlsx";
-					const cd = xhr.getResponseHeader('Content-Disposition');
-					if (cd) {
-						const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(cd);
-						if (m?.[1]) filename = m[1].replace(/['"]/g, '');
+			try {
+				const request = JSON.parse(JSON.stringify(dataTableRequest));
+				request.displayExport = await buildDataProfileDisplayExport(table, columns, request, fetchUrl);
+				// Typed text fields prevent the server JSON reader from coercing ISO dates.
+				request.displayExport.rows = request.displayExport.rows.map(row => row.map(value =>
+					typeof value === 'number' ? { number: value } : { text: value }));
+				await $.ajax({
+					url: exportPath,
+					method: 'POST',
+					data: JSON.stringify(request),
+					contentType: 'application/json',
+					xhrFields: { responseType: 'blob' },
+					success: (data, status, xhr) => {
+						const blob = new Blob([data], { type: xhr.getResponseHeader('Content-Type') });
+						let filename = "download.xlsx";
+						const cd = xhr.getResponseHeader('Content-Disposition');
+						if (cd) {
+							const m = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(cd);
+							if (m?.[1]) filename = m[1].replace(/['"]/g, '');
+						}
+						const a = document.createElement('a');
+						a.href = URL.createObjectURL(blob);
+						a.download = filename;
+						document.body.appendChild(a);
+						a.click();
+						document.body.removeChild(a);
+						URL.revokeObjectURL(a.href);
 					}
-					const a = document.createElement('a');
-					a.href = URL.createObjectURL(blob);
-					a.download = filename;
-					document.body.appendChild(a);
-					a.click();
-					document.body.removeChild(a);
-					URL.revokeObjectURL(a.href);
-					$btn.block(false);
-				},
-				error: () => { $btn.block(false); alert("خطا در دانلود فایل"); }
-			});
+				});
+			} catch (error) {
+				console.error('Data profile Excel export failed:', error);
+				toastr.error(error?.message || 'خطا در ایجاد یا دانلود فایل اکسل.', 'خطا');
+			} finally {
+				$btn.block(false);
+				$exportEcellBtn.removeData('exporting');
+			}
 		});
 
 		$newBtn.on('click', () => appController.addPage(newPath));
@@ -4165,6 +4416,8 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 		$drawBtn.parent().parent().parent().addClass("datatabel-action-btns");
 		appController.createBootstrapTooltips();
+		bindDataTablePageFit(table);
+		bindDataTableCellTooltips(table);
 	});
 
 	$.fn.dataTable.ext.errMode = (settings, helpPage, message) => {
@@ -4173,6 +4426,183 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	return table;
 }
+
+/**
+ * نمایش متن کامل سلول‌های بریده‌شده (nowrap) به‌صورت تولتیپ هنگام hover روی td
+ * تولتیپ فقط برای سلولی که واقعاً overflow دارد و محتوای تعاملی ندارد ساخته می‌شود
+ * و بعد از خروج موس / draw مجدد از بین می‌رود تا نمونه‌ای در حافظه باقی نماند.
+ * @param {DataTables.Api} table
+ */
+function bindDataTableCellTooltips(table) {
+	if (!table || typeof table.table !== 'function') return;
+
+	const $container = $(table.table().container());
+	if (!$container.length || $container.data('cellTooltipBound')) return;
+	$container.data('cellTooltipBound', true);
+
+	const hasBootstrapTooltip = typeof bootstrap !== 'undefined' && bootstrap && bootstrap.Tooltip;
+	let activeEl = null;
+
+	const disposeActive = () => {
+		if (!activeEl) return;
+		const el = activeEl;
+		activeEl = null;
+		if (!hasBootstrapTooltip) {
+			el.removeAttribute('title');
+			return;
+		}
+		try {
+			bootstrap.Tooltip.getInstance(el)?.dispose();
+		} catch (_) { /* ignore */ }
+	};
+
+	const isTruncated = (el) =>
+		el.scrollWidth > el.clientWidth + 1
+		|| $(el).children().toArray().some(ch => ch.scrollWidth > ch.clientWidth + 1);
+
+	$container.on('mouseenter.dtCellTooltip', 'tbody td', function () {
+		disposeActive();
+
+		if (this.querySelector('button, input, select, textarea, a')) return;
+		if (!isTruncated(this)) return;
+
+		const text = (this.textContent || '').trim();
+		if (!text) return;
+
+		activeEl = this;
+
+		if (!hasBootstrapTooltip) {
+			this.setAttribute('title', text);
+			return;
+		}
+
+		try {
+			const tp = new bootstrap.Tooltip(this, {
+				title: text,
+				trigger: 'manual',
+				container: 'body',
+				placement: 'top',
+				customClass: 'dt-cell-tooltip',
+				html: false
+			});
+			tp.show();
+		} catch (_) {
+			activeEl = null;
+			this.setAttribute('title', text);
+		}
+	});
+
+	$container.on('mouseleave.dtCellTooltip', 'tbody td', disposeActive);
+	table.on('draw.dtCellTooltip preDraw.dtCellTooltip', disposeActive);
+	table.on('destroy.dtCellTooltip', () => {
+		disposeActive();
+		$container.off('.dtCellTooltip').removeData('cellTooltipBound');
+	});
+}
+
+/**
+ * رندر سلول متنی برای جداول سفارشی (غیر Data Profile): یک خط + ellipsis.
+ * برای sort/filter مقدار خام برمی‌گردد.
+ * ستون عملیات را با className: 'text-center' یا 'dt-ellipsis-skip' جدا کنید.
+ */
+function renderEllipsisCell(data, type) {
+	if (type && type !== 'display' && type !== 'type')
+		return data == null ? '' : data;
+	const text = (data == null || data === '') ? '-' : String(data);
+	return '<span class="dt-ellipsis-cell">' + $('<div>').text(text).html() + '</span>';
+}
+
+function hideEmbeddedTableCellTooltip() {
+	$('.dt-ellipsis-cell-tooltip').remove();
+}
+
+/**
+ * تولتیپ متن کامل برای جداول سفارشی. به bindDataTableCellTooltips (Data Profile) وابسته نیست.
+ *
+ * استفاده:
+ *   1) ستون‌های متنی: render: renderEllipsisCell  (اختیاری؛ بدون آن هم متن ساده wrap می‌شود)
+ *   2) بعد از DataTable: bindEmbeddedTableCellTooltips(table)
+ *   3) کلاس ellipsis-tooltip-table روی table اضافه می‌شود
+ *
+ * @param {DataTables.Api|string|Element|JQuery} tableOrSelector
+ * @param {{ skipSelector?: string, autoWrap?: boolean }} [options]
+ */
+function bindEmbeddedTableCellTooltips(tableOrSelector, options) {
+	const opts = options || {};
+	const skipSelector = opts.skipSelector || 'td.text-center, td.dt-ellipsis-skip';
+	const autoWrap = opts.autoWrap !== false;
+
+	let dtApi = null;
+	let $table;
+	if (tableOrSelector && typeof tableOrSelector.table === 'function') {
+		dtApi = tableOrSelector;
+		$table = $(dtApi.table().node());
+	} else {
+		$table = $(tableOrSelector);
+	}
+	if (!$table.length) return;
+
+	$table.addClass('ellipsis-tooltip-table');
+
+	const $root = $table.closest('.dt-container, .dataTables_wrapper');
+	const $bindEl = $root.length ? $root : $table.parent();
+	if ($bindEl.data('embeddedCellTooltipBound')) return;
+	$bindEl.data('embeddedCellTooltipBound', true);
+
+	const wrapCells = function () {
+		if (!autoWrap) return;
+		$table.find('tbody td').each(function () {
+			const $td = $(this);
+			if ($td.is(skipSelector)) return;
+			if (this.querySelector('button, input, select, textarea, a, .dt-ellipsis-cell')) return;
+			const text = (this.textContent || '').trim();
+			$td.empty().append($('<span class="dt-ellipsis-cell"></span>').text(text || '-'));
+		});
+	};
+
+	wrapCells();
+
+	$bindEl.on('mouseenter.embeddedCellTip', 'tbody td', function () {
+		if ($(this).is(skipSelector)) return;
+		if (this.querySelector('button, input, select, textarea, a')) return;
+		const inner = this.querySelector('.dt-ellipsis-cell') || this;
+		if (!(inner.scrollWidth > inner.clientWidth + 1)) return;
+		const text = (inner.textContent || '').trim();
+		if (!text) return;
+		hideEmbeddedTableCellTooltip();
+		const $tip = $('<div class="dt-ellipsis-cell-tooltip"></div>').text(text).appendTo(document.body);
+		const rect = this.getBoundingClientRect();
+		const tipW = $tip.outerWidth();
+		const tipH = $tip.outerHeight();
+		let top = rect.top - tipH - 8;
+		if (top < 8) top = rect.bottom + 8;
+		let left = rect.left + (rect.width / 2) - (tipW / 2);
+		if (left < 8) left = 8;
+		if (left + tipW > window.innerWidth - 8)
+			left = window.innerWidth - tipW - 8;
+		$tip.css({ top: top + 'px', left: left + 'px' });
+	});
+	$bindEl.on('mouseleave.embeddedCellTip', 'tbody td', hideEmbeddedTableCellTooltip);
+
+	const onDraw = function () {
+		hideEmbeddedTableCellTooltip();
+		wrapCells();
+	};
+
+	if (dtApi) {
+		dtApi.on('draw.embeddedCellTip', onDraw);
+		dtApi.on('destroy.embeddedCellTip', function () {
+			hideEmbeddedTableCellTooltip();
+			$bindEl.off('.embeddedCellTip').removeData('embeddedCellTooltipBound');
+		});
+	}
+
+	if (!$(window).data('embeddedCellTipWindowBound')) {
+		$(window).data('embeddedCellTipWindowBound', true);
+		$(window).on('scroll.embeddedCellTip resize.embeddedCellTip', hideEmbeddedTableCellTooltip);
+	}
+}
+
 function getTableFilterMode() {
 	try {
 		if (typeof SiteSettings !== 'undefined') {
@@ -6607,24 +7037,73 @@ var MJUtil = function () {
 		
 		},
 	    formatMoney(value) {
-		// بررسی مقدار ورودی
-		if (value === null || value === undefined || isNaN(value)) {
-			return "0";
+		if (value === null || value === undefined || value === '') {
+			return "";
 		}
 
-		// تبدیل به عدد
-		let num = typeof value === 'number' ? value : parseFloat(value);
+		if (typeof value === 'string') {
+			value = MJUtil.toEnglishNumbers(value);
+			if (value)
+				value = value.replace(/,/g, '');
+		}
 
-		// جدا کردن قسمت صحیح و اعشار
+		let num = typeof value === 'number' ? value : parseFloat(value);
+		if (isNaN(num)) {
+			return "";
+		}
+
 		let parts = num.toString().split('.');
 		let integerPart = parts[0];
 		let decimalPart = parts[1] ? '.' + parts[1] : '';
-
-		// فرمت کردن قسمت صحیح (اضافه کردن کاما بین هر ۳ رقم)
 		let formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-
-		// برگرداندن عدد فرمت شده
 		return formattedInteger + decimalPart;
+	},
+
+	    unformatMoney(value) {
+		if (value === null || value === undefined || value === '') {
+			return null;
+		}
+		let s = String(value);
+		if (typeof MJUtil.toEnglishNumbers === 'function')
+			s = MJUtil.toEnglishNumbers(s) || '';
+		s = s.replace(/,/g, '').trim();
+		if (s === '' || s === '-') {
+			return null;
+		}
+		return s;
+	},
+
+	    formatTime(value) {
+		if (value === null || value === undefined || value === '') {
+			return '';
+		}
+		let s = String(value);
+		if (typeof MJUtil.toEnglishNumbers === 'function')
+			s = MJUtil.toEnglishNumbers(s) || '';
+		s = s.trim();
+		if (s.length >= 5 && s.charAt(2) === ':')
+			s = s.substring(0, 5);
+		const parsed = MJUtil.unformatTime(s);
+		if (!parsed)
+			return '';
+		const m = /^(\d{1,2}):(\d{1,2})$/.exec(parsed);
+		if (!m)
+			return parsed;
+		return String(m[1]).padStart(2, '0') + ':' + String(m[2]).padStart(2, '0');
+	},
+
+	    unformatTime(value) {
+		if (value === null || value === undefined || value === '') {
+			return null;
+		}
+		let s = String(value);
+		if (typeof MJUtil.toEnglishNumbers === 'function')
+			s = MJUtil.toEnglishNumbers(s) || '';
+		s = s.trim();
+		if (!s || s.indexOf('_') >= 0) {
+			return null;
+		}
+		return s;
 	}
 
 	}
@@ -7093,6 +7572,22 @@ $.fn.dataBind = function (model) {
             else if ($el.is('span') || $el.is("label")) {
                 $el.text(value);
             }
+		  else if ($el.is('[data-money="true"]')) {
+			  const raw = MJUtil.unformatMoney(value);
+			  if ($el[0] && $el[0].inputmask)
+				  $el[0].inputmask.setvalue(raw == null ? '' : raw);
+			  else
+				  $el.val(raw == null ? '' : MJUtil.formatMoney(raw));
+			  $el.change();
+		  }
+		  else if ($el.is('[data-time="true"]')) {
+			  const raw = MJUtil.formatTime(value);
+			  if ($el[0] && $el[0].inputmask)
+				  $el[0].inputmask.setvalue(raw);
+			  else
+				  $el.val(raw);
+			  $el.change();
+		  }
 		  else {
 			  $el.val(value).change();
 			  if ($el.is("input") && $el.attr("persion-datetimepicker") != undefined) {
@@ -7164,6 +7659,12 @@ $.fn.dataBind = function (model) {
 		   }
 		   if (typeof v == "string") {
 			   result[path] = MJUtil.toEnglishNumbers(v)
+		   }
+		   if ($(this).is('[data-money="true"]')) {
+			   result[path] = MJUtil.unformatMoney(result[path]);
+		   }
+		   if ($(this).is('[data-time="true"]')) {
+			   result[path] = MJUtil.unformatTime(result[path]);
 		   }
 		   
             return;
@@ -7279,6 +7780,7 @@ class Page {
 	activate() {
 		this.$pageEl.addClass("show active");
 		this.$tabEl.addClass("active_page_tab");
+		this.$pageEl.trigger('page:activated');
 	}
 
 	deactivate() {
@@ -7475,6 +7977,7 @@ class AppController {
 
 
 		this.initPopState();
+		this.initEmptyHashGuard();
 		if (window.location.pathname !== '/' && window.location.pathname !== "/dashbord")
 			this.addPage(firstPageAddress);
 		else {
@@ -7482,59 +7985,100 @@ class AppController {
 		}
 	}
 
+	toPageUrl(address) {
+		if (!address) return "/";
+		return address.startsWith("/") ? address : "/" + address;
+	}
+
+	normalizePageUrl(url) {
+		if (!url) return "/";
+		const q = url.indexOf("?");
+		const path = (q === -1 ? url : url.slice(0, q)).replace(/\/+$/, "") || "/";
+		const search = q === -1 ? "" : url.slice(q);
+		return path + search;
+	}
+
+	isLocationOnPage(address) {
+		const locPath = (window.location.pathname || "") + (window.location.search || "");
+		return this.normalizePageUrl(locPath) === this.normalizePageUrl(this.toPageUrl(address));
+	}
+
+	replaceHistoryStateForPage(page) {
+		if (!page) return;
+		const path = this.toPageUrl(page.address);
+		const hash = window.location.hash;
+		const url = (!hash || hash === "#") ? path : path + hash;
+		history.replaceState({ address: page.address }, "", url);
+	}
+
+	initEmptyHashGuard() {
+		document.addEventListener("click", (e) => {
+			const anchor = e.target.closest && e.target.closest("a");
+			if (!anchor) return;
+			const href = (anchor.getAttribute("href") || "").trim();
+			if (href === "#" || href === "") {
+				e.preventDefault();
+			}
+		}, true);
+	}
+
 	initPopState() {
 		window.addEventListener("popstate", (e) => {
-			  
 			const state = e.state || {};
-			if (state.address) {
-				let targetIndex = -1;
-				// Try immediate neighbors first to infer direction
-				if (this.historyPointer > 0 && this.activationHistory[this.historyPointer - 1] === state.address) {
-					targetIndex = this.historyPointer - 1;
-				} else if (this.historyPointer >= 0 && this.historyPointer < this.activationHistory.length - 1 && this.activationHistory[this.historyPointer + 1] === state.address) {
-					targetIndex = this.historyPointer + 1;
-				} else {
-					// Search backwards from current pointer
-					for (let i = this.historyPointer - 1; i >= 0; i--) {
-						if (this.activationHistory[i] === state.address) { targetIndex = i; break; }
-					}
-					// Then search forwards
-					if (targetIndex === -1) {
-						for (let i = this.historyPointer + 1; i < this.activationHistory.length; i++) {
-							if (this.activationHistory[i] === state.address) { targetIndex = i; break; }
-						}
-					}
-					// Fallback to last occurrence
-					if (targetIndex === -1) {
-						targetIndex = this.activationHistory.lastIndexOf(state.address);
-					}
+
+			// <a href="#"> fires popstate with no app state while the path stays the same.
+			if (!state.address) {
+				if (this.activePage && this.isLocationOnPage(this.activePage.address)) {
+					this.replaceHistoryStateForPage(this.activePage);
+					return;
 				}
 
-				let page = this.pages.find(p => p.address === state.address);
-				if (targetIndex !== -1) {
-					this.historyPointer = targetIndex;
-					if (page) this.setActivePage(page, false); else this.addPage(state.address, false);
-				} else {
-					// Address not in our activation history (e.g., first load or cleared)
-					if (this.historyPointer < this.activationHistory.length - 1) {
-						this.activationHistory = this.activationHistory.slice(0, this.historyPointer + 1);
-					}
-					this.activationHistory.push(state.address);
-					this.historyPointer = this.activationHistory.length - 1;
-					if (page) this.setActivePage(page, false); else this.addPage(state.address, false);
+				if (this.historyPointer > 0) {
+					const prevAddress = this.activationHistory[this.historyPointer - 1];
+					let page = this.pages.find(p => p.address === prevAddress);
+					this.historyPointer = this.historyPointer - 1;
+					if (page) this.setActivePage(page, false); else this.addPage(prevAddress, false);
+				} else if (this.activePage) {
+					this.setActivePage(this.activePage, false);
 				}
 				return;
 			}
 
-			// No address in state: try to navigate to previous in our history if possible
-			if (this.historyPointer > 0) {
-				const prevAddress = this.activationHistory[this.historyPointer - 1];
-				let page = this.pages.find(p => p.address === prevAddress);
-				this.historyPointer = this.historyPointer - 1;
-				if (page) this.setActivePage(page, false); else this.addPage(prevAddress, false);
-			} else if (this.activePage) {
-				// Reaffirm current active tab without pushing new state
-				this.setActivePage(this.activePage, false);
+			let targetIndex = -1;
+			// Try immediate neighbors first to infer direction
+			if (this.historyPointer > 0 && this.activationHistory[this.historyPointer - 1] === state.address) {
+				targetIndex = this.historyPointer - 1;
+			} else if (this.historyPointer >= 0 && this.historyPointer < this.activationHistory.length - 1 && this.activationHistory[this.historyPointer + 1] === state.address) {
+				targetIndex = this.historyPointer + 1;
+			} else {
+				// Search backwards from current pointer
+				for (let i = this.historyPointer - 1; i >= 0; i--) {
+					if (this.activationHistory[i] === state.address) { targetIndex = i; break; }
+				}
+				// Then search forwards
+				if (targetIndex === -1) {
+					for (let i = this.historyPointer + 1; i < this.activationHistory.length; i++) {
+						if (this.activationHistory[i] === state.address) { targetIndex = i; break; }
+					}
+				}
+				// Fallback to last occurrence
+				if (targetIndex === -1) {
+					targetIndex = this.activationHistory.lastIndexOf(state.address);
+				}
+			}
+
+			let page = this.pages.find(p => p.address === state.address);
+			if (targetIndex !== -1) {
+				this.historyPointer = targetIndex;
+				if (page) this.setActivePage(page, false); else this.addPage(state.address, false);
+			} else {
+				// Address not in our activation history (e.g., first load or cleared)
+				if (this.historyPointer < this.activationHistory.length - 1) {
+					this.activationHistory = this.activationHistory.slice(0, this.historyPointer + 1);
+				}
+				this.activationHistory.push(state.address);
+				this.historyPointer = this.activationHistory.length - 1;
+				if (page) this.setActivePage(page, false); else this.addPage(state.address, false);
 			}
 		});
 	}
@@ -7807,91 +8351,36 @@ class AppController {
 	 * This is called before executing page scripts to ensure table is available
 	 */
 	initDataTableAndWait($pageEl, page) {
-		return new Promise(function(resolve, reject) {
-			const $dataProfileSelect = $pageEl.find("[data-action='dataProfile']");
-			 
-		 
-			if ($dataProfileSelect.length === 0) {
-				// No table in this page
-				resolve(null);
-				return;
-			}
-		 
-			// Check if table already has a value selected
-			const profileId = $dataProfileSelect.val();
-		 
-			if (!profileId) {
-				// No profile selected yet - check if select has a default option
-				// If it does, select it and initialize table
-				const $firstOption = $dataProfileSelect.find('option:not([value=""])').first();
-				if ($firstOption.length > 0 && $firstOption.val()) {
-					// Select the first available option
-					$dataProfileSelect.val($firstOption.val());
-					profileId = $firstOption.val();
-					// Continue to initialization below
-				} else {
-					// No options available, resolve with null
-					// Scripts will execute and table will be available after user selects a profile
-					resolve(null);
-					return;
-				}
-			}
-		 
-			// Profile selected (either initially or after selecting first option)
-			// Initialize immediately
-			const editPath = $dataProfileSelect.attr("data-edit-path");
-			const deletePath = $dataProfileSelect.attr("data-delete-path");
-				
-				post("/System/FetchDataTableProfile", { id: profileId }, function(r) {
-					if (!r.isSuccess) {
-						reject(new Error(r.message || 'Failed to fetch table profile'));
-						return;
-					}
+		const $dataProfileSelect = $pageEl.find("[data-action='dataProfile']").first();
 
-					 
-					r.data.columns.forEach(z => {
-						if (z.render) {
-							z.render = z.render.replace("{editpath}", editPath);
-							z.render = z.render.replace("{deletepath}", deletePath);
-							z.render = eval(`(${z.render})`);
-						}
-					});
-					
-					// Ensure table element exists
-					let $table = $pageEl.find('#itemsTable');
-					if ($table.length === 0) {
-						$pageEl.append(`<table id="itemsTable" class="table table-row-bordered nowrap table-hover" style="width: 100%"></table>`);
-						$table = $pageEl.find('#itemsTable');
-					}
-					
-					const table = InitDataTabelProfile(
-						$table,
-						r.data,
-						profileId,
-						false,
-						"/System/ExportToExcelProfile"
-					);
-					
-					// Wait for table to be fully initialized
-					if (table) {
-						// InitDataTabelProfile returns the DataTable instance
-						// Use table's ready event to ensure initialization is complete
-						if (table.ready && typeof table.ready === 'function') {
-							table.ready(function() {
-								// Return the table API (which is the same as table instance)
-								resolve(table);
-							});
-						} else {
-							// Fallback: use setTimeout to ensure table is initialized
-							setTimeout(function() {
-								resolve(table);
-							}, 200);
-						}
+		if ($dataProfileSelect.length === 0) {
+			// No table in this page
+			return Promise.resolve(null);
+		}
+
+		if (!$dataProfileSelect.val()) {
+			// No profile selected yet - fall back to the first real option
+			const $firstOption = $dataProfileSelect.find('option:not([value=""])').first();
+			if (!$firstOption.length || !$firstOption.val()) {
+				// No options available - table will be built once the user picks a profile
+				return Promise.resolve(null);
+			}
+			$dataProfileSelect.val($firstOption.val());
+		}
+
+		return loadDataProfileTable($dataProfileSelect, { silent: true })
+			.then(function (table) {
+				if (!table) return null;
+
+				// Wait for table to be fully initialized before handing it to page scripts
+				return new Promise(function (resolve) {
+					if (typeof table.ready === 'function') {
+						table.ready(function () { resolve(table); });
 					} else {
-						resolve(null);
+						setTimeout(function () { resolve(table); }, 200);
 					}
 				});
-		});
+			});
 	}
 	initFormActionButtons($pageEl, page) {
 		 
@@ -9301,9 +9790,15 @@ class AppController {
 		initItemsForms($el);
 		initFileUploaders($el);
 		this.createBootstrapTooltips(el);
-		Inputmask().mask($el.find("[data-inputmask]"));
-		 
- 
+		try {
+			Inputmask().mask($el.find("[data-inputmask]"));
+		} catch (e) {
+			console.warn(e);
+		}
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($el);
+		if (typeof initTimeInputs === 'function')
+			initTimeInputs($el);
 	}
 	createBootstrapTooltip(el, options) {
 		if (el.getAttribute("data-kt-initialized") === "1") {
@@ -11043,96 +11538,326 @@ function InitDataTabel($el, columns, tabelName = "", path, searchBuilderOnButton
 	return table;
 }
 
- 
+function collectCurrentDataProfileColumnWidths(table) {
+	if (!table) return [];
 
-function initDataTableProflie(page) {
-	let currentTable;
-	 
-	 
-	if (page) {
-		page.find("[data-action='dataProfile']")
-			.change(function () {
-				 
+	const settings = (typeof table.settings === 'function' ? table.settings()[0] : null)
+		|| table.context?.[0];
+	if (!settings || !settings.aoColumns) return [];
 
-				if (currentTable) {
-					try { destroyProfilePersianDatepickers(currentTable); } catch (_) { /* ignore */ }
-					$(currentTable.context[0].nTableWrapper).parent().append(`<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%"></table>`)
-					currentTable.destroy(true);
-					currentTable = undefined;
-				}
-				else {
-					currentTable = page.find('#itemsTable').DataTable();
-					try { destroyProfilePersianDatepickers(currentTable); } catch (_) { /* ignore */ }
-					$(currentTable.context[0].nTableWrapper).parent().append(`<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%"></table>`)
-					currentTable.destroy(true);
-					currentTable = undefined;
-				}
+	let colManager = null;
+	if ($.fn.dataTable.ColManager && Array.isArray($.fn.dataTable.ColManager._instances)) {
+		colManager = $.fn.dataTable.ColManager._instances.find(inst => inst.settings === settings) || null;
+	}
 
-				cleanupOrphanProfileDatepickers();
+	const widths = [];
+	settings.aoColumns.forEach(function (col) {
+		if (!col) return;
+		if (col.type === 'rowNumber' || col.type === 'rowSelect') return;
 
-				var id = $(this).val();
-				if (!id) {
-					return toastr.error(`هیچ نمایه داده ای یافت نشد .`, 'خطا');
-				}
-				let editPath = $(this).attr("data-edit-path");
-				let deletePath = $(this).attr("data-delete-path");
+		const name = col.name || col.data;
+		if (!name || name === '_rowNumber' || name === '_rowSelect') return;
 
-				post("/System/FetchDataTableProfile",
-					{ id },
-					function (r) {
-						if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+		let width = NaN;
+		if (colManager && col._ColMgr_InitIdx !== undefined) {
+			width = parseInt(colManager.state.widths[col._ColMgr_InitIdx], 10);
+		}
+		if (isNaN(width) || width <= 0) {
+			width = parseInt(col.profileWidth != null ? col.profileWidth : col.width, 10);
+		}
+		if (isNaN(width) || width <= 0) {
+			const $th = col.nTh ? $(col.nTh) : $();
+			width = $th.length ? Math.round($th.outerWidth()) : 200;
+		}
 
-						r.data.columns.forEach(z => {
+		widths.push({
+			name: String(name),
+			data: col.data != null ? String(col.data) : String(name),
+			width: Math.min(Math.max(Math.round(width), 40), 2000)
+		});
+	});
 
-							if (z.render) {
-								z.render = z.render.replace("{editpath}", editPath);
-								z.render = z.render.replace("{deletepath}", deletePath);
-								z.render = eval(`(${z.render})`)
+	return widths;
+}
 
-							}
-						})
-						 
-						currentTable = InitDataTabelProfile(
-							page.find('#itemsTable'),
-							r.data,
-							id,
-							false,
-							"/System/ExportToExcelProfile"
-						);
+function applySavedDataProfileColumnWidths(table, columns) {
+	if (!table || !columns || !columns.length) return;
+
+	const settings = (typeof table.settings === 'function' ? table.settings()[0] : null)
+		|| table.context?.[0];
+	if (!settings || !settings.aoColumns) return;
+
+	const byKey = new Map();
+	columns.forEach(function (c) {
+		if (c.name) byKey.set(String(c.name).toLowerCase(), c.width);
+		if (c.data) byKey.set(String(c.data).toLowerCase(), c.width);
+	});
+
+	settings.aoColumns.forEach(function (col) {
+		const keys = [col.name, col.data].filter(Boolean).map(k => String(k).toLowerCase());
+		const width = keys.map(k => byKey.get(k)).find(w => w != null);
+		if (width == null) return;
+		col.profileWidth = width;
+		col.width = width;
+	});
+
+	if ($.fn.dataTable.ColManager && Array.isArray($.fn.dataTable.ColManager._instances)) {
+		const inst = $.fn.dataTable.ColManager._instances.find(i => i.settings === settings);
+		if (inst) {
+			settings.aoColumns.forEach(function (col) {
+				if (col._ColMgr_InitIdx === undefined || col.profileWidth == null) return;
+				inst.state.widths[col._ColMgr_InitIdx] = col.profileWidth;
+			});
+			if (typeof inst._saveState === 'function') {
+				inst._saveState();
+			}
+		}
+	}
+}
+
+function saveCurrentDataProfileColumnWidths(profileId, table) {
+	if (!profileId) {
+		return toastr.error('هیچ نمایه داده ای جهت ذخیره عرض ستون‌ها یافت نشد .', 'خطا');
+	}
+	if (!table) {
+		return toastr.error('جدول نمایه داده هنوز بارگذاری نشده است.', 'خطا');
+	}
+
+	const columns = collectCurrentDataProfileColumnWidths(table);
+	if (!columns.length) {
+		return toastr.error('هیچ ستونی برای ذخیره عرض یافت نشد.', 'خطا');
+	}
+
+	$.confirm({
+		title: 'ذخیره عرض ستون‌ها',
+		content: 'عرض فعلی ستون‌های جدول به‌عنوان عرض پیش‌فرض این نمایه داده در دیتابیس ذخیره شود؟',
+		type: 'blue',
+		typeAnimated: true,
+		buttons: {
+			confirm: {
+				text: 'بله',
+				btnClass: 'btn-primary',
+				action: function () {
+					post("/panel/querydesigner/setColumnWidths/" + profileId, columns, function (r) {
+						if (!r.isSuccess) return error2(r.message);
+						applySavedDataProfileColumnWidths(table, columns);
+						success2("عرض ستون‌ها با موفقیت ذخیره شد.");
 					});
+				}
+			},
+			close: {
+				text: 'بستن',
+				btnClass: 'btn',
+				action: function () { }
+			}
+		}
+	});
+}
+
+/** المان خالی جدول نمایه داده؛ هم‌شکل با خروجی DataTableProfileTagHelper */
+const DATA_PROFILE_TABLE_HTML =
+	'<table id="itemsTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width: 100%;direction: rtl;"></table>';
+
+/**
+ * select نمایه داده هم‌کارت با یک المان (دکمه‌های نوار نمایه داده)
+ * @param {JQuery} $el
+ * @returns {JQuery}
+ */
+function getDataProfileSelect($el) {
+	return $el.closest('.card').find("[data-action='dataProfile']").first();
+}
+
+/**
+ * کانتینری که جدول نمایه داده باید داخل آن ساخته شود
+ * @param {JQuery} $select
+ * @returns {JQuery} خالی اگر کارت گرید پیدا نشود
+ */
+function getDataProfileTableHost($select) {
+	const $card = $select.closest('.card');
+	if (!$card.length) return $();
+
+	const $host = $card.find('div.table-responsive').first();
+	if ($host.length) return $host;
+
+	const $body = $card.find('.card-body').first();
+	return $('<div class="table-responsive"></div>').appendTo($body.length ? $body : $card);
+}
+
+/**
+ * تخریب کامل جدول فعلی نمایه داده و ساخت یک المان جدول تازه
+ *
+ * id همه جدول‌های نمایه داده `itemsTable` است و DataTables با ساخته‌شدن جدول دومی
+ * با همین id، نمونه قبلی را بی‌صدا از رجیستری خود حذف می‌کند. آن جدول یتیم دیگر با
+ * `$el.DataTable()` پیدا و destroy نمی‌شود و در تعویض نمایه، جدول جدید داخل wrapper
+ * قدیمی ساخته می‌شد؛ نتیجه‌اش دو هدر/نوار ابزار روی هم بود. پس اینجا به رجیستری
+ * DataTables تکیه نمی‌کنیم و کل کانتینر جدول را از نو می‌سازیم.
+ *
+ * @param {JQuery} $select
+ * @param {Object|null} [api] نمونه‌ای که خودمان روی select نگه داشته‌ایم
+ * @returns {JQuery} المان جدول تازه (خالی اگر کانتینر پیدا نشود)
+ */
+function resetDataProfileTable($select, api) {
+	const searchBuilderCollapseId = $select.closest('.card')
+		.find('[data-place=searchBuilderCollapse]').attr('id');
+
+	try { destroyProfilePersianDatepickers(api, searchBuilderCollapseId); } catch (_) { /* ignore */ }
+
+	const $host = getDataProfileTableHost($select);
+
+	const destroyInstance = (instance) => {
+		try { instance.destroy(true); } catch (_) { /* ignore */ }
+	};
+
+	if (api && typeof api.destroy === 'function' && api.context?.length) {
+		destroyInstance(api);
+	}
+
+	// نمونه‌های ثبت‌شده‌ای که هنوز داخل همین کانتینر هستند
+	const hostEl = $host[0];
+	if (hostEl) {
+		($.fn.dataTable.settings || []).slice().forEach(settings => {
+			if (settings.nTable && hostEl.contains(settings.nTable)) {
+				destroyInstance(new $.fn.dataTable.Api(settings));
+			}
+		});
+	}
+
+	cleanupOrphanProfileDatepickers();
+
+	if (!$host.length) return $();
+
+	// هر باقی‌مانده‌ای (wrapper یتیم خارج از رجیستری) هم پاک شود
+	$host.empty().append(DATA_PROFILE_TABLE_HTML);
+	return $host.children('table').first();
+}
+
+/**
+ * به‌روزرسانی `self.table` صفحه بعد از تعویض نمایه داده
+ * @param {JQuery} $select
+ * @param {Object|null} table نمونه جدید
+ * @param {Object|null} previous نمونه قبلی
+ */
+function syncDataProfilePageTable($select, table, previous) {
+	if (!table || typeof appController === 'undefined' || !appController.pages) return;
+
+	const page = appController.pages.find(p =>
+		p.$pageEl?.[0] && p.$pageEl[0].contains($select[0]));
+
+	if (page?.self && (!page.self.table || page.self.table === previous)) {
+		page.self.table = table;
+	}
+}
+
+/**
+ * ساخت یا تعویض جدول یک نمایه داده
+ * @param {JQuery} $select المان select نمایه داده
+ * @param {{silent?: boolean, exportPath?: string}} [options]
+ * @returns {Promise<Object|null>} نمونه DataTable
+ */
+function loadDataProfileTable($select, options) {
+	options = options || {};
+
+	const id = $select.val();
+	const previous = $select.data('dtProfileTable') || null;
+
+	// هر پاسخِ در راهِ نمایه قبلی باید نادیده گرفته شود
+	const token = ($select.data('dtProfileToken') || 0) + 1;
+	$select.data('dtProfileToken', token);
+	$select.data('dtProfileTable', null);
+
+	const $table = resetDataProfileTable($select, previous);
+
+	if (!id) {
+		if (!options.silent) toastr.error(`هیچ نمایه داده ای یافت نشد .`, 'خطا');
+		return Promise.resolve(null);
+	}
+
+	if (!$table.length) {
+		console.warn('محل قرارگیری جدول نمایه داده یافت نشد');
+		return Promise.resolve(null);
+	}
+
+	const editPath = $select.attr("data-edit-path");
+	const deletePath = $select.attr("data-delete-path");
+	const exportPath = options.exportPath || "/System/ExportToExcelProfile";
+
+	return new Promise(function (resolve) {
+		post("/System/FetchDataTableProfile", { id }, function (r) {
+			if ($select.data('dtProfileToken') !== token) return resolve(null);
+
+			if (!r.isSuccess) {
+				toastr.error(`${r.message}`, 'خطا');
+				return resolve(null);
+			}
+
+			r.data.columns.forEach(z => {
+				if (z.render) {
+					z.render = z.render.replace("{editpath}", editPath);
+					z.render = z.render.replace("{deletepath}", deletePath);
+					z.render = eval(`(${z.render})`)
+				}
 			});
 
-		page.find("[data-action='editDataProfile']").on("click",function () {
-			let profileId = page.find("[data-action='dataProfile']").val();
+			const table = InitDataTabelProfile($table, r.data, id, false, exportPath) || null;
+
+			$select.data('dtProfileTable', table);
+			syncDataProfilePageTable($select, table, previous);
+			resolve(table);
+		});
+	});
+}
+
+function initDataTableProflie(page) {
+	if (!page || !page.length) return;
+
+	page.find("[data-action='dataProfile']").each(function () {
+		const $select = $(this);
+
+		$select
+			.off('change.dataProfile')
+			.on('change.dataProfile', function () {
+				loadDataProfileTable($select);
+			});
+	});
+
+	page.find("[data-action='editDataProfile']")
+		.off('click.dataProfile')
+		.on('click.dataProfile', function () {
+			let profileId = getDataProfileSelect($(this)).val();
 			if (!profileId) {
 				return toastr.error(`هیچ نمایه داده ای جهت ویرایش یافت نشد .`, 'خطا');
 			}
 			appController.addPage("/panel/querydesigner/edit?id=" + profileId);
-		 
 		});
 
-		page.find("[data-action='newDataProfile']").click(function () {
-			let entityName = page.find("[data-action='dataProfile']").attr("data-entityName");
+	page.find("[data-action='newDataProfile']")
+		.off('click.dataProfile')
+		.on('click.dataProfile', function () {
+			let entityName = getDataProfileSelect($(this)).attr("data-entityName");
 			if (!entityName) {
 				return toastr.error(`موجودیت برای ایجاد نمایه داده یافت نشد .`, 'خطا');
 			}
 			appController.addPage("/panel/querydesigner/edit?entityName=" + entityName);
-		})
+		});
 
-		page.find("[data-action='removeDataProfile']").click(function () {
-			let profileId = page.find("[data-action='dataProfile']").val();
+	page.find("[data-action='removeDataProfile']")
+		.off('click.dataProfile')
+		.on('click.dataProfile', function () {
+			let profileId = getDataProfileSelect($(this)).val();
 			if (!profileId) {
 				return toastr.error(`هیچ نمایه داده ای جهت حذف یافت نشد .`, 'خطا');
 			}
-			post("/panel/querydesigner/remove/" + profileId , null, function (r) {
+			post("/panel/querydesigner/remove/" + profileId, null, function (r) {
 				if (!r.isSuccess) return error2(r.message);
 
 				success2("حذف ما موفقیت انجام شد.");
 			});
-		})
+		});
 
-		page.find("[data-action='copyDataProfile']").click(function () {
-			let profileId = page.find("[data-action='dataProfile']").val();
+	page.find("[data-action='copyDataProfile']")
+		.off('click.dataProfile')
+		.on('click.dataProfile', function () {
+			let profileId = getDataProfileSelect($(this)).val();
 			if (!profileId) {
 				return toastr.error(`هیچ نمایه داده ای جهت کپی یافت نشد .`, 'خطا');
 			}
@@ -11142,69 +11867,15 @@ function initDataTableProflie(page) {
 
 				success2("کپی ما موفقیت انجام شد.");
 			});
-		 
-		})
-	}
-	else {
-		$("[data-action='dataProfile']")
-			.change(function () {
-
-				if (currentTable) {
-					try { destroyProfilePersianDatepickers(currentTable); } catch (_) { /* ignore */ }
-					$(currentTable.containers()[0]).parent().append(`<table id="itemsTable" class="table table-row-bordered nowrap table-hover" style="width: 100%"></table>`)
-					currentTable.destroy(true);
-					currentTable = undefined;
-				}
-
-				cleanupOrphanProfileDatepickers();
-
-				var id = $(this).val();
-				if (!id) {
-					return toastr.error(`هیچ نمایه داده ای یافت نشد .`, 'خطا');
-				}
-				let editPath = $(this).attr("data-edit-path");
-				let deletePath = $(this).attr("data-delete-path");
-
-				post("/System/FetchDataTableProfile",
-					{ id },
-					function (r) {
-						if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-
-						r.data.columns.forEach(z => {
-
-							if (z.render) {
-								z.render = z.render.replace("{editpath}", editPath);
-								z.render = z.render.replace("{deletepath}", deletePath);
-								z.render = eval(`(${z.render})`)
-
-							}
-						})
-						currentTable = InitDataTabelProfile(
-							$('#itemsTable'),
-							r.data,
-							id,
-							false,
-							"/System/ExportToExcelProfile"
-						);
-					});
-			}).change();
-		$("[data-action='editDataProfile']").click(function () {
-			let profileId = $("[data-action='dataProfile']").val();
-			if (!profileId) {
-				return toastr.error(`هیچ نمایه داده ای جهت ویرایش یافت نشد .`, 'خطا');
-			}
-			window.location = "/datatableprofilebuilder/edit?id=" + profileId;
 		});
-		$("[data-action='newDataProfile']").click(function () {
-			let entityNam = $("[data-action='dataProfile']").attr("data-entityName");
-			if (!entityNam) {
-				return toastr.error(`موجودیت برای ایجاد نمایه داده یافت نشد .`, 'خطا');
-			}
-			window.location = "/datatableprofilebuilder/new?entityName=" + entityNam;
-		})
-	}
 
-
+	page.find("[data-action='saveDataProfileColumnWidths']")
+		.off('click.dataProfile')
+		.on('click.dataProfile', function () {
+			if ($(this).hasClass("disabled")) return;
+			const $select = getDataProfileSelect($(this));
+			saveCurrentDataProfileColumnWidths($select.val(), $select.data('dtProfileTable'));
+		});
 }
 
 function renderHistoryTmpl(histories) {
@@ -11538,7 +12209,8 @@ function entityTableTmpl(model) {
 					</div>
 				</div>
 		<div class="card-body table-responsive">
-			<table id="itemsTable" class="table table-row-bordered nowrap table-bordered table-striped table-hover">
+			<!-- بدون id: id تکراری itemsTable باعث می‌شود DataTables نمونه گرید صفحه را از رجیستری حذف کند -->
+			<table class="table table-row-bordered nowrap table-bordered table-striped table-hover">
 					<thead>
 						<tr>
 							<th>#</th>
@@ -11681,9 +12353,66 @@ function initItemsForms($el) {
 	initEntitySelectProfile($el);
 
 	initPersionDatePicker($el)
+	initMoneyInputs($el)
+	initTimeInputs($el)
 
 	initFileUploaders($el)
 }
+
+const moneyInputmaskOptions = {
+	alias: 'numeric',
+	groupSeparator: ',',
+	digits: 2,
+	digitsOptional: true,
+	rightAlign: false,
+	autoUnmask: true,
+	placeholder: '',
+	showMaskOnHover: false,
+	showMaskOnFocus: false
+};
+
+const initMoneyInputs = function ($el) {
+	if (!$el || !$el.length || !window.Inputmask) return;
+	const $fields = $el.find('[data-money="true"]');
+	if (!$fields.length) return;
+	$fields.each(function () {
+		if (this.type === 'number')
+			this.type = 'text';
+	});
+	Inputmask(moneyInputmaskOptions).mask($fields);
+};
+window.moneyInputmaskOptions = moneyInputmaskOptions;
+window.initMoneyInputs = initMoneyInputs;
+
+const timeInputmaskOptions = {
+	mask: '99:99',
+	placeholder: '__:__',
+	insertMode: true,
+	clearIncomplete: true,
+	autoUnmask: false,
+	showMaskOnHover: true,
+	showMaskOnFocus: true,
+	onKeyDown: function (e) {
+		if (!e || e.key == null || e.key === '')
+			return true;
+	}
+};
+
+const initTimeInputs = function ($el) {
+	if (!$el || !$el.length || !window.Inputmask) return;
+	const $fields = $el.find('[data-time="true"]');
+	if (!$fields.length) return;
+	const $unmasked = $fields.filter(function () {
+		if (this.type === 'number' || this.type === 'time')
+			this.type = 'text';
+		return !this.inputmask;
+	});
+	if (!$unmasked.length) return;
+	Inputmask(timeInputmaskOptions).mask($unmasked);
+};
+window.timeInputmaskOptions = timeInputmaskOptions;
+window.initTimeInputs = initTimeInputs;
+
 const initPersionDatePicker = function ($el) {
 	 
 	$el.find("[data-persionDatePicker=true]").each((c, i) => {
@@ -12388,11 +13117,15 @@ $(document).ready(function () {
 
 
 	$(document).on("click", "a", function (e) {
-		
 		const $a = $(this);
 		const href = $a.attr("href");
-		 
-		
+		const normalizedHref = (href || "").trim();
+
+		if (normalizedHref === "#" || normalizedHref === "") {
+			e.preventDefault();
+			return;
+		}
+
 		if (!isSameOrigin(href)) return;
 
 		if (!href || href.startsWith("javascript:") || href.startsWith("#") || $a.closest("#pageMenuBuilder").length > 0) return;
@@ -12454,25 +13187,6 @@ $(document).ready(function () {
 	});
 
 
-	if (window.location.pathname.toLocaleLowerCase() == '/authenticate/login') {
- 
-		$('#login').click(function () {
-			 
-			if (validateError($('#form'))) { return; }
-
-			var model = $('#form').dataBind();
-			const $btn = $(this).block();
-
-			post('/Authenticate/Login',
-				model,
-				function (r) {
-					$btn.block(false);
-					if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-					location.assign("/");
-
-				});
-		});
-	}
 });
 
  
@@ -13490,7 +14204,6 @@ var SiteSettings = (function () {
 		fontFamily: 'IRANSansWeb, Tahoma, sans-serif',
 		fontWeight: 400,
 		lineHeight: 1.7,
-		buttonDisplayMode: 'compact',
 		/** حالت فیلتر جداول: 'inline' = ردیف زیر هدر | 'popup' = پاپ‌اور */
 		tableFilterMode: 'inline'
 	};
@@ -13510,12 +14223,6 @@ var SiteSettings = (function () {
 		root.style.setProperty('--site-font-family', settings.fontFamily);
 		root.style.setProperty('--site-font-weight', settings.fontWeight);
 		root.style.setProperty('--site-line-height', settings.lineHeight);
-
-		if (settings.buttonDisplayMode === 'large') {
-			root.classList.add('btn-display-large');
-		} else {
-			root.classList.remove('btn-display-large');
-		}
 	}
 
 	function save(settings) {
@@ -13546,7 +14253,7 @@ var SiteThemes = (function () {
 		ocean: {
 			name: 'اقیانوس آبی',
 			'--bs-primary': '#2E86C1', '--bs-primary-rgb': '46,134,193',
-			'--bs-body-bg': '#F4F8FB', '--bs-body-color': '#1A2B3C',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#1A2B3C',
 			'--bs-heading-color': '#1A2B3C',
 			'--bs-secondary-bg': '#E3EEF7', '--bs-tertiary-bg': '#F4F8FB',
 			'--bs-border-color': '#C8DFF0',
@@ -13587,7 +14294,7 @@ var SiteThemes = (function () {
 		forest: {
 			name: 'جنگل سبز',
 			'--bs-primary': '#27AE60', '--bs-primary-rgb': '39,174,96',
-			'--bs-body-bg': '#F2F8F4', '--bs-body-color': '#1B2E22',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#1B2E22',
 			'--bs-heading-color': '#1B2E22',
 			'--bs-secondary-bg': '#DFF0E6', '--bs-tertiary-bg': '#F2F8F4',
 			'--bs-border-color': '#B2DEC0',
@@ -13626,7 +14333,7 @@ var SiteThemes = (function () {
 		slate: {
 			name: 'خاکستری مدرن',
 			'--bs-primary': '#5D6D7E', '--bs-primary-rgb': '93,109,126',
-			'--bs-body-bg': '#F5F6F7', '--bs-body-color': '#212529',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#212529',
 			'--bs-heading-color': '#1A1D20',
 			'--bs-secondary-bg': '#E9ECEF', '--bs-tertiary-bg': '#F5F6F7',
 			'--bs-border-color': '#CED4DA',
@@ -13665,7 +14372,7 @@ var SiteThemes = (function () {
 		lavender: {
 			name: 'یاسی ملایم',
 			'--bs-primary': '#7D5BA6', '--bs-primary-rgb': '125,91,166',
-			'--bs-body-bg': '#F8F5FC', '--bs-body-color': '#2C1A3E',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#2C1A3E',
 			'--bs-heading-color': '#2C1A3E',
 			'--bs-secondary-bg': '#EDE5F7', '--bs-tertiary-bg': '#F8F5FC',
 			'--bs-border-color': '#D5C4EC',
@@ -13704,7 +14411,7 @@ var SiteThemes = (function () {
 		warmgray: {
 			name: 'گرم‌خاکی',
 			'--bs-primary': '#7B6D5A', '--bs-primary-rgb': '123,109,90',
-			'--bs-body-bg': '#FAF8F5', '--bs-body-color': '#2D2519',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#2D2519',
 			'--bs-heading-color': '#2D2519',
 			'--bs-secondary-bg': '#EDE9E2', '--bs-tertiary-bg': '#FAF8F5',
 			'--bs-border-color': '#D5CCBF',
@@ -13782,7 +14489,7 @@ var SiteThemes = (function () {
 		rose: {
 			name: 'گل‌رز کم‌رنگ',
 			'--bs-primary': '#C0526A', '--bs-primary-rgb': '192,82,106',
-			'--bs-body-bg': '#FDF5F7', '--bs-body-color': '#2C1217',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#2C1217',
 			'--bs-heading-color': '#2C1217',
 			'--bs-secondary-bg': '#F5E0E5', '--bs-tertiary-bg': '#FDF5F7',
 			'--bs-border-color': '#E8BCC4',
@@ -13821,7 +14528,7 @@ var SiteThemes = (function () {
 		teal: {
 			name: 'فیروزه‌ای',
 			'--bs-primary': '#0B8A8A', '--bs-primary-rgb': '11,138,138',
-			'--bs-body-bg': '#F3FAFA', '--bs-body-color': '#0D2626',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#0D2626',
 			'--bs-heading-color': '#0D2626',
 			'--bs-secondary-bg': '#D9F0F0', '--bs-tertiary-bg': '#F3FAFA',
 			'--bs-border-color': '#A8DCDC',
@@ -13860,7 +14567,7 @@ var SiteThemes = (function () {
 		amber: {
 			name: 'کهربایی گرم',
 			'--bs-primary': '#D08030', '--bs-primary-rgb': '208,128,48',
-			'--bs-body-bg': '#FDF8F2', '--bs-body-color': '#2E1E08',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#2E1E08',
 			'--bs-heading-color': '#2E1E08',
 			'--bs-secondary-bg': '#F5E9D5', '--bs-tertiary-bg': '#FDF8F2',
 			'--bs-border-color': '#E8CFA0',
@@ -13900,7 +14607,7 @@ var SiteThemes = (function () {
 		navy: {
 			name: 'آبی نیروی دریایی',
 			'--bs-primary': '#1A3A6C', '--bs-primary-rgb': '26,58,108',
-			'--bs-body-bg': '#F3F5FA', '--bs-body-color': '#0D1828',
+			'--bs-body-bg': '#fff', '--bs-body-color': '#0D1828',
 			'--bs-heading-color': '#0D1828',
 			'--bs-secondary-bg': '#DDE4F0', '--bs-tertiary-bg': '#F3F5FA',
 			'--bs-border-color': '#B0BDDA',
@@ -14003,7 +14710,6 @@ $(function () {
 		$('.font-opt[data-font="' + s.fontFamily + '"]')
 			.removeClass('btn-outline-secondary').addClass('active btn-primary');
 
-		loadButtonDisplayUI(s.buttonDisplayMode || 'compact');
 		loadTableFilterModeUI(s.tableFilterMode || 'inline');
 
 		updatePreview(s);
@@ -14018,14 +14724,6 @@ $(function () {
 		});
 	}
 
-	function loadButtonDisplayUI(mode) {
-		$('.btn-display-opt').removeClass('border-primary')
-			.addClass('border-light');
-		$('.btn-display-opt[data-mode="' + mode + '"]')
-			.removeClass('border-light')
-			.addClass('border-primary');
-	}
-
 	function loadTableFilterModeUI(mode) {
 		mode = mode || 'inline';
 		$('.table-filter-mode-opt').removeClass('border-primary')
@@ -14034,21 +14732,6 @@ $(function () {
 			.removeClass('border-light')
 			.addClass('border-primary');
 	}
-
-	// رویداد کلیک روی حالت‌ها
-	$(document).on('click', '.btn-display-opt', function () {
-		var mode = $(this).data('mode');
-		current.buttonDisplayMode = mode;
-
-		// preview فوری
-		if (mode === 'large') {
-			document.documentElement.classList.add('btn-display-large');
-		} else {
-			document.documentElement.classList.remove('btn-display-large');
-		}
-
-		loadButtonDisplayUI(mode);
-	});
 
 	$(document).on('click', '.table-filter-mode-opt', function () {
 		var mode = $(this).data('mode');

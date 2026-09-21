@@ -1,0 +1,210 @@
+---
+description: HavayarApp — end-to-end checklist for adding a new Panel page/module (Entity, Controller, Views, permissions, menu)
+globs: Entities/**/*.cs,WebApp/Controllers/**/*.cs,WebApp/Views/Panel/**/*.cshtml,WebApp/ViewModels/**/*.cs,WebApp/Actions/**/*.cs
+alwaysApply: true
+---
+
+# HavayarApp — Adding a New Panel Page (Backend + Frontend)
+
+This is the concrete, code-verified workflow for adding a new CRUD screen under `/Panel/...`, based on the `ProductionOrderItem` module (`WebApp/Controllers/Dynamic/Sale/ProductionOrderItemController.cs`, `Entities/App/Sale/ProductionOrderItem.cs`, `WebApp/Views/Panel/Sale/ProductionOrderItem/*.cshtml`) and the canonical generator template in `WebFramework/Services/FormBuilderCodeGenerator.cs`.
+
+## Fast path: use the Form Builder first
+
+For a straightforward CRUD entity, prefer scaffolding through the **Form Builder** tool (`/Panel/System/FormBuilder`, documented in root `FORM_BUILDER_GUIDE.md`). It generates the Entity, Controller, `List.cshtml`/`Edit.cshtml`, and enum classes following exactly the pattern below, with a code-preview step before writing files. Use the manual steps below when Form Builder's supported property types don't cover your case, or when hand-editing generated code.
+
+## Step 1 — Entity
+
+- **File:** `Entities/App/{Module}/{EntityName}.cs`
+- Inherit `BaseEntity` (provides `Id`, audit fields `CreatedById`/`ModifiedDateShamsiDateTime`/etc., `IsActive`).
+- Annotate with `[Table("{EntityName}", Schema = "{Module}")]` and `[Display(Name = "...")]`.
+- Put `[DisplayInfo(...)]` on properties that should drive UI/codegen/metadata (this attribute feeds the DataTable profile, entity selectors, and Form Builder's "load from existing entity").
+- FK navigation properties follow the `{Name}Id` + `{Name}` navigation-property pair convention.
+- **No manual `DbSet<>` is needed.** Any public non-abstract class under `Entities` inheriting `BaseEntity` is auto-mapped via `modelBuilder.RegisterAllEntities<BaseEntity>(...)` in `Data/ApplicationDbContext.cs`.
+- **Migration:** run `.\add-migration.ps1 -Name "Add{EntityName}"` then `.\update-database.ps1` (see `EF_MIGRATIONS_GUIDE.md`).
+
+```csharp
+[Display(Name = "اقلام سفارش ساخت")]
+[Table("ProductionOrderItem", Schema = "Sale")]
+public class ProductionOrderItem : BaseEntity
+{
+    // properties with [DisplayInfo(...)] as needed
+}
+```
+
+## Step 2 — DTOs / ViewModels (optional)
+
+- Lookup/dropdown payload DTOs (e.g. for `EntitySelector` results) go in `Entities/App/{Module}/DTO/{Name}DTO.cs`.
+- Only add a page-specific ViewModel under `WebApp/ViewModels/{Module}/{Name}Vm.cs` when the entity itself is insufficient for the Edit page (e.g. attachments, computed display fields). Otherwise **bind the entity directly**: `@model {EntityName}` — this is what `ProductionOrderItem/Edit.cshtml` does.
+
+## Step 3 — No service layer: write logic directly in the controller
+
+This codebase **deliberately avoids a dedicated service layer** for standard CRUD pages, to keep layering shallow and avoid indirection across too many files.
+
+- **Default rule: write all business logic directly inside the controller action**, using `IUnitOfWork`/`IRepository<TEntity>` (and any other injected dependency) inline — the way `ProductionOrderItemController` does. Do **not** create a `Data/Services/{Module}/{EntityName}Service.cs` + `I{EntityName}Service` interface pair "for consistency" or "for testability" on a normal CRUD page.
+- A small number of existing modules (reports, heavy multi-entity orchestration, external integrations) do have a dedicated service under `Data/Services/{Module}/`, manually registered in `WebApp/Program.cs` via `builder.Services.AddScoped<I..., ...>()`. Treat these as pre-existing exceptions, not a pattern to extend by default.
+- Only introduce a new service class when logic is genuinely shared across multiple unrelated controllers/entry points (e.g. also needed by a background job or another controller) — and prefer to confirm with the user before adding a new layer rather than doing it unprompted.
+- There is no convention-based auto-registration for services; `IScopedDependency`/`ITransientDependency` marker interfaces exist in `Common/` but are not globally auto-wired — any service that is added still needs an explicit `AddScoped`/`AddSingleton` call in `Program.cs`.
+
+## Step 4 — Before/After-save hooks (optional) — `WebApp/Actions` (application-side "triggers")
+
+If something must happen automatically whenever a specific entity is added/updated/deleted/saved — **regardless of which controller or code path triggered it** — put it in an **Action** class under `WebApp/Actions/`, not inline in the controller and not in a service. This is the application-layer equivalent of a SQL Server trigger; the codebase's own comments describe it exactly this way (e.g. `WebApp/Actions/Sale/ProductionOrderItemAction.cs`: `// معادل تریگرهای HTS`).
+
+- **File:** `WebApp/Actions/{Module}/{EntityName}Action.cs`. It **must** live in the `WebApp` project/assembly — `WebApp/Program.cs` registers actions with `builder.Services.AddEntityActions(typeof(Program).Assembly)`, which only scans that one assembly. An action class placed under `Data`/`Services` will never be discovered.
+- Plain class; primary-constructor DI works (e.g. `(IUnitOfWork unitOfWork)`). Implementing `IEntityAction<TEntity>` is **optional** — it's a default-interface-methods marker with no-op defaults, used by some Action classes (`ProjectAction`) but not required (`ProductionOrderItemAction` skips it and still works).
+- Decorate each hook method with `[EntityAction(typeof(EntityName), EntityActionTrigger.<Trigger>, "UniqueActionName", "Persian description", Priority = N)]`, method signature `Task MethodName(EntityName entity, CancellationToken ct)`.
+- Available triggers (`Data.Contracts.Actions.EntityActionTrigger`): `BeforeAdd`, `AfterAdd`, `BeforeUpdate`, `AfterUpdate`, `BeforeDelete`, `AfterDelete`, `BeforeSave` (before Add/Update is decided), `AfterSave` (after either).
+- `Priority` (default `100`, lower runs first) orders multiple actions on the same entity+trigger.
+- **These run automatically — the controller never calls them.** `Repository<TEntity>` (`Data/Repositories/Repository.cs`) invokes the matching trigger via `IEntityActionInvoker` inside every `SaveAsync`/`AddAsync`/`UpdateAsync`/`DeleteAsync` (and their sync equivalents). Any code path that goes through `unitOfWork.Repository<TEntity>()...` — this controller, another controller, an import job, a background task — gets the hook for free.
+- Current limitation: `Repository<TEntity>` always passes `oldEntity = null` to the invoker, so don't rely on an "old entity" parameter actually being populated in Before/After-Update hooks, even though the method signature supports it.
+
+  ```csharp
+  // WebApp/Actions/Edms/ProjectAction.cs (real example)
+  public class ProjectAction(IUnitOfWork unitOfWork) : IEntityAction<Project>
+  {
+      [EntityAction(typeof(Project), EntityActionTrigger.BeforeSave, "CheckCode", "بررسی و تولید کد پروژه", Priority = 1)]
+      public async Task CheckCode(Project entity, CancellationToken ct)
+      {
+          if (!entity.Code.HasValue())
+              entity.Code = GetProjectCode(entity);
+      }
+  }
+  ```
+
+- Use this for "must always happen on save" logic: auto-generated codes/numbers, recalculating/cascading derived fields on sibling rows, anything you'd otherwise write as a DB trigger. Don't put this kind of logic only inside one controller action — it will silently not run for any other code path that saves the same entity.
+
+## Step 5 — Controller
+
+- **File:** `WebApp/Controllers/Dynamic/{Module}/{EntityName}Controller.cs` (note: some existing controllers use a flatter route than the view folder, e.g. `Dynamic/Sale/ProductionOrderItemController.cs` is routed as `Panel/[controller]` while views live under `Views/Panel/Sale/ProductionOrderItem/` — matching the *view* folder name for the entity is the important part, the controller folder nesting is not strict).
+- Required boilerplate (matches `FormBuilderCodeGenerator`'s template):
+
+```csharp
+[Route("Panel/{Module}/[controller]")]
+[ApiController]
+[ApiResultFilter]
+[ControllerInfo("Persian Title", typeof(EntityName))]
+public class EntityNameController(IUnitOfWork unitOfWork, IWebHostEnvironment env) : BaseController
+{
+    // actions...
+}
+```
+
+- **`[ControllerInfo]` is required** for the controller to be discovered by the permission system at all (`Services/AccessServices/EndpointService.cs` skips controllers without it).
+- Standard actions and their attributes:
+
+| Action | HTTP | `[ActionDisplayName]` example |
+|---|---|---|
+| `Edit(long? id)` | GET | `[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]` |
+| `New()` | GET | same pattern, `ActionAccessItemType.Insert` |
+| `List()` | GET | `[ActionDisplayName("لیست اطلاعات", ActionAccessType.View, ActionAccessItemType.List)]` |
+| `Save`/`Add`/`Update` | POST | `ActionAccessItemType.Insert`/`Update` |
+| `Delete` | GET/DELETE | `ActionAccessItemType.Delete` |
+| `FetchData` | POST | DataTable JSON source |
+| `ExportToExcel` | POST | Excel export |
+
+- **`[ActionDisplayName]` is the permission catalog switch** (`EndpointService.GetAllEndpoints()` skips any action without it). Authenticated users can call those skipped actions without a Role checkbox.
+  - **Put it on** primary user-facing operations that must be grantable per role: `List` / `Edit` / `New` / `Save` / `Add` / `Update` / `Delete` / `FetchData` / `ExportToExcel` / dashboard `GetData` / anything that is a menu entry or a real CRUD/report action.
+  - **Do not put it on** helper APIs that have no access-control importance — lookups, calc/fill helpers, partials used only from a page the user already opened. Leaving the attribute off is **required** here so Role management does not list them and nobody has to grant them. Canonical: `MissionController.GetMissionInfo`. Also: `ProductionOrderItemBomPartial`.
+  - Do not add `[ActionDisplayName]` to a helper "for completeness" or because neighboring CRUD actions have it.
+- Return views with the explicit path form used throughout the codebase:
+  ```csharp
+  return View(@"\Views\Panel\{Module}\{EntityName}\Edit.cshtml", entity);
+  ```
+- Route prefix: prefer `Panel/{Module}/[controller]` (the Form Builder standard). You will see some older controllers use bare `Panel/[controller]` or hardcoded lowercase paths (e.g. `/panel/Role/...`) — this is a known inconsistency; don't "fix" unrelated existing controllers as a side effect of an unrelated task.
+
+## Step 6 — Views
+
+- **List:** `WebApp/Views/Panel/{Module}/{EntityName}/List.cshtml` — usually just:
+ ```cshtml
+ @using Entities.App.{Module}
+ <datatableprofile entity-Type="typeof({EntityName})"></datatableprofile>
+ ```
+ **One List per entity.** If the user needs another column set or row filter (cartable, delay, with/without price), add another Data Profile on this same page — do not create a second List/queue `.cshtml` or a second menu item for the same entity. See `havayar-dataprofile-savedquery.mdc`.
+ No `<script>` on a List page for row/cell coloring (`draw.dt`, `createdRow`). Put that in the Data Profile **`EventScriptsJson.onRowAdded`** — `havayar-dataprofile-savedquery.mdc` §8. Chart/dashboard (ApexCharts) and true custom non-grid pages are the exception.
+- **Edit:** `WebApp/Views/Panel/{Module}/{EntityName}/Edit.cshtml`:
+  ```cshtml
+  @model {EntityName}
+  <div class="card shadow-sm border-0">
+      <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof({EntityName})"></form-action-buttons>
+      </div>
+      <div class="card-body">
+          <input type="hidden" data-bind="id" value="@Model?.Id" />
+          <!-- fields: asp-for="Property" + data-bind="property" -->
+      </div>
+  </div>
+  <script>
+      // save/action wiring — see havayar-js-jquery-conventions.mdc
+  </script>
+  ```
+  - Use `Html.EntitySelector<TRelatedEntity>(...)` for FK picker fields (see `ProductionOrderItem/Edit.cshtml` for the full call signature with filter/projection/display-format arguments).
+  - **Price / مبلغ fields:** `type="text"` (not number) + `data-money="true"`. `initMoneyInputs` adds thousand separators. See `havayar-js-jquery-conventions.mdc` §6.
+  - **Time / ساعت fields (clock HH:MM, not Shamsi date):** `type="text"` + `data-time="true"` (`__:__` mask). See `havayar-js-jquery-conventions.mdc` §6. Canonical: `Sale/OrderDetailSerial/MonitoringEdit.cshtml`.
+  - **Child rows (embedded grid or ListByParentId tab):** افزودن / ویرایش is a `$.confirm` modal; the list table `ajax.reload`s. `addPage` may open the child **list** from the parent toolbar (پیوست / یادداشت), never the child New/Edit. Canonical: `Sale/TenderPart/ListByParentId.cshtml`, `Sale/TenderAttachment/ListByParentId.cshtml`. See `havayar-js-jquery-conventions.mdc` §5.
+  - No `Layout = ...` needed — `WebApp/Views/Panel/_ViewStart.cshtml` sets `_PanelLayout.cshtml` automatically.
+  - No separate `wwwroot/js` file — the page's JS is the inline `<script>` block (see `havayar-js-jquery-conventions.mdc` for the required shape).
+  - **Field wrapper class:** every field's outer `col-md-*` wrapper div must also have the `form-group-inline` class (e.g. `class='col-md-4 form-group-inline'`) alongside the label, input, and `data-invalidmessagespan` div — see `WebApp/Views/Panel/Sale/ProductionOrderItem/Edit.cshtml` for the canonical shape:
+    ```cshtml
+    <div class='col-md-4 form-group-inline'>
+        <label class=''>تاریخ پایان تست</label>
+        <input class='form-control' data-bind='testingEndShamsiDate' data-persionDatePicker="true"
+            persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+            value='@Model?.TestingEndMiladiDate' />
+        <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+    </div>
+    ```
+  - **Shamsi date fields:** the `value` attribute is bound to the entity's **Miladi (Gregorian)** date property (e.g. `@Model?.TestingEndMiladiDate`), while `data-bind` uses the **Shamsi** property name (e.g. `data-bind='testingEndShamsiDate'`). `dataBind` handles the Shamsi ↔ Miladi conversion automatically (see `havayar-js-jquery-conventions.mdc` §6) — never point `value` at the Shamsi property or `data-bind` at the Miladi property.
+  - **Boolean checkboxes:** ASP.NET Core rejects `asp-for` on `<input type="checkbox">` when the property is `bool?` (`InvalidOperationException`). Check the entity type first. For `bool?` (common on HTS-migrated BIT columns) never use `asp-for`; use `data-bind` plus `@(Model?.Prop == true ? "checked" : "")`. For non-nullable `bool`, `asp-for` is allowed. Full rule: `havayar-checkbox-nullable-bool.mdc`. Canonical: `Sale/OrderDetailSerial/Edit.cshtml`. Form Builder must emit the `checked` pattern, not `asp-for`, for Boolean fields.
+
+## Step 7 — Restart / permission rescan
+
+- Permissions are **discovered at startup**, not seeded: `InitializeProgram.InitializeAccessControllers()` calls `EndpointService.GetAllEndpoints()`, which reflects over all controllers/actions and builds the permission catalog from `[ControllerInfo]`/`[ActionDisplayName]` attributes.
+- After adding a new controller/action, **restart the WebApp** (or trigger whatever re-init hook is available) so the new endpoints appear in the Role permission UI.
+
+## Step 8 — Assign role permissions
+
+- Go to Role management (`/panel/Role/List`) → edit the relevant role.
+- The edit view lists all discovered endpoints (`_accessMemoryStorage.GetAllAccessControllers()`); check the boxes for the new action(s).
+- Save → writes rows to `system.RoleAccess` (`Path`, `ActionAccessType`, `RoleId`) and refreshes the role cache.
+
+## Step 9 — Add a menu entry
+
+- Go to Menu Builder (`System/MenuBuilder/List`) → edit the target menu.
+- Add a `SystemMenuItem` entry with `Text` (Persian label) and `Path` matching the **lowercased** action URL, e.g. `/panel/sale/productionorderitem/list` for a `List` action under `Panel/Sale/[controller]`.
+- Assign the menu to the appropriate roles (`SystemMenu.AccessRoleIds`).
+- Menu items only render for a user if their `Path` matches an entry the user's role has in `RoleAccess` (enforced by `MenuBuilderService`).
+
+## Step 10 — DataTable profile (optional)
+
+- List-page column visibility/order is driven by `system.SystemDataTableProfile`, initialized via `InitializeDataProfiles()`. Configure it through the DataTable Profile UI if the default auto-generated columns aren't right.
+- If a button is needed above the list grid (download, extra action, etc.), do **not** add it in the `.cshtml` above `<datatableprofile>`. Add it as a Data Profile custom action button («افزودن دکمه اکشن سفارشی» / `CustomActionButtonsJson`) so it works on the selected grid row. See `havayar-dataprofile-savedquery.mdc`.
+- **Reports are not automatically a new page.** Tabular reports = Data Profile on a List page; chart/dashboard reports = ApexCharts page; print-only = Stimulsoft/ReportBuilder. See `havayar-reports.mdc`.
+
+## Known inconsistencies — do not "fix" opportunistically
+
+These exist across the codebase; treat them as pre-existing variation, not bugs to silently correct while doing unrelated work:
+
+1. **Route prefixes** vary (`Panel/{Module}/[controller]` vs bare `Panel/[controller]` vs hardcoded `/panel/Role/...`).
+2. **Controller folder / route prefix** can differ from the view folder path (e.g. `Controllers/Dynamic/Sale/ProductionOrderItemController.cs` with `[Route("Panel/[controller]")]` vs `Views/Panel/Sale/ProductionOrderItem/`).
+3. **Service layer usage** is inconsistent in the existing codebase, but the intended standard going forward is: **no service layer, logic in the controller**. A minority of older pages (reports, complex workflows) have a dedicated service registered in `Program.cs` — don't copy that pattern into new simple CRUD pages, and don't add a service layer "for consistency" unless the user asks for it.
+4. Helper APIs **must** omit `[ActionDisplayName]` (`GetMissionInfo`-style calc/lookup). Primary CRUD/list/report actions **must** have it. Do not "fix" a helper by adding the attribute, and do not drop it from List/Edit/Save.
+
+## Quick reference paths
+
+| Concern | Path |
+|---|---|
+| Example controller | `WebApp/Controllers/Dynamic/Sale/ProductionOrderItemController.cs` |
+| Example entity | `Entities/App/Sale/ProductionOrderItem.cs` |
+| Before/After-save "trigger" examples | `WebApp/Actions/Sale/ProductionOrderItemAction.cs`, `WebApp/Actions/Edms/ProjectAction.cs` |
+| Action attribute / trigger enum | `Data/Actions/EntityActionAttribute.cs` (`EntityActionTrigger`) |
+| Action invocation (called from `Repository<T>`) | `Data/Actions/EntityActionInvoker.cs`, `Data/Actions/EntityActionRegistry.cs`, `Data/Repositories/Repository.cs` |
+| Action assembly registration | `WebApp/Program.cs` → `builder.Services.AddEntityActions(typeof(Program).Assembly)` |
+| Example views | `WebApp/Views/Panel/Sale/ProductionOrderItem/Edit.cshtml`, `List.cshtml` |
+| Base controller | `WebFramework/Page/BaseController.cs` |
+| Permission discovery | `Services/AccessServices/EndpointService.cs` |
+| Auth middleware | `WebApp/Framework/CustomAuthorizationMiddleware.cs` |
+| Role/permission UI | `WebApp/Controllers/SystemControllers/RoleController.cs` |
+| Menu UI | `WebFramework/Controllers/MenuBuilderController.cs` |
+| Startup init | `WebApp/Program.cs` + `WebFramework/Initializes/InitializeProgram.cs` |
+| Form Builder (fast path) | `/Panel/System/FormBuilder`, `WebFramework/Services/FormBuilderCodeGenerator.cs`, root `FORM_BUILDER_GUIDE.md` |
+| Reports (grid / chart / print) | `havayar-reports.mdc` |
+| EF migrations | root `EF_MIGRATIONS_GUIDE.md`, `add-migration.ps1`, `update-database.ps1` |

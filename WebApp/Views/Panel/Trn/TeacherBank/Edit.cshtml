@@ -1,0 +1,391 @@
+@using Entities.App.Trn
+@using Entities.App.Trn.Enums
+@model TeacherBank
+
+<div class="card shadow-sm border-0">
+
+     <div class="form-action-buttons border-bottom p-3">
+          <form-action-buttons entity-type="typeof(TeacherBank)">
+          </form-action-buttons>
+     </div>
+
+     <div class="card-body">
+
+          <div class="row mb-4">
+               <div class="col-12">
+                    <h4 class="fw-bold text-dark mb-0">
+                         بانک مدرسین
+                    </h4>
+               </div>
+          </div>
+
+          <input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+          <div class="row g-3">
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>نام</label>
+                    <input class='form-control' data-bind='firstName' data-required="true"
+                           asp-for='FirstName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold required'>نام خانوادگی</label>
+                    <input class='form-control' data-bind='lastName' data-required="true"
+                           asp-for='LastName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>کد ملی</label>
+                    <input class='form-control' dir="ltr" maxlength="10" data-bind='nationalCode'
+                           asp-for='NationalCode' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تحصیلات</label>
+                    <select class='form-control' data-bind='education'
+                            asp-for='Education'
+                            asp-items="Html.GetEnumSelectList(typeof(EducationEnum))">
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>رشته تحصیلی</label>
+                    <input class='form-control' data-bind='fieldOfStudy'
+                           asp-for='FieldOfStudy' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تلفن همراه</label>
+                    <input class='form-control' dir="ltr" data-bind='mobile'
+                           asp-for='Mobile' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>ایمیل</label>
+                    <input class='form-control' dir="ltr" data-bind='email'
+                           asp-for='Email' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>حق الزحمه (روزانه)</label>
+                    <input class='form-control' dir="ltr" data-bind='dailyWages'
+                           asp-for='DailyWages' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline align-content-center'>
+                    <div class="form-check">
+                         <input data-bind='isHavayarPerson' class="form-check-input" type="checkbox" asp-for='IsHavayarPerson' />
+                         <label class="form-check-label form-label fw-bold" asp-for='IsHavayarPerson'>
+                              هوایاری هست یا خیر
+                         </label>
+                    </div>
+               </div>
+
+               <div class='col-md-12 form-group-inline'>
+                    <label class='form-label fw-bold'>آدرس</label>
+                    <textarea class='form-control' data-bind='address'
+                              asp-for='Address'>@Model?.Address</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>زمینه تدریس</label>
+                    <textarea class='form-control' data-bind='teachingField'
+                              asp-for='TeachingField'>@Model?.TeachingField</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-6 form-group-inline'>
+                    <label class='form-label fw-bold'>توضیحات</label>
+                    <textarea class='form-control' data-bind='description'
+                              asp-for='Description'>@Model?.Description</textarea>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+          </div>
+
+     </div>
+</div>
+
+<div class="card mt-4 shadow-sm border-0" id="teacherAttachmentsCard">
+     <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+               <h5 class="fw-bold mb-0">
+                    <i class="fa fa-paperclip ms-2"></i>
+                    پیوست مدارک
+               </h5>
+               <button type="button" class="btn btn-sm btn-primary" id="btnAddTeacherAttachment">
+                    <i class="fa fa-plus ms-1"></i>
+                    افزودن پیوست
+               </button>
+          </div>
+          <div id="teacherAttachmentsNeedSaveHint" class="alert alert-info mb-0 d-none">
+               برای افزودن پیوست مدارک ابتدا مدرس را ذخیره کنید
+          </div>
+          <div id="teacherAttachmentsTableWrap">
+               <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-hover mb-0" id="teacherAttachmentsTable">
+                         <thead>
+                              <tr>
+                                   <th>عنوان</th>
+                                   <th>فایل</th>
+                                   <th style="width:120px;">عملیات</th>
+                              </tr>
+                         </thead>
+                         <tbody></tbody>
+                    </table>
+               </div>
+               <div id="teacherAttachmentsEmpty" class="alert alert-info mb-0 d-none">
+                    <i class="fa fa-info-circle"></i> هیچ پیوستی ثبت نشده است
+               </div>
+          </div>
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+     <div class="card-body">
+          <div class="row text-muted">
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ایجاد کننده :</span>
+                    <span data-bind="createdByName">@Model?.CreatedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ایجاد :</span>
+                    <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">ویرایش کننده :</span>
+                    <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+               </div>
+
+               <div class="col-md-3">
+                    <span class="fw-bold">تاریخ ویرایش :</span>
+                    <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+               </div>
+
+          </div>
+     </div>
+</div>
+<script>
+     function getTeacherBankId() {
+          return $$('[data-bind="id"]').val();
+     }
+
+     function hasTeacherBankId() {
+          const id = getTeacherBankId();
+          return id && id !== '0';
+     }
+
+     function escapeHtml(text) {
+          if (text === null || text === undefined) return '-';
+          return String(text)
+               .replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;');
+     }
+
+     function syncAttachmentsSection() {
+          const ready = hasTeacherBankId();
+          $$('#teacherAttachmentsNeedSaveHint').toggleClass('d-none', ready);
+          $$('#teacherAttachmentsTableWrap').toggleClass('d-none', !ready);
+          $$('#btnAddTeacherAttachment').prop('disabled', !ready);
+          if (ready) {
+               loadAttachments();
+          }
+     }
+
+     function loadAttachments() {
+          const id = getTeacherBankId();
+          if (!id || id === '0') return;
+
+          $$.get('/Panel/Trn/TeacherBank/GetAttachments?teacherBankId=' + encodeURIComponent(id), function (r) {
+               if (r && r.isSuccess === false) {
+                    toastr.error(r.message || 'خطا در دریافت پیوست‌ها');
+                    return;
+               }
+               const items = (r && r.data) ? r.data : (Array.isArray(r) ? r : []);
+               renderAttachments(items);
+          });
+     }
+
+     function renderAttachments(items) {
+          const $tbody = $$('#teacherAttachmentsTable tbody');
+          $tbody.empty();
+
+          if (!items || items.length === 0) {
+               $$('#teacherAttachmentsTable').closest('.table-responsive').addClass('d-none');
+               $$('#teacherAttachmentsEmpty').removeClass('d-none');
+               return;
+          }
+
+          $$('#teacherAttachmentsTable').closest('.table-responsive').removeClass('d-none');
+          $$('#teacherAttachmentsEmpty').addClass('d-none');
+
+          items.forEach(function (row) {
+               const title = escapeHtml(row.title);
+               let fileHtml = '-';
+               if (row.fileId) {
+                    const label = escapeHtml(row.fileName || 'دانلود فایل');
+                    fileHtml = '<a href="/File/download/' + row.fileId + '" target="_blank" class="btn btn-sm btn-light-primary">' + label + '</a>';
+               }
+               const actions = '<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete-attachment" data-id="' + row.id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+               $tbody.append('<tr><td>' + title + '</td><td>' + fileHtml + '</td><td class="text-center">' + actions + '</td></tr>');
+          });
+     }
+
+     function getAttachmentFormHtml() {
+          return `
+               <div class="mb-3">
+                    <label class="form-label fw-bold required">عنوان</label>
+                    <input class="form-control" id="attTitle" />
+               </div>
+               <div class="file-uploader-container file-uploader-form">
+                    <label class="form-label fw-bold required">فایل</label>
+                    <div class="file-uploader-wrapper">
+                         <div class="dropzone-area"
+                              data-file-uploader="true"
+                              data-bindid="fileId"
+                              data-file-id=""
+                              data-multiple="false"
+                              data-max-files="1"
+                              data-max-file-size="10"
+                              data-accepted-file-types=".pdf,.zip,.png,.jpg,.jpeg,.doc,.docx"
+                              data-entity-type="Entities.App.Trn.TeacherBankAttachment"
+                              data-entity-id=""
+                              data-show-preview="true"
+                              data-show-download="true"
+                              data-show-delete="true"
+                              data-entity-prop-name="File"
+                              data-required="true">
+                              <div class="dz-message">
+                                   <p>فایل را اینجا رها کنید یا کلیک کنید</p>
+                                   <p class="text-muted small">حداکثر 10 مگابایت</p>
+                              </div>
+                         </div>
+                    </div>
+                    <input type="hidden" data-bind="fileId" value="" />
+               </div>`;
+     }
+
+     function openAttachmentModal() {
+          if (!hasTeacherBankId()) {
+               toastr.error('ابتدا مدرس را ذخیره کنید');
+               return;
+          }
+
+          $.confirm({
+               title: 'افزودن پیوست مدارک',
+               content: getAttachmentFormHtml(),
+               rtl: true,
+               columnClass: 'col-md-6',
+               onContentReady: function () {
+                    if (typeof initFileUploaders === 'function') {
+                         initFileUploaders(this.$content);
+                    }
+               },
+               buttons: {
+                    save: {
+                         text: 'ذخیره',
+                         btnClass: 'btn-primary',
+                         action: function () {
+                              const title = this.$content.find('#attTitle').val();
+                              const fileId = this.$content.find('[data-bind="fileId"]').val();
+                              if (!title || !String(title).trim()) {
+                                   toastr.error('عنوان الزامی است');
+                                   return false;
+                              }
+                              if (!fileId) {
+                                   toastr.error('فایل انتخاب نشده');
+                                   return false;
+                              }
+
+                              $$.post('/Panel/Trn/TeacherBank/SaveAttachment', {
+                                   teacherBankId: getTeacherBankId(),
+                                   title: title,
+                                   fileId: fileId
+                              }, function (r) {
+                                   if (!r.isSuccess) {
+                                        toastr.error(r.message || 'خطا', 'خطا');
+                                        return;
+                                   }
+                                   toastr.success('پیوست ذخیره شد');
+                                   loadAttachments();
+                              });
+                         }
+                    },
+                    cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+               }
+          });
+     }
+
+     function deleteTeacherAttachment(id) {
+          Swal.fire({
+               title: 'حذف پیوست',
+               text: 'آیا از حذف این پیوست مطمئن هستید؟',
+               icon: 'warning',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+
+               $$.get('/Panel/Trn/TeacherBank/DeleteAttachment?id=' + id, function (response) {
+                    if (response && response.isSuccess === false) {
+                         toastr.error(response.message || 'خطا در حذف رکورد');
+                         return;
+                    }
+                    toastr.success('رکورد با موفقیت حذف شد');
+                    loadAttachments();
+               });
+          });
+     }
+
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+          const $btn = $($btnAction.element).block();
+
+          $$.post('save', model, function (r) {
+               $btn.block(false);
+
+               if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+               }
+
+               toastr.success('ذخیره سازی با موفقیت انجام شد');
+               page.$pageEl.dataBind(r.data);
+               syncAttachmentsSection();
+               $btnAction.baseaction();
+          });
+     }
+
+     $$('#btnAddTeacherAttachment').on('click', function () {
+          openAttachmentModal();
+     });
+
+     $$('#teacherAttachmentsTable').on('click', '.btn-delete-attachment', function () {
+          const id = $(this).data('id');
+          deleteTeacherAttachment(id);
+     });
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+     syncAttachmentsSection();
+</script>

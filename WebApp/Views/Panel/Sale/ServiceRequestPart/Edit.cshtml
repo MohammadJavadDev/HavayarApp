@@ -1,0 +1,307 @@
+@using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.Inv
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@using Entities.Base
+@model ServiceRequestPart
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+	var filterServiceRequestId = ViewBag.ServiceRequestId as long? ?? 0;
+	var isManual = ViewBag.IsManual as bool? == true || Model?.IsRegisteredManually == true;
+	var showPrice = ViewBag.ShowPrice as bool? == true;
+	var isEdit = Model?.Id is > 0;
+}
+
+<div class="card shadow-sm border-0" id="srPartFormCard" data-manual="@(isManual ? "1" : "0")" data-show-price="@(showPrice ? "1" : "0")" data-service-request-id="@filterServiceRequestId">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(ServiceRequestPart)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-3">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">@(isManual ? "درخواست کالا-نمایندگان" : "درخواست کالا")</h4>
+			</div>
+		</div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="isRegisteredManually" value="@(isManual ? "true" : "false")" />
+		<input type="hidden" data-bind="htsProjectVchItemId" value="@Model?.HtsProjectVchItemId" />
+		<input type="hidden" data-bind="htsProjectVchPartId" value="@Model?.HtsProjectVchPartId" />
+		<input type="hidden" data-bind="orderDetailId" value="@Model?.OrderDetailId" />
+		<input type="hidden" data-bind="projectVchYear" value="@Model?.ProjectVchYear" />
+		<input type="hidden" data-bind="partUnitId" value="@Model?.PartUnitId" />
+		<input type="hidden" data-bind="serviceRequestId" value="@filterServiceRequestId" />
+
+		<div class="row g-3">
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">شماره سند (حواله گارانتی)</label>
+				<input class="form-control" data-bind="projectVchNum" data-required="true" asp-for="ProjectVchNum" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			@if (isManual)
+			{
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold required">تاریخ سند</label>
+					<input class="form-control" data-bind="projectVchShamsiDate" data-required="true" data-persionDatePicker="true"
+						persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}'
+						value="@Model?.ProjectVchMiladiDate" />
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+				<div class="col-md-4 form-group-inline">
+					<label class="form-label fw-bold required">قطعه</label>
+					@(Html.EntitySelector<Part>(
+						"ServiceRequestPartManualPieceSelector",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+						c => new { c.Code, c.Name },
+						"{Code} {Name}",
+						"manualPieceId",
+						"manualPieceName",
+						null
+					))
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+				<div class="col-md-2 form-group-inline">
+					<label class="form-label fw-bold required">مقدار</label>
+					<input class="form-control" id="srPartManualQty" data-bind="mount" value="@Model?.Mount" />
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+				@if (!isEdit)
+				{
+					<div class="col-md-12">
+						<button type="button" class="btn btn-sm btn-light-primary" id="srPartAddPiece">افزودن قطعه</button>
+					</div>
+				}
+			}
+			else
+			{
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold">مرکز فروش</label>
+					<select class="form-control" id="srPartSaleCenter" data-bind="saleCenterId">
+						<option value="">انتخاب کنید</option>
+					</select>
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold required">سال مالی</label>
+					<select class="form-control" id="srPartFiscalYear" data-required="true">
+						<option value="">انتخاب کنید</option>
+					</select>
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+				<div class="col-md-3 form-group-inline d-flex align-items-end">
+					<button type="button" class="btn btn-sm btn-light-primary mb-3" id="srPartFetchPieces">افزودن قطعه</button>
+				</div>
+			}
+
+			<div class="col-md-12" id="srPartPiecesRow">
+				<label class="form-label fw-bold">اقلام</label>
+				<div class="table-responsive" style="max-height:220px;overflow:auto;">
+					<table class="table table-sm table-striped table-row-bordered w-100 mb-0" id="srPartPiecesTable">
+						<thead>
+							<tr class="fw-bold fs-7 text-muted">
+								<th>تاریخ</th>
+								<th>کالا</th>
+								<th>مقدار</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+
+			@if (!isManual)
+			{
+				<div class="col-md-2 form-group-inline" id="srPartMountRow" style="@(isEdit ? "" : "display:none;")">
+					<label class="form-label fw-bold required">مقدار</label>
+					<input class="form-control" data-bind="mount" asp-for="Mount" />
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+			}
+
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">محصول مرتبط</label>
+				<select class="form-control" id="srPartRelatedProduct" data-bind="serviceRequestDetailId" data-required="true" data-selected="@Model?.ServiceRequestDetailId">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">قطعه جایگزین</label>
+				@(Html.EntitySelector<Part>(
+					"ServiceRequestPartReplaceSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"replacePartId",
+					"replacePartName",
+					Model?.ReplacePartId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline" id="srPartPriceRow" style="@(showPrice ? "" : "display:none;")">
+				<label class="form-label fw-bold">قیمت</label>
+				<input type="text" class="form-control" data-bind="unitPrice" data-money="true" asp-for="UnitPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">نوع خدمت</label>
+				<select class="form-control" data-bind="serviceType" data-required="true" asp-for="ServiceType" asp-items="Html.GetEnumSelectList(typeof(AfterSalesServiceTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مرکز هزینه</label>
+				@(Html.EntitySelector<CostCenter>(
+					"ServiceRequestPartCostCenterSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Number = c.Number, Title = c.Title },
+					c => new { c.Number, c.Title },
+					"{Number} {Title}",
+					"costCenterId",
+					"costCenterTitle",
+					Model?.CostCenterId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">سایر مراکز هزینه</label>
+				@(Html.EntitySelector<Party>(
+					"ServiceRequestPartOtherCostCenterSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Type == PartyTypeEnum.Legal,
+					c => new { Id = c.Id, FullName = c.FullName },
+					c => new { c.FullName },
+					"{FullName}",
+					"otherCostCenterPartyId",
+					"otherCostCenterPartyName",
+					Model?.OtherCostCenterPartyId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مجوز برگشت دارد</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="returnLicence" @(Model?.ReturnLicence == true ? "checked" : "") />
+			</div>
+
+			@if (!isManual)
+			{
+				<div class="col-12"><h6 class="fw-bold border-bottom pb-2">داغی</h6></div>
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold">داغی دارد</label>
+					<input class="form-check-input mt-2" type="checkbox" id="srPartReturnDamaged" data-bind="returnDamagedPart" @(Model?.ReturnDamagedPart == true ? "checked" : "") />
+				</div>
+				<div class="col-md-3 form-group-inline sr-part-damaged-fields">
+					<label class="form-label fw-bold">نوع داغی</label>
+					<select class="form-control" data-bind="damagedPartType" asp-for="DamagedPartType" asp-items="Html.GetEnumSelectList(typeof(DamagedPartTypeEnum))">
+						<option value="">انتخاب کنید</option>
+					</select>
+					<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+				</div>
+				<div class="col-md-6 form-group-inline sr-part-damaged-fields">
+					<label class="form-label fw-bold">قطعات داغی</label>
+					@(Html.EntitySelector<Part>(
+						"ServiceRequestPartDamagedSelector",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+						c => new { c.Code, c.Name },
+						"{Code} {Name}",
+						"damagedPartIds",
+						"damagedParts",
+						Model?.DamagedPartIds,
+						false,
+						true
+					))
+				</div>
+				<div class="col-md-12 form-group-inline sr-part-damaged-fields">
+					<label class="form-label fw-bold">توضیح قطعه داغی</label>
+					<textarea class="form-control" data-bind="damagedPartDescription" asp-for="DamagedPartDescription" rows="2"></textarea>
+				</div>
+
+				<div class="col-12"><h6 class="fw-bold border-bottom pb-2">خرابی</h6></div>
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold">خرابی دارد</label>
+					<input class="form-check-input mt-2" type="checkbox" id="srPartHasFailure" data-bind="hasFailure" @(Model?.HasFailure == true ? "checked" : "") />
+				</div>
+				<div class="col-md-9 form-group-inline sr-part-failure-fields">
+					<label class="form-label fw-bold">قطعه معیوب</label>
+					@(Html.EntitySelector<Part>(
+						"ServiceRequestPartFailureSelector",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+						c => new { c.Code, c.Name },
+						"{Code} {Name}",
+						"failurePartIds",
+						"failureParts",
+						Model?.FailurePartIds,
+						false,
+						true
+					))
+				</div>
+				<div class="col-md-12 form-group-inline sr-part-failure-fields">
+					<label class="form-label fw-bold">شرح خرابی</label>
+					<textarea class="form-control" data-bind="failureDescription" asp-for="FailureDescription" rows="2"></textarea>
+				</div>
+			}
+			else
+			{
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold">داغی دارد</label>
+					<input class="form-check-input mt-2" type="checkbox" data-bind="returnDamagedPart" @(Model?.ReturnDamagedPart == true ? "checked" : "") />
+				</div>
+			}
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	const $relatedSelect = $$('#srPartRelatedProduct');
+	const relatedParentId = $$('#srPartFormCard').data('service-request-id');
+	if (relatedParentId && $relatedSelect.length) {
+		$$.get('/Panel/Sale/ServiceRequestPart/GetRelatedDetails?serviceRequestId=' + relatedParentId, function (r) {
+			if (!r || !r.isSuccess) return;
+			const items = r.data || [];
+			const current = $relatedSelect.data('selected') || $relatedSelect.val();
+			$relatedSelect.find('option:not(:first)').remove();
+			items.forEach(function (item) {
+				$relatedSelect.append($('<option></option>').attr('value', item.id).text(item.text));
+			});
+			if (current)
+				$relatedSelect.val(String(current));
+			else if (items.length === 1 && items[0].id)
+				$relatedSelect.val(String(items[0].id));
+		});
+	}
+
+	function savefn($btnAction) {
+		if (!$$('#srPartRelatedProduct').val()) {
+			toastr.error('محصول مرتبط را از محصولات همین درخواست پشتیبانی انتخاب کنید');
+			return;
+		}
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

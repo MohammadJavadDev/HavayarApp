@@ -1,1383 +1,634 @@
+@using Entities.App.Crm
 @using Entities.App.FIN
 @using Entities.App.Gnr
+@using Entities.App.Hcm
 @using Entities.App.Inv
 @using Entities.App.Rpr
+@using Entities.App.Rpr.Enums
+@using Entities.App.Sale
 @using Entities.App.SLS
 @using Entities.Auth
-@using WebFramework.TagHelpers;
+@using Entities.Base
 @model RepairRequest
-
-<style>
-     .approval-card {
-          min-width: 160px;
-          background: white;
-          border: 1px solid #e9ecef;
-          border-radius: 12px;
-          padding: 12px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-     }
-
-     .approval-header {
-          font-size: 0.9rem;
-          font-weight: bold;
-          color: #495057;
-          margin-bottom: 10px;
-          padding-bottom: 8px;
-          border-bottom: 1px dashed #dee2e6;
-          text-align: center;
-     }
-</style>
+@{
+	var hasAfterSale = ViewBag.HasAfterSaleAccess == true;
+	var hasRepairs = ViewBag.HasRepairsAccess == true;
+	var hasConfirm = ViewBag.HasConfirmAccess == true;
+	var hasImaging = ViewBag.HasImagingAccess == true;
+}
 
 <div class="card">
-     <div class="form-action-buttons">
-          <div style="border-radius:10px">
-               <form-action-buttons entity-type="typeof(RepairRequest)">
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fa fa-boxes"
-                                        action-name="goToConsumableItems"
-                                        title="اقلام مصرفی">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fas fa-comment-medical"
-                                        action-name="addComments"
-                                        title="افزودن کامنت">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fa fa-comment"
-                                        action-name="commentList"
-                                        title="لیست کامنت">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fas fa-user-clock"
-                                        action-name="addManHours"
-                                        title="افزودن نفر ساعت">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fa fa-clock"
-                                        action-name="listManHours"
-                                        title=" لیست نفر ساعت">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fas fa-calendar-plus"
-                                        action-name="confirmDate"
-                                        title="تایید تاریخ ">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fas fa-tag"
-                                        action-name="RepairRequestPrintLable"
-                                        title="پرینت برچسب تعمیر">
-                    </form-action-button>
-
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary"
-                                        icon-class="fas fa-file-alt"
-                                        action-name="RepairRequestForm"
-                                        title="پرینت فرم درخواست تعمیر">
-                    </form-action-button>
-
-               </form-action-buttons>
-
-          </div>
-     </div>
-
-     <div class="card-body row">
-
-          <input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-          <div class="alert alert-info">
-               شناسنامه تعمیرات: <span id="displayRepairId"></span>
-          </div>
-
-
-          <div class='col-md-2 align-content-center'>
-               <div class="form-check">
-                    <input data-bind='hasContentProductionImaging' class="form-check-input" type="checkbox" asp-for='HasContentProductionImaging' />
-                    <label class="form-check-label" asp-for='HasContentProductionImaging'>
-                         تصویر برداری تولید محتوا
-                    </label>
-               </div>
-          </div>
-
-          <div class='col-md-2 align-content-center'>
-               <div class="form-check">
-                    <input data-bind='isHavayarEquipment' class="form-check-input" type="checkbox" asp-for='IsHavayarEquipment' />
-                    <label class="form-check-label" asp-for='IsHavayarEquipment'>
-                         تجهیز هوایاری است؟
-                    </label>
-               </div>
-          </div>
-
-          <div class="col-md-4">
-               <label>تجهیز</label>
-               @(Html.EntitySelector<Part>(
-                              "PartSelector",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Code = c.Code, Name = c.Name },
-                              c => new { c.Code, c.Name },
-                              "{Code} {Name}",
-                              "ProductId",
-                              "ProductName",
-                              Model?.ProductId.ToString()
-                              ))
-          </div>
-
-          <div class='col-md-4'>
-               <label>سریال</label>
-               <input class='form-control' data-bind='Serial' asp-for='Serial' />
-
-          </div>
-
-          <div class="col-md-4">
-               <label>مشتری</label>
-               @(Html.EntitySelector<Customer>(
-                              "CustomerSelect",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new
-                              {
-                                   Id = c.Id,
-                                   Code = c.Code,
-                                   PartyFullName = c.Party.FullName
-                              },
-                              c => new { c.Code, c.Party.FullName },
-                              "{Code} {PartyFullName}",
-                              "CustomerId",
-                              "CustomerName",
-                              Model?.CustomerId.ToString()
-                              ))
-          </div>
-
-
-          <div class="col-md-4">
-               <label>سایت مشتری (نمایندگی)</label>
-               @(Html.EntitySelector<Customer>(
-                              "CustomerAgencySelect",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new
-                              {
-                                   Id = c.Id,
-                                   Code = c.Code,
-                                   PartyFullName = c.Party.FullName
-                              },
-                              c => new { c.Code, c.Party.FullName },
-                              "{Code} {PartyFullName}",
-                              "CustomerAgencyId",
-                              "CustomerAgencyName",
-                              Model?.CustomerAgencyId.ToString()
-                              ))
-          </div>
-
-          <div class="col-md-4">
-               <label>سایت مشتری (دستی)</label>
-               <input class='form-control' data-bind='customerAddressManual' asp-for='CustomerAddressManual' />
-          </div>
-
-
-          <div class="col-md-4">
-               <label>منطقه</label>
-               @(Html.EntitySelector<Region>(
-                              "ZoneSelect",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Code = c.Code, Title = c.Name },
-                              c => new { c.Code, c.Name },
-                              "{Code} {Title}",
-                              "ZoneId",
-                              "ZoneName",
-                              Model?.ZoneId.ToString()
-                              ))
-          </div>
-
-          <div class="col-md-4">
-               <label>سرپرست منطقه</label>
-               @(Html.EntitySelector<User>(
-                              "ZoneSupervisorIdSelector",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Name = c.NameFa },
-                              c => new { c.NameFa },
-                              "{Name}",
-                              "ZoneSupervisorId",
-                              "ZoneSupervisorName",
-                              Model?.ZoneSupervisorId.ToString()
-                              ))
-          </div>
-
-          <div class='col-md-4'>
-               <label>شماره تماس مشتری</label>
-               <input class='form-control' data-bind='CustomerPhone' asp-for='CustomerPhone' />
-          </div>
-
-          <div class='col-md-4'>
-               <label>دریافت از نمایندگی</label>
-               <input class='form-control' data-bind='representationReception' asp-for='RepresentationReception' />
-          </div>
-
-
-          <div class='col-md-4'>
-               <label class=''>مقصد پس از تعمیر</label>
-               <select class='form-control' data-bind='destinationAfterRepair' asp-for='DestinationAfterRepair' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Rpr.Enums.RepairRequestDestinationAfterRepairEnum))">
-               </select>
-               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-          </div>
-
-          <div class='col-md-4 align-content-center'>
-               <div class="form-check">
-                    <input data-bind='isGuarantee' class="form-check-input" type="checkbox" asp-for='IsGuarantee' />
-                    <label class="form-check-label" asp-for='IsGuarantee'>
-                         گارانتی
-                    </label>
-               </div>
-          </div>
-
-          <div class="col-md-3">
-               <label>مرکز هزینه</label>
-               @(Html.EntitySelector<CostCenter>(
-                              "CostCenterSelect",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Code = c.Number, Title = c.Title },
-                              c => new { c.Number, c.Title },
-                              "{Code} {Title}",
-                              "CostCenterId",
-                              "CostCenterName",
-                              Model?.CostCenterId.ToString()
-                              ))
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ ورود به انبار
-               </label>
-               <input class='form-control' data-bind='openWarehouseShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.OpenWarehouseMiladiDate' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ نیاز مشتری
-               </label>
-               <input class='form-control' data-bind='customerNeedShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.CustomerNeedMiladiDate' />
-          </div>
-
-
-          <div class='col-md-3'>
-               <label class=''>
-                    ساعت کارکرد دستگاه
-               </label>
-               <input class='form-control' data-bind='operatingHoursOfTheDevice' asp-for='OperatingHoursOfTheDevice' />
-          </div>
-
-          <div class='col-md-3'>
-               <label>آدرس مقصد</label>
-               <input class='form-control' data-bind='destinationAddress' asp-for='DestinationAddress' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>شرح کار</label>
-               <select class='form-control' data-bind='jobDescription' asp-for='JobDescription' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Rpr.Enums.RepairRequestJobDescriptionEnum))">
-               </select>
-               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-          </div>
-
-          <div class='col-md-3'>
-               <label>شماره پیش فاکتور</label>
-               <input class='form-control' data-bind='preFactorNumber' asp-for='PreFactorNumber' />
-          </div>
-
-          <div class='col-md-3'>
-               <label>شماره حواله فروش</label>
-               <input class='form-control' data-bind='loanFormNumber' asp-for='LoanFormNumber' />
-          </div>
-
-          <div class='col-md-3'>
-               <label>شماره فرم برگشت امانی</label>
-               <input class='form-control' data-bind='safekeepingReturnFormNumber' asp-for='SafekeepingReturnFormNumber' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ برگشت امانی
-               </label>
-               <input class='form-control' data-bind='safekeepingReturnShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.SafekeepingReturnMiladiDate' />
-          </div>
-
-          <div class='col-md-3'>
-               <label>شرح خرابی طبق اعلام مشتری</label>
-               <input class='form-control' data-bind='failureReason' asp-for='FailureReason' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>نوع تجهیزات تعمیری</label>
-               <select class='form-control' data-bind='typeRepairEquipment' asp-for='TypeRepairEquipment' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Rpr.Enums.TypeRepairEquipmentEnum))">
-               </select>
-               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-          </div>
-
-          <div class="col-md-3">
-               <label>محصول مادر</label>
-               @(Html.EntitySelector<ProductionOrderItem>(
-                              "ProductionOrderItemSelector",
-                              c => false,
-                              c => new { Id = c.Id, Code = c.Part.Code, Name = c.Part.Name, Serial = c.Serial },
-                              c => new { Id = c.Id, Code = c.Part.Code, Name = c.Part.Name, Serial = c.Serial },
-                              "{Code} - {Name}",
-                              "ProductionOrderItemId",
-                              "ProductionOrderItem",
-                              Model?.ProductionOrderItemId.ToString()
-                              ))
-          </div>
-
-
-          <div class="col-md-3">
-               <fileuploader bind="datasheetFileId"
-                             accepted-file-types=".jpg,.png"
-                             file-id="@Model?.RepairRequestsAttachmentId"
-                             file-entity="@Model?.RepairRequestsAttachment"
-                             entity-prop-name="RepairRequestsAttachment"
-                             entity-type="@typeof(RepairRequest).FullName"
-                             max-file-size="10"
-                             label="پیوست فایل">
-               </fileuploader>
-          </div>
-
-
-
-          <div class="col-md-12">
-               <label>توضیحات</label>
-               <textarea class='form-control' data-bind='comment' asp-for='Comment'>@Model?.Comment</textarea>
-               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-          </div>
-
-          <h3>تعمیرات</h3>
-          <br />
-
-
-
-          <div class="col-md-3">
-               <label>تفصیل</label>
-               @(Html.EntitySelector<DL>(
-                              "DLSelector",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Code = c.Code, Name = c.Title },
-                              c => new { c.Code, c.Title },
-                              "{Code} {Name}",
-                              "DLId",
-                              "DLName",
-                              Model?.DLId.ToString()
-                              ))
-          </div>
-
-          <div class="col-md-3">
-               <label>کارشناس</label>
-               @(Html.EntitySelector<Personel>(
-                              "ExpertSelector",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Name = c.Name, Family = c.Family },
-                              c => new { c.Name, c.Family },
-                              "{Name} {Family}",
-                              "ExpertId",
-                              "ExpertName",
-                              Model?.ExpertId.ToString()
-                              ))
-          </div>
-
-
-
-          <div class='col-md-3'>
-               <label class=''>وضعیت</label>
-               <select class='form-control' data-bind='repairRequestStatus' asp-for='RepairRequestStatus' asp-items="Html.GetEnumSelectList(typeof(Entities.App.Rpr.Enums.RepairRequestStatusEnum))">
-               </select>
-               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-          </div>
-
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ شروع
-               </label>
-               <input class='form-control' data-bind='startShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.StartMiladiDate' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ خاتمه
-               </label>
-               <input class='form-control' data-bind='endShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.EndMiladiDate' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ ورود به تعمیرات
-               </label>
-               <input class='form-control' data-bind='repairEnteranceShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.RepairEnteranceMiladiDate' />
-          </div>
-
-          <div class="col-md-3">
-               <label>شماره فرم تحویل</label>
-               <input type="text" class="form-control" data-bind="deliveryFormNumber" asp-for="DeliveryFormNumber" />
-
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ تحویل به انبار
-               </label>
-               <input class='form-control' data-bind='deliveryWarehouseShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.DeliveryWarehouseMiladiDate' />
-          </div>
-
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ توافقی
-               </label>
-               <input class='form-control' data-bind='agreedShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.AgreedMiladiDate' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ توافقی 2
-               </label>
-               <input class='form-control' data-bind='agreedShamsiDate2' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.Agreed2MiladiDate' />
-          </div>
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ توافقی 3
-               </label>
-               <input class='form-control' data-bind='agreed3ShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.Agreed3MiladiDate' />
-          </div>
-
-
-          <div class="col-md-3">
-               <label>تحویل گیرنده</label>
-               <input class="form-control" asp-for="DeliveringRecipient" />
-          </div>
-
-
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ درخواست تامین
-               </label>
-               <input class='form-control' data-bind='supplyShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.SupplyMiladiDate' />
-          </div>
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ  تامین
-               </label>
-               <input class='form-control' data-bind='supplyShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.SupplyMiladiDate' />
-          </div>
-          <div class='col-md-3'>
-               <label class=''>
-                    تاریخ  درخواست تست
-               </label>
-               <input class='form-control' data-bind='qcRequestShamsiDate' data-persionDatePicker="true"
-                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                      value='@Model?.QcRequestMiladiDate' />
-          </div>
-
-
-          <div class="col-md-3">
-               <label>کسری قطعات</label>
-               @(Html.EntitySelector<RepairRequestPartFraction>(
-                              "RepairRequestPartFractionSelector",
-                              c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                              c => new { Id = c.Id, Title = c.Title, Description = c.Description },
-                              c => new { Id = c.Id, Title = c.Title, Description = c.Description },
-                              "{Id} {Title} {Description}",
-                              "RepairRequestPartFractionsId",
-                              "RepairRequestPartFractionsName",
-                              Model?.RepairRequestPartFractionsId.ToString()
-                              ))
-          </div>
-
-          <div class="col-md-3">
-               <button type="button" class="btn btn-primary" data-action="addPartFraction">
-                    افزودن کسری قطعات
-               </button>
-          </div>
-
-          <div class="col-md-12">
-               <label>توضیحات</label>
-               <textarea class="form-control" asp-for="Comment" rows="5"></textarea>
-          </div>
-
-
-     </div>
-
-     <div class="card card-body my-3">
-          <div class='col-md-12'>
-               <div class="table-responsive">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                         <h4 class="mb-0">لیست پیمانکار</h4>
-                         <button type="button" class="btn btn-primary btn-sm" data-action="addNewContractor">
-                              <i class="fa fa-plus"></i> افزودن پیمانکار
-                         </button>
-                    </div>
-                    <table id="contractorTable" class="table table-striped table-bordered">
-                         <thead>
-                              <tr>
-                                   <th style="width: 8%">عملیات</th>
-                                   <th style="width: 5%">#</th>
-                                   <th style="width: 15%">پیمانکار</th>
-                                   <th style="width: 10%">مبلغ تعمیر</th>
-                                   <th style="width: 17%">نام قطعه ارسالی</th>
-                                   <th style="width: 8%">تاریخ ارسال</th>
-                                   <th style="width: 8%">تاریخ تاییدیه</th>
-                                   <th style="width: 8%">تاریخ توافق</th>
-                                   <th style="width: 8%">تاریخ برگشت</th>
-                                   <th style="width: 8%">تاریخ اعلام هزینه</th>
-                                   <th style="width: 8%">کاربر ایجاد کننده</th>
-                                   <th style="width: 8%">تاریخ ایجاد</th>
-                                   <th style="width: 13%">توضیحات</th>
-                              </tr>
-                         </thead>
-                         <tbody id="contractorTableBody">
-                              <tr id="contractorLoadingRow">
-                                   <td colspan="13" class="text-center">
-                                        <div class="spinner-border text-primary" role="status">
-                                             <span class="visually-hidden">در حال بارگذاری...</span>
-                                        </div>
-                                   </td>
-                              </tr>
-                         </tbody>
-                    </table>
-               </div>
-          </div>
-     </div>
-
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(RepairRequest)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-print"
+				action-name="printLabel" title="چاپ برچسب تعمیر"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-file"
+				action-name="printSheet" title="چاپ شناسنامه"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-cogs"
+				action-name="openParts" title="اقلام مصرفی"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-comment"
+				action-name="openComments" title="یادداشت‌ها"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-clock"
+				action-name="openManHours" title="نفرساعت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-paperclip"
+				action-name="openAttachments" title="پیوست‌ها"></form-action-button>
+			@if (hasConfirm)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+					action-name="confirmPreCheck" title="تایید پیش‌بررسی"></form-action-button>
+				<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+					action-name="confirmPreCheck2" title="تایید پیش‌بررسی ۲"></form-action-button>
+				<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-check"
+					action-name="confirmFinancial" title="تایید پیشنهاد مالی"></form-action-button>
+				<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-check"
+					action-name="confirmFinancial2" title="تایید پیشنهاد مالی ۲"></form-action-button>
+				<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-check"
+					action-name="confirmFull" title="تایید نهایی"></form-action-button>
+				<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-check"
+					action-name="confirmFull2" title="تایید نهایی ۲"></form-action-button>
+				<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-paper-plane"
+					action-name="sendFinancial" title="ارسال پیشنهاد مالی"></form-action-button>
+			}
+		</form-action-buttons>
+	</div>
 </div>
 
-<div class='card-footer row'>
-     <div class='col-md-3'>
-          <span>ایجاد کننده :</span>
-          <span>@Model?.CreatedByName</span>
-     </div>
-     <div class='col-md-3'>
-          <span>تاریخ ایجاد :</span>
-          <span>@Model?.CreatedOnShamsiDateTime</span>
-     </div>
-     <div class='col-md-3'>
-          <span>ویرایش کننده :</span>
-          <span>@Model?.ModifiedByName</span>
-     </div>
-     <div class='col-md-3'>
-          <span>تاریخ ویرایش :</span>
-          <span>@Model?.ModifiedDateShamsiDateTime</span>
-     </div>
+<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+<input type="hidden" data-bind="partFractionIds" value="@Model?.PartFractionIds" />
+
+<div class="card my-2" id="afterSalesSection">
+	<div class="card-body row">
+		<span class="section-box-title">خدمات پس از فروش</span>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">شماره</label>
+			<input class="form-control" data-bind="idNumber" value="@Model?.IdNumber" readonly />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مشتری</label>
+			@(Html.EntitySelector<Customer>(
+						"RepairRequestCustomerSelector",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+						c => new { c.Party.FullName, c.Code },
+						"{Party.FullName} {Code}",
+						"customerId",
+						"customerName",
+						Model?.CustomerId?.ToString()
+						))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">تصویربرداری محتوا</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="hasContentProductionImaging" @(Model?.HasContentProductionImaging == true ? "checked" : "") />
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">تجهیز هوایار</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="isHavayarEquipment" @(Model?.IsHavayarEquipment == true ? "checked" : "") />
+		</div>
+	
+	 
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold required">تجهیز</label>
+			@(Html.EntitySelector<Part>(
+				"RepairRequestProductSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"productId",
+				"productName",
+				Model?.ProductId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold ">محصول مادر</label>
+				@(Html.EntitySelector<OrderDetailSerial>(
+								"RepairRequestMotherProductSelector",
+						c => c.IsActive == IsActiveEnum.Active  ,
+								c => new { Id = c.Id, Serial = c.Serial, OrderDetailId = c.OrderDetailId, Seq = c.OrderDetail.Seq, Part_Code = c.OrderDetail.Part.Code, Part_Name = c.OrderDetail.Part.Name, CustomerId = c.OrderDetail.Sale_Order.CustomerId },
+						c => new { c.OrderDetail.Part.Name, c.Serial, c.OrderDetail.Part.Code },
+								"{Part_Name}  | {Part_Code}  |  {Serial}",
+								"motherProductId",
+								"motherProductName",
+								Model?.MotherProductId?.ToString(),
+								false,
+								false,
+								false,
+								false,
+								@"<div  >
+								<span>نام کالا: {Part_Name}</span>
+								</br>
+								<span>کد کالا: {Part_Code}</span>
+								</br>
+								<span>سریال : {Serial}</span>
+								</div>"
+								))
+ 
+			</div>
+	  
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">سریال</label>
+			<input class="form-control" data-bind="serial" asp-for="Serial" />
+		</div>
+	
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">آدرس نمایندگی مشتری</label>
+			@(Html.EntitySelector<Customer>(
+				"RepairRequestAgencySelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+				c => new { c.Party.FullName, c.Code },
+				"{Party.FullName} {Code}",
+				"customerAgencyId",
+				"customerAgencyName",
+				Model?.CustomerAgencyId?.ToString()
+			))
+		</div>
+		<div class="col-md-8 form-group-inline">
+			<label class="form-label fw-bold">سایت مشتری</label>
+			@(Html.EntitySelector<CustomerAddress>(
+				"RepairRequestAddressSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Address = c.Address, CustomerId = c.CustomerId },
+				c => new { c.Title, c.Address },
+				"{Title} {Address}",
+				"customerAddressId",
+				"customerAddressTitle",
+				Model?.CustomerAddressId?.ToString()
+			))
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">آدرس دستی</label>
+			<input class="form-control" data-bind="customerAddressManual" asp-for="CustomerAddressManual" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">منطقه</label>
+			@(Html.EntitySelector<Zone>(
+				"RepairRequestZoneSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"zoneId",
+				"zoneTitle",
+				Model?.ZoneId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مسئول منطقه</label>
+			@(Html.EntitySelector<User>(
+				"RepairRequestSupervisorSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, NameFa = c.NameFa ?? c.Name, Username = c.Username },
+				c => new { c.NameFa, c.Name, c.Username },
+				"{NameFa}",
+				"zoneSupervisorId",
+				"zoneSupervisorName",
+				Model?.ZoneSupervisorId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تلفن مشتری</label>
+			<input class="form-control ltr" data-bind="customerPhone" asp-for="CustomerPhone" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">پذیرش نمایندگی</label>
+			<input class="form-control" data-bind="representationReception" data-required="true" asp-for="RepresentationReception" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مقصد پس از تعمیر</label>
+			<select class="form-control" data-bind="destinationAfterRepair" data-required="true" asp-for="DestinationAfterRepair" asp-items="Html.GetEnumSelectList(typeof(DestinationAfterRepairEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">گارانتی</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="isGuarantee" asp-for="IsGuarantee" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">مرکز هزینه</label>
+			@(Html.EntitySelector<CostCenter>(
+				"RepairRequestCostCenterSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Number = c.Number, Title = c.Title },
+				c => new { c.Number, c.Title },
+				"{Number} {Title}",
+				"costCenterId",
+				"costCenterTitle",
+				Model?.CostCenterId?.ToString()
+			))
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold required">تاریخ ورود انبار</label>
+			<input class="form-control" data-bind="entryShamsiDate" data-required="true" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.EntryMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-8 form-group-inline">
+			<label class="form-label fw-bold">آدرس مقصد</label>
+			<input class="form-control" data-bind="destinationAddress" asp-for="DestinationAddress" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شرح کار</label>
+			<select class="form-control" data-bind="jobDescription" asp-for="JobDescription" asp-items="Html.GetEnumSelectList(typeof(RepairJobDescriptionEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">شماره پیش‌فاکتور</label>
+			<input class="form-control" data-bind="preFactorNumber" asp-for="PreFactorNumber" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">شماره حواله فروش</label>
+			<input class="form-control" data-bind="loanFormNumber" asp-for="LoanFormNumber" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">شماره برگشت امانی</label>
+			<input class="form-control" data-bind="safekeepingReturnFormNumber" asp-for="SafekeepingReturnFormNumber" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ برگشت امانی</label>
+			<input class="form-control" data-bind="safekeepingReturnShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.SafekeepingReturnMiladiDate" />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">خرابی به اظهار مشتری</label>
+			<input class="form-control" data-bind="failureReason" asp-for="FailureReason" />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">توضیحات</label>
+			<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="5"></textarea>
+		</div>
+	</div>
 </div>
 
+<div class="card my-2" id="repairsSection">
+	<div class="card-body row">
+		<span class="section-box-title">تعمیرات</span>
+	 
 
-<div class="modal fade" id="addRepairModal" tabindex="-1">
-     <div class="modal-dialog modal-sm">
-          <div class="modal-content">
-               <div class="modal-body">
-                    <p>تاریخ پیش بررسی</p>
-                    <input class='form-control' data-bind='supplyShamsiDate' data-persionDatePicker="true"
-                           persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-                           value='@Model?.SupplyShamsiDate' />
-               </div>
-               <div class="modal-footer">
-                    <button type="button" class="btn btn-success">تایید</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-               </div>
-          </div>
-     </div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">وضعیت</label>
+			<select class="form-control" data-bind="status" asp-for="Status" asp-items="Html.GetEnumSelectList(typeof(RepairRequestStatusEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">تفصیل</label>
+			@(Html.EntitySelector<DL>(
+				"RepairRequestDlSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+				c => new { c.Title, c.Code },
+				"{Code} {Title}",
+				"dlId",
+				"dlTitle",
+				Model?.DlId?.ToString()
+			))
+		</div>
+		<div class="col-md-8 form-group-inline">
+			<label class="form-label fw-bold">کارشناس</label>
+			@(Html.EntitySelector<Personel>(
+				"RepairRequestExpertSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, Family = c.Family, Code = c.Code },
+				c => new { c.Name, c.Family, c.Code },
+				"{Code} {Name} {Family}",
+				"expertIds",
+				"expertsInText",
+				Model?.ExpertIds,
+				false,
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ شروع</label>
+			<input class="form-control" data-bind="startShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.StartMiladiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ پایان</label>
+			<input class="form-control" data-bind="endShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.EndMiladiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ ورود تعمیر</label>
+			<input class="form-control" data-bind="repairEntranceShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.RepairEntranceMiladiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">شماره فرم تحویل</label>
+			<input class="form-control" data-bind="deliveryFormNumber" asp-for="DeliveryFormNumber" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ تحویل انبار</label>
+			<input class="form-control" data-bind="warehouseDeliveryShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.WarehouseDeliveryMiladiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ توافقی</label>
+			<input class="form-control" data-bind="agreedShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.AgreedMiladiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ توافقی ۲</label>
+			<input class="form-control" data-bind="agreed2ShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.Agreed2MiladiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تاریخ توافقی ۳</label>
+			<input class="form-control" data-bind="agreed3ShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.Agreed3MiladiDate" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تحویل‌گیرنده</label>
+			<input class="form-control" data-bind="deliveringRecipient" asp-for="DeliveringRecipient" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ درخواست خرید</label>
+			<input class="form-control" data-bind="buyRequestShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.BuyRequestMiladiDate" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ تأمین</label>
+			<input class="form-control" data-bind="supplyShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.SupplyMiladiDate" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ درخواست تست</label>
+			<input class="form-control" data-bind="qcRequestShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.QcRequestMiladiDate" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">ایستگاه</label>
+			@(Html.EntitySelector<RepairStation>(
+				"RepairRequestStationSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"stationId",
+				"stationTitle",
+				Model?.StationId?.ToString()
+			))
+		</div>
+		<div class="col-md-8 form-group-inline">
+			<label class="form-label fw-bold">کسر قطعات</label>
+			@(Html.EntitySelector<RepairRequestPartFraction>(
+				"RepairRequestFractionSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"tempFractionId",
+				"tempFractionName",
+				""
+			))
+			<button type="button" class="btn btn-sm btn-light-primary mt-1" data-action="addFraction">افزودن کسر</button>
+			<input class="form-control mt-1" data-bind="partFractionsInText" asp-for="PartFractionsInText" readonly />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">پیش‌بررسی</label>
+			<input class="form-control" data-bind="preCheckShamsiDate" readonly value="@Model?.PreCheckShamsiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">پیش‌بررسی ۲</label>
+			<input class="form-control" data-bind="preCheck2ShamsiDate" readonly value="@Model?.PreCheck2ShamsiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">پیشنهاد مالی</label>
+			<input class="form-control" data-bind="financialProposalShamsiDate" readonly value="@Model?.FinancialProposalShamsiDate" />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold">تایید نهایی</label>
+			<input class="form-control" data-bind="confirmShamsiDate" readonly value="@Model?.ConfirmShamsiDate" />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">شرح تعمیر</label>
+			<textarea class="form-control" data-bind="repairDescription" asp-for="RepairDescription" rows="8"></textarea>
+		</div>
+	</div>
 </div>
 
-<div class="modal fade" id="consumableItemsModal" tabindex="-1">
-     <div class="modal-dialog modal-lg">
-          <div class="modal-content">
-               <div class="modal-header">
-                    <h5 class="modal-title">اقلام مصرفی</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-               </div>
-               <div class="modal-body">
-                    اینجا محتوای مودال قرار می‌گیرد
-               </div>
-               <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">بستن</button>
-                    <button type="button" class="btn btn-primary">ذخیره</button>
-               </div>
-          </div>
-     </div>
+<div id="repairContractorsSection" class="my-2">
+	<div class="text-muted p-3">پس از ذخیره درخواست تعمیر، پیمانکاران اینجا نمایش داده می‌شود.</div>
 </div>
-
-<div class="modal fade" id="confirmationModal" tabindex="-1">
-     <div class="modal-dialog modal-sm">
-          <div class="modal-content">
-               <div class="modal-body">
-                    <p>تاریخ تایید </p>
-                    <input class='form-control' data-bind='supplyShamsiDate' data-persionDatePicker="true"
-                           persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}'
-                           value='@Model?.SupplyShamsiDate' />
-               </div>
-               <div class="modal-footer">
-                    <button type="button" class="btn btn-success">تایید</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">انصراف</button>
-               </div>
-          </div>
-     </div>
-</div>
-
 <script>
-
-     var globalRepairRequestId = null;
-
-     function getRepairRequestId() {
-
-         if (globalRepairRequestId && globalRepairRequestId !== '0' && globalRepairRequestId !== '') {
-             return globalRepairRequestId;
-         }
-
-
-         if (page && page.$pageEl && page.$pageEl.length > 0) {
-             var id = page.$pageEl.find("[data-bind='id']").val();
-             if (id && id !== '0' && id !== '') {
-                 globalRepairRequestId = id;
-                 return globalRepairRequestId;
-             }
-         }
-
-
-         var directId = $("[data-bind='id']").val();
-         if (directId && directId !== '0' && directId !== '') {
-             globalRepairRequestId = directId;
-             return globalRepairRequestId;
-         }
-
-
-         if (Model && Model.Id) {
-             globalRepairRequestId = Model.Id;
-             return globalRepairRequestId;
-         }
-
-         return null;
-     }
-
-
-     $(document).ready(function() {
-
-         var id = getRepairRequestId();
-
-
-         if (id) {
-             $('#displayRepairId').text(id);
-         }
-
-
-         if (id && id !== '0') {
-             loadContractorList(id);
-         }
-     });
-
-
-     self.FormActionButtons.goToConsumableItems.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-         const url = "/panel/rpr/repairrequestpart/list";
-         window.open(url, "_blank");
-     });
-
-     self.FormActionButtons.RepairRequestPrintLable.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-         const url = "/Panel/Rpr/RepairRequest/RepairRequestPrintLableForm";
-         window.open(url, "_blank");
-     });
-
-
-     self.FormActionButtons.RepairRequestForm.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-         const url = "/Panel/Rpr/RepairRequest/RepairRequestPrintForm";
-         window.open(url, "_blank");
-     });
-
-     self.FormActionButtons.commentList.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         const url = `/Panel/Rpr/RepairRequest/GetRepairRequestComment?repairRequestId=${repairRequestId}`;
-         $$.get(url, function(result) {
-             let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-                 ${result}</div>`);
-             initPersionDatePicker(bodyCn);
-
-             $.confirm({
-                 title: 'لیست کامنت',
-                 columnClass: 'col-md-6',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             const $select = $$(this);
-                             const currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-     self.FormActionButtons.addComments.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         const url = `/Panel/Rpr/RepairRequestComment/AddRepairRequestComment?repairRequestId=${repairRequestId}`;
-         $$.get(url, function(result) {
-             let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">${result}</div>`);
-             initPersionDatePicker(bodyCn);
-             $.confirm({
-                 title: 'افزودن کامنت',
-                 columnClass: 'col-md-4',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     save: {
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-                         action: function() {
-                             const $content = this.$content;
-
-                             if (validateError($content)) {
-                                 return false;
-                             }
-
-                             const model = $content.dataBind();
-                             model.RepairRequestId = repairRequestId;
-                             const self = this;
-
-                             $$.post('/Panel/Rpr/RepairRequestComment/CreateRepairRequestComment', model, function(r) {
-                                 if (!r.isSuccess) {
-                                     toastr.error(`${r.message}`, 'خطا');
-                                     return false;
-                                 }
-
-                                 toastr.success('کامنت با موفقیت ثبت شد');
-                                 self.close();
-                                 page.close();
-                             });
-
-                             return false;
-                         }
-                     },
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             const $select = $$(this);
-                             const currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-     self.FormActionButtons.confirmDate.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         const url = `/Panel/Rpr/RepairRequestComment/ConfirmDate?repairRequestId=${repairRequestId}`;
-         $$.get(url, function(result) {
-             let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-                 ${result}</div>`);
-             initPersionDatePicker(bodyCn);
-             $.confirm({
-                 title: 'تاریخ تایید',
-                 columnClass: 'col-md-4',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     save: {
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-                         action: function() {
-                             const $content = this.$content;
-
-                             if (validateError($content)) {
-                                 return false;
-                             }
-
-                             const model = $content.dataBind();
-                             model.RepairRequestId = repairRequestId;
-                             model.id = repairRequestId;
-
-                             const self = this;
-
-                             $$.post('/Panel/Rpr/RepairRequest/UpdateConfirmDate', model, function(r) {
-                                 if (!r.isSuccess) {
-                                     toastr.error(`${r.message}`, 'خطا');
-                                     return false;
-                                 }
-
-                                 toastr.success('تاریخ با موفقیت ثبت شد');
-                                 self.close();
-                                 page.close();
-                             });
-
-                             return false;
-                         }
-                     },
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             const $select = $$(this);
-                             const currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-     self.FormActionButtons.addManHours.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         const url = `/Panel/Rpr/RepairRequestManHours/AddManHoursForm?repairRequestId=${repairRequestId}`;
-         $$.get(url, function(result) {
-             let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-                 ${result}</div>`);
-             initPersionDatePicker(bodyCn);
-             $.confirm({
-                 title: 'افزودن نفر ساعت',
-                 columnClass: 'col-md-4',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     save: {
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-                         action: function() {
-                             const $content = this.$content;
-
-                             if (validateError($content)) {
-                                 return false;
-                             }
-
-                             const model = $content.dataBind();
-                             model.RepairRequestId = repairRequestId;
-                             const self = this;
-                             $$.post('/Panel/Rpr/RepairRequestManHours/Save', model, function(r) {
-                                 if (!r.isSuccess) {
-                                     toastr.error(`${r.message}`, 'خطا');
-                                     return false;
-                                 }
-
-                                 toastr.success('نفر ساعت با موفقیت ثبت شد');
-                                 self.close();
-                                 page.close();
-                             });
-
-                             return false;
-                         }
-                     },
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             const $select = $$(this);
-                             const currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-     self.FormActionButtons.listManHours.onclick(function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         const url = `/Panel/Rpr/RepairRequestManHours/GetManHoursList?repairRequestId=${repairRequestId}`;
-         $$.get(url, function(result) {
-             let bodyCn = $(`<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">
-                 ${result}
-             </div>`);
-             initPersionDatePicker(bodyCn);
-
-             $.confirm({
-                 title: 'لیست نفر ساعت‌ها',
-                 columnClass: 'col-md-10',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     close: {
-                         text: 'بستن',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             const $select = $$(this);
-                             const currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-
-     $(document).on('click', '[data-action="addPartFraction"]', function() {
-         var repairRequestId = getRepairRequestId();
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         var url = '/Panel/Rpr/RepairRequest/ShowPartFractionForm';
-         $$.get(url, function(result) {
-             var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
-             $.confirm({
-                 title: 'افزودن کسری قطعات',
-                 columnClass: 'col-md-4',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     save: {
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-                         action: function() {
-                             var $content = this.$content;
-                             if (validateError($content)) {
-                                 return false;
-                             }
-                             var model = $content.dataBind();
-                             model.RepairRequestId = repairRequestId;
-                             var self = this;
-                             $$.post('/Panel/Rpr/RepairRequest/AddPartFraction', model, function(r) {
-                                 if (!r.isSuccess) {
-                                     toastr.error(r.message || 'خطا در ذخیره', 'خطا');
-                                     return false;
-                                 }
-                                 toastr.success('با موفقیت اضافه شد');
-                                 refreshContractorTable();
-                                 self.close();
-                             });
-                             return false;
-                         }
-                     },
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-             });
-         });
-     });
-
-
-     function loadContractorList(repairRequestId) {
-         if (!repairRequestId || repairRequestId === '0') {
-             $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">شناسه تعمیرات یافت نشد</td></tr>');
-             return;
-         }
-
-         $.ajax({
-             url: '/Panel/Rpr/RepairRequest/GetRepairRequestContractor',
-             type: 'GET',
-             data: { repairRequestId: repairRequestId },
-             dataType: 'json',
-             success: function(response) {
-                 if (response && response.isSuccess === true && response.data && response.data.length >= 0) {
-                     renderContractorTable(response.data);
-                 } else {
-                     $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">هیچ اطلاعاتی یافت نشد</td></tr>');
-                 }
-             },
-             error: function(xhr) {
-                 console.error('خطا در دریافت اطلاعات:', xhr);
-                 $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-danger">خطا در دریافت اطلاعات</td></tr>');
-             }
-         });
-     }
-
-     function renderContractorTable(data) {
-         var tbody = $('#contractorTableBody');
-         tbody.empty();
-
-         $.each(data, function(index, item) {
-             var contractorName = '-';
-             if (item.contractor) {
-                 contractorName = item.contractor.title || item.contractor.name || '-';
-             }
-
-             var row = '<tr data-item-id="' + (item.id || 0) + '">';
-             row += '<td class="text-center">';
-             row += '<button type="button" class="btn btn-icon btn-warning btn-sm" data-action="editContractorBtn" data-id="' + (item.id || 0) + '" style="margin-left: 5px;">';
-             row += '<i class="fa fa-pencil"></i>';
-             row += '</button>';
-             row += '<button type="button" class="btn btn-icon btn-danger btn-sm" data-action="deleteContractorBtn" data-id="' + (item.id || 0) + '">';
-             row += '<i class="fa fa-trash"></i>';
-             row += '</button>';
-             row += '</td>';
-             row += '<td class="text-center">' + (index + 1) + '</td>';
-             row += '<td>' + contractorName + '</td>';
-             row += '<td class="text-end">' + (item.cost ? new Intl.NumberFormat('fa-IR').format(item.cost) : '-') + '</td>';
-             row += '<td><span title="' + (item.part ? item.part.name + ' - ' + item.part.code : '') + '">' + (item.part ? item.part.name : '-') + ' (' + (item.part ? item.part.code : '-') + ')</span></td>';
-             row += '<td class="text-center">' + (item.sendPartShamsiDate || '-') + '</td>';
-             row += '<td class="text-center">' + (item.contractorAcceptShamsiDate || '-') + '</td>';
-             row += '<td class="text-center">' + (item.agreegmentShamsiDate || '-') + '</td>';
-             row += '<td class="text-center">' + (item.contractorReturnShamsiDate || '-') + '</td>';
-             row += '<td class="text-center">' + (item.costAnnouncementShamsiDate || '-') + '</td>';
-             row += '<td>' + (item.createdByName || item.createdBy || '-') + '</td>';
-             row += '<td class="text-center">' + (item.createdOnShamsiDateTime || '-') + '</td>';
-             row += '<td style="max-width:250px; white-space:normal; word-wrap:break-word;">' + (item.comment || '-') + '</td>';
-             row += '</tr>';
-             tbody.append(row);
-         });
-     }
-
-     function refreshContractorTable() {
-         var repairRequestId = getRepairRequestId();
-         if (repairRequestId && repairRequestId !== '0' && repairRequestId !== '') {
-             $('#contractorTableBody').html('<tr><td colspan="13" class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">در حال بارگذاری...</span></div></td></tr>');
-             loadContractorList(repairRequestId);
-         } else {
-             console.warn('شناسه تعمیرات برای رفرش جدول یافت نشد');
-             $('#contractorTableBody').html('<tr><td colspan="13" class="text-center text-warning">شناسه تعمیرات یافت نشد</td></tr>');
-         }
-     }
-
-
-     $(document).on('click', '[data-action="addNewContractor"]', function() {
-         var repairRequestId = getRepairRequestId();
-
-         var url = '/Panel/Rpr/RepairRequest/ShowContractorForm?repairRequestId=' + (repairRequestId || '');
-
-         $$.get(url, function(result) {
-             var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
-             initPersionDatePicker(bodyCn);
-
-             $.confirm({
-                 title: 'افزودن پیمانکار',
-                 columnClass: 'col-md-6',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     save: {
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-                         action: function() {
-                             var repairRequestIdForSave = getRepairRequestId();
-                             if (!repairRequestIdForSave) {
-                                 toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-                                 return false;
-                             }
-
-                             var $content = this.$content;
-                             if (validateError($content)) {
-                                 return false;
-                             }
-
-                             var model = $content.dataBind();
-                             model.RepairRequestId = repairRequestIdForSave;
-                             var self = this;
-                             $$.post('/Panel/Rpr/RepairRequest/AddRepairRequestContractor', model, function(r) {
-                                 if (!r.isSuccess) {
-                                     toastr.error(r.message || 'خطا در ذخیره', 'خطا');
-                                     return false;
-                                 }
-                                 toastr.success('پیمانکار با موفقیت اضافه شد');
-                                 refreshContractorTable();
-                                 self.close();
-                             });
-                             return false;
-                         }
-                     },
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             var $select = $$(this);
-                             var currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-     $(document).on('click', '[data-action="editContractorBtn"]', function() {
-         var contractorId = $(this).data('id');
-         var repairRequestId = getRepairRequestId();
-
-         if (!repairRequestId) {
-             toastr.error('لطفا ابتدا اطلاعات تعمیرات را ذخیره کنید.');
-             return;
-         }
-
-         var url = '/Panel/Rpr/RepairRequest/EditContractorForm?id=' + contractorId + '&repairRequestId=' + repairRequestId;
-
-         $$.get(url, function(result) {
-             var bodyCn = $('<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>');
-             initPersionDatePicker(bodyCn);
-
-             $.confirm({
-                 title: 'ویرایش پیمانکار',
-                 columnClass: 'col-md-6',
-                 content: bodyCn,
-                 rtl: true,
-                 buttons: {
-                     save: {
-                         text: 'ذخیره',
-                         btnClass: 'btn-success',
-                         action: function() {
-                             var $content = this.$content;
-                             if (validateError($content)) {
-                                 return false;
-                             }
-
-                             var model = $content.dataBind();
-                             model.RepairRequestId = repairRequestId;
-                             model.Id = contractorId;
-
-                             var self = this;
-                             $$.post('/Panel/Rpr/RepairRequest/AddRepairRequestContractor', model, function(r) {
-                                 if (!r.isSuccess) {
-                                     toastr.error(r.message || 'خطا در ذخیره', 'خطا');
-                                     return false;
-                                 }
-                                 toastr.success('پیمانکار با موفقیت ویرایش شد');
-                                 refreshContractorTable();
-                                 self.close();
-                             });
-                             return false;
-                         }
-                     },
-                     cancel: {
-                         text: 'انصراف',
-                         btnClass: 'btn-secondary'
-                     }
-                 },
-                 onContentReady: function() {
-                     var self = this;
-                     setTimeout(function() {
-                         self.$body.find('select.select2-hidden-accessible').each(function() {
-                             var $select = $$(this);
-                             var currentData = $select.select2('data');
-                             $select.select2('destroy');
-                             $select.select2({
-                                 dropdownParent: self.$body,
-                                 width: '100%',
-                                 placeholder: $select.attr('placeholder') || 'انتخاب کنید'
-                             });
-                             if (currentData && currentData.length > 0) {
-                                 $select.val($select.val()).trigger('change');
-                             }
-                         });
-                     }, 100);
-                 }
-             });
-         });
-     });
-
-     $(document).on('click', '[data-action="deleteContractorBtn"]', function() {
-         var contractorId = $(this).data('id');
-
-         Swal.fire({
-             title: 'آیا اطمینان دارید؟',
-             text: "این عملیات غیرقابل بازگشت است!",
-             icon: 'warning',
-             showCancelButton: true,
-             confirmButtonColor: '#d33',
-             cancelButtonColor: '#3085d6',
-             confirmButtonText: 'بله، حذف شود',
-             cancelButtonText: 'انصراف'
-         }).then((result) => {
-             if (result.isConfirmed) {
-                 $.ajax({
-                     url: `/Panel/Rpr/RepairRequest/DeleteContractor?id=${contractorId}`,
-                     type: 'DELETE',
-                     dataType: 'json',
-                     success: function(response) {
-                         if (response && response.isSuccess === true) {
-                             toastr.success(response.message || 'رکورد با موفقیت حذف شد');
-                             refreshContractorTable();
-                         } else {
-                             var errorMsg = response?.data?.message || response?.message || 'خطا در حذف';
-                             toastr.error(errorMsg);
-                         }
-                     },
-                     error: function(xhr) {
-                         toastr.error('خطا در حذف');
-                     }
-                 });
-             }
-         });
-     });
-
-
-     function savefn($btnAction) {
-         if (validateError($$('.card'))) { return; }
-         var model = $$('.card').dataBind();
-         const $btn = $(this.element).block();
-         $$.post('save',
-             model,
-             function(r) {
-                 $btn.block(false);
-                 if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-                 toastr.success('ذخیره سازی با موفقیت انجام شد.');
-                 $$('.card').dataBind(r.data);
-                 globalRepairRequestId = r.data.Id;
-                 $('#displayRepairId').text(r.data.Id);
-                 refreshContractorTable();
-                 $btnAction.baseaction();
-             })
-     }
-
-     self.FormActionButtons.save.onclick(function() { savefn(this) });
-     self.FormActionButtons.saveandnew.onclick(function() { savefn(this) });
-     self.FormActionButtons.saveandclose.onclick(function() { savefn(this) });
+	const hasAfterSale = @(hasAfterSale ? "true" : "false");
+	const hasRepairs = @(hasRepairs ? "true" : "false");
+	const hasImaging = @(hasImaging ? "true" : "false");
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (hasAfterSale) {
+			if (!model.productId) { toastr.error('تجهیز الزامی است', 'خطا'); return; }
+			if (!model.customerId) { toastr.error('مشتری الزامی است', 'خطا'); return; }
+			if (!model.zoneId) { toastr.error('منطقه الزامی است', 'خطا'); return; }
+			if (!model.zoneSupervisorId) { toastr.error('مسئول منطقه الزامی است', 'خطا'); return; }
+			if (!model.destinationAfterRepair) { toastr.error('مقصد پس از تعمیر الزامی است', 'خطا'); return; }
+			if (!model.entryShamsiDate) { toastr.error('تاریخ ورود انبار الزامی است', 'خطا'); return; }
+			if (!model.representationReception) { toastr.error('پذیرش نمایندگی الزامی است', 'خطا'); return; }
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			loadRepairContractors();
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	function setSectionEnabled($section, enabled) {
+		$section.find('input, select, textarea, button').prop('disabled', !enabled);
+		if (!enabled) $section.css('opacity', '0.65');
+	}
+	if (!hasAfterSale) setSectionEnabled($$('#afterSalesSection'), false);
+	if (!hasRepairs) setSectionEnabled($$('#repairsSection'), false);
+	if (hasImaging)
+		$$('[data-bind="hasContentProductionImaging"]').prop('disabled', false);
+
+	function setupCustomerDependentSelector(selectorId) {
+		const cascadeOpts = {
+			filters: function () {
+				const customerId = $$('#RepairRequestCustomerSelector').find('.entity-selector-value').val();
+				return { CustomerId: customerId || '0' };
+			},
+			watchDependencies: ['#RepairRequestCustomerSelector']
+		};
+		const $el = $$(selectorId);
+		let inst = $el.data('entitySelector') || $el.data('entitySelectorInstance');
+		if (inst) {
+			inst.extraFilters = cascadeOpts.filters;
+			inst.options.watchDependencies = cascadeOpts.watchDependencies;
+			if (typeof inst.watchDependencies === 'function') inst.watchDependencies();
+		} else {
+			$el.entitySelector(cascadeOpts);
+		}
+	}
+	setupCustomerDependentSelector('#RepairRequestAddressSelector');
+	setupCustomerDependentSelector('#RepairRequestMotherProductSelector');
+	page.$pageEl.on('change', '[data-bind="customerId"]', function () {
+		['#RepairRequestAddressSelector', '#RepairRequestMotherProductSelector'].forEach(function (selectorId) {
+			const inst = $$(selectorId).data('entitySelectorInstance')
+				|| $$(selectorId).data('entitySelector');
+			if (inst && typeof inst.clearAll === 'function') inst.clearAll();
+		});
+	});
+
+	function appendCsv(hiddenBind, textBind, id, text) {
+		if (!id) { toastr.error('ابتدا مورد را انتخاب کنید'); return; }
+		const $ids = $$('[data-bind="' + hiddenBind + '"]');
+		const $text = $$('[data-bind="' + textBind + '"]');
+		const ids = ($ids.val() || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+		if (ids.indexOf(String(id)) >= 0) return;
+		ids.push(String(id));
+		$ids.val(ids.join(','));
+		const current = ($text.val() || '').trim();
+		$text.val(current ? (current + ' ، ' + text) : text);
+	}
+	page.$pageEl.on('click', '[data-action="addFraction"]', function () {
+		const id = $$('#RepairRequestFractionSelector').find('.entity-selector-value').val();
+		const text = $$('#RepairRequestFractionSelector').find('.entity-selector-text').val()
+			|| $$('#RepairRequestFractionSelector').find('input[type="text"]').val();
+		appendCsv('partFractionIds', 'partFractionsInText', id, text);
+	});
+
+	function openChild(path, title) {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+		appController.addPage(path + id, true, title);
+	}
+	if (self.FormActionButtons.printLabel) {
+		self.FormActionButtons.printLabel.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/System/ReportBuilder/ViewReportByName/RepairRequestLabel?repairRequestId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+		});
+	}
+	if (self.FormActionButtons.printSheet) {
+		self.FormActionButtons.printSheet.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/System/ReportBuilder/ViewReportByName/RepairRequestID?repairRequestId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+		});
+	}
+	if (self.FormActionButtons.openParts) self.FormActionButtons.openParts.onclick(function () { openChild('/Panel/Rpr/RepairRequestPart/ListByParentId?repairRequestId=', 'اقلام مصرفی'); });
+	if (self.FormActionButtons.openComments) self.FormActionButtons.openComments.onclick(function () { openChild('/Panel/Rpr/RepairRequestComment/ListByParentId?repairRequestId=', 'یادداشت‌ها'); });
+	if (self.FormActionButtons.openManHours) self.FormActionButtons.openManHours.onclick(function () { openChild('/Panel/Rpr/RepairRequestManHour/ListByParentId?repairRequestId=', 'نفرساعت'); });
+	if (self.FormActionButtons.openAttachments) self.FormActionButtons.openAttachments.onclick(function () { openChild('/Panel/Rpr/RepairRequestAttachment/ListByParentId?repairRequestId=', 'پیوست‌ها'); });
+
+	function loadEmbeddedPartial(selector, url) {
+		const $box = $$(selector);
+		$box.block();
+		page.getPartialView(url, function (r) {
+			$box.block(false);
+			if (!r) {
+				$box.html('<div class="text-danger p-3">خطا در بارگذاری</div>');
+				return;
+			}
+			const decoded = (window.appController && typeof appController.decodePartialResponse === 'function')
+				? appController.decodePartialResponse(r)
+				: { html: (typeof r === 'string' ? r : ''), scripts: [] };
+			$box.html(decoded.html || '');
+			const scripts = decoded.scripts || [];
+			for (let i = 0; i < scripts.length; i++) {
+				try {
+					new Function('page', '$$', 'self', scripts[i])(page, $$, self);
+				} catch (err) {
+					console.error(err);
+				}
+			}
+		});
+	}
+	function loadRepairContractors() {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) return;
+		loadEmbeddedPartial('#repairContractorsSection', '/Panel/Rpr/RepairRequestContractor/ListByParentId?repairRequestId=' + id);
+	}
+	loadRepairContractors();
+
+	function confirmDateField(id, label) {
+		return '<div class="text-end mb-3">'
+			+ '<label class="form-label fw-bold d-block">' + label + '</label>'
+			+ '<input id="' + id + '" class="form-control" readonly '
+			+ 'data-persionDatePicker="true" '
+			+ 'persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}\' />'
+			+ '</div>';
+	}
+	function runConfirm(type, title, needAgreed) {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+		Swal.fire({
+			title: title,
+			html: confirmDateField('swalConfirmDate', 'تاریخ')
+				+ (needAgreed ? confirmDateField('swalAgreedDate', 'تاریخ توافقی') : ''),
+			showCancelButton: true,
+			confirmButtonText: 'ثبت',
+			cancelButtonText: 'انصراف',
+			didOpen: function () {
+				if (typeof initPersionDatePicker === 'function')
+					initPersionDatePicker($(Swal.getHtmlContainer()));
+			},
+			willClose: function () {
+				$('.datepicker-plot-area, .datepicker-container').hide();
+			},
+			preConfirm: function () {
+				const $box = $(Swal.getHtmlContainer());
+				const dateShamsi = $box.find('#swalConfirmDate').val();
+				if (!dateShamsi) {
+					Swal.showValidationMessage('تاریخ را انتخاب کنید');
+					return false;
+				}
+				return {
+					dateShamsi: dateShamsi,
+					agreedShamsiDate: needAgreed ? ($box.find('#swalAgreedDate').val() || null) : null
+				};
+			}
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.post('confirm', {
+				id: id,
+				confirmType: type,
+				dateShamsi: result.value.dateShamsi,
+				agreedShamsiDate: result.value.agreedShamsiDate
+			}, function (r) {
+				if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+				toastr.success(title + ' انجام شد');
+				appController.refreshCurrentPage();
+			});
+		});
+	}
+	if (self.FormActionButtons.confirmPreCheck) self.FormActionButtons.confirmPreCheck.onclick(function () { runConfirm(1, 'تایید پیش‌بررسی'); });
+	if (self.FormActionButtons.confirmPreCheck2) self.FormActionButtons.confirmPreCheck2.onclick(function () { runConfirm(5, 'تایید پیش‌بررسی ۲'); });
+	if (self.FormActionButtons.confirmFinancial) self.FormActionButtons.confirmFinancial.onclick(function () { runConfirm(2, 'تایید پیشنهاد مالی', true); });
+	if (self.FormActionButtons.confirmFinancial2) self.FormActionButtons.confirmFinancial2.onclick(function () { runConfirm(6, 'تایید پیشنهاد مالی ۲'); });
+	if (self.FormActionButtons.confirmFull) self.FormActionButtons.confirmFull.onclick(function () { runConfirm(3, 'تایید نهایی'); });
+	if (self.FormActionButtons.confirmFull2) self.FormActionButtons.confirmFull2.onclick(function () { runConfirm(7, 'تایید نهایی ۲'); });
+	if (self.FormActionButtons.sendFinancial) self.FormActionButtons.sendFinancial.onclick(function () { runConfirm(4, 'ارسال پیشنهاد مالی'); });
 </script>
-
-<style>
-     #contractorTable td {
-          vertical-align: middle;
-     }
-
-     #contractorTable tbody tr:hover {
-          background-color: #f5f5f5;
-     }
-
-     .btn-icon {
-          padding: 0.25rem 0.5rem;
-          margin: 0 0.125rem;
-     }
-</style>

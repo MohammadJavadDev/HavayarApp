@@ -1,0 +1,2 @@
+﻿"TriggerName","SchemaName","TableName","is_disabled","is_instead_of_trigger"
+"Update_Requested_PersonelEmails","dbo","Sup_OpenOrderRequest","True","False"

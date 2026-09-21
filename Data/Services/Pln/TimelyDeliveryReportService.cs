@@ -12,7 +12,8 @@ namespace Data.Services.Pln;
 /// <summary>
 /// گزارش انحراف از تحویل به‌موقع سفارش‌های ساخت.
 /// مبنای محاسبه تاخیر عیناً همان قاعده‌ای است که در ProductionOrderDelayController.CalculateOrderDelayRangeAsync
-/// و نمایه‌های داده مهاجرت 20260824170000_UpdateProductionOrderDelayRules استفاده می‌شود؛
+/// و نمایه‌های داده vw_All_Need_POD / vw_All_POD استفاده می‌شود: تاریخ مجاز سفارش برابر است با
+/// بیشترین تاریخ بین تحویل توافقی و تحویل استاندارد همه اقلام.
 /// سهم هر عامل توقف از روزهای تاخیر ثبت‌شده در Pln.ProductionOrderDelay به‌دست می‌آید.
 /// </summary>
 public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliveryReportService
@@ -117,6 +118,14 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 			if (!headers.TryGetValue(group.Key, out var header))
 				continue;
 
+			var orderDeliverDate = group
+				.Select(i => GetItemDeliverDate(i.AgreedDeliverDate, i.StandardDeliveryMiladiDate))
+				.Where(d => d.HasValue)
+				.Select(d => d!.Value)
+				.Select(d => (DateTime?)d)
+				.DefaultIfEmpty(null)
+				.Max();
+
 			var itemDelays = group
 				.Select(item =>
 				{
@@ -129,7 +138,7 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 						DeliverDate = deliverDate,
 						PreparationDate = item.PreparationMiladiDate?.Date,
 						DelayDays = CalcItemDelayDays(
-							deliverDate,
+							orderDeliverDate,
 							item.PreparationMiladiDate?.Date,
 							item.AgreedDeliverDate,
 							item.StandardDeliveryMiladiDate,
@@ -155,7 +164,7 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 			var unidentifiedDelayDays = Math.Max(0, maxDelayDays - registeredDelayDays);
 
 			var agreedWindowDays = CalcAgreedWindowDays(
-				maxDelayItem.DeliverDate,
+				orderDeliverDate,
 				group.Min(i => i.SendToIndustrialMiladiDate),
 				header.CreatedOnMiladiDateTime);
 
@@ -186,16 +195,9 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 			if (unidentifiedDelayDays > 0)
 				unidentifiedOrderNumbers.Add(header.ProductionOrderNumber?.ToString() ?? header.Id.ToString());
 
-			// روند ماهانه بر مبنای تاریخ مجاز تحویل خودِ سفارش (بزرگ‌ترین تاریخ اقلام) ساخته می‌شود،
-			// نه تاریخ قلمِ دارای بیشترین تاخیر؛ در غیر این صورت ماه‌های خارج از بازه فیلتر هم ظاهر می‌شدند.
-			var orderDeliverDate = itemDelays
-				.Where(i => i.DeliverDate.HasValue)
-				.Select(i => i.DeliverDate!.Value)
-				.DefaultIfEmpty(DateTime.MinValue)
-				.Max();
-
-			if (orderDeliverDate != DateTime.MinValue)
-				trendKeys.Add((orderDeliverDate.ToShamsiDate()[..7], totalDeviation > 0));
+			// روند ماهانه بر مبنای تاریخ مجاز تحویل خودِ سفارش (بزرگ‌ترین تاریخ اقلام) ساخته می‌شود.
+			if (orderDeliverDate.HasValue)
+				trendKeys.Add((orderDeliverDate.Value.ToShamsiDate()[..7], totalDeviation > 0));
 
 			orders.Add(new TimelyDeliveryOrderDto
 			{
@@ -204,7 +206,7 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 				CustomerTitle = header.CustomerTitle,
 				BranchTitle = header.BranchTitle,
 				SalesExpertName = header.SalesExpertName,
-				DeliverDateShamsi = maxDelayItem.DeliverDate?.ToShamsiDate(),
+				DeliverDateShamsi = orderDeliverDate?.ToShamsiDate(),
 				PreparationDateShamsi = maxDelayItem.PreparationDate?.ToShamsiDate(),
 				PartName = maxDelayItem.PartName,
 				Serial = maxDelayItem.Serial,
@@ -409,29 +411,38 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 
 	#region Delay calculation (هم‌ارز ProductionOrderDelayController.CalculateOrderDelayRangeAsync)
 
+	private static DateTime? GetValidDeliverDate(DateTime? date)
+	{
+		if (date == null || date.Value.Year >= 9000)
+			return null;
+		return date.Value.Date;
+	}
+
 	private static DateTime? GetItemDeliverDate(DateTime? agreed, DateTime? standard)
 	{
-		if (agreed == null)
-			return standard?.Date;
-		if (standard == null)
-			return agreed?.Date;
-		return agreed.Value.Date >= standard.Value.Date ? agreed.Value.Date : standard.Value.Date;
+		var validAgreed = GetValidDeliverDate(agreed);
+		var validStandard = GetValidDeliverDate(standard);
+		if (validAgreed == null)
+			return validStandard;
+		if (validStandard == null)
+			return validAgreed;
+		return validAgreed.Value >= validStandard.Value ? validAgreed : validStandard;
 	}
 
 	private static int CalcItemDelayDays(
-		DateTime? itemDeliverDate,
+		DateTime? orderDeliverDate,
 		DateTime? preparationDate,
 		DateTime? agreedDeliverDate,
 		DateTime? standardDeliverDate,
 		DateTime? sendToIndustrialDate,
 		DateTime todayDate)
 	{
-		if (itemDeliverDate == null)
+		if (orderDeliverDate == null)
 			return 0;
 
 		// وقتی زمان استاندارد وجود ندارد، فروش تاریخ مجاز را پیش از ورود قلم به
 		// کارتابل صنایع ثبت کرده و صنایع نیز قلم را همان روز آماده کرده است، تاخیر صفر است.
-		if (!standardDeliverDate.HasValue &&
+		if (!GetValidDeliverDate(standardDeliverDate).HasValue &&
 			agreedDeliverDate.HasValue &&
 			sendToIndustrialDate.HasValue &&
 			preparationDate.HasValue &&
@@ -440,10 +451,10 @@ public class TimelyDeliveryReportService(ApplicationDbContext db) : ITimelyDeliv
 			return 0;
 
 		if (preparationDate != null)
-			return Math.Max(0, (int)(preparationDate.Value.Date - itemDeliverDate.Value.Date).TotalDays);
+			return Math.Max(0, (int)(preparationDate.Value.Date - orderDeliverDate.Value.Date).TotalDays);
 
-		if (todayDate > itemDeliverDate.Value.Date)
-			return (int)(todayDate - itemDeliverDate.Value.Date).TotalDays;
+		if (todayDate > orderDeliverDate.Value.Date)
+			return (int)(todayDate - orderDeliverDate.Value.Date).TotalDays;
 
 		return 0;
 	}

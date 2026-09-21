@@ -1,0 +1,711 @@
+@using Entities.App.Trn
+@using Entities.App.Gnr
+@using Entities.App.Hrm
+@using Entities.App.Trn.Enums
+@model Course
+
+<div class="card">
+     <div class="form-action-buttons">
+          <form-action-buttons entity-type="typeof(Course)">
+               <form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-users" action-name="participants" title="شرکت‌کنندگان"></form-action-button>
+               @if (Model?.Id > 0)
+               {
+                    <form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-clipboard-check" action-name="evaluation" title="ارزیابی دوره"></form-action-button>
+                    <form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-certificate" action-name="certificates" title="گواهی‌ها"></form-action-button>
+                    <form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-envelope" action-name="emaillog" title="لاگ ایمیل گواهی"></form-action-button>
+               }
+          </form-action-buttons>
+     </div>
+</div>
+
+<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">مشخصات دوره</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class="form-label fw-bold required">بانک دوره (زمینه)</label>
+               @(Html.EntitySelector<CourseBank>(
+                                   "CourseBankSelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        Title = c.CourseFieldTitle
+                                   },
+                                   c => new { c.CourseFieldTitle },
+                                   "{Title}",
+                                   "CourseBankId",
+                                   Model?.CourseBank?.CourseFieldTitle,
+                                   Model?.CourseBankId.ToString(),
+                                   true))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>کد آموزش</label>
+               <input class='form-control' dir="ltr" readonly data-bind='trainingCode'
+                      asp-for='TrainingCode' placeholder="خودکار — پس از ذخیره تولید می‌شود" />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نوع دوره (CNG و ...)</label>
+               <select class='form-control' data-bind='cngCourseType'
+                       asp-for='CngCourseType'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseTypeEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>شیوه برگزاری</label>
+               <select class='form-control' data-bind='executingMethod' data-required="true"
+                       asp-for='ExecutingMethod'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseExecutingMethodEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نحوه برگزاری</label>
+               <select class='form-control' data-bind='methodOfHolding'
+                       asp-for='MethodOfHolding'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseMethodOfHoldingEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">زمان‌بندی</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>تاریخ شروع</label>
+               <input class='form-control' data-bind='startShamsiDate' data-required="true" data-persionDatePicker="true"
+                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                      value='@Model?.StartMiladiDate' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>تاریخ پایان</label>
+               <input class='form-control' data-bind='endShamsiDate' data-required="true" data-persionDatePicker="true"
+                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                      value='@Model?.EndMiladiDate' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>مدت (دقیقه)</label>
+               <input class='form-control' dir="ltr" data-bind='durationInMinute' data-required="true"
+                      data-invalidMessage='فقط عدد'
+                      data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                      asp-for='DurationInMinute' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>تعداد روز</label>
+               <input class='form-control' dir="ltr" data-bind='days'
+                      data-invalidMessage='فقط عدد'
+                      data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                      asp-for='Days' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class="form-label fw-bold required">محل برگزاری</label>
+               @(Html.EntitySelector<Region>(
+                                   "LocationSelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        Name = c.Name
+                                   },
+                                   c => new { c.Name },
+                                   "{Name}",
+                                   "LocationId",
+                                   Model?.Location?.Name,
+                                   Model?.LocationId?.ToString(),
+                                   true))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>محل اجرا</label>
+               <input class='form-control' data-bind='executingPlace'
+                      asp-for='ExecutingPlace' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>جایگاه CNG</label>
+               <input class='form-control' data-bind='cngPlace'
+                      asp-for='CngPlace' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>آخرین مهلت ثبت نام</label>
+               <input class='form-control' data-bind='registrationDeadlineShamsiDate' data-persionDatePicker="true"
+                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                      value='@Model?.RegistrationDeadlineMiladiDate' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">مدرسین و همکاران</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class="form-label fw-bold required">مدرس</label>
+               @(Html.EntitySelector<TeacherBank>(
+                                   "TeacherSelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        FirstName = c.FirstName,
+                                        LastName = c.LastName
+                                   },
+                                   c => new { c.FirstName, c.LastName },
+                                   "{FirstName} {LastName}",
+                                   "TeacherId",
+                                   Model?.Teacher != null ? (Model.Teacher.FirstName + " " + Model.Teacher.LastName) : null,
+                                   Model?.TeacherId.ToString(),
+                                   true))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class="form-label fw-bold">مدرس دوم</label>
+               @(Html.EntitySelector<TeacherBank>(
+                                   "SecondTeacherSelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        FirstName = c.FirstName,
+                                        LastName = c.LastName
+                                   },
+                                   c => new { c.FirstName, c.LastName },
+                                   "{FirstName} {LastName}",
+                                   "SecondTeacherId",
+                                   Model?.SecondTeacher != null ? (Model.SecondTeacher.FirstName + " " + Model.SecondTeacher.LastName) : null,
+                                   Model?.SecondTeacherId?.ToString()
+                                   ))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline align-content-center'>
+               <div class="form-check">
+                    <input data-bind='hasSynergyHistory' class="form-check-input" type="checkbox" asp-for='HasSynergyHistory' />
+                    <label class="form-check-label form-label fw-bold" asp-for='HasSynergyHistory'>
+                         سابقه همکاری
+                    </label>
+               </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class="form-label fw-bold">نماینده / بازاریاب</label>
+               @(Html.EntitySelector<Agent>(
+                                   "AgentSelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        FirstName = c.FirstName,
+                                        LastName = c.LastName
+                                   },
+                                   c => new { c.FirstName, c.LastName },
+                                   "{FirstName} {LastName}",
+                                   "AgentId",
+                                   Model?.Agent != null ? (Model.Agent.FirstName + " " + Model.Agent.LastName) : null,
+                                   Model?.AgentId?.ToString()
+                                   ))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+               <button type="button" class="btn btn-sm btn-outline-primary mt-1" data-action="addAgent">
+                    <i class="fa fa-plus"></i> نماینده جدید
+               </button>
+          </div>
+
+          <div class='col-md-4 form-group-inline' id="companyWrapper">
+               <label class="form-label fw-bold">شرکت (برای دوره اختصاصی)</label>
+               @(Html.EntitySelector<Company>(
+                                   "CompanySelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        Title = c.Title
+                                   },
+                                   c => new { c.Title },
+                                   "{Title}",
+                                   "CompanyId",
+                                   Model?.Company?.Title,
+                                   Model?.CompanyId?.ToString()
+                                   ))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class="form-label fw-bold">واحد مرتبط</label>
+               @(Html.EntitySelector<OrgUnit>(
+                                   "RelatedUnitSelector",
+                                   c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+                                   c => new
+                                   {
+                                        Id = c.Id,
+                                        Title = c.Title
+                                   },
+                                   c => new { c.Title },
+                                   "{Title}",
+                                   "RelatedUnitId",
+                                   Model?.RelatedUnit?.Title,
+                                   Model?.RelatedUnitId?.ToString()
+                                   ))
+               <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">ظرفیت</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>ظرفیت</label>
+               <input class='form-control' dir="ltr" data-bind='capacity' data-required="true"
+                      data-invalidMessage='فقط عدد'
+                      data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                      asp-for='Capacity' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>ظرفیت باقی‌مانده</label>
+               <input class='form-control' dir="ltr" readonly data-bind='remainingCapacity'
+                      asp-for='RemainingCapacity' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">وضعیت‌ها</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>وضعیت دوره</label>
+               <select class='form-control' data-bind='status' data-required="true"
+                       asp-for='Status'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseStatusEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold required'>وضعیت مالی</label>
+               <select class='form-control' data-bind='financialStatus' data-required="true"
+                       asp-for='FinancialStatus'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseFinancialStatusEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>وضعیت گواهی</label>
+               <select class='form-control' data-bind='certificateStatus'
+                       asp-for='CertificateStatus'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseCertificateStatusEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>وضعیت ارسال دعوت‌نامه</label>
+               <select class='form-control' data-bind='sendInvitation'
+                       asp-for='SendInvitation'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseSendInvitationEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نوع پرداخت</label>
+               <select class='form-control' data-bind='paymentType'
+                       asp-for='PaymentType'
+                       asp-items="Html.GetEnumSelectList(typeof(CoursePaymentTypeEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>وضعیت حضور</label>
+               <select class='form-control' data-bind='attendanceStatus'
+                       asp-for='AttendanceStatus'
+                       asp-items="Html.GetEnumSelectList(typeof(CourseAttendanceStatusEnum))">
+               </select>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">سایر</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>هزینه دوره</label>
+               <input class='form-control' dir="ltr" data-bind='cost'
+                      asp-for='Cost' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نقطه سر به سری</label>
+               <input class='form-control' dir="ltr" data-bind='headToTheSeriesPoint'
+                      data-invalidMessage='فقط عدد'
+                      data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                      asp-for='HeadToTheSeriesPoint' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline align-content-center'>
+               <div class="form-check">
+                    <input data-bind='hasCertificates' class="form-check-input" type="checkbox" asp-for='HasCertificates' />
+                    <label class="form-check-label form-label fw-bold" asp-for='HasCertificates'>
+                         گواهینامه
+                    </label>
+               </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline align-content-center'>
+               <div class="form-check">
+                    <input data-bind='hasExam' class="form-check-input" type="checkbox" asp-for='HasExam' />
+                    <label class="form-check-label form-label fw-bold" asp-for='HasExam'>
+                         آزمون
+                    </label>
+               </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline align-content-center'>
+               <div class="form-check">
+                    <input data-bind='hasVat' class="form-check-input" type="checkbox" id="HasVat"
+                           @(Model?.HasVat == true ? "checked" : null) />
+                    <label class="form-check-label form-label fw-bold" for="HasVat">
+                         مالیات
+                    </label>
+               </div>
+          </div>
+
+          <div class='col-md-8 form-group-inline'>
+               <label class='form-label fw-bold'>توضیحات</label>
+               <textarea class='form-control' data-bind='description'
+                         asp-for='Description'>@Model?.Description</textarea>
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">اطلاعات دوره گارانتی</span>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نام مامور</label>
+               <input class='form-control' data-bind='agentName'
+                      asp-for='AgentName' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>شماره تماس 1</label>
+               <input class='form-control' dir="ltr" data-bind='firstPhoneNumber'
+                      asp-for='FirstPhoneNumber' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>شماره تماس 2</label>
+               <input class='form-control' dir="ltr" data-bind='secondPhoneNumber'
+                      asp-for='SecondPhoneNumber' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نمایش تاریخ راه اندازی</label>
+               <input class='form-control' data-bind='showStartupDate'
+                      asp-for='ShowStartupDate' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>تعداد دستگاه</label>
+               <input class='form-control' dir="ltr" data-bind='numberOfDevices'
+                      data-invalidMessage='فقط عدد'
+                      data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                      asp-for='NumberOfDevices' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>تعداد نفرات</label>
+               <input class='form-control' dir="ltr" data-bind='numberOfPeople'
+                      data-invalidMessage='فقط عدد'
+                      data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''"
+                      asp-for='NumberOfPeople' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline align-content-center'>
+               <div class="form-check">
+                    <input data-bind='invitationSent' class="form-check-input" type="checkbox" id="InvitationSent"
+                           @(Model?.InvitationSent == true ? "checked" : null) />
+                    <label class="form-check-label form-label fw-bold" for="InvitationSent">
+                         ارسال دعوت نامه
+                    </label>
+               </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>تاریخ ارسال دعوت نامه</label>
+               <input class='form-control' data-bind='sendInvitationShamsiDate' data-persionDatePicker="true"
+                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                      value='@Model?.SendInvitationMiladiDate' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>نام و نام خانوادگی گیرنده دعوت نامه</label>
+               <input class='form-control' data-bind='recipientOfInvitation'
+                      asp-for='RecipientOfInvitation' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-4 form-group-inline'>
+               <label class='form-label fw-bold'>تاریخ حضور در دوره آموزشی</label>
+               <input class='form-control' data-bind='attendingTrainingCourseShamsiDate' data-persionDatePicker="true"
+                      persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
+                      value='@Model?.AttendingTrainingCourseMiladiDate' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-8 form-group-inline'>
+               <label class='form-label fw-bold'>محل برگزاری دوره آموزشی</label>
+               <input class='form-control' data-bind='placeOfTrainingCourse'
+                      asp-for='PlaceOfTrainingCourse' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">عناوین دوره‌های آموزشی</span>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی</label>
+               <input class='form-control' data-bind='trainingCourseTitles'
+                      asp-for='TrainingCourseTitles' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 1</label>
+               <input class='form-control' data-bind='trainingCourseTitles1'
+                      asp-for='TrainingCourseTitles1' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 2</label>
+               <input class='form-control' data-bind='trainingCourseTitles2'
+                      asp-for='TrainingCourseTitles2' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 3</label>
+               <input class='form-control' data-bind='trainingCourseTitles3'
+                      asp-for='TrainingCourseTitles3' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 4</label>
+               <input class='form-control' data-bind='trainingCourseTitles4'
+                      asp-for='TrainingCourseTitles4' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 5</label>
+               <input class='form-control' data-bind='trainingCourseTitles5'
+                      asp-for='TrainingCourseTitles5' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 6</label>
+               <input class='form-control' data-bind='trainingCourseTitles6'
+                      asp-for='TrainingCourseTitles6' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 7</label>
+               <input class='form-control' data-bind='trainingCourseTitles7'
+                      asp-for='TrainingCourseTitles7' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 8</label>
+               <input class='form-control' data-bind='trainingCourseTitles8'
+                      asp-for='TrainingCourseTitles8' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+
+          <div class='col-md-12 form-group-inline'>
+               <label class='form-label fw-bold'>عناوین دوره های آموزشی 9</label>
+               <input class='form-control' data-bind='trainingCourseTitles9'
+                      asp-for='TrainingCourseTitles9' />
+               <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+          </div>
+     </div>
+</div>
+
+<div class="card my-2">
+     <div class="card-body row">
+          <span class="section-box-title">اطلاعات سیستمی</span>
+
+          <div class="col-md-3">
+               <span class="fw-bold">ایجاد کننده :</span>
+               <span data-bind="createdByName">@Model?.CreatedByName</span>
+          </div>
+
+          <div class="col-md-3">
+               <span class="fw-bold">تاریخ ایجاد :</span>
+               <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+          </div>
+
+          <div class="col-md-3">
+               <span class="fw-bold">ویرایش کننده :</span>
+               <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+          </div>
+
+          <div class="col-md-3">
+               <span class="fw-bold">تاریخ ویرایش :</span>
+               <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+          </div>
+     </div>
+</div>
+<script>
+     function getCourseId() {
+          return $$('[data-bind="id"]').val();
+     }
+
+     function openSubPage(urlTemplate) {
+          const id = getCourseId();
+          if (!id || id === '0') {
+               toastr.error('ابتدا دوره را ذخیره کنید');
+               return;
+          }
+          appController.addPage(urlTemplate.replace('{id}', encodeURIComponent(id)));
+     }
+
+     function isPrivateCourse() {
+          return Number($$('[data-bind="executingMethod"]').val()) === 636;
+     }
+
+     function isPublicParticipantTrack() {
+          const trainingCode = ($$('[data-bind="trainingCode"]').val() || '').toString();
+          const executingMethod = Number($$('[data-bind="executingMethod"]').val());
+          return trainingCode.indexOf('TRCNG') === 0 || executingMethod === 635;
+     }
+
+     // R3 client-side: دوره اختصاصی (Private = 636) بدون شرکت معتبر نیست (سرور هم اعتبارسنجی می‌کند)
+     // دکمه لاگ ایمیل گواهی فقط برای دوره اختصاصی فعال است (مثل HTS)
+     function togglePrivateDependentUi() {
+          const isPrivate = isPrivateCourse();
+          const $wrapper = $$('#companyWrapper');
+          const $hidden = $$('#CompanySelector [data-bind="companyId"]');
+          const $label = $wrapper.find('.form-label');
+          if (isPrivate) {
+               $wrapper.show();
+               $hidden.attr('data-required', 'true');
+               $label.addClass('required');
+          } else {
+               $wrapper.hide();
+               $hidden.removeAttr('data-required');
+               $label.removeClass('required');
+          }
+          if (self.FormActionButtons.emaillog) {
+               self.FormActionButtons.emaillog.element.disabled = !isPrivate;
+          }
+     }
+
+     function savefn($btnAction) {
+          if (validateError(page.$pageEl)) return;
+
+          const model = page.$pageEl.dataBind();
+
+          if (Number(model.executingMethod) === 636 && (!model.companyId || model.companyId === '0')) {
+               toastr.error('برای دوره اختصاصی انتخاب شرکت الزامی است.', 'خطا');
+               return;
+          }
+
+          const $btn = $($btnAction.element).block();
+
+          $$.post('save', model, function (r) {
+               $btn.block(false);
+
+               if (!r.isSuccess) {
+                    toastr.error(r.message, 'خطا');
+                    return;
+               }
+
+               toastr.success('ذخیره سازی با موفقیت انجام شد');
+               page.$pageEl.dataBind(r.data);
+               $btnAction.baseaction();
+          });
+     }
+
+     self.FormActionButtons.save.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+     self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+     $$('[data-bind="executingMethod"]').on('change', togglePrivateDependentUi);
+     togglePrivateDependentUi();
+
+     page.$pageEl.on('click', '[data-action="addAgent"]', function () {
+          appController.addPage('/Panel/Trn/Agent/New');
+     });
+
+     // TRCNG یا فراخوان عمومی (635) → CourseParticipant؛ در غیر این صورت اختصاصی → CourseCompanyParticipant
+     if (self.FormActionButtons.participants) {
+          self.FormActionButtons.participants.onclick(function () {
+               const url = isPublicParticipantTrack()
+                    ? '/Panel/Trn/CourseParticipant/ListByCourseId?courseId={id}'
+                    : '/Panel/Trn/CourseCompanyParticipant/ListByCourseId?courseId={id}';
+               openSubPage(url);
+          });
+     }
+     if (self.FormActionButtons.evaluation) {
+          self.FormActionButtons.evaluation.onclick(function () { openSubPage('/Panel/Trn/CourseEvaluation/ListByCourseId?courseId={id}'); });
+     }
+     if (self.FormActionButtons.certificates) {
+          self.FormActionButtons.certificates.onclick(function () { openSubPage('/Panel/Trn/Certificate/ListByCourseId?courseId={id}'); });
+     }
+     if (self.FormActionButtons.emaillog) {
+          self.FormActionButtons.emaillog.onclick(function () { openSubPage('/Panel/Trn/CertificateEmailLog/ListByCourseId?courseId={id}'); });
+     }
+</script>

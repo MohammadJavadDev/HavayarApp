@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>فرصت‌های هوش مصنوعی در فرآیندهای سازمان | هوایار</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<style>
+		:root {
+			--red: #e50019;
+			--red-soft: #fde8ea;
+			--ink: #161b26;
+			--muted: #5c6573;
+			--paper: #f2f3f6;
+			--surface: #ffffff;
+			--line: #dce1e8;
+			--steel: #2a3344;
+			--ok: #1f6b4a;
+			--ok-soft: #e8f4ee;
+			--rule: 3px;
+			--max: 1080px;
+			--gap: 28px;
+		}
+
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		html, body { margin: 0; padding: 0; }
+		body {
+			font-family: Vazirmatn, Tahoma, sans-serif;
+			background: var(--paper);
+			color: var(--ink);
+			line-height: 1.85;
+			font-size: 16.5px;
+			font-weight: 400;
+		}
+
+		a { color: var(--red); text-decoration: none; }
+		a:hover { text-decoration: underline; text-underline-offset: 3px; }
+		a:focus-visible,
+		button:focus-visible {
+			outline: 2px solid var(--red);
+			outline-offset: 3px;
+		}
+
+		.skip {
+			position: absolute;
+			inset-inline-start: -999px;
+			top: 8px;
+			background: var(--ink);
+			color: #fff;
+			padding: 8px 14px;
+			z-index: 20;
+		}
+		.skip:focus { inset-inline-start: 8px; }
+
+		/* Cover */
+		.cover {
+			background: var(--steel);
+			color: #f4f5f7;
+			padding: 36px 28px 72px;
+			position: relative;
+		}
+		.cover::after {
+			content: "";
+			position: absolute;
+			inset-block: 0;
+			inset-inline-start: 0;
+			width: var(--rule);
+			background: var(--red);
+		}
+		.cover-inner {
+			max-width: var(--max);
+			margin: 0 auto;
+		}
+		.cover-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			margin-bottom: 56px;
+		}
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			font-weight: 700;
+			letter-spacing: -0.02em;
+		}
+		.brand svg { display: block; }
+		.cover-meta {
+			color: rgba(244, 245, 247, .72);
+			font-size: 0.88rem;
+			text-align: start;
+		}
+		.cover h1 {
+			margin: 0 0 18px;
+			font-size: clamp(2rem, 4.4vw, 3.15rem);
+			font-weight: 800;
+			line-height: 1.35;
+			letter-spacing: -0.03em;
+			max-width: 16ch;
+		}
+		.cover .lead {
+			margin: 0;
+			max-width: 52ch;
+			font-size: 1.12rem;
+			color: rgba(244, 245, 247, .82);
+			font-weight: 400;
+		}
+		.cover-actions {
+			margin-top: 36px;
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+		}
+		.btn {
+			appearance: none;
+			border: 0;
+			cursor: pointer;
+			font-family: inherit;
+			font-size: 0.95rem;
+			font-weight: 600;
+			padding: 10px 18px;
+			background: var(--red);
+			color: #fff;
+		}
+		.btn.ghost {
+			background: transparent;
+			color: #fff;
+			border: 1px solid rgba(255,255,255,.28);
+		}
+
+		.page {
+			max-width: var(--max);
+			margin: -40px auto 80px;
+			padding: 0 20px;
+		}
+
+		.principle {
+			background: var(--surface);
+			border: 1px solid var(--line);
+			border-inline-start: var(--rule) solid var(--red);
+			padding: 28px 32px;
+			margin-bottom: var(--gap);
+		}
+		.principle p {
+			margin: 0;
+			font-size: 1.12rem;
+			max-width: 62ch;
+		}
+
+		nav.index {
+			background: var(--surface);
+			border: 1px solid var(--line);
+			padding: 26px 28px 10px;
+			margin-bottom: var(--gap);
+		}
+		nav.index h2 {
+			margin: 0 0 16px;
+			font-size: 0.95rem;
+			font-weight: 700;
+			color: var(--muted);
+		}
+		nav.index ol {
+			margin: 0;
+			padding: 0;
+			list-style: none;
+			display: flex;
+			flex-direction: column;
+			max-width: 34rem;
+		}
+		nav.index a {
+			display: flex;
+			gap: 12px;
+			align-items: baseline;
+			color: var(--ink);
+			padding: 10px 4px;
+			border-bottom: 1px solid var(--line);
+			text-decoration: none;
+		}
+		nav.index a:hover { color: var(--red); }
+		nav.index .n {
+			color: var(--red);
+			font-weight: 700;
+			min-width: 1.6em;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.use {
+			background: var(--surface);
+			border: 1px solid var(--line);
+			margin-bottom: var(--gap);
+			padding: 0;
+			break-inside: avoid;
+		}
+		.use-head {
+			padding: 26px 32px 8px;
+			display: grid;
+			grid-template-columns: auto 1fr;
+			gap: 16px 18px;
+			align-items: start;
+		}
+		.use-num {
+			font-size: 1.7rem;
+			font-weight: 800;
+			color: var(--red);
+			line-height: 1;
+			padding-top: 6px;
+			font-variant-numeric: tabular-nums;
+		}
+		.use-kicker {
+			margin: 0 0 4px;
+			color: var(--muted);
+			font-size: 0.88rem;
+			font-weight: 600;
+		}
+		.use h2 {
+			margin: 0;
+			font-size: 1.45rem;
+			font-weight: 800;
+			letter-spacing: -0.02em;
+			line-height: 1.45;
+		}
+		.lanes {
+			display: grid;
+			grid-template-columns: 1.05fr 1.2fr 0.9fr;
+			border-top: 1px solid var(--line);
+			margin-top: 22px;
+		}
+		.lane {
+			padding: 22px 24px 26px;
+			border-inline-start: 1px solid var(--line);
+		}
+		.lane:first-child { border-inline-start: 0; }
+		.lane h3 {
+			margin: 0 0 10px;
+			font-size: 0.82rem;
+			font-weight: 700;
+			color: var(--muted);
+		}
+		.lane p, .lane ul { margin: 0; font-size: 0.98rem; }
+		.lane ul {
+			list-style: none;
+			padding: 0;
+			direction: rtl;
+		}
+		.lane li {
+			margin-bottom: 8px;
+			padding-right: 14px;
+			padding-left: 0;
+			position: relative;
+			text-align: right;
+		}
+		.lane li:last-child { margin-bottom: 0; }
+		.lane li::before {
+			content: "";
+			position: absolute;
+			right: 0;
+			left: auto;
+			top: 0.72em;
+			width: 5px;
+			height: 5px;
+			border-radius: 50%;
+			background: var(--red);
+		}
+		.lane.effect {
+			background: var(--ok-soft);
+		}
+		.lane.effect h3 { color: var(--ok); }
+
+		.ask {
+			margin: 0;
+			padding: 18px 32px 26px;
+			border-top: 1px dashed var(--line);
+		}
+		.ask strong {
+			display: block;
+			font-size: 0.82rem;
+			color: var(--muted);
+			font-weight: 700;
+			margin-bottom: 8px;
+		}
+		.ask p {
+			margin: 0 0 8px;
+			padding-inline-start: 12px;
+			border-inline-start: 2px solid var(--red);
+			font-weight: 500;
+		}
+		.ask p:last-child { margin-bottom: 0; }
+
+		.arch, .phases, .close {
+			background: var(--surface);
+			border: 1px solid var(--line);
+			padding: 30px 32px;
+			margin-bottom: var(--gap);
+		}
+		.arch h2, .phases h2, .close h2 {
+			margin: 0 0 18px;
+			font-size: 1.35rem;
+			font-weight: 800;
+			letter-spacing: -0.02em;
+		}
+		.steps {
+			display: flex;
+			flex-direction: column;
+			gap: 0;
+			margin: 8px 0;
+			border: 1px solid var(--line);
+		}
+		.step {
+			border: 0;
+			border-bottom: 1px solid var(--line);
+			padding: 18px 20px;
+			min-height: 0;
+			display: grid;
+			grid-template-columns: 9.5rem 1fr;
+			gap: 12px;
+			align-items: start;
+		}
+		.step:last-child { border-bottom: 0; }
+		.step b {
+			display: block;
+			color: var(--red);
+			font-size: 0.88rem;
+			margin: 0;
+			padding-top: 2px;
+		}
+		.step p { margin: 0; font-size: 0.98rem; }
+
+		.phase-list {
+			display: grid;
+			gap: 14px;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+		.phase-list li {
+			display: grid;
+			grid-template-columns: 92px 1fr;
+			gap: 16px;
+			padding: 14px 0;
+			border-bottom: 1px solid var(--line);
+		}
+		.phase-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+		.phase-list .when {
+			font-weight: 800;
+			color: var(--red);
+		}
+		.phase-list p { margin: 0; }
+
+		footer.doc {
+			max-width: var(--max);
+			margin: 0 auto 40px;
+			padding: 0 20px;
+			color: var(--muted);
+			font-size: 0.88rem;
+		}
+
+		@media (max-width: 860px) {
+			.lanes { grid-template-columns: 1fr; }
+			.lane { border-inline-start: 0; border-top: 1px solid var(--line); }
+			.lane:first-child { border-top: 0; }
+			.phase-list li { grid-template-columns: 1fr; gap: 4px; }
+			.cover h1 { max-width: none; }
+			.step { grid-template-columns: 1fr; gap: 4px; }
+		}
+
+		@media print {
+			body { background: #fff; font-size: 12.5pt; }
+			.cover { padding-bottom: 40px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+			.cover-actions, .skip { display: none !important; }
+			.page { margin-top: 24px; }
+			.use, .arch, .phases, .principle, nav.index { break-inside: avoid; box-shadow: none; }
+			a { color: inherit; text-decoration: none; }
+			.lane.effect { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			html { scroll-behavior: auto; }
+		}
+	</style>
+</head>
+<body>
+	<a class="skip" href="#content">رفتن به متن</a>
+
+	<header class="cover">
+		<div class="cover-inner">
+			<div class="cover-top">
+				<div class="brand">
+					<svg xmlns="http://www.w3.org/2000/svg" width="42" height="33" viewBox="0 0 51.47 40" aria-hidden="true">
+						<path fill="#e50019" d="M44.493,14.365l-5.84,9.573a1.649,1.649,0,0,1-1.405.8h-1.5l5.934-9.708a.63.63,0,0,0-.517-.964H33.92a.569.569,0,0,1-.468-.871l.559-.917,7.2-11.8A.315.315,0,0,0,40.947,0H34.873a.608.608,0,0,0-.518.295L19.012,25.446a.314.314,0,0,0,.259.481l6.076,0a.608.608,0,0,0,.518-.295l5.846-9.585a1.649,1.649,0,0,1,1.405-.8h1.463l-5.926,9.71a.629.629,0,0,0,.518.963h5.855v0h1.416a.57.57,0,0,1,.469.871L29.15,39.517a.314.314,0,0,0,.259.481l6.076,0A.608.608,0,0,0,36,39.705l8.146-13.356,7.2-11.8a.315.315,0,0,0-.259-.481H45.011a.607.607,0,0,0-.518.294" transform="translate(-10.11 0)"/>
+						<path fill="#e50019" d="M18.441,38.42a23.571,23.571,0,0,1-6.822-1.956c-.142-.064-.285-.129-.426-.2a16.88,16.88,0,0,1-6.6-5.286c-3.03-4.214-3.2-9.535-.293-14.481l-.018.011S9.048,7.02,22.327,3.373l.009,0,.24-.4a36.47,36.47,0,0,0-13.317,6.6l-.247.2c-.1.084-.209.171-.312.256h0c-.1.086-.206.173-.308.26a27.263,27.263,0,0,0-5.563,6.382C-.808,22.6-.961,28.957,2.5,33.764a15.435,15.435,0,0,0,4.2,3.922q.623.4,1.284.758A22.079,22.079,0,0,0,16.4,41.182a.561.561,0,0,0,.534-.269Z" transform="translate(0 -1.544)"/>
+						<path fill="#e50019" d="M80.734,7.819a15.449,15.449,0,0,0-4.2-3.921c-.074-.048-.147-.095-.221-.141-.384-.241-.781-.469-1.186-.683A23.07,23.07,0,0,0,65.768.354a.56.56,0,0,0-.516.272L63.79,3.054a24.482,24.482,0,0,1,7.846,2.068c.137.061.273.124.408.188a16.892,16.892,0,0,1,6.6,5.291c2.981,4.15,3.2,9.369.428,14.248-.047.086-.127.228-.236.413l-.059.1-.035.053a30.116,30.116,0,0,1-17.8,12.724c-.388.107-.747.2-1.086.29l-.27.447a36.653,36.653,0,0,0,14.137-6.671q.25-.195.5-.395h0c.208-.169.415-.342.619-.515a27.125,27.125,0,0,0,5.564-6.389c3.64-5.926,3.79-12.281.326-17.087" transform="translate(-31.768 -0.183)"/>
+					</svg>
+					هوایار
+				</div>
+				<div class="cover-meta">شهریور ۱۴۰۵<br>نسخه ارائه به مدیریت</div>
+			</div>
+			<h1>فرصت‌های هوش مصنوعی در فرآیندهای سازمان</h1>
+			<p class="lead">هفت موردکاربرد روی پنل فعلی هوایار و دادهٔ همگام‌شده از راهکاران — برای کار سریع‌تر، دقیق‌تر، و قابل‌اتکا. جایگزینی سیستم نیست؛ لایهٔ کمک روی همان فرم‌هاست.</p>
+			<div class="cover-actions">
+				<a class="btn" href="AI-Proposal-Motion.html">موشن‌گرافیک ۲ دقیقه‌ای</a>
+				<a class="btn ghost" href="AI-Proposal-Slides.html">نسخه ارائه اسلایدی</a>
+				<a class="btn ghost" href="#cases">مشاهده موارد</a>
+				<button class="btn ghost" type="button" onclick="window.print()">چاپ یا ذخیره PDF</button>
+			</div>
+		</div>
+	</header>
+
+	<main class="page" id="content">
+		<section class="principle" aria-label="اصل کار">
+			<p>هوش مصنوعی سند راهکاران نمی‌نویسد و فرمول سایزینگ را عوض نمی‌کند. می‌پرسد، پیشنهاد می‌دهد، اختلاف را نشان می‌دهد. ذخیره و تأیید با کارشناس می‌ماند.</p>
+		</section>
+
+		<nav class="index" aria-label="فهرست موارد">
+			<h2>هفت مورد روی فرآیند واقعی</h2>
+			<ol>
+				<li><a href="#c1"><span class="n">۱</span> مهندسی — دستیار مدارک</a></li>
+				<li><a href="#c2"><span class="n">۲</span> مهندسی — سایزینگ کمپرسور</a></li>
+				<li><a href="#c3"><span class="n">۳</span> مهندسی — پارت‌لیست و BOM</a></li>
+				<li><a href="#c4"><span class="n">۴</span> خدمات پس از فروش — پذیرش و اعزام</a></li>
+				<li><a href="#c5"><span class="n">۵</span> تعمیرات — تشخیص و برآورد</a></li>
+				<li><a href="#c6"><span class="n">۶</span> برنامه‌ریزی — پیش‌بینی تأخیر ساخت</a></li>
+				<li><a href="#c7"><span class="n">۷</span> راهکاران — مغایرت مالی</a></li>
+			</ol>
+		</nav>
+
+		<div id="cases">
+			<article class="use" id="c1">
+				<div class="use-head">
+					<div class="use-num">۱</div>
+					<div>
+						<p class="use-kicker">مهندسی · مدارک پروژه</p>
+						<h2>دستیار مدارک مهندسی</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>مدارک پروژه با فایل اصلی، ReplySheet، رویژن، وضعیت و کامنت Hold در سیستم هست. استعلام فنی هم DataSheet و نقشه و مشخصات دارد. پیدا کردن آخرین نظر کارفرما یا علت Hold یعنی گشتن در چند صفحه و چند فایل.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>چت‌بات داخل تب پروژه، روی متن فایل و تاریخچه کامنت</li>
+							<li>خلاصه کامنت‌ها قبل از تأیید</li>
+							<li>هشدار مدرک ناقص: فایل، ReplySheet، Hold باز</li>
+							<li>استخراج مشخصات از DataSheet آپلودشده در استعلام فنی</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>کمتر گشتن در فایل‌ها، بررسی رویژن دقیق‌تر، گردش تأیید کوتاه‌تر.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>نمونه پرسش</strong>
+					<p>آخرین Hold این مدرک چیست و مسئولش کیست؟</p>
+					<p>در این پروژه کدام مدارک ReplySheet ندارند؟</p>
+				</div>
+			</article>
+
+			<article class="use" id="c2">
+				<div class="use-head">
+					<div class="use-num">۲</div>
+					<div>
+						<p class="use-kicker">مهندسی · سایزینگ</p>
+						<h2>دستیار سایزینگ کمپرسور</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>ماشین‌حساب سایزینگ دبی، فشار، دما، رطوبت و آب خنک‌کن می‌گیرد و مدل را از خانواده HYTC / HYTB / HYTA بر اساس راندمان یا قابلیت اطمینان انتخاب می‌کند. دیتاشیت و گزارش از همان موتور ساخته می‌شود.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>مکالمه روی همان موتور؛ فرمول عوض نمی‌شود</li>
+							<li>یکسان‌سازی واحد و پر کردن ورودی از شرح فارسی نیاز مشتری</li>
+							<li>توضیح نتیجه: توان کوپلینگ، مصرف آب، دمای تخلیه، Turn Down</li>
+							<li>پیش‌نویس دیتاشیت و نامه فنی؛ تأیید با مهندس</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>فرم کوتاه‌تر، خطای واحد کمتر، پاسخ استعلام فروش سریع‌تر با مدل‌های رسمی هوایار.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>نمونه پرسش</strong>
+					<p>مشتری دبی ۱۵۰۰ و فشار تخلیه ۸ بار می‌خواهد، سایت گرم است. کدام مدل مناسب است؟</p>
+				</div>
+			</article>
+
+			<article class="use" id="c3">
+				<div class="use-head">
+					<div class="use-num">۳</div>
+					<div>
+						<p class="use-kicker">مهندسی · ساخت</p>
+						<h2>کنترل پارت‌لیست در برابر BOM</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>پارت‌لیست مهندسی جدا از فرمول ساخت (BOM) نگه داشته می‌شود: محصول، قطعه، مقدار، دسته. BOM ضریب مصرف دارد و تغییرش از مسیر درخواست ویرایش فرمول می‌رود. تطبیق دو لیست چشمی است؛ قطعه جاافتاده دیر دیده می‌شود.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>اختلاف همان محصول: در BOM هست و در پارت‌لیست نیست، یا برعکس</li>
+							<li>هشدار مقدار ناسازگار با ضریب مصرف</li>
+							<li>بعد از تأیید تغییر فرمول، پارت‌لیست‌های عقب‌مانده مشخص می‌شوند</li>
+							<li>پیشنهاد همسان‌سازی روی فرم؛ اعمال فقط با تأیید مهندس</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>پارت‌لیست و ساخت یکی می‌مانند. کسری قطعه در تولید کمتر. خطای کد و مقدار قبل از سفارش ساخت دیده می‌شود.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>نمونه پرسش</strong>
+					<p>پارت‌لیست HYTA1000 با BOM چند قطعه اختلاف دارد؟</p>
+					<p>این قطعه جایگزین کدام آیتم فرمول شده؟</p>
+				</div>
+			</article>
+
+			<article class="use" id="c4">
+				<div class="use-head">
+					<div class="use-num">۴</div>
+					<div>
+						<p class="use-kicker">خدمات پس از فروش</p>
+						<h2>دستیار پذیرش تماس و اعزام کارشناس</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>ثبت درخواست خدمات یعنی پیدا کردن مشتری و سایت، سریال محصول از سفارش، علت اعزام، مسئول منطقه و کارشناس. بعد جزئیات محصول، قطعه، مأموریت و گزارش کار با شرح خرابی، کد عملیاتی و چک‌لیست سرویس.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>از متن تماس: مشتری، سریال، محصول، گارانتی، سابقه همان دستگاه</li>
+							<li>پیشنهاد منطقه، کارشناس، نوع درخواست و علت خرابی نزدیک به فهرست موجود</li>
+							<li>قطعات پرتکرار همان مدل از تاریخچه درخواست کالا</li>
+							<li>پیش‌نویس گزارش کار و چک‌لیست؛ کارشناس اصلاح می‌کند</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>ثبت دقیق‌تر، اعزام درست‌تر، گزارش یکدست‌تر. پیشنهاد قطعه از تاریخچه سازمان، نه حافظه فردی.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>نمونه ورودی</strong>
+					<p>کمپرسور سایت اهواز سریال … روغن می‌پاشد، گارانتی دارد.</p>
+				</div>
+			</article>
+
+			<article class="use" id="c5">
+				<div class="use-head">
+					<div class="use-num">۵</div>
+					<div>
+						<p class="use-kicker">تعمیرات</p>
+						<h2>دستیار تشخیص، قطعه و برآورد</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>شناسنامه تعمیر گردش بلندی دارد: علت خرابی، پیش‌بررسی، پیشنهاد مالی، قطعات مصرفی و داغی، کسری، نفرساعت، پیمانکار، مقصد پس از تعمیر و تأخیر. برآورد و متن پیشنهاد معمولاً از تجربه همان شیفت است.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>از سریال، مدل، علائم و عکس پیوست، موارد مشابه قبلی را می‌آورد</li>
+							<li>پیشنهاد علت خرابی، شرح اقدامات، قطعات و داغی</li>
+							<li>نفرساعت و بازه پیشنهاد مالی</li>
+							<li>ریسک تأخیر اگر کسری قطعه یا پیمانکار در کار باشد</li>
+							<li>پیش‌نویس متن پیشنهاد مالی برای مشتری</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>برآورد یکنواخت‌تر، فراموشی قطعه کمتر، پیشنهاد مالی سریع‌تر. یادگیری از تعمیرات قبلی سازمان.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>خروجی نمونه</strong>
+					<p>برای این مدل، در موارد مشابه فیلتر سپراتور و کیت آنلودر تعویض شده؛ نفرساعت تقریبی و بازه قیمت آماده تأیید است.</p>
+				</div>
+			</article>
+
+			<article class="use" id="c6">
+				<div class="use-head">
+					<div class="use-num">۶</div>
+					<div>
+						<p class="use-kicker">برنامه‌ریزی تولید</p>
+						<h2>پیش‌بینی تأخیر سفارش ساخت</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>تأخیر معمولاً بعد از موعد ثبت می‌شود: واحد مسئول (تدارکات، مهندسی، تولید، تست، مالی، انبار و …)، روز تأخیر و علت. سیستم تأخیر محاسبه‌شده را با تاریخ تحویل توافقی مقایسه می‌کند و اطلاع می‌دهد. کسری قطعه و توقف تولید جدا هستند و زود به هم وصل نمی‌شوند.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>پیش‌بینی قبل از ثبت دستی، از کسری قطعه، توقف باز، فاصله تا تحویل توافقی و الگوی تأخیر قبلی</li>
+							<li>پیشنهاد واحد مسئول و متن علت شبیه موارد مشابه</li>
+							<li>فهرست سفارش‌هایی که تأخیر محاسبه‌شده دارند ولی هنوز ثبت نشده</li>
+							<li>هشدار به همان کاربران مسئول فعلی؛ ذخیره فقط با تأیید برنامه‌ریزی</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>تأخیر غافلگیر نمی‌کند. علت و واحد مسئول یکدست ثبت می‌شود. کسری و توقف به اقدام تبدیل می‌شود، نه فقط گزارش بعد از موعد.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>نمونه پرسش</strong>
+					<p>کدام سفارش‌های این ماه در معرض تأخیر تدارکات‌اند؟</p>
+					<p>این سفارش ساخت با احتمال بالا تأخیر تدارکات می‌گیرد؛ سه قطعه کسری بدون درخواست خرید.</p>
+				</div>
+			</article>
+
+			<article class="use" id="c7">
+				<div class="use-head">
+					<div class="use-num">۷</div>
+					<div>
+						<p class="use-kicker">حسابداری و مالی · راهکاران</p>
+						<h2>دستیار مغایرت و پرسش مالی</h2>
+					</div>
+				</div>
+				<div class="lanes">
+					<div class="lane">
+						<h3>امروز</h3>
+						<p>حسابداری در راهکاران است. پنل هوایار سفارش فروش، فاکتور، حواله انبار، قیمت خرید، اشخاص، تفصیل و مرکز هزینه را همگام می‌کند. بستن مغایرت سفارش و فاکتور و حواله هنوز کار دستی گزارش است.</p>
+					</div>
+					<div class="lane">
+						<h3>هوش مصنوعی</h3>
+						<ul>
+							<li>چت‌بات روی دادهٔ همگام‌شده؛ سند در راهکاران نمی‌نویسد</li>
+							<li>لیست روزانه: فاکتور بدون حواله، مبلغ سفارش و فاکتور ناسازگار</li>
+							<li>هشدار جهش غیرعادی قیمت خرید نسبت به استعلام‌های قبلی</li>
+							<li>توضیح فارسی وضعیت مالی یک سفارش: فاکتور، تفصیل، مرکز هزینه</li>
+						</ul>
+					</div>
+					<div class="lane effect">
+						<h3>اثر</h3>
+						<p>بستن مغایرت سریع‌تر. کمتر وابستگی به گزارش‌ساز دستی. کنترل قیمت خرید قبل از اتکا به سند راهکاران.</p>
+					</div>
+				</div>
+				<div class="ask">
+					<strong>نمونه پرسش</strong>
+					<p>سفارش‌های امسال که فاکتور شده‌اند ولی حواله انبار ندارند.</p>
+					<p>قیمت خرید این قطعه نسبت به استعلام‌های قبلی جهش غیرعادی دارد؟</p>
+				</div>
+			</article>
+		</div>
+
+		<section class="arch" id="arch">
+			<h2>چطور روی سیستم فعلی می‌نشیند</h2>
+			<p>یک لایه کمک داخل همان پنل. سه حرکت تکراری در همه موارد:</p>
+			<div class="steps" role="list">
+				<div class="step" role="listitem">
+					<b>۱. پرسش</b>
+					<p>چت‌بات روی مدرک، درخواست خدمات، شناسنامه تعمیر، سفارش ساخت یا سفارش مالی.</p>
+				</div>
+				<div class="step" role="listitem">
+					<b>۲. پیشنهاد روی فرم</b>
+					<p>فیلدها، لیست قطعه، علت تأخیر یا مغایرت از دادهٔ موجود پر می‌شود. انسان می‌بیند.</p>
+				</div>
+				<div class="step" role="listitem">
+					<b>۳. تأیید کارشناس</b>
+					<p>ذخیره، همسان‌سازی BOM، ثبت تأخیر و پیشنهاد مالی فقط بعد از تأیید انجام می‌شود.</p>
+				</div>
+			</div>
+		</section>
+
+		<section class="phases" id="phases">
+			<h2>شروع از یک پایلوت</h2>
+			<ol class="phase-list">
+				<li>
+					<div class="when">فاز یک</div>
+					<p>یک فرآیند پررفت‌وآمد: پذیرش خدمات پس از فروش، برآورد تعمیرات، یا کنترل پارت‌لیست در برابر BOM. هدف: کمتر شدن زمان ثبت و خطای جاافتادگی، با همان فرم‌های فعلی.</p>
+				</li>
+				<li>
+					<div class="when">فاز دو</div>
+					<p>مدارک مهندسی و پیش‌بینی تأخیر سفارش ساخت — جایی که جستجو و غافلگیری هزینه می‌سازد.</p>
+				</li>
+				<li>
+					<div class="when">فاز سه</div>
+					<p>سایزینگ کمپرسور و دستیار مغایرت راهکاران، بعد از جا افتادن الگوی «پیشنهاد و تأیید».</p>
+				</li>
+			</ol>
+		</section>
+
+		<section class="close">
+			<h2>آنچه این سند نیست</h2>
+			<p>برآورد ریالی، انتخاب مدل زبانی، و زمان‌بندی پروژه در این نسخه نیامده. موضوع این صفحه فقط این است: روی همین هوایار و همین راهکاران، کجا هوش مصنوعی کار را سریع‌تر و دقیق‌تر می‌کند — و تصمیم همچنان با کارشناس است.</p>
+		</section>
+	</main>
+
+	<footer class="doc">
+		هوایار · فرصت‌های هوش مصنوعی در فرآیندهای سازمان · شهریور ۱۴۰۵
+	</footer>
+</body>
+</html>

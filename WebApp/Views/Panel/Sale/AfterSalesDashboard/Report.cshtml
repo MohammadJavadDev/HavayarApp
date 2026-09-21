@@ -1,0 +1,53 @@
+<div id="afterSalesDashboardPage">
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<h3 class="mb-1">داشبورد خدمات پس از فروش</h3>
+				<div class="text-muted fs-7">خلاصه درخواست‌ها، ماموریت‌ها، تعمیرات و وصول</div>
+			</div>
+			<div class="card-toolbar">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadAfterSalesDash">نمایش</button>
+			</div>
+		</div>
+	</div>
+	<div class="row g-3 mb-4">
+		<div class="col-md-2"><div class="card"><div class="card-body"><div class="text-muted">درخواست پشتیبانی</div><div class="fs-2 fw-bold" id="asdSr">-</div></div></div></div>
+		<div class="col-md-2"><div class="card"><div class="card-body"><div class="text-muted">در انتظار اعزام</div><div class="fs-2 fw-bold" id="asdWait">-</div></div></div></div>
+		<div class="col-md-2"><div class="card"><div class="card-body"><div class="text-muted">ماموریت</div><div class="fs-2 fw-bold" id="asdMission">-</div></div></div></div>
+		<div class="col-md-2"><div class="card"><div class="card-body"><div class="text-muted">تعمیر</div><div class="fs-2 fw-bold" id="asdRepair">-</div></div></div></div>
+		<div class="col-md-2"><div class="card"><div class="card-body"><div class="text-muted">تاخیر تعمیر</div><div class="fs-2 fw-bold" id="asdDelay">-</div></div></div></div>
+		<div class="col-md-2"><div class="card"><div class="card-body"><div class="text-muted">وصول</div><div class="fs-2 fw-bold" id="asdCol">-</div></div></div></div>
+	</div>
+	<div class="card">
+		<div class="card-body"><div id="afterSalesDashChart"></div></div>
+	</div>
+</div>
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	let afterSalesDashChart;
+	function loadAfterSalesDash() {
+		$$.post('GetData', {}, function (r) {
+			if (!r || !r.isSuccess) { toastr.error((r && r.message) || 'خطا', 'خطا'); return; }
+			const d = r.data || {};
+			$$('#asdSr').text(d.serviceRequestCount ?? 0);
+			$$('#asdWait').text(d.waitingCount ?? 0);
+			$$('#asdMission').text(d.missionCount ?? 0);
+			$$('#asdRepair').text(d.repairCount ?? 0);
+			$$('#asdDelay').text(d.delayCount ?? 0);
+			$$('#asdCol').text(d.collectionCount ?? 0);
+			const options = {
+				chart: { type: 'bar', height: 320 },
+				series: [{ name: 'تعداد', data: [d.serviceRequestCount, d.waitingCount, d.missionCount, d.repairCount, d.delayCount, d.collectionCount] }],
+				xaxis: { categories: ['درخواست', 'انتظار اعزام', 'ماموریت', 'تعمیر', 'تاخیر', 'وصول'] }
+			};
+			if (!afterSalesDashChart) {
+				afterSalesDashChart = new ApexCharts($$('#afterSalesDashChart')[0], options);
+				afterSalesDashChart.render();
+			} else {
+				afterSalesDashChart.updateOptions(options);
+			}
+		});
+	}
+	$$('#btnLoadAfterSalesDash').on('click', loadAfterSalesDash);
+	loadAfterSalesDash();
+</script>

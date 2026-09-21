@@ -1,0 +1,121 @@
+@using Entities.App.Inv
+@using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Base
+@model EquipmentMonitoring
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(EquipmentMonitoring)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">مانیتورینگ تجهیزات</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">شماره سریال</label>
+				<input class="form-control" data-bind="serialNumber" data-required="true" asp-for="SerialNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">کالا</label>
+				@(Html.EntitySelector<Part>(
+					"EquipmentPartSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"partId",
+					"partName",
+					Model?.PartId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"EquipmentCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party, c.Code },
+					"{Party.FullName} {Code}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال حواله</label>
+				@(Html.EntitySelector<OrderDetailSerial>(
+					"EquipmentSerialSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Serial = c.Serial },
+					c => new { c.Serial },
+					"{Serial}",
+					"orderDetailSerialId",
+					"orderDetailSerialName",
+					Model?.OrderDetailSerialId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">شناسه سخت‌افزار</label>
+				<input class="form-control" data-bind="hardwareId" asp-for="HardwareId" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold">نسخه سخت‌افزار</label>
+				<input class="form-control" data-bind="hardwareVersion" asp-for="HardwareVersion" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold">نسخه نرم‌افزار</label>
+				<input class="form-control" data-bind="softwareVersion" asp-for="SoftwareVersion" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold">متصل</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="isConnected" asp-for="IsConnected" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">آخرین اتصال</label>
+				<input class="form-control" data-bind="lastConnectionMiladiDate" asp-for="LastConnectionMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مدت اتصال (ثانیه)</label>
+				<input class="form-control" data-bind="connectionDurationInSecond" asp-for="ConnectionDurationInSecond" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">آی‌پی کلاینت</label>
+				<input class="form-control" data-bind="clientIpAddress" asp-for="ClientIpAddress" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="2"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

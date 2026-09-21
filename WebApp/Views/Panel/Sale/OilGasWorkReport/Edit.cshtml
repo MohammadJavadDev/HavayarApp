@@ -1,0 +1,107 @@
+@using Entities.App.Edms
+@using Entities.App.Gnr
+@using Entities.App.Sale
+@using Entities.Auth
+@using Entities.Base
+@model OilGasWorkReport
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(OilGasWorkReport)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">گزارش کار نفت و گاز</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">پروژه</label>
+				@(Html.EntitySelector<Project>(
+					"OilGasProjectSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Title = c.Title },
+					c => new { c.Code, c.Title },
+					"{Code} {Title}",
+					"projectId",
+					"projectTitle",
+					Model?.ProjectId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">شماره فرم</label>
+				<input class="form-control" data-bind="formNumber" asp-for="FormNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مدیر</label>
+				@(Html.EntitySelector<User>(
+					"OilGasManagerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"managerId",
+					"managerName",
+					Model?.ManagerId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">کارفرما</label>
+				<input class="form-control" data-bind="employer" asp-for="Employer" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">محل پروژه</label>
+				<input class="form-control" data-bind="projectLocation" asp-for="ProjectLocation" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">مدیر پروژه کارفرما</label>
+				<input class="form-control" data-bind="employerProjectManager" asp-for="EmployerProjectManager" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تلفن مدیر پروژه کارفرما</label>
+				<input class="form-control" data-bind="employerProjectManagerPhoneNumber" asp-for="EmployerProjectManagerPhoneNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مرکز هزینه</label>
+				@(Html.EntitySelector<CostCenter>(
+					"OilGasCostCenterSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Number = c.Number, Title = c.Title },
+					c => new { c.Number, c.Title },
+					"{Number} {Title}",
+					"costCenterId",
+					"costCenterTitle",
+					Model?.CostCenterId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">گزارش روزانه</label>
+				<textarea class="form-control" data-bind="dailyReport" asp-for="DailyReport" rows="5"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

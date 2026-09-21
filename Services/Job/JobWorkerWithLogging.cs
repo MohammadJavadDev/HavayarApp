@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 
 namespace Services.Job
@@ -50,12 +51,12 @@ namespace Services.Job
 			using var scope = _services.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-			// 1. پیدا کردن جاب‌هایی که زمان اجرایشان رسیده است
-			var dueJobs = db.JobSchedules
-			    .Where(s => s.IsActive && s.NextRunTime <= DateTime.Now
-			    &&
-			    s.LastStatus != JobStatus.Running && s.LastStatus != JobStatus.Error)
-			    .ToList();
+			// فقط Idle و Waiting اجرا می‌شوند. Error تا تغییر دستی وضعیت (اجرا فوری) تکرار نمی‌شود.
+			var dueJobs = await db.JobSchedules
+			    .Where(s => s.IsActive
+			        && s.NextRunTime <= DateTime.Now
+			        && (s.LastStatus == JobStatus.Idle || s.LastStatus == JobStatus.Waiting))
+			    .ToListAsync(stoppingToken);
 
 			foreach (var schedule in dueJobs)
 			{
@@ -82,7 +83,14 @@ namespace Services.Job
 
 				_ = Task.Run(async () =>
 				{
-					await ExecuteJobAsync(schedule.Id, history.Id, stoppingToken);
+					try
+					{
+						await ExecuteJobAsync(schedule.Id, history.Id, stoppingToken);
+					}
+					catch (Exception ex)
+					{
+						_logger.LogError(ex, "Unhandled error while executing schedule {ScheduleId}", schedule.Id);
+					}
 				}, stoppingToken);
 			}
 		}
@@ -97,10 +105,16 @@ namespace Services.Job
 
 			var schedule = await db.JobSchedules.FindAsync(new object[] { scheduleId }, stoppingToken);
 			var history = await db.JobHistories.FindAsync(new object[] { historyId }, stoppingToken);
+			if (schedule == null || history == null)
+				return;
+
 			var jobDef = await db.JobDefinitions.FirstOrDefaultAsync(c => c.Id == schedule.JobId, stoppingToken);
 
 			try
 			{
+				if (jobDef == null)
+					throw new InvalidOperationException($"Job definition not found for schedule {scheduleId}");
+
 				// Set current history ID for job logging context
 				_jobLogger.SetCurrentHistoryId(historyId, scheduleId);
 
@@ -145,49 +159,61 @@ namespace Services.Job
 			}
 			catch (Exception ex)
 			{
+				var actual = UnwrapInvocationException(ex);
 				history.IsSuccess = false;
-				history.ErrorMessage = ex.Message ?? "خطای نا مشخص";
-				await _jobLogger.LogExceptionAsync(ex, historyId, stoppingToken);
-
+				history.ErrorMessage = Truncate(actual.Message ?? "خطای نا مشخص", 2000);
 				schedule.LastStatus = JobStatus.Error;
+				history.EndTime = DateTime.Now;
 
-				var query = @"INSERT INTO [system].[Notification]
+				// وضعیت Error باید قبل از هر کار جانبی در دیتابیس بنشیند تا ورکر دوباره انتخابش نکند.
+				await db.SaveChangesAsync(stoppingToken);
+
+				try
+				{
+					await _jobLogger.LogExceptionAsync(actual, historyId, stoppingToken);
+				}
+				catch (Exception logEx)
+				{
+					_logger.LogError(logEx, "Failed to write job exception log for schedule {ScheduleId}", scheduleId);
+				}
+
+				try
+				{
+					var displayName = jobDef?.DisplayName ?? $"Schedule {scheduleId}";
+					var methodName = jobDef?.MethodName ?? "";
+					var query = @"INSERT INTO [system].[Notification]
 (Title, Body, IsRead, OwnerId,ModifiedDateShamsiDateTime,ModifiedDateMiladiDateTime,CreatedOnShamsiDateTime,CreatedOnMiladiDateTime,IsActive)
 VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDateMiladiDateTime,@CreatedOnShamsiDateTime,@CreatedOnMiladiDateTime,@IsActive);";
 
-				var paramsSql = new
+					var paramsSql = new
+					{
+						Body = $"خطا در اجرای سرویس : {displayName} {methodName} <br/> {actual.Message}",
+						Title = "خطا در سرویس های درحال اجرا",
+						OwnerId = 1,
+						IsRead = false,
+						ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+						ModifiedDateMiladiDateTime = DateTime.Now,
+						CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
+						CreatedOnMiladiDateTime = DateTime.Now,
+						IsActive = 1
+					};
+
+					await _unitOfWork.Repository<Notification>()
+						.ExecuteCommandAsync(query, paramsSql, stoppingToken);
+				}
+				catch (Exception notifyEx)
 				{
-					Body = $"خطا در اجرای سرویس : {jobDef.DisplayName} {jobDef.MethodName} <br/> {ex.Message}",
-					Title = "خطا در سرویس های درحال اجرا",
-					OwnerId = 1,
-					IsRead = false,
-					ModifiedDateShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
-					ModifiedDateMiladiDateTime = DateTime.Now,
-					CreatedOnShamsiDateTime = DateTime.Now.ToShamsiDateTime(),
-					CreatedOnMiladiDateTime = DateTime.Now,
-					IsActive = 1
-				};
-
-				await _unitOfWork.Repository<Notification>()
-					.ExecuteCommandAsync(query, paramsSql, stoppingToken);
-
-				var queryJobSchedule = @"update [system].[JobSchedule] set LastStatus = 3 where Id = @Id";
-
-				var paramsJobScheduleSql = new
-				{
-					Id = schedule.Id
-				};
-
-				await _unitOfWork.Repository<Notification>()
-				.ExecuteCommandAsync(queryJobSchedule, paramsJobScheduleSql, stoppingToken);
+					_logger.LogError(notifyEx, "Failed to insert failure notification for schedule {ScheduleId}", scheduleId);
+				}
 			}
 			finally
 			{
-				// 4. پایان کار و محاسبه زمان بعدی
-				history.EndTime = DateTime.Now;
+				if (history.EndTime == null)
+					history.EndTime = DateTime.Now;
 
-				// محاسبه زمان بعدی بر اساس نوع زمان‌بندی
-				schedule.NextRunTime = CalculateNextRunTime(schedule);
+				// جاب خطا خورده نباید زمان اجرای بعدی بگیرد؛ تا تغییر دستی وضعیت دوباره انتخاب نمی‌شود.
+				if (schedule.LastStatus != JobStatus.Error)
+					schedule.NextRunTime = CalculateNextRunTime(schedule);
 
 				await db.SaveChangesAsync(stoppingToken);
 
@@ -206,6 +232,25 @@ VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDa
 					history.EndTime.Value,
 					stoppingToken);
 			}
+		}
+
+		private static Exception UnwrapInvocationException(Exception ex)
+		{
+			while (ex is TargetInvocationException { InnerException: { } inner })
+				ex = inner;
+
+			if (ex is AggregateException { InnerException: { } aggregateInner })
+				return aggregateInner;
+
+			return ex;
+		}
+
+		private static string Truncate(string value, int maxLength)
+		{
+			if (string.IsNullOrEmpty(value) || value.Length <= maxLength)
+				return value;
+
+			return value[..maxLength];
 		}
 
 		// متد کمکی برای محاسبه زمان اجرای بعدی بر اساس نوع زمان‌بندی

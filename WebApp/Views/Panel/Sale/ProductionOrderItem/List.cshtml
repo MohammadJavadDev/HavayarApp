@@ -3,35 +3,94 @@
 
 
 <div class="d-none" id="bodySawpModal">
-	<div class="col-md-12">
+	<div class="col-md-12 form-group-inline">
 		<label class="required">جابجایی با</label>
 		@(Html.EntitySelector<ProductionOrderItem>(
 				"ProductionOrderItemSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active 
-				&& !string.IsNullOrEmpty(c.Serial)
-				&& !c.IsDeleted 
-				&& c.IsLatestVersion,
+				c => !c.IsDeleted && !string.IsNullOrEmpty(c.Serial),
 				c => new
 				{
 					Id = c.Id,
-					ProductionOrderNumber = (int)c.ProductionOrder.ProductionOrderNumber,
-					PartCode =c.Part.Code,
+					Number = c.ProductionOrder.Number,
+					PartCode = c.Part.Code,
 					c.Serial
 				},
-				c => new { c.ProductionOrder.ProductionOrderNumber, c.Part.Code, c.Serial },
-				"{ProductionOrderNumber} | {PartCode} | {Serial}",
+				c => new { c.ProductionOrder.Number, c.Part.Code, c.Serial },
+				"{Number} | {PartCode} | {Serial}",
 				"SwapId",
 				"SwapIdName",
 				null
 				))
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
-	<div class="col-md-12 mt-5"
-		style="    display: flex;
-			    flex-direction: column;
-			    align-content: space-between;
-			    align-items: flex-start;">
+	<div class="col-md-12 mt-5 form-group-inline">
 		<label for="chksawp">جابجایی کالاها</label>
 		<input type="checkbox" id="chksawp" data-bind="ShouldBeChangePartCode" />
 	</div>
 </div>
+<script>
+	window.openProductionOrderItemSwapModal = function (ctx) {
+		if (!ctx || !ctx.selectedRow) {
+			toastr.warning('لطفاً یک ردیف انتخاب کنید');
+			return;
+		}
+
+		const $template = $$('#bodySawpModal');
+		$.confirm({
+			title: 'جابجایی رکورد',
+			columnClass: 'col-md-6',
+			content: '<div class="poi-swap-host"></div>',
+			rtl: true,
+			buttons: {
+				save: {
+					text: 'اعمال تغییرات',
+					btnClass: 'btn-info',
+					action: function () {
+						const $content = this.$content;
+						const model = $content.dataBind();
+						if (!model.SwapId) {
+							toastr.error('سریال نمی‌تواند خالی باشد');
+							return false;
+						}
+						if (String(model.SwapId) === String(ctx.primaryKeyValue)) {
+							toastr.error('نمی‌توان یک رکورد را با خودش جابه‌جا کرد');
+							return false;
+						}
+
+						model.currentId = ctx.primaryKeyValue;
+						const $btn = $(this.buttons.save.el).block();
+						const selfConfirm = this;
+						post('/Panel/ProductionOrderItem/Swap', model, function (r) {
+							$btn.block(false);
+							if (!r.isSuccess) {
+								toastr.error(r.message || 'خطا در جابجایی', 'خطا');
+								return;
+							}
+							toastr.success('جابجایی با موفقیت انجام شد');
+							selfConfirm.close();
+							if (typeof ctx.draw === 'function')
+								ctx.draw();
+						});
+						return false;
+					}
+				},
+				cancel: {
+					text: 'انصراف',
+					btnClass: 'btn-secondary'
+				}
+			},
+			onContentReady: function () {
+				const $host = this.$content.find('.poi-swap-host');
+				$host.append($template.children());
+				const $wrapper = $host.find('.entity-selector-wrapper');
+				const inst = $wrapper.data('entitySelector');
+				if (inst && typeof inst.clearAll === 'function')
+					inst.clearAll();
+				$host.find('#chksawp').prop('checked', false);
+			},
+			onDestroy: function () {
+				$template.append(this.$content.find('.poi-swap-host').children());
+			}
+		});
+	};
+</script>

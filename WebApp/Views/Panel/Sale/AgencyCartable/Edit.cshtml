@@ -1,0 +1,158 @@
+@using Entities.App.Crm
+@using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Auth
+@using Entities.Base
+@model AgencyCartable
+
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(AgencyCartable)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+				action-name="acceptCartable" title="پذیرش"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-times"
+				action-name="rejectCartable" title="رد"></form-action-button>
+		</form-action-buttons>
+	</div>
+</div>
+
+<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">گزارش پروژه</span>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">مسئول پشتیبانی</label>
+			@(Html.EntitySelector<User>(
+				"AgencyCartableSupportSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"supportResponsibleId",
+				"supportResponsibleName",
+				Model?.SupportResponsibleId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مسئول</label>
+			@(Html.EntitySelector<User>(
+				"AgencyCartableResponsibleSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name },
+				c => new { c.Name },
+				"{Name}",
+				"responsibleId",
+				"responsibleName",
+				Model?.ResponsibleId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">مشتری</label>
+			@(Html.EntitySelector<Customer>(
+				"AgencyCartableCustomerSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+				c => new { c.Party, c.Code },
+				"{Party.FullName} {Code}",
+				"customerId",
+				"customerName",
+				Model?.CustomerId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">عنوان مشتری</label>
+			<input class="form-control" data-bind="customerTitle" asp-for="CustomerTitle" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">منطقه</label>
+			@(Html.EntitySelector<Zone>(
+				"AgencyCartableZoneSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"zoneId",
+				"zoneTitle",
+				Model?.ZoneId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره درخواست پشتیبانی</label>
+			@(Html.EntitySelector<ServiceRequest>(
+				"AgencyCartableSrSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, CustomerAgentName = c.CustomerAgentName },
+				c => new { c.CustomerAgentName },
+				"{Id} {CustomerAgentName}",
+				"serviceRequestId",
+				"serviceRequestName",
+				Model?.ServiceRequestId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ درخواست</label>
+			<input class="form-control" data-bind="requestShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@Model?.RequestMiladiDate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">انجام شده</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="isDone" asp-for="IsDone" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">گارانتی</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="hasGuarantee" asp-for="HasGuarantee" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">شرح درخواست</label>
+			<textarea class="form-control" data-bind="requestComment" asp-for="RequestComment" rows="3"></textarea>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	function runAgencyAction(url, title) {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+		Swal.fire({ title: title, text: 'آیا مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.post(url + '?id=' + id, {}, function (r) {
+					if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+					toastr.success(title + ' انجام شد');
+					appController.refreshCurrentPage();
+				});
+			});
+	}
+	if (self.FormActionButtons.acceptCartable) {
+		self.FormActionButtons.acceptCartable.onclick(function () { runAgencyAction('accept', 'پذیرش کارتابل'); });
+	}
+	if (self.FormActionButtons.rejectCartable) {
+		self.FormActionButtons.rejectCartable.onclick(function () { runAgencyAction('reject', 'رد کارتابل'); });
+	}
+</script>

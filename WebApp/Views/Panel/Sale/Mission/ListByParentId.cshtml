@@ -1,0 +1,412 @@
+@using Entities.App.Sale
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<style>
+	#srMissionChildCard .sr-mission-table-wrap { overflow-x: auto; width: 100%; }
+	#srMissionChildCard .dt-container { width: max-content !important; }
+	#srMissionChildCard #srMissionChildTable,
+	#srMissionChildCard table.ellipsis-tooltip-table {
+		width: max-content !important;
+		min-width: 0 !important;
+		table-layout: auto;
+	}
+	#srMissionChildCard #srMissionChildTable th,
+	#srMissionChildCard #srMissionChildTable td {
+		white-space: nowrap;
+		box-sizing: border-box;
+	}
+</style>
+<div class="card" id="srMissionChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold"> ماموریت‌های درخواست:@parentId</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<div class="sr-mission-table-wrap">
+			<table class="table table-striped table-row-bordered gy-2 nowrap" id="srMissionChildTable">
+				<thead>
+					<tr class="fw-bold fs-6 text-muted">
+						<th style="min-width:90px;">عملیات</th>
+						<th style="min-width:100px;">شماره اندیکاتور</th>
+						<th style="min-width:160px;">کارشناس</th>
+						<th style="min-width:140px;">مرکز هزینه</th>
+						<th style="min-width:110px;">مجموع هزینه</th>
+						<th style="min-width:70px;">گارانتی</th>
+						<th style="min-width:80px;">شماره حکم</th>
+						<th style="min-width:100px;">تاریخ اعزام</th>
+						<th style="min-width:80px;">ساعت اعزام</th>
+						<th style="min-width:100px;">تاریخ برگشت</th>
+						<th style="min-width:80px;">ساعت برگشت</th>
+						<th style="min-width:100px;">هزینه صبحانه</th>
+						<th style="min-width:80px;">تعداد صبحانه</th>
+						<th style="min-width:100px;">هزینه نهار</th>
+						<th style="min-width:70px;">نهار</th>
+						<th style="min-width:100px;">هزینه شام</th>
+						<th style="min-width:70px;">شام</th>
+						<th style="min-width:100px;">حق شب</th>
+						<th style="min-width:70px;">ضریب شب</th>
+						<th style="min-width:110px;">مبلغ اضافه کاری</th>
+						<th style="min-width:90px;">ساعت اضافه کاری</th>
+						<th style="min-width:100px;">حق ماموریت</th>
+						<th style="min-width:90px;">تعداد تعطیل کاری</th>
+						<th style="min-width:100px;">حق تعطیل کاری</th>
+						<th style="min-width:110px;">ایاب ذهاب شخصی</th>
+						<th style="min-width:110px;">ایاب ذهاب سواری</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+<script>
+	const srMissionParentId = @parentId;
+
+	function moneyCell(v) {
+		if (v == null || v === '') return '-';
+		return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : v;
+	}
+
+	const srMissionTable = $$('#srMissionChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		scrollX: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		initComplete: function () {
+			if (typeof bindEmbeddedTableCellTooltips === 'function')
+				bindEmbeddedTableCellTooltips(this.api());
+		},
+		ajax: {
+			url: '/Panel/Sale/Mission/GetListByParentId?serviceRequestId=' + srMissionParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{
+				data: 'id',
+				orderable: false,
+				width: '90px',
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				}
+			},
+			{ data: 'serviceRequestId', defaultContent: '-', width: '100px' },
+			{ data: 'fullName', defaultContent: '-', width: '160px', render: renderEllipsisCell },
+			{ data: 'costCenterTitle', defaultContent: '-', width: '140px', render: renderEllipsisCell },
+			{ data: 'totalCost', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
+			{
+				data: 'haveGuarantee',
+				defaultContent: '',
+				width: '70px',
+				className: 'text-center',
+				render: function (v) { return v === true ? '<i class="fa fa-check text-success"></i>' : ''; }
+			},
+			{ data: 'hokmNumber', defaultContent: '-', width: '80px' },
+			{ data: 'dispatchShamsiDate', defaultContent: '-', width: '100px' },
+			{ data: 'dispatchTime', defaultContent: '-', width: '80px' },
+			{ data: 'returnShamsiDate', defaultContent: '-', width: '100px' },
+			{ data: 'returnTime', defaultContent: '-', width: '80px' },
+			{ data: 'breakfastFee', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
+			{ data: 'breakfast', defaultContent: '-', width: '80px' },
+			{ data: 'lunchFee', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
+			{ data: 'lunch', defaultContent: '-', width: '70px' },
+			{ data: 'dinnerFee', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
+			{ data: 'dinner', defaultContent: '-', width: '70px' },
+			{ data: 'nightRight', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
+			{ data: 'nightRightFactor', defaultContent: '-', width: '70px' },
+			{ data: 'workOvertimeFee', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
+			{
+				data: 'workOvertimeHour',
+				defaultContent: '-',
+				width: '90px',
+				render: function (v) {
+					if (v == null || v === '') return '-';
+					if (typeof v === 'string' && v.indexOf(':') >= 0) return v;
+					const n = parseInt(v, 10);
+					if (isNaN(n)) return v;
+					const abs = Math.abs(n);
+					return String(Math.floor(abs / 60)).padStart(2, '0') + ':' + String(abs % 60).padStart(2, '0');
+				}
+			},
+			{ data: 'missionRight', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
+			{ data: 'missionHolidayRightFactor', defaultContent: '-', width: '90px' },
+			{ data: 'missionHolidayRight', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
+			{ data: 'transportationPersonal', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
+			{ data: 'transportationDriving', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } }
+		]
+	});
+
+	function srMissionHourMinToMin(value) {
+		if (value == null || value === '') return null;
+		const s = String(value).trim();
+		if (!s || s.indexOf('_') >= 0 || s === ':' || s === '-') return null;
+		if (s.indexOf(':') < 0) {
+			const n = parseInt(s, 10);
+			return isNaN(n) ? null : n;
+		}
+		const parts = s.split(':');
+		const hour = parseInt(parts[0] || '0', 10) || 0;
+		const min = parseInt(parts[1] || '0', 10) || 0;
+		return (hour * 60) + min;
+	}
+
+	function srMissionVal(data, key) {
+		if (!data) return undefined;
+		if (data[key] != null) return data[key];
+		const pascal = key.charAt(0).toUpperCase() + key.slice(1);
+		return data[pascal];
+	}
+
+	function srMissionFormRoot($start) {
+		if ($start && $start.find && $start.find('[data-bind="breakfast"]').length)
+			return $start;
+		if ($start && $start.closest) {
+			const $box = $start.closest('.jconfirm-content, .jconfirm-box, .tab-pane');
+			if ($box.length && $box.find('[data-bind="breakfast"]').length)
+				return $box;
+		}
+		return $start;
+	}
+
+	function setSrMissionField($root, key, value) {
+		const $el = $root.find('[data-bind="' + key + '"]').first();
+		if (!$el.length) return;
+		const raw = value == null ? '' : value;
+		if ($el[0].inputmask) {
+			if (typeof $el[0].inputmask.setvalue === 'function')
+				$el[0].inputmask.setvalue(raw);
+			else if (typeof $el[0].inputmask.setValue === 'function')
+				$el[0].inputmask.setValue(raw);
+			else
+				$el.val(raw);
+		} else {
+			$el.val(raw);
+		}
+		$el.trigger('input').trigger('change');
+	}
+
+	function initSrMissionDurationFields($root) {
+		if (!$root || !$root.length || !window.Inputmask) return;
+		const $fields = $root.find('[data-duration="true"]').filter(function () { return !this.inputmask; });
+		if (!$fields.length) return;
+		Inputmask({
+			mask: '99:99',
+			placeholder: '__:__',
+			insertMode: true,
+			clearIncomplete: true,
+			autoUnmask: false,
+			showMaskOnHover: true,
+			showMaskOnFocus: true,
+			onKeyDown: function (e) {
+				if (!e || e.key == null || e.key === '')
+					return true;
+			}
+		}).mask($fields);
+	}
+
+	function fillSrMissionSalaryFees($root, $btn) {
+		const personelId = $root.find('[data-bind="personelId"]').val();
+		const expertId = $root.find('[data-bind="expertId"]').val();
+		if (!personelId && !expertId) {
+			toastr.warning('هیچ کارشناسی انتخاب نشده است');
+			return;
+		}
+		const qs = personelId
+			? ('personelId=' + encodeURIComponent(personelId))
+			: ('expertId=' + encodeURIComponent(expertId));
+		$btn.block();
+		$$.get('/Panel/Sale/Mission/GetPersonelMissionSalaryInfo?' + qs, function (r) {
+			$btn.block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در دریافت حق ماموریت', 'خطا');
+				return;
+			}
+			const data = r.data;
+			if (!data) {
+				toastr.warning('حق ماموریت برای این کارشناس ثبت نشده است');
+				return;
+			}
+			['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+				setSrMissionField($root, key, data[key]);
+			});
+			toastr.success('مبالغ حق ماموریت دریافت شد');
+		});
+	}
+
+	function applySrMissionInfo($root, data) {
+		if (typeof data === 'string') {
+			try { data = JSON.parse(data); } catch (e) { return false; }
+		}
+		if (!data) return false;
+		const breakfast = srMissionVal(data, 'breakfast');
+		const lunch = srMissionVal(data, 'lunch');
+		const dinner = srMissionVal(data, 'dinner');
+		const nightRightFactor = srMissionVal(data, 'nightRightFactor');
+		const missionRightFactor = srMissionVal(data, 'missionRightFactor');
+		if (breakfast == null && lunch == null && dinner == null)
+			return false;
+		setSrMissionField($root, 'breakfast', breakfast);
+		setSrMissionField($root, 'lunch', lunch);
+		setSrMissionField($root, 'dinner', dinner);
+		setSrMissionField($root, 'nightRightFactor', nightRightFactor);
+		setSrMissionField($root, 'missionRightFactor', missionRightFactor);
+		['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+			const fee = srMissionVal(data, key);
+			if (fee == null) return;
+			setSrMissionField($root, key, fee);
+		});
+		return {
+			breakfast: breakfast == null ? 0 : breakfast,
+			lunch: lunch == null ? 0 : lunch,
+			dinner: dinner == null ? 0 : dinner
+		};
+	}
+
+	function requestSrMissionInfo($root, $btn) {
+		$root = srMissionFormRoot($root);
+		const personelId = $root.find('[data-bind="personelId"]').val();
+		const expertId = $root.find('[data-bind="expertId"]').val();
+		const dispatchDate = $root.find('[data-bind="dispatchShamsiDate"]').val();
+		const dispatchTime = $root.find('[data-bind="dispatchTime"]').val();
+		const returnDate = $root.find('[data-bind="returnShamsiDate"]').val();
+		const returnTime = $root.find('[data-bind="returnTime"]').val();
+		if (!dispatchDate || !returnDate) {
+			toastr.warning('تاریخ اعزام و بازگشت را وارد کنید');
+			return;
+		}
+		if (!dispatchTime || String(dispatchTime).indexOf('_') >= 0
+			|| !returnTime || String(returnTime).indexOf('_') >= 0) {
+			toastr.warning('ساعت اعزام و بازگشت را کامل وارد کنید');
+			return;
+		}
+		const qs = [
+			'dispatchShamsiDate=' + encodeURIComponent(dispatchDate),
+			'dispatchTime=' + encodeURIComponent(dispatchTime),
+			'returnShamsiDate=' + encodeURIComponent(returnDate),
+			'returnTime=' + encodeURIComponent(returnTime)
+		];
+		if (personelId) qs.unshift('personelId=' + encodeURIComponent(personelId));
+		else if (expertId) qs.unshift('expertId=' + encodeURIComponent(expertId));
+		if ($btn) $btn.block();
+		$$.get('/Panel/Sale/Mission/GetMissionInfo?' + qs.join('&'), function (r) {
+			if ($btn) $btn.block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در محاسبه تعداد وعده‌ها', 'خطا');
+				return;
+			}
+			const applied = applySrMissionInfo($root, r.data != null ? r.data : r);
+			if (!applied) {
+				toastr.error('پاسخ محاسبه خالی بود', 'خطا');
+				return;
+			}
+			toastr.success('صبحانه ' + applied.breakfast + '، ناهار ' + applied.lunch + '، شام ' + applied.dinner);
+		});
+	}
+
+	function normalizeSrMissionModel(model) {
+		['breakfast', 'lunch', 'dinner', 'nightRightFactor', 'missionRightFactor', 'missionHolidayRightFactor', 'hokmNumber'].forEach(function (key) {
+			if (model[key] === '' || model[key] == null)
+				model[key] = null;
+		});
+		model.workOvertimeHour = srMissionHourMinToMin(model.workOvertimeHour);
+		return model;
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function openSrMissionModal(id) {
+		const url = id
+			? '/Panel/Sale/Mission/Edit?id=' + id + '&serviceRequestId=' + srMissionParentId
+			: '/Panel/Sale/Mission/New?serviceRequestId=' + srMissionParentId;
+		const $trigger = id
+			? $$('#srMissionChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#srMissionChildCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش ماموریت' : 'افزودن ماموریت',
+				columnClass: 'col-md-11',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = normalizeSrMissionModel($content.dataBind());
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Sale/Mission/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) { toastr.error(resp.message || 'خطا در ذخیره', 'خطا'); return; }
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								srMissionTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initPersionDatePicker === 'function')
+							initPersionDatePicker(selfConfirm.$body);
+						if (typeof initMoneyInputs === 'function')
+							initMoneyInputs(selfConfirm.$body);
+						if (typeof initTimeInputs === 'function')
+							initTimeInputs(selfConfirm.$body);
+						initSrMissionDurationFields(selfConfirm.$body);
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+					}, 100);
+					selfConfirm.$content.on('click', '[data-action="loadMissionSalary"]', function () {
+						fillSrMissionSalaryFees(srMissionFormRoot(selfConfirm.$body), $(this));
+					});
+					selfConfirm.$content.on('click', '[data-action="calcMissionMeals"]', function () {
+						requestSrMissionInfo(srMissionFormRoot(selfConfirm.$body), $(this));
+					});
+				}
+			});
+		});
+	}
+
+	$$('#srMissionChildCard').on('click', '[data-action="newChild"]', function () { openSrMissionModal(null); });
+	$$('#srMissionChildCard').on('click', '[data-action="editChild"]', function () { openSrMissionModal($(this).data('id')); });
+	$$('#srMissionChildCard').on('click', '[data-action="deleteChild"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/Mission/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					srMissionTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

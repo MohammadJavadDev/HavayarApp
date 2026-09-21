@@ -1,0 +1,74 @@
+@using Entities.App.Crm
+@using Entities.App.Crm.Enums
+@using Entities.Auth
+@using Entities.Base
+@model Zone
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(Zone)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">منطقه خدمات پس از فروش</h4>
+			</div>
+		</div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">عنوان</label>
+				<input class="form-control" data-bind="title" data-required="true" asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نوع منطقه</label>
+				<select class="form-control" data-bind="zoneType" asp-for="ZoneType" asp-items="Html.GetEnumSelectList(typeof(ZoneTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">مسئول منطقه</label>
+				@(Html.EntitySelector<User>(
+					"ZoneSupervisorSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"supervisorUserId",
+					"",
+					Model?.SupervisorUserId > 0 ? Model.SupervisorUserId.ToString() : null
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<div class="card mt-4 border-0 shadow-sm">
+	<div class="card-body">
+		<div class="row text-muted">
+			<div class="col-md-3"><span class="fw-bold">ایجاد کننده :</span> <span data-bind="createdByName">@Model?.CreatedByName</span></div>
+			<div class="col-md-3"><span class="fw-bold">تاریخ ایجاد :</span> <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span></div>
+			<div class="col-md-3"><span class="fw-bold">ویرایش کننده :</span> <span data-bind="modifiedByName">@Model?.ModifiedByName</span></div>
+			<div class="col-md-3"><span class="fw-bold">تاریخ ویرایش :</span> <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span></div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

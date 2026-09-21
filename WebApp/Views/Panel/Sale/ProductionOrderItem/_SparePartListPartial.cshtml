@@ -1,0 +1,43 @@
+@using WebApp.Models.Sale
+@model List<ProductionOrderItemSparePartRow>
+@*
+	معادل HTS GetSpareParts: قطعات یدکی کالای قلم + قطعات یدکی اقلام مصرفی پروژه
+	(VchTypeId=7 برگشت از مصرف جفت‌حذف می‌شود). فقط‌خواندنی.
+*@
+@if (Model == null || !Model.Any())
+{
+	<div class="alert alert-info mb-0"><i class="fa fa-info-circle me-1"></i> برای کالای این قلم قطعه یدکی تعریف نشده است.</div>
+}
+else
+{
+	<div class="table-responsive">
+		<table class="table table-striped table-bordered table-hover table-sm align-middle">
+			<thead>
+				<tr>
+					<th>#</th>
+					<th>کد قطعه یدکی</th>
+					<th>نام قطعه یدکی</th>
+					<th>ساعت کارکرد</th>
+					<th>مقدار مصرف</th>
+					<th>تفصیل</th>
+					<th>توضیحات</th>
+				</tr>
+			</thead>
+			<tbody>
+				@for (var i = 0; i < Model.Count; i++)
+				{
+					var row = Model[i];
+					<tr>
+						<td>@(i + 1)</td>
+						<td dir="ltr" class="text-end">@(row.Code ?? "-")</td>
+						<td>@(row.Name ?? "-")</td>
+						<td>@(row.WorkingHours?.ToString() ?? "-")</td>
+						<td>@(row.Qty.HasValue ? row.Qty.Value.ToString("0.###") : "-")</td>
+						<td>@(string.IsNullOrWhiteSpace(row.DlTitle) ? "-" : row.DlTitle)</td>
+						<td>@(string.IsNullOrWhiteSpace(row.Description) ? "-" : row.Description)</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}

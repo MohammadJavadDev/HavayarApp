@@ -130,11 +130,23 @@ public class FileService : IFileService
 	// ----------------------------------------------------
 	// Physical delete (safe)
 	// ----------------------------------------------------
+	public string GetFullPhysicalPath(string? physicalPath)
+	{
+		if (string.IsNullOrWhiteSpace(physicalPath))
+			return string.Empty;
+
+		var normalized = physicalPath.Replace('/', Path.DirectorySeparatorChar);
+		if (Path.IsPathRooted(normalized))
+			return normalized;
+
+		return Path.Combine(_uploadsRoot, normalized);
+	}
+
 	private void TryDeletePhysical(string relativePath)
 	{
 		try
 		{
-			var fullPath = Path.Combine(_uploadsRoot, relativePath);
+			var fullPath = GetFullPhysicalPath(relativePath);
 			if (System.IO.File.Exists(fullPath))
 				System.IO.File.Delete(fullPath);
 		}
@@ -152,7 +164,7 @@ public class FileService : IFileService
 		if (file == null || file.IsActive != IsActiveEnum.Active)
 			throw new FileNotFoundException();
 
-		var fullPath = Path.Combine(_uploadsRoot, file.PhysicalPath);
+		var fullPath = GetFullPhysicalPath(file.PhysicalPath);
 		if (!System.IO.File.Exists(fullPath))
 			throw new FileNotFoundException();
 

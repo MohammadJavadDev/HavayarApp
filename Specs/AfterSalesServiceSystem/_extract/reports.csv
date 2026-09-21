@@ -1,0 +1,33 @@
+Report_ID	Report_Name	Report_Title	Report_Order	Report_Parent_FK
+6	Sale_Mission	گزارش حق ماموریت پرسنل	1	
+7	Sale_RequestPart	گزارش قطعات مصرفی در محصولات	2	
+8	Sale_CustomerLastBuy	گزارش مشتریان فعال و غیر فعال	3	
+9	Sale_Report	گزارش کار ماموریت ها	4	
+10	Sale_ServiceRequestPart	گزارش درخواست های پشتیبانی	5	
+11	Sale_Order	گزارش حواله های فروش	6	
+12	Sale_Customer	گزارش مدیریت مشتریان	7	
+13	Sale_CustomerDebit	گزارش مانده حساب مشتری	8	
+14	Sale_CustomerDebit_Detail	گزارش ریز مانده حساب مشتری	9	13
+16	Sale_Crm	گزارش جامع CRM	10	
+18	Sale_AllowedGuarantee	گزارش گارانتی مجاز در سفارش ساخت	11	
+19	Sale_PeridateEndGarantee	گزارش پیش بینی اتمام گارانتی	12	
+20	Sale_MaxCostOfPartPerCustomer	گزارش بیشترین هزینه گارنتی قطعات به تفکیک مشتری و محصول	13	
+21	Sale_MaxCosOfMission	گزارش بیشترین هزینه ماموریت	14	
+22	Sale_MaxCostOfPart	گزارش بیشترین هزینه قطعات	15	
+23	Sale_ProductActivity	گزارش سرویس دوره ای	16	
+24	Sale_DifferentFactPrice	گزارش فاکتور فروش 	17	
+25	Sale_TotalReport	گزارش جامع فروش	18	
+26	Sale_SaleOrdersByDateFilter	گزارش حواله ها در بازه زمانی مشخص	19	
+27	Sale_GeneralGuaranteeReport	گزارش جامع گارانتی	20	
+28	Sale_GeneralWarrantyReport	گزارش جامع وارانتی	21	
+29	Sale_FactorAggregationAndReturns	گزارش سرجمع فاکتور و برگشت	22	
+30	Sale_AgencyProductRequest	گزارش کالا-نمایندگان	23	
+31	Sale_SalePrice	قیمت فروش کالا	24	
+32	Sale_RepairsReport	گزارش شناسنامه تعمیر	25	
+33	Sale_EstimateCost	گزارش هزینه تقریبی	26	
+34	Sale_ContractorsStatus	گزارش وضعیت پیمانکاران	27	
+35	Sale_SalesAndReturnSalesFactors	گزارش فروش و برگشت از فروش	28	
+36	Sale_DifferentFactPrice_Rahkaran	گزارش فاکتور فروش_راهکاران	29	
+37	Sale_FactorAggregationAndReturns_Rahkaran	گزارش سرجمع فاکتور و برگشت_راهکاران	30	
+38	Sale_ConsumableItemsReport	گزارش اقلام مصرفی در شناسنامه تعمیرها	31	
+39	Sale_ManHourReport	گزارش نفرساعت تعمیرات	31	

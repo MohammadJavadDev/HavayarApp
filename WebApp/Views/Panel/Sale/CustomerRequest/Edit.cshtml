@@ -1,0 +1,183 @@
+@using Entities.App.Sale
+@using Entities.App.Sale.Enums
+@model CustomerRequest
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(CustomerRequest)" new-page-btn="false" save-btn="false" save-and-new-btn="false" save-and-close-btn="false"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">درخواست مشتریان</h4>
+			</div>
+		</div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">کد پیگیری</label>
+				<input class="form-control" value="@Model?.Id" disabled />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">عنوان مشتری</label>
+				<input class="form-control" value="@Model?.CustomerTitle" disabled />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تلفن</label>
+				<input class="form-control" value="@Model?.CustomerPhone" disabled />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label">آدرس</label>
+				<textarea class="form-control" rows="2" disabled>@Model?.CustomerAddress</textarea>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">نوع درخواست</label>
+				<input class="form-control" value="@Model?.RequestTypeTitle" disabled />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">شرح کالا</label>
+				<input class="form-control" value="@Model?.PartTitle" disabled />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">نماینده مرتبط</label>
+				<input class="form-control" value="@Model?.RelatedAgentName" disabled />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label">متن درخواست</label>
+				<textarea class="form-control" rows="3" disabled>@Model?.RequestText</textarea>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">وضعیت</label>
+				<input class="form-control" value="@(Model?.StatusId switch {
+					CustomerRequestStatusEnum.UnderReview => "در حال بررسی",
+					CustomerRequestStatusEnum.SupplyPart => "تامین قطعه",
+					CustomerRequestStatusEnum.SendExpert => "ارسال کارشناس",
+					CustomerRequestStatusEnum.Accounting => "حسابداری",
+					CustomerRequestStatusEnum.Done => "انجام شد",
+					CustomerRequestStatusEnum.Rejected => "رد درخواست",
+					_ => ""
+				})" disabled />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تولید هوایار</label>
+				<input class="form-control" value="@(Model?.HasHavayarProduction == true ? "بله" : "")" disabled />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">پیوست</label>
+				@if (Model?.AttachmentFile != null && Model.AttachmentFile.Length > 0)
+				{
+					<button type="button" class="btn btn-sm btn-light-primary" data-action="downloadAttachment">@Model.AttachmentFileName</button>
+				}
+				else
+				{
+					<input class="form-control" value="—" disabled />
+				}
+			</div>
+		</div>
+	</div>
+</div>
+<div class="card mt-4 border-0 shadow-sm">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">نظرات</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newComment">افزودن نظر</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="customerRequestCommentTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>کاربر</th>
+					<th>وضعیت</th>
+					<th>نظر</th>
+					<th>زمان</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const customerRequestId = @(Model?.Id ?? 0);
+	const statusTitles = {
+		1381: 'در حال بررسی',
+		1382: 'تامین قطعه',
+		1383: 'ارسال کارشناس',
+		1384: 'حسابداری',
+		1385: 'انجام شد',
+		1386: 'رد درخواست'
+	};
+	const commentTable = $$('#customerRequestCommentTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Sale/CustomerRequest/GetComments?parentId=' + customerRequestId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'createdByName', defaultContent: '-' },
+			{
+				data: 'status',
+				render: function (v) { return statusTitles[v] || (v == null ? '-' : v); }
+			},
+			{ data: 'comment', defaultContent: '-' },
+			{ data: 'createdOnShamsiDateTime', defaultContent: '-' }
+		]
+	});
+
+	page.$pageEl.on('click', '[data-action="downloadAttachment"]', function () {
+		window.open('/Panel/Sale/CustomerRequest/DownloadAttachment?id=' + customerRequestId, '_blank');
+	});
+
+	page.$pageEl.on('click', '[data-action="newComment"]', function () {
+		const $btn = $(this).block();
+		const html = '<div class="row g-3">'
+			+ '<div class="col-md-12 form-group-inline"><label class="form-label required">وضعیت</label>'
+			+ '<select class="form-control" data-bind="statusId">'
+			+ '<option value="">انتخاب کنید</option>'
+			+ '<option value="1381">در حال بررسی</option>'
+			+ '<option value="1382">تامین قطعه</option>'
+			+ '<option value="1383">ارسال کارشناس</option>'
+			+ '<option value="1384">حسابداری</option>'
+			+ '<option value="1385">انجام شد</option>'
+			+ '<option value="1386">رد درخواست</option>'
+			+ '</select></div>'
+			+ '<div class="col-md-12 form-group-inline"><label class="form-label required">نظر</label>'
+			+ '<textarea class="form-control" data-bind="comment" data-required="true" rows="4"></textarea></div>'
+			+ '</div>';
+		$btn.block(false);
+		$.confirm({
+			title: 'ثبت نظر',
+			content: html,
+			rtl: true,
+			buttons: {
+				save: {
+					text: 'ذخیره',
+					action: function () {
+						const $content = this.$content;
+						if (validateError($content)) return false;
+						const model = $content.dataBind();
+						model.customerRequestId = customerRequestId;
+						if (!model.statusId) {
+							toastr.error('وضعیت را انتخاب کنید', 'هشدار');
+							return false;
+						}
+						$$.post('/Panel/Sale/CustomerRequest/AddComment', model, function (r) {
+							if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+							toastr.success('نظر ثبت شد');
+							commentTable.ajax.reload(null, false);
+						});
+					}
+				},
+				cancel: { text: 'انصراف' }
+			}
+		});
+	});
+</script>

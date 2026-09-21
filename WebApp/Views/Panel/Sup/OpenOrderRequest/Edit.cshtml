@@ -12,17 +12,43 @@
 @model OpenOrderRequest
 @{
 
+// نگاشت مجوزهای صفحه 74/71/76 HTS به نقش‌های seed — همان قاعده‌ای که سرور (OpenOrderRequestController) اعمال می‌کند
 var isAdmin = sdk.IsAdministrator;
-var isProjectOrSalesUnit = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.SalesOrProjectAccept");
-var isIndustrial = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Industrial");
-var isEngineering = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.EngineeringAccept");
-var isSupply = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Supply");
-var hasStopPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Stop");
-var hasStartPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Start");
-var hasSendingPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Sending");
-var hasQueryPermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Query");
-var hasTerminatePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Terminate");
-var hasConfigManagePermission = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.ConfigManage");
+var currentUserId = sdk.CurrentUser?.Id;
+var isSupplyAndPurchase = isAdmin || sdk.HasRole("SupplyAndPurchase");                                  // HTS FullAccess (گروه 17)
+var isProjectOrSalesUnit = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.SalesOrProjectAccept");          // 187
+var isIndustrial = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Industrial") || sdk.HasRole("Industries"); // گروه 28 / واحد 12 (+ نقش قدیمی 3)
+var isEngineering = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.EngineeringAccept");                    // 12 Accept_Engineering
+var isSupply = isAdmin || sdk.HasRole("Sup.OpenOrderRequest.Supply");                                    // گروه 27 / واحد 51
+var hasEngineeringPermission = isSupplyAndPurchase || isEngineering || sdk.HasRole("Sup.OpenOrderRequest.HasEngineering"); // 82 → linkVpis
+var hasStopPermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Stop");                 // 22
+var hasStartPermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Start");               // 23
+var hasSendingPermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Sending");           // 24
+var hasQueryPermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Query");               // 25
+var hasTerminatePermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Terminate");       // 101
+var hasConfigManagePermission = isSupplyAndPurchase || isIndustrial || sdk.HasRole("Sup.OpenOrderRequest.ConfigManage"); // صفحه 76
+var canComment = isSupplyAndPurchase || isSupply || isEngineering || isIndustrial;                        // 74·Edit(5) → ثبت کامنت
+var canManageAttachments = isSupplyAndPurchase || isSupply || isEngineering;                              // صفحه 71 FullAccess
+
+// تایید فروش/پروژه — HTS: فقط کارشناس/مدیر فروش یا مدیر پروژه همان درخواست (یا ادمین)
+var isSalesOrProjectOwner = isAdmin || (currentUserId != null && (
+	Model?.SalesUnitSalesExpertId == currentUserId ||
+	Model?.SalesUnitSalesManagerId == currentUserId ||
+	Model?.SalesUnitProjectManagerId == currentUserId));
+
+// توقف — HTS: ثبت اولیه (0/2815) با مجوز Stop؛ 2807/2813/2816 فقط عامل توقف؛ 2808/2810/2811/2812/2821 فقط ثبت‌کننده آخرین کامنت توقف
+var stopStatusCode = (int?)Model?.StopStatus ?? 0;
+var lastStopComment = Model?.Comments?.Where(c => c.IsStop).OrderByDescending(c => c.Id).FirstOrDefault();
+var isStopOperator = lastStopComment?.StopOperatorId != null && lastStopComment.StopOperatorId == currentUserId;
+var isStopCreator = lastStopComment?.CreatedById != null && lastStopComment.CreatedById == currentUserId;
+var canOperateStop = isAdmin || stopStatusCode switch
+{
+	0 or 2815 => hasStopPermission,
+	2807 or 2813 or 2816 => isStopOperator,
+	2808 or 2810 or 2811 or 2812 or 2821 => isStopCreator,
+	_ => hasStopPermission
+};
+
 var attachmentListItems = ViewBag.AttachmentListItems as List<OpenOrderRequestAttachmentListItemVm> ?? new List<OpenOrderRequestAttachmentListItemVm>();
 var attachmentDisplayCount = attachmentListItems.Count;
 
@@ -503,9 +529,12 @@ var attachmentDisplayCount = attachmentListItems.Count;
 				<div class="tab-pane fade card card-body" id="tab_attachments_@Model.Id" role="tabpanel">
 					<div class="d-flex justify-content-between align-items-center mb-4">
 						<h6 class="fw-bold text-dark mb-0"><i class="bi bi-paperclip me-2"></i>مدیریت پیوست‌ها</h6>
-						<button type="button" class="btn btn-sm btn-primary" id="btnAddNewAttachment">
-							<i class="fa fa-plus me-1"></i>افزودن پیوست جدید
-						</button>
+						@if (canManageAttachments)
+						{
+							<button type="button" class="btn btn-sm btn-primary" id="btnAddNewAttachment">
+								<i class="fa fa-plus me-1"></i>افزودن پیوست جدید
+							</button>
+						}
 					</div>
 					<div id="attachments_content">
 						@await Html.PartialAsync("_AttachmentListPartial.cshtml", attachmentListItems)
@@ -516,9 +545,12 @@ var attachmentDisplayCount = attachmentListItems.Count;
 				<div class="tab-pane fade card card-body" id="tab_comments_@Model.Id" role="tabpanel">
 					<div class="d-flex justify-content-between align-items-center mb-4">
 						<h6 class="fw-bold text-dark mb-0"><i class="bi bi-chat-dots me-2"></i>تاریخچه کامنت‌ها</h6>
-						<button type="button" class="btn btn-sm btn-primary" id="btnAddNewComment">
-							<i class="fa fa-plus me-1"></i>افزودن کامنت
-						</button>
+						@if (canComment)
+						{
+							<button type="button" class="btn btn-sm btn-primary" id="btnAddNewComment">
+								<i class="fa fa-plus me-1"></i>افزودن کامنت
+							</button>
+						}
 					</div>
 					<div id="comments_content">
 							@await Html.PartialAsync("_CommentListPartial.cshtml", Model?.Comments)
@@ -531,97 +563,145 @@ var attachmentDisplayCount = attachmentListItems.Count;
  
 </div>
 <script>
+    // هر دکمه با مجوز خودش روشن می‌شود (معادل دکمه‌های صفحه 74 HTS) — سرور همین قاعده را دوباره چک می‌کند
     var permissions = @Html.Raw(Json.Serialize(new {
+				   isAdmin,
 				   isProjectOrSalesUnit,
+				   isSalesOrProjectOwner,
 				   isIndustrial,
 				   isEngineering,
 				   isSupply,
+				   isSupplyAndPurchase,
+				   hasEngineeringPermission,
 				   hasStopPermission,
+				   canOperateStop,
 				   hasStartPermission,
 				   hasSendingPermission,
 				   hasQueryPermission,
 				   hasTerminatePermission,
-				   hasConfigManagePermission
+				   hasConfigManagePermission,
+				   canComment,
+				   canManageAttachments
 			    }));
 	var openOrderRequest =  @Html.Raw(Json.Serialize(Model));
 	 
 	
 	function initializePage(){
 		  	 
-	for(let btn in self.FormActionButtons)
-	{
-		self.FormActionButtons[btn].element.disabled = true;
-	}
+		for(let btn in self.FormActionButtons)
+		{
+			self.FormActionButtons[btn].element.disabled = true;
+		}
 
 		self.FormActionButtons.history.element.disabled = false;
-		self.FormActionButtons.addComment.element.disabled = false;
-		self.FormActionButtons.addSupplier.element.disabled = false;
 
-		 
-	
-		if(permissions.isEngineering)
-		{
+		// ویرایش (Edit 5) → ثبت کامنت
+		self.FormActionButtons.addComment.element.disabled = !permissions.canComment;
 
-		    self.FormActionButtons.linkVpis.element.disabled = false;
+		// تامین‌کننده منتخب — صفحه تنظیمات HTS (76) → SetSelectedSupplier
+		self.FormActionButtons.addSupplier.element.disabled = !permissions.hasConfigManagePermission;
 
-		    if(!openOrderRequest.engineeringAccept && !openOrderRequest.isStop)
-		      self.FormActionButtons.engineeringAccept.element.disabled = false
-			 
-		}
+		// اتصال مدارک پروژه — HasEngineeringPermission (82)
+		self.FormActionButtons.linkVpis.element.disabled = !permissions.hasEngineeringPermission;
 
-		if(permissions.isProjectOrSalesUnit)
-		{
+		// تایید مهندسی — Accept_Engineering (12): تایید نشده و متوقف نباشد
+		if (permissions.isEngineering && !openOrderRequest.engineeringAccept && !openOrderRequest.isStop)
+			self.FormActionButtons.engineeringAccept.element.disabled = false;
 
+		// تایید فروش/پروژه — SalesOrProjectPermission (187) + فقط کارشناس/مدیر فروش یا مدیر پروژه همان درخواست
+		if (permissions.isProjectOrSalesUnit && permissions.isSalesOrProjectOwner
+			&& openOrderRequest.engineeringAccept
+			&& !openOrderRequest.isAcceptedAutomaticallyByEngineering
+			&& !openOrderRequest.hasSalesUnitConfirmation)
 			self.FormActionButtons.salesOrProjectAccept.element.disabled = false;
-		    
-			 
-		}
-		permissions.stopOpersions = false;
-		if(permissions.isIndustrial || permissions.isSupply || permissions.isEngineering || permissions.hasStopPermission)
-		{
-			permissions.stopOpersions = true;
-		}
-	 
-		if(permissions.stopOpersions)
-		{
 
-			self.FormActionButtons.statusInquiry.element.disabled = false;
-			self.FormActionButtons.inWayStatus.element.disabled = false;
-			self.FormActionButtons.triggeringRequest.element.disabled = false;
-			self.FormActionButtons.stopRequest.element.disabled = false;
-			self.FormActionButtons.terminateRequest.element.disabled = false;
-		  
-		}
-		
+		// توقف — Stop (22) برای ثبت اولیه؛ عامل توقف / ثبت‌کننده برای مراحل بعدی
+		self.FormActionButtons.stopRequest.element.disabled = !permissions.canOperateStop;
 
-		if(permissions.hasConfigManagePermission)
-		{
-		   self.FormActionButtons.addRequestedPersonel.element.disabled = false;
-		}
+		// راه‌اندازی (23) / در راه (24) / درحال استعلام (25) / خاتمه (101) — هر یک با مجوز مستقل
+		self.FormActionButtons.triggeringRequest.element.disabled = !permissions.hasStartPermission;
+		self.FormActionButtons.inWayStatus.element.disabled = !permissions.hasSendingPermission;
+		self.FormActionButtons.statusInquiry.element.disabled = !permissions.hasQueryPermission;
+		self.FormActionButtons.terminateRequest.element.disabled = !permissions.hasTerminatePermission;
 
-		if (permissions.isEngineering && !permissions.isIndustrial) {
-            self.FormActionButtons.triggeringRequest.element.disabled = true;
-		  self.FormActionButtons.inWayStatus.element.disabled = true;
-		  self.FormActionButtons.statusInquiry.element.disabled = true;
-		  self.FormActionButtons.terminateRequest.element.disabled = true;
-        }
+		// درخواست‌کنندگان و ذینفعان — صفحه تنظیمات (76)
+		self.FormActionButtons.addRequestedPersonel.element.disabled = !permissions.hasConfigManagePermission;
 	}
 
 	initializePage()
 	
 	self.FormActionButtons.addSupplier.onclick(function () {
-	const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
 		if (!openOrderRequestId || openOrderRequestId == '0') {
 			toastr.error('ابتدا درخواست باز را ذخیره کنید');
 			return;
 		}
-	})
+
+		if (!permissions.hasConfigManagePermission) {
+			toastr.error('شما دسترسی تعیین تامین‌کننده منتخب را ندارید');
+			return;
+		}
+
+		const url = '/Panel/Sup/OpenOrderRequest/SetSelectedSupplierPartial?openOrderRequestId=' + openOrderRequestId;
+		$$.get(url, function (result) {
+			$.confirm({
+				title: 'تامین‌کننده منتخب',
+				columnClass: 'col-md-8',
+				content: '<div style="overflow-x: hidden; overflow-y: auto; max-height: 70vh;">' + result + '</div>',
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-success',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) {
+								return false;
+							}
+							const model = $content.dataBind();
+							model.openOrderRequestIds = [openOrderRequestId];
+							const selfConfirm = this;
+							const $btn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Sup/OpenOrderRequest/SetSelectedSupplier', model, function (r) {
+								$btn.block(false);
+								if (!r.isSuccess) {
+									toastr.error(r.message, 'خطا');
+									return;
+								}
+								toastr.success(r.data?.message || 'تامین‌کننده منتخب ثبت شد');
+								selfConfirm.close();
+							});
+							return false;
+						}
+					},
+					cancel: {
+						text: 'انصراف',
+						btnClass: 'btn-secondary'
+					}
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+					}, 100);
+				}
+			});
+		});
+	});
 
 	//#region Add Comment
 	self.FormActionButtons.addComment.onclick(function () {
 		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
 		if (!openOrderRequestId || openOrderRequestId == '0') {
 			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canComment) {
+			toastr.error('شما دسترسی ثبت کامنت را ندارید');
 			return;
 		}
 
@@ -719,7 +799,6 @@ var attachmentDisplayCount = attachmentListItems.Count;
 					text: 'بله',
 					btnClass: 'btn-success',
 					action: function () {
-						debugger
 						$$.post('/Panel/Sup/OpenOrderRequest/EngineeringAccept/'+openOrderRequestId, null, function (r) {
 							if (!r.isSuccess) {
 								toastr.error(`${r.message}`, 'خطا');
@@ -752,6 +831,11 @@ var attachmentDisplayCount = attachmentListItems.Count;
 
 		if (!permissions.isProjectOrSalesUnit) {
 			toastr.error('شما دسترسی تایید واحد فروش/پروژه را ندارید');
+			return;
+		}
+
+		if (!permissions.isSalesOrProjectOwner) {
+			toastr.error('فقط کارشناس فروش، مدیر فروش یا مدیر پروژه همین درخواست می‌تواند تایید کند');
 			return;
 		}
 
@@ -818,6 +902,11 @@ var attachmentDisplayCount = attachmentListItems.Count;
 			return;
 		}
 
+		if (!permissions.canOperateStop) {
+			toastr.error('شما دسترسی این مرحله از عملیات توقف را ندارید');
+			return;
+		}
+
 		const url = `/Panel/Sup/OpenOrderRequest/StopRequestPartial?openOrderRequestId=${openOrderRequestId}`;
 
 		$$.get(url, function (result) {
@@ -832,7 +921,6 @@ var attachmentDisplayCount = attachmentListItems.Count;
 						text: 'ذخیره',
 						btnClass: 'btn-danger',
 						action: function () {
-							debugger
 							const $content = this.$content;
 
 							if (validateError($content)) {
@@ -898,7 +986,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 
 		 
 
-		if (!permissions.stopOpersions) {
+		if (!permissions.hasStartPermission) {
 			toastr.error('شما دسترسی راه‌اندازی را ندارید');
 			return;
 		}
@@ -942,7 +1030,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 
 		 
 
-		if (!permissions.stopOpersions) {
+		if (!permissions.hasSendingPermission) {
 			toastr.error('شما دسترسی تغییر وضعیت به در راه را ندارید');
 			return;
 		}
@@ -987,7 +1075,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 
 		 
 
-		if (!permissions.stopOpersions) {
+		if (!permissions.hasQueryPermission) {
 			toastr.error('شما دسترسی استعلام وضعیت را ندارید');
 			return;
 		}
@@ -1072,6 +1160,10 @@ var attachmentDisplayCount = attachmentListItems.Count;
 		}
 
 		$$.get(`/Panel/Sup/OpenOrderRequest/AttachmentListPartial?openOrderRequestId=${openOrderRequestId}`, function (html) {
+			if (typeof html !== 'string') {
+				toastr.error(html?.message || 'خطا در بارگذاری لیست پیوست‌ها', 'خطا');
+				return;
+			}
 			$$('#attachments_content').html(html);
 			const rowCount = $$('#attachments_content tbody tr').length;
 			const emptyState = $$('#attachments_content .alert-info').length > 0;
@@ -1080,6 +1172,11 @@ var attachmentDisplayCount = attachmentListItems.Count;
 	}
 
 	function deleteOpenOrderAttachment(attachmentId) {
+		if (!permissions.canManageAttachments) {
+			toastr.error('شما دسترسی حذف پیوست را ندارید');
+			return;
+		}
+
 		$.confirm({
 			title: 'تایید حذف',
 			content: 'آیا از حذف این پیوست اطمینان دارید؟',
@@ -1117,6 +1214,11 @@ var attachmentDisplayCount = attachmentListItems.Count;
 
 	function openAttachmentModal(attachmentId = null) {
 		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
+
+		if (!permissions.canManageAttachments) {
+			toastr.error('شما دسترسی ثبت/ویرایش پیوست را ندارید');
+			return;
+		}
 
 		const url = attachmentId
 			? `/Panel/Sup/OpenOrderRequest/AttachmentPartial?id=${attachmentId}&openOrderRequestId=${openOrderRequestId}`
@@ -1184,7 +1286,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 		}
 
 		 
-		if (!permissions.isEngineering) {
+		if (!permissions.hasEngineeringPermission) {
 			toastr.error('شما دسترسی لینک با مدارک پروژه را ندارید');
 			return;
 		}
@@ -1353,6 +1455,11 @@ var attachmentDisplayCount = attachmentListItems.Count;
 		const openOrderRequestId = page.$pageEl.find('[data-bind="id"]').val();
 		if (!openOrderRequestId || openOrderRequestId == '0') {
 			toastr.error('ابتدا درخواست باز را ذخیره کنید');
+			return;
+		}
+
+		if (!permissions.canComment) {
+			toastr.error('شما دسترسی ثبت کامنت را ندارید');
 			return;
 		}
 

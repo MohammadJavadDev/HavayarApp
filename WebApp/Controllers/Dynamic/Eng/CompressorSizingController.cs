@@ -168,6 +168,7 @@ public sealed class CompressorSizingController(
 		var dataSet = compressorSizingService.BuildReportDataSet(request);
 		var report = StiReport.CreateNewReport();
 		report.LoadFromJson(LoadTemplateJson());
+		report.CalculationMode = StiCalculationMode.Interpretation;
 		report.RegData(dataSet);
 		report.Dictionary.Synchronize();
 		CompressorSizingReportLetterhead.Apply(report, compressorSizingService.ResolveWatermarkImagePath());

@@ -1,0 +1,160 @@
+@using Entities.App.Crm
+@using Entities.App.FIN
+@using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.SLS
+@using Entities.App.SLS.Enums
+@using Entities.Base
+@model CustomerAddress
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(CustomerAddress)" new-page-btn="false" save-and-new-btn="false"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">سایت های مشتریان</h4>
+			</div>
+		</div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="customerId" value="@Model?.CustomerId" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="hamkaranAddId" value="@Model?.HamkaranAddId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"CustomerAddressCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party, c.Code },
+					"{Party.FullName} {Code}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString(),
+					false,
+					false,
+					true,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">نام جایگاه</label>
+				<input class="form-control" data-bind="title" asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold required">آدرس جایگاه</label>
+				<textarea class="form-control" data-bind="address" asp-for="Address" data-required="true" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">منطقه</label>
+				@(Html.EntitySelector<Zone>(
+					"CustomerAddressZoneSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"zoneId",
+					"zoneTitle",
+					Model?.ZoneId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">استان</label>
+				@(Html.EntitySelector<Region>(
+					"CustomerAddressProvinceSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Type == RegionTypeEnum.Province,
+					c => new { Id = c.Id, Name = c.Name },
+					c => new { c.Name },
+					"{Name}",
+					"provinceId",
+					"provinceName",
+					Model?.ProvinceId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">گرید</label>
+				<select class="form-control" data-bind="grade" asp-for="Grade" asp-items="Html.GetEnumSelectList(typeof(CustomerGradeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">تفصیل نمایندگی</label>
+				@(Html.EntitySelector<DL>(
+					"CustomerAddressDlSelector",
+					c => c.IsActive == IsActiveEnum.Active && (c.TypeId == 2 || c.TypeId == 4),
+					c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+					c => new { c.Title, c.Code },
+					"{Code} {Title}",
+					"agencyDlId",
+					"agencyDlTitle",
+					Model?.AgencyDlId?.ToString(),
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">شخص|شرکت نمایندگی</label>
+				@(Html.EntitySelector<Party>(
+					"CustomerAddressAgencySelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, FullName = c.FullName, CompanyName = c.CompanyName },
+					c => new { c.FullName, c.CompanyName },
+					"{FullName} {CompanyName}",
+					"agencyPartyId",
+					"agencyPartyName",
+					Model?.AgencyPartyId?.ToString(),
+					false,
+					false,
+					true,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<div class="card mt-4 border-0 shadow-sm">
+	<div class="card-body">
+		<div class="row text-muted">
+			<div class="col-md-3"><span class="fw-bold">کاربر ویرایشگر :</span> <span data-bind="modifiedByName">@Model?.ModifiedByName</span></div>
+			<div class="col-md-3"><span class="fw-bold">زمان ویرایش :</span> <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span></div>
+			<div class="col-md-3"><span class="fw-bold">ایجاد کننده :</span> <span data-bind="createdByName">@Model?.CreatedByName</span></div>
+			<div class="col-md-3"><span class="fw-bold">تاریخ ایجاد :</span> <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span></div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const agencyDlId = $$('[data-bind="agencyDlId"]').val();
+		if (!agencyDlId) {
+			toastr.error('تفصیل نمایندگی نمی‌تواند خالی باشد', 'هشدار');
+			return;
+		}
+		const address = $$('[data-bind="address"]').val();
+		if (!address || !String(address).trim()) {
+			toastr.error('آدرس جایگاه نمی‌تواند خالی باشد', 'هشدار');
+			return;
+		}
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

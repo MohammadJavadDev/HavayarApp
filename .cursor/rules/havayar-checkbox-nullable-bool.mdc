@@ -1,0 +1,33 @@
+---
+description: Never use asp-for on checkbox inputs bound to bool? — ASP.NET Core InputTagHelper throws InvalidOperationException
+globs: WebApp/Views/Panel/**/*.cshtml
+alwaysApply: false
+---
+
+# Checkbox + `bool?` — do not use `asp-for`
+
+ASP.NET Core's checkbox tag helper **only accepts `bool` or `string`**. Binding `asp-for` to `bool?` throws:
+
+`Unexpected 'asp-for' expression result type 'System.Nullable`1[[System.Boolean...]]' for <input>. 'asp-for' must be of type 'System.Boolean' or 'System.String'... if 'type' is 'checkbox'.`
+
+HTS-migrated / existing entities often keep SQL `BIT` as `bool?`. Check the C# property type before writing the input. Panel save uses `data-bind`, so `asp-for` is not required for checkboxes.
+
+## Must
+
+```cshtml
+<input class="form-check-input mt-2" type="checkbox"
+       data-bind="isWaitingToSend"
+       @(Model?.IsWaitingToSend == true ? "checked" : "") />
+```
+
+Canonical live example: `WebApp/Views/Panel/Sale/OrderDetailSerial/Edit.cshtml` (`HasInsurance`, `IndustrialConfirm`).
+
+## Must not
+
+```cshtml
+<input type="checkbox" data-bind="isWaitingToSend" asp-for="IsWaitingToSend" />
+```
+
+`asp-for` on `<input type="checkbox">` is allowed **only** when the property is non-nullable `bool`. If unsure, omit `asp-for` and use the `checked` pattern above.
+
+Do **not** change the entity from `bool?` to `bool` just to make `asp-for` compile — keep the DB nullability and fix the view.

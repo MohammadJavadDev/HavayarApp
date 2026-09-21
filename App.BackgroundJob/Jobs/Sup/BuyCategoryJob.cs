@@ -4,6 +4,7 @@ using Data.Contracts;
 using Entities.App.Inv;
 using Entities.App.Sup;
 using Entities.App.Sup.Enums;
+using Entities.Base;
 using Entities.Rahkaran.USR3;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
@@ -34,202 +35,238 @@ namespace App.BackgroundJob.Jobs.Sup
 					.ToListAsync(cn);
 
 				// 3. Create lookup dictionaries
-				var partsDict = await unitOfWork.Repository<Part>().TableNoTracking
+				// نکته (D12): ToDictionaryAsync روی کلیدهای غیر یکتا (مثلاً HamkaranId مشترک بین دو کاربر) کل جاب را
+				// با «An item with the same key has already been added» متوقف می‌کرد. به‌جای آن GroupBy و انتخاب
+				// قطعی برنده: ابتدا رکورد فعال، سپس کوچک‌ترین Id. تکراری‌ها فقط لاگ (warning) می‌شوند.
+				var partRows = await unitOfWork.Repository<Part>().TableNoTracking
 					.Where(p => !string.IsNullOrEmpty(p.Code))
-					.Select(p => new { Id = p.Id!.Value, Code = p.Code! })
-					.ToDictionaryAsync(x => x.Code, x => x.Id, cn);
+					.Select(p => new { Id = p.Id!.Value, Code = p.Code!, p.IsActive })
+					.ToListAsync(cn);
 
-				var usersDict = await dbContext.Users
-					.Include(c=>c.Party)
+				var duplicatePartCodes = partRows
+					.GroupBy(x => x.Code)
+					.Where(g => g.Count() > 1)
+					.Select(g => g.Key)
+					.ToList();
+				if (duplicatePartCodes.Count > 0)
+				{
+					await jobLogger?.LogWarningAsync(
+						$"{duplicatePartCodes.Count} کد کالای تکراری در Inv.Part (کالای فعال / کم‌ترین Id انتخاب شد): {string.Join(", ", duplicatePartCodes.Take(50))}{(duplicatePartCodes.Count > 50 ? " ..." : string.Empty)}",
+						0, cn);
+				}
+
+				var partsDict = partRows
+					.GroupBy(x => x.Code)
+					.ToDictionary(
+						g => g.Key,
+						g => g.OrderByDescending(x => x.IsActive == IsActiveEnum.Active).ThenBy(x => x.Id).First().Id);
+
+				var userRows = await dbContext.Users
 					.Where(u => u.Party != null && u.Party.HamkaranId != null)
-					.Select(u => new { Id = u.Id!.Value, HamkaranId = u.Party.HamkaranId!.Value })
-					.ToDictionaryAsync(x => x.HamkaranId, x => x.Id, cn);
- 
+					.Select(u => new { Id = u.Id!.Value, HamkaranId = u.Party!.HamkaranId!.Value, u.IsActive })
+					.ToListAsync(cn);
+
+				var duplicateUserHamkaranIds = userRows
+					.GroupBy(x => x.HamkaranId)
+					.Where(g => g.Count() > 1)
+					.Select(g => g.Key)
+					.ToList();
+				if (duplicateUserHamkaranIds.Count > 0)
+				{
+					await jobLogger?.LogWarningAsync(
+						$"{duplicateUserHamkaranIds.Count} HamkaranId مشترک بین چند کاربر (system.User → Gnr.Party.HamkaranId) — کاربر فعال / کم‌ترین Id به‌عنوان متولی خرید انتخاب شد: {string.Join(", ", duplicateUserHamkaranIds)}. گزارش: Data/Scripts/Report_Party_DuplicateHamkaranId.sql",
+						0, cn);
+				}
+
+				var usersDict = userRows
+					.GroupBy(x => x.HamkaranId)
+					.ToDictionary(
+						g => g.Key,
+						g => g.OrderByDescending(x => x.IsActive == IsActiveEnum.Active).ThenBy(x => x.Id).First().Id);
 
 				// 4. Sync BuyCategories
 				var categoryIdMap = new Dictionary<long, long>(); // Rahkaran ID => App ID
+				var failedCategoryCount = 0;
 
 				foreach (var rahkaranCategory in rahkaranBuyCategories)
 				{
-					var localCategory = localBuyCategories.FirstOrDefault(x => x.HamkaranId == rahkaranCategory.Sup_BuyCategoryID);
+					if (cn.IsCancellationRequested) break;
 
-					long? purchaseResponsibleId = null;
-					if (rahkaranCategory.PurchaseResponsibleRef.HasValue &&
-						usersDict.TryGetValue(rahkaranCategory.PurchaseResponsibleRef.Value, out var userId))
+					BuyCategory? newCategory = null;
+					try
 					{
-						purchaseResponsibleId = userId;
-					}
+						var localCategory = localBuyCategories.FirstOrDefault(x => x.HamkaranId == rahkaranCategory.Sup_BuyCategoryID);
 
-					if (localCategory == null)
-					{
-						// INSERT
-						var newCategory = new BuyCategory
+						long? purchaseResponsibleId = null;
+						if (rahkaranCategory.PurchaseResponsibleRef.HasValue &&
+							usersDict.TryGetValue(rahkaranCategory.PurchaseResponsibleRef.Value, out var userId))
 						{
-							HamkaranId = rahkaranCategory.Sup_BuyCategoryID,
-							Title = rahkaranCategory.Title,
-							PurchaseResponsibleId = purchaseResponsibleId,
-							RoutineLeadTimeInDay = rahkaranCategory.RoutineLeadTimeInDay.HasValue
-								? (int?)Convert.ToInt32(rahkaranCategory.RoutineLeadTimeInDay.Value)
-								: null,
-							NonRoutineLeadTimeInDay = rahkaranCategory.NonRoutineLeadTimeInDay.HasValue
-								? (int?)Convert.ToInt32(rahkaranCategory.NonRoutineLeadTimeInDay.Value)
-								: null,
-							Type = rahkaranCategory.TypeRef.HasValue
-								? (BuyCategoryTypeEnum?)rahkaranCategory.TypeRef.Value
-								: null
-						};
-
-						await unitOfWork.Repository<BuyCategory>().AddAsync(newCategory, cn);
-						localBuyCategories.Add(newCategory);
-						await unitOfWork.SaveChangesAsync(cn); // Save to get ID
-						categoryIdMap[rahkaranCategory.Sup_BuyCategoryID] = newCategory.Id!.Value;
-
-						 
-					}
-					else
-					{
-						// UPDATE
-						bool updated = false;
-
-						if (localCategory.Title != rahkaranCategory.Title)
-						{
-							localCategory.Title = rahkaranCategory.Title;
-							updated = true;
-						}
-
-						if (localCategory.PurchaseResponsibleId != purchaseResponsibleId)
-						{
-							localCategory.PurchaseResponsibleId = purchaseResponsibleId;
-							updated = true;
+							purchaseResponsibleId = userId;
 						}
 
 						var routineLeadTime = rahkaranCategory.RoutineLeadTimeInDay.HasValue
 							? (int?)Convert.ToInt32(rahkaranCategory.RoutineLeadTimeInDay.Value)
 							: null;
-						if (localCategory.RoutineLeadTimeInDay != routineLeadTime)
-						{
-							localCategory.RoutineLeadTimeInDay = routineLeadTime;
-							updated = true;
-						}
-
 						var nonRoutineLeadTime = rahkaranCategory.NonRoutineLeadTimeInDay.HasValue
 							? (int?)Convert.ToInt32(rahkaranCategory.NonRoutineLeadTimeInDay.Value)
 							: null;
-						if (localCategory.NonRoutineLeadTimeInDay != nonRoutineLeadTime)
-						{
-							localCategory.NonRoutineLeadTimeInDay = nonRoutineLeadTime;
-							updated = true;
-						}
-
 						var typeValue = rahkaranCategory.TypeRef.HasValue
 							? (BuyCategoryTypeEnum?)rahkaranCategory.TypeRef.Value
 							: null;
-						if (localCategory.Type != typeValue)
+
+						if (localCategory == null)
 						{
-							localCategory.Type = typeValue;
-							updated = true;
+							// INSERT
+							newCategory = new BuyCategory
+							{
+								HamkaranId = rahkaranCategory.Sup_BuyCategoryID,
+								Title = rahkaranCategory.Title,
+								PurchaseResponsibleId = purchaseResponsibleId,
+								RoutineLeadTimeInDay = routineLeadTime,
+								NonRoutineLeadTimeInDay = nonRoutineLeadTime,
+								Type = typeValue
+							};
+
+							await unitOfWork.Repository<BuyCategory>().AddAsync(newCategory, cn);
+							localBuyCategories.Add(newCategory);
+							await unitOfWork.SaveChangesAsync(cn); // Save to get ID
+							categoryIdMap[rahkaranCategory.Sup_BuyCategoryID] = newCategory.Id!.Value;
+						}
+						else
+						{
+							// UPDATE
+							if (localCategory.Title != rahkaranCategory.Title)
+								localCategory.Title = rahkaranCategory.Title;
+
+							// D37: مقدار NULL / نگاشت‌نشده در راهکاران به معنی «اطلاعی ندارد» است، نه «پاک کن».
+							// متولی خرید و lead time روتین/غیرروتین فقط وقتی راهکاران مقدار دارد بازنویسی می‌شوند؛
+							// در غیر این صورت مقدار محلی (backfill از HTS یا ویرایش در پنل) حفظ می‌شود.
+							if (purchaseResponsibleId.HasValue && localCategory.PurchaseResponsibleId != purchaseResponsibleId)
+								localCategory.PurchaseResponsibleId = purchaseResponsibleId;
+
+							if (routineLeadTime.HasValue && localCategory.RoutineLeadTimeInDay != routineLeadTime)
+								localCategory.RoutineLeadTimeInDay = routineLeadTime;
+
+							if (nonRoutineLeadTime.HasValue && localCategory.NonRoutineLeadTimeInDay != nonRoutineLeadTime)
+								localCategory.NonRoutineLeadTimeInDay = nonRoutineLeadTime;
+
+							if (typeValue.HasValue && localCategory.Type != typeValue)
+								localCategory.Type = typeValue;
+
+							categoryIdMap[rahkaranCategory.Sup_BuyCategoryID] = localCategory.Id!.Value;
+						}
+					}
+					catch (Exception ex) when (ex is not OperationCanceledException)
+					{
+						failedCategoryCount++;
+
+						// رکورد ناموفق را از change tracker خارج کن تا SaveChanges بعدی دوباره شکست نخورد
+						if (newCategory != null)
+						{
+							localBuyCategories.Remove(newCategory);
+							dbContext.Entry(newCategory).State = EntityState.Detached;
 						}
 
-						 
-
-						categoryIdMap[rahkaranCategory.Sup_BuyCategoryID] = localCategory.Id!.Value;
+						await jobLogger?.LogErrorAsync(
+							$"خطا در همگام‌سازی دسته خرید Rahkaran Id={rahkaranCategory.Sup_BuyCategoryID} «{rahkaranCategory.Title}»: {ex.Message}",
+							0, cn);
 					}
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
 
+				if (failedCategoryCount > 0)
+					await jobLogger?.LogWarningAsync($"{failedCategoryCount} دسته خرید به دلیل خطا رد شد (جزئیات در لاگ‌های بالا)", 0, cn);
+
 				// 5. Sync BuyCategoryItems
 				var allLocalItems = localBuyCategories.SelectMany(x => x.Items).ToList();
+				var failedItemCount = 0;
 
 				foreach (var rahkaranItem in rahkaranBuyCategoryItems)
 				{
+					if (cn.IsCancellationRequested) break;
+
 					if (!categoryIdMap.TryGetValue(rahkaranItem._MasterRef, out var categoryId))
 					{
 						await jobLogger?.LogWarningAsync($"Skipping item {rahkaranItem.Sup_BuyCategoryItemsID}: Category not found", 0, cn);
 						continue;
 					}
 
-					long? partId = null;
-					if (!string.IsNullOrEmpty(rahkaranItem.PartCode) &&
-						partsDict.TryGetValue(rahkaranItem.PartCode, out var pId))
+					BuyCategoryItem? newItem = null;
+					try
 					{
-						partId = pId;
-					}
-
-					var localItem = allLocalItems.FirstOrDefault(x =>
-						x.HamkaranId == rahkaranItem.Sup_BuyCategoryItemsID);
-
-					if (localItem == null)
-					{
-						// INSERT
-						var newItem = new BuyCategoryItem
+						long? partId = null;
+						if (!string.IsNullOrEmpty(rahkaranItem.PartCode) &&
+							partsDict.TryGetValue(rahkaranItem.PartCode, out var pId))
 						{
-							HamkaranId = rahkaranItem.Sup_BuyCategoryItemsID,
-							BuyCategoryId = categoryId,
-							PartId = partId,
-							TimeInWay = rahkaranItem.TimeInWay.HasValue
-								? (int?)Convert.ToInt32(rahkaranItem.TimeInWay.Value)
-								: null,
-							Supplier = rahkaranItem.Supplier.HasValue
-								? (BuyCategoryItemSupplierEnum?)rahkaranItem.Supplier.Value
-								: null,
-							Comments = rahkaranItem.Comments
-						};
-
-						await unitOfWork.Repository<BuyCategoryItem>().AddAsync(newItem, cn);
-						allLocalItems.Add(newItem);
-
-						 
-					}
-					else
-					{
-						// UPDATE
-						bool updated = false;
-
-						if (localItem.BuyCategoryId != categoryId)
-						{
-							localItem.BuyCategoryId = categoryId;
-							updated = true;
+							partId = pId;
 						}
 
-						if (localItem.PartId != partId)
-						{
-							localItem.PartId = partId;
-							updated = true;
-						}
+						var localItem = allLocalItems.FirstOrDefault(x =>
+							x.HamkaranId == rahkaranItem.Sup_BuyCategoryItemsID);
 
 						var timeInWay = rahkaranItem.TimeInWay.HasValue
 							? (int?)Convert.ToInt32(rahkaranItem.TimeInWay.Value)
 							: null;
-						if (localItem.TimeInWay != timeInWay)
-						{
-							localItem.TimeInWay = timeInWay;
-							updated = true;
-						}
-
 						var supplierValue = rahkaranItem.Supplier.HasValue
 							? (BuyCategoryItemSupplierEnum?)rahkaranItem.Supplier.Value
 							: null;
-						if (localItem.Supplier != supplierValue)
+
+						if (localItem == null)
 						{
-							localItem.Supplier = supplierValue;
-							updated = true;
+							// INSERT
+							newItem = new BuyCategoryItem
+							{
+								HamkaranId = rahkaranItem.Sup_BuyCategoryItemsID,
+								BuyCategoryId = categoryId,
+								PartId = partId,
+								TimeInWay = timeInWay,
+								Supplier = supplierValue,
+								Comments = rahkaranItem.Comments
+							};
+
+							await unitOfWork.Repository<BuyCategoryItem>().AddAsync(newItem, cn);
+							allLocalItems.Add(newItem);
+						}
+						else
+						{
+							// UPDATE
+							if (localItem.BuyCategoryId != categoryId)
+								localItem.BuyCategoryId = categoryId;
+
+							if (localItem.PartId != partId)
+								localItem.PartId = partId;
+
+							if (localItem.TimeInWay != timeInWay)
+								localItem.TimeInWay = timeInWay;
+
+							if (localItem.Supplier != supplierValue)
+								localItem.Supplier = supplierValue;
+
+							if (localItem.Comments != rahkaranItem.Comments)
+								localItem.Comments = rahkaranItem.Comments;
+						}
+					}
+					catch (Exception ex) when (ex is not OperationCanceledException)
+					{
+						failedItemCount++;
+
+						if (newItem != null)
+						{
+							allLocalItems.Remove(newItem);
+							dbContext.Entry(newItem).State = EntityState.Detached;
 						}
 
-						if (localItem.Comments != rahkaranItem.Comments)
-						{
-							localItem.Comments = rahkaranItem.Comments;
-							updated = true;
-						}
-
-						if (updated)
-						{
-							 
-						}
+						await jobLogger?.LogErrorAsync(
+							$"خطا در همگام‌سازی قلم دسته خرید Rahkaran Id={rahkaranItem.Sup_BuyCategoryItemsID} (PartCode={rahkaranItem.PartCode}): {ex.Message}",
+							0, cn);
 					}
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
+
+				if (failedItemCount > 0)
+					await jobLogger?.LogWarningAsync($"{failedItemCount} قلم دسته خرید به دلیل خطا رد شد (جزئیات در لاگ‌های بالا)", 0, cn);
 
 				// 6. Update Part.BuyCategoryId based on BuyCategoryItems
 				await jobLogger?.LogInfoAsync("Updating Part.BuyCategoryId fields...", cn);
@@ -241,11 +278,17 @@ namespace App.BackgroundJob.Jobs.Sup
 					.Where(p => partIds.Contains(p.Id!.Value))
 					.ToListAsync(cn);
 
+				// یک کالا ممکن است در چند دسته باشد (D34) — به‌صورت قطعی کم‌ترین Id قلم انتخاب می‌شود
+				var itemByPartId = itemsWithParts
+					.GroupBy(x => x.PartId!.Value)
+					.ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id ?? long.MaxValue).First());
+
 				int updatedPartsCount = 0;
 				foreach (var part in parts)
 				{
-					var item = itemsWithParts.FirstOrDefault(x => x.PartId == part.Id);
-					if (item != null && part.BuyCategoryId != item.BuyCategoryId)
+					if (part.Id.HasValue
+						&& itemByPartId.TryGetValue(part.Id.Value, out var item)
+						&& part.BuyCategoryId != item.BuyCategoryId)
 					{
 						part.BuyCategoryId = item.BuyCategoryId;
 						updatedPartsCount++;

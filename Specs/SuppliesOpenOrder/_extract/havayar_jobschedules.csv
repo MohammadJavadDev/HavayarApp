@@ -1,0 +1,5 @@
+﻿"Id","JobId","DisplayName","MethodName","IsActive","IntervalSeconds","ScheduleType","NextRunTime","LastRunTime"
+"30","41","انتقال پیوست‌های درخواست‌های باز فعال از HTS","SyncOpenOrderRequestAttachmentsFromHts","True","86400","1","9/16/2026 7:00:00 AM","9/15/2026 7:00:00 AM"
+"23","31","هماهنگ کردن اطلاعات درخواست های باز از راهکاران","SyncOpenOrderRequestJobFromRahkaran","True","3600","0","9/15/2026 4:11:56 PM","9/15/2026 3:08:54 PM"
+"25","30","هماهنگ کردن اطلاعات دسته بندی های خرید از راهکاران","SyncBuyCategoryJobFromRahkaran","True","3600","0","9/2/2026 11:13:07 AM","9/2/2026 11:13:12 AM"
+"33","45","هماهنگ کردن تامین‌کنندگان محصولات از HTS","SyncPartCompanyFromHts","True","86400","1","9/16/2026 7:01:00 AM","9/15/2026 7:01:00 AM"

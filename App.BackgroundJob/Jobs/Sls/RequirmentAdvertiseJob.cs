@@ -1,3 +1,4 @@
+using App.BackgroundJob.Jobs;
 using Common.Attributes;
 using Data;
 using Data.Contracts;
@@ -7,6 +8,7 @@ using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sale.Enums;
 using Entities.App.SLS;
+using Entities.Base;
 using Entities.Rahkaran.USR3;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
@@ -38,35 +40,83 @@ namespace App.BackgroundJob.Jobs.Sls
 					.Table
 					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
-				var partyMap = appParties.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var partyMap = await JobLookup.ToUniqueValueMapAsync(
+					appParties,
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Gnr.Party.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appParts = await unitOfWork.Repository<Part>()
 					.Table
 					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
-				var partMap = appParts.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var partMap = await JobLookup.ToUniqueValueMapAsync(
+					appParts,
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Inv.Part.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appPartyIndustryItems = await unitOfWork.Repository<PartyIndustryItem>()
 					.Table
 					.Where(x => x.HamkaranId.HasValue)
 					.ToListAsync(cn);
-				var partyIndustryItemMap = appPartyIndustryItems.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var partyIndustryItemMap = await JobLookup.ToUniqueValueMapAsync(
+					appPartyIndustryItems,
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Gnr.PartyIndustryItem.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appOrgUnits = await unitOfWork.Repository<OrgUnit>()
 					.Table
 					.ToListAsync(cn);
-				var orgUnitMap = appOrgUnits.ToDictionary(x => x.HamkaranUnitId, x => x.Id);
+				var orgUnitMap = await JobLookup.ToUniqueValueMapAsync(
+					appOrgUnits,
+					x => x.HamkaranUnitId,
+					x => x.Id,
+					jobLogger,
+					"Hrm.OrgUnit.HamkaranUnitId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appRegions = await unitOfWork.Repository<Region>()
 					.Table
 					.Where(x => x.RahkaranId.HasValue)
 					.ToListAsync(cn);
-				var regionMap = appRegions.ToDictionary(x => x.RahkaranId!.Value, x => x.Id);
+				var regionMap = await JobLookup.ToUniqueValueMapAsync(
+					appRegions,
+					x => x.RahkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Gnr.Region.RahkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appCustomers = await unitOfWork.Repository<Customer>()
 					.Table
 					.ToListAsync(cn);
-				var customerMap = appCustomers.ToDictionary(x => x.HamkaranId, x => x.Id);
+				var customerMap = await JobLookup.ToUniqueValueMapAsync(
+					appCustomers,
+					x => x.HamkaranId,
+					x => x.Id,
+					jobLogger,
+					"Sls.Customer.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				await jobLogger?.LogInfoAsync("Entity های مرتبط بارگذاری شدند", cn);
 
@@ -77,9 +127,14 @@ namespace App.BackgroundJob.Jobs.Sls
 
 				await jobLogger?.LogInfoAsync($"تعداد {appRequirmentAdvertises.Count} رکورد اعلام نیازمندی در پایگاه داده برنامه موجود است", cn);
 
-				var appRequirmentAdvertisesDict = appRequirmentAdvertises
-					.Where(x => x.HamkaranId.HasValue)
-					.ToDictionary(x => x.HamkaranId!.Value);
+				var appRequirmentAdvertisesDict = await JobLookup.ToUniqueMapAsync(
+					appRequirmentAdvertises.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					jobLogger,
+					"Sls.RequirmentAdvertise.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var newRequirmentAdvertises = new List<RequirmentAdvertise>();
 				int updatedRequirmentAdvertisesCount = 0;
@@ -382,9 +437,15 @@ namespace App.BackgroundJob.Jobs.Sls
 					.Table
 					.ToListAsync(cn);
 
-				var requirmentAdvertiseMap = allAppRequirmentAdvertises
-					.Where(x => x.HamkaranId.HasValue)
-					.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var requirmentAdvertiseMap = await JobLookup.ToUniqueValueMapAsync(
+					allAppRequirmentAdvertises.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					x => x.Id,
+					jobLogger,
+					"Sls.RequirmentAdvertise.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var appItems = await unitOfWork.Repository<RequirmentAdvertiseItem>()
 					.Table
@@ -392,9 +453,14 @@ namespace App.BackgroundJob.Jobs.Sls
 
 				await jobLogger?.LogInfoAsync($"تعداد {appItems.Count} رکورد قلم اعلام نیازمندی در پایگاه داده برنامه موجود است", cn);
 
-				var appItemsDict = appItems
-					.Where(x => x.HamkaranId.HasValue)
-					.ToDictionary(x => x.HamkaranId!.Value);
+				var appItemsDict = await JobLookup.ToUniqueMapAsync(
+					appItems.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					jobLogger,
+					"Sls.RequirmentAdvertiseItem.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
 
 				var newItems = new List<RequirmentAdvertiseItem>();
 				int updatedItemsCount = 0;

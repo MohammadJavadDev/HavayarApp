@@ -1,0 +1,211 @@
+---
+description: HavayarApp Data Profiles (نمایه داده) / SavedQuery / Query Designer — schema, onRowAdded row styling, and helper tools
+globs: Data/Scripts/**/*.sql,Entities/Base/QueryDesigner.cs,Data/Services/QueryBuilderServices/**/*.cs,WebApp/Views/Panel/**/*.cshtml
+alwaysApply: false
+---
+# HavayarApp Data Profiles (نمایه داده) / SavedQuery
+
+**When the deliverable is a report, first pick the path in `havayar-reports.mdc`.** A Data Profile is only for **tabular** (grid) reports. Chart/dashboard reports get an ApexCharts page; print-only documents go through Stimulsoft/ReportBuilder — do not implement those as Data Profiles.
+
+A **Data Profile** is an alternate, role-scoped column-set (and optionally a fully custom SQL query) that
+a user can pick from a dropdown on top of any `<datatableprofile>` List page, instead of the entity's
+default auto-generated columns. Two profiles for the same entity can show completely different columns to
+different roles (e.g. "with price" vs "without price" — see `Data/Scripts/Seed_SaleOrderDetail_DataProfiles.sql`,
+the canonical real example referenced throughout this rule).
+
+**One List page per entity.** Different filters, columns, or toolbar buttons for the same entity are additional Data Profiles on that single `<datatableprofile>` List — the user switches them from the profile dropdown. Do **not** add a second List/queue page (or a second menu leaf) for the same entity. Example: `TenderManagement` keeps `List.cshtml` only; `AfterSales_TenderManagement_List` and `AfterSales_TenderManagement_ApproveQueue` are two SavedQuery profiles. An old `ApproveQueue` URL may redirect to `List`. Put queue-only SQL in the queue profile `CustomQuery` and, if the List page uses a controller `FetchData`, apply the queue filter there when `request.profileId` is the queue profile. Cartable-only actions (approve/reject) belong on the queue profile `CustomActionButtonsJson`.
+
+Under the hood a Data Profile **is just a row in `system.SavedQuery`** (C# entity `Entities/Base/QueryDesigner.cs::SavedQuery`)
+with `Type = TypeQuery.DataProfile`. The same table also stores ad-hoc "Report" rows (`Type = TypeQuery.Report`,
+built via the Query Designer UI at `/Panel/QueryDesigner`) — Data Profiles and Reports share the exact same
+schema and query engine, only `Type` differs.
+
+## 1. Schema reference — `system.SavedQuery` (`SavedQuery` entity)
+
+| Column | Meaning |
+|---|---|
+| `Name` | Short unique key (e.g. `OrderDetail_WithPrice`). Used for idempotent upsert-by-name in seed scripts. |
+| `Title` | Persian label shown in the profile dropdown. |
+| `EntityFullName` | **Lowercase** full CLR type name (e.g. `entities.app.sale.orderdetail`) — must match the entity the `<datatableprofile>` tag helper is rendered for. |
+| `Mode` | `ModeQuery`: `Diagram` (0, visual designer) or `Query` (1, hand-written/generated SQL in `QueryJson.CustomQuery`). Seed scripts always use `Query` (1). |
+| `Type` | `TypeQuery`: `Report` (0) or `DataProfile` (1). |
+| `QueryJson` | Serialized `QueryDesign` (see §2). |
+| `ColumnsJson` | Serialized `List<QueryColumn>` (see §3) — the column definitions actually rendered in the DataTable. Persian `DisplayName` encoding: `havayar-sql-persian-encoding.mdc`. |
+| `ActionOptions` | JSON array toggling the standard toolbar buttons, e.g. `[{"dataActionName":"new","enable":false,"title":"جدید"},{"dataActionName":"edit","enable":false,"title":"ویرایش"},{"dataActionName":"delete","enable":false,"title":"حذف"},{"dataActionName":"exportExcell","enable":true,"title":"خروجی اکسل"}]`. |
+| `CustomActionButtonsJson` | JSON array of extra custom toolbar buttons (`CustomActionButton`: id, Title, ColorClass, IconClass, RequiresSelection, ActionScript, ...). |
+| `EventScriptsJson` | JSON object `{"onSelectedRow":"<js>","onRowAdded":"function(ctx){...}"}` (see §8). Empty default: `{"onSelectedRow":"","onRowAdded":""}`. |
+| `DiagramJson` | Visual designer table-box positions — `N'{}'` for hand-authored/`Query`-mode profiles. |
+
+## 2. `QueryJson` — `QueryDesign` shape
+
+```json
+{"Tables":[],"Relations":[],"Filters":[],"CustomConditions":[],"CustomQuery":"<the SELECT>","Parameters":[],"Selects":null}
+```
+
+For hand-authored Data Profiles, only `CustomQuery` matters (a full raw `SELECT ... FROM ... JOIN ...` aliased
+`t1, t2, ...`, exactly like the `@BaseSelect` variable in `Seed_SaleOrderDetail_DataProfiles.sql`). `Tables`/`Relations`/`Filters`
+are populated by the visual Query Designer UI instead, when `Mode = Diagram`. `Parameters` supports runtime
+`@ParamName` dynamic filters (rarely needed for a plain Data Profile).
+
+## 3. `ColumnsJson` — `QueryColumn` field reference (Entities/Base/QueryDesigner.cs)
+
+Every column in a profile is one object with **all** of these fields (omitting any breaks deserialization —
+always emit the full shape, using `null`/`false`/`[]` defaults, not missing keys):
+
+| Field | Type | Notes |
+|---|---|---|
+| `TableName` | string | `"Schema.Table"` of the source column, e.g. `"Sale.OrderDetail"`. |
+| `ColumnName` | string | Raw column name in that table, e.g. `"Id"`. |
+| `DisplayName` | string | **Persian** header label — never leave this as the raw English column name. |
+| `Alliance` | string | The SQL **result** column name (the `AS` alias). DataTables `data`/search key. **Must equal the SELECT output name exactly** — see §3.1. |
+| `Address` | string | The bracketed SQL expression as written in the SELECT list, e.g. `"[t1].[Id]"`. |
+
+### 3.1 Query mode — SELECT name = column `Alliance` (required)
+
+In **Query** mode (`Mode = Query`, hand-written SQL in `CustomQuery`), every field you add in the SELECT list must use the **same name** as that field’s row in the columns table below (`Alliance` / ستون). Preview and the grid bind by that name. If they differ, preview is empty or columns show the wrong values.
+
+The name is the **output** identifier: `AS [alias]` if present, otherwise the bare column name.
+
+| SELECT in query | Columns table (`Alliance` / ستون) | |
+|---|---|---|
+| `[t2].[Code] AS [t2_Code]` | `t2_Code` | ✅ |
+| `[t2].[Code] AS [Code]` | `Code` | ✅ |
+| `[t2].[Code] AS [t2_Code]` | `Code` | ❌ — query is `t2_Code`, column is `Code` |
+| `[t2].[Code]` (no alias) | `Code` | ✅ |
+
+Do not leave Alliance as the raw source column (`Code`) when the query aliases it (`t2_Code`). After editing SQL, take **پیش‌نمایش** and fix any row whose ستون does not match that SELECT name — do not save a mismatch.
+
+Canonical seed shape uses `t1_Id`, `t2_Code`, … in both `CustomQuery` (`AS [t2_Code]`) and `ColumnsJson.Alliance`.
+| `SystemTypeName` / `SystemType` | string / int | See enum table in §4 — keep both fields consistent with each other. |
+| `Visible` | bool | Whether the column shows in the grid (id column is usually `false`). |
+| `PrimaryKey` | bool | Exactly one column (the row identity, usually the first) should be `true`. |
+| `SortDirection` | `1`\|`0`\|`null` | `SortDirection` enum: `Ascending = 0`, `Descending = 1`. The PK column conventionally gets `1` as the default sort. |
+| `SortOrder`, `SelectIndex`, `GroupBy` | int/int/bool | Multi-column sort order, which `SELECT` in a multi-select query, and GROUP BY flag — `0`/`null`/`false` unless you need them. |
+| `Options`, `OptionSetting` | array / object | Only for `SystemType = Select` (enum-backed) columns — `OptionSetting.TypeOption` (`TypeOptionEnum`: `Defination=1, Exist=2, System=3`) plus `SystemTypeName` pointing at the C# enum's full name, e.g. `"Entities.App.Sale.Enums.SaleOrderPayMethodEnum"`. |
+| `Aggregate` | string\|null | `null`, `"Count"`, `"Max"`, `"Min"`, `"Avg"`, `"Sum"`, `"CountDistinct"`, `"AvgDistinct"`, `"SumDistinct"`. |
+| `Render` | string\|null | A JS `function(data, type, row) {...}` **string** (not a real function) — the standard money-formatting one used across every existing profile is: `"function(data, type, row) { if (data == null || data === '') return ''; if (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) return MJUtil.formatMoney(data); return data; }"`. |
+| `IsCustom`, `CustomColType`, `HtmlTemplate`, `BtnConfig`, `InputConfig` | — | Only for custom button/html/input columns — leave `false`/`null` for plain data columns. |
+| `Width`, `Filterable`, `Sortable`, `ClassName` | int / bool / bool / string | UI column-manager defaults — `Filterable`/`Sortable` are `true` by default; `ClassName` is usually `""`. |
+
+## 4. `SystemType` enum (Common/Attributes/DisplayInfoAttribute.cs) — keep `SystemType` (int) and `SystemTypeName` (string) in sync
+
+| Value | Name | Value | Name |
+|---|---|---|---|
+| 0 | String | 8 | Select |
+| 1 | Boolean | 9 | File |
+| 2 | DateTime | 10 | Entity |
+| 3 | Date | 11 | ListEntity |
+| 4 | DateTimeShamsi | 12 | ListString |
+| 5 | DateShamsi | 13 | ListLong |
+| 6 | Long | 14 | Decimal |
+| 7 | Int | 15 | AutoNumber |
+
+Convention used throughout the seed scripts: string columns whose name ends in `ShamsiDate`/`ShamsiDateTime`
+(the app's Persian-date-string convention — see `havayar-js-jquery-conventions.mdc` §6) are typed as
+`DateShamsi`(5)/`DateTimeShamsi`(4), **not** `String`(0), even though the underlying SQL column is `nvarchar`.
+
+## 5. How a Data Profile becomes visible/selectable — RoleAccess + Menu
+
+A `SavedQuery` row alone is not enough — a role must be granted access to it, exactly like page permissions:
+
+- `system.RoleAccess` needs one row per (profile × role) with:
+  - `ActionAccessType = 3` (the `ActionAccessType.DataProfile` enum member — `Common/Entities/Enums/ActionAccessType.cs`)
+  - `RowId = <SavedQuery.Id>`
+  - `EntityName = <Pascal-case full entity name>` (e.g. `Entities.App.Sale.OrderDetail` — **note this is Pascal-case, unlike `SavedQuery.EntityFullName` which is lowercase**)
+  - `Path` is conventionally `'dataProfile_' + Id` (not a real route — just a unique bookkeeping key)
+- `DataTableProfileTagHelper.Process()` (`WebFramework/TagHelpers/DataTableProfileTagHelper.cs`) is what actually reads this at render time: for non-admin users it filters `sdk.CurrentUser.RoleAccess` by `ActionAccessType.DataProfile` + matching `EntityName`, then loads only those `SavedQuery` rows by id. Administrators see every profile for the entity regardless of RoleAccess.
+- A profile is **not** required to appear on any menu by itself — it rides along on whatever page already has the `<datatableprofile>` tag helper. Only wire a `SystemMenu` entry if you're also adding a brand-new List page (see `havayar-add-new-page.mdc`).
+- **Redis caching**: profile lookups are cached (`appsettings.json` → `Redis.DataTableProfileCacheDb`). After seeding/updating a profile directly via SQL, restart the WebApp (or clear that Redis db) to see the change immediately — same caveat as the permission-rescan step in `havayar-add-new-page.mdc`.
+
+## 6. Two ways to create/edit a Data Profile
+
+### A. Query Designer UI (`/Panel/QueryDesigner`) — for interactive/ad-hoc work
+
+`WebFramework/Controllers/QueryDesignerController.cs` backs the visual designer (diagram or hand-written query
+mode, live preview, column picker). Use this when a human is iterating interactively. Not practical for an
+agent to drive end-to-end (it's a rich client-side builder), so prefer path B for scripted/agent-driven work.
+
+### B. Idempotent SQL seed script — the established, agent-friendly pattern
+
+Every existing Data Profile in this codebase was actually shipped as a `Data/Scripts/Seed_*_DataProfiles.sql`
+script (see `Seed_SaleOrderDetail_DataProfiles.sql` for the full canonical shape: upsert-by-`Name` into
+`system.SavedQuery`, delete-then-reinsert its `RoleAccess` rows, optionally patch a `SystemMenu.Content`).
+Always follow that shape:
+- Wrap everything in `SET XACT_ABORT ON; BEGIN TRANSACTION; BEGIN TRY ... COMMIT; END TRY BEGIN CATCH IF @@TRANCOUNT>0 ROLLBACK; RAISERROR(...); END CATCH;`
+- Upsert by `Name` (`IF EXISTS (...) UPDATE ELSE INSERT`) — never assume a hardcoded `Id`.
+- Rebuild `RoleAccess` by **joining `system.Role` on `Name`** (never hardcode a `RoleId` literal — role ids differ per environment/DB).
+- End with plain `SELECT` verification queries (not wrapped in the transaction) so running the script immediately shows you the result.
+
+## 7. Helper tools — use these instead of hand-writing ColumnsJson / the seed-script boilerplate
+
+Hand-authoring `ColumnsJson` (18 fields × N columns) and the ~150-300 line seed-script skeleton by hand is
+the slowest, most error-prone part of adding a Data Profile. Two generator scripts under `_tools/DataProfile/`
+automate the mechanical parts — **use them** rather than typing the JSON/SQL from scratch:
+
+### `_tools/DataProfile/New-ColumnsJson.ps1`
+Given your base `SELECT` (aliased `t1, t2, ...` with `AS [alias]` per column, exactly the `CustomQuery` shape),
+connects to SQL Server and calls `sys.dm_exec_describe_first_result_set` (metadata only — **does not execute**
+your query) to get column name/type/source-table lineage, cross-references your `FROM`/`JOIN` aliases, and
+emits a `ColumnsJson` skeleton with correct `TableName`/`ColumnName`/`Alliance`/`Address`/`SystemType(Name)`/`Width`
+and a best-effort money `Render` (name-heuristic on `Price`/`Amount`/`Total`/etc.).
+```powershell
+.\_tools\DataProfile\New-ColumnsJson.ps1 -Sql (Get-Content .\base-select.sql -Raw) -OutFile .\columns.json
+```
+It still leaves a printed TODO checklist — you (or the agent) must review/localize `DisplayName` to Persian,
+double-check `Visible`/`Width`/`Render`, and fill `OptionSetting` for any `Select`/enum column by hand.
+
+### `_tools/DataProfile/New-DataProfileSeedScript.ps1`
+Scaffolds a ready-to-review idempotent seed `.sql` file (matching §6-B's shape exactly) from a `ColumnsJsonFile`
+(e.g. the output of the tool above) plus profile name/title/roles/(optional) menu wiring.
+```powershell
+.\_tools\DataProfile\New-DataProfileSeedScript.ps1 -ParamsFile .\myprofile.params.json
+```
+**Always prefer `-ParamsFile` (a UTF-8 JSON manifest) over passing Persian text as inline CLI arguments** —
+Windows console sessions are frequently on a legacy OEM code page (e.g. 437) that silently mangles Persian
+characters typed/passed on the command line into `?`. A UTF-8 file has no such problem. See the script's
+`Get-Help` comment block for the exact manifest shape. This script only **writes** the `.sql` file — review
+it, then execute it against the target DB yourself (e.g. via the `mssql-havayar` MCP connection, `sqlcmd`, or SSMS).
+
+## 8. Row/cell styling — `EventScriptsJson.onRowAdded` (never List `.cshtml`)
+
+List pages stay `<datatableprofile entity-Type="typeof(Entity)">` only (see `havayar-add-new-page.mdc`). Chart/dashboard pages (ApexCharts) and true custom non-grid pages may have their own scripts. **Do not** put DataTable row/cell coloring, `draw.dt`, `createdRow`, or per-row visual logic in a List `.cshtml` `<script>`.
+
+Put it on the Data Profile:
+
+| Piece | Where |
+|---|---|
+| Storage | `system.SavedQuery.EventScriptsJson` (C# `SavedQuery.EventScriptsJson`) |
+| JSON keys | `onSelectedRow`, **`onRowAdded`** (Query Designer UI: tab «onRowAdded»; ACE editor `#scriptOnRowAdded`) |
+| Shape | Each value is a **JS function string**: `"function(ctx) { ... }"` |
+| Runtime | `WebApp/wwwroot/js/site.js` `rowCallback` → `fireEvent(eventScripts.onRowAdded, buildRowAddedContext(...))` |
+
+`onRowAdded` `ctx`: `rowData` (query aliases, e.g. `t1_HasSecondaryConfirm`), `$row` (`<tr>`), `rowIndex`, `table`, `draw()`, `primaryKeyName`, `primaryKeyValue`.
+
+The grid always has a **row-select checkbox as `td` index 0**. HTS `td:first` (first data cell) is Havayar `$row.find('td').eq(1)`.
+
+```js
+function(ctx) {
+    var data = ctx.rowData || {};
+    var $cell = ctx.$row.find('td').eq(1);
+    var secondary = data.t1_HasSecondaryConfirm === true || data.t1_HasSecondaryConfirm === 1 || data.t1_HasSecondaryConfirm === 'true';
+    var primitive = data.t1_HasPrimitiveConfirm === true || data.t1_HasPrimitiveConfirm === 1 || data.t1_HasPrimitiveConfirm === 'true';
+    if (secondary) $cell.css('background-color', 'green');
+    else if (primitive) $cell.css('background-color', 'yellow');
+    else $cell.css('background-color', 'red');
+}
+```
+
+Seed with `FOR JSON PATH, WITHOUT_ARRAY_WRAPPER` (see `Seed_BpmDocumentSystem_DataProfiles.sql` / TenderManagement block in `Seed_AfterSalesServiceSystem_DataProfilesAndAccess.sql`). Read flags via the **Alliance** names from `ColumnsJson` (`t1_HasSecondaryConfirm`, not `HasSecondaryConfirm`). Use `$row.addClass('table-danger')` only when the whole row should change (panel.js template); match HTS when it colored a cell.
+
+## 9. Must / must-not
+
+| Do | Don't |
+|---|---|
+| Upsert by `Name`, wrapped in transaction + TRY/CATCH | Insert unconditionally (breaks re-runs / migrations across environments) |
+| Join `system.Role` by `Name` to resolve `RoleId` | Hardcode a `RoleId` literal |
+| Set `RoleAccess.EntityName` to the **Pascal-case** full type name | Reuse `SavedQuery.EntityFullName`'s lowercase value for `RoleAccess.EntityName` |
+| Emit every `QueryColumn` field (use `null`/`false`/`[]` defaults) | Omit fields you think are "unused" — the client-side column manager expects the full shape |
+| Translate `DisplayName` to Persian | Leave `DisplayName` as the raw English `ColumnName` |
+| Use the standard `MJUtil.formatMoney` render string for money columns (copy it verbatim) | Write a new ad-hoc render function per column |
+| Restart the app / clear `DataTableProfileCacheDb` after seeding via SQL | Assume the new profile appears immediately without a cache refresh |
+| Per-row grid coloring/styling in `EventScriptsJson.onRowAdded` | `draw.dt` / `createdRow` / `rowCallback` in a List `.cshtml` |

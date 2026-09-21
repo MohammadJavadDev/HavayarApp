@@ -195,6 +195,16 @@ namespace Entities.Base
 		public string? ClassName { get; set; }
 	}
 
+	/// <summary>
+	/// عرض یک ستون برای ذخیره به‌عنوان عرض پیش‌فرض نمایه داده
+	/// </summary>
+	public class DataProfileColumnWidthItem
+	{
+		public string? Name { get; set; }
+		public string? Data { get; set; }
+		public int Width { get; set; }
+	}
+
 	public class BtnConfig
 	{
 		public string? ColorClass { get; set; }

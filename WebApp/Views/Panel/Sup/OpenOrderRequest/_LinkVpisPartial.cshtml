@@ -1,4 +1,5 @@
 @using Entities.App.Edms
+@using Entities.App.Edms.Enums
 @model dynamic
 <style>
 	.select2-dropdown {
@@ -23,7 +24,11 @@
 		<label class='required'>پروژه</label>
 		@(Html.EntitySelector<Project>(
 			"ProjectVpisSelector",
-			c => c.IsActive == Entities.Base.IsActiveEnum.Active && (c.IsConfidential == false),
+			c => c.IsActive == Entities.Base.IsActiveEnum.Active
+				&& c.IsConfidential == false
+				&& c.Status != ProjectStatusEnum.StartNotStarted
+				&& c.Status != ProjectStatusEnum.Canceled
+				&& c.Status != ProjectStatusEnum.Stopped,
 				c => new { Id = c.Id, ProjectName = c.ProjectName, Code = c.Code },
 				c => new { c.ProjectName, c.Code },
 			"{ProjectCode} - {ProjectName}",

@@ -1,0 +1,158 @@
+@using Entities.App.Rpr
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="rrCommentChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">یادداشت درخواست تعمیر</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="rrCommentChildTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>متن</th>
+					<th>هزینه</th>
+					<th style="width:120px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const rrCommentParentId = @parentId;
+	const rrCommentTable = $$('#rrCommentChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Rpr/RepairRequestComment/GetListByParentId?repairRequestId=' + rrCommentParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'comment', defaultContent: '-' },
+			{
+				data: 'cost',
+				defaultContent: '-',
+				render: function (v) { return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : v; }
+			},
+			{
+				data: 'id',
+				orderable: false,
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function initChildModalForm($root) {
+		if (typeof initPersionDatePicker === 'function')
+			initPersionDatePicker($root);
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+		if (typeof initFileUploaders === 'function')
+			initFileUploaders($root);
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($root);
+		else if (window.Inputmask && window.moneyInputmaskOptions)
+			Inputmask(moneyInputmaskOptions).mask($root.find('[data-money="true"]'));
+		if (typeof initTimeInputs === 'function')
+			initTimeInputs($root);
+		else if (window.Inputmask && window.timeInputmaskOptions)
+			Inputmask(timeInputmaskOptions).mask($root.find('[data-time="true"]'));
+	}
+
+	function openRrCommentModal(id) {
+		const url = id
+			? '/Panel/Rpr/RepairRequestComment/Edit?id=' + id + '&repairRequestId=' + rrCommentParentId
+			: '/Panel/Rpr/RepairRequestComment/New?repairRequestId=' + rrCommentParentId;
+		const $trigger = id
+			? $$('#rrCommentChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#rrCommentChildCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش یادداشت' : 'افزودن یادداشت',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Rpr/RepairRequestComment/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								rrCommentTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { initChildModalForm(selfConfirm.$body); }, 100);
+				}
+			});
+		});
+	}
+
+	$$('#rrCommentChildCard').on('click', '[data-action="newChild"]', function () {
+		openRrCommentModal(null);
+	});
+	$$('#rrCommentChildCard').on('click', '[data-action="editChild"]', function () {
+		openRrCommentModal($(this).data('id'));
+	});
+	$$('#rrCommentChildCard').on('click', '[data-action="deleteChild"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Rpr/RepairRequestComment/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					rrCommentTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

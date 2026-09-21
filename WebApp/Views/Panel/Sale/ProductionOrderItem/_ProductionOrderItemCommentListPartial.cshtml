@@ -105,6 +105,7 @@
 						<tr>
 							<th>وضعیت</th>
 							<th>مسئول</th>
+							<th>مدت زمان اخذ استعلام</th>
 							<th>پیوست</th>
 							<th>توضیحات</th>
 							<th>کاربر ثبت‌کننده</th>
@@ -117,6 +118,7 @@
 							<tr>
 								<td><span class="badge badge-info">@inquiry.Status.ToDisplay()</span></td>
 								<td>@(inquiry.ResponsibleName ?? "-")</td>
+								<td style="direction: ltr; text-align: right;">@(inquiry.LeadTimeShamsiDate ?? "-")</td>
 								<td>
 									@if (inquiry.AttachmentFileId.HasValue)
 									{

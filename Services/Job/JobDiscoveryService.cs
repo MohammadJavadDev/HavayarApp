@@ -16,6 +16,10 @@ namespace Services.Job
 	{
 		private const string ProductPriceSnapshotJobId =
 			"App.BackgroundJob.Jobs.Bom.ProductPriceSnapshotJob.CaptureDailyProductPriceSnapshot";
+		private const string CustomerAddressAgencyDlJobId =
+			"App.BackgroundJob.Jobs.Sls.CustomerAddressJob.FillEmptyAgencyDlFromRahkaranRegion";
+		private const string AgencyPartCardexJobId =
+			"App.BackgroundJob.Jobs.Sale.AgencyPartCardexJob.AddNewItemsByCheckSaleOrders";
 
 		private readonly IServiceProvider _serviceProvider;
 
@@ -72,19 +76,20 @@ namespace Services.Job
 				}
 				else
 				{
-					// آپدیت کردن نام و توضیحات در صورت تغییر در کد
 					existingJob.DisplayName = attr.DisplayName;
 					existingJob.Description = attr?.Description ?? "بدون مقدار";
-					var js = dbContext.JobSchedules.Where(c => c.JobId == existingJob.Id).ToList();
-					foreach (var j in js) {
-						j.LastStatus = JobStatus.Idle;
-					}
-
-					dbContext.JobSchedules.UpdateRange(js);
-
 				}
 			}
-			await dbContext.SaveChangesAsync();
+
+			// فقط جاب‌هایی که وسط اجرا با کرش/ری‌استارت گیر کرده‌اند آزاد می‌شوند.
+			// وضعیت Error باید بماند تا ادمین عمداً با «اجرا فوری» دوباره راهش بیندازد.
+			var stuckRunning = await dbContext.JobSchedules
+				.Where(s => s.LastStatus == JobStatus.Running)
+				.ToListAsync(cancellationToken);
+			foreach (var stuck in stuckRunning)
+				stuck.LastStatus = JobStatus.Idle;
+
+			await dbContext.SaveChangesAsync(cancellationToken);
 
 			// این جاب ماهیت زیرساختی دارد و باید از اولین استقرار، روزانه فعال باشد.
 			// اجرای اول چند ثانیه بعد انجام می‌شود تا اولین snapshot بدون انتظار تا روز بعد ساخته شود.
@@ -106,6 +111,42 @@ namespace Services.Job
 					LastStatus = JobStatus.Idle
 				});
 
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS Update_Sales_CustomerAddressAgencyDls: هر ۲۰ دقیقه بین ۶ تا ۲۱
+			var agencyDlJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == CustomerAddressAgencyDlJobId, cancellationToken);
+			if (agencyDlJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == agencyDlJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = agencyDlJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1200,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS AfterSalesAndRepairSystemTask: هر ۲۰ دقیقه بین ۶ تا ۲۱
+			var agencyPartCardexJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == AgencyPartCardexJobId, cancellationToken);
+			if (agencyPartCardexJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == agencyPartCardexJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = agencyPartCardexJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1200,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
 				await dbContext.SaveChangesAsync(cancellationToken);
 			}
 		}

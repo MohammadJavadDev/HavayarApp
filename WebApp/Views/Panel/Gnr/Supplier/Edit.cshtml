@@ -10,7 +10,7 @@
 			<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
 		</div>
 		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class='required'>شخص شرکت</label>
 			@(Html.EntitySelector<Party>(
 				"PartySelector",
@@ -28,39 +28,63 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>پیشوند</label>
 			<input class='form-control' data-bind='prefix'  asp-for='Prefix' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>کد پستی</label>
 			<input class='form-control' data-bind='postalCode'  asp-for='PostalCode' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>شماره تماس</label>
 			<input class='form-control' data-bind='phoneNumber'  asp-for='PhoneNumber' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>فکس</label>
 			<input class='form-control' data-bind='fax'  asp-for='Fax' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>ایمیل</label>
 			<input class='form-control' data-bind='email'  asp-for='Email' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
+		<div class='col-md-6 form-group-inline'>
 			<label class=''>کد تفصیل</label>
 			<input class='form-control' data-bind='dlCode'  asp-for='DlCode' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 form-group-inline'>
+			<label class=''>گرید</label>
+			<input class='form-control' data-bind='grade' asp-for='Grade' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 form-group-inline'>
+			<label class=''>خدمات/محصولات</label>
+			<input class='form-control' data-bind='servicesAndProducts' asp-for='ServicesAndProducts' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-6 form-group-inline'>
+			<label class=''>شخص مرتبط</label>
+			<input class='form-control' data-bind='relatedPersonName' asp-for='RelatedPersonName' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class='col-md-12 form-group-inline'>
+			<label class=''>آدرس کامل</label>
+			<textarea class='form-control' data-bind='address' asp-for='Address' rows='3'>@Model?.Address</textarea>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -93,7 +117,7 @@
 	function savefn($btnAction) {
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
-		const $btn = $(this.element).block();
+		const $btn = $($btnAction.element).block();
 		$$.post('save',
 			model,
 			function (r) {

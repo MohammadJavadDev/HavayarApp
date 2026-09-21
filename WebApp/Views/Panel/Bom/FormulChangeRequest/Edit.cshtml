@@ -217,15 +217,15 @@
 
 			<div class="col-md-6">
 			<label class=''>فرمول قطعه</label>
-			@(Html.EntitySelector<ProductGroup>(
+			@(Html.EntitySelector<Formul>(
 				"ProductGroupSelector",
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
 				c => new
 				{
-					Id = c.Id,  Name = c.Name
+					Id = c.Id,  Title = c.Title
 				},
-				c => new {   c.Name },
-				" {Name}",
+				c => new {   c.Title },
+				" {Title}",
 				"ChangedFormulIds",
 				"ChangedFormulNames",
 				Model?.ChangedFormulIds,

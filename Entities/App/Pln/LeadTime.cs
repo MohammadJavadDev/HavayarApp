@@ -24,6 +24,14 @@ namespace Entities.App.Pln
 		public int LeadTimeDay { get; set; }
 
 
+		/// <summary>
+		/// زمان در راه برای درخواست‌های غیرروتین (HTS: Pln_LeadTime.NonRoutineLeadTimeInDay) — D17
+		/// </summary>
+		[DisplayName("زمان در راه غیرروتین (روز)")]
+		[DisplayInfo(null, true, type: SystemType.Int)]
+		public int? NonRoutineLeadTimeInDay { get; set; }
+
+
 		[DisplayName("تامین کننده")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public LeadTimeSupplierEnum? Supplier { get; set; }

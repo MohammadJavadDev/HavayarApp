@@ -19,6 +19,21 @@ namespace Entities.Base.DataTable
 
         public bool UserDataFillter { get; set; } = false;
         public long? profileId { get; set; }
+
+        // Display values are rendered in the browser; never execute JavaScript on the server.
+        public DataTableDisplayExport? displayExport { get; set; }
+    }
+
+    public class DataTableDisplayExport
+    {
+        public List<string> Headers { get; set; } = [];
+        public List<List<DataTableDisplayExportCell>> Rows { get; set; } = [];
+    }
+
+    public class DataTableDisplayExportCell
+    {
+        public string? Text { get; set; }
+        public double? Number { get; set; }
     }
 
     public class DataTableSearchBuilder

@@ -1,0 +1,83 @@
+@using Entities.App.Sale
+@using Entities.App.SLS
+@using Entities.Base
+@model CustomerAllowedGuarantee
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(CustomerAllowedGuarantee)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">گارانتی مجاز مشتریان</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"CustomerAllowedGuaranteeCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party, c.Code },
+					"{Code} {Party.FullName}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString(),
+					required: true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">شماره سفارش ساخت</label>
+				<input class="form-control" data-bind="productionOrderNumber" data-required="true" asp-for="ProductionOrderNumber" type="text" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">مقدار گارانتی مجاز قطعه</label>
+				<input class="form-control" data-bind="allowedGuaranteePartAmount" data-money="true" data-required="true" asp-for="AllowedGuaranteePartAmount" type="text" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">مقدار گارانتی مجاز ماموریت</label>
+				<input class="form-control" data-bind="allowedMissionGuaranteeAmount" data-money="true" data-required="true" asp-for="AllowedMissionGuaranteeAmount" type="text" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.customerId) {
+			toastr.error('مشتری نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const partAmount = Number(model.allowedGuaranteePartAmount || 0);
+		const missionAmount = Number(model.allowedMissionGuaranteeAmount || 0);
+		const productionOrderNumber = Number(model.productionOrderNumber || 0);
+		if (!partAmount) {
+			toastr.error('مقدار گارانتی مجاز قطعه نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!missionAmount) {
+			toastr.error('مقدار گارانتی مجاز ماموریت نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!productionOrderNumber) {
+			toastr.error('شماره سفارش ساخت نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

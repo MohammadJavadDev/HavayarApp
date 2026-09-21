@@ -92,9 +92,11 @@ namespace WebApp.Actions.Sale
 					await unitOfWork.Repository<ProductionOrderItem>()
 						.UpdateFieldsAsync(parentId, fields, ct);
 				}
-				else if (Enum.IsDefined(typeof(ProductionOrderItemCheckStatusEnum), statusId))
+				else if (!model.IsForProductionStepStatus && Enum.IsDefined(typeof(ProductionOrderItemCheckStatusEnum), statusId))
 				{
-					// معادل LookupType 254 → BuyStatusId در HTS
+					// معادل LookupType 254 → BuyStatusId در HTS.
+					// کامنت‌های «مرحله ساخت» (IsForProductionStepStatus) در HTS کد مرحله (LookupType 58) دارند و BuyStatus را
+					// عوض نمی‌کنند؛ در سیستم جدید ProductionStatus این کامنت‌ها فقط برچسب وضعیت جاری است، پس نباید CheckStatus را بازنویسی کند.
 					await unitOfWork.Repository<ProductionOrderItem>()
 						.UpdateFieldsAsync(parentId,
 							c => c.CheckStatus,

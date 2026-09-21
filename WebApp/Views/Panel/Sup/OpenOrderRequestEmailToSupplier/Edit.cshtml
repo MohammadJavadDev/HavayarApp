@@ -1,0 +1,86 @@
+@using Entities.App.Sup
+@model OpenOrderRequestEmailToSupplier
+@{
+	var request = Model?.OpenOrderRequest;
+	var part = request?.Part;
+	var supplierName = Model?.Supplier?.Party?.FullName ?? "-";
+	var sendDate = !string.IsNullOrWhiteSpace(Model?.SendShamsiDateTime)
+		? Model!.SendShamsiDateTime
+		: Model?.SendMiladiDateTime?.ToString("yyyy/MM/dd HH:mm") ?? "-";
+}
+<div class="card">
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(OpenOrderRequestEmailToSupplier)" new-page-btn="false" save-btn="false" save-and-new-btn="false" save-and-close-btn="false">
+			<button type="button" class="btn-sm btn btn-icon btn-active-icon-dark btn-color-danger" data-action="closePage" data-bs-toggle="tooltip" data-bs-placement="top" title="بستن">
+				<i class="fa-light fa-xmark" style="padding-right: 2px;padding-top: 2px;"></i>
+			</button>
+		</form-action-buttons>
+	</div>
+</div>
+<div class="card">
+	<div class="card-body row">
+		<div class="col-12 mb-4 d-flex align-items-center gap-3 flex-wrap">
+			<h3 class="fw-bold text-dark mb-0">جزئیات ارسال به پیمانکار</h3>
+			<span class="badge badge-light-warning fs-7">فقط‌خواندنی — لاگ ارسال (صفحه 545 HTS)</span>
+		</div>
+
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+
+		<div class="col-md-4 form-group-inline">
+			<label>شماره درخواست خرید</label>
+			<input class="form-control" value="@(request?.PurchaseRequestNumber.ToString() ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>شماره حواله</label>
+			<input class="form-control" value="@(request?.OrderNo?.ToString() ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>شماره سفارش ساخت</label>
+			<input class="form-control" value="@(request?.ProductionOrderNumber?.ToString() ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>کد کالا</label>
+			<input class="form-control" value="@(part?.Code ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-8 form-group-inline">
+			<label>عنوان کالا</label>
+			<input class="form-control" value="@(part?.Name ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label>پیمانکار گیرنده</label>
+			<input class="form-control" value="@supplierName" readonly disabled />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label>تعداد نیاز</label>
+			<input class="form-control" value="@(request?.RequiredQty.ToString() ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label>تعداد اعلام‌شده</label>
+			<input class="form-control" value="@(Model?.SendingCount?.ToString() ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>تاریخ/ساعت ارسال</label>
+			<input class="form-control" value="@sendDate" readonly disabled />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ارسال‌کننده</label>
+			<input class="form-control" value="@(Model?.SenderUser?.NameFa ?? Model?.CreatedByName ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ایمیل گیرنده</label>
+			<input class="form-control" value="@(Model?.ToEmail ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>موضوع</label>
+			<input class="form-control" value="@(Model?.Subject ?? "-")" readonly disabled />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>توضیحات</label>
+			<textarea class="form-control" rows="2" readonly disabled>@(Model?.Comment ?? "")</textarea>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>متن نامه</label>
+			<div class="border rounded p-3 bg-light" style="max-height: 40vh; overflow: auto;">@Html.Raw(Model?.Body ?? "-")</div>
+		</div>
+	</div>
+</div>

@@ -1,0 +1,434 @@
+@using Entities.App.Sale
+@{
+	var parentId = (long)ViewBag.ParentId;
+	var isManual = ViewBag.IsManual as bool? == true;
+	var showPrice = ViewBag.ShowPrice as bool? == true;
+	var currentUserId = ViewBag.CurrentUserId as long? ?? 0;
+	var isAdministrator = ViewBag.IsAdministrator as bool? == true;
+	var tableMinWidth = 1920 + (showPrice ? 110 : 0) + (isManual ? 0 : 750);
+}
+<style>
+	#srPartChildCard #srPartChildTable,
+	#srPartChildCard table.ellipsis-tooltip-table {
+		width: @(tableMinWidth)px !important;
+		min-width: @(tableMinWidth)px !important;
+		table-layout: fixed;
+	}
+</style>
+<div class="card" id="srPartChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">@(isManual ? "درخواست کالا-نمایندگان" : "درخواست کالا")</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 nowrap ellipsis-tooltip-table" id="srPartChildTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th style="width:100px;">عملیات</th>
+					<th style="width:140px;">مرکز هزینه</th>
+					<th style="width:140px;">سایر مراکز</th>
+					<th style="width:120px;">نوع خدمت</th>
+					<th style="width:90px;">شماره سند</th>
+					<th style="width:100px;">تاریخ سند</th>
+					<th style="width:110px;">کد کالا</th>
+					<th style="width:200px;">نام کالا</th>
+					<th style="width:110px;">کد محصول</th>
+					<th style="width:200px;">نام محصول</th>
+					<th style="width:140px;">سریال</th>
+					<th style="width:70px;">مقدار</th>
+					@if (showPrice)
+					{
+						<th style="width:110px;">قیمت</th>
+					}
+					<th style="width:200px;">قطعه جایگزین</th>
+					@if (!isManual)
+					{
+						<th style="width:160px;">داغی</th>
+						<th style="width:180px;">شرح داغی</th>
+						<th style="width:70px;">خرابی</th>
+						<th style="width:160px;">قطعه معیوب</th>
+						<th style="width:180px;">شرح خرابی</th>
+					}
+					<th style="width:200px;">توضیحات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const srPartParentId = @parentId;
+	const srPartIsManual = @(isManual ? "true" : "false");
+	const srPartShowPrice = @(showPrice ? "true" : "false");
+	const srPartCurrentUserId = @currentUserId;
+	const srPartIsAdmin = @(isAdministrator ? "true" : "false");
+
+	function moneyCell(v) {
+		if (v == null || v === '') return '-';
+		return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : v;
+	}
+
+	function ellipsisMoney(v, type) {
+		if (type && type !== 'display' && type !== 'type') return v == null ? '' : v;
+		return renderEllipsisCell(moneyCell(v), 'display');
+	}
+
+	const srPartColumns = [
+		{
+			data: 'id',
+			orderable: false,
+			width: '100px',
+			className: 'text-center',
+			render: function (id, type, row) {
+				const canDelete = srPartIsManual || srPartIsAdmin || row.createdById == srPartCurrentUserId;
+				let html = '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '" title="ویرایش"><i class="fa fa-edit"></i></button> ';
+				if (canDelete)
+					html += '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+				return html;
+			}
+		},
+		{ data: 'costCenterTitle', defaultContent: '-', width: '140px', render: renderEllipsisCell },
+		{ data: 'otherCostCenter', defaultContent: '-', width: '140px', render: renderEllipsisCell },
+		{ data: 'serviceTypeTitle', defaultContent: '-', width: '120px', render: renderEllipsisCell },
+		{ data: 'projectVchNum', defaultContent: '-', width: '90px', render: renderEllipsisCell },
+		{ data: 'projectVchShamsiDate', defaultContent: '-', width: '100px', render: renderEllipsisCell },
+		{ data: 'partCode', defaultContent: '-', width: '110px', render: renderEllipsisCell },
+		{ data: 'partName', defaultContent: '-', width: '200px', render: renderEllipsisCell },
+		{ data: 'productCode', defaultContent: '-', width: '110px', render: renderEllipsisCell },
+		{ data: 'productName', defaultContent: '-', width: '200px', render: renderEllipsisCell },
+		{ data: 'serial', defaultContent: '-', width: '140px', render: renderEllipsisCell },
+		{ data: 'mount', defaultContent: '-', width: '70px', render: renderEllipsisCell }
+	];
+	if (srPartShowPrice)
+		srPartColumns.push({ data: 'unitPrice', defaultContent: '-', width: '110px', render: ellipsisMoney });
+	srPartColumns.push({ data: 'replacePartName', defaultContent: '-', width: '200px', render: renderEllipsisCell });
+	if (!srPartIsManual) {
+		srPartColumns.push({ data: 'damagedParts', defaultContent: '-', width: '160px', render: renderEllipsisCell });
+		srPartColumns.push({ data: 'damagedPartDescription', defaultContent: '-', width: '180px', render: renderEllipsisCell });
+		srPartColumns.push({
+			data: 'hasFailure',
+			defaultContent: '',
+			width: '70px',
+			className: 'text-center',
+			render: function (v) { return v === true ? '<span class="text-success">بله</span>' : ''; }
+		});
+		srPartColumns.push({ data: 'failureParts', defaultContent: '-', width: '160px', render: renderEllipsisCell });
+		srPartColumns.push({ data: 'failureDescription', defaultContent: '-', width: '180px', render: renderEllipsisCell });
+	}
+	srPartColumns.push({ data: 'comment', defaultContent: '-', width: '200px', render: renderEllipsisCell });
+
+	const srPartTable = $$('#srPartChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		scrollX: true,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Sale/ServiceRequestPart/GetListByParentId?serviceRequestId=' + srPartParentId + '&manual=' + srPartIsManual,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: srPartColumns,
+		initComplete: function () {
+			if (typeof bindEmbeddedTableCellTooltips === 'function')
+				bindEmbeddedTableCellTooltips(this.api());
+		}
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function selectedPieces($root) {
+		const rows = [];
+		$root.find('#srPartPiecesTable tbody tr.sr-part-piece-selected').each(function () {
+			const piece = $(this).data('piece');
+			if (piece) rows.push(piece);
+		});
+		return rows;
+	}
+
+	function allPieces($root) {
+		const rows = [];
+		$root.find('#srPartPiecesTable tbody tr').each(function () {
+			const piece = $(this).data('piece');
+			if (piece) rows.push(piece);
+		});
+		return rows;
+	}
+
+	function appendPieceRow($root, piece, selected) {
+		const $tr = $('<tr></tr>').data('piece', piece);
+		if (selected) $tr.addClass('table-primary sr-part-piece-selected');
+		$tr.append($('<td></td>').text(piece.date || '-'));
+		$tr.append($('<td></td>').text(piece.productTitle || '-'));
+		$tr.append($('<td></td>').text(piece.value != null ? piece.value : '-'));
+		$root.find('#srPartPiecesTable tbody').append($tr);
+	}
+
+	function fillPieces($root, pieces, selectedId) {
+		const $body = $root.find('#srPartPiecesTable tbody');
+		$body.empty();
+		(pieces || []).forEach(function (piece) {
+			const selected = selectedId != null && String(piece.id) === String(selectedId);
+			appendPieceRow($root, piece, selected);
+		});
+	}
+
+	function toggleConditional($root) {
+		const damaged = $root.find('#srPartReturnDamaged').is(':checked');
+		const failure = $root.find('#srPartHasFailure').is(':checked');
+		$root.find('.sr-part-damaged-fields').toggle(damaged);
+		$root.find('.sr-part-failure-fields').toggle(failure);
+	}
+
+	function loadRelatedProducts($root, selectedId) {
+		$$.get('/Panel/Sale/ServiceRequestPart/GetRelatedDetails?serviceRequestId=' + srPartParentId, function (r) {
+			if (!r || !r.isSuccess) return;
+			const $sel = $root.find('#srPartRelatedProduct');
+			const items = r.data || [];
+			const current = selectedId || $sel.data('selected') || $sel.val();
+			$sel.find('option:not(:first)').remove();
+			items.forEach(function (item) {
+				$sel.append($('<option></option>').attr('value', item.id).text(item.text));
+			});
+			if (current)
+				$sel.val(String(current));
+			else if (items.length === 1 && items[0].id)
+				$sel.val(String(items[0].id));
+		});
+	}
+
+	function loadLookups($root) {
+		$$.get('/Panel/Sale/ServiceRequestPart/GetFormLookups', function (r) {
+			if (!r || !r.isSuccess || !r.data) return;
+			const $year = $root.find('#srPartFiscalYear');
+			const $center = $root.find('#srPartSaleCenter');
+			(r.data.years || []).forEach(function (item) {
+				$year.append($('<option></option>').attr('value', item.id).text(item.text));
+			});
+			(r.data.branches || []).forEach(function (item) {
+				$center.append($('<option></option>').attr('value', item.id).text(item.text));
+			});
+			const storedYear = $root.find('[data-bind="projectVchYear"]').val();
+			if (storedYear) $year.val(String(storedYear));
+			else if ((r.data.years || []).length > 0)
+				$year.val(String(r.data.years[0].id));
+		});
+	}
+
+	function loadExistingPieces($root, id) {
+		if (!id || srPartIsManual) return;
+		$$.get('/Panel/Sale/ServiceRequestPart/GetPiecesData?serviceRequestPartId=' + id, function (r) {
+			if (!r || !r.isSuccess || !r.data) return;
+			if (r.data.saleCenterId)
+				$root.find('#srPartSaleCenter').val(String(r.data.saleCenterId));
+			if (r.data.year)
+				$root.find('#srPartFiscalYear').val(String(r.data.year));
+			fillPieces($root, r.data.dataSource || [], r.data.selectedId);
+		});
+	}
+
+	function bindForm($root, id) {
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($root);
+		else if (window.Inputmask && window.moneyInputmaskOptions)
+			Inputmask(moneyInputmaskOptions).mask($root.find('[data-money="true"]'));
+		if (typeof initPersionDatePicker === 'function')
+			initPersionDatePicker($root);
+
+		toggleConditional($root);
+		$root.on('change', '#srPartReturnDamaged, #srPartHasFailure', function () { toggleConditional($root); });
+
+		$root.on('click', '#srPartPiecesTable tbody tr', function () {
+			const $tr = $(this);
+			if (!srPartIsManual && id) {
+				$root.find('#srPartPiecesTable tbody tr').removeClass('table-primary sr-part-piece-selected');
+				$tr.addClass('table-primary sr-part-piece-selected');
+				return;
+			}
+			$tr.toggleClass('table-primary sr-part-piece-selected');
+		});
+
+		$root.on('click', '#srPartFetchPieces', function () {
+			const vchNo = $root.find('[data-bind="projectVchNum"]').val();
+			const year = $root.find('#srPartFiscalYear').val();
+			const saleCenterId = $root.find('#srPartSaleCenter').val();
+			if (!vchNo || !year) {
+				toastr.error('شماره سند و سال مالی را وارد کنید');
+				return;
+			}
+			const $btn = $(this).block();
+			$$.post('/Panel/Sale/ServiceRequestPart/FetchPieces', { vchNo: vchNo, year: year, saleCenterId: saleCenterId || null }, function (r) {
+				$btn.block(false);
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || 'نتیجه‌ای یافت نشد', 'خطا');
+					return;
+				}
+				fillPieces($root, r.data || [], null);
+			});
+		});
+
+		$root.on('click', '#srPartAddPiece', function () {
+			const vchNo = $root.find('[data-bind="projectVchNum"]').val();
+			const date = $root.find('[data-bind="projectVchShamsiDate"]').val();
+			const partId = $root.find('[data-bind="manualPieceId"]').val();
+			const partName = $root.find('[data-bind="manualPieceName"]').val() || '';
+			const qty = $root.find('#srPartManualQty').val();
+			if (!vchNo || !date || !partId || !qty || Number(qty) < 1) {
+				toastr.error('شماره سند، تاریخ، قطعه و مقدار را وارد کنید');
+				return;
+			}
+			appendPieceRow($root, {
+				id: 0,
+				date: date,
+				productTitle: partName,
+				value: Number(qty),
+				partref: null,
+				havayarPartId: Number(partId),
+				fromSaleOrder: false
+			}, true);
+		});
+
+		loadRelatedProducts($root, $root.find('#srPartRelatedProduct').data('selected'));
+		if (!srPartIsManual) {
+			loadLookups($root);
+			loadExistingPieces($root, id);
+		}
+	}
+
+	function buildSaveModel($content, id) {
+		const model = $content.dataBind();
+		model.serviceRequestId = srPartParentId;
+		model.isRegisteredManually = srPartIsManual;
+		const year = $content.find('#srPartFiscalYear').val();
+		if (year) model.projectVchYear = year;
+		if (srPartIsManual) {
+			const shamsi = model.projectVchShamsiDate || '';
+			if (shamsi.length >= 4) model.projectVchYear = shamsi.substring(0, 4);
+			model.pieces = id ? [] : allPieces($content);
+			if (!id && model.pieces.length === 1) {
+				model.mount = model.pieces[0].value;
+				if (model.pieces[0].havayarPartId && !model.replacePartId)
+					model.replacePartId = model.pieces[0].havayarPartId;
+			}
+		} else {
+			model.pieces = selectedPieces($content);
+			if (!id && model.pieces.length === 1)
+				model.mount = model.pieces[0].value;
+		}
+		return model;
+	}
+
+	function validatePartForm($content, id) {
+		if (!$content.find('#srPartRelatedProduct').val()) {
+			toastr.error('محصول مرتبط را از محصولات همین درخواست پشتیبانی انتخاب کنید');
+			return false;
+		}
+		if (validateError($content)) return false;
+		if (!srPartIsManual) {
+			if (!id && selectedPieces($content).length < 1) {
+				toastr.error('حداقل یکی از قطعات را انتخاب نمایید');
+				return false;
+			}
+			if (id && selectedPieces($content).length > 1) {
+				toastr.error('فقط یک محصول را انتخاب نمایید');
+				return false;
+			}
+			if ($content.find('#srPartReturnDamaged').is(':checked') && !$content.find('[data-bind="damagedPartType"]').val()) {
+				toastr.error('نوع داغی نمی‌تواند خالی باشد');
+				return false;
+			}
+			if ($content.find('#srPartHasFailure').is(':checked')) {
+				if (!$content.find('[data-bind="failurePartIds"]').val()) {
+					toastr.error('انتخاب قطعه معیوب اجباری می‌باشد');
+					return false;
+				}
+				if (!$content.find('[data-bind="failureDescription"]').val()) {
+					toastr.error('توضیحات قطعه معیوب اجباری می‌باشد');
+					return false;
+				}
+			}
+		} else if (!id && allPieces($content).length < 1) {
+			toastr.error('حداقل یکی از قطعات را اضافه کنید');
+			return false;
+		}
+		return true;
+	}
+
+	function openSrPartModal(id) {
+		const url = id
+			? '/Panel/Sale/ServiceRequestPart/Edit?id=' + id + '&serviceRequestId=' + srPartParentId + '&manual=' + srPartIsManual
+			: '/Panel/Sale/ServiceRequestPart/New?serviceRequestId=' + srPartParentId + '&manual=' + srPartIsManual;
+		const $trigger = id
+			? $$('#srPartChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#srPartChildCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:75vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش درخواست کالا' : 'افزودن درخواست کالا',
+				columnClass: 'col-md-11',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (!validatePartForm($content, id)) return false;
+							const model = buildSaveModel($content, id);
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Sale/ServiceRequestPart/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) { toastr.error(resp.message || 'خطا در ذخیره', 'خطا'); return; }
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								srPartTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { bindForm(selfConfirm.$body, id); }, 100);
+				}
+			});
+		});
+	}
+
+	$$('#srPartChildCard').on('click', '[data-action="newChild"]', function () { openSrPartModal(null); });
+	$$('#srPartChildCard').on('click', '[data-action="editChild"]', function () { openSrPartModal($(this).data('id')); });
+	$$('#srPartChildCard').on('click', '[data-action="deleteChild"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Sale/ServiceRequestPart/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					srPartTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

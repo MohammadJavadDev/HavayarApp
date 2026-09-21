@@ -4,7 +4,9 @@ using Common.Entities;
 using Common.Utilities;
 using Data;
 using Data.Contracts;
+using Data.Services.Sup;
 using Entities.App.Edms;
+using Entities.App.Edms.Enums;
 using Entities.App.FIN;
 using Entities.App.Inv;
 using Entities.App.Inv.Enums;
@@ -76,6 +78,7 @@ namespace App.BackgroundJob.Jobs.Sup
 
                 // 4. Fetch Local Data
                 var localOrders = await unitOfWork.Repository<OpenOrderRequest>().Table.ToListAsync(cn);
+                var insertedThisRun = new List<OpenOrderRequest>();
 
                 // 5. Sync Loop (Insert/Update)
                 foreach (var remoteOrder in hamkaranOrders)
@@ -203,6 +206,7 @@ namespace App.BackgroundJob.Jobs.Sup
 
                             await unitOfWork.Repository<OpenOrderRequest>().AddAsync(newOrder, cn);
                             localOrders.Add(newOrder);
+                            insertedThisRun.Add(newOrder);
                         }
                         else
                         {
@@ -313,6 +317,17 @@ namespace App.BackgroundJob.Jobs.Sup
 
                 await unitOfWork.SaveChangesAsync(cn);
 
+                // VPIS auto-insert (HTS «درج بصورت اتوماتیک توسط سیستم») — فقط برای درخواست‌های تازه‌درج‌شده
+                if (insertedThisRun.Count > 0)
+                {
+                    var insertedIds = insertedThisRun.Where(o => o.Id.HasValue).Select(o => o.Id!.Value).ToList();
+                    var insertedLoaded = await unitOfWork.Repository<OpenOrderRequest>().Table
+                        .Include(o => o.ProductionOrder)
+                        .Where(o => insertedIds.Contains(o.Id!.Value))
+                        .ToListAsync(cn);
+                    await AutoInsertVpisLinksForRequestsAsync(insertedLoaded, jobLogger, cn);
+                }
+
                 // 6. Compute Logic (Missing items = Deleted)
                 var relevantYears = yearNumbers.Split(',').Select(long.Parse).ToList();
                 var activeLocalOrders = localOrders.Where(x => !x.IsDeleted && !x.IsForceDeletedByUser && relevantYears.Contains(x.Year)).ToList();
@@ -360,46 +375,9 @@ namespace App.BackgroundJob.Jobs.Sup
         private const string LegacyReceiptKey = "*";
         private const string QcReceiptKey = "qc";
 
-        private static readonly string[] ArrivalExtraEmails =
-        [
-            "Ahmadi.sh@havayar.com",
-            "Asadi.re@havayar.com",
-            "Moradmand.a@havayar.com",
-            "Azadbakhsh.s@havayar.com",
-            "Azadbakhsh.sh@havayar.com",
-            "zamani.z@havayar.com",
-            "Zandi.n@havayar.com",
-            "Eezi.a@havayar.com",
-            "khederzadeh.s@havayar.com",
-            "Saemian.r@havayar.com"
-        ];
-
-        private static readonly string[] QcRejectionExtraEmails =
-        [
-            "Salim.sh@havayar.com",
-            "Bagheri.h@havayar.com",
-            "Shahpordeli.s@havayar.com",
-            "Sharifi.b@havayar.com",
-            "Zabihian.s@havayar.com",
-            "Dordab.y@havayar.com",
-            "Hosseini.h@havayar.com",
-            "Sohrabi.za@havayar.com",
-            "Yaltaghian.f@havayar.com",
-            "Daryaft@havayar.com",
-            "Fazeli.e@havayar.com",
-            "Tafakor.s@havayar.com",
-            "Ahsani.e@havayar.com",
-            "Kargar.m@havayar.com",
-            "Ashrafi.m@havayar.com",
-            "azami.m@havayar.com",
-            "Sarmadi.p@havayar.com",
-            "Rajablou.a@havayar.com",
-            "Bagheri.m@havayar.com",
-            "Razaghmanesh.z@havayar.com",
-            "Zamani.ar@havayar.com",
-            "Banafshechin.y@havayar.com",
-            "Mousavi.a@havayar.com"
-        ];
+        private const string ArrivalWarehouseGroupCode = "Sup.OpenOrderRequest.ArrivalWarehouse";
+        private const string ArrivalPartialGroupCode = "Sup.OpenOrderRequest.ArrivalPartial";
+        private const string QcRejectionGroupCode = "Sup.OpenOrderRequest.QcRejection";
 
         private async Task SendNotifications(string yearNumbers, IJobLogger? logger, CancellationToken cn)
         {
@@ -412,6 +390,15 @@ namespace App.BackgroundJob.Jobs.Sup
 
             var users = await dbContext.Users.AsNoTracking().ToListAsync(cn);
             var userLookup = BuildUserLookup(users);
+            var arrivalEmails = await LoadGroupEmailsAsync(ArrivalWarehouseGroupCode, cn);
+            var partialEmails = await LoadGroupEmailsAsync(ArrivalPartialGroupCode, cn);
+            var qcEmails = await LoadGroupEmailsAsync(QcRejectionGroupCode, cn);
+            if (arrivalEmails.Length == 0)
+                logger?.LogInfoAsync($"گروه اعلان «{ArrivalWarehouseGroupCode}» عضو ندارد (WP8).");
+            if (partialEmails.Length == 0)
+                logger?.LogInfoAsync($"گروه اعلان «{ArrivalPartialGroupCode}» عضو ندارد (WP8).");
+            if (qcEmails.Length == 0)
+                logger?.LogInfoAsync($"گروه اعلان «{QcRejectionGroupCode}» عضو ندارد (WP8).");
 
             var localOrders = await unitOfWork.Repository<OpenOrderRequest>().Table
                 .Where(x => !x.IsForceDeletedByUser && !x.IsDeleted)
@@ -459,9 +446,9 @@ namespace App.BackgroundJob.Jobs.Sup
                     if (orderEvents.Count == 0)
                         continue;
 
-                    createdCount += await SendQcRejectionNotifications(order, orderEvents, userLookup, sentKeys, cn, incrementSkipped: () => skippedCount++);
+                    createdCount += await SendQcRejectionNotifications(order, orderEvents, userLookup, qcEmails, sentKeys, cn, incrementSkipped: () => skippedCount++);
 
-                    createdCount += await SendArrivalNotifications(order, orderEvents, userLookup, sentKeys, cn, incrementSkipped: () => skippedCount++);
+                    createdCount += await SendArrivalNotifications(order, orderEvents, userLookup, arrivalEmails, partialEmails, sentKeys, cn, incrementSkipped: () => skippedCount++);
                 }
                 catch (Exception ex)
                 {
@@ -490,6 +477,7 @@ namespace App.BackgroundJob.Jobs.Sup
             OpenOrderRequest order,
             List<HamkaranNotifyDto> orderEvents,
             UserLookup userLookup,
+            string[] qcExtraEmails,
             HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
             CancellationToken cn,
             Action incrementSkipped)
@@ -505,7 +493,7 @@ namespace App.BackgroundJob.Jobs.Sup
                 order,
                 userLookup,
                 includeRequestedPersonnel: true,
-                extraEmails: QcRejectionExtraEmails,
+                extraEmails: qcExtraEmails,
                 includeSalesUnit: false,
                 includePairedExtras: false);
 
@@ -539,6 +527,8 @@ namespace App.BackgroundJob.Jobs.Sup
             OpenOrderRequest order,
             List<HamkaranNotifyDto> orderEvents,
             UserLookup userLookup,
+            string[] arrivalExtraEmails,
+            string[] partialExtraEmails,
             HashSet<(long EntityId, long OwnerId, string Title, string ReceiptKey)> sentKeys,
             CancellationToken cn,
             Action incrementSkipped)
@@ -572,8 +562,8 @@ namespace App.BackgroundJob.Jobs.Sup
                 return 0;
 
             var extraEmails = isFullyReceived
-                ? ArrivalExtraEmails.Concat(GetPairedExtraEmails(order)).ToArray()
-                : new[] { "Saemian.r@havayar.com" };
+                ? arrivalExtraEmails.Concat(GetPairedExtraEmails(order)).ToArray()
+                : partialExtraEmails;
 
             var recipientIds = ResolveRecipientUserIds(
                 order,
@@ -868,6 +858,21 @@ namespace App.BackgroundJob.Jobs.Sup
                 AddUserIdsFromEmails(ids, userLookup, string.Join(";", GetPairedExtraEmails(order)));
 
             return ids;
+        }
+
+        private async Task<string[]> LoadGroupEmailsAsync(string groupCode, CancellationToken cn)
+        {
+            var emails = await dbContext.NotificationGroupMembers
+                .AsNoTracking()
+                .Where(m => m.NotificationGroup.Code == groupCode && m.IsActive == IsActiveEnum.Active)
+                .Select(m => m.Email)
+                .ToListAsync(cn);
+
+            return emails
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Select(e => e.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
         }
 
         private static IEnumerable<string> GetPairedExtraEmails(OpenOrderRequest order)
@@ -2070,15 +2075,11 @@ WHERE
             {
                 jobLogger?.LogInfoAsync("Starting CheckVpisRevisionChangesAndNotify...");
 
-                // دریافت تمام OpenOrderRequestVpis که IsLatest هستند
                 var openOrderRequestVpisList = await unitOfWork.Repository<OpenOrderRequestVpis>()
-                    .Table
+                    .TableNoTracking
                     .Include(v => v.OpenOrderRequest)
-                    .Include(v => v.Document)
-                    .Include(v => v.ProjectVpis)
-                    .Include(v => v.Project)
-                    .Where(v => v.IsLatest && 
-                          !v.OpenOrderRequest.IsDeleted && 
+                    .Where(v => v.IsLatest &&
+                          !v.OpenOrderRequest.IsDeleted &&
                           !v.OpenOrderRequest.IsForceDeletedByUser &&
                           v.OpenOrderRequest.SalesUnitSalesExpertId != null)
                     .ToListAsync(cn);
@@ -2089,103 +2090,32 @@ WHERE
                     return;
                 }
 
-                // دریافت تمام Documents مرتبط
                 var projectVpisIds = openOrderRequestVpisList.Select(v => v.ProjectVpisId).Distinct().ToList();
-                var latestDocuments = (await unitOfWork.Repository<Document>()
+                var projectVpisList = await unitOfWork.Repository<ProjectVpis>()
                     .TableNoTracking
-                    .Where(d => projectVpisIds.Contains(d.DocumentVpisId!.Value))
-                    .GroupBy(d => d.DocumentVpisId)
-                    .Select(g => g.OrderByDescending(d => d.Id).FirstOrDefault())
-                    .ToListAsync(cn))
-                    .Where(d => d != null)
-                    .Select(d => d!)
-                    .ToList();
+                    .Include(pv => pv.ProjectName)
+                    .Where(pv => projectVpisIds.Contains(pv.Id!.Value))
+                    .ToListAsync(cn);
+                var projectVpisById = projectVpisList
+                    .Where(pv => pv.Id.HasValue)
+                    .ToDictionary(pv => pv.Id!.Value);
 
-                var changedLinks = new List<OpenOrderRequestVpis>();
+                var documents = await unitOfWork.Repository<Document>()
+                    .TableNoTracking
+                    .Include(d => d.Comments)
+                    .Where(d => d.DocumentVpisId != null && projectVpisIds.Contains(d.DocumentVpisId.Value))
+                    .ToListAsync(cn);
 
-                foreach (var vpis in openOrderRequestVpisList)
-                {
-                    var latestDoc = latestDocuments.FirstOrDefault(d => d.DocumentVpisId == vpis.ProjectVpisId);
-                    if (latestDoc == null) continue;
+                var eligibleLatestDocuments = OpenOrderRequestVpisRules.SelectLatestEligiblePerVpis(
+                    documents,
+                    vpisId => projectVpisById.TryGetValue(vpisId, out var vpis) ? vpis.Title : null,
+                    vpisId => projectVpisById.TryGetValue(vpisId, out var vpis)
+                        && vpis.ProjectName?.ProjectIsVendoriType == true);
 
-                    // اگر Revision تغییر کرده باشد
-                    if (vpis.RevisionNumber != latestDoc.Revision)
-                    {
-                        changedLinks.Add(vpis);
-                        jobLogger?.LogInfoAsync($"Revision changed for OpenOrderRequestId={vpis.OpenOrderRequestId}, Old={vpis.RevisionNumber}, New={latestDoc.Revision}");
-                    }
-                }
+                var changedCount = await OpenOrderRequestVpisRevisionHelper.ApplyRevisionChangesAsync(
+                    unitOfWork, eligibleLatestDocuments, cn);
 
-                if (!changedLinks.Any())
-                {
-                    jobLogger?.LogInfoAsync("No revision changes found.");
-                    return;
-                }
-
-                // گروه‌بندی بر اساس OpenOrderRequestId
-                var groupedByRequest = changedLinks.GroupBy(v => v.OpenOrderRequestId);
-
-                foreach (var group in groupedByRequest)
-                {
-                    var openOrderRequestId = group.Key;
-                    var vpisList = group.ToList();
-
-                    // دریافت OpenOrderRequest
-                    var openOrderRequest = vpisList.First().OpenOrderRequest;
-
-                    // غیرفعال کردن تایید فروش
-                    openOrderRequest.HasSalesUnitConfirmation = false;
-
-                    // غیرفعال کردن لینک‌های قبلی
-                    foreach (var vpis in vpisList)
-                    {
-                        vpis.IsLatest = false;
-                    }
-
-                    await unitOfWork.SaveChangesAsync(cn);
-
-                    // ایجاد لینک‌های جدید با Revision بروز
-                    var now = DateTime.Now;
-                    foreach (var vpis in vpisList)
-                    {
-                        var latestDoc = latestDocuments.FirstOrDefault(d => d.DocumentVpisId == vpis.ProjectVpisId);
-                        if (latestDoc == null) continue;
-
-                        var newLink = new OpenOrderRequestVpis
-                        {
-                            OpenOrderRequestId = vpis.OpenOrderRequestId,
-                            ProjectId = vpis.ProjectId,
-                            ProjectVpisId = vpis.ProjectVpisId,
-                            DocumentId = latestDoc.Id,
-                            RevisionNumber = latestDoc.Revision,
-                            IsLatest = true,
-                            Comment = $"بروزرسانی خودکار Revision از {vpis.RevisionNumber} به {latestDoc.Revision}"
-                        };
-
-                        await unitOfWork.Repository<OpenOrderRequestVpis>().AddAsync(newLink, cn);
-                    }
-
-                    // ثبت کامنت
-                    var comment = new OpenOrderRequestComment
-                    {
-                        OpenOrderRequestId = openOrderRequestId,
-                        MiladiDate = now,
-                        ShamsiDate = now.ToShamsiDate(),
-                        HasSalesUnitConfirmation = false,
-                        SalesUnitConfirmationComment = "منتظر تایید پروژه/فروش بعلت تغییر در رویژن مدرک مهندسی",
-                        CommentValue = $"تغییر Revision مدارک VPIS - نیاز به تایید مجدد واحد فروش/پروژه"
-                    };
-
-                    await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
-                    await unitOfWork.SaveChangesAsync(cn);
-
-                    // ارسال Notification به واحد فروش/پروژه
-                    await SendVpisRevisionChangeNotification(openOrderRequest, vpisList, latestDocuments, cn);
-
-                    jobLogger?.LogInfoAsync($"Processed OpenOrderRequestId={openOrderRequestId}");
-                }
-
-                jobLogger?.LogInfoAsync("Completed CheckVpisRevisionChangesAndNotify.");
+                jobLogger?.LogInfoAsync($"Completed CheckVpisRevisionChangesAndNotify. UpdatedLinks={changedCount}");
             }
             catch (Exception ex)
             {
@@ -2197,75 +2127,299 @@ WHERE
             }
         }
 
-        private async Task SendVpisRevisionChangeNotification(OpenOrderRequest openOrderRequest, 
-            List<OpenOrderRequestVpis> changedVpis, List<Document> latestDocuments, CancellationToken cn)
+        #endregion
+
+        #region VPIS bridge from HTS + auto-insert
+
+        /// <summary>
+        /// پل روزانه از HTS تا خاموشی: کپی لینک‌های VPIS غایب.
+        /// تطبیق درخواست با PurchaseRequestItemId+OrderRowId؛ مدرک/پروژه/VPIS با HtsId.
+        /// </summary>
+        [JobHandler("همگام‌سازی لینک VPIS درخواست‌های باز از HTS")]
+        public async Task SyncOpenOrderRequestVpisFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
         {
             try
             {
-                var recipientUserIds = new List<long>();
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync("شروع همگام‌سازی VPIS درخواست‌های باز از HTS...", cn);
 
-                if (openOrderRequest.SalesUnitSalesExpertId.HasValue)
-                    recipientUserIds.Add(openOrderRequest.SalesUnitSalesExpertId.Value);
-                
-                if (openOrderRequest.SalesUnitSalesManagerId.HasValue)
-                    recipientUserIds.Add(openOrderRequest.SalesUnitSalesManagerId.Value);
-                
-                if (openOrderRequest.SalesUnitProjectManagerId.HasValue)
-                    recipientUserIds.Add(openOrderRequest.SalesUnitProjectManagerId.Value);
-
-                if (!recipientUserIds.Any())
-                    return;
-
-                var firstVpis = changedVpis.FirstOrDefault();
-                if (firstVpis == null) return;
-
-                var project = firstVpis.Project;
-                var projectName = project?.ProjectName ?? "نامشخص";
-                var projectCode = project?.Code ?? "-";
-
-                var title = "تغییر Revision مدرک مهندسی - نیاز به تایید مجدد";
-                var body = $@"
-                    <div style='text-align:center;direction:rtl'>
-                        <table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>
-                            <tr style='background: #000aa0'>
-                                <td><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td>
-                            </tr>
-                            <tr><td>
-                                <div style='font-size:12pt;text-align:right;direction:rtl'>
-                                    <p>با سلام و احترام</p>
-                                    <p>رویژن جدیدی از مدارک پروژه در سامانه بارگذاری گردید. لذا خواهشمند است نسبت به بررسی مجدد درخواست های باز اقدام فرمایید.</p>
-                                    <ul>
-                                        <li>کد پروژه: <strong>{projectCode}</strong></li>
-                                        <li>عنوان پروژه: <strong>{projectName}</strong></li>
-                                        <li>شماره درخواست خرید: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-                                        <li>شماره سفارش خرید: <strong>{openOrderRequest.OrderNo}</strong></li>
-                                    </ul>
-                                </div>
-                            </td></tr>
-                        </table>
-                    </div>
-                ";
-
-                foreach (var userId in recipientUserIds.Distinct())
-                {
-                    await unitOfWork.Repository<Notification>().AddAsync(new Notification
+                var htsLinks = await (
+                    from v in htsDb.Hts_Sup_OpenOrderRequestVpis.AsNoTracking()
+                    join o in htsDb.Hts_Sup_OpenOrderRequests.AsNoTracking()
+                        on v.OpenOrderRequestId equals o.OpenOrderRequest_ID
+                    select new
                     {
-                        Type = NotificationType.Email,
-                        Title = title,
-                        Body = body,
-                        EntityId = openOrderRequest.Id,
-                        OwnerId = userId,
-                        ViewPath = $"Panel/Sup/OpenOrderRequest/Edit/{openOrderRequest.Id}",
-                        IsRead = false
+                        v.Id,
+                        v.OpenOrderRequestId,
+                        v.ProjectId,
+                        v.ProjectVpisId,
+                        v.DocumentId,
+                        v.RevisionNumber,
+                        v.IsLatest,
+                        v.Comment,
+                        o.PurchaseRequestItemId,
+                        o.OrderRowId
+                    }).ToListAsync(cn);
+
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync($"تعداد لینک VPIS در HTS: {htsLinks.Count}", cn);
+
+                if (htsLinks.Count == 0)
+                {
+                    await AutoInsertVpisLinksForActiveRequestsAsync(jobLogger, cn);
+                    return;
+                }
+
+                var localOrders = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+                    .Select(o => new { Id = o.Id!.Value, o.PurchaseRequestItemId, o.OrderRowId })
+                    .ToListAsync(cn);
+
+                var localByPrAndOrder = localOrders
+                    .Where(o => o.OrderRowId.HasValue)
+                    .GroupBy(o => (o.PurchaseRequestItemId, o.OrderRowId!.Value))
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+                var localByPrOnly = localOrders
+                    .Where(o => !o.OrderRowId.HasValue)
+                    .GroupBy(o => o.PurchaseRequestItemId)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+                var localByPrAny = localOrders
+                    .GroupBy(o => o.PurchaseRequestItemId)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+
+                var projectByHts = await unitOfWork.Repository<Project>().TableNoTracking
+                    .Where(p => p.HtsId != 0)
+                    .Select(p => new { Id = p.Id!.Value, p.HtsId })
+                    .ToDictionaryAsync(p => p.HtsId, p => p.Id, cn);
+                var vpisByHts = await unitOfWork.Repository<ProjectVpis>().TableNoTracking
+                    .Where(p => p.HtsId != 0)
+                    .Select(p => new { Id = p.Id!.Value, p.HtsId })
+                    .ToDictionaryAsync(p => p.HtsId, p => p.Id, cn);
+                var documentByHts = await unitOfWork.Repository<Document>().TableNoTracking
+                    .Where(d => d.HtsId != 0)
+                    .Select(d => new { Id = d.Id!.Value, d.HtsId })
+                    .ToDictionaryAsync(d => d.HtsId, d => d.Id, cn);
+
+                var existingPairs = (await unitOfWork.Repository<OpenOrderRequestVpis>().TableNoTracking
+                    .Select(v => new { v.OpenOrderRequestId, v.DocumentId, v.ProjectVpisId })
+                    .ToListAsync(cn))
+                    .Select(v => (v.OpenOrderRequestId, v.DocumentId, v.ProjectVpisId))
+                    .ToHashSet();
+
+                var inserted = 0;
+                var skipped = 0;
+                var unmatchedRequest = 0;
+                var unmatchedProject = 0;
+                var unmatchedVpis = 0;
+                var unmatchedDocument = 0;
+
+                foreach (var link in htsLinks)
+                {
+                    var localOrderId = ResolveLocalOpenOrderRequestId(
+                        link.PurchaseRequestItemId,
+                        link.OrderRowId,
+                        localByPrAndOrder,
+                        localByPrOnly,
+                        localByPrAny);
+                    if (localOrderId == null)
+                    {
+                        unmatchedRequest++;
+                        skipped++;
+                        continue;
+                    }
+
+                    if (!projectByHts.TryGetValue(link.ProjectId, out var localProjectId))
+                    {
+                        unmatchedProject++;
+                        skipped++;
+                        if (jobLogger != null)
+                            await jobLogger.LogWarningAsync($"پروژه HTS {link.ProjectId} برای VPIS {link.Id} یافت نشد", 0, cn);
+                        continue;
+                    }
+
+                    if (!vpisByHts.TryGetValue(link.ProjectVpisId, out var localVpisId))
+                    {
+                        unmatchedVpis++;
+                        skipped++;
+                        if (jobLogger != null)
+                            await jobLogger.LogWarningAsync($"ProjectVpis HTS {link.ProjectVpisId} برای VPIS {link.Id} یافت نشد", 0, cn);
+                        continue;
+                    }
+
+                    long? localDocumentId = null;
+                    if (link.DocumentId.HasValue)
+                    {
+                        if (!documentByHts.TryGetValue(link.DocumentId.Value, out var mappedDocId))
+                        {
+                            unmatchedDocument++;
+                            skipped++;
+                            if (jobLogger != null)
+                                await jobLogger.LogWarningAsync($"مدرک HTS {link.DocumentId} برای VPIS {link.Id} یافت نشد", 0, cn);
+                            continue;
+                        }
+                        localDocumentId = mappedDocId;
+                    }
+
+                    var key = (localOrderId.Value, localDocumentId, localVpisId);
+                    if (existingPairs.Contains(key))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    await unitOfWork.Repository<OpenOrderRequestVpis>().AddAsync(new OpenOrderRequestVpis
+                    {
+                        OpenOrderRequestId = localOrderId.Value,
+                        ProjectId = localProjectId,
+                        ProjectVpisId = localVpisId,
+                        DocumentId = localDocumentId,
+                        RevisionNumber = link.RevisionNumber,
+                        IsLatest = link.IsLatest,
+                        Comment = link.Comment
                     }, cn);
+
+                    existingPairs.Add(key);
+                    inserted++;
                 }
 
                 await unitOfWork.SaveChangesAsync(cn);
+
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync(
+                        $"پایان پل VPIS از HTS. Inserted={inserted}, Skipped={skipped}, UnmatchedRequest={unmatchedRequest}, UnmatchedProject={unmatchedProject}, UnmatchedVpis={unmatchedVpis}, UnmatchedDocument={unmatchedDocument}",
+                        cn);
+
+                await AutoInsertVpisLinksForActiveRequestsAsync(jobLogger, cn);
             }
-            catch
+            catch (Exception ex)
             {
-                // Log error but don't throw - این نباید کل Job را متوقف کند
+                if (jobLogger != null)
+                    await jobLogger.LogErrorAsync($"خطای کلی SyncOpenOrderRequestVpisFromHts: {ex.Message}", 0, cn);
+                throw;
             }
+        }
+
+        private async Task AutoInsertVpisLinksForActiveRequestsAsync(IJobLogger? jobLogger, CancellationToken cn)
+        {
+            var candidates = await unitOfWork.Repository<OpenOrderRequest>().Table
+                .Include(o => o.ProductionOrder)
+                .Where(o => !o.IsDeleted && !o.IsForceDeletedByUser
+                    && o.ProductionOrderId != null
+                    && o.ProductionOrder != null
+                    && o.ProductionOrder.EdmsProject != null)
+                .ToListAsync(cn);
+
+            await AutoInsertVpisLinksForRequestsAsync(candidates, jobLogger, cn);
+        }
+
+        /// <summary>
+        /// پورت شرط HTS «درج بصورت اتوماتیک توسط سیستم»:
+        /// درخواست فعال با سفارش ساخت دارای EdmsProject و آخرین مدارک معتبر پروژه
+        /// (همان فیلتر GetVpisListByProject). اگر لینک (درخواست + ProjectVpis) نبود درج می‌شود.
+        /// </summary>
+        private async Task AutoInsertVpisLinksForRequestsAsync(
+            List<OpenOrderRequest> requests,
+            IJobLogger? jobLogger,
+            CancellationToken cn)
+        {
+            var withProject = requests
+                .Where(o => o.Id.HasValue && o.ProductionOrder?.EdmsProject != null)
+                .Select(o => new { Request = o, HtsProjectId = (long)o.ProductionOrder!.EdmsProject!.Value })
+                .ToList();
+            if (withProject.Count == 0)
+                return;
+
+            var htsProjectIds = withProject.Select(x => x.HtsProjectId).Distinct().ToList();
+            var projects = await unitOfWork.Repository<Project>().TableNoTracking
+                .Where(p => htsProjectIds.Contains(p.HtsId))
+                .Select(p => new { Id = p.Id!.Value, p.HtsId })
+                .ToListAsync(cn);
+            var projectByHts = projects.ToDictionary(p => p.HtsId, p => p.Id);
+            if (projectByHts.Count == 0)
+            {
+                if (jobLogger != null)
+                    await jobLogger.LogInfoAsync("AutoInsert VPIS: هیچ پروژه‌ای با HtsId=EdmsProject یافت نشد.", cn);
+                return;
+            }
+
+            var localProjectIds = projectByHts.Values.Distinct().ToList();
+            var projectVpisList = await unitOfWork.Repository<ProjectVpis>().TableNoTracking
+                .Include(pv => pv.ProjectName)
+                .Where(pv => pv.ProjectNameId != null && localProjectIds.Contains(pv.ProjectNameId.Value))
+                .Select(pv => new
+                {
+                    Id = pv.Id!.Value,
+                    ProjectId = pv.ProjectNameId!.Value,
+                    pv.Title,
+                    IsVendor = pv.ProjectName != null && pv.ProjectName.ProjectIsVendoriType
+                })
+                .ToListAsync(cn);
+            if (projectVpisList.Count == 0)
+                return;
+
+            var projectVpisIds = projectVpisList.Select(pv => pv.Id).ToList();
+            var projectVpisById = projectVpisList.ToDictionary(pv => pv.Id);
+            var documents = await unitOfWork.Repository<Document>().TableNoTracking
+                .Include(d => d.Comments)
+                .Where(d => d.DocumentVpisId != null && projectVpisIds.Contains(d.DocumentVpisId.Value))
+                .ToListAsync(cn);
+
+            var latestValidDocs = OpenOrderRequestVpisRules.SelectLatestEligiblePerVpis(
+                documents,
+                vpisId => projectVpisById.TryGetValue(vpisId, out var vpis) ? vpis.Title : null,
+                vpisId => projectVpisById.TryGetValue(vpisId, out var vpis) && vpis.IsVendor);
+
+            var vpisByProject = projectVpisList.GroupBy(pv => pv.ProjectId).ToDictionary(g => g.Key, g => g.ToList());
+            var docsByVpis = latestValidDocs
+                .Where(d => d.DocumentVpisId.HasValue)
+                .GroupBy(d => d.DocumentVpisId!.Value)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            var requestIds = withProject.Select(x => x.Request.Id!.Value).ToList();
+            var existing = (await unitOfWork.Repository<OpenOrderRequestVpis>().Table
+                .Where(v => requestIds.Contains(v.OpenOrderRequestId))
+                .Select(v => new { v.OpenOrderRequestId, v.ProjectVpisId })
+                .ToListAsync(cn))
+                .Select(v => (v.OpenOrderRequestId, v.ProjectVpisId))
+                .ToHashSet();
+
+            const string autoComment = "درج بصورت اتوماتیک توسط سیستم";
+            var inserted = 0;
+
+            foreach (var item in withProject)
+            {
+                if (!projectByHts.TryGetValue(item.HtsProjectId, out var localProjectId))
+                    continue;
+                if (!vpisByProject.TryGetValue(localProjectId, out var vpisRows))
+                    continue;
+
+                foreach (var vpis in vpisRows)
+                {
+                    if (!docsByVpis.TryGetValue(vpis.Id, out var doc))
+                        continue;
+                    var key = (item.Request.Id!.Value, vpis.Id);
+                    if (existing.Contains(key))
+                        continue;
+
+                    await unitOfWork.Repository<OpenOrderRequestVpis>().AddAsync(new OpenOrderRequestVpis
+                    {
+                        OpenOrderRequestId = item.Request.Id.Value,
+                        ProjectId = localProjectId,
+                        ProjectVpisId = vpis.Id,
+                        DocumentId = doc.Id,
+                        RevisionNumber = doc.Revision,
+                        IsLatest = true,
+                        Comment = autoComment
+                    }, cn);
+                    existing.Add(key);
+                    inserted++;
+                }
+            }
+
+            if (inserted > 0)
+                await unitOfWork.SaveChangesAsync(cn);
+
+            if (jobLogger != null)
+                await jobLogger.LogInfoAsync($"AutoInsert VPIS: {inserted} لینک برای {withProject.Count} درخواست.", cn);
         }
 
         #endregion

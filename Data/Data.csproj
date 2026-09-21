@@ -36,4 +36,10 @@
     </Reference>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Seed\TrnReports\*.json" />
+    <EmbeddedResource Include="Seed\TrnProfiles\*.json" />
+    <EmbeddedResource Include="Seed\TrnRoles\*.json" />
+  </ItemGroup>
+
 </Project>

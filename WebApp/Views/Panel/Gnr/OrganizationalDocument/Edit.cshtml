@@ -1,0 +1,296 @@
+@using Entities.App.Gnr
+@model OrganizationalDocument
+@{
+	var isNew = Model?.Id == null || Model.Id == 0;
+}
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(OrganizationalDocument)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-download" action-name="download" title="دانلود فایل"></form-action-button>
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">اسناد سازمانی</h4>
+			</div>
+		</div>
+
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="fileIds" type="hidden" />
+
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">پوشه</label>
+				@(Html.EntitySelector<DocumentFolder>(
+					"FolderSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active && (c.FolderLevel == 1 || c.ParentId == null),
+					c => new
+					{
+						Id = c.Id,
+						Title = c.Title,
+						FolderTitle = c.FolderTitle,
+						OrganizationUnitTitle = c.OrganizationUnit.Title
+					},
+					c => new { c.Title, c.FolderTitle, OrganizationUnitTitle = c.OrganizationUnit.Title },
+					"{OrganizationUnitTitle} | {Title} | {FolderTitle}",
+					"folderId",
+					"folderTitle",
+					Model?.FolderId == 0 ? null : Model?.FolderId.ToString(),
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">پوشه سطح ۲</label>
+				@(Html.EntitySelector<DocumentFolder>(
+					"SecondLevelFolderSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.FolderLevel == 2,
+					c => new { Id = c.Id, Title = c.Title, FolderTitle = c.FolderTitle, ParentId = c.ParentId },
+					c => new { c.Title, c.FolderTitle },
+					"{Title} | {FolderTitle}",
+					"secondLevelFolderId",
+					"secondLevelFolderTitle",
+					Model?.SecondLevelFolderId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">پوشه سطح ۳</label>
+				@(Html.EntitySelector<DocumentFolder>(
+					"ThirdLevelFolderSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.FolderLevel == 3,
+					c => new { Id = c.Id, Title = c.Title, FolderTitle = c.FolderTitle, ParentId = c.ParentId },
+					c => new { c.Title, c.FolderTitle },
+					"{Title} | {FolderTitle}",
+					"thirdLevelFolderId",
+					"thirdLevelFolderTitle",
+					Model?.ThirdLevelFolderId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">عنوان</label>
+				<input class="form-control" data-bind="title" required asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">عنوان لاتین</label>
+				<input class="form-control" dir="ltr" data-bind="titleInLatin" required asp-for="TitleInLatin" id="titleInLatin" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">برند</label>
+				<input class="form-control" data-bind="brand" asp-for="Brand" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سال</label>
+				<input class="form-control" dir="ltr" data-bind="year"
+					   data-invalidMessage="فقط عدد"
+					   data-inputmask="'regex':'^[\\u06F0-\\u06F90-9]+$' , 'placeholder' : ''"
+					   asp-for="Year" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">بازنگری</label>
+				<input class="form-control" dir="ltr" data-bind="revision" required
+					   data-invalidMessage="فقط عدد"
+					   data-inputmask="'regex':'^[\\u06F0-\\u06F90-9]+$' , 'placeholder' : ''"
+					   asp-for="Revision" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<fileuploader bind="fileId"
+							  file-id="@Model?.FileId"
+							  file-entity="@Model?.File"
+							  label="فایل"
+							  entity-type="@typeof(OrganizationalDocument).FullName"
+							  entity-prop-name="File"
+							  max-file-size="50"
+							  max-files="20"
+							  multiple="@isNew"
+							  accepted-file-types=".pdf,.zip,.rar,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+							  required="@isNew"></fileuploader>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" rows="3" asp-for="Comment"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm">
+	<div class="card-body">
+		<div class="row text-muted">
+			<div class="col-md-3">
+				<span class="fw-bold">ایجاد کننده :</span>
+				<span data-bind="createdByName">@Model?.CreatedByName</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">تاریخ ایجاد :</span>
+				<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">ویرایش کننده :</span>
+				<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+			</div>
+			<div class="col-md-3">
+				<span class="fw-bold">تاریخ ویرایش :</span>
+				<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const isNewDocument = @(isNew ? "true" : "false");
+
+	function setupFolderCascade() {
+		const secondOpts = {
+			filters: function () {
+				const folderId = $$('#FolderSelector').find('.entity-selector-value').val();
+				return { ParentId: folderId || '0' };
+			},
+			watchDependencies: ['#FolderSelector']
+		};
+		const thirdOpts = {
+			filters: function () {
+				const secondId = $$('#SecondLevelFolderSelector').find('.entity-selector-value').val();
+				return { ParentId: secondId || '0' };
+			},
+			watchDependencies: ['#SecondLevelFolderSelector']
+		};
+
+		const $second = $$('#SecondLevelFolderSelector');
+		let secondInst = $second.data('entitySelector') || $second.data('entitySelectorInstance');
+		if (secondInst) {
+			secondInst.extraFilters = secondOpts.filters;
+			secondInst.options.watchDependencies = secondOpts.watchDependencies;
+			secondInst.watchDependencies();
+		} else {
+			$second.entitySelector(secondOpts);
+		}
+
+		const $third = $$('#ThirdLevelFolderSelector');
+		let thirdInst = $third.data('entitySelector') || $third.data('entitySelectorInstance');
+		if (thirdInst) {
+			thirdInst.extraFilters = thirdOpts.filters;
+			thirdInst.options.watchDependencies = thirdOpts.watchDependencies;
+			thirdInst.watchDependencies();
+		} else {
+			$third.entitySelector(thirdOpts);
+		}
+	}
+
+	function keepMultiUploadOpen() {
+		if (!isNewDocument) return;
+		const $uploader = $$('[data-file-uploader="true"]');
+		const dz = $uploader.data('dropzone');
+		if (!dz) return;
+		dz.on('success', function () {
+			setTimeout(function () {
+				$$('.file-uploader-wrapper').show();
+				$uploader.show();
+			}, 50);
+		});
+	}
+
+	function collectFileIds() {
+		const ids = [];
+		$$('.existing-file-item').each(function () {
+			const id = $(this).data('file-id');
+			if (id && ids.indexOf(String(id)) < 0) ids.push(String(id));
+		});
+		const bound = $$('[data-bind="fileId"]').val();
+		if (bound && ids.indexOf(String(bound)) < 0) ids.push(String(bound));
+		return ids;
+	}
+
+	$$('#titleInLatin').on('input', function () {
+		const $el = $(this);
+		const v = $el.val() || '';
+		const cleaned = v.replace(/[^\x20-\x7E]/g, '');
+		if (cleaned !== v) $el.val(cleaned);
+	});
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+
+		const latin = $$('[data-bind="titleInLatin"]').val() || '';
+		if (!latin.trim()) {
+			toastr.error('عنوان لاتین الزامی است', 'خطا');
+			return;
+		}
+		if (/[^\x20-\x7E]/.test(latin)) {
+			toastr.error('عنوان لاتین باید فقط با حروف انگلیسی باشد', 'خطا');
+			return;
+		}
+
+		const model = page.$pageEl.dataBind();
+		const fileIds = collectFileIds();
+		if (isNewDocument) {
+			if (fileIds.length === 0) {
+				toastr.error('انتخاب فایل الزامی است', 'خطا');
+				return;
+			}
+			if (fileIds.length > 20) {
+				toastr.error('حداکثر ۲۰ فایل در هر ثبت مجاز است', 'خطا');
+				return;
+			}
+		}
+		model.fileIds = fileIds.join(',');
+		if (fileIds.length > 0) model.fileId = fileIds[fileIds.length - 1];
+
+		const year = parseInt(model.year, 10);
+		if (model.year && year === 0) {
+			toastr.error('سال نامعتبر است', 'خطا');
+			return;
+		}
+
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			if (r.data && r.data.saveWarning) {
+				toastr.warning(r.data.saveWarning);
+			}
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+
+	if (self.FormActionButtons.download) {
+		self.FormActionButtons.download.onclick(function () {
+			const id = $$('[data-bind="id"]').val();
+			if (!id || id === '0') {
+				toastr.error('ابتدا سند را ذخیره کنید');
+				return;
+			}
+			window.open('/Panel/Gnr/OrganizationalDocument/Download?id=' + id, '_blank');
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	setupFolderCascade();
+	keepMultiUploadOpen();
+</script>

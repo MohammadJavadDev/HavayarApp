@@ -1,0 +1,498 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "گزارش آماری دوره‌ها";
+	var today = DateTime.Today;
+	var todayShamsi = today.ToShamsiDate();
+	var firstDayOfYear = string.Concat(todayShamsi.Split('/')[0], "/01/01");
+}
+
+<style>
+	#courseStatPage .csr-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#courseStatPage .csr-summary-card {
+		min-height: 92px;
+	}
+
+	#courseStatPage svg text {
+		font-family: inherit !important;
+	}
+
+	#courseStatPage .csr-metric-table td:nth-child(even) {
+		text-align: center;
+		direction: ltr;
+		font-weight: 600;
+	}
+</style>
+
+<div id="courseStatPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">گزارش آماری دوره‌ها</h3>
+					<div class="text-muted fs-7">
+						جمع‌بندی تعداد، ساعات، مدرسین و ارزیابی دوره‌ها در بازه انتخاب‌شده
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadCourseStat">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">از تاریخ</label>
+				<input class="form-control ltr" id="courseStatFromDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تا تاریخ</label>
+				<input class="form-control ltr" id="courseStatToDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-3">
+			<div class="card csr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد کل دوره‌ها</div>
+					<div class="csr-summary-value" id="csrAllCourseCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card csr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">ساعت کل آموزش</div>
+					<div class="csr-summary-value" id="csrAllCourseHour">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card csr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">میانگین ارزیابی کل دوره‌ها</div>
+					<div class="csr-summary-value" id="csrFinalEvalAverage">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card csr-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">مبلغ فروش</div>
+					<div class="csr-summary-value" id="csrCourseCost">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">خلاصه آماری</h3>
+				</div>
+				<div class="card-body p-3">
+					<table class="table table-bordered table-striped table-hover mb-0 csr-metric-table">
+						<thead>
+							<tr>
+								<th>عنوان</th>
+								<th class="text-center">مقدار</th>
+								<th>عنوان</th>
+								<th class="text-center">مقدار</th>
+							</tr>
+						</thead>
+						<tbody id="csrTotalsBody"></tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">نمودار تفکیک مدرسین هوایاری / غیرهوایاری</h3>
+				</div>
+				<div class="card-body">
+					<div id="csrTeacherTypeChart" style="min-height:360px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">نمودار دوره‌ها بر اساس تعداد برگزاری</h3>
+				</div>
+				<div class="card-body">
+					<div id="csrCountChart" style="min-height:380px"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">نمودار دوره‌ها بر اساس ساعات آموزش</h3>
+				</div>
+				<div class="card-body">
+					<div id="csrHourChart" style="min-height:380px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">زمینه فعالیت شرکت‌ها</h3>
+				</div>
+				<div class="card-body p-3">
+					<table class="table table-bordered table-striped table-hover mb-0">
+						<thead>
+							<tr>
+								<th>زمینه فعالیت</th>
+								<th class="text-center">تعداد</th>
+							</tr>
+						</thead>
+						<tbody id="csrActivityBody"></tbody>
+						<tfoot>
+							<tr class="fw-bold">
+								<td>جمع</td>
+								<td class="text-center" id="csrActivitySum">-</td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">نمودار دوره‌ها بر اساس زمینه فعالیت شرکت‌ها</h3>
+				</div>
+				<div class="card-body">
+					<div id="csrActivityChart" style="min-height:380px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">ارزیابی مدرس</h3>
+				</div>
+				<div class="card-body p-3">
+					<div class="table-responsive">
+						<table class="table table-bordered table-striped table-hover mb-0">
+							<thead>
+								<tr>
+									<th class="text-center">#</th>
+									<th>نام و نام خانوادگی</th>
+									<th class="text-center">تعداد دوره</th>
+									<th class="text-center">ارزیابی مدرس</th>
+								</tr>
+							</thead>
+							<tbody id="csrTeacherEvalBody"></tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">نمودار ارزیابی مدرس</h3>
+				</div>
+				<div class="card-body">
+					<div id="csrTeacherEvalChart" style="min-height:420px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Trn/CourseStatisticalReport/GetData';
+	const firstDayOfYear = '@firstDayOfYear';
+	const todayShamsi = '@todayShamsi';
+
+	const $page = $$('#courseStatPage');
+	const $fromDate = $$('#courseStatFromDate');
+	const $toDate = $$('#courseStatToDate');
+	const $loadButton = $$('#btnLoadCourseStat');
+
+	let teacherTypeChart = null;
+	let countChart = null;
+	let hourChart = null;
+	let activityChart = null;
+	let teacherEvalChart = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function formatMoney(value) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR') + ' ریال';
+	}
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function getFilter() {
+		return {
+			fromDateShamsi: $fromDate.val() || null,
+			toDateShamsi: $toDate.val() || null
+		};
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function metricRow(leftTitle, leftValue, rightTitle, rightValue) {
+		return '<tr>' +
+			'<td>' + escapeHtml(leftTitle) + '</td>' +
+			'<td>' + escapeHtml(leftValue) + '</td>' +
+			'<td>' + escapeHtml(rightTitle) + '</td>' +
+			'<td>' + escapeHtml(rightValue) + '</td>' +
+			'</tr>';
+	}
+
+	function renderSummary(totals) {
+		$$('#csrAllCourseCount').text(formatNumber(totals.allCourseCount));
+		$$('#csrAllCourseHour').text(formatNumber(totals.allCourseHour));
+		$$('#csrFinalEvalAverage').text(formatNumber(totals.finalEvalAverage, 2));
+		$$('#csrCourseCost').text(formatMoney(totals.courseCost));
+
+		const $body = $$('#csrTotalsBody').empty();
+		$body.append(metricRow('تعداد کل دوره‌ها', formatNumber(totals.allCourseCount), 'ساعت کل آموزش', formatNumber(totals.allCourseHour)));
+		$body.append(metricRow('دوره‌های سی‌ان‌جی', formatNumber(totals.allCourseCountCng), 'درصد دوره‌های سی‌ان‌جی', totals.allCourseCountCngPercentage || '0%'));
+		$body.append(metricRow('دوره‌های مهندسی', formatNumber(totals.allCourseCountHy), 'درصد دوره‌های مهندسی', totals.allCourseCountHyPercentage || '0%'));
+		$body.append(metricRow('دوره‌های اختصاصی', formatNumber(totals.allPrivateCourseCount), 'درصد دوره‌های اختصاصی', totals.allPrivateCourseCountPercentage || '0%'));
+		$body.append(metricRow('دوره‌های فراخوان عمومی', formatNumber(totals.allPublicCourseCount), 'درصد دوره‌های فراخوان عمومی', totals.allPublicCourseCountPercentage || '0%'));
+		$body.append(metricRow('ساعات سی‌ان‌جی', formatNumber(totals.allCourseHourCng), 'درصد ساعات سی‌ان‌جی', totals.allCourseHourCngPercentage || '0%'));
+		$body.append(metricRow('ساعات مهندسی', formatNumber(totals.allCourseHourHy), 'درصد ساعات مهندسی', totals.allCourseHourHyPercentage || '0%'));
+		$body.append(metricRow('ساعات فراخوان اختصاصی', formatNumber(totals.allPrivateCourseHour), 'درصد فراخوان اختصاصی', totals.allPrivateCourseHourPercentage || '0%'));
+		$body.append(metricRow('ساعات فراخوان عمومی', formatNumber(totals.allPublicCourseHour), 'درصد ساعات فراخوان عمومی', totals.allPublicCourseHourPercentage || '0%'));
+		$body.append(metricRow('مدرسین هوایاری', formatNumber(totals.allHavayariTeacherCount), 'مدرسین غیرهوایاری', formatNumber(totals.allNotHavayariTeacherCount)));
+		$body.append(metricRow('میانگین ارزیابی کل دوره‌ها', formatNumber(totals.finalEvalAverage, 2), 'مبلغ فروش', formatMoney(totals.courseCost)));
+	}
+
+	function renderOrUpdateChart(existing, elementId, options) {
+		if (existing) {
+			existing.updateOptions(options);
+			return existing;
+		}
+		const chart = new ApexCharts($$('#' + elementId)[0], options);
+		chart.render();
+		return chart;
+	}
+
+	function columnOptions(categories, data, colors, height) {
+		return {
+			chart: { type: 'bar', height: height || 360, fontFamily: 'inherit', toolbar: { show: false } },
+			plotOptions: { bar: { distributed: true, columnWidth: '45%' } },
+			series: [{ name: 'مقدار', data: data }],
+			colors: colors,
+			xaxis: { categories: categories },
+			legend: { show: false },
+			dataLabels: { enabled: true },
+			yaxis: { labels: { formatter: function (v) { return Number(v).toLocaleString('fa-IR'); } } },
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function barOptions(categories, data, height) {
+		return {
+			chart: { type: 'bar', height: height || 380, fontFamily: 'inherit', toolbar: { show: false } },
+			plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+			series: [{ name: 'مقدار', data: data }],
+			xaxis: { categories: categories },
+			yaxis: { labels: { maxWidth: 220 } },
+			legend: { show: false },
+			dataLabels: {
+				enabled: true,
+				formatter: function (v) { return Number(v).toLocaleString('fa-IR'); }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function renderTeacherTypeChart(totals) {
+		teacherTypeChart = renderOrUpdateChart(teacherTypeChart, 'csrTeacherTypeChart', columnOptions(
+			['مدرسین هوایاری', 'مدرسین غیرهوایاری'],
+			[Number(totals.allHavayariTeacherCount || 0), Number(totals.allNotHavayariTeacherCount || 0)],
+			['#ff680d', '#1fe010'],
+			360
+		));
+	}
+
+	function renderCountChart(totals) {
+		countChart = renderOrUpdateChart(countChart, 'csrCountChart', columnOptions(
+			['تعداد کل دوره‌ها', 'دوره‌های سی‌ان‌جی', 'دوره‌های مهندسی', 'دوره‌های اختصاصی', 'دوره‌های فراخوان عمومی'],
+			[
+				Number(totals.allCourseCount || 0),
+				Number(totals.allCourseCountCng || 0),
+				Number(totals.allCourseCountHy || 0),
+				Number(totals.allPrivateCourseCount || 0),
+				Number(totals.allPublicCourseCount || 0)
+			],
+			['#324191', '#ff680d', '#ff680d', '#1fe010', '#1fe010'],
+			380
+		));
+	}
+
+	function renderHourChart(totals) {
+		hourChart = renderOrUpdateChart(hourChart, 'csrHourChart', columnOptions(
+			['ساعت کل آموزش', 'ساعات سی‌ان‌جی', 'ساعات مهندسی', 'ساعات فراخوان اختصاصی', 'ساعات فراخوان عمومی'],
+			[
+				Number(totals.allCourseHour || 0),
+				Number(totals.allCourseHourCng || 0),
+				Number(totals.allCourseHourHy || 0),
+				Number(totals.allPrivateCourseHour || 0),
+				Number(totals.allPublicCourseHour || 0)
+			],
+			['#324191', '#ff680d', '#ff680d', '#1fe010', '#1fe010'],
+			380
+		));
+	}
+
+	function renderActivityTable(report) {
+		const rows = report.activityFields || [];
+		const $body = $$('#csrActivityBody').empty();
+		let sum = 0;
+		rows.forEach(function (row) {
+			sum += Number(row.count || 0);
+			$body.append('<tr><td>' + escapeHtml(row.activityField) + '</td><td class="text-center">' +
+				formatNumber(row.count) + '</td></tr>');
+		});
+		$$('#csrActivitySum').text(formatNumber(sum));
+	}
+
+	function renderActivityChart(report) {
+		const rows = report.activityFields || [];
+		const height = Math.max(380, rows.length * 28);
+		$$('#csrActivityChart').css('min-height', height + 'px');
+		activityChart = renderOrUpdateChart(activityChart, 'csrActivityChart', Object.assign(
+			barOptions(rows.map(r => r.activityField), rows.map(r => Number(r.count || 0)), height),
+			{ colors: ['#009ef7'] }
+		));
+	}
+
+	function renderTeacherEvalTable(report) {
+		const rows = report.teacherEvaluations || [];
+		const $body = $$('#csrTeacherEvalBody').empty();
+		rows.forEach(function (row, index) {
+			$body.append('<tr>' +
+				'<td class="text-center">' + formatNumber(index + 1) + '</td>' +
+				'<td>' + escapeHtml(row.fullName) + '</td>' +
+				'<td class="text-center">' + formatNumber(row.courseCount) + '</td>' +
+				'<td class="text-center">' + formatNumber(row.teacherEvalOw, 2) + '</td>' +
+				'</tr>');
+		});
+	}
+
+	function renderTeacherEvalChart(report) {
+		const rows = report.teacherEvaluations || [];
+		const height = Math.max(420, rows.length * 28);
+		$$('#csrTeacherEvalChart').css('min-height', height + 'px');
+		teacherEvalChart = renderOrUpdateChart(teacherEvalChart, 'csrTeacherEvalChart', Object.assign(
+			barOptions(rows.map(r => r.fullName), rows.map(r => Number(r.teacherEvalOw || 0)), height),
+			{ colors: ['#50cd89'] }
+		));
+	}
+
+	function renderReport(report) {
+		const totals = report.totals || {};
+		renderSummary(totals);
+		renderActivityTable(report);
+		renderTeacherEvalTable(report);
+		whenApexReady(function () {
+			renderTeacherTypeChart(totals);
+			renderCountChart(totals);
+			renderHourChart(totals);
+			renderActivityChart(report);
+			renderTeacherEvalChart(report);
+		});
+	}
+
+	function loadReport() {
+		if (!$fromDate.val()) {
+			toastr.error('از تاریخ را وارد کنید', 'خطا');
+			return;
+		}
+		if (!$toDate.val()) {
+			toastr.error('تا تاریخ را وارد کنید', 'خطا');
+			return;
+		}
+
+		$loadButton.prop('disabled', true);
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, getFilter(), function (response) {
+			$loadButton.prop('disabled', false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderReport(unwrap(response) || {});
+		});
+	}
+
+	$fromDate.val(firstDayOfYear);
+	$toDate.val(todayShamsi);
+	$loadButton.on('click', loadReport);
+	loadReport();
+</script>
