@@ -24,6 +24,8 @@
 			@headerTitle
 		</h5>
 		<div>
+			@if (Model.CanManageBom)
+			{
 			<button type="button" class="btn btn-primary" id="btnNewBom">
 				<i class="fa fa-plus-circle ms-1"></i>
 				افزودن
@@ -32,6 +34,7 @@
 				<i class="fa fa-file-excel ms-1"></i>
 				افزودن با اکسل
 			</button>
+			}
 			<button type="button" class="btn btn-success" id="btnExportBomExcel">
 				<i class="fa fa-file-excel ms-1"></i>
 				خروجی اکسل
@@ -78,6 +81,9 @@
 		const productionOrderItemId = @Model.ProductionOrderItemId;
 		const tableSelector = "#@tableId";
 		const listApiUrl = "/Panel/ProductionOrderItem/GetBomListByParentId?productionOrderItemId=" + productionOrderItemId;
+		const canManageBom = @(Model.CanManageBom ? "true" : "false");
+		const canEditBomNewFields = @(Model.CanEditBomNewFields ? "true" : "false");
+		const canEditBom = canManageBom || canEditBomNewFields;
 		const listProductionOrderItemBomProductionStepEnum = @Html.Raw(listProductionOrderItemBomProductionStepEnum.JsonSerialize());
 		const listProductionOrderItemBomStatusEnum = @Html.Raw(listProductionOrderItemBomStatusEnum.JsonSerialize());
 
@@ -176,13 +182,18 @@
 					searchable: false,
 					className: "text-center",
 					render: function (id) {
-						return `
-							<button type="button" class="btn btn-sm btn-warning btn-edit-bom" data-id="${id}" title="ویرایش">
+						let html = "";
+						if (canEditBom) {
+							html += `<button type="button" class="btn btn-sm btn-warning btn-edit-bom" data-id="${id}" title="ویرایش">
 								<i class="fa fa-pencil"></i>
-							</button>
-							<button type="button" class="btn btn-sm btn-danger btn-delete-bom" data-id="${id}" title="حذف">
+							</button>`;
+						}
+						if (canManageBom) {
+							html += `<button type="button" class="btn btn-sm btn-danger btn-delete-bom" data-id="${id}" title="حذف">
 								<i class="fa fa-trash"></i>
 							</button>`;
+						}
+						return html || "-";
 					}
 				},
 				{

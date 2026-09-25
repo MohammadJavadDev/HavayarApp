@@ -1,0 +1,67 @@
+@using Entities.App.Inv
+@model PartSparePart
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(PartSparePart)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">قطعه یدکی</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="partId" value="@Model?.PartId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="required">قطعه یدکی</label>
+				@(Html.EntitySelector<Part>(
+					"PartSparePartSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, Code = c.Code },
+					c => new { c.Name, c.Code },
+					"{Code} | {Name}",
+					"sparePartId",
+					"sparePartName",
+					Model?.SparePartId?.ToString(),
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label>ساعت کارکرد</label>
+				<input class="form-control" data-bind="workingHours" data-invalidMessage="فقط عدد" data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value="@Model?.WorkingHours" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>توضیحات</label>
+				<textarea class="form-control" data-bind="description" rows="3">@Model?.Description</textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		const saveUrl = model.id ? 'update' : 'add';
+		$$.post(saveUrl, model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

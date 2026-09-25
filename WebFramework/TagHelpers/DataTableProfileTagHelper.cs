@@ -156,12 +156,32 @@ namespace WebFramework.TagHelpers
 			}
 
 
-			var disableActions = "disabled";
-			
-			if(sdk.CurrentUser.IsAdministrator)
+			var isAdministrator = sdk.CurrentUser.IsAdministrator;
+			var profileActionButtons = "";
+			if (isAdministrator)
 			{
-				disableActions = "";
+				profileActionButtons = @"
+					            <a class=""btn btn-icon btn-active-color-warning me-1"" data-action=""editDataProfile"">
+						            <i class=""ki-duotone ki-pencil fs-2"">
+							            <span class=""path1""></span>
+							            <span class=""path2""></span>
+						            </i>
+					            </a>
+					            <a class=""btn btn-icon btn-active-color-success me-1"" data-action=""newDataProfile"">
+						            <i class=""fa fa-plus fs-2""></i>
+					            </a>
+					            <a class=""btn btn-icon btn-active-color-danger me-1"" data-action=""removeDataProfile"">
+						            <i class=""fa fa-trash fs-2""></i>
+					            </a>
+					            <a class=""btn btn-icon btn-active-color-info me-1"" data-action=""copyDataProfile"">
+						            <i class=""ki-copy-success ki-outline fs-2""></i>
+					            </a>
+					            <a class=""btn btn-icon btn-active-color-primary me-1"" data-action=""saveDataProfileColumnWidths"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره عرض ستون‌ها"">
+						            <i class=""fa fa-arrows-h fs-2""></i>
+					            </a>";
 			}
+
+			var selectorColumnClass = isAdministrator ? "col-md-7" : "col-md-4";
 
 			///System/ReportBuilder/ExportDataToExcel
 
@@ -175,32 +195,11 @@ namespace WebFramework.TagHelpers
 	       
 	            <div class=""card-body p-1"" >
 				    <div class='row justify-content-end position-relative'>
-					<div class=""col-md-5 text-center  position-absolute mt-3"" data-place=""ProfileSelector"">
+					<div class=""{selectorColumnClass} text-center position-absolute mt-3"" data-place=""ProfileSelector"">
 			
-				            <div class=""input-group mb-3"">
-					            <a   class="" btn btn-icon   btn-active-color-warning   me-1 {disableActions} "" data-action=""editDataProfile"" >
-						            <i class=""ki-duotone ki-pencil fs-2"">
-							            <span class=""path1""></span>
-							            <span class=""path2""></span>
-						            </i>
-					            </a>
-					            <a class="" btn btn-icon   btn-active-color-success  me-1 {disableActions} "" data-action=""newDataProfile"" >
-						            <i class=""fa fa-plus fs-2"">
-						            </i>
-					            </a>
-							 <a class="" btn btn-icon   btn-active-color-danger  me-1 {disableActions} "" data-action=""removeDataProfile"" >
-						            <i class=""fa fa-trash fs-2"">
-						            </i>
-					            </a>
-
-							<a class="" btn btn-icon   btn-active-color-info  me-1 {disableActions} "" data-action=""copyDataProfile"" >
-						            <i class=""ki-copy-success ki-outline fs-2"">
-						            </i>
-					            </a>
-							<a class="" btn btn-icon   btn-active-color-primary  me-1 {disableActions} "" data-action=""saveDataProfileColumnWidths"" data-bs-toggle=""tooltip"" data-bs-placement=""top"" title=""ذخیره عرض ستون‌ها"" >
-						            <i class=""fa fa-arrows-h fs-2"">
-						            </i>
-					            </a>
+				            <div class=""input-group mb-3 flex-nowrap"">
+					            {profileActionButtons}
+					            <span class=""input-group-text"">نمایه داده ها</span>
 					            <select class=""form-select"" data-action=""dataProfile"" data-entityName=""{entityName}"" data-edit-path=""{editEntityPath}"" data-delete-path=""{deleteEntityPath}""    data-new-path=""{newEntityPath}"" data-exportExcell-path=""{exportExcelPath}"" data-fetch-path=""{fetchDataPath}"">
 						            {listOptions}
 					            </select>

@@ -40,14 +40,19 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(PartExtraInfo partExtraInfo, CancellationToken cn)
 		{
-			if(partExtraInfo.InfoType == PartExtraInfoInfoTypeEnum.OilFreeScrewCompressor)
+			if (partExtraInfo.Revision == null)
+				partExtraInfo.Revision = await GetNextRevisionAsync(partExtraInfo.ProductId, cn);
+
+			if (partExtraInfo.InfoType == PartExtraInfoInfoTypeEnum.OilInjectedScrewCompressor
+				|| partExtraInfo.InfoType == PartExtraInfoInfoTypeEnum.OilFreeScrewCompressor)
 			{
 				partExtraInfo = ComputeAndFillBomFields(partExtraInfo);
 			}
-			 
+
 			partExtraInfo = ComputeAndFillBomFieldsJson(partExtraInfo);
 
-			var	entity = await unitOfWork.Repository<PartExtraInfo>().SaveAsync(partExtraInfo, cn, true);
+			var entity = await unitOfWork.Repository<PartExtraInfo>().SaveAsync(partExtraInfo, cn, true);
+			await SyncPartDesignTypeIsRoutineAsync(entity, cn);
 			return Ok(entity);
 		}
 
@@ -55,15 +60,9 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(PartExtraInfo partExtraInfo, CancellationToken cn)
 		{
-
-			if (partExtraInfo.InfoType == PartExtraInfoInfoTypeEnum.OilFreeScrewCompressor)
-			{
-				partExtraInfo = ComputeAndFillBomFields(partExtraInfo);
-			}
-			partExtraInfo = ComputeAndFillBomFieldsJson(partExtraInfo);
-
-			var entity = await unitOfWork.Repository<PartExtraInfo>().UpdateAsync(partExtraInfo, cn, true);
-			return Ok(entity);
+			PrepareAsNewRevisionInsert(partExtraInfo);
+			partExtraInfo.Revision = await GetNextRevisionAsync(partExtraInfo.ProductId, cn);
+			return await Add(partExtraInfo, cn);
 		}
 
 		[HttpGet("[action]")]
@@ -132,16 +131,88 @@ namespace WebApp.Controllers.Dynamic
 			return Ok(await unitOfWork.Repository<PartExtraInfo>().FetchDataAsync(request, cn));
 		}
 
+		private static void PrepareAsNewRevisionInsert(PartExtraInfo entity)
+		{
+			entity.Id = null;
+			entity.Product = null;
+			entity.CreatedById = null;
+			entity.CreatedByName = null;
+			entity.CreatedOnMiladiDateTime = null;
+			entity.CreatedOnShamsiDateTime = null;
+			entity.ModifiedById = null;
+			entity.ModifiedByName = null;
+		}
 
+		private async Task<int> GetNextRevisionAsync(long productId, CancellationToken cn)
+		{
+			var maxRevision = await unitOfWork.Repository<PartExtraInfo>().TableNoTracking
+				.Where(p => p.ProductId == productId)
+				.MaxAsync(p => (int?)(p.Revision ?? 0), cn);
+			return (maxRevision ?? 0) + 1;
+		}
+
+		private async Task SyncPartDesignTypeIsRoutineAsync(PartExtraInfo entity, CancellationToken cn)
+		{
+			var part = await unitOfWork.Repository<Part>().TableNoTracking
+				.FirstOrDefaultAsync(p => p.Id == entity.ProductId, cn);
+			if (part == null)
+				return;
+
+			part.DesignTypeIsRoutine = entity.DesignType == PartExtraInfoDesignTypeEnum.Routine;
+			await unitOfWork.Repository<Part>().UpdateAsync(part, cn, true);
+		}
+
+		private static void ClearCompressorBomFields(PartExtraInfo entity)
+		{
+			entity.AirendQty = null;
+			entity.AirendBrand = null;
+			entity.ElectroMotorQty = null;
+			entity.ElectroMotorBrand = null;
+			entity.CoolingFanQty = null;
+			entity.CoolingFanBrand = null;
+			entity.UnloaderValveQty = null;
+			entity.UnloaderValveBrand = null;
+			entity.MinimumPressureValveQty = null;
+			entity.MinimumPressureValveBrand = null;
+			entity.OilTermostaticValveQty = null;
+			entity.OilTermostaticValveBrand = null;
+			entity.AirOilFilterSepratorQty = null;
+			entity.AirOilFilterSepratorBrand = null;
+			entity.AirIntakeFilterQty = null;
+			entity.AirIntakeFilterBrand = null;
+			entity.TemperatureSensorQty = null;
+			entity.TemperatureSensorBrand = null;
+			entity.PressureSensorQty = null;
+			entity.PressureSensorBrand = null;
+			entity.PressureIndicatorQty = null;
+			entity.PressureIndicatorBrand = null;
+			entity.SafetyValveQty = null;
+			entity.SafetyValveBrand = null;
+			entity.CouplingPulleyQty = null;
+			entity.CouplingPulleyBrand = null;
+			entity.CouplingPulley2Qty = null;
+			entity.CouplingPulley2Brand = null;
+			entity.CoolerModelQty = null;
+			entity.CoolerModelBrand = null;
+			entity.OilFilterQty = null;
+			entity.OilFilterBrand = null;
+			entity.BeltSizeQty = null;
+			entity.BeltSizeBrand = null;
+			entity.OilCapacityQty = null;
+			entity.OilCapacityBrand = null;
+		}
 
 		private PartExtraInfo ComputeAndFillBomFields(PartExtraInfo entity)
 		{
 			try
 			{
-				var productItems = (from invPartExtraInfo in unitOfWork.Repository<PartExtraInfo>().TableNoTracking
-								join bomProductItem in _context.vw_ProductItems.AsNoTracking() on invPartExtraInfo.ProductId equals bomProductItem.PartId
+				ClearCompressorBomFields(entity);
+
+				var productItems = (from bomProductItem in _context.vw_ProductItems.AsNoTracking()
 								join part in unitOfWork.Repository<Part>().TableNoTracking on bomProductItem.PartItemId equals part.Id
-								where part.DataSheetUsage && part.DataSheet.HasValue
+								where bomProductItem.PartId == entity.ProductId
+									&& part.DataSheetUsage
+									&& part.DataSheet.HasValue
 								select new
 								{
 									bomProductItem.PartId,
@@ -150,12 +221,6 @@ namespace WebApp.Controllers.Dynamic
 									bomProductItem.UsingRate,
 									PartItemId = part.Id
 								}).ToArray();
-
-
-				productItems = productItems.Where(p => p.PartId == entity.ProductId)
-				    .Distinct()
-				    .ToArray();
-
 
 				var result = productItems.Where(p => p.DataSheet == (PartDataSheetEnum)637).ToArray();
 				if (result.Any())
@@ -292,11 +357,10 @@ namespace WebApp.Controllers.Dynamic
 
 				return entity;
 			}
-			catch (Exception ex)
+			catch (Exception)
 			{
-				 
+				return entity;
 			}
-			return new PartExtraInfo();
 		}
 
 
@@ -308,14 +372,11 @@ namespace WebApp.Controllers.Dynamic
 
 		private PartExtraInfo ComputeAndFillBomFieldsJson(PartExtraInfo entity)
 		{
-			 
 			var productItems =
-			    (from extra in unitOfWork.Repository<PartExtraInfo>().TableNoTracking
-				join bom in _context.vw_ProductItems.AsNoTracking()
-				    on extra.ProductId equals bom.PartId
+			    (from bom in _context.vw_ProductItems.AsNoTracking()
 				join part in unitOfWork.Repository<Part>().TableNoTracking
 				    on bom.PartItemId equals part.Id
-				where extra.ProductId == entity.ProductId
+				where bom.PartId == entity.ProductId
 					 && part.DataSheetUsage
 					 && part.DataSheet.HasValue
 				select new
@@ -326,11 +387,10 @@ namespace WebApp.Controllers.Dynamic
 				})
 			    .ToList();
 
-		 
 			var groupedItems = productItems
 			    .GroupBy(x => x.DataSheet)
 			    .ToDictionary(
-				   g => g.Key.ToString(),  
+				   g => g.Key.ToString(),
 				   g => new ProductItemInfo
 				   {
 					   Qty = g.Sum(x => x.UsingRate),
@@ -338,7 +398,6 @@ namespace WebApp.Controllers.Dynamic
 				   }
 			    );
 
-			// 3. تبدیل به JSON و ذخیره در فیلد جدید
 			entity.DryerExtraInfo = JsonConvert.SerializeObject(
 			    groupedItems,
 			    new JsonSerializerSettings

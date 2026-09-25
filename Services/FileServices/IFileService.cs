@@ -23,6 +23,18 @@ public interface IFileService
     long? entityId,
     CancellationToken ct);
 
+	/// <summary>
+	/// رکورد فایل برای فایلی که از قبل روی دیسک است. محتوا کپی نمی‌شود.
+	/// PhysicalPath همان مسیر کامل می‌ماند و دانلود از همان‌جا می‌خواند.
+	/// </summary>
+	Task<FileEntity> RegisterExistingAsync(
+		string fullPath,
+		string originalName,
+		string? entityType,
+		string? entityPropName,
+		long? entityId,
+		CancellationToken ct);
+
 	// Replace existing file
 	Task<FileEntity> ReplaceAsync(
 	    long? oldFileId,

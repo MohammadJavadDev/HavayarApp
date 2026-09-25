@@ -28,7 +28,29 @@ namespace App.BackgroundJob.Jobs.Sale
 {
 	public class ProductionOrderJob(RahkaranDbContext Rdb, HtsDbContext Hdb, IUnitOfWork unitOfWork, ApplicationDbContext appContext)
 	{
-
+		/// <summary>
+		/// مثل چاپ قدیمی: زیرصنعت از IndustryItm شرکت مشتری قرارداد، نه از متن خالی راهکاران.
+		/// </summary>
+		private const string SyncCustomerIndustryFromHtsSql = """
+			UPDATE po
+			SET po.CustomerIndustry = itm.Title
+			FROM Sale.ProductionOrder po
+			INNER JOIN SLS.Contract ct ON ct.Id = po.ContractId
+			INNER JOIN SLS.Customer c ON c.Id = ct.CustomerId
+			INNER JOIN Gnr.Party p ON p.Id = c.PartyId
+			OUTER APPLY (
+				SELECT TOP (1) mc.IndustryItm_FK
+				FROM [TMS].[TotalSystem].[dbo].[Gnr_ManCompany] mc
+				WHERE p.HamkaranId IS NOT NULL
+				  AND mc.Hamkaran_ManCompany_FK IS NOT NULL
+				  AND mc.Hamkaran_ManCompany_FK <> 0
+				  AND CAST(mc.Hamkaran_ManCompany_FK AS BIGINT) = p.HamkaranId
+				  AND mc.IndustryItm_FK IS NOT NULL
+				ORDER BY mc.ManCompany_ID
+			) mc
+			INNER JOIN Gnr.PartyIndustryItem itm ON itm.Code = CAST(mc.IndustryItm_FK AS BIGINT)
+			WHERE ISNULL(po.CustomerIndustry, N'') <> itm.Title;
+			""";
 
 		[JobHandler("افزودن سفارش ساخت از راهکاران")]
 		public async Task AddProductionOrderFromRahkaran(IJobLogger? jobLogger = null, CancellationToken cn = default)
@@ -590,6 +612,9 @@ namespace App.BackgroundJob.Jobs.Sale
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
+
+				var industryRows = await appContext.Database.ExecuteSqlRawAsync(SyncCustomerIndustryFromHtsSql, cn);
+				await jobLogger?.LogInfoAsync($"زیرصنعت سفارش ساخت از شرکت HTS به‌روز شد: {industryRows}", cn);
 				await jobLogger?.LogInfoAsync("همگام‌سازی سفارش ساخت با موفقیت انجام شد", cn);
 
 				// همگام‌سازی ProductionOrderItem — معادل InsertOrUpdateProductionOrderItems
@@ -1017,120 +1042,110 @@ namespace App.BackgroundJob.Jobs.Sale
 			}
 		}
 
-		// Update AddProductionOrderItemBomFromHts method to sync Bom data and add logging
+		/// <summary>
+		/// همگام‌سازی BOM از HTS برای همه نسخه‌های قلم (نه فقط آخرین).
+		/// کلید تطبیق قلم: App.RahkaranHistoryId = HTS.Pln_ProductionOrderItem.RahkaranId
+		/// کلید upsert: ProductionOrderItemId + Revision + PartId
+		/// </summary>
 		[JobHandler("افزودن Bom سفارش ساخت از Hts")]
 		public async Task AddProductionOrderItemBomFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
 		{
 			try
 			{
-				await jobLogger?.LogInfoAsync("شروع همگام‌سازی Bom اقلام سفارش ساخت از HTS", cn);
+				await jobLogger?.LogInfoAsync("شروع همگام‌سازی Bom اقلام سفارش ساخت از HTS (همه نسخه‌ها)", cn);
 
-				// بارگذاری داده‌های پایه
 				await jobLogger?.LogInfoAsync("در حال بارگذاری داده‌های پایه از پایگاه داده برنامه...", cn);
-				var appProductionOrders = await unitOfWork
-					.Repository<ProductionOrder>()
-					.TableNoTracking
-					.Where(po => po.ProductionOrderNumber.HasValue)
-					.ToListAsync(cn);
 
 				var appPOItems = await unitOfWork.Repository<ProductionOrderItem>()
-					.TableNoTracking
-					.Include(c => c.Part)
+					.Table
+					.Where(i => i.RahkaranHistoryId.HasValue)
 					.ToListAsync(cn);
 
 				var appPOItemsBom = await unitOfWork
 					.Repository<ProductionOrderItemBom>()
-					.TableNoTracking
+					.Table
 					.ToListAsync(cn);
 
 				var parts = await unitOfWork.Repository<Part>()
 					.TableNoTracking
 					.ToListAsync(cn);
 
-				await jobLogger?.LogInfoAsync($"بارگذاری داده‌های پایه انجام شد: {appProductionOrders.Count} سفارش ساخت، {appPOItems.Count} قلم سفارش، {appPOItemsBom.Count} BOM موجود، {parts.Count} کالا", cn);
+				await jobLogger?.LogInfoAsync(
+					$"بارگذاری داده‌های پایه انجام شد: {appPOItems.Count} قلم با RahkaranHistoryId، {appPOItemsBom.Count} BOM موجود، {parts.Count} کالا",
+					cn);
 
-				// ساخت dictionary ها برای جستجوی سریع
-				var partMap = parts.Where(p => !string.IsNullOrEmpty(p.Code))
-					.ToDictionary(p => p.Code!, p => p.Id);
+				var partMapByHtsId = parts
+					.Where(p => p.HtsId != 0)
+					.GroupBy(p => p.HtsId)
+					.ToDictionary(g => g.Key, g => g.First().Id);
 
-				var productionOrderMap = appProductionOrders
-					.Where(po => po.ProductionOrderNumber.HasValue)
+				var partMapByCode = parts
+					.Where(p => !string.IsNullOrWhiteSpace(p.Code))
+					.GroupBy(p => p.Code!.Trim(), StringComparer.OrdinalIgnoreCase)
 					.ToDictionary(
-						po => $"{po.ProductionOrderNumber.Value.ToString("0")}",
-						po => po.Id
-					);
+						g => g.Key,
+						g => g.OrderByDescending(p => p.IsActive == IsActiveEnum.Active).ThenBy(p => p.Id).First().Id,
+						StringComparer.OrdinalIgnoreCase);
 
-				// ساخت dictionary برای ProductionOrderItem بر اساس ProductionOrderId و PartCode
-				var productionOrderItemMap = appPOItems
-					.Where(poi => poi.Part != null && !string.IsNullOrEmpty(poi.Part.Code))
-					.GroupBy(poi => new { poi.ProductionOrderId, PartCode = poi.Part!.Code! })
-					.ToDictionary(
-						g => $"{g.Key.ProductionOrderId}_{g.Key.PartCode}",
-						g => g.First()
-					);
+				var itemsByHistoryId = appPOItems
+					.Where(i => i.RahkaranHistoryId.HasValue && i.Id.HasValue)
+					.GroupBy(i => i.RahkaranHistoryId!.Value)
+					.ToDictionary(g => g.Key, g => g.First());
 
-				// ساخت dictionary برای BOM های موجود بر اساس ProductionOrderItemId, Revision, PartId
 				var existingBomMap = appPOItemsBom
 					.Where(b => b.Revision.HasValue)
 					.GroupBy(b => new { b.ProductionOrderItemId, Revision = b.Revision!.Value, b.PartId })
 					.ToDictionary(
-						g => $"{g.Key.ProductionOrderItemId}_{g.Key.Revision.ToString("0")}_{g.Key.PartId}",
-						g => g.First()
-					);
+						g => $"{g.Key.ProductionOrderItemId}_{g.Key.Revision}_{g.Key.PartId}",
+						g => g.First());
 
-				// پردازش batch به batch
-				const int batchSize = 100;
-				int totalProcessed = 0;
+				var historyIds = itemsByHistoryId.Keys.OrderBy(x => x).ToList();
+				const int batchSize = 500;
 				int totalNewBoms = 0;
 				int totalUpdatedBoms = 0;
 				int totalSkipped = 0;
+				int totalOrphanItem = 0;
+				int totalOrphanPart = 0;
 
-				for (int skip = 0; skip < appProductionOrders.Count; skip += batchSize)
+				for (int skip = 0; skip < historyIds.Count; skip += batchSize)
 				{
-					var batchProductionOrders = appProductionOrders
-						.Skip(skip)
-						.Take(batchSize)
-						.Where(po => po.ProductionOrderNumber.HasValue)
-						.ToList();
-
-					if (!batchProductionOrders.Any())
+					var batchHistoryIds = historyIds.Skip(skip).Take(batchSize).ToList();
+					if (!batchHistoryIds.Any())
 						break;
 
-					var productionOrderNumbers = batchProductionOrders
-						.Select(po => po.ProductionOrderNumber!.Value)
-						.ToList();
+					await jobLogger?.LogInfoAsync(
+						$"پردازش batch {skip / batchSize + 1}: {batchHistoryIds.Count} قلم (RahkaranHistoryId)",
+						cn);
 
-					await jobLogger?.LogInfoAsync($"پردازش batch {skip / batchSize + 1}: {productionOrderNumbers.Count} سفارش ساخت", cn);
-
-					// ساخت query با parameterized values برای جلوگیری از SQL injection
-					var numberParams = string.Join(",", productionOrderNumbers.Select((_, i) => $"@p{i}"));
+					var idParams = string.Join(",", batchHistoryIds.Select((_, i) => $"@p{i}"));
 					var sqlQuery = $@"
-						SELECT poib.*, 
+						SELECT poib.*,
 							poi.Revision AS ProductionOrderItemRevision,
 							p.Part_Code AS ProductionOrderItemPartCode,
 							po.Number AS ProductionOrderNumber,
 							po.Revision AS ProductionOrderRevision,
-							pp.Part_Code AS ProductionOrderItemBomPartCode
+							pp.Part_Code AS ProductionOrderItemBomPartCode,
+							CAST(poi.RahkaranId AS BIGINT) AS ItemRahkaranHistoryId
 						FROM Pln_ProductionOrderItemBom poib (NOLOCK)
+							INNER JOIN Pln_ProductionOrderItem poi (NOLOCK) ON poib.ProductionOrderItemId = poi.Id
 							LEFT JOIN Inv_Part pp ON poib.PartId = pp.Part_ID
-							LEFT JOIN Pln_ProductionOrderItem poi (NOLOCK) ON poib.ProductionOrderItemId = poi.Id
 							LEFT JOIN Inv_Part p (NOLOCK) ON poi.PartId = p.Part_ID
 							LEFT JOIN Pln_ProductionOrder po (NOLOCK) ON poi.ProductionOrderId = po.Id
-						WHERE po.IsLatestVersion =1 and poib.IsLatest = 1  and poi.IsLatestVersion = 1 and po.Number IN ({numberParams})";
+						WHERE poi.RahkaranId IS NOT NULL
+							AND poi.RahkaranId IN ({idParams})";
 
-					// ساخت parameters
-					var parameters = productionOrderNumbers
-						.Select((num, i) => new Microsoft.Data.SqlClient.SqlParameter($"@p{i}", num))
+					var parameters = batchHistoryIds
+						.Select((id, i) => new Microsoft.Data.SqlClient.SqlParameter($"@p{i}", id))
 						.ToArray();
 
 					var htsBoms = await Hdb.Hts_Pln_ProductionOrderItemBoms
 						.FromSqlRaw(sqlQuery, parameters)
+						.AsNoTracking()
 						.ToListAsync(cn);
 
 					if (!htsBoms.Any())
 					{
-						await jobLogger?.LogInfoAsync($"هیچ BOM برای این batch یافت نشد", cn);
-						totalProcessed += batchProductionOrders.Count;
+						await jobLogger?.LogInfoAsync("هیچ BOM برای این batch یافت نشد", cn);
 						continue;
 					}
 
@@ -1142,72 +1157,41 @@ namespace App.BackgroundJob.Jobs.Sale
 
 					foreach (var htsBom in htsBoms)
 					{
-						// پیدا کردن ProductionOrder
-						if (!htsBom.ProductionOrderRevision.HasValue)
+						if (!htsBom.ItemRahkaranHistoryId.HasValue
+							|| !itemsByHistoryId.TryGetValue(htsBom.ItemRahkaranHistoryId.Value, out var productionOrderItem)
+							|| !productionOrderItem.Id.HasValue)
 						{
+							totalOrphanItem++;
 							batchSkippedCount++;
 							continue;
 						}
 
-						var revKey = $"{htsBom.ProductionOrderNumber}";
-						if (!productionOrderMap.TryGetValue(revKey, out var productionOrderId))
-						{
-							await jobLogger?.LogWarningAsync($"سفارش ساخت با شماره {htsBom.ProductionOrderNumber} و نسخه {htsBom.ProductionOrderRevision} یافت نشد", 0, cn);
-							batchSkippedCount++;
-							continue;
-						}
-
-						// پیدا کردن ProductionOrderItem
-						if (string.IsNullOrEmpty(htsBom.ProductionOrderItemPartCode))
-						{
-							batchSkippedCount++;
-							continue;
-						}
-
-						var itemKey = $"{productionOrderId}_{htsBom.ProductionOrderItemPartCode}";
-						if (!productionOrderItemMap.TryGetValue(itemKey, out var productionOrderItem))
-						{
-							await jobLogger?.LogWarningAsync($"قلم سفارش ساخت با ProductionOrderId {productionOrderId} و PartCode {htsBom.ProductionOrderItemPartCode} یافت نشد", 0, cn);
-							batchSkippedCount++;
-							continue;
-						}
-
-						// پیدا کردن Part برای BOM
-						if (string.IsNullOrEmpty(htsBom.ProductionOrderItemBomPartCode))
-						{
-							batchSkippedCount++;
-							continue;
-						}
-
-						if (!partMap.TryGetValue(htsBom.ProductionOrderItemBomPartCode, out var partId) || !partId.HasValue)
-						{
-							await jobLogger?.LogWarningAsync($"کالا با کد {htsBom.ProductionOrderItemBomPartCode} برای BOM یافت نشد", 0, cn);
-							batchSkippedCount++;
-							continue;
-						}
-
-						// بررسی وجود BOM موجود
 						if (!htsBom.Revision.HasValue)
 						{
 							batchSkippedCount++;
 							continue;
 						}
 
-						if (productionOrderItem.Id == null)
+						long? partId = null;
+						if (htsBom.PartId.HasValue && partMapByHtsId.TryGetValue(htsBom.PartId.Value, out var byHts))
+							partId = byHts;
+						else if (!string.IsNullOrWhiteSpace(htsBom.ProductionOrderItemBomPartCode)
+							&& partMapByCode.TryGetValue(htsBom.ProductionOrderItemBomPartCode.Trim(), out var byCode))
+							partId = byCode;
+
+						if (!partId.HasValue)
 						{
+							totalOrphanPart++;
 							batchSkippedCount++;
 							continue;
 						}
 
-						var bomKey = $"{(long)productionOrderItem.Id}_{htsBom.Revision.Value}_{partId.Value}";
-						var existingBom = existingBomMap.TryGetValue(bomKey, out var foundBom) ? foundBom : null;
-
-						if (existingBom == null)
+						var bomKey = $"{productionOrderItem.Id.Value}_{htsBom.Revision.Value}_{partId.Value}";
+						if (!existingBomMap.TryGetValue(bomKey, out var existingBom))
 						{
-							// اضافه کردن BOM جدید
 							var newBom = new ProductionOrderItemBom
 							{
-								ProductionOrderItemId = (long)productionOrderItem.Id,
+								ProductionOrderItemId = productionOrderItem.Id.Value,
 								Revision = htsBom.Revision.Value,
 								PartId = partId.Value,
 								Amount = htsBom.Amount ?? 0m,
@@ -1217,52 +1201,46 @@ namespace App.BackgroundJob.Jobs.Sale
 								NeedsAVL = htsBom.HasNeedToAvl ?? false
 							};
 							newBomList.Add(newBom);
-							// اضافه کردن به map برای جلوگیری از duplicate در همان batch
 							existingBomMap[bomKey] = newBom;
 						}
 						else
 						{
-							// به‌روزرسانی BOM موجود
 							bool modified = false;
+							var amount = htsBom.Amount ?? 0m;
+							var isLatest = htsBom.IsLatest ?? false;
+							var needsAvl = htsBom.HasNeedToAvl ?? false;
 
-							if (existingBom.Amount != (htsBom.Amount ?? 0m))
+							if (existingBom.Amount != amount)
 							{
-								existingBom.Amount = htsBom.Amount ?? 0m;
+								existingBom.Amount = amount;
 								modified = true;
 							}
-
-							if (existingBom.IsLatest != (htsBom.IsLatest ?? false))
+							if (existingBom.IsLatest != isLatest)
 							{
-								existingBom.IsLatest = htsBom.IsLatest ?? false;
+								existingBom.IsLatest = isLatest;
 								modified = true;
 							}
-
 							if (existingBom.Description != htsBom.Comment)
 							{
 								existingBom.Description = htsBom.Comment;
 								modified = true;
 							}
-
 							if (existingBom.SaleUnitDetails != htsBom.SalesUnitComment)
 							{
 								existingBom.SaleUnitDetails = htsBom.SalesUnitComment;
 								modified = true;
 							}
-
-							if (existingBom.NeedsAVL != (htsBom.HasNeedToAvl ?? false))
+							if (existingBom.NeedsAVL != needsAvl)
 							{
-								existingBom.NeedsAVL = htsBom.HasNeedToAvl ?? false;
+								existingBom.NeedsAVL = needsAvl;
 								modified = true;
 							}
 
 							if (modified)
-							{
 								batchUpdatedCount++;
-							}
 						}
 					}
 
-					// ذخیره BOM های جدید این batch
 					if (newBomList.Any())
 					{
 						await unitOfWork.Repository<ProductionOrderItemBom>().AddRangeAsync(newBomList, cn, false);
@@ -1281,13 +1259,12 @@ namespace App.BackgroundJob.Jobs.Sale
 						await jobLogger?.LogWarningAsync($"تعداد {batchSkippedCount} BOM از این batch رد شد", 0, cn);
 						totalSkipped += batchSkippedCount;
 					}
-
-					totalProcessed += batchProductionOrders.Count;
-					await jobLogger?.LogInfoAsync($"پردازش batch {skip / batchSize + 1} با موفقیت انجام شد", cn);
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
-				await jobLogger?.LogInfoAsync($"همگام‌سازی Bom اقلام سفارش ساخت با موفقیت انجام شد. خلاصه: {totalProcessed} سفارش پردازش شد، {totalNewBoms} BOM جدید اضافه شد، {totalUpdatedBoms} BOM به‌روزرسانی شد، {totalSkipped} BOM رد شد", cn);
+				await jobLogger?.LogInfoAsync(
+					$"همگام‌سازی Bom با موفقیت انجام شد. جدید={totalNewBoms}، به‌روزرسانی={totalUpdatedBoms}، رد={totalSkipped} (بدون‌قلم={totalOrphanItem}، بدون‌کالا={totalOrphanPart})",
+					cn);
 			}
 			catch (Exception ex)
 			{

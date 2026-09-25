@@ -1,0 +1,57 @@
+@model Entities.App.Inv.PartCustomBom
+@using Entities.App.Inv
+@using Entities.Base
+@{
+	Layout = null;
+}
+<div class="part-custom-bom-form">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<div class="row g-3">
+		<div class="col-md-12 form-group-inline">
+			<label>محصول</label>
+			@(Html.EntitySelector<Part>(
+				"PartCustomBomProductSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"productId",
+				"productName",
+				Model?.ProductId > 0 ? Model.ProductId.ToString() : null
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>کالا</label>
+			@(Html.EntitySelector<Part>(
+				"PartCustomBomPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"partId",
+				"partName",
+				Model?.PartId > 0 ? Model.PartId.ToString() : null
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>مقدار مصرف</label>
+			<input type="text" class="form-control" data-bind="usingRate" value="@Model?.UsingRate" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ترتیب</label>
+			<input type="number" class="form-control" data-bind="order" value="@(Model?.Order > 0 ? Model.Order.ToString() : "1")" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>غیرفعال</label>
+			<input type="checkbox" data-bind="isDisabled" @(Model?.IsDisabled == true ? "checked" : "") />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>توضیحات</label>
+			<textarea class="form-control" data-bind="comment">@Model?.Comment</textarea>
+		</div>
+	</div>
+</div>

@@ -225,7 +225,7 @@ class QueryDesigner {
                { dataActionName: "edit", enable: true, title:"ویرایش" },
                { dataActionName: "delete", enable: true, title:"حذف" },
                { dataActionName: "exportExcell", enable: true, title:"خروجی اکسل" },
-               { dataActionName: "defaultMultiSelect", enable: false, title:"انتخاب چندتایی پیش‌فرض" },
+               { dataActionName: "defaultMultiSelect", enable: false, title:"امکان انتخاب چندتایی" },
 
           ];
           this.sqlEditor = null;
@@ -404,10 +404,13 @@ class QueryDesigner {
           if (this.actionOptions.length == 0) {
                this.actionOptions = this.actionOptionsDefualt.map(c => ({ ...c }));
           } else {
-               // گزینه‌های جدید پیش‌فرض را به نمایه‌های قدیمی اضافه کن
+               // گزینه‌های جدید پیش‌فرض را به نمایه‌های قدیمی اضافه کن و عنوان ذخیره‌شده را با تعریف فعلی هم‌تراز کن
                this.actionOptionsDefualt.forEach(def => {
-                    if (!this.actionOptions.any(c => c.dataActionName == def.dataActionName)) {
+                    const existing = this.actionOptions.find(c => c.dataActionName == def.dataActionName);
+                    if (!existing) {
                          this.actionOptions.push({ ...def });
+                    } else {
+                         existing.title = def.title;
                     }
                });
           }
@@ -600,6 +603,8 @@ class QueryDesigner {
                     width: (!isNaN(widthNum) && widthNum >= 40) ? Math.min(widthNum, 2000) : 200,
                     filterable: c.filterable !== false,
                     sortable: c.sortable !== false,
+                    sortDirection: c.sortDirection ?? null,
+                    sortOrder: c.sortOrder ?? null,
                     className: this._normalizeColumnClassName(c.className),
                     isCustom: !!c.isCustom,
                     customColType: c.customColType || null,
@@ -2507,7 +2512,9 @@ class QueryDesigner {
                if (isWriteMode) {
                     return {
                          ...base,
-                         selectIndex: c.selectIndex || 0
+                         selectIndex: c.selectIndex || 0,
+                         sortDirection: c.sortDirection ?? null,
+                         sortOrder: c.sortOrder ?? null
                     };
                }
 
@@ -2633,6 +2640,8 @@ class QueryDesigner {
 
                if (isWriteMode) {
                     if (item.selectIndex != null) current.selectIndex = parseInt(item.selectIndex, 10) || 0;
+                    if ('sortDirection' in item) current.sortDirection = item.sortDirection ?? null;
+                    if ('sortOrder' in item) current.sortOrder = item.sortOrder ?? null;
                } else {
                     if (item.groupBy != null) current.groupBy = !!item.groupBy;
                     if ('aggregate' in item) current.aggregate = item.aggregate || null;
@@ -3583,6 +3592,8 @@ class QueryDesigner {
                               : 200,
                          filterable: prev.filterable !== false,
                          sortable: prev.sortable !== false,
+                         sortDirection: prev.sortDirection ?? null,
+                         sortOrder: prev.sortOrder ?? null,
                          className: this._normalizeColumnClassName(prev.className)
                     });
                     newByName.delete(key);
@@ -3605,6 +3616,8 @@ class QueryDesigner {
                          width: 200,
                          filterable: true,
                          sortable: true,
+                         sortDirection: null,
+                         sortOrder: null,
                          className: ''
                     });
                     newByName.delete(key);
@@ -3635,6 +3648,8 @@ class QueryDesigner {
                          : 200,
                     filterable: prev.filterable !== false,
                     sortable: prev.sortable !== false,
+                    sortDirection: prev.sortDirection ?? null,
+                    sortOrder: prev.sortOrder ?? null,
                     className: this._normalizeColumnClassName(prev.className),
                     isCustom: true,
                     customColType: prev.customColType || null,
@@ -3713,12 +3728,15 @@ class QueryDesigner {
                          <table class="table table-sm table-bordered mb-0">
                               <thead class="table-light">
                                    <tr>
+                                        <th style="width: 30px;">#</th>
                                         <th style="width: 5%;"> تنظیمات</th>
                                         <th style="width: 5%;">نمایش</th>
                                         ${primaryKeyTh}
                                         <th style="width: 12%;">ستون</th>
                                         <th style="width: 20%;">عنوان نمایشی</th>
                                         <th style="width: 20%;">نوع</th>
+                                        <th style="width: 90px;">مرتب‌سازی</th>
+                                        <th style="width: 70px;">ترتیب</th>
                                    </tr>
                               </thead>
                               <tbody></tbody>
@@ -3747,6 +3765,8 @@ class QueryDesigner {
 
           const visibleChecked = col.visible ? 'checked' : '';
           const primaryKeyChecked = col.primaryKey ? 'checked' : '';
+          const sortSel = ['Ascending', '0', 0].includes(col.sortDirection) ? '0'
+               : ['Descending', '1', 1].includes(col.sortDirection) ? '1' : '';
 
           let primaryKeyTd = ""
           if (this.reportType && this.reportType == 1) {
@@ -3760,11 +3780,11 @@ class QueryDesigner {
                <tr>
             <td class="drag-handle-cell" style="cursor: grab; width: 40px;">
                       <i class="fa fa-arrows-alt" data-handler="true" style="cursor: grab;" data-index="${index}"></i>
-                    
+               </td>
+               <td>
                      <a href="#" data-action="setting" data-index="${index}" class="btn btn-sm btn-outline-warning" title="ویرایش">
                           <i class="bi bi-pencil"></i>
                      </a>
-                    
                </td>
                <td>
                     <input type="checkbox"
@@ -3776,6 +3796,19 @@ class QueryDesigner {
                     <td>${col.columnName}</td>
                     <td><input type="text" class="form-control form-control-sm" value="${(col.displayName || '').replace(/"/g, '&quot;')}" data-index="${index}" data-field="displayName"></td>
                     <td><select class="form-select form-select-sm" data-index="${index}" data-field="systemType">${opts}</select></td>
+                    <td>
+                         <select class="form-select form-select-sm" data-index="${index}" data-field="sortDirection">
+                              <option value="">بدون</option>
+                              <option value="0" ${sortSel === '0' ? 'selected' : ''}>ASC</option>
+                              <option value="1" ${sortSel === '1' ? 'selected' : ''}>DESC</option>
+                         </select>
+                    </td>
+                    <td>
+                         <input type="number" class="form-control form-control-sm"
+                                min="1" value="${col.sortOrder || ''}"
+                                data-index="${index}" data-field="sortOrder"
+                                ${sortSel !== '' ? '' : 'disabled'}>
+                    </td>
                </tr>
           `);
           $row.find('input, select').on('change', (e) => {
@@ -3790,6 +3823,11 @@ class QueryDesigner {
                     this._writeModeColumns[idx].primaryKey = isChecked;
                }
                else if (field === 'systemType') this._writeModeColumns[idx].systemType = val || 'String';
+               else if (field === 'sortDirection') {
+                    this._writeModeColumns[idx].sortDirection = val ? parseInt(val, 10) : null;
+                    $row.find('[data-field="sortOrder"]').prop('disabled', !val);
+               }
+               else if (field === 'sortOrder') this._writeModeColumns[idx].sortOrder = val ? parseInt(val, 10) : null;
           });
 
           $row.find('[data-action="setting"]').on('click', (e) => {
@@ -4007,6 +4045,8 @@ class QueryDesigner {
                     : 200,
                filterable: c.filterable !== false,
                sortable: c.sortable !== false,
+               sortDirection: c.sortDirection ?? null,
+               sortOrder: c.sortOrder ?? null,
                className: this._normalizeColumnClassName(c.className),
                isCustom: !!c.isCustom,
                customColType: c.customColType || null,
@@ -4447,6 +4487,8 @@ class QueryDesigner {
                                         : 200,
                                    filterable: c.filterable !== false,
                                    sortable: c.sortable !== false,
+                                   sortDirection: c.sortDirection ?? null,
+                                   sortOrder: c.sortOrder ?? null,
                                    className: this._normalizeColumnClassName(c.className),
                                    isCustom: !!c.isCustom,
                                    customColType: c.customColType || null,

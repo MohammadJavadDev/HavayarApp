@@ -1,9 +1,11 @@
 using Common.Attributes;
+using Common.Utilities;
 using Data;
 using Data.Contracts;
 using Entities.App.Gnr;
 using Entities.App.Hcm;
 using Entities.App.Hrm;
+using Entities.App.Sec;
 using Entities.Base;
 using Entities.Rahkaran.HCM3;
 using Microsoft.EntityFrameworkCore;
@@ -261,6 +263,10 @@ namespace App.BackgroundJob.Jobs.Hcm
 				await unitOfWork.SaveChangesAsync(cn);
 
 				await jobLogger?.LogInfoAsync($"تعداد پرسنل بروزرسانی شده: {updatedCount}", cn);
+
+				// معادل HTS Import_AllPersonelDabiKhane + UpdateActivated_AllPersonelDabirKhane
+				await SyncSecPersonnelFromPersonelAsync(jobLogger, cn);
+
 				await jobLogger?.LogInfoAsync("عملیات همگام‌سازی پرسنل با موفقیت انجام شد", cn);
 			}
 			catch (Exception ex)
@@ -268,6 +274,72 @@ namespace App.BackgroundJob.Jobs.Hcm
 				await jobLogger?.LogExceptionAsync(ex, cn);
 				throw;
 			}
+		}
+
+		/// <summary>
+		/// پس از همگام‌سازی پرسنل: ردیف‌های گم‌شده Sec.Personnel را می‌سازد
+		/// و IsActive را به‌روز می‌کند مگر ForceToSend = true.
+		/// </summary>
+		private async Task SyncSecPersonnelFromPersonelAsync(IJobLogger? jobLogger, CancellationToken cn)
+		{
+			var activePersonels = await unitOfWork.Repository<Personel>().Table
+				.Where(p => p.IsActive == IsActiveEnum.Active)
+				.ToListAsync(cn);
+
+			var secRows = await unitOfWork.Repository<Personnel>().Table.ToListAsync(cn);
+			var secByPersonelId = secRows
+				.Where(s => s.PersonelId.HasValue)
+				.GroupBy(s => s.PersonelId!.Value)
+				.ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).First());
+
+			var newSec = new List<Personnel>();
+			foreach (var p in activePersonels)
+			{
+				if (p.Id == null) continue;
+				if (secByPersonelId.ContainsKey(p.Id.Value))
+					continue;
+
+				newSec.Add(new Personnel
+				{
+					PersonelId = p.Id,
+					NameDisplay = p.Name,
+					FamilyDisplay = p.Family ?? p.FamilyDisplay,
+					BirthDate = p.BirthDate.HasValue ? p.BirthDate.Value.ToShamsiDate() : null,
+					EmploymentDate = p.EmploymentDate.HasValue ? p.EmploymentDate.Value.ToShamsiDate() : null,
+					IsActive = IsActiveEnum.Active,
+					ForceToSend = false
+				});
+			}
+
+			if (newSec.Count > 0)
+			{
+				await unitOfWork.Repository<Personnel>().AddRangeAsync(newSec, cn, false);
+				await jobLogger?.LogInfoAsync($"دبیرخانه: {newSec.Count} ردیف پرسنل جدید اضافه شد", cn);
+			}
+
+			// همه پرسنل (فعال/غیرفعال) برای به‌روزرسانی IsActive
+			var allPersonels = await unitOfWork.Repository<Personel>().Table.ToListAsync(cn);
+			var personelById = allPersonels.Where(p => p.Id.HasValue).ToDictionary(p => p.Id!.Value);
+			int updatedSec = 0;
+			foreach (var sec in secRows)
+			{
+				if (sec.ForceToSend == true) continue;
+				if (!sec.PersonelId.HasValue || !personelById.TryGetValue(sec.PersonelId.Value, out var personel))
+					continue;
+
+				var desired = personel.IsActive == IsActiveEnum.Active
+					? IsActiveEnum.Active
+					: IsActiveEnum.DeActive;
+				if (sec.IsActive != desired)
+				{
+					sec.IsActive = desired;
+					updatedSec++;
+				}
+			}
+
+			await unitOfWork.SaveChangesAsync(cn);
+			if (updatedSec > 0)
+				await jobLogger?.LogInfoAsync($"دبیرخانه: وضعیت فعال {updatedSec} ردیف به‌روز شد (بدون ForceToSend)", cn);
 		}
 
 

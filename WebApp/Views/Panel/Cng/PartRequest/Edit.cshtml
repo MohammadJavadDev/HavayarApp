@@ -1,0 +1,450 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@using Entities.Base
+@model PartRequest
+@{
+	var canChangeStatus = ViewBag.CanChangeStatus as bool? == true;
+	var canSave = ViewBag.CanSave as bool? != false;
+	var hasFile = ViewBag.HasFile as bool? == true;
+	var isPrefactor = ViewBag.IsPrefactor as bool? == true;
+	var statusVal = (int)(Model?.LastStatusId ?? PartRequestStatusEnum.Inquiry);
+}
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(PartRequest)" save-and-new-btn="false" history-btn="false">
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-paper-plane"
+				action-name="sendPreFactor" title="ارسال پیش فاکتور"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-download"
+				action-name="downloadFile" title="دانلود فایل"></form-action-button>
+			@if (canChangeStatus)
+			{
+				<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+					action-name="doneRequest" title="انجام شد"></form-action-button>
+			}
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">درخواست کالا CNG</h4></div></div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+		<input type="hidden" data-bind="fileId" value="@Model?.FileId" />
+		<input type="hidden" data-bind="attachmentFileName" value="@Model?.AttachmentFileName" />
+		<input type="hidden" data-bind="attachmentFileSize" value="@Model?.AttachmentFileSize" />
+		<input type="hidden" data-bind="attachmentFilePath" value="@Model?.AttachmentFilePath" />
+		<input type="hidden" id="partRequestCanChangeStatus" value="@(canChangeStatus ? "1" : "0")" />
+		<input type="hidden" id="partRequestCanSave" value="@(canSave ? "1" : "0")" />
+		<input type="hidden" id="partRequestHasFile" value="@(hasFile ? "1" : "0")" />
+		<input type="hidden" id="partRequestIsPrefactor" value="@(isPrefactor ? "1" : "0")" />
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">محل مصرف (پیش‌فرض قلم)</label>
+				<select class="form-select" id="defaultUsagePlaceId">
+					<option value="">انتخاب کنید</option>
+					<option value="@((int)PartRequestUsagePlaceEnum.WarehouseCharge)">شارژ انبار</option>
+					<option value="@((int)PartRequestUsagePlaceEnum.Station)">جایگاه</option>
+				</select>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">جایگاه (پیش‌فرض قلم)</label>
+				@(Html.EntitySelector<StationInfo>(
+					"PartRequestDefaultStationSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, StationTitle = c.StationTitle },
+					c => new { c.StationTitle },
+					"{StationTitle}",
+					"defaultStationId",
+					"defaultStationTitle",
+					null
+				))
+			</div>
+			<div class="col-md-5 form-group-inline">
+				<label class="form-label fw-bold">ارسال فوری</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="immediateSending"
+					@(Model?.ImmediateSending == true ? "checked" : "") />
+				<span class="text-warning ms-2">در صورت ارسال فوری، گیرنده و محل ارسال اجباری است</span>
+			</div>
+		</div>
+
+		@if (canChangeStatus)
+		{
+			<div class="row g-3 mb-3">
+				<div class="col-md-3 form-group-inline">
+					<label class="form-label fw-bold">وضعیت</label>
+					<select class="form-select" data-bind="lastStatusId">
+						@if (statusVal == (int)PartRequestStatusEnum.Inquiry) { <option value="@((int)PartRequestStatusEnum.Inquiry)" selected>استعلام</option> } else { <option value="@((int)PartRequestStatusEnum.Inquiry)">استعلام</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.Edit) { <option value="@((int)PartRequestStatusEnum.Edit)" selected>ویرایش</option> } else { <option value="@((int)PartRequestStatusEnum.Edit)">ویرایش</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.Rejected) { <option value="@((int)PartRequestStatusEnum.Rejected)" selected>عدم تایید</option> } else { <option value="@((int)PartRequestStatusEnum.Rejected)">عدم تایید</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.Approved) { <option value="@((int)PartRequestStatusEnum.Approved)" selected>تایید شده</option> } else { <option value="@((int)PartRequestStatusEnum.Approved)">تایید شده</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.SendItems) { <option value="@((int)PartRequestStatusEnum.SendItems)" selected>درخواست ارسال اقلام</option> } else { <option value="@((int)PartRequestStatusEnum.SendItems)">درخواست ارسال اقلام</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.Prefactor) { <option value="@((int)PartRequestStatusEnum.Prefactor)" selected>پیش فاکتور</option> } else { <option value="@((int)PartRequestStatusEnum.Prefactor)">پیش فاکتور</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.GuaranteeVoucher) { <option value="@((int)PartRequestStatusEnum.GuaranteeVoucher)" selected>حواله گارانتی</option> } else { <option value="@((int)PartRequestStatusEnum.GuaranteeVoucher)">حواله گارانتی</option> }
+						@if (statusVal == (int)PartRequestStatusEnum.Closed) { <option value="@((int)PartRequestStatusEnum.Closed)" selected>بسته شده</option> } else { <option value="@((int)PartRequestStatusEnum.Closed)">بسته شده</option> }
+					</select>
+				</div>
+				<div class="col-md-5 form-group-inline">
+					<label class="form-label fw-bold">کامنت وضعیت</label>
+					<input class="form-control" data-bind="lastStatusComment" value="@Model?.LastStatusComment" />
+				</div>
+				<div class="col-md-2 form-group-inline">
+					<label class="form-label fw-bold">شماره پیش فاکتور</label>
+					<input class="form-control" data-bind="invoiceNumber" value="@Model?.InvoiceNumber" />
+				</div>
+				<div class="col-md-12 form-group-inline">
+					<label class="form-label fw-bold">فایل پیوست</label>
+					<fileuploader bind="fileId" accepted-file-types=".jpg,.png,.rar,.zip,.pdf,.doc,.docx"
+						file-id="@Model?.FileId"
+						file-entity="@Model?.File"
+						entity-prop-name="File"
+						entity-type="@typeof(PartRequest).FullName"
+						max-file-size="5" label="انتخاب فایل">
+					</fileuploader>
+				</div>
+			</div>
+		}
+		else
+		{
+			<input type="hidden" data-bind="lastStatusId" value="@statusVal" />
+			<input type="hidden" data-bind="lastStatusComment" value="@Model?.LastStatusComment" />
+			<input type="hidden" data-bind="invoiceNumber" value="@Model?.InvoiceNumber" />
+		}
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">گیرنده</label>
+				<input class="form-control" data-bind="receiver" value="@Model?.Receiver" />
+			</div>
+			<div class="col-md-8 form-group-inline">
+				<label class="form-label fw-bold">محل ارسال</label>
+				<input class="form-control" data-bind="sendingLocation" value="@Model?.SendingLocation" />
+			</div>
+		</div>
+
+		<div class="card border mt-3">
+			<div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+				<span class="fw-bold">اقلام</span>
+				<button type="button" class="btn btn-sm btn-primary" data-action="addItem" @(canSave ? "" : "disabled")>
+					<i class="fa fa-plus"></i> افزودن
+				</button>
+			</div>
+			<div class="card-body p-0">
+				<table class="table table-sm table-hover mb-0" id="partRequestItemsTable">
+					<thead>
+						<tr>
+							<th>محل مصرف</th>
+							<th>جایگاه</th>
+							<th>کالا</th>
+							<th>تعداد</th>
+							<th>کامنت</th>
+							<th style="width:120px" class="text-center dt-ellipsis-skip">عملیات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const usagePlaceStation = @((int)PartRequestUsagePlaceEnum.Station);
+	const usagePlaceLabels = {
+		'@((int)PartRequestUsagePlaceEnum.WarehouseCharge)': 'شارژ انبار',
+		'@((int)PartRequestUsagePlaceEnum.Station)': 'جایگاه'
+	};
+	const statusPrefactor = @((int)PartRequestStatusEnum.Prefactor);
+	let partRequestItems = [];
+	let editingItemIndex = null;
+
+	function canSaveNow() { return $$('#partRequestCanSave').val() === '1'; }
+
+	function esc(s) {
+		return String(s == null ? '' : s)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	function refreshActionButtons() {
+		const model = page.$pageEl.dataBind();
+		const hasFile = $$('#partRequestHasFile').val() === '1' || !!(model.fileId);
+		const isPrefactor = $$('#partRequestIsPrefactor').val() === '1'
+			|| String(model.lastStatusId) === String(statusPrefactor);
+		if (self.FormActionButtons.downloadFile)
+			$(self.FormActionButtons.downloadFile.element).toggle(!!hasFile);
+		if (self.FormActionButtons.sendPreFactor)
+			$(self.FormActionButtons.sendPreFactor.element).prop('disabled', !isPrefactor);
+		if (!canSaveNow()) {
+			if (self.FormActionButtons.save) $(self.FormActionButtons.save.element).hide();
+			if (self.FormActionButtons.saveandclose) $(self.FormActionButtons.saveandclose.element).hide();
+			if (self.FormActionButtons.sendPreFactor) $(self.FormActionButtons.sendPreFactor.element).hide();
+		}
+	}
+
+	function renderItems() {
+		const $tb = $$('#partRequestItemsTable tbody');
+		$tb.empty();
+		partRequestItems.forEach(function (item, idx) {
+			const usage = usagePlaceLabels[String(item.usagePlaceId)] || '';
+			const actions = canSaveNow()
+				? '<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="editItem" data-index="' + idx + '" title="ویرایش"><i class="fa fa-pen"></i></button> '
+					+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteItem" data-index="' + idx + '" title="حذف"><i class="fa fa-trash"></i></button>'
+				: '';
+			$tb.append('<tr><td>' + esc(usage) + '</td><td>' + esc(item.stationTitle) + '</td><td title="' + esc(item.partTitle) + '">'
+				+ esc(item.partTitle) + '</td><td>' + esc(item.mount) + '</td><td title="' + esc(item.comment) + '">'
+				+ esc(item.comment) + '</td><td class="text-center">' + actions + '</td></tr>');
+		});
+	}
+
+	function loadItemsFromServer(id) {
+		if (!id) { partRequestItems = []; renderItems(); return; }
+		$$.get('/Panel/Cng/PartRequest/GetItems?partRequestId=' + id, function (r) {
+			const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+			partRequestItems = (rows || []).map(function (x) {
+				return {
+					id: x.id, htsId: x.htsId || 0, usagePlaceId: x.usagePlaceId,
+					stationId: x.stationId, stationTitle: x.stationTitle || '',
+					partId: x.partId,
+					partTitle: x.partTitle || (((x.partCode || '') + ' | ' + (x.partName || '')).trim()),
+					mount: x.mount, comment: x.comment || ''
+				};
+			});
+			renderItems();
+		});
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function buildItemFormUrl(item) {
+		let url = '/Panel/Cng/PartRequest/ItemForm?';
+		if (!item) {
+			const du = $$('#defaultUsagePlaceId').val();
+			const ds = page.$pageEl.find('[data-bind="defaultStationId"]').val();
+			if (du) url += 'usagePlaceId=' + encodeURIComponent(du) + '&';
+			if (ds) url += 'stationId=' + encodeURIComponent(ds) + '&';
+			return url;
+		}
+		url += 'id=' + encodeURIComponent(item.id || '') + '&';
+		url += 'htsId=' + encodeURIComponent(item.htsId || 0) + '&';
+		url += 'partId=' + encodeURIComponent(item.partId || '') + '&';
+		url += 'stationId=' + encodeURIComponent(item.stationId || '') + '&';
+		url += 'usagePlaceId=' + encodeURIComponent(item.usagePlaceId || '') + '&';
+		url += 'mount=' + encodeURIComponent(item.mount || '') + '&';
+		url += 'comment=' + encodeURIComponent(item.comment || '');
+		return url;
+	}
+
+	function openItemModal(item) {
+		editingItemIndex = item ? partRequestItems.indexOf(item) : null;
+		const $trigger = $$('[data-action="addItem"]');
+		$trigger.block();
+		page.getPartialView(buildItemFormUrl(item), function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$.confirm({
+				title: item ? 'ویرایش قلم' : 'افزودن قلم',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const m = $content.dataBind();
+							const partId = m.partId;
+							const usagePlaceId = parseInt(m.usagePlaceId, 10);
+							const mount = parseFloat(m.mount);
+							if (!partId || partId === '0' || partId === 0) { toastr.error('کالا نمی‌تواند خالی باشد'); return false; }
+							if (!mount || mount <= 0) { toastr.error('تعداد نامعتبر است'); return false; }
+							if (!usagePlaceId) { toastr.error('محل مصرف اجباری است'); return false; }
+							if (usagePlaceId === usagePlaceStation && (!m.stationId || m.stationId === '0' || m.stationId === 0)) {
+								toastr.error('برای محل مصرف جایگاه، انتخاب جایگاه اجباری است'); return false;
+							}
+							const row = {
+								id: m.id || null,
+								htsId: m.htsId || 0,
+								partId: parseInt(partId, 10),
+								partTitle: m.partTitle || '',
+								mount: mount,
+								usagePlaceId: usagePlaceId,
+								stationId: usagePlaceId === usagePlaceStation ? parseInt(m.stationId, 10) : null,
+								stationTitle: usagePlaceId === usagePlaceStation ? (m.stationTitle || '') : '',
+								comment: m.comment || ''
+							};
+							if (editingItemIndex != null && editingItemIndex >= 0)
+								partRequestItems[editingItemIndex] = row;
+							else
+								partRequestItems.push(row);
+							renderItems();
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+						toggleStationRow(selfConfirm.$body);
+						selfConfirm.$body.find('[data-bind="usagePlaceId"]').on('change', function () {
+							toggleStationRow(selfConfirm.$body);
+						});
+						selfConfirm.$body.on('change', '[data-bind="partId"]', function () {
+							loadFreeStock($(this).val(), selfConfirm.$body);
+						});
+						const pid = selfConfirm.$body.find('[data-bind="partId"]').val();
+						if (pid) loadFreeStock(pid, selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	function toggleStationRow($root) {
+		const u = parseInt($root.find('[data-bind="usagePlaceId"]').val(), 10);
+		$root.find('[data-role="stationRow"]').toggle(u === usagePlaceStation);
+	}
+
+	function loadFreeStock(partId, $c) {
+		const $lbl = $c.find('[data-role="freeStock"]');
+		if (!partId || partId === '0') { $lbl.text('—'); return; }
+		$$.get('/Panel/Cng/PartRequest/GetStock?partId=' + partId, function (r) {
+			const data = r && r.data ? r.data : r;
+			$lbl.text(data && data.qty != null ? data.qty : '0');
+		});
+	}
+
+	function savefn($btnAction) {
+		if (!canSaveNow()) { toastr.error('در وضعیت استعلام امکان ویرایش وجود ندارد', 'خطا'); return; }
+		if (validateError(page.$pageEl)) return;
+		if (!partRequestItems.length) { toastr.error('حداقل یک قلم کالا الزامی است', 'خطا'); return; }
+
+		const model = page.$pageEl.dataBind();
+		const immediate = model.immediateSending === true || model.immediateSending === 'true' || model.immediateSending === 1;
+		if (immediate) {
+			if (!model.receiver) { toastr.error('گیرنده برای ارسال فوری اجباری است'); return; }
+			if (!model.sendingLocation) { toastr.error('محل ارسال برای ارسال فوری اجباری است'); return; }
+		}
+		model.items = partRequestItems.map(function (x) {
+			return {
+				id: x.id, htsId: x.htsId || 0, usagePlaceId: x.usagePlaceId,
+				stationId: x.stationId, partId: x.partId, mount: x.mount, comment: x.comment
+			};
+		});
+
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			if (r.data && r.data.id) {
+				$$('#partRequestHasFile').val(r.data.fileId ? '1' : '0');
+				$$('#partRequestIsPrefactor').val(String(r.data.lastStatusId) === String(statusPrefactor) ? '1' : '0');
+				loadItemsFromServer(r.data.id);
+			}
+			refreshActionButtons();
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	page.$pageEl.on('click', '[data-action="addItem"]', function () {
+		if (!canSaveNow()) return;
+		openItemModal(null);
+	});
+	page.$pageEl.on('click', '[data-action="editItem"]', function () {
+		const idx = parseInt($(this).data('index'), 10);
+		openItemModal(partRequestItems[idx]);
+	});
+	page.$pageEl.on('click', '[data-action="deleteItem"]', function () {
+		const idx = parseInt($(this).data('index'), 10);
+		Swal.fire({
+			title: 'حذف قلم', text: 'آیا مطمئن هستید؟', icon: 'warning',
+			showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			partRequestItems.splice(idx, 1);
+			renderItems();
+		});
+	});
+
+	if (self.FormActionButtons.sendPreFactor) {
+		self.FormActionButtons.sendPreFactor.onclick(function () {
+			const model = page.$pageEl.dataBind();
+			if (!model.id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			if (String(model.lastStatusId) !== String(statusPrefactor)) {
+				toastr.warning('ارسال پیش‌فاکتور فقط در وضعیت پیش فاکتور مجاز است');
+				return;
+			}
+			$.confirm({
+				title: 'ارسال پیش فاکتور',
+				rtl: true,
+				content: '<div class="form-group-inline"><label class="form-label fw-bold">شرح درخواست</label>'
+					+ '<textarea class="form-control" id="prefactorRequestDescription" rows="4">'
+					+ esc(model.requestDescription || '') + '</textarea></div>',
+				buttons: {
+					send: {
+						text: 'ارسال',
+						btnClass: 'btn-primary',
+						action: function () {
+							const desc = this.$content.find('#prefactorRequestDescription').val();
+							const $btn = $(self.FormActionButtons.sendPreFactor.element).block();
+							$$.post('/Panel/Cng/PartRequest/SendPreFactor', { id: model.id, requestDescription: desc }, function (r) {
+								$btn.block(false);
+								if (!r.isSuccess) { toastr.error(r.message || 'خطا'); return; }
+								toastr.success('ارسال پیش فاکتور انجام شد');
+								appController.refreshCurrentPage();
+							});
+						}
+					},
+					cancel: { text: 'انصراف' }
+				}
+			});
+		});
+	}
+
+	if (self.FormActionButtons.downloadFile) {
+		self.FormActionButtons.downloadFile.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			window.open('/Panel/Cng/PartRequest/Download?id=' + id, '_blank');
+		});
+	}
+
+	if (self.FormActionButtons.doneRequest) {
+		self.FormActionButtons.doneRequest.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			Swal.fire({
+				title: 'انجام شد', text: 'آیا مطمئن هستید؟ درخواست بسته می‌شود.', icon: 'warning',
+				showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر'
+			}).then(function (result) {
+				if (!result.isConfirmed) return;
+				const $btn = $(self.FormActionButtons.doneRequest.element).block();
+				$$.post('/Panel/Cng/PartRequest/Done', { id: id }, function (r) {
+					$btn.block(false);
+					if (!r.isSuccess) { toastr.error(r.message || 'خطا'); return; }
+					toastr.success('درخواست بسته شد');
+					appController.refreshCurrentPage();
+				});
+			});
+		});
+	}
+
+	loadItemsFromServer(page.$pageEl.dataBind().id);
+	refreshActionButtons();
+</script>

@@ -12,7 +12,9 @@
 	{
 		canEditDocument =(bool) ViewData["CanEditDocument"];
 	}
-	 
+
+	var initialActionFlags = ViewData["ActionFlags"] as WebApp.ViewModels.Edms.DocumentEditActionFlags
+		?? new WebApp.ViewModels.Edms.DocumentEditActionFlags();
 }
 <div class="card my-1">
 	<div class="form-action-buttons">
@@ -152,11 +154,48 @@
 </div>
 
 <script>
-	debugger
-	    if(!AppSdk.hasRole("Edms.Document.ChangeStatus"))
-		 $(self.FormActionButtons.editStatus.element).disabled(true)
-		 
-	 
+	function setFormButtonVisible(btn, visible) {
+		if (!btn || !btn.element) return;
+		const $el = $(btn.element);
+		if (visible) {
+			$el.removeClass('d-none').disabled(false).prop('hidden', false);
+		} else {
+			$el.addClass('d-none').disabled(true).prop('hidden', true);
+		}
+	}
+
+	function applyDocumentActionButtons(flags) {
+		flags = flags || {};
+
+		// Always hidden in this flow
+		setFormButtonVisible(self.FormActionButtons.save, false);
+		setFormButtonVisible(self.FormActionButtons.saveandnew, false);
+		setFormButtonVisible(self.FormActionButtons.reloadRevisions, false);
+		setFormButtonVisible(self.FormActionButtons.editStatus, !!flags.canEditStatus);
+
+		// History always visible
+		setFormButtonVisible(self.FormActionButtons.history, true);
+
+		setFormButtonVisible(self.FormActionButtons.saveandclose, !!flags.canSaveAndClose);
+		setFormButtonVisible(self.FormActionButtons.addComment, !!flags.canAddComment);
+		setFormButtonVisible(self.FormActionButtons.newRevision, !!flags.canNewRevision);
+		setFormButtonVisible(self.FormActionButtons.addReplySheet, !!flags.canAddReplySheet);
+	}
+
+	function readActionFlagsFromEditor() {
+		const $flags = $$('#documentActionFlags');
+		if (!$flags.length) return {};
+		try {
+			return JSON.parse($flags.text());
+		} catch (e) {
+			return {};
+		}
+	}
+
+	function refreshActionButtons() {
+		applyDocumentActionButtons(readActionFlagsFromEditor());
+	}
+
 	function getGroupKey() {
 		// 1) Prefer current editor values (after partial load)
 		const $editor = $$('#RevisionEditorContainer');
@@ -231,6 +270,7 @@
 			}
 
 			syncHoldFields($container);
+			refreshActionButtons();
 			reloadRevisionsList(getCurrentRevisionId());
 
 			// Keep the card but collapse it to reduce clutter
@@ -238,7 +278,7 @@
 		});
 	}
 
-	function saveCurrentRevision($btnAction , replySheet = false) {
+	function saveCurrentRevision($btnAction) {
 		const $editor = $$('#DocumentRevisionEditor');
 		const canEditDocument = '@canEditDocument'
 		if ($editor.length === 0) return toastr.error('فرم ریویژن یافت نشد.', 'خطا');
@@ -251,8 +291,6 @@
 		if (!pid || !vid) return toastr.error('برای ذخیره، پروژه و سند (Vpis) باید مشخص باشد.', 'خطا');
 
 		const $btn = $(this.element).block();
-		if(replySheet == true)
-			model.status = 22;
 
 		$$.post('save/'+canEditDocument, model, function (r) {
 			$btn.block(false);
@@ -265,6 +303,61 @@
 			reloadRevisionsList(r.data?.id);
 
 			$btnAction.baseaction();
+		});
+	}
+
+	function openReplySheetModal() {
+		const id = getCurrentRevisionId();
+		if (!id) {
+			toastr.error('شناسه مدرک جهت افزودن ReplySheet یافت نشد.', 'خطا');
+			return;
+		}
+
+		page.getPartialView(`ReplySheetPartial?documentId=${id}`, function (v) {
+			if (!v) return toastr.error('خطا در بارگذاری فرم ReplySheet', 'خطا');
+
+			let $content = $(`${v}`).addClass('col-md-12 align-items-center');
+			let $conf = $.confirm({
+				title: 'افزودن ReplySheet',
+				content: $content,
+				rtl: true,
+				type: 'blue',
+				columnClass: 'col-md-8',
+				typeAnimated: true,
+				buttons: {
+					acc: {
+						text: 'ثبت ReplySheet',
+						btnClass: 'btn btn-success',
+						action: function () {
+							if (validateError(this.$content)) return false;
+
+							const model = this.$content.dataBind();
+							const fileId = parseInt((model?.replySheetFileId || '0'), 10) || 0;
+							if (!fileId) {
+								toastr.error('فایل ReplySheet الزامی است.', 'خطا');
+								return false;
+							}
+
+							$$.post(`AddReplySheet?documentId=${id}&replySheetFileId=${fileId}`, {}, function (r) {
+								if (!r.isSuccess) return toastr.error(r.message, 'خطا');
+
+								toastr.success('ReplySheet با موفقیت ثبت شد.');
+								$conf.close();
+								reloadRevisionsList(id);
+							});
+
+							return false;
+						}
+					},
+					close: {
+						text: 'بستن',
+						btnClass: 'btn btn-danger',
+						action: function () { }
+					}
+				}
+			});
+
+			initFileUploaders($content);
 		});
 	}
 
@@ -304,6 +397,7 @@
 			}
 
 			syncHoldFields($container);
+			refreshActionButtons();
 
 			// Mark active in list
 			$$('.js-revision-item').removeClass('border-primary').addClass('border-gray-200');
@@ -340,13 +434,14 @@
 			}
 
 			syncHoldFields($container);
+			refreshActionButtons();
 		});
 	}
 
 	function isHoldStatus(statusVal) {
 		const n = parseInt(statusVal, 10);
-		// DocumentStatusEnums: Hold = 11, HoldByProject = 27
-		return n === 11 || n === 27;
+		// DocumentStatusEnums: Hold = 16, HoldByProject = 32
+		return n === 16 || n === 32;
 	}
 
 	function syncHoldFields($scope) {
@@ -370,7 +465,7 @@
 	self.FormActionButtons.save.onclick(function () { saveCurrentRevision.call(this, this) });
 	self.FormActionButtons.saveandnew.onclick(function () { saveCurrentRevision.call(this, this) });
 	self.FormActionButtons.saveandclose.onclick(function () { saveCurrentRevision.call(this, this) });
-	self.FormActionButtons.addReplySheet.onclick(function () { saveCurrentRevision.call(this, this, true) });
+	self.FormActionButtons.addReplySheet.onclick(function () { openReplySheetModal(); });
 
 	// Custom actions
 	self.FormActionButtons.newRevision.onclick(function () { newRevision(); });
@@ -384,13 +479,14 @@
 	});
 
 	// Hold fields toggling (state-machine related)
-	$(document).on('change', '#RevisionEditorContainer [data-comment-status="true"]', function () {
+	page.$pageEl.on('change', '#RevisionEditorContainer [data-comment-status="true"]', function () {
 		syncHoldFields($(this).closest('[data-document-comment-item="true"]'));
 	});
 	
 
-	// Initial sync
+	// Initial sync + button visibility
 	syncHoldFields($$('#RevisionEditorContainer'));
+	applyDocumentActionButtons(@Html.Raw(Json.Serialize(initialActionFlags)));
 
 	// New-document actions
 	$$('#NewDocumentGroupCard').on('click', '[data-action="start-new-document"]', function () {
@@ -426,6 +522,7 @@
 		let $conf =	$.confirm({
 				title: 'افزودن کامنت',
 				content: $content,
+				rtl: true,
 				type: 'green',
 				columnClass: "col-md-12",
 				typeAnimated: true,
@@ -465,11 +562,7 @@
 	})
 
 	self.FormActionButtons.editStatus.onclick(function () {
-		if(!AppSdk.hasRole("Edms.Document.ChangeStatus"))
-			return toastr.error("عدم دسترسی");
-
-
-					const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
+		const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
 
 			if(!id){
 				error2("شناسه مدرک جهت افزودن کامنت یافت نشد.");
@@ -485,6 +578,7 @@
 		let $conf =	$.confirm({
 				title: 'افزودن کامنت',
 				content: $content,
+				rtl: true,
 				type: 'green',
 				columnClass: "col-md-12",
 				typeAnimated: true,

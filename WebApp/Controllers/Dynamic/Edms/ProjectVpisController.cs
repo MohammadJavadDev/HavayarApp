@@ -46,12 +46,14 @@ namespace WebApp.Controllers.Dynamic
 			{
 				DocumentVpisId = entity.Id,
 				ProjectId = entity.ProjectNameId,
-				Status =DocumentStatusEnums.NotIssue,
-				Revision = 0,	
+				Status = DocumentStatusEnums.NotIssue,
+				Revision = 0,
+				IsLatest = true,
 				ApproverId = entity.ApproverId,
-				ReviewerId = entity.ReviewersId.Split(',')[0].ToInt(),
-				 
-			},cn);
+				ReviewerId = string.IsNullOrWhiteSpace(entity.ReviewersId)
+					? null
+					: entity.ReviewersId.Split(',')[0].ToInt(),
+			}, cn);
 
 			return Ok(entity);
 		}

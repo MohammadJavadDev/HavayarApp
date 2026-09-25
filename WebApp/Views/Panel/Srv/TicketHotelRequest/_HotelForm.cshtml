@@ -1,0 +1,51 @@
+@using Entities.App.Srv
+@model TicketHotelRequestHotel
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(TicketHotelRequestHotel)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body row">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+		<input type="hidden" data-bind="ticketHotelRequestId" value="@Model?.TicketHotelRequestId" />
+
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold required">نام هتل</label>
+			<input class="form-control" data-bind="hotelTitle" data-required="true" value="@Model?.HotelTitle" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold required">تعداد ستاره</label>
+			<select class="form-control" data-bind="starsNumber" data-required="true">
+				<option value="">انتخاب</option>
+				@for (var i = 1; i <= 5; i++)
+				{
+					if (Model?.StarsNumber == i)
+					{
+						<option value="@i" selected="selected">@i</option>
+					}
+					else
+					{
+						<option value="@i">@i</option>
+					}
+				}
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label fw-bold required">مبلغ</label>
+			<input type="text" class="form-control" data-bind="hotelAmount" data-required="true" data-money="true" value="@Model?.HotelAmount" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">توضیح</label>
+			<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+		</div>
+	</div>
+</div>

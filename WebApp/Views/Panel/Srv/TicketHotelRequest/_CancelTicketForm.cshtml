@@ -1,0 +1,18 @@
+@using Entities.App.Srv
+@using Entities.App.Srv.Enums
+@model TicketHotelRequestTicket
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<div class="col-md-12 form-group-inline mb-3">
+		<label class="form-label fw-bold required">طرف پرداخت</label>
+		<select class="form-control" data-bind="paySideId" data-required="true" asp-items="Html.GetEnumSelectList(typeof(PaySideEnum))">
+			<option value="">انتخاب کنید</option>
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold required">علت کنسل</label>
+		<textarea class="form-control" data-bind="cancelReason" data-required="true" rows="3"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

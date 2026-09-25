@@ -1,0 +1,85 @@
+@using Entities.App.Eng
+@using Entities.App.Inv
+@using Entities.Base
+@model PartListDlBom
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(PartListDlBom)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label>محصول</label>
+				<input class="form-control" disabled value="@(Model?.Product?.Code) — @(Model?.Product?.Name)" />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>کالا</label>
+				<input class="form-control" disabled value="@(Model?.Part?.Code) — @(Model?.Part?.Name)" />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>مرکز پروژه</label>
+				<input class="form-control" disabled value="@(Model?.DL?.Title)" />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>دسته بندی</label>
+				@(Html.EntitySelector<PartListProductSection>(
+					"PartListDlBomSectionSelector",
+					c => c.ProductId == Model.ProductId,
+					c => new { Id = c.Id, Title = c.Title, Order = c.Order },
+					c => new { c.Title, c.Order },
+					"{Order} - {Title}",
+					"productSectionId",
+					"productSectionTitle",
+					Model?.ProductSectionId?.ToString()
+				))
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label>مقدار</label>
+				<input type="text" class="form-control" data-bind="qty" value="@Model?.Qty" />
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label>ترتیب</label>
+				<input type="number" class="form-control" data-bind="order" value="@Model?.Order" />
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label>غیرفعال</label>
+				<input type="checkbox" data-bind="isIgnored" @(Model?.IsIgnored == true ? "checked" : "") />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>توضیحات</label>
+				<textarea class="form-control" data-bind="comment">@Model?.Comment</textarea>
+			</div>
+			<div class="col-md-12">
+				<div class="text-muted small">
+					موجود در پارت لیست: @(Model?.IsExistInOriginalBom == true ? "بله" : "خیر") |
+					فقط در پارت لیست: @(Model?.IsOnlyExistInOriginalBom == true ? "بله" : "خیر") |
+					از کالای مشابه: @(Model?.IsReadFromSimilarPart == true ? "بله" : "خیر")
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		var model = page.$pageEl.dataBind();
+		model.isIgnored = !!$$('[data-bind="isIgnored"]').prop('checked');
+		model.qty = parseFloat(String(model.qty || '0').replace(/,/g, '')) || 0;
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandnew)
+		self.FormActionButtons.saveandnew.hide && self.FormActionButtons.saveandnew.hide();
+</script>

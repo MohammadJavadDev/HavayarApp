@@ -2,7 +2,14 @@
 @model Part
 
 <div class="card">
-	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Part)"></form-action-buttons></div>
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(Part)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-cogs"
+				action-name="openSpareParts" title="قطعات یدکی"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-file"
+				action-name="openDocuments" title="مدارک"></form-action-button>
+		</form-action-buttons>
+	</div>
 
 </div>
 <div class="card my-3">
@@ -31,8 +38,8 @@
 		</div>
 
 		<div class='col-md-6'>
-			<label class='required'>شماره</label>
-			<input class='form-control' data-bind='number' required asp-for='Number' />
+			<label class=''>شماره</label>
+			<input class='form-control' data-bind='number' asp-for='Number' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -132,59 +139,6 @@
 	</div>
 </div>
 
-<div class="card my-3"> 
-	<div class="card-body row ">
-	 
-		<input class='form-control' data-bind='id' value='@Model?.Id' type='hidden' />
-		<div class='col-md-12'>
-			<div data-tab-item-manager="partItems" data-item-selector=".entity-item">
-				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
-					<li class="nav-item" role="presentation">
-						<a class="nav-link active" data-bs-toggle="tab" href="#sparePartsTab" role="tab" aria-selected="true">
-							<span class="svg-icon svg-icon-2 me-2"></span>
-							قطعات یدکی
-						</a>
-					</li>
-					<li class="nav-item" role="presentation">
-						<a class="nav-link  " data-bs-toggle="tab" href="#documentsTab" role="tab" aria-selected="true">
-							<span class="svg-icon svg-icon-2 me-2"></span>
-							مدارک
-						</a>
-					</li>
-				</ul>
-				<div class="tab-content">
-					<div class="tab-pane fade show active" id="sparePartsTab" role="tabpanel" data-add-url="/Panel/Inv/Part/PartSparePartPartial">
-						<div id='SparePartsContainer' class="entity-item-container">
-							@if (Model?.SpareParts != null)
-							{
-								@foreach (var item in Model.SpareParts)
-								{
-									<div data-item-id="@(item.Id ?? 0)">
-										@await Html.PartialAsync("_PartSparePartPartial.cshtml", item)
-									</div>
-								}
-							}
-						</div>
-					</div>
-					<div class="tab-pane fade " id="documentsTab" role="tabpanel" data-add-url="/Panel/Inv/Part/PartDocumentPartial">
-						<div id='DocumentsContainer' class="entity-item-container">
-							@if (Model?.Documents != null)
-							{
-								@foreach (var item in Model.Documents)
-								{
-									<div data-item-id="@(item.Id ?? 0)">
-										@await Html.PartialAsync("_PartDocumentPartial.cshtml", item)
-									</div>
-								}
-							}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-</div>
-
 <div class="card my-3">
 	<div class="card-body row">
 		<div class="col-12 mb-4 card-custom-header">
@@ -240,7 +194,7 @@
 	function savefn($btnAction) {
 		if (validateError(page.$pageEl)) { return; }
 		var model = page.$pageEl.dataBind();
-		const $btn = $(this.element).block();
+		const $btn = $($btnAction.element).block();
 		$$.post('save',
 			model,
 			function (r) {
@@ -255,4 +209,24 @@
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+
+	function openPartChild(path, title) {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) {
+			toastr.error('ابتدا کالا را ذخیره کنید');
+			return;
+		}
+		appController.addPage(path + id, true, title);
+	}
+
+	if (self.FormActionButtons.openSpareParts) {
+		self.FormActionButtons.openSpareParts.onclick(function () {
+			openPartChild('/Panel/Inv/PartSparePart/ListByParentId?partId=', 'قطعات یدکی');
+		});
+	}
+	if (self.FormActionButtons.openDocuments) {
+		self.FormActionButtons.openDocuments.onclick(function () {
+			openPartChild('/Panel/Inv/PartDocument/ListByParentId?partId=', 'مدارک');
+		});
+	}
 </script>

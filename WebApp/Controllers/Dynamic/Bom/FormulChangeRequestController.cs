@@ -169,206 +169,128 @@ namespace WebApp.Controllers.Dynamic
 
 		public async Task ChangeBom(FormulChangeRequest entity, CancellationToken cn = default)
 		{
-			var isProductGroupModel = entity.ChangedProductGroupIds.HasValue()
-									&& entity.ChangedProductGroupIds.Length > 0;
+			var hasChangedGroups = entity.ChangedProductGroupIds.HasValue();
+			var hasChangedProducts = entity.ChangedProductFormulIds.HasValue();
 
-			List<long> productFormulIds;
-			List<long?> formulaIds;
-			List<FormulItem> formulItems = new();
-			long?[] mainProductFormulIds;
+			if (!hasChangedGroups && !hasChangedProducts)
+				throw new Exception("هیچ گروه محصول یا محصولی برای ویرایش انتخاب نشده است.");
 
-			if (isProductGroupModel)
+			var productFormulIdSet = new HashSet<long>();
+
+			if (hasChangedGroups)
 			{
-				var productGroupIds = entity.ChangedProductGroupIds.Split(",");
+				var productGroupIds = entity.ChangedProductGroupIds
+					.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+					.Select(x => x.ToLong())
+					.Where(id => id > 0)
+					.Distinct()
+					.ToList();
 
-				mainProductFormulIds = unitOfWork.Repository<ProductFormul>().
-						TableNoTracking
-						.Where(p => p.ProductNameGroupId == productGroupIds[0].ToLong())
-						.Select(p => p.Id)
-						 .ToArray();
-
-				if (!mainProductFormulIds.Any())
-					return;
-
-
-				formulaIds = unitOfWork.Repository<ProductFormulItem>().
-						TableNoTracking
-				    .Where(p => mainProductFormulIds.Contains(p.ProductFormulId)
-					&& p.FormulId.HasValue)
-				    .Select(p => p.FormulId)
-				    .ToList();
-
-				if (!formulaIds.Any())
-					return;
-
-				formulItems = formulaIds.Select(id => new FormulItem
+				if (productGroupIds.Count > 0)
 				{
-					PartId = entity.PartId,
-					FormulId = id.Value,
-					UsingRate = 1,
-				}).ToList();
+					var fromGroups = unitOfWork.Repository<ProductFormul>().TableNoTracking
+						.Where(p => p.ProductNameGroupId != null && productGroupIds.Contains(p.ProductNameGroupId.Value))
+						.Select(p => p.Id!.Value)
+						.ToList();
 
-
-			}
-			else
-			{
-				if (!entity.ChangedFormulIds.HasValue())
-				{
-					throw new Exception("هیچ فرمول قطعه یا گروه محصولی برای ویرایش انتخاب نشده است.");
+					foreach (var id in fromGroups)
+						productFormulIdSet.Add(id);
 				}
-
-				formulItems = entity.ChangedFormulIds.Split(",").Select(x => new FormulItem
-				{
-					PartId = entity.PartId,
-					FormulId = x.ToLong(),
-					UsingRate = entity.ChangedUsingRate
-				}).ToList();
 			}
+
+			if (hasChangedProducts)
+			{
+				var selectedProductFormulIds = entity.ChangedProductFormulIds
+					.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+					.Select(x => x.ToLong())
+					.Where(id => id > 0);
+
+				foreach (var id in selectedProductFormulIds)
+					productFormulIdSet.Add(id);
+			}
+
+			if (productFormulIdSet.Count == 0)
+				return;
+
+			var productFormulIds = productFormulIdSet.ToList();
+
+			var itemRepo = unitOfWork.Repository<ProductFormulItem>();
+			var usingRate = entity.ChangedUsingRate.HasValue
+				? (decimal?)entity.ChangedUsingRate.Value
+				: null;
 
 			if (entity.OperationType == FormulChangeRequestOperationTypeEnum.Add)
 			{
+				if (!entity.PartId.HasValue)
+					throw new Exception("قطعه برای افزودن مشخص نشده است.");
 
-				 foreach(var item in formulItems)
+				foreach (var productFormulId in productFormulIds)
 				{
-					var originalItem = unitOfWork.Repository<FormulItem>().
-						Table
-						.FirstOrDefault(p => p.PartId == item.PartId && p.FormulId == item.FormulId);
-					//
-					if (originalItem != null)
+					var existing = itemRepo.Table
+						.FirstOrDefault(p => p.ProductFormulId == productFormulId && p.PartId == entity.PartId.Value);
+
+					if (existing != null)
 					{
-
-						originalItem.SourcePath = "BomChangeRequestController => AddFormulItems => Update";
-						originalItem.UsingRate = entity.ChangedUsingRate;
-
-						 
-
+						if (usingRate.HasValue)
+							existing.UsingRate = usingRate;
 					}
 					else
 					{
-						item.UsingRate = entity.ChangedUsingRate;
-
-						item.SourcePath = "BomChangeRequestController => AddFormulItems => Create";
-
-						 
-
+						await itemRepo.AddAsync(new ProductFormulItem
+						{
+							ProductFormulId = productFormulId,
+							PartId = entity.PartId.Value,
+							UsingRate = usingRate ?? 1
+						}, cn, false);
 					}
-				};
-				 await unitOfWork.SaveChangesAsync(cn);
+				}
 
-
+				await unitOfWork.SaveChangesAsync(cn);
 			}
 			else if (entity.OperationType == FormulChangeRequestOperationTypeEnum.Replacement)
 			{
+				if (!entity.PartId.HasValue || !entity.ReplacementPartId.HasValue)
+					throw new Exception("قطعه و قطعه جایگزین برای جایگزینی مشخص نشده‌اند.");
 
-				if (isProductGroupModel)
+				var items = itemRepo.Table
+					.Where(p => productFormulIds.Contains(p.ProductFormulId) && p.PartId == entity.PartId.Value)
+					.ToList();
+
+				if (items.Count == 0)
+					return;
+
+				foreach (var item in items)
 				{
+					var duplicate = itemRepo.Table
+						.FirstOrDefault(p =>
+							p.ProductFormulId == item.ProductFormulId
+							&& p.PartId == entity.ReplacementPartId.Value
+							&& p.Id != item.Id);
 
-					var productGroupIds = entity.ChangedProductGroupIds.Split(",");
-					var message = "";
-					var updateResult = new List<FormulItem>();
-					 foreach(var pgi in productGroupIds)
+					if (duplicate != null)
 					{
-
-						mainProductFormulIds = unitOfWork.Repository<ProductFormul>().
-						TableNoTracking
-						.Where(p => p.ProductNameGroupId == pgi.ToLong())
-						.Select(p => p.Id)
-						 .ToArray();
-
-
-						productFormulIds = _context.vw_ProductItems
-						    .Where(p => p.PartItemId == entity.ReplacementPartId)
-						    .Select(p => p.ProductFormulId)
-						    .AsEnumerable()
-						    .Where(p => mainProductFormulIds.Contains(p))
-						    .ToList();
-
-						if (!productFormulIds.Any())
-							return;
-
-						formulaIds = unitOfWork.Repository<ProductFormulItem>()
-							.TableNoTracking
-							.Where(p => productFormulIds.Contains(p.ProductFormulId) && p.FormulId.HasValue)
-							.Select(p => p.FormulId)
-							.ToList();
-
-
-						if (!formulaIds.Any())
-							return;
-
-						var formulaItems = unitOfWork.Repository<FormulItem>().
-							 TableNoTracking
-							 .Where(p => formulaIds.Contains(p.FormulId) && p.PartId == entity.PartId)
-							 .Include(p => p.PartId)
-							 .ToList();
-
-						if (!formulaItems.Any())
-							return;
-
-						// اگر تعداد 0 بود یعنی فقط جایگزین شوند
-						if (!entity.ChangedUsingRate.HasValue || entity.ChangedUsingRate == 0)
-						{
-							formulaItems.ForEach(item =>
-							{
-
-								item.SourcePath = "BomChangeRequestController => UpdateFormulaItems => Update";
-								item.PartId = entity.ReplacementPartId;
-								item.PartId = null;
-
-							});
-
-							updateResult = await unitOfWork.Repository<FormulItem>().
-						    UpdateRangeAsync(formulaItems, cn);
-
-							return;
-						}
-						else
-						{
-
-
-							formulaItems = formulaItems
-							    .GroupBy(p => p.FormulId)
-							    .SelectMany(p => p.Take(entity.ChangedUsingRate.Value))
-							    .ToList();
-
-							if (!formulaItems.Any())
-								return;
-
-							if (formulaItems.Any(p => p.PartId == entity.ReplacementPartId))
-							{
-								message += string.Format("این {0} قبلا تعریف شده است", formulaItems.First(p => p.PartId == entity.ReplacementPartId).Part.Code) + "<br/>";
-								return;
-							}
-
-							formulaItems.ForEach(item =>
-							{
-
-								item.SourcePath = "BomChangeRequestController => UpdateFormulaItems => Update";
-								item.PartId = entity.ReplacementPartId;
-								item.Part = null;
-
-							});
-
-							updateResult = await unitOfWork.Repository<FormulItem>().
-													   UpdateRangeAsync(formulaItems, cn);
-
-						}
-
-					};
-
+						duplicate.UsingRate = (duplicate.UsingRate ?? 0) + (usingRate ?? item.UsingRate ?? 0);
+						await itemRepo.DeleteAsync(item, cn, false);
+					}
+					else
+					{
+						item.PartId = entity.ReplacementPartId.Value;
+						item.Part = null;
+						if (usingRate.HasValue && usingRate.Value != 0)
+							item.UsingRate = usingRate;
+					}
 				}
 
+				await unitOfWork.SaveChangesAsync(cn);
 			}
-
 			else if (entity.OperationType == FormulChangeRequestOperationTypeEnum.Deleted)
 			{
-				var partId = formulItems.First().PartId;
-				var formulIds = formulItems.Select(p => p.FormulId).ToArray();
+				if (!entity.PartId.HasValue)
+					throw new Exception("قطعه برای حذف مشخص نشده است.");
 
-				await unitOfWork.Repository<FormulItem>()
-							.TableNoTracking
-							 .Where(p => p.PartId == partId && formulIds.Contains(p.FormulId))
-							 .ExecuteDeleteAsync();
+				await itemRepo.Table
+					.Where(p => productFormulIds.Contains(p.ProductFormulId) && p.PartId == entity.PartId.Value)
+					.ExecuteDeleteAsync(cn);
 			}
 
 			#region ارسال ایمیل اطلاع رسانی نهایی
@@ -377,11 +299,7 @@ namespace WebApp.Controllers.Dynamic
 
 			#endregion
 
-
-			 await UpdateDataSheets(entity.PartId.Value, entity.ReplacementPartId,cn);
-
-			 
-
+			await UpdateDataSheets(entity.PartId.Value, entity.ReplacementPartId, cn);
 		}
 
 		private async Task UpdateDataSheets(long partId , long? replacePartId,CancellationToken cn)
@@ -412,10 +330,18 @@ namespace WebApp.Controllers.Dynamic
 
 			 foreach(var partExtraInfo in partExtraInfos)
 			{
-				partExtraInfo.Revision += 1;
+				partExtraInfo.Id = null;
+				partExtraInfo.Product = null;
+				partExtraInfo.CreatedById = null;
+				partExtraInfo.CreatedByName = null;
+				partExtraInfo.CreatedOnMiladiDateTime = null;
+				partExtraInfo.CreatedOnShamsiDateTime = null;
+				partExtraInfo.ModifiedById = null;
+				partExtraInfo.ModifiedByName = null;
+				partExtraInfo.Revision = null;
 
-				 await new PartExtraInfoController(unitOfWork, _context, _webHostEnvironment)
-				.Add(partExtraInfo, cn);
+				await new PartExtraInfoController(unitOfWork, _context, _webHostEnvironment)
+					.Add(partExtraInfo, cn);
 			}
 		}
 
@@ -506,7 +432,20 @@ namespace WebApp.Controllers.Dynamic
 				}
 				content.Append("</ul>");
 			}
-			else if (item.ChangedFormulNames.HasValue()) 
+
+			if (item.ChangedProductFormulNames.HasValue())
+			{
+				content.Append("در محصول(های) ");
+				content.Append("<ul>");
+				foreach (var productItem in item.ChangedProductFormulNames.Split(","))
+				{
+					content.Append("<li>");
+					content.Append($"<strong>{productItem}</strong>");
+					content.Append("</li>");
+				}
+				content.Append("</ul>");
+			}
+			else if (!item.ChangedProductGroupNames.HasValue() && item.ChangedFormulNames.HasValue())
 				{
 					content.Append("در فرمول(های) ");
 

@@ -2,6 +2,7 @@ using Common.Attributes;
 using Entities.App.Edms;
 using Entities.App.FIN;
 using Entities.App.Gnr;
+using Entities.App.Hrm;
 using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sup.Enums;
@@ -620,6 +621,14 @@ namespace Entities.App.Sup
 		[DisplayName("توضیحات تکمیلی")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? AdditionalDescription { get; set; }
+
+
+		/// <summary>واحد سازمانی ثبت‌کننده — معادل HTS <c>CreatedOrgUnit_FK</c> (دایجست تامین فقط واحد «تامین و خرید» / HTS 51).</summary>
+		[DisplayName("واحد سازمانی ایجادکننده")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public OrgUnit? CreatedOrgUnit { get; set; }
+
+		public long? CreatedOrgUnitId { get; set; }
 
 
 	}

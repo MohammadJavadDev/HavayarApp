@@ -1,0 +1,197 @@
+@using Entities.App.Cng
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="cngPartPriceAttachCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">فایل های ضمیمه شده</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newAttachment">جدید</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="cngPartPriceAttachTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>نام فایل</th>
+					<th>حجم</th>
+					<th>کاربر</th>
+					<th>تاریخ</th>
+					<th>ساعت</th>
+					<th>توضیحات</th>
+					<th style="width:120px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const cngAttachParentId = @parentId;
+
+	function formatFileSize(bytes) {
+		if (bytes == null || bytes === '') return '-';
+		const n = Number(bytes);
+		if (!isFinite(n) || n < 0) return '-';
+		if (n < 1024) return n + ' B';
+		if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+		return (n / (1024 * 1024)).toFixed(1) + ' MB';
+	}
+
+	function splitShamsiDateTime(value) {
+		if (!value) return { date: '-', time: '-' };
+		const s = String(value).trim();
+		const parts = s.split(/\s+/);
+		return { date: parts[0] || '-', time: parts[1] || '-' };
+	}
+
+	const cngAttachTable = $$('#cngPartPriceAttachTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Cng/PartPriceAttachment/GetListByParentId?partPriceId=' + cngAttachParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'fileName', defaultContent: '-' },
+			{
+				data: 'fileSize',
+				defaultContent: '-',
+				render: function (v) { return formatFileSize(v); }
+			},
+			{ data: 'createdByName', defaultContent: '-' },
+			{
+				data: 'createdOnShamsiDateTime',
+				defaultContent: '-',
+				render: function (v) { return splitShamsiDateTime(v).date; }
+			},
+			{
+				data: 'createdOnShamsiDateTime',
+				defaultContent: '-',
+				render: function (v) { return splitShamsiDateTime(v).time; }
+			},
+			{ data: 'comment', defaultContent: '-' },
+			{
+				data: 'id',
+				orderable: false,
+				className: 'text-center',
+				render: function (id, type, row) {
+					const viewBtn = row.fileId
+						? '<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="viewAttachment" data-file-id="' + row.fileId + '" title="مشاهده"><i class="fa fa-eye"></i></button> '
+						: '';
+					return viewBtn
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteAttachment" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function collectModalFileIds($content) {
+		const ids = [];
+		$content.find('.existing-file-item').each(function () {
+			const id = $(this).data('file-id');
+			if (id && ids.indexOf(String(id)) < 0) ids.push(String(id));
+		});
+		const bound = $content.find('[data-bind="fileId"]').val();
+		if (bound && ids.indexOf(String(bound)) < 0) ids.push(String(bound));
+		return ids;
+	}
+
+	function openNewAttachmentModal() {
+		const $trigger = $$('#cngPartPriceAttachCard').find('[data-action="newAttachment"]');
+		$trigger.block();
+		page.getPartialView('/Panel/Cng/PartPriceAttachment/New?partPriceId=' + cngAttachParentId, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: 'افزودن پیوست',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const fileIds = collectModalFileIds($content);
+							if (fileIds.length === 0) {
+								toastr.error('انتخاب فایل الزامی است', 'خطا');
+								return false;
+							}
+							model.fileIds = fileIds.join(',');
+							model.fileId = fileIds[fileIds.length - 1];
+							model.partPriceId = cngAttachParentId;
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Cng/PartPriceAttachment/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								cngAttachTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initFileUploaders === 'function')
+							initFileUploaders(selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	$$('#cngPartPriceAttachCard').on('click', '[data-action="newAttachment"]', function () {
+		openNewAttachmentModal();
+	});
+	$$('#cngPartPriceAttachCard').on('click', '[data-action="viewAttachment"]', function () {
+		const fileId = $(this).data('file-id');
+		if (!fileId) {
+			toastr.error('فایل یافت نشد');
+			return;
+		}
+		window.open('/File/download/' + fileId, '_blank');
+	});
+	$$('#cngPartPriceAttachCard').on('click', '[data-action="deleteAttachment"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Cng/PartPriceAttachment/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					cngAttachTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

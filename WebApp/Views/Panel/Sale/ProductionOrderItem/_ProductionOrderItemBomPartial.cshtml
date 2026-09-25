@@ -2,11 +2,19 @@
 @using Entities.App.Sale.Enums
 @using Entities.App.Inv
 @model ProductionOrderItemBom
+@{
+	var canManageBom = ViewBag.CanManageBom as bool? ?? false;
+	var canEditBomNewFields = ViewBag.CanEditBomNewFields as bool? ?? false;
+	var showNewFields = canEditBomNewFields;
+	var showLegacyFields = canManageBom;
+}
 
 <div class="row">
 	<input type="hidden" data-bind="id" value="@Model?.Id" />
 	<input type="hidden" data-bind="productionOrderItemId" value="@Model?.ProductionOrderItemId" />
 
+	@if (showLegacyFields)
+	{
 	<div class="col-md-12 form-group-inline">
 		<label class="required">کالا</label>
 		@(Html.EntitySelector<Part>(
@@ -29,29 +37,40 @@
 
 	<div class="col-md-6 form-group-inline">
 		<label class="required">تعداد/مقدار</label>
-		<input class="form-control" data-bind="amount" asp-for="Amount" 
-			data-invalidMessage="فقط عدد" 
+		<input class="form-control" data-bind="amount" asp-for="Amount"
+			data-invalidMessage="فقط عدد"
 			data-inputmask="'regex':'^[\u06F0-\u06F90-9.]+$' , 'placeholder' : ''" />
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
 	<div class="col-md-6 form-group-inline">
 		<label>نسخه</label>
-		<input class="form-control" data-bind="revision" asp-for="Revision" 
-			data-invalidMessage="فقط عدد" 
-			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" />
+		<input class="form-control" data-bind="revision" asp-for="Revision" readonly
+			data-invalidMessage="فقط عدد"
+			data-inputmask="'regex':'^[\u06F0-\u06F90-9\-]+$' , 'placeholder' : ''" />
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
+	}
+	else
+	{
+		<input type="hidden" data-bind="partId" value="@Model?.PartId" />
+		<input type="hidden" data-bind="amount" value="@Model?.Amount" />
+		<input type="hidden" data-bind="revision" value="@Model?.Revision" />
+		<input type="hidden" data-bind="description" value="@Model?.Description" />
+		<input type="hidden" data-bind="saleUnitDetails" value="@Model?.SaleUnitDetails" />
+		<input type="hidden" data-bind="needsAVL" value="@(Model?.NeedsAVL == true ? "true" : "false")" />
+		<input type="hidden" data-bind="isLatest" value="@(Model?.IsLatest == true ? "true" : "false")" />
+	}
 
+	@if (showNewFields)
+	{
 	<div class="col-md-6 form-group-inline">
 		<label>تعداد تامین شده</label>
-		<input class="form-control" data-bind="numberSupplied" asp-for="NumberSupplied" 
-			data-invalidMessage="فقط عدد" 
+		<input class="form-control" data-bind="numberSupplied" asp-for="NumberSupplied"
+			data-invalidMessage="فقط عدد"
 			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" />
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
-
-
 
 	<div class="col-md-6 form-group-inline">
 		<label>مرحله ساخت</label>
@@ -68,7 +87,16 @@
 		</select>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
+	}
+	else
+	{
+		<input type="hidden" data-bind="numberSupplied" value="@Model?.NumberSupplied" />
+		<input type="hidden" data-bind="productionStep" value="@((int?)Model?.ProductionStep)" />
+		<input type="hidden" data-bind="status" value="@((int?)Model?.Status)" />
+	}
 
+	@if (showLegacyFields)
+	{
 	<div class="col-md-2 form-group-inline align-content-center" style="margin-right: 10%;">
 		<div class="form-check">
 			<input data-bind="isLatest" class="form-check-input" type="checkbox" asp-for="IsLatest" />
@@ -86,7 +114,6 @@
 			</label>
 		</div>
 	</div>
-	
 
 	<div class="col-md-12 form-group-inline">
 		<label>توضیحات</label>
@@ -99,5 +126,6 @@
 		<textarea class="form-control" data-bind="saleUnitDetails" asp-for="SaleUnitDetails" rows="3"></textarea>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
+	}
 
 </div>

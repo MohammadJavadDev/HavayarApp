@@ -734,6 +734,29 @@ namespace ReportBuilder.WebApp.Controllers
             public string[] values { get; set; }
             public string condition { get; set; } = "";
         }
+
+        /// <summary>
+        /// فقط رشتهٔ فیلتر `{values:[...],condition:"="}` را می‌خواند.
+        /// مقدار خام طراح (مثلاً 1002) FilterParamter نیست و نباید deserialize شود.
+        /// </summary>
+        private static bool TryParseFilter(string raw, out FilterParamter filter)
+        {
+            filter = null;
+            if (string.IsNullOrWhiteSpace(raw))
+                return false;
+            var text = raw.Trim();
+            if (!text.StartsWith("{") || !text.EndsWith("}"))
+                return false;
+            try
+            {
+                filter = text.JsonDeserialize<FilterParamter>();
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+            return filter?.values is { Length: > 0 };
+        }
     [HttpGet("[action]")]
 
         public IActionResult StimulSoftViewReport(long? reportId)
@@ -753,12 +776,20 @@ namespace ReportBuilder.WebApp.Controllers
 
 
 			var dic = new Dictionary<string, string>();
+			var storedFilters = new Dictionary<string, FilterParamter>(StringComparer.OrdinalIgnoreCase);
 
 			foreach (var q in Request.Query)
 			{
 				var spVal = q.Value.ToString();
 				dic.Add(q.Key, spVal);
+				if (q.Key is "reportId" or "itemId" or "fromSavedQuery")
+					continue;
+				if (TryParseFilter(spVal, out var parsed))
+					storedFilters[q.Key] = parsed;
 			}
+
+			if (storedFilters.Count > 0)
+				TempData["queryString"] = storedFilters.JsonSerialize();
 
 			ViewBag.ReportId = reportId;
 			ViewBag.QueryParams = dic;
@@ -1136,20 +1167,24 @@ namespace ReportBuilder.WebApp.Controllers
         public async Task<IActionResult> GetViewReport()
         {
             var reportId = TempData.ContainsKey("reportId") ? (TempData["reportId"]?.ToString() ?? "0").ToLong() : 0L;
-            var paramsQuery = TempData.ContainsKey("queryString")
-                ? (TempData["queryString"]?.ToString() ?? "{}").JsonDeserialize<Dictionary<string, FilterParamter>>() ?? new Dictionary<string, FilterParamter>()
-                : new Dictionary<string, FilterParamter>();
-
-
-
-               var filters = new Dictionary<string, FilterParamter>();
+            TempData.Keep("reportId");
+            var filters = TempData.ContainsKey("queryString")
+                ? (TempData["queryString"]?.ToString() ?? "{}").JsonDeserialize<Dictionary<string, FilterParamter>>()
+                  ?? new Dictionary<string, FilterParamter>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, FilterParamter>(StringComparer.OrdinalIgnoreCase);
 
 			foreach (var q in Request.Query)
 			{
-				if (q.Key != "reportId" && q.Key != "itemId" && q.Key != "fromSavedQuery")
-				{
-					filters.Add(q.Key, q.Value.ToString().JsonDeserialize<FilterParamter>());
-				}
+				if (q.Key is "reportId" or "itemId" or "fromSavedQuery")
+					continue;
+				if (TryParseFilter(q.Value.ToString(), out var parsed))
+					filters[q.Key] = parsed;
+			}
+
+			if (filters.Count > 0)
+			{
+				TempData["queryString"] = filters.JsonSerialize();
+				TempData.Keep("queryString");
 			}
 
 

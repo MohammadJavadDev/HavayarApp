@@ -1,0 +1,314 @@
+﻿/*
+Seed_SrvTicketHotelRequest_RolesAndAccess.sql
+نقش و دسترسی درخواست بلیط و هتل (HTS صفحه 417). UTF-8 BOM. Idempotent.
+Role ids (free after Sec.Personnel 600032):
+  600033 Srv.TicketHotel.FullAccessConfirm
+  600034 Srv.TicketHotel.FullAccess
+  600035 Srv.TicketHotel.Approver
+  600036 Srv.TicketHotel.Requester
+  600037 Srv.TicketHotel.View
+عضویت انحصاری از TotalSystem (TMS):
+  1) FullAccess(Permission 2) + گروه 348 → FullAccessConfirm
+  2) else FullAccess → FullAccess
+  3) else گروه 348 → Approver
+  4) else گروه 257 یا 408 → Requester
+  5) else گروه 350 با مشاهده صفحه 417 → View
+Username: COALESCE(ActiveDirectoryUsername, Username)؛ alias allahverdi.s → allahvirdi.s
+sqlcmd -S <server> -d HavayarApp -C -b -I -f 65001 -i "Data\Scripts\Seed_SrvTicketHotelRequest_RolesAndAccess.sql"
+*/
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+BEGIN TRY
+    DECLARE @Now DATETIME2 = GETDATE();
+    DECLARE @NowShamsi NVARCHAR(30) = CONVERT(NVARCHAR(30), @Now, 120);
+    DECLARE @SeedUser NVARCHAR(150) = N'seed-srv-tickethotel-roles';
+
+    PRINT N'=== [1] Roles ===';
+    IF OBJECT_ID('tempdb..#ThrRoles') IS NOT NULL DROP TABLE #ThrRoles;
+    CREATE TABLE #ThrRoles (WantId BIGINT NOT NULL, Name NVARCHAR(200) NOT NULL, Title NVARCHAR(200) NOT NULL);
+    INSERT INTO #ThrRoles (WantId, Name, Title) VALUES
+        (600033, N'Srv.TicketHotel.FullAccessConfirm', N'بلیط و هتل — دسترسی کامل + تایید'),
+        (600034, N'Srv.TicketHotel.FullAccess', N'بلیط و هتل — دسترسی کامل'),
+        (600035, N'Srv.TicketHotel.Approver', N'بلیط و هتل — تاییدکنندگان (HTS 348)'),
+        (600036, N'Srv.TicketHotel.Requester', N'بلیط و هتل — درخواست‌کنندگان'),
+        (600037, N'Srv.TicketHotel.View', N'بلیط و هتل — مشاهده');
+
+    DECLARE @Rid BIGINT, @RName NVARCHAR(200), @RTitle NVARCHAR(200);
+    DECLARE rc CURSOR LOCAL FAST_FORWARD FOR SELECT WantId, Name, Title FROM #ThrRoles;
+    OPEN rc; FETCH NEXT FROM rc INTO @Rid, @RName, @RTitle;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM system.Role WHERE Name = @RName)
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM system.Role WHERE Id = @Rid)
+            BEGIN
+                SET IDENTITY_INSERT system.Role ON;
+                INSERT INTO system.Role (Id, Name, Title, CreatedById, CreatedByName, ModifiedById, ModifiedByName,
+                    CreatedOnMiladiDateTime, ModifiedDateMiladiDateTime, CreatedOnShamsiDateTime, ModifiedDateShamsiDateTime, IsActive)
+                VALUES (@Rid, @RName, @RTitle, 1, @SeedUser, 1, @SeedUser, @Now, @Now, @NowShamsi, @NowShamsi, 1);
+                SET IDENTITY_INSERT system.Role OFF;
+                PRINT N'  CREATED ' + @RName;
+            END
+            ELSE
+            BEGIN
+                INSERT INTO system.Role (Name, Title, CreatedById, CreatedByName, ModifiedById, ModifiedByName,
+                    CreatedOnMiladiDateTime, ModifiedDateMiladiDateTime, CreatedOnShamsiDateTime, ModifiedDateShamsiDateTime, IsActive)
+                VALUES (@RName, @RTitle, 1, @SeedUser, 1, @SeedUser, @Now, @Now, @NowShamsi, @NowShamsi, 1);
+                PRINT N'  CREATED (new id) ' + @RName;
+            END
+        END
+        ELSE PRINT N'  EXISTS ' + @RName;
+        FETCH NEXT FROM rc INTO @Rid, @RName, @RTitle;
+    END
+    CLOSE rc; DEALLOCATE rc;
+
+    PRINT N'=== [2] Controller RoleAccess ===';
+    IF OBJECT_ID('tempdb..#Map') IS NOT NULL DROP TABLE #Map;
+    CREATE TABLE #Map (RoleName NVARCHAR(200) NOT NULL, Path NVARCHAR(300) NOT NULL, AType INT NOT NULL, IType INT NOT NULL);
+
+    -- Base read + excel for all five + ShowAllMenus
+    INSERT INTO #Map SELECT r.RoleName, a.Path, a.AType, a.IType
+    FROM (VALUES
+        (N'/panel/srv/tickethotelrequest/list', 1, 1),
+        (N'/panel/srv/tickethotelrequest/fetchdata', 2, 2),
+        (N'/panel/srv/tickethotelrequest/exporttoexcel', 2, 0)
+    ) a(Path, AType, IType)
+    CROSS JOIN (VALUES
+        (N'ShowAllMenus'),
+        (N'Srv.TicketHotel.FullAccessConfirm'), (N'Srv.TicketHotel.FullAccess'),
+        (N'Srv.TicketHotel.Approver'), (N'Srv.TicketHotel.Requester'), (N'Srv.TicketHotel.View')
+    ) r(RoleName);
+
+    -- CRUD (no View)
+    INSERT INTO #Map SELECT r.RoleName, a.Path, a.AType, a.IType
+    FROM (VALUES
+        (N'/panel/srv/tickethotelrequest/new', 1, 4),
+        (N'/panel/srv/tickethotelrequest/edit', 1, 5),
+        (N'/panel/srv/tickethotelrequest/save', 2, 3),
+        (N'/panel/srv/tickethotelrequest/add', 2, 4),
+        (N'/panel/srv/tickethotelrequest/update', 2, 5),
+        (N'/panel/srv/tickethotelrequest/delete', 2, 6)
+    ) a(Path, AType, IType)
+    CROSS JOIN (VALUES
+        (N'ShowAllMenus'),
+        (N'Srv.TicketHotel.FullAccessConfirm'), (N'Srv.TicketHotel.FullAccess'),
+        (N'Srv.TicketHotel.Approver'), (N'Srv.TicketHotel.Requester')
+    ) r(RoleName);
+
+    -- Confirm: FullAccessConfirm + Approver + ShowAllMenus
+    INSERT INTO #Map SELECT r.RoleName, a.Path, a.AType, a.IType
+    FROM (VALUES
+        (N'/panel/srv/tickethotelrequest/confirm', 2, 1000)
+    ) a(Path, AType, IType)
+    CROSS JOIN (VALUES
+        (N'ShowAllMenus'), (N'Srv.TicketHotel.FullAccessConfirm'), (N'Srv.TicketHotel.Approver')
+    ) r(RoleName);
+
+    DELETE ra FROM system.RoleAccess ra
+    INNER JOIN system.Role r ON r.Id = ra.RoleId
+    WHERE ra.Path LIKE N'/panel/srv/tickethotelrequest/%'
+      AND r.Name IN (
+            N'Srv.TicketHotel.FullAccessConfirm', N'Srv.TicketHotel.FullAccess',
+            N'Srv.TicketHotel.Approver', N'Srv.TicketHotel.Requester', N'Srv.TicketHotel.View',
+            N'ShowAllMenus'
+      );
+
+    INSERT INTO system.RoleAccess
+        (Path, ActionAccessType, ActionAccessItemType, EntityName, DisplayName, EntityId, RowId, RoleId,
+         CreatedById, ModifiedById, CreatedByName, ModifiedByName,
+         CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
+    SELECT DISTINCT m.Path, m.AType, m.IType,
+        N'Entities.App.Srv.TicketHotelRequest',
+        NULL, NULL, NULL, r.Id,
+        1, 1, @SeedUser, @SeedUser, @Now, @NowShamsi, @Now, @NowShamsi, 1
+    FROM #Map m
+    INNER JOIN system.Role r ON r.Name = m.RoleName;
+    PRINT N'  Controller RoleAccess: ' + CAST(@@ROWCOUNT AS nvarchar(20));
+
+    PRINT N'=== [3] Menu AccessRoleIds merge (AllMenus) ===';
+    DECLARE @MenuId BIGINT = (SELECT TOP 1 Id FROM system.SystemMenu WHERE Name = N'AllMenus');
+    IF @MenuId IS NOT NULL
+    BEGIN
+        IF OBJECT_ID('tempdb..#MenuRoles') IS NOT NULL DROP TABLE #MenuRoles;
+        CREATE TABLE #MenuRoles (RoleName NVARCHAR(200) NOT NULL PRIMARY KEY);
+        INSERT INTO #MenuRoles (RoleName)
+        SELECT DISTINCT LTRIM(RTRIM(j.value))
+        FROM system.SystemMenu m CROSS APPLY OPENJSON(ISNULL(m.AccessRoles, N'[]')) j
+        WHERE m.Id = @MenuId AND LTRIM(RTRIM(j.value)) <> N'';
+
+        INSERT INTO #MenuRoles (RoleName)
+        SELECT v.RoleName FROM (VALUES
+            (N'Srv.TicketHotel.FullAccessConfirm'), (N'Srv.TicketHotel.FullAccess'),
+            (N'Srv.TicketHotel.Approver'), (N'Srv.TicketHotel.Requester'), (N'Srv.TicketHotel.View'),
+            (N'ShowAllMenus')
+        ) v(RoleName)
+        WHERE NOT EXISTS (SELECT 1 FROM #MenuRoles x WHERE x.RoleName = v.RoleName);
+
+        DECLARE @AccessRoles NVARCHAR(MAX);
+        DECLARE @AccessRoleIds NVARCHAR(MAX);
+        SELECT @AccessRoles = N'[' + STUFF((
+            SELECT N',"' + RoleName + N'"' FROM #MenuRoles ORDER BY RoleName
+            FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 1, N'') + N']';
+        SELECT @AccessRoleIds = N'[' + STUFF((
+            SELECT N',' + CAST(r.Id AS nvarchar(20))
+            FROM #MenuRoles m INNER JOIN system.Role r ON r.Name = m.RoleName
+            ORDER BY r.Id
+            FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 1, N'') + N']';
+
+        UPDATE system.SystemMenu
+        SET AccessRoles = @AccessRoles, AccessRoleIds = @AccessRoleIds,
+            ModifiedById = 1, ModifiedByName = @SeedUser,
+            ModifiedDateMiladiDateTime = @Now, ModifiedDateShamsiDateTime = @NowShamsi
+        WHERE Id = @MenuId;
+        PRINT N'  Menu AccessRoleIds merged';
+    END
+    ELSE PRINT N'  WARN menu AllMenus not found';
+
+    PRINT N'=== [4] Assign HTS page 417 users (if TMS linked) ===';
+    -- Known alias (SyncCourseFromTotalSystem.sql): allahverdi.s → allahvirdi.s
+    IF EXISTS (SELECT 1 FROM sys.servers WHERE name = N'TMS' AND is_linked = 1)
+    BEGIN
+        IF OBJECT_ID('tempdb..#Cand') IS NOT NULL DROP TABLE #Cand;
+        CREATE TABLE #Cand (Username NVARCHAR(200) NOT NULL, Pri INT NOT NULL, RoleName NVARCHAR(200) NOT NULL);
+
+        -- Priority 1/2: direct FullAccess (Permission_FK=2)
+        INSERT INTO #Cand (Username, Pri, RoleName)
+        SELECT DISTINCT
+            COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')),
+            CASE WHEN EXISTS (SELECT 1 FROM [TMS].[TotalSystem].[dbo].[Gnr_UserGroupMember] m WHERE m.User_FK = u.User_ID AND m.UserGroup_FK = 348)
+                 THEN 1 ELSE 2 END,
+            CASE WHEN EXISTS (SELECT 1 FROM [TMS].[TotalSystem].[dbo].[Gnr_UserGroupMember] m WHERE m.User_FK = u.User_ID AND m.UserGroup_FK = 348)
+                 THEN N'Srv.TicketHotel.FullAccessConfirm' ELSE N'Srv.TicketHotel.FullAccess' END
+        FROM [TMS].[TotalSystem].[dbo].[Gnr_PageAction_User] pau
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_PageAction] pa ON pa.PageAction_ID = pau.PageAction_FK
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_User] u ON u.User_ID = pau.User_FK
+        WHERE pa.Page_FK = 417 AND pa.Permission_FK = 2
+          AND COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')) IS NOT NULL;
+
+        -- Priority 3: group 348 Approver
+        INSERT INTO #Cand (Username, Pri, RoleName)
+        SELECT DISTINCT
+            COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')),
+            3, N'Srv.TicketHotel.Approver'
+        FROM [TMS].[TotalSystem].[dbo].[Gnr_UserGroupMember] m
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_User] u ON u.User_ID = m.User_FK
+        WHERE m.UserGroup_FK = 348
+          AND COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')) IS NOT NULL;
+
+        -- Priority 4: groups 257 / 408 Requester
+        INSERT INTO #Cand (Username, Pri, RoleName)
+        SELECT DISTINCT
+            COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')),
+            4, N'Srv.TicketHotel.Requester'
+        FROM [TMS].[TotalSystem].[dbo].[Gnr_UserGroupMember] m
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_User] u ON u.User_ID = m.User_FK
+        WHERE m.UserGroup_FK IN (257, 408)
+          AND COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')) IS NOT NULL;
+
+        -- Priority 5: group 350 with مشاهده on page 417
+        INSERT INTO #Cand (Username, Pri, RoleName)
+        SELECT DISTINCT
+            COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')),
+            5, N'Srv.TicketHotel.View'
+        FROM [TMS].[TotalSystem].[dbo].[Gnr_PageAction_UserGroup] pug
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_PageAction] pa ON pa.PageAction_ID = pug.PageAction_FK
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_UserGroupMember] m ON m.UserGroup_FK = pug.UserGroup_FK
+        INNER JOIN [TMS].[TotalSystem].[dbo].[Gnr_User] u ON u.User_ID = m.User_FK
+        WHERE pug.UserGroup_FK = 350 AND pa.Page_FK = 417 AND pa.Permission_FK = 3
+          AND COALESCE(NULLIF(LTRIM(RTRIM(u.ActiveDirectoryUsername)), N''), NULLIF(LTRIM(RTRIM(u.Username)), N'')) IS NOT NULL;
+
+        IF OBJECT_ID('tempdb..#UserRoleMap') IS NOT NULL DROP TABLE #UserRoleMap;
+        CREATE TABLE #UserRoleMap (Username NVARCHAR(200) NOT NULL PRIMARY KEY, RoleName NVARCHAR(200) NOT NULL);
+        INSERT INTO #UserRoleMap (Username, RoleName)
+        SELECT c.Username,
+            CASE MIN(c.Pri)
+                WHEN 1 THEN N'Srv.TicketHotel.FullAccessConfirm'
+                WHEN 2 THEN N'Srv.TicketHotel.FullAccess'
+                WHEN 3 THEN N'Srv.TicketHotel.Approver'
+                WHEN 4 THEN N'Srv.TicketHotel.Requester'
+                ELSE N'Srv.TicketHotel.View'
+            END
+        FROM #Cand c
+        GROUP BY c.Username;
+
+        DECLARE @Assigned INT = 0, @Missing INT = 0;
+        DECLARE @MissingList NVARCHAR(MAX) = N'';
+        DECLARE @UName NVARCHAR(200), @RoleN NVARCHAR(200), @LookupName NVARCHAR(200);
+        DECLARE @UserId BIGINT, @RoleId BIGINT;
+        DECLARE @RolesJson NVARCHAR(MAX), @RoleIdsJson NVARCHAR(MAX);
+        DECLARE @ThrRoleNames TABLE (Name NVARCHAR(200) NOT NULL);
+        INSERT INTO @ThrRoleNames (Name)
+        SELECT Name FROM #ThrRoles;
+
+        DECLARE uc CURSOR LOCAL FAST_FORWARD FOR SELECT Username, RoleName FROM #UserRoleMap;
+        OPEN uc; FETCH NEXT FROM uc INTO @UName, @RoleN;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            SET @LookupName = CASE WHEN LOWER(@UName) = N'allahverdi.s' THEN N'allahvirdi.s' ELSE @UName END;
+            SELECT TOP 1 @UserId = u.Id FROM system.[User] u
+            WHERE LOWER(u.Username) = LOWER(@LookupName)
+               OR LOWER(REPLACE(ISNULL(u.Email, N''), N'@havayar.com', N'')) = LOWER(@LookupName);
+            SELECT TOP 1 @RoleId = r.Id FROM system.Role r WHERE r.Name = @RoleN;
+            IF @UserId IS NULL OR @RoleId IS NULL
+            BEGIN
+                SET @Missing = @Missing + 1;
+                SET @MissingList = @MissingList + N',' + @UName;
+            END
+            ELSE
+            BEGIN
+                SELECT @RolesJson = ISNULL(Roles, N'[]'), @RoleIdsJson = ISNULL(RoleIds, N'[]') FROM system.[User] WHERE Id = @UserId;
+                -- Remove other TicketHotel roles for exclusivity
+                ;WITH keepR AS (
+                    SELECT [value] AS RoleName
+                    FROM OPENJSON(@RolesJson)
+                    WHERE LOWER([value]) NOT IN (SELECT LOWER(Name) FROM @ThrRoleNames)
+                       OR LOWER([value]) = LOWER(@RoleN)
+                )
+                SELECT @RolesJson = N'[' + ISNULL(STUFF((
+                    SELECT N',"' + STRING_ESCAPE(RoleName, 'json') + N'"' FROM keepR
+                    FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 1, N''), N'') + N']';
+                ;WITH keepI AS (
+                    SELECT TRY_CAST([value] AS BIGINT) AS RoleId
+                    FROM OPENJSON(@RoleIdsJson)
+                    WHERE TRY_CAST([value] AS BIGINT) NOT IN (SELECT Id FROM system.Role WHERE Name IN (SELECT Name FROM @ThrRoleNames))
+                       OR TRY_CAST([value] AS BIGINT) = @RoleId
+                )
+                SELECT @RoleIdsJson = N'[' + ISNULL(STUFF((
+                    SELECT N',' + CAST(RoleId AS nvarchar(20)) FROM keepI WHERE RoleId IS NOT NULL
+                    FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 1, N''), N'') + N']';
+                IF NOT EXISTS (SELECT 1 FROM OPENJSON(@RolesJson) WHERE LOWER([value]) = LOWER(@RoleN))
+                    SET @RolesJson = JSON_MODIFY(@RolesJson, N'append $', @RoleN);
+                IF NOT EXISTS (SELECT 1 FROM OPENJSON(@RoleIdsJson) WHERE TRY_CAST([value] AS BIGINT) = @RoleId)
+                    SET @RoleIdsJson = JSON_MODIFY(@RoleIdsJson, N'append $', @RoleId);
+                UPDATE system.[User] SET Roles = @RolesJson, RoleIds = @RoleIdsJson,
+                    ModifiedById = 1, ModifiedByName = @SeedUser, ModifiedDateMiladiDateTime = @Now, ModifiedDateShamsiDateTime = @NowShamsi
+                WHERE Id = @UserId;
+                SET @Assigned = @Assigned + 1;
+            END
+            SET @UserId = NULL; SET @RoleId = NULL;
+            FETCH NEXT FROM uc INTO @UName, @RoleN;
+        END
+        CLOSE uc; DEALLOCATE uc;
+        PRINT N'  User-role assigns touched: ' + CAST(@Assigned AS nvarchar(20)) + N', missing user/role: ' + CAST(@Missing AS nvarchar(20));
+        IF @Missing > 0 AND LEN(@MissingList) > 1
+            PRINT N'  Missing usernames:' + @MissingList;
+    END
+    ELSE PRINT N'  WARN: Linked Server TMS missing — user assign skipped';
+
+    COMMIT TRANSACTION;
+    PRINT N'=== DONE Seed_SrvTicketHotelRequest_RolesAndAccess ===';
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    DECLARE @ErrMsg NVARCHAR(4000) = ERROR_MESSAGE();
+    DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+    DECLARE @ErrState INT = ERROR_STATE();
+    RAISERROR(@ErrMsg, @ErrSeverity, @ErrState);
+END CATCH;
+
+SELECT Id, Name, Title FROM system.Role WHERE Name LIKE N'Srv.TicketHotel%' ORDER BY Id;
+SELECT r.Name, COUNT(*) AS Acc
+FROM system.RoleAccess ra INNER JOIN system.Role r ON r.Id = ra.RoleId
+WHERE ra.Path LIKE N'/panel/srv/tickethotelrequest%'
+GROUP BY r.Name ORDER BY r.Name;

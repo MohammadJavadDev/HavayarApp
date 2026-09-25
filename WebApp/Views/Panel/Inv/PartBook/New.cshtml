@@ -1,0 +1,35 @@
+@using Entities.App.Inv
+@using Entities.Base
+<div class="card shadow-sm border-0">
+	<div class="card-body">
+		<div class="row">
+			<div class="col-md-8 form-group-inline">
+				<label>محصول</label>
+				@(Html.EntitySelector<Part>(
+					"PartBookNewProductSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"productId",
+					"productName",
+					null
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+		<div class="mt-3">
+			<button type="button" class="btn btn-primary" data-action="openPartBookManage">ادامه</button>
+		</div>
+	</div>
+</div>
+<script>
+	page.$pageEl.on('click', '[data-action="openPartBookManage"]', function () {
+		var pid = $$('input[data-bind="productId"]').val();
+		if (!pid) {
+			toastr.error('لطفاً محصول را انتخاب کنید');
+			return;
+		}
+		appController.addPage('/Panel/Inv/PartBook/Manage?partId=' + pid, true, 'دفترچه قطعات');
+	});
+</script>

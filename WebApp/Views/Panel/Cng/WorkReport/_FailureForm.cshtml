@@ -1,0 +1,48 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@model WorkReportFailure
+@{
+	Layout = null;
+	var groupId = ViewBag.GroupId as int?;
+}
+
+<input type="hidden" data-bind="id" value="@Model?.Id" />
+<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+
+<div class="row g-3">
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold required">گروه</label>
+		<select class="form-select" data-bind="groupId" data-required="true">
+			<option value="">انتخاب کنید</option>
+			@foreach (FailureInfoGroupEnum e in Enum.GetValues(typeof(FailureInfoGroupEnum)))
+			{
+				var v = (int)e;
+				var name = e.GetType().GetMember(e.ToString())[0]
+					.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+					.Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>().FirstOrDefault()?.Name ?? e.ToString();
+				if (groupId == v) { <option value="@v" selected>@name</option> }
+				else { <option value="@v">@name</option> }
+			}
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold required">پارامتر فنی</label>
+		<select class="form-select" data-bind="failureInfoId" data-required="true">
+			<option value="">انتخاب کنید</option>
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label class="form-label fw-bold">مقدار</label>
+		<input class="form-control ltr" type="number" step="any" data-bind="value" value="@Model?.Value" />
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label class="form-label fw-bold">ست‌پوینت</label>
+		<input class="form-control ltr" type="number" step="any" data-bind="setPointValue" value="@Model?.SetPointValue" />
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold">توضیح</label>
+		<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+	</div>
+</div>

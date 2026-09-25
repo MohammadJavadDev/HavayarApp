@@ -69,7 +69,7 @@ namespace WebApp.Controllers.Dynamic
 					.Include(c => c.Product)
 					.Include(c => c.ProductNameGroup)
 					.Include(c => c.Items)
-			 
+						.ThenInclude(i => i.Part)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Bom\ProductFormul\Edit.cshtml", entity);
 			}

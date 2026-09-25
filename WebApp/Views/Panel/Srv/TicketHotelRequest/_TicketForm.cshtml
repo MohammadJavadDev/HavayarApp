@@ -1,0 +1,94 @@
+@using Entities.App.Srv
+@using Entities.App.Srv.Enums
+@model TicketHotelRequestTicket
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+	string MiladiAttr(string? shamsi)
+	{
+		if (string.IsNullOrWhiteSpace(shamsi)) return "";
+		try { return shamsi.ToMiladiDateTimeWithSplitData().ToString("yyyy-MM-dd"); }
+		catch { return ""; }
+	}
+}
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(TicketHotelRequestTicket)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body row">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+		<input type="hidden" data-bind="ticketHotelRequestId" value="@Model?.TicketHotelRequestId" />
+
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">نوع بلیط</label>
+			<select class="form-control" data-bind="ticketTypeId" data-required="true" data-action="ticketTypeChange"
+					asp-for="TicketTypeId" asp-items="Html.GetEnumSelectList(typeof(TicketTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شرکت هواپیمایی</label>
+			<input class="form-control" data-bind="airline" id="ticketAirline" value="@Model?.Airline" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">ترمینال مسافربری</label>
+			<input class="form-control" data-bind="passengerTerminal" id="ticketPassengerTerminal" value="@Model?.PassengerTerminal" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">ایستگاه قطار</label>
+			<input class="form-control" data-bind="railwayStation" id="ticketRailwayStation" value="@Model?.RailwayStation" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">آژانس</label>
+			<input class="form-control" data-bind="travelAgency" value="@Model?.TravelAgency" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">تاریخ صدور</label>
+			<input class="form-control" data-bind="issueDate" data-required="true" data-persionDatePicker="true"
+				   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				   value="@MiladiAttr(Model?.IssueDate)" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">شماره بلیط</label>
+			<input class="form-control" data-bind="ticketNumber" data-required="true" value="@Model?.TicketNumber" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مبلغ</label>
+			<input type="text" class="form-control" data-bind="ticketAmount" data-required="true" data-money="true" value="@Model?.TicketAmount" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مبدا</label>
+			<input class="form-control" data-bind="source" data-required="true" value="@Model?.Source" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مقصد</label>
+			<input class="form-control" data-bind="destination" data-required="true" value="@Model?.Destination" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">تاریخ حرکت</label>
+			<input class="form-control" data-bind="departurDate" data-required="true" data-persionDatePicker="true"
+				   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				   value="@MiladiAttr(Model?.DeparturDate)" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">ساعت حرکت</label>
+			<input type="text" class="form-control ltr" data-bind="departurTime" data-required="true" data-time="true"
+				   placeholder="__:__" value="@Model?.DeparturTime" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">توضیح</label>
+			<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+		</div>
+	</div>
+</div>

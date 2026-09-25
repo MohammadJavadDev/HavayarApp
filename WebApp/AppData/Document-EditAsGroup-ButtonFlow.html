@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>فلو دکمه‌های صفحه مدارک — EditAsGroup</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+	<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+	<style>
+		:root {
+			--bg: #f3efe6;
+			--paper: #fffdf8;
+			--ink: #1c1917;
+			--muted: #57534e;
+			--line: #e6dfd2;
+			--producer: #0f766e;
+			--producer-soft: #ecfdf8;
+			--review: #1d4ed8;
+			--review-soft: #eff6ff;
+			--dcc: #b45309;
+			--dcc-soft: #fff7ed;
+			--revision: #be123c;
+			--revision-soft: #fff1f2;
+			--reply: #6d28d9;
+			--reply-soft: #f5f3ff;
+			--history: #44403c;
+			--history-soft: #f5f5f4;
+			--warn: #92400e;
+			--warn-soft: #fef3c7;
+			--gap: #7c2d12;
+			--shadow: 0 16px 40px rgba(28, 25, 23, .06);
+		}
+
+		* { box-sizing: border-box; }
+		html { scroll-behavior: smooth; }
+		body {
+			margin: 0;
+			font-family: Vazirmatn, Tahoma, sans-serif;
+			background:
+				radial-gradient(1200px 500px at 100% -10%, #efe6d4 0%, transparent 55%),
+				var(--bg);
+			color: var(--ink);
+			line-height: 1.75;
+		}
+
+		.wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 72px; }
+		header.hero {
+			display: grid;
+			gap: 16px;
+			margin-bottom: 22px;
+		}
+		.kicker {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			font-size: 12px;
+			font-weight: 700;
+			letter-spacing: .02em;
+			color: var(--muted);
+			background: #fff;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 4px 10px;
+		}
+		h1 { font-size: 32px; line-height: 1.35; margin: 10px 0 8px; font-weight: 800; }
+		.lead { margin: 0; color: var(--muted); font-size: 15px; max-width: 68ch; }
+		.hero-note {
+			background: var(--paper);
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			padding: 16px 18px;
+			box-shadow: var(--shadow);
+			font-size: 13.5px;
+		}
+		.hero-note strong { display: block; margin-bottom: 4px; }
+
+		nav.toc {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin: 8px 0 22px;
+		}
+		nav.toc a {
+			text-decoration: none;
+			color: var(--ink);
+			background: rgba(255,255,255,.7);
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			padding: 6px 12px;
+			font-size: 13px;
+			font-weight: 600;
+		}
+		nav.toc a:hover { background: #fff; }
+
+		section { margin-top: 28px; }
+		h2 { font-size: 20px; margin: 0 0 12px; }
+		h3 { font-size: 16px; margin: 0 0 8px; }
+		.sub { color: var(--muted); margin: -4px 0 14px; font-size: 14px; }
+
+		.grid-2 { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
+		.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+		.card {
+			background: var(--paper);
+			border: 1px solid var(--line);
+			border-radius: 18px;
+			padding: 16px 18px;
+			box-shadow: var(--shadow);
+		}
+
+		.actors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+		.actor {
+			border-radius: 14px;
+			padding: 12px 14px;
+			border: 1px solid var(--line);
+			background: #fff;
+		}
+		.actor b { display: block; font-size: 14px; }
+		.actor span { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+		.actor.producer { background: var(--producer-soft); border-color: #99f6e4; }
+		.actor.review { background: var(--review-soft); border-color: #bfdbfe; }
+		.actor.dcc { background: var(--dcc-soft); border-color: #fed7aa; }
+		.actor.any { background: var(--history-soft); }
+
+		.always {
+			display: flex;
+			justify-content: space-between;
+			gap: 16px;
+			align-items: center;
+			background: #1c1917;
+			color: #fafaf9;
+			border-radius: 18px;
+			padding: 16px 18px;
+		}
+		.always p { margin: 4px 0 0; color: #d6d3d1; font-size: 14px; }
+		.pill {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			border-radius: 999px;
+			padding: 6px 12px;
+			font-weight: 700;
+			font-size: 13px;
+			white-space: nowrap;
+		}
+		.pill.on, .pill.history { background: #1c1917; color: #fff; }
+		.pill.off { background: #f5f5f4; color: #a8a29e; text-decoration: line-through; }
+		.pill.producer { background: var(--producer); color: #fff; }
+		.pill.review { background: var(--review); color: #fff; }
+		.pill.dcc { background: var(--dcc); color: #fff; }
+		.pill.revision { background: var(--revision); color: #fff; }
+		.pill.reply { background: var(--reply); color: #fff; }
+		.pill.ghost { background: #fff; border: 1px dashed #d6d3d1; color: #a8a29e; }
+
+		.toolbar {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 10px;
+		}
+
+		.sim-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; }
+		label.field { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+		select {
+			width: 100%;
+			font: inherit;
+			padding: 10px 12px;
+			border-radius: 12px;
+			border: 1px solid var(--line);
+			background: #fff;
+			margin-bottom: 14px;
+		}
+		.result-title { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+		.btn-row { display: flex; flex-wrap: wrap; gap: 8px; min-height: 42px; }
+		.comment-box { margin-top: 14px; }
+		.comment-box ul { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+		.comment-box li {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			align-items: center;
+			background: #fff;
+			border: 1px solid var(--line);
+			border-radius: 12px;
+			padding: 8px 10px;
+			font-size: 13.5px;
+		}
+		code, .mono {
+			font-family: ui-monospace, Cascadia Code, Consolas, monospace;
+			direction: ltr;
+			unicode-bidi: isolate;
+			font-size: 12.5px;
+		}
+		.callout {
+			border-radius: 14px;
+			padding: 12px 14px;
+			background: var(--warn-soft);
+			color: #78350f;
+			border: 1px solid #fcd34d;
+			font-size: 13.5px;
+			margin-top: 12px;
+		}
+		.callout.gap { background: #fff7ed; border-color: #fdba74; color: var(--gap); }
+		.callout.ok { background: var(--producer-soft); border-color: #99f6e4; color: #115e59; }
+		.callout.reply { background: var(--reply-soft); border-color: #ddd6fe; color: #5b21b6; }
+
+		.flow { display: grid; gap: 0; }
+		.step {
+			display: grid;
+			grid-template-columns: 42px 1fr;
+			gap: 12px;
+			cursor: pointer;
+		}
+		.rail { display: flex; flex-direction: column; align-items: center; }
+		.dot {
+			width: 16px; height: 16px; border-radius: 50%;
+			border: 3px solid #fff;
+			box-shadow: 0 0 0 2px var(--line);
+			background: #a8a29e;
+			margin-top: 18px;
+		}
+		.stem { width: 2px; flex: 1; background: #e7e0d4; min-height: 16px; }
+		.step-card {
+			border: 1px solid var(--line);
+			background: #fff;
+			border-radius: 16px;
+			padding: 12px 14px;
+			margin-bottom: 10px;
+		}
+		.step.active .step-card { outline: 2px solid #1c1917; }
+		.step.producer .dot { background: var(--producer); box-shadow: 0 0 0 2px #99f6e4; }
+		.step.review .dot { background: var(--review); box-shadow: 0 0 0 2px #bfdbfe; }
+		.step.dcc .dot { background: var(--dcc); box-shadow: 0 0 0 2px #fed7aa; }
+		.step.revision .dot { background: var(--revision); box-shadow: 0 0 0 2px #fecdd3; }
+		.step.reply .dot { background: var(--reply); box-shadow: 0 0 0 2px #ddd6fe; }
+		.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+		.tag {
+			font-size: 12px;
+			font-weight: 700;
+			border-radius: 999px;
+			padding: 2px 8px;
+			background: var(--history-soft);
+		}
+		.loop {
+			margin: 0 0 10px 54px;
+			font-size: 13px;
+			color: var(--muted);
+			background: #fff;
+			border: 1px dashed #d6d3d1;
+			border-radius: 12px;
+			padding: 8px 12px;
+		}
+
+		table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+		th, td { text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+		th { font-size: 12px; color: var(--muted); font-weight: 700; }
+		tr.clickable { cursor: pointer; }
+		tr.clickable:hover td { background: #fffaf0; }
+		tr.mark td { background: #fff7ed; }
+
+		.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.detail {
+			border-radius: 16px;
+			border: 1px solid var(--line);
+			background: #fff;
+			padding: 14px;
+		}
+		.detail header { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+		.codes { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+		.codes span {
+			font-family: ui-monospace, Consolas, monospace;
+			direction: ltr;
+			font-size: 12px;
+			background: var(--history-soft);
+			border-radius: 8px;
+			padding: 2px 6px;
+		}
+		.reply-list { margin: 8px 0 0; padding-right: 18px; }
+		.reply-list li { margin-bottom: 6px; }
+
+		footer.note {
+			margin-top: 28px;
+			color: var(--muted);
+			font-size: 12.5px;
+		}
+
+		@media (max-width: 900px) {
+			header.hero, .grid-2, .sim-layout, .detail-grid, .actors, .grid-3 { grid-template-columns: 1fr; }
+			h1 { font-size: 26px; }
+			.always { flex-direction: column; align-items: flex-start; }
+		}
+	</style>
+</head>
+<body>
+	<div class="wrap">
+		<header class="hero">
+			<div>
+				<div class="kicker">صفحه مدارک · Document / EditAsGroup · فقط شرح فلو</div>
+				<h1>نمایش دکمه‌ها بر اساس وضعیت مدرک، کاربر جاری و نقش</h1>
+				<p class="lead">
+					این صفحه قانون نمایش و مخفی‌شدن دکمه‌های نوار ابزار را نشان می‌دهد،
+					و همچنین وضعیت‌هایی که در «افزودن کامنت» قابل انتخاب هستند.
+					در کد برنامه هنوز اعمال نشده است.
+				</p>
+			</div>
+			<div class="hero-note">
+				<strong>اصل کلی</strong>
+				دکمهٔ تاریخچه برای همه و در همهٔ وضعیت‌ها فعال می‌ماند.
+				بقیه دکمه‌های نوار ابزار (ذخیره ساده، به‌روزرسانی لیست ریویژن‌ها، اصلاح وضعیت، افزودن ReplySheet و …)
+				مخفی‌اند مگر اینکه یکی از قوانین زیر آن‌ها را نشان دهد.
+			</div>
+		</header>
+
+		<nav class="toc">
+			<a href="#sec-actors">نقش‌ها</a>
+			<a href="#sec-sim">آزمایش وضعیت و کاربر</a>
+			<a href="#sec-flow">نقشه گردش</a>
+			<a href="#sec-matrix">جدول دکمه‌ها</a>
+			<a href="#sec-hours">نفرساعت</a>
+			<a href="#sec-revision">ریویژن جدید</a>
+			<a href="#sec-replysheet">ReplySheet</a>
+			<a href="#sec-open">موارد باز</a>
+		</nav>
+
+		<section id="sec-actors">
+			<h2>چه کسی دکمه را می‌بیند</h2>
+			<p class="sub">نقش از روی سند VPIS همان مدرک، یا عضویت در نقش DCC، سنجیده می‌شود. کاربر جاری سیستم باید همان شخص باشد.</p>
+			<div class="actors">
+				<div class="actor producer">
+					<b>تهیه‌کننده VPIS</b>
+					<span>ProducerId سند VPIS</span>
+				</div>
+				<div class="actor review">
+					<b>بررسی‌کنندگان VPIS</b>
+					<span>ReviewersId سند VPIS — در وضعیت Issue</span>
+				</div>
+				<div class="actor review">
+					<b>تاییدکننده VPIS</b>
+					<span>ApproverId سند VPIS — در وضعیت ApproveByReviewer</span>
+				</div>
+				<div class="actor dcc">
+					<b>گروه DCC</b>
+					<span>نقش سیستم <span class="mono">EdmsDocumentsDccUsers</span> — شناسه 200000</span>
+				</div>
+			</div>
+		</section>
+
+		<section id="sec-toolbar-legend">
+			<div class="always">
+				<div>
+					<strong>تاریخچه همیشه فعال است</strong>
+					<p>مستقل از وضعیت مدرک و مستقل از اینکه کاربر تهیه‌کننده، بررسی‌کننده، تاییدکننده یا عضو DCC باشد. حتی وقتی هیچ دکمهٔ دیگری نمایش داده نمی‌شود.</p>
+				</div>
+				<span class="pill on">تاریخچه</span>
+			</div>
+			<div class="card" style="margin-top:12px">
+				<h3>دکمه‌های موجود در نوار همین صفحه</h3>
+				<p class="sub">دکمه‌های رنگی در وضعیت خودشان دیده می‌شوند. دکمه‌های کم‌رنگ در این قوانین مخفی‌اند مگر قانون جداگانه‌ای آن‌ها را باز کند.</p>
+				<div class="toolbar" id="legendButtons"></div>
+			</div>
+		</section>
+
+		<section id="sec-sim">
+			<h2>آزمایش: این وضعیت و این کاربر چه می‌بیند</h2>
+			<p class="sub">وضعیت مدرک و نقش کاربر جاری را انتخاب کنید. دکمه‌های روشن، همان‌هایی هستند که باید دیده شوند.</p>
+			<div class="sim-layout">
+				<div class="card">
+					<label class="field" for="statusPick">وضعیت فعلی مدرک</label>
+					<select id="statusPick"></select>
+					<label class="field" for="actorPick">کاربر جاری</label>
+					<select id="actorPick">
+						<option value="producer">تهیه‌کننده همین سند VPIS</option>
+						<option value="reviewers">یکی از بررسی‌کنندگان VPIS</option>
+						<option value="approver">تاییدکننده سند VPIS</option>
+						<option value="dcc">عضو گروه DCC — شناسه 200000</option>
+						<option value="other">کاربر دیگر</option>
+					</select>
+					<label class="field" for="modePick">حالت صفحه</label>
+					<select id="modePick">
+						<option value="normal">عادی، قبل از زدن ریویژن جدید</option>
+						<option value="afterRevision">بلافاصله بعد از زدن «ایجاد ریویژن جدید»</option>
+					</select>
+				</div>
+				<div class="card" id="simResult">
+					<div class="result-title" id="simCaption"></div>
+					<div class="btn-row" id="simButtons"></div>
+					<div class="comment-box" id="simComments"></div>
+					<div id="simNote"></div>
+				</div>
+			</div>
+		</section>
+
+		<section id="sec-flow">
+			<h2>نقشه گردش</h2>
+			<p class="sub">روی هر مرحله بزنید تا در آزمایش بالا همان وضعیت انتخاب شود. پیکان‌های خط‌چین، برگشت مدرک به تهیه‌کننده هستند.</p>
+			<div class="grid-2">
+				<div class="flow" id="flowList"></div>
+				<div class="card" id="flowSide">
+					<h3 id="sideTitle">مرحله را انتخاب کنید</h3>
+					<div id="sideBody" class="sub">جزئیات دکمه و وضعیت‌های قابل انتخاب در کامنت این‌جا می‌آید.</div>
+				</div>
+			</div>
+		</section>
+
+		<section id="sec-matrix">
+			<h2>جدول یک‌نگاه</h2>
+			<div class="card" style="overflow:auto">
+				<table>
+					<thead>
+						<tr>
+							<th>وضعیت مدرک</th>
+							<th>دکمهٔ فعال</th>
+							<th>فقط برای</th>
+							<th>وضعیت‌های قابل انتخاب در افزودن کامنت</th>
+						</tr>
+					</thead>
+					<tbody id="matrixBody"></tbody>
+				</table>
+			</div>
+		</section>
+
+		<section id="sec-hours">
+			<h2>نفرساعت، هنگام ذخیره توسط تهیه‌کننده</h2>
+			<div class="callout ok">
+				در وضعیت‌های NotIssue و CommentedByReviewer و CommentedByApprover و CommentedByDcc،
+				و همچنین بعد از ایجاد ریویژن جدید (ریویژن جدید با NotIssue شروع می‌شود)، فقط «ذخیره و بستن» برای تهیه‌کننده VPIS فعال است.
+				مقدار <span class="mono">HourPrePerson</span> جایگزین نفرساعت قبلی مدرک می‌شود و به آن اضافه نمی‌گردد.
+				با ذخیره، مدرک به Issue می‌رود و یک کامنت با وضعیت Issue ثبت می‌شود.
+			</div>
+		</section>
+
+		<section id="sec-revision">
+			<h2>بعد از دکمهٔ ایجاد ریویژن جدید</h2>
+			<div class="detail-grid">
+				<div class="detail">
+					<header>
+						<h3>قبل از زدن دکمه</h3>
+						<span class="pill revision">ایجاد ریویژن جدید</span>
+					</header>
+					<p>
+						در وضعیت‌های RejectByClient، ApprovedAsNoteByClient، CommentedByClient و ReIssued دکمهٔ «ایجاد ریویژن جدید» فقط برای تهیه‌کننده سند VPIS دیده می‌شود.
+						در سه وضعیت اول به‌علاوه UnHold، دکمهٔ «افزودن ReplySheet» هم فقط برای همان تهیه‌کننده دیده می‌شود.
+						در ReIssued دکمهٔ ReplySheet نیست. تاریخچه همیشه هست.
+					</p>
+				</div>
+				<div class="detail">
+					<header>
+						<h3>بعد از زدن دکمه</h3>
+						<span class="pill producer">ذخیره و بستن</span>
+					</header>
+					<p>
+						دکمهٔ ریویژن جدید کنار می‌رود. ریویژن جدید با وضعیت NotIssue شروع می‌شود.
+						فقط «ذخیره و بستن» می‌ماند و فقط برای تهیه‌کننده همان سند VPIS.
+						ذخیره همان قانون تهیه‌کننده را دنبال می‌کند (نفرساعت جایگزین، رفتن به Issue و ثبت کامنت Issue). تاریخچه فعال می‌ماند.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<section id="sec-replysheet">
+			<h2>افزودن ReplySheet</h2>
+			<p class="sub">این بخش قوانین ذخیره‌سازی ReplySheet است — نه وضعیت قدیمی هاردکد ۲۲.</p>
+			<div class="card">
+				<div class="callout reply" style="margin-top:0">
+					<strong>مقدار enum</strong>
+					در سیستم جدید <span class="mono">ReplaySheet = 28</span> است.
+					مقدار <span class="mono">22</span> مربوط به <span class="mono">Commited</span> است و نباید با ReplySheet اشتباه گرفته شود.
+				</div>
+				<ul class="reply-list">
+					<li>فایل ReplySheet الزامی است.</li>
+					<li>بار اول (هنوز کامنت ReplaySheet روی مدرک نیست): فایل روی فیلد <span class="mono">ReplySheet</span> ذخیره می‌شود. اگر کامنت ReplaySheet از قبل وجود داشته باشد: فایل جایگزین <span class="mono">SecondReplySheet</span> می‌شود.</li>
+					<li>یک کامنت با وضعیت <span class="mono">ReplaySheet</span> و متن <span class="mono">ReplySheet</span> ساخته می‌شود.</li>
+					<li>اگر کاربر جاری بررسی‌کنندهٔ همین مدرک باشد، کامنت دوم با وضعیت <span class="mono">ApproveByReviewer</span> و متن <span class="mono">ReplySheet</span> اضافه می‌شود. اگر تاییدکنندهٔ همین مدرک باشد، کامنت دوم (یا سوم) با وضعیت <span class="mono">ApproveByApprover</span> و متن <span class="mono">ReplySheet</span> اضافه می‌شود؛ اگر هر دو نقش را داشته باشد، کامنت تاییدکننده آخرین است. وضعیت نهایی مدرک از آخرین کامنت پیروی می‌کند.</li>
+					<li>تاریخ کامنت همان زمان ذخیره است؛ ستون تاریخ جداگانه‌ای نیست.</li>
+					<li>ترانسمیتال: اگر مدرک کامنت ReplaySheet داشته باشد، شمارهٔ واردشده توسط کاربر (<span class="mono">DefinedByUserNumber</span>) استفاده می‌شود و شمارندهٔ خودکار پروژه مصرف نمی‌شود. مقدار خالی <span class="mono">IsForReplySheet</span> به‌معنای «ReplySheet نیست» تلقی می‌شود.</li>
+				</ul>
+				<p class="sub" style="margin-top:12px;margin-bottom:0">
+					نمایش دکمه: در RejectByClient، ApprovedAsNoteByClient، CommentedByClient و UnHold فقط برای تهیه‌کننده سند VPIS.
+					خودِ وضعیت ReplaySheet در نوار ابزار فقط تاریخچه دارد، مگر کامنت‌های اضافی تایید ReplySheet وضعیت را جلو ببرند.
+				</p>
+			</div>
+		</section>
+
+		<section id="sec-open">
+			<h2>مواردی که هنوز مشخص نشده‌اند</h2>
+			<div class="grid-3">
+				<div class="callout ok">
+					<strong>نقش ApproveByReviewer — حل‌شده</strong>
+					این مرحله فقط برای تاییدکننده VPIS (<span class="mono">ApproverId</span>) است؛ نه Reviewer.
+				</div>
+				<div class="callout ok">
+					<strong>جایگاه ReplySheet — حل‌شده</strong>
+					طبق بخش ReplySheet بالا: دکمه در وضعیت‌های مشخص، enum برابر ۲۸، فایل و کامنت‌های اضافی بررسی‌کننده/تاییدکننده.
+				</div>
+				<div class="callout gap">
+					<strong>هنوز نامشخص</strong>
+					قانون دکمه وقتی خودِ وضعیت مدرک RejectByDcc یا ApproveByClient است نوشته نشده (در آزمایش فقط تاریخچه).
+					اولویت دکمه‌ها وقتی یک نفر چند نقش هم‌زمان دارد هم هنوز مشخص نیست.
+				</div>
+			</div>
+		</section>
+
+		<footer class="note">
+			مسیر صفحه: Document / EditAsGroup.
+			گروه DCC در پایگاه فعلی نقش <span class="mono">system.Role</span> با نام EdmsDocumentsDccUsers و شناسه 200000 است.
+			این فایل شرح است و رفتار برنامه را عوض نمی‌کند.
+		</footer>
+	</div>
+
+	<script>
+		const BUTTONS = [
+			{ id: "history", title: "تاریخچه", cls: "history" },
+			{ id: "saveClose", title: "ذخیره و بستن", cls: "producer" },
+			{ id: "addComment", title: "افزودن کامنت", cls: "review" },
+			{ id: "newRevision", title: "ایجاد ریویژن جدید", cls: "revision" },
+			{ id: "reply", title: "افزودن ReplySheet", cls: "reply" },
+			{ id: "save", title: "ذخیره", cls: "ghost" },
+			{ id: "reload", title: "به‌روزرسانی لیست ریویژن‌ها", cls: "ghost" },
+			{ id: "editStatus", title: "اصلاح وضعیت", cls: "ghost" }
+		];
+
+		const STATUSES = {
+			NotIssue: "صادر نشده",
+			CommentedByReviewer: "نظر داده‌شده بررسی‌کننده",
+			CommentedByApprover: "نظر داده‌شده تاییدکننده",
+			CommentedByDcc: "نظر داده‌شده DCC",
+			Issue: "صادر شده",
+			ApproveByReviewer: "تایید شده بررسی‌کننده",
+			ApproveByApprover: "تایید شده تاییدکننده",
+			ApprovedByDcc: "تایید DCC",
+			RejectByDcc: "رد شده DCC",
+			ApproveByClient: "تایید توسط کارفرما",
+			RejectByClient: "رد توسط کارفرما",
+			ApprovedAsNoteByClient: "تایید با یادداشت توسط کارفرما",
+			ReIssued: "صادر مجدد",
+			CommentedByClient: "نظر داده‌شده توسط کارفرما",
+			UnHold: "خروج از Hold",
+			ReplaySheet: "برگه پاسخ (ReplaySheet)"
+		};
+
+		const RULES = [
+			{
+				id: "rule-producer",
+				tone: "producer",
+				title: "ویرایش تهیه‌کننده",
+				statuses: ["NotIssue", "CommentedByReviewer", "CommentedByApprover", "CommentedByDcc"],
+				actor: "producer",
+				actorLabel: "فقط تهیه‌کننده سند VPIS",
+				buttons: ["saveClose"],
+				comments: [],
+				note: "HourPrePerson جایگزین نفرساعت قبلی مدرک می‌شود (جمع نمی‌شود). با ذخیره، وضعیت به Issue می‌رود و کامنت Issue ثبت می‌شود.",
+				loop: "CommentedByReviewer و CommentedByApprover و CommentedByDcc مدرک را به همین مرحله برمی‌گردانند."
+			},
+			{
+				id: "rule-issue",
+				tone: "review",
+				title: "صادر شده — نوبت بررسی",
+				statuses: ["Issue"],
+				actor: "reviewers",
+				actorLabel: "فقط بررسی‌کنندگان سند VPIS",
+				buttons: ["addComment"],
+				comments: [
+					{ code: "ApproveByReviewer", name: "تایید شده بررسی‌کننده", next: "نوبت تاییدکننده" },
+					{ code: "CommentedByReviewer", name: "نظر داده‌شده بررسی‌کننده", next: "بازگشت به تهیه‌کننده" }
+				]
+			},
+			{
+				id: "rule-approver",
+				tone: "review",
+				title: "تایید بررسی‌کننده — نوبت تاییدکننده",
+				statuses: ["ApproveByReviewer"],
+				actor: "approver",
+				actorLabel: "فقط تاییدکننده سند VPIS (ApproverId)",
+				buttons: ["addComment"],
+				comments: [
+					{ code: "ApproveByApprover", name: "تایید شده تاییدکننده", next: "نوبت DCC" },
+					{ code: "CommentedByApprover", name: "نظر داده‌شده تاییدکننده", next: "بازگشت به تهیه‌کننده" }
+				]
+			},
+			{
+				id: "rule-dcc-internal",
+				tone: "dcc",
+				title: "تایید تاییدکننده — نوبت DCC",
+				statuses: ["ApproveByApprover"],
+				actor: "dcc",
+				actorLabel: "فقط اعضای گروه DCC، شناسه 200000",
+				buttons: ["addComment"],
+				comments: [
+					{ code: "ApprovedByDcc", name: "تایید DCC", next: "ثبت نظر کارفرما" },
+					{ code: "RejectByDcc", name: "رد شده DCC", next: "قانون دکمه تعریف نشده" },
+					{ code: "CommentedByDcc", name: "نظر داده‌شده DCC", next: "بازگشت به تهیه‌کننده" }
+				]
+			},
+			{
+				id: "rule-dcc-client",
+				tone: "dcc",
+				title: "تایید DCC — ثبت پاسخ کارفرما",
+				statuses: ["ApprovedByDcc"],
+				actor: "dcc",
+				actorLabel: "فقط اعضای گروه DCC، شناسه 200000",
+				buttons: ["addComment"],
+				comments: [
+					{ code: "ApproveByClient", name: "تایید توسط کارفرما", next: "قانون دکمه تعریف نشده" },
+					{ code: "RejectByClient", name: "رد توسط کارفرما", next: "ریویژن / ReplySheet" },
+					{ code: "ApprovedAsNoteByClient", name: "تایید با یادداشت توسط کارفرما", next: "ریویژن / ReplySheet" },
+					{ code: "ReIssued", name: "صادر مجدد", next: "ایجاد ریویژن جدید" },
+					{ code: "CommentedByClient", name: "نظر داده‌شده توسط کارفرما", next: "ریویژن / ReplySheet" }
+				]
+			},
+			{
+				id: "rule-revision",
+				tone: "revision",
+				title: "برگشت از کارفرما — ریویژن جدید",
+				statuses: ["RejectByClient", "ApprovedAsNoteByClient", "CommentedByClient", "ReIssued"],
+				actor: "producer",
+				actorLabel: "فقط تهیه‌کننده سند VPIS",
+				buttons: ["newRevision"],
+				comments: [],
+				note: "روی RejectByClient و ApprovedAsNoteByClient و CommentedByClient دکمهٔ افزودن ReplySheet هم فقط برای تهیه‌کننده دیده می‌شود. ReIssued فقط ریویژن جدید دارد. بعد از زدن ریویژن جدید، فقط ذخیره و بستن برای تهیه‌کننده VPIS فعال می‌شود و ریویژن با NotIssue شروع می‌شود."
+			},
+			{
+				id: "rule-unhold",
+				tone: "reply",
+				title: "خروج از Hold — ReplySheet",
+				statuses: ["UnHold"],
+				actor: "producer",
+				actorLabel: "فقط تهیه‌کننده سند VPIS",
+				buttons: ["reply"],
+				comments: [],
+				note: "در UnHold فقط افزودن ReplySheet برای تهیه‌کننده (به‌علاوه تاریخچه) دیده می‌شود؛ دکمهٔ ریویژن جدید در این وضعیت نیست."
+			}
+		];
+
+		const REPLY_STATUSES = new Set(["RejectByClient", "ApprovedAsNoteByClient", "CommentedByClient", "UnHold"]);
+		const GAPS = ["RejectByDcc", "ApproveByClient", "ReplaySheet"];
+
+		const statusPick = document.getElementById("statusPick");
+		const actorPick = document.getElementById("actorPick");
+		const modePick = document.getElementById("modePick");
+
+		function buttonTitle(id) {
+			return BUTTONS.find(b => b.id === id).title;
+		}
+
+		function statusOptions() {
+			const groups = [
+				["ویرایش تهیه‌کننده", RULES[0].statuses],
+				["بررسی", RULES[1].statuses],
+				["تاییدکننده", RULES[2].statuses],
+				["DCC", RULES[3].statuses.concat(RULES[4].statuses)],
+				["برگشت کارفرما / ریویژن", RULES[5].statuses],
+				["Hold", RULES[6].statuses],
+				["فقط تاریخچه / بدون قانون دکمه", GAPS]
+			];
+			statusPick.innerHTML = groups.map(([label, codes]) => {
+				const opts = codes.map(code => `<option value="${code}">${STATUSES[code]} — ${code}</option>`).join("");
+				return `<optgroup label="${label}">${opts}</optgroup>`;
+			}).join("");
+		}
+
+		function ruleFor(status) {
+			return RULES.find(rule => rule.statuses.includes(status)) || null;
+		}
+
+		function buttonsForStatus(status) {
+			const rule = ruleFor(status);
+			if (!rule) return [];
+			const list = rule.buttons.slice();
+			if (REPLY_STATUSES.has(status) && !list.includes("reply")) list.push("reply");
+			return list;
+		}
+
+		function visibleButtons(status, actor, mode) {
+			const shown = new Set(["history"]);
+			if (mode === "afterRevision") {
+				if (actor === "producer") shown.add("saveClose");
+				return shown;
+			}
+			const rule = ruleFor(status);
+			if (!rule) return shown;
+			const allowed = rule.actor === "any" || rule.actor === actor;
+			if (!allowed) return shown;
+			buttonsForStatus(status).forEach(id => shown.add(id));
+			return shown;
+		}
+
+		function paintButtons(container, shown, emphasize) {
+			container.innerHTML = BUTTONS.map(btn => {
+				const on = shown.has(btn.id);
+				if (!on && !emphasize) return "";
+				const cls = on ? btn.cls : "off";
+				return `<span class="pill ${cls}">${btn.title}</span>`;
+			}).join("");
+		}
+
+		function renderSim() {
+			const status = statusPick.value;
+			const actor = actorPick.value;
+			const mode = modePick.value;
+			const shown = visibleButtons(status, actor, mode);
+			const rule = ruleFor(status);
+			const caption = document.getElementById("simCaption");
+			const notes = document.getElementById("simNote");
+			const comments = document.getElementById("simComments");
+
+			paintButtons(document.getElementById("simButtons"), shown, true);
+
+			if (mode === "afterRevision") {
+				caption.textContent = "حالت صفحه: بلافاصله بعد از ایجاد ریویژن جدید. ریویژن جدید با NotIssue شروع می‌شود.";
+				comments.innerHTML = "";
+				notes.innerHTML = `<div class="callout ok">فقط ذخیره و بستن، و فقط اگر کاربر تهیه‌کننده سند VPIS باشد. HourPrePerson جایگزین نفرساعت قبلی می‌شود؛ با ذخیره وضعیت به Issue می‌رود و کامنت Issue ثبت می‌شود. تاریخچه برای همه فعال است.</div>`;
+				return;
+			}
+
+			caption.textContent = rule
+				? `${STATUSES[status]} — ${rule.actorLabel}`
+				: `${STATUSES[status]} — برای این وضعیت قانون دکمه‌ای در شرح نیست`;
+
+			if (rule && shown.has("addComment")) {
+				comments.innerHTML = `<strong>وضعیت‌هایی که در افزودن کامنت می‌توان انتخاب کرد</strong><ul>${
+					rule.comments.map(item => `<li><span>${item.name}</span><span><code>${item.code}</code> · ${item.next}</span></li>`).join("")
+				}</ul>`;
+			} else if (rule && rule.comments.length && !shown.has("addComment")) {
+				comments.innerHTML = `<div class="sub">افزودن کامنت برای این کاربر مخفی است، پس فهرست وضعیت‌های کامنت هم در اختیار او نیست.</div>`;
+			} else {
+				comments.innerHTML = "";
+			}
+
+			const bits = [];
+			if (rule && rule.note) bits.push(`<div class="callout">${rule.note}</div>`);
+			if (shown.has("reply")) {
+				bits.push(`<div class="callout reply">دکمهٔ افزودن ReplySheet برای این وضعیت فقط به تهیه‌کننده سند VPIS نشان داده می‌شود. جزئیات ذخیره در بخش ReplySheet.</div>`);
+			}
+			if (!rule) {
+				bits.push(`<div class="callout gap">RejectByDcc و ApproveByClient و خودِ وضعیت ReplaySheet قانون دکمهٔ عملیاتی ندارند مگر اینکه کامنت‌های اضافی ReplySheet وضعیت را جلو ببرند. تا آن زمان فقط تاریخچه دیده می‌شود.</div>`);
+			}
+			if (rule && rule.actor !== "any" && rule.actor !== actor) {
+				bits.push(`<div class="callout">این کاربر نقش لازم این وضعیت را ندارد. فقط تاریخچه فعال است.</div>`);
+			}
+			notes.innerHTML = bits.join("");
+		}
+
+		function renderFlow() {
+			const flow = document.getElementById("flowList");
+			flow.innerHTML = RULES.map((rule, index) => {
+				const last = index === RULES.length - 1;
+				const codes = rule.statuses.map(code => `<span class="tag">${code}</span>`).join("");
+				const loop = rule.loop ? `<div class="loop">${rule.loop}</div>` : "";
+				const btnLabels = buttonsForStatus(rule.statuses[0]).map(buttonTitle).join(" · ");
+				return `
+					<div class="step ${rule.tone}" data-status="${rule.statuses[0]}" data-rule="${rule.id}">
+						<div class="rail"><div class="dot"></div>${last ? "" : `<div class="stem"></div>`}</div>
+						<div class="step-card">
+							<strong>${rule.title}</strong>
+							<div class="meta">${codes}<span class="tag">${rule.actorLabel}</span><span class="tag">${btnLabels}</span></div>
+						</div>
+					</div>
+					${loop}`;
+			}).join("") + `
+				<div class="loop">خروجی‌های بدون قانون بعدی دکمه: RejectByDcc، ApproveByClient، و خودِ وضعیت ReplaySheet (مگر کامنت‌های تایید ReplySheet وضعیت را جلو ببرند).</div>`;
+
+			flow.querySelectorAll(".step").forEach(el => {
+				el.addEventListener("click", () => {
+					statusPick.value = el.dataset.status;
+					modePick.value = "normal";
+					document.querySelectorAll(".step").forEach(s => s.classList.remove("active"));
+					el.classList.add("active");
+					showSide(el.dataset.rule);
+					renderSim();
+				});
+			});
+		}
+
+		function showSide(ruleId) {
+			const rule = RULES.find(item => item.id === ruleId);
+			document.getElementById("sideTitle").textContent = rule.title;
+			const commentHtml = rule.comments.length
+				? `<ul>${rule.comments.map(item => `<li><span>${item.name}<br><code>${item.code}</code></span><span class="tag">${item.next}</span></li>`).join("")}</ul>`
+				: `<p class="sub">در این مرحله افزودن کامنت فعال نیست.</p>`;
+			const btnLabels = buttonsForStatus(rule.statuses[0]).map(buttonTitle).join(" · ");
+			document.getElementById("sideBody").innerHTML = `
+				<p><b>دکمه:</b> ${btnLabels}</p>
+				<p><b>چه کسی:</b> ${rule.actorLabel}</p>
+				<p><b>تاریخچه:</b> همیشه، برای همه</p>
+				${rule.note ? `<div class="callout">${rule.note}</div>` : ""}
+				<div class="comment-box"><strong>انتخاب داخل کامنت</strong>${commentHtml}</div>`;
+		}
+
+		function renderMatrix() {
+			const rows = [];
+			RULES.forEach(rule => {
+				rule.statuses.forEach(code => {
+					const comment = rule.comments.length
+						? rule.comments.map(item => `<code>${item.code}</code>`).join(" ، ")
+						: "—";
+					const btnLabels = buttonsForStatus(code).map(buttonTitle).join(" · ");
+					rows.push(`<tr class="clickable" data-status="${code}"><td><b>${STATUSES[code]}</b><br><code>${code}</code></td><td>${btnLabels}<br><span class="sub">به‌علاوه تاریخچه</span></td><td>${rule.actorLabel}</td><td>${comment}</td></tr>`);
+				});
+			});
+			GAPS.forEach(code => {
+				const extra = code === "ReplaySheet"
+					? "مگر کامنت‌های اضافی تایید ReplySheet وضعیت را جلو ببرند"
+					: "قانون دکمه نوشته نشده";
+				rows.push(`<tr class="mark"><td><b>${STATUSES[code]}</b><br><code>${code}</code></td><td>فقط تاریخچه</td><td>${extra}</td><td>—</td></tr>`);
+			});
+			rows.push(`<tr class="mark"><td><b>بعد از ایجاد ریویژن جدید</b><br>حالت صفحه؛ ریویژن با NotIssue شروع می‌شود</td><td>ذخیره و بستن<br><span class="sub">به‌علاوه تاریخچه</span></td><td>فقط تهیه‌کننده سند VPIS</td><td>—<br><span class="sub">ذخیره → Issue + کامنت Issue؛ HourPrePerson جایگزین</span></td></tr>`);
+			const body = document.getElementById("matrixBody");
+			body.innerHTML = rows.join("");
+			body.querySelectorAll("tr[data-status]").forEach(row => {
+				row.addEventListener("click", () => {
+					statusPick.value = row.dataset.status;
+					modePick.value = "normal";
+					renderSim();
+					document.getElementById("sec-sim").scrollIntoView({ behavior: "smooth", block: "start" });
+				});
+			});
+		}
+
+		document.getElementById("legendButtons").innerHTML = BUTTONS.map(btn => {
+			let hint = "فقط در وضعیت خودش";
+			if (btn.id === "history") hint = "همیشه";
+			else if (btn.cls === "ghost") hint = "در این قوانین مخفی";
+			else if (btn.id === "reply") hint = "وضعیت‌های مشخص · فقط تهیه‌کننده";
+			return `<span class="pill ${btn.cls === "ghost" ? "ghost" : btn.cls}">${btn.title}<span style="font-weight:500;opacity:.8"> · ${hint}</span></span>`;
+		}).join("");
+
+		statusOptions();
+		renderFlow();
+		renderMatrix();
+		showSide("rule-producer");
+		document.querySelector('.step[data-rule="rule-producer"]').classList.add("active");
+		statusPick.addEventListener("change", () => { modePick.value = "normal"; renderSim(); });
+		actorPick.addEventListener("change", renderSim);
+		modePick.addEventListener("change", renderSim);
+		renderSim();
+	</script>
+</body>
+</html>

@@ -40,41 +40,41 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(Transmital transmital, CancellationToken cn)
 		{
+			var document = await unitOfWork.Repository<Document>().TableNoTracking
+				.FirstOrDefaultAsync(d => d.Id == transmital.DocumentId, cn)
+				?? throw new Exception("مدرک ترانسمیتال یافت نشد.");
 
-			var transmitalCount = await unitOfWork.Repository<Transmital>()
-							.TableNoTracking.
-							CountAsync(c => !(c.IsForReplySheet ?? false) && c.ProjectId == transmital.ProjectId);
+			var isReplySheet = transmital.IsForReplySheet == true;
+			if (!isReplySheet && !IsAdministrator)
+			{
+				if (!IsCurrentUserDcc())
+					throw new Exception("فقط کاربر DCC مجاز به ترانسمیتال مدرک است.");
+				if (document.Status != DocumentStatusEnums.ApprovedByDcc)
+					throw new Exception("ترانسمیتال فقط برای مدرک تاییدشده توسط DCC مجاز است.");
+			}
 
 			var project = await unitOfWork.Repository<Project>()
 							.TableNoTracking
-							.FirstOrDefaultAsync(p => p.Id == transmital.ProjectId);
+							.FirstOrDefaultAsync(p => p.Id == transmital.ProjectId, cn);
 
-			var entity = new Transmital();
-			if (project == null)
+			if (isReplySheet)
 			{
-				entity = await unitOfWork.Repository<Transmital>().SaveAsync(transmital, cn, true);
-				return Ok(entity);
-			}
-
-			if(transmital.IsForReplySheet.Value != false)
-			{
-
-				transmital.Number = entity.DefinedByUserNumber;
+				transmital.Number = transmital.DefinedByUserNumber;
 				transmital.DefinedByUserNumber = null;
 				if (string.IsNullOrEmpty(transmital.Comments))
 					transmital.Comments = "is for reply sheet";
 			}
-			else
+			else if (project != null)
 			{
+				var transmitalCount = await unitOfWork.Repository<Transmital>()
+					.TableNoTracking
+					.CountAsync(c => !(c.IsForReplySheet ?? false) && c.ProjectId == transmital.ProjectId, cn);
 				var transmitalNo = string.Concat("-", (transmitalCount + 1).ToString().PadLeft(4, '0'));
-				var finalTransmitalNo = string.Concat(project.TransmissionPrefix, transmitalNo);
-				transmital.Number = finalTransmitalNo;
+				transmital.Number = string.Concat(project.TransmissionPrefix, transmitalNo);
 			}
 
-			entity = await unitOfWork.Repository<Transmital>().SaveAsync(transmital, cn);
-
-			 await AddNotReviewComments(entity.DocumentId);
-
+			var entity = await unitOfWork.Repository<Transmital>().SaveAsync(transmital, cn, true);
+			await AddNotReviewCommentIfNeeded(document, cn);
 			return Ok(entity);
 		}
 
@@ -83,8 +83,10 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Update(Transmital transmital, CancellationToken cn)
 		{
 			var entity = await unitOfWork.Repository<Transmital>().UpdateAsync(transmital, cn, true);
-
-			await AddNotReviewComments(entity.DocumentId);
+			var document = await unitOfWork.Repository<Document>().TableNoTracking
+				.FirstOrDefaultAsync(d => d.Id == entity.DocumentId, cn);
+			if (document != null)
+				await AddNotReviewCommentIfNeeded(document, cn);
 			return Ok(entity);
 		}
 
@@ -155,34 +157,30 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 
-		private async Task AddNotReviewComments(long documentId,CancellationToken ct =default)
-		{
-			var document = await unitOfWork.Repository<Document>()
-				.TableNoTracking
-				.FirstOrDefaultAsync(c => c.Id == documentId);
+		private const long DccRoleId = 200000;
+		private const string DccRoleName = "EdmsDocumentsDccUsers";
 
-			if (document == null)
+		private bool IsCurrentUserDcc() =>
+			CurrentUserHasRole(DccRoleId) || CurrentUserHasRole(DccRoleName);
+
+		private async Task AddNotReviewCommentIfNeeded(Document document, CancellationToken ct)
+		{
+			if (document.Id is not > 0)
+				return;
+			if (document.Status != DocumentStatusEnums.ApprovedByDcc)
 				return;
 
-			var newCommentDocument = new DocumentComment()
+			var already = await unitOfWork.Repository<DocumentComment>().TableNoTracking
+				.AnyAsync(c => c.DocumentId == document.Id && c.Status == DocumentStatusEnums.NotReview, ct);
+			if (already)
+				return;
+
+			await unitOfWork.Repository<DocumentComment>().AddAsync(new DocumentComment
 			{
-				DocumentId = documentId,
+				DocumentId = document.Id.Value,
 				Status = DocumentStatusEnums.NotReview,
-				Comment = "ایجاد شده از ترانسمیتال",
-
-			};
-
-
-			await unitOfWork.Repository<DocumentComment>()
-				.AddAsync(newCommentDocument,ct);
-
-			await unitOfWork.Repository<Document>().UpdateFieldsAsync(
-				   documentId,
-			    c => c.Status,
-				   DocumentStatusEnums.NotReview,
-			    ct
-				   );
-
+				Comment = "ایجاد شده از ترانسمیتال"
+			}, ct, false);
 		}
 	}
 }

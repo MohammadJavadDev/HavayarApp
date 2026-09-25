@@ -1,0 +1,75 @@
+@using Entities.App.Inv
+<datatableprofile entity-Type="typeof(PartCustomBom)"></datatableprofile>
+<script>
+	function openPartCustomBomModal(id) {
+		const url = id
+			? '/Panel/Inv/PartCustomBom/Edit?id=' + id
+			: '/Panel/Inv/PartCustomBom/New';
+		page.getPartialView(url, function (r) {
+			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
+			let decoded;
+			if (typeof r === 'string')
+				decoded = { html: r, scripts: [] };
+			else if (window.appController && typeof appController.decodePartialResponse === 'function')
+				decoded = appController.decodePartialResponse(r);
+			else
+				decoded = { html: '', scripts: [] };
+
+			const $bodyCn = $('<div class="part-custom-bom-modal" style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>')
+				.append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش BOM سفارشی' : 'جدید BOM سفارشی',
+				content: $bodyCn,
+				rtl: true,
+				columnClass: 'medium',
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							model.isDisabled = !!$content.find('[data-bind="isDisabled"]').prop('checked');
+							model.usingRate = parseFloat(String(model.usingRate || '0').replace(/,/g, '')) || 0;
+							model.order = parseInt(model.order, 10) || 1;
+							model.productId = parseInt(model.productId, 10) || 0;
+							model.partId = parseInt(model.partId, 10) || 0;
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Inv/PartCustomBom/Save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp || !resp.isSuccess) {
+									toastr.error((resp && resp.message) || 'خطا در ذخیره');
+									return;
+								}
+								toastr.success('ذخیره شد');
+								selfConfirm.close();
+								if (self.table && self.table.ajax)
+									self.table.ajax.reload(null, false);
+								else
+									appController.refreshCurrentPage();
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	// Intercept built-in new/edit if ActionOptions still fire default navigation —
+	// CustomActionButtonsJson on the profile will call these helpers.
+	window.__openPartCustomBomModal = openPartCustomBomModal;
+</script>

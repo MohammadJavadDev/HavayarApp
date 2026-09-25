@@ -19,7 +19,136 @@ namespace App.BackgroundJob.Jobs.Edms
 		ApplicationDbContext appContext,
 		IFileService fileService)
 	{
-		private const int PageSize = 500;
+		private const string PortalEdmsRoot = @"D:\PortalData\EDMS";
+		private const string EdmsPathMarker = @"\EDMS\";
+
+		private static string? ResolvePortalEdmsPath(string? htsPath)
+		{
+			if (string.IsNullOrWhiteSpace(htsPath))
+				return null;
+
+			var normalized = htsPath.Trim().Replace('/', '\\');
+			var markerIndex = normalized.IndexOf(EdmsPathMarker, StringComparison.OrdinalIgnoreCase);
+			if (markerIndex < 0)
+				return normalized;
+
+			var relative = normalized[(markerIndex + EdmsPathMarker.Length)..].TrimStart('\\');
+			return Path.Combine(PortalEdmsRoot, relative);
+		}
+
+		private static string? LocatePortalFile(string? htsPath)
+		{
+			var expected = ResolvePortalEdmsPath(htsPath);
+			if (string.IsNullOrWhiteSpace(expected))
+				return null;
+
+			if (SafeFileExists(expected))
+				return expected;
+
+			var relative = GetEdmsRelativePath(htsPath);
+			if (string.IsNullOrWhiteSpace(relative) || !SafeDirectoryExists(PortalEdmsRoot))
+				return null;
+
+			var current = PortalEdmsRoot;
+			var parts = relative.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+			for (var i = 0; i < parts.Length; i++)
+			{
+				var found = FindChild(current, parts[i].Trim(), file: i == parts.Length - 1);
+				if (found == null)
+					return null;
+				current = found;
+			}
+
+			return current;
+		}
+
+		private static string? GetEdmsRelativePath(string? htsPath)
+		{
+			if (string.IsNullOrWhiteSpace(htsPath))
+				return null;
+
+			var normalized = htsPath.Trim().Replace('/', '\\');
+			var markerIndex = normalized.IndexOf(EdmsPathMarker, StringComparison.OrdinalIgnoreCase);
+			if (markerIndex < 0)
+				return null;
+
+			return normalized[(markerIndex + EdmsPathMarker.Length)..].TrimStart('\\');
+		}
+
+		private static string? FindChild(string directory, string name, bool file)
+		{
+			if (string.IsNullOrWhiteSpace(name))
+				return null;
+
+			var exact = Path.Combine(directory, name);
+			if (file ? SafeFileExists(exact) : SafeDirectoryExists(exact))
+				return exact;
+
+			IEnumerable<string> children;
+			try
+			{
+				var root = ToLongPath(directory);
+				children = file ? Directory.EnumerateFiles(root) : Directory.EnumerateDirectories(root);
+			}
+			catch
+			{
+				return null;
+			}
+
+			foreach (var child in children)
+			{
+				var childPath = StripLongPathPrefix(child);
+				var childName = Path.GetFileName(childPath);
+				if (string.Equals(childName.Trim(), name, StringComparison.OrdinalIgnoreCase))
+					return childPath;
+			}
+
+			return null;
+		}
+
+		private static bool SafeFileExists(string path)
+		{
+			try
+			{
+				return File.Exists(path) || File.Exists(ToLongPath(path));
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
+		private static bool SafeDirectoryExists(string path)
+		{
+			try
+			{
+				return Directory.Exists(path) || Directory.Exists(ToLongPath(path));
+			}
+			catch
+			{
+				return false;
+			}
+		}
+
+		private static string ToLongPath(string path)
+		{
+			var full = Path.GetFullPath(path);
+			if (full.StartsWith(@"\\?\", StringComparison.Ordinal))
+				return full;
+			if (full.StartsWith(@"\\", StringComparison.Ordinal))
+				return @"\\?\UNC\" + full[2..];
+			return @"\\?\" + full;
+		}
+
+		private static string StripLongPathPrefix(string path)
+		{
+			if (path.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+				return @"\\" + path[@"\\?\UNC\".Length..];
+			if (path.StartsWith(@"\\?\", StringComparison.Ordinal))
+				return path[4..];
+			return path;
+		}
+		private const int PageSize = 200;
 		private const int SaveBatchSize = 500;
 		private const int HoldCauseLookupOffset = 409;
 		private const int CommentMaxLength = 2000;
@@ -347,18 +476,30 @@ namespace App.BackgroundJob.Jobs.Edms
 		{
 			try
 			{
-				await jobLogger?.LogInfoAsync("شروع انتقال فایل‌های مدارک مهندسی از HTS", cn);
+				await jobLogger?.LogInfoAsync($"شروع انتقال فایل‌های مدارک از {PortalEdmsRoot}", cn);
 
 				var counters = new FileSyncCounters();
 				var skippedCount = 0;
 				var failedCount = 0;
 				var lastId = 0;
 				var processed = 0;
+				var candidatesExamined = 0;
 
 				while (true)
 				{
+					// فقط مدارکی که در HTS حداقل یک مسیر/نام فایل دارند — بقیه کار ندارند
 					var batch = await htsDb.Hts_Edms_Documents.AsNoTracking()
-						.Where(d => d.Document_ID > lastId)
+						.Where(d => d.Document_ID > lastId && (
+							(d.Document_FilePath != null && d.Document_FilePath != "")
+							|| (d.Document_FileName != null && d.Document_FileName != "")
+							|| (d.Document_NativeFilePath != null && d.Document_NativeFilePath != "")
+							|| (d.Document_NativeFileName != null && d.Document_NativeFileName != "")
+							|| (d.Document_SecondaryFilePath != null && d.Document_SecondaryFilePath != "")
+							|| (d.Document_SecondaryFileName != null && d.Document_SecondaryFileName != "")
+							|| (d.Document_ReplySheetFilePath != null && d.Document_ReplySheetFilePath != "")
+							|| (d.Document_ReplySheetFileName != null && d.Document_ReplySheetFileName != "")
+							|| (d.Document_SecondReplySheetFilePath != null && d.Document_SecondReplySheetFilePath != "")
+							|| (d.Document_SecondReplySheetFileName != null && d.Document_SecondReplySheetFileName != "")))
 						.OrderBy(d => d.Document_ID)
 						.Take(PageSize)
 						.ToListAsync(cn);
@@ -367,7 +508,7 @@ namespace App.BackgroundJob.Jobs.Edms
 						break;
 
 					lastId = batch[^1].Document_ID;
-					processed += batch.Count;
+					candidatesExamined += batch.Count;
 
 					var htsIds = batch.Select(d => (long)d.Document_ID).ToList();
 					var appDocuments = await unitOfWork.Repository<Document>().Table
@@ -377,21 +518,7 @@ namespace App.BackgroundJob.Jobs.Edms
 						.GroupBy(d => d.HtsId)
 						.ToDictionary(g => g.Key, g => g.First());
 
-					var fileIds = appDocuments
-						.SelectMany(d => new long?[]
-						{
-							d.MainFileId,
-							d.MotherFileId,
-							d.SecondaryFileId,
-							d.ReplySheetId,
-							d.SecondReplySheetId
-						})
-						.Where(id => id.HasValue)
-						.Select(id => id!.Value)
-						.Distinct()
-						.ToList();
-
-					var fileMeta = await LoadFileMetaAsync(fileIds, cn);
+					var batchChanged = false;
 
 					foreach (var hts in batch)
 					{
@@ -403,12 +530,19 @@ namespace App.BackgroundJob.Jobs.Edms
 								continue;
 							}
 
+							// اسلات‌های لینک‌شده را دوباره بررسی/ثبت نکن — فقط شکاف‌ها
+							if (!DocumentNeedsFileSync(document, hts))
+							{
+								counters.Unchanged += CountLinkedDocumentSlots(document, hts);
+								continue;
+							}
+
+							processed++;
+
 							document.MainFileId = await SyncFileSlotAsync(
 								document.MainFileId,
 								hts.Document_FilePath,
 								hts.Document_FileName,
-								hts.Document_FileSize,
-								fileMeta,
 								typeof(Document).FullName!,
 								nameof(Document.MainFile),
 								document.Id,
@@ -422,8 +556,6 @@ namespace App.BackgroundJob.Jobs.Edms
 								document.MotherFileId,
 								hts.Document_NativeFilePath,
 								hts.Document_NativeFileName,
-								hts.Document_NativeFileSize,
-								fileMeta,
 								typeof(Document).FullName!,
 								nameof(Document.MotherFile),
 								document.Id,
@@ -437,8 +569,6 @@ namespace App.BackgroundJob.Jobs.Edms
 								document.SecondaryFileId,
 								hts.Document_SecondaryFilePath,
 								hts.Document_SecondaryFileName,
-								hts.Document_SecondaryFileSize,
-								fileMeta,
 								typeof(Document).FullName!,
 								nameof(Document.SecondaryFile),
 								document.Id,
@@ -452,8 +582,6 @@ namespace App.BackgroundJob.Jobs.Edms
 								document.ReplySheetId,
 								hts.Document_ReplySheetFilePath,
 								hts.Document_ReplySheetFileName,
-								hts.Document_ReplySheetFileSize,
-								fileMeta,
 								typeof(Document).FullName!,
 								nameof(Document.ReplySheet),
 								document.Id,
@@ -467,8 +595,6 @@ namespace App.BackgroundJob.Jobs.Edms
 								document.SecondReplySheetId,
 								hts.Document_SecondReplySheetFilePath,
 								hts.Document_SecondReplySheetFileName,
-								hts.Document_SecondReplySheetFileSize,
-								fileMeta,
 								typeof(Document).FullName!,
 								nameof(Document.SecondReplySheet),
 								document.Id,
@@ -477,6 +603,8 @@ namespace App.BackgroundJob.Jobs.Edms
 								"SecondReplySheet",
 								counters,
 								cn);
+
+							batchChanged = true;
 						}
 						catch (Exception ex)
 						{
@@ -488,11 +616,14 @@ namespace App.BackgroundJob.Jobs.Edms
 						}
 					}
 
-					await unitOfWork.SaveChangesAsync(cn);
+					if (batchChanged)
+						await unitOfWork.SaveChangesAsync(cn);
 				}
 
+				await ImportCommentAttachmentsFromPortalAsync(jobLogger, counters, cn);
+
 				await jobLogger?.LogInfoAsync(
-					$"پایان انتقال فایل‌ها. مدارک: {processed}، آپلود شده: {counters.Uploaded}، بدون تغییر: {counters.Unchanged}، فایل ناموجود: {counters.Missing}، رد شده به‌خاطر مدرک: {skippedCount}، خطا: {failedCount}",
+					$"پایان انتقال فایل‌ها از {PortalEdmsRoot}. بررسی‌شده: {candidatesExamined}، نیازمند انتقال: {processed}، آپلود شده: {counters.Uploaded}، بدون تغییر: {counters.Unchanged}، فایل ناموجود: {counters.Missing}، رد شده به‌خاطر مدرک: {skippedCount}، خطا: {failedCount}",
 					cn);
 			}
 			catch (Exception ex)
@@ -500,6 +631,79 @@ namespace App.BackgroundJob.Jobs.Edms
 				await jobLogger?.LogExceptionAsync(ex, cn);
 				throw;
 			}
+		}
+
+		private async Task ImportCommentAttachmentsFromPortalAsync(
+			IJobLogger? jobLogger,
+			FileSyncCounters counters,
+			CancellationToken cn)
+		{
+			await jobLogger?.LogInfoAsync("شروع انتقال پیوست کامنت‌ها از مسیر EDMS", cn);
+			var lastId = 0;
+			var attached = 0;
+			var candidatesExamined = 0;
+			var alreadyLinked = 0;
+
+			while (true)
+			{
+				// فقط کامنت‌های HTS که واقعاً پیوست دارند — نه همهٔ کامنت‌های بدون AttachmentId
+				var htsBatch = await htsDb.Hts_Edms_Document_Comments.AsNoTracking()
+					.Where(c => c.Document_Comment_ID > lastId && (
+						(c.Attachment_FilePath != null && c.Attachment_FilePath != "")
+						|| (c.Attachment_FileName != null && c.Attachment_FileName != "")))
+					.OrderBy(c => c.Document_Comment_ID)
+					.Take(PageSize)
+					.ToListAsync(cn);
+
+				if (htsBatch.Count == 0)
+					break;
+
+				lastId = htsBatch[^1].Document_Comment_ID;
+				candidatesExamined += htsBatch.Count;
+
+				var htsIds = htsBatch.Select(c => (long)c.Document_Comment_ID).ToList();
+				var appComments = await unitOfWork.Repository<DocumentComment>().Table
+					.Where(c => htsIds.Contains(c.HtsId))
+					.ToListAsync(cn);
+				var byHtsId = appComments
+					.GroupBy(c => c.HtsId)
+					.ToDictionary(g => g.Key, g => g.First());
+
+				var batchChanged = false;
+
+				foreach (var hts in htsBatch)
+				{
+					if (!byHtsId.TryGetValue(hts.Document_Comment_ID, out var comment) || !comment.Id.HasValue)
+						continue;
+
+					if (comment.AttachmentId.HasValue)
+					{
+						alreadyLinked++;
+						counters.Unchanged++;
+						continue;
+					}
+
+					var uploadedId = await TryUploadCommentAttachmentAsync(hts, comment.Id, jobLogger, cn);
+					if (uploadedId.HasValue)
+					{
+						comment.AttachmentId = uploadedId;
+						attached++;
+						counters.Uploaded++;
+						batchChanged = true;
+					}
+					else
+					{
+						counters.Missing++;
+					}
+				}
+
+				if (batchChanged)
+					await unitOfWork.SaveChangesAsync(cn);
+			}
+
+			await jobLogger?.LogInfoAsync(
+				$"پیوست کامنت منتقل شد: {attached} (بررسی HTS با پیوست: {candidatesExamined}، قبلاً لینک‌شده: {alreadyLinked})",
+				cn);
 		}
 
 		private static Document MapDocument(
@@ -592,7 +796,7 @@ namespace App.BackgroundJob.Jobs.Edms
 				Comment = comment,
 				Status = status,
 				LegalHolder = MapLegalHolder(hts.HoldCause_FK),
-				HOLDOwnerId = ResolveHtsUser(hts.HoldResponsibleId, users, unmatchedUsers),
+				HOLDOwnerId = null,
 				HoldDetails = status is DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject
 					? comment
 					: null,
@@ -629,33 +833,36 @@ namespace App.BackgroundJob.Jobs.Edms
 			if (!HasCommentAttachment(hts))
 				return null;
 
-			if (string.IsNullOrWhiteSpace(hts.Attachment_FilePath) || !File.Exists(hts.Attachment_FilePath))
+			if (string.IsNullOrWhiteSpace(hts.Attachment_FilePath))
+				return null;
+
+			var sourcePath = LocatePortalFile(hts.Attachment_FilePath);
+			if (sourcePath == null)
 			{
 				await jobLogger?.LogWarningAsync(
-					$"فایل پیوست کامنت HTS یافت نشد. CommentId={hts.Document_Comment_ID}, Path={hts.Attachment_FilePath}",
+					$"فایل پیوست کامنت HTS یافت نشد. CommentId={hts.Document_Comment_ID}, Path={ResolvePortalEdmsPath(hts.Attachment_FilePath) ?? hts.Attachment_FilePath}",
 					0,
 					cn);
 				return null;
 			}
 
-			var bytes = await File.ReadAllBytesAsync(hts.Attachment_FilePath, cn);
-			if (bytes.Length == 0)
+			var info = new FileInfo(sourcePath);
+			if (info.Length == 0)
 			{
 				await jobLogger?.LogWarningAsync(
-					$"فایل پیوست کامنت HTS خالی است. CommentId={hts.Document_Comment_ID}, Path={hts.Attachment_FilePath}",
+					$"فایل پیوست کامنت HTS خالی است. CommentId={hts.Document_Comment_ID}, Path={sourcePath}",
 					0,
 					cn);
 				return null;
 			}
 
 			var fileName = string.IsNullOrWhiteSpace(hts.Attachment_FileName)
-				? $"comment_{hts.Document_Comment_ID}{Path.GetExtension(hts.Attachment_FilePath)}"
+				? $"comment_{hts.Document_Comment_ID}{Path.GetExtension(sourcePath)}"
 				: hts.Attachment_FileName;
 
-			var uploaded = await fileService.UploadAsync(
-				bytes,
+			var uploaded = await fileService.RegisterExistingAsync(
+				sourcePath,
 				fileName,
-				null,
 				typeof(DocumentComment).FullName,
 				nameof(DocumentComment.Attachment),
 				entityId,
@@ -668,8 +875,6 @@ namespace App.BackgroundJob.Jobs.Edms
 			long? currentFileId,
 			string? htsPath,
 			string? htsName,
-			long? htsSize,
-			Dictionary<long, FileMeta> fileMeta,
 			string entityType,
 			string entityPropName,
 			long? entityId,
@@ -679,113 +884,89 @@ namespace App.BackgroundJob.Jobs.Edms
 			FileSyncCounters counters,
 			CancellationToken cn)
 		{
-			if (string.IsNullOrWhiteSpace(htsPath) && string.IsNullOrWhiteSpace(htsName))
-				return currentFileId;
-
-			if (currentFileId.HasValue
-				&& fileMeta.TryGetValue(currentFileId.Value, out var existing)
-				&& FileMatches(existing, htsName, htsSize))
+			// قبلاً ثبت شده — دیسک را دوباره چک نکن و دوباره ثبت نکن
+			if (currentFileId.HasValue)
 			{
 				counters.Unchanged++;
 				return currentFileId;
 			}
 
-			if (string.IsNullOrWhiteSpace(htsPath) || !File.Exists(htsPath))
+			if (string.IsNullOrWhiteSpace(htsPath) && string.IsNullOrWhiteSpace(htsName))
+				return currentFileId;
+
+			var sourcePath = LocatePortalFile(htsPath);
+
+			if (string.IsNullOrWhiteSpace(sourcePath))
 			{
 				counters.Missing++;
 				await jobLogger?.LogWarningAsync(
-					$"فایل مدرک HTS یافت نشد. DocumentId={htsDocumentId}, Slot={slotName}, Path={htsPath}",
+					$"فایل مدرک HTS یافت نشد. DocumentId={htsDocumentId}, Slot={slotName}, Path={ResolvePortalEdmsPath(htsPath) ?? htsPath}",
 					0,
 					cn);
 				return currentFileId;
 			}
 
-			var bytes = await File.ReadAllBytesAsync(htsPath, cn);
-			if (bytes.Length == 0)
+			var fileInfo = new FileInfo(sourcePath);
+			if (fileInfo.Length == 0)
 			{
 				counters.Missing++;
 				await jobLogger?.LogWarningAsync(
-					$"فایل مدرک HTS خالی است. DocumentId={htsDocumentId}, Slot={slotName}, Path={htsPath}",
+					$"فایل مدرک HTS خالی است. DocumentId={htsDocumentId}, Slot={slotName}, Path={sourcePath}",
 					0,
 					cn);
 				return currentFileId;
 			}
 
 			var fileName = string.IsNullOrWhiteSpace(htsName)
-				? Path.GetFileName(htsPath)
+				? fileInfo.Name
 				: htsName.Trim();
 			if (string.IsNullOrWhiteSpace(fileName))
 				fileName = $"document_{htsDocumentId}_{slotName}";
 
-			var uploaded = await fileService.UploadAsync(
-				bytes,
+			var uploaded = await fileService.RegisterExistingAsync(
+				sourcePath,
 				fileName,
-				null,
 				entityType,
 				entityPropName,
 				entityId,
 				cn);
 
-			if (currentFileId.HasValue)
-			{
-				try
-				{
-					await fileService.DeleteAsync(currentFileId.Value, cn);
-				}
-				catch (Exception ex)
-				{
-					await jobLogger?.LogWarningAsync(
-						$"حذف فایل قبلی مدرک HTS Id={htsDocumentId} Slot={slotName} ناموفق بود: {ex.Message}",
-						0,
-						cn);
-				}
-			}
-
-			if (uploaded.Id.HasValue)
-				fileMeta[uploaded.Id.Value] = new FileMeta(uploaded.OriginalName, uploaded.Size);
-
 			counters.Uploaded++;
 			return uploaded.Id;
 		}
 
-		private async Task<Dictionary<long, FileMeta>> LoadFileMetaAsync(List<long> fileIds, CancellationToken cn)
+		private static bool DocumentNeedsFileSync(Document document, Hts_Edms_Document hts) =>
+			SlotNeedsSync(document.MainFileId, hts.Document_FilePath, hts.Document_FileName)
+			|| SlotNeedsSync(document.MotherFileId, hts.Document_NativeFilePath, hts.Document_NativeFileName)
+			|| SlotNeedsSync(document.SecondaryFileId, hts.Document_SecondaryFilePath, hts.Document_SecondaryFileName)
+			|| SlotNeedsSync(document.ReplySheetId, hts.Document_ReplySheetFilePath, hts.Document_ReplySheetFileName)
+			|| SlotNeedsSync(document.SecondReplySheetId, hts.Document_SecondReplySheetFilePath, hts.Document_SecondReplySheetFileName);
+
+		private static bool SlotNeedsSync(long? currentFileId, string? htsPath, string? htsName) =>
+			!currentFileId.HasValue
+			&& (!string.IsNullOrWhiteSpace(htsPath) || !string.IsNullOrWhiteSpace(htsName));
+
+		private static int CountLinkedDocumentSlots(Document document, Hts_Edms_Document hts)
 		{
-			var result = new Dictionary<long, FileMeta>();
-			if (fileIds.Count == 0)
-				return result;
-
-			const int chunkSize = 1000;
-			for (var i = 0; i < fileIds.Count; i += chunkSize)
-			{
-				var chunk = fileIds.Skip(i).Take(chunkSize).ToList();
-				var rows = await unitOfWork.Repository<FileEntity>().TableNoTracking
-					.Where(f => f.Id.HasValue && chunk.Contains(f.Id.Value))
-					.Select(f => new { Id = f.Id!.Value, f.OriginalName, f.Size })
-					.ToListAsync(cn);
-
-				foreach (var row in rows)
-					result[row.Id] = new FileMeta(row.OriginalName, row.Size);
-			}
-
-			return result;
+			var count = 0;
+			if (HasHtsFileSlot(hts.Document_FilePath, hts.Document_FileName) && document.MainFileId.HasValue)
+				count++;
+			if (HasHtsFileSlot(hts.Document_NativeFilePath, hts.Document_NativeFileName) && document.MotherFileId.HasValue)
+				count++;
+			if (HasHtsFileSlot(hts.Document_SecondaryFilePath, hts.Document_SecondaryFileName) && document.SecondaryFileId.HasValue)
+				count++;
+			if (HasHtsFileSlot(hts.Document_ReplySheetFilePath, hts.Document_ReplySheetFileName) && document.ReplySheetId.HasValue)
+				count++;
+			if (HasHtsFileSlot(hts.Document_SecondReplySheetFilePath, hts.Document_SecondReplySheetFileName) && document.SecondReplySheetId.HasValue)
+				count++;
+			return count;
 		}
+
+		private static bool HasHtsFileSlot(string? htsPath, string? htsName) =>
+			!string.IsNullOrWhiteSpace(htsPath) || !string.IsNullOrWhiteSpace(htsName);
 
 		private static bool HasCommentAttachment(Hts_Edms_Document_Comment hts) =>
 			!string.IsNullOrWhiteSpace(hts.Attachment_FilePath) || !string.IsNullOrWhiteSpace(hts.Attachment_FileName);
-
-		private static bool FileMatches(FileMeta existing, string? htsName, long? htsSize)
-		{
-			if (!string.IsNullOrWhiteSpace(htsName)
-				&& !string.Equals(existing.OriginalName, htsName.Trim(), StringComparison.OrdinalIgnoreCase))
-			{
-				return false;
-			}
-
-			if (htsSize.HasValue && existing.Size != htsSize.Value)
-				return false;
-
-			return !string.IsNullOrWhiteSpace(existing.OriginalName) || existing.Size > 0;
-		}
 
 		private static DocumentGoalOfProductionEnum? MapGoalOfProduction(byte docPoiFk)
 		{
@@ -811,8 +992,10 @@ namespace App.BackgroundJob.Jobs.Edms
 			return statusFk.Value switch
 			{
 				1 => DocumentStatusEnums.RejectByDcc,
-				3 => DocumentStatusEnums.CommentedByApprover,
-				4 => isForDcc ? DocumentStatusEnums.CommentedByDcc : DocumentStatusEnums.CommentedByReviewer,
+				3 => isForDcc
+					? DocumentStatusEnums.CommentedByDcc
+					: DocumentStatusEnums.CommentedByApprover,
+				4 => MapCommentedStatus(isForDcc, createdUserId, checkedUserId, approvedUserId),
 				5 => DocumentStatusEnums.Issue,
 				6 => DocumentStatusEnums.ApprovedByDcc,
 				7 => DocumentStatusEnums.RejectByClient,
@@ -857,6 +1040,30 @@ namespace App.BackgroundJob.Jobs.Edms
 				return DocumentStatusEnums.ApproveByReviewer;
 
 			return DocumentStatusEnums.ApproveByApprover;
+		}
+
+		private static DocumentStatusEnums MapCommentedStatus(
+			bool isForDcc,
+			short? createdUserId,
+			short? checkedUserId,
+			short? approvedUserId)
+		{
+			if (isForDcc)
+				return DocumentStatusEnums.CommentedByDcc;
+
+			var createdByApprover = approvedUserId is > 0 && createdUserId == approvedUserId;
+			var createdByReviewer = checkedUserId is > 0 && createdUserId == checkedUserId;
+
+			if (createdByApprover && !createdByReviewer)
+				return DocumentStatusEnums.CommentedByApprover;
+
+			if (createdByReviewer && !createdByApprover)
+				return DocumentStatusEnums.CommentedByReviewer;
+
+			if (createdByApprover)
+				return DocumentStatusEnums.CommentedByApprover;
+
+			return DocumentStatusEnums.CommentedByReviewer;
 		}
 
 		private static DocumentLegalHolderEnum? MapLegalHolder(short? holdCauseFk)
@@ -1026,7 +1233,5 @@ namespace App.BackgroundJob.Jobs.Edms
 			public int Unchanged { get; set; }
 			public int Missing { get; set; }
 		}
-
-		private sealed record FileMeta(string? OriginalName, long Size);
 	}
 }

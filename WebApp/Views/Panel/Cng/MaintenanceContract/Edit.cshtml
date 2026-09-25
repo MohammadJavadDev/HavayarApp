@@ -1,0 +1,139 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@using Entities.App.SLS
+@using Entities.Base
+@model MaintenanceContract
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(MaintenanceContract)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">قرارداد تعمیر و نگهداشت</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">نمایندگی</label>
+				@(Html.EntitySelector<Customer>(
+					"CngMaintenanceContractAgencySelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Code} {Party.FullName}",
+					"agencyId",
+					"agencyName",
+					Model?.AgencyId > 0 ? Model.AgencyId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">جایگاه</label>
+				@(Html.EntitySelector<StationInfo>(
+					"CngMaintenanceContractStationSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, StationTitle = c.StationTitle },
+					c => new { c.StationTitle },
+					"{StationTitle}",
+					"stationId",
+					"stationTitle",
+					Model?.StationId?.ToString()
+				))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">نام بهره‌بردار</label>
+				@(Html.EntitySelector<Customer>(
+					"CngMaintenanceContractBeneficiarySelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Code} {Party.FullName}",
+					"stationBeneficiaryId",
+					"stationBeneficiaryName",
+					Model?.StationBeneficiaryId?.ToString()
+				))
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ شروع قرارداد</label>
+				<input class="form-control" data-bind="startDateInText" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@Model?.StartDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">مدت قرارداد (ماه)</label>
+				<input type="number" class="form-control" data-bind="contractDurationInMonth" data-required="true" asp-for="ContractDurationInMonth" min="0" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">تعداد بازدید در ماه</label>
+				<input type="number" class="form-control" data-bind="visitCountInMonth" data-required="true" asp-for="VisitCountInMonth" min="0" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">قیمت ماهانه</label>
+				<input type="text" class="form-control" data-bind="monthlyPrice" data-money="true" data-required="true" asp-for="MonthlyPrice" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">وضعیت</label>
+				<select class="form-control" data-bind="status" data-required="true" asp-for="Status"
+						asp-items="Html.GetEnumSelectList(typeof(MaintenanceContractStatusEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold">فسخ شده</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="isCanceled" asp-for="IsCanceled" />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات فسخ قرارداد</label>
+				<textarea class="form-control" data-bind="cancelDescription" asp-for="CancelDescription" rows="2"></textarea>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">کامنت</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.agencyId || model.agencyId === '0' || model.agencyId === 0) {
+			toastr.error('نمایندگی نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (model.visitCountInMonth === null || model.visitCountInMonth === undefined || model.visitCountInMonth === '') {
+			toastr.error('تعداد بازدید در ماه نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (model.contractDurationInMonth === null || model.contractDurationInMonth === undefined || model.contractDurationInMonth === '') {
+			toastr.error('مدت قرارداد نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const monthly = MJUtil.unformatMoney(model.monthlyPrice);
+		if (!(monthly > 0)) {
+			toastr.error('قیمت ماهانه باید بزرگ‌تر از صفر باشد', 'خطا');
+			return;
+		}
+		if (model.status === null || model.status === undefined || model.status === '') {
+			toastr.error('وضعیت نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

@@ -1,0 +1,201 @@
+@using Entities.App.Inv
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="partDocumentChildCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">مدارک</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newPartDocument">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="partDocumentChildTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>نوع</th>
+					<th>اصلی</th>
+					<th>نام فایل</th>
+					<th>حجم</th>
+					<th>واحد سازمانی</th>
+					<th>کامنت</th>
+					<th>کاربر</th>
+					<th>تاریخ</th>
+					<th style="width:150px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const partDocumentParentId = @parentId;
+
+	function formatFileSize(bytes) {
+		if (bytes == null || bytes === '') return '-';
+		const n = Number(bytes);
+		if (!isFinite(n) || n < 0) return '-';
+		if (n < 1024) return n + ' B';
+		if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+		return (n / (1024 * 1024)).toFixed(1) + ' MB';
+	}
+
+	const partDocumentTable = $$('#partDocumentChildTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Inv/PartDocument/GetListByParentId?partId=' + partDocumentParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'typeTitle', defaultContent: '-' },
+			{ data: 'mainTitle', defaultContent: '-' },
+			{ data: 'fileName', defaultContent: '-' },
+			{
+				data: 'fileSize',
+				render: function (data, type) {
+					if (type !== 'display') return data;
+					return formatFileSize(data);
+				}
+			},
+			{
+				data: 'organizationUnits',
+				defaultContent: '-',
+				render: function (data, type) {
+					if (type !== 'display') return data;
+					return typeof renderEllipsisCell === 'function' ? renderEllipsisCell(data, type) : (data || '-');
+				}
+			},
+			{
+				data: 'comment',
+				defaultContent: '-',
+				render: function (data, type) {
+					if (type !== 'display') return data;
+					return typeof renderEllipsisCell === 'function' ? renderEllipsisCell(data, type) : (data || '-');
+				}
+			},
+			{ data: 'createdByName', defaultContent: '-' },
+			{ data: 'createdOnShamsiDateTime', defaultContent: '-' },
+			{
+				data: 'id',
+				orderable: false,
+				className: 'text-center',
+				render: function (id, type, row) {
+					const viewBtn = row.attachmentId
+						? '<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="viewPartDocument" data-file-id="' + row.attachmentId + '" title="مشاهده"><i class="fa fa-eye"></i></button> '
+						: '';
+					return viewBtn
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editPartDocument" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deletePartDocument" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+	if (typeof bindEmbeddedTableCellTooltips === 'function')
+		bindEmbeddedTableCellTooltips(partDocumentTable);
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function openPartDocumentModal(id) {
+		const url = id
+			? '/Panel/Inv/PartDocument/Edit?id=' + id + '&partId=' + partDocumentParentId
+			: '/Panel/Inv/PartDocument/New?partId=' + partDocumentParentId;
+		const $trigger = id
+			? $$('#partDocumentChildCard').find('[data-action="editPartDocument"][data-id="' + id + '"]')
+			: $$('#partDocumentChildCard').find('[data-action="newPartDocument"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش مدرک' : 'افزودن مدرک',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							const saveUrl = id
+								? '/Panel/Inv/PartDocument/Update'
+								: '/Panel/Inv/PartDocument/Add';
+							$$.post(saveUrl, model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								partDocumentTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initFileUploaders === 'function')
+							initFileUploaders(selfConfirm.$body);
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	$$('#partDocumentChildCard').on('click', '[data-action="newPartDocument"]', function () {
+		openPartDocumentModal(null);
+	});
+	$$('#partDocumentChildCard').on('click', '[data-action="editPartDocument"]', function () {
+		openPartDocumentModal($(this).data('id'));
+	});
+	$$('#partDocumentChildCard').on('click', '[data-action="viewPartDocument"]', function () {
+		const fileId = $(this).data('file-id');
+		if (!fileId) {
+			toastr.error('فایل یافت نشد');
+			return;
+		}
+		window.open('/File/download/' + fileId, '_blank');
+	});
+	$$('#partDocumentChildCard').on('click', '[data-action="deletePartDocument"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get('/Panel/Inv/PartDocument/Delete?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					partDocumentTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

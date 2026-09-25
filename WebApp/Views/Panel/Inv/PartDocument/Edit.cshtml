@@ -1,0 +1,91 @@
+@using Entities.App.Hrm
+@using Entities.App.Inv
+@using Entities.App.Inv.Enums
+@model PartDocument
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(PartDocument)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">مدرک کالا</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="partId" value="@Model?.PartId" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="required">نوع</label>
+				<select class="form-control" data-bind="type" required asp-for="Type" asp-items="Html.GetEnumSelectList(typeof(PartDocumentTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline align-content-center">
+				<div class="form-check mt-4">
+					<input class="form-check-input" type="checkbox" data-bind="main" @(Model?.Main == true ? "checked" : "") />
+					<label class="form-check-label">اصلی</label>
+				</div>
+			</div>
+			<div class="col-md-8 form-group-inline">
+				<label>واحد سازمانی</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"PartDocumentOrgUnitSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"organizationUnitIds",
+					"organizationUnits",
+					Model?.OrganizationUnitIds,
+					false,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>کامنت</label>
+				<textarea class="form-control" data-bind="comment" rows="3">@Model?.Comment</textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<fileuploader bind="attachmentId"
+					accepted-file-types=".pdf,.zip,.png,.jpg"
+					file-id="@(Model?.AttachmentId > 0 ? Model.AttachmentId : null)"
+					file-entity="@Model?.Attachment"
+					entity-prop-name="Attachment"
+					entity-type="@typeof(PartDocument).FullName"
+					required="true"
+					max-file-size="10"
+					label="پیوست"></fileuploader>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		const saveUrl = model.id ? 'update' : 'add';
+		$$.post(saveUrl, model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

@@ -98,6 +98,11 @@ namespace Data.Services.QueryBuilderServices
 			return _innerService.ExecuteQueryWithPaginationAsync(mainQuery, whereQuery,  orderQuery, parameters, offset, limit);
 		}
 
+		public Task<int> ExecuteCountAsync(string mainQuery, Dictionary<string, object> parameters = null)
+		{
+			return _innerService.ExecuteCountAsync(mainQuery, parameters);
+		}
+
 		public Task<bool> ValidateQueryAsync(string query)
 		{
 			return _innerService.ValidateQueryAsync(query);

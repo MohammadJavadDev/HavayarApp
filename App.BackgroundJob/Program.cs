@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using Services.Auth;
  using Services.FileServices;
+using Services.Cng;
 using Services.Job;
  using System.Text;
 using WebFramework.Services;
@@ -83,6 +84,7 @@ builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>(
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 builder.Services.AddJobServices();
+builder.Services.AddScoped<ICngRepairsUsedPartImporter, CngRepairsUsedPartImporter>();
 
 // Register JobLogger service
 builder.Services.AddScoped<IJobLogger, JobLogger>();

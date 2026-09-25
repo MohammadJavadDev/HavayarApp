@@ -70,6 +70,27 @@ namespace Entities.App.Sup
 		[DisplayInfo(null, true, type: SystemType.Decimal)]
 		public decimal? SendingCount { get; set; }
 
+		/// <summary>پیوست درخواست باز — معادل HTS <c>Attachment_FK</c> → <c>Sup_OpenOrderRequest_Attachment</c> (فایل در <see cref="FileEntity"/>).</summary>
+		[DisplayName("پیوست درخواست باز")]
+		[DisplayInfo(null, true, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,")]
+		public FileEntity? Attachment { get; set; }
+
+		public long? AttachmentId { get; set; }
+
+		/// <summary>پیوست کالا — معادل HTS <c>PartAttachmentId</c> → <c>Inv_Part_Attachment</c> (فایل در <see cref="FileEntity"/>).</summary>
+		[DisplayName("پیوست کالا")]
+		[DisplayInfo(null, true, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,")]
+		public FileEntity? PartAttachment { get; set; }
+
+		public long? PartAttachmentId { get; set; }
+
+		/// <summary>پیوست مدرک EDMS — معادل HTS <c>EdmsDocumentAttachmentId</c> → <c>Edms_Document</c> (معمولاً MainFile).</summary>
+		[DisplayName("پیوست مدرک EDMS")]
+		[DisplayInfo(null, true, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,")]
+		public FileEntity? EdmsDocumentAttachment { get; set; }
+
+		public long? EdmsDocumentAttachmentId { get; set; }
+
 		/// <summary>شناسه ردیف در HTS (<c>OpenOrderRequest_EmailToSupplier_ID</c>) برای مهاجرت یکتا.</summary>
 		[DisplayName("شناسه HTS")]
 		[DisplayInfo(null, false, type: SystemType.Long)]

@@ -1,0 +1,39 @@
+@using Entities.App.Cng
+@using Entities.App.Inv
+@using Entities.App.SLS
+@using Entities.Base
+@model InvoiceItem?
+
+<div class="cng-invoice-item-form">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="htsId" value="@(Model?.HtsId ?? 0)" />
+	<div class="row g-3">
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold required">کالا</label>
+			@(Html.EntitySelector<Part>(
+				"CngInvoiceItemPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"partId",
+				"partTitle",
+				Model?.PartId > 0 ? Model.PartId.ToString() : null,
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مقدار</label>
+			<input class="form-control" type="number" step="1" min="1" data-bind="quantity" data-required="true"
+				value="@(Model?.Quantity > 0 ? Model.Quantity.ToString() : "")" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">مبلغ</label>
+			<input type="text" class="form-control" data-bind="price" data-money="true" data-required="true"
+				value="@(Model?.Price > 0 ? Model.Price.ToString() : "")" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>

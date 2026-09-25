@@ -2,6 +2,8 @@ using Common.Attributes;
 using Entities.App.Gnr;
 using Entities.App.Hrm;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -146,6 +148,23 @@ namespace Entities.App.Hcm
 
 		public long? HamkaranId { get; set; }
 
+		[DisplayName("شغل")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		[ForeignKey(nameof(JobId))]
+		public virtual Job? Job { get; set; }
 
+		public long? JobId { get; set; }
+
+	}
+
+	public class PersonelConfiguration : IEntityTypeConfiguration<Personel>
+	{
+		public void Configure(EntityTypeBuilder<Personel> builder)
+		{
+			builder.HasOne(x => x.Job)
+				.WithMany()
+				.HasForeignKey(x => x.JobId)
+				.OnDelete(DeleteBehavior.Restrict);
+		}
 	}
 }

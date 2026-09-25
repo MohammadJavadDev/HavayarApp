@@ -130,6 +130,28 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
+		<div class="col-md-6">
+			<label class=''>محصول</label>
+			@(Html.EntitySelector<ProductFormul>(
+				"ProductFormulSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, ProductCode = c.Product.Code, ProductName = c.Product.Name
+				},
+				c => new { c.Product.Code, c.Product.Name },
+				"{ProductCode} {ProductName}",
+				"ProductFormulIds",
+				"ProductFormulNames",
+				Model?.ProductFormulIds,
+				false,
+				true,
+				disableForEditBool,
+				disableForEditBool
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
 		
 
 		<div class="col-md-6">
@@ -215,29 +237,6 @@
 
 				
 
-			<div class="col-md-6">
-			<label class=''>فرمول قطعه</label>
-			@(Html.EntitySelector<Formul>(
-				"ProductGroupSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-					Id = c.Id,  Title = c.Title
-				},
-				c => new {   c.Title },
-				" {Title}",
-				"ChangedFormulIds",
-				"ChangedFormulNames",
-				Model?.ChangedFormulIds,
-				false,
-				true,
-			     endOperation,
-				endOperation
-
-			))
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-		</div>
-
 		<div class="col-md-6">
 			<label class=''>گروه محصول</label>
 			@(Html.EntitySelector<ProductGroup>(
@@ -257,6 +256,28 @@
 				endOperation,
 				endOperation
 
+			))
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
+		<div class="col-md-6">
+			<label class=''>محصول</label>
+			@(Html.EntitySelector<ProductFormul>(
+				"ChangedProductFormulSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new
+				{
+					Id = c.Id, ProductCode = c.Product.Code, ProductName = c.Product.Name
+				},
+				c => new { c.Product.Code, c.Product.Name },
+				"{ProductCode} {ProductName}",
+				"ChangedProductFormulIds",
+				"ChangedProductFormulNames",
+				Model?.ChangedProductFormulIds,
+				false,
+				true,
+				endOperation,
+				endOperation
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
@@ -390,14 +411,19 @@
 
 	$$("#addFromOrginalRequest").click(function(){
 
-		var ids = $$("[data-bind=ProductGroupIds]").val();
+		var groupIds = $$("[data-bind=ProductGroupIds]").val();
+		var productIds = $$("[data-bind=ProductFormulIds]").val();
 
-		if(!ids || ids.length == 0 )
+		if((!groupIds || groupIds.length == 0) && (!productIds || productIds.length == 0))
 		{
-			return toastr.error("هیچ گروه محصولی در درخواست انتخاب نشده است")
+			return toastr.error("هیچ گروه محصول یا محصولی در درخواست انتخاب نشده است")
 		}
 
-		$$("#ChangedProductGroupSelector").data("entitySelector").addByIds(ids)
+		if(groupIds && groupIds.length > 0)
+			$$("#ChangedProductGroupSelector").data("entitySelector").addByIds(groupIds)
+
+		if(productIds && productIds.length > 0)
+			$$("#ChangedProductFormulSelector").data("entitySelector").addByIds(productIds)
 		 
 	});
 	function savefn($btnAction) {

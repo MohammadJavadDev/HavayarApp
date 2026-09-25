@@ -7,9 +7,11 @@ using Entities.Base;
 using Entities.Base.DataTable;
 using Microsoft.EntityFrameworkCore;
 
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using static Data.Repositories.DataTableQueryBuilder;
 
 namespace Data.Services.QueryBuilderServices
@@ -45,6 +47,11 @@ namespace Data.Services.QueryBuilderServices
 		Dictionary<string, string> ExtractParameterValuesFromRequest(DataTableRequest request);
 
 		Task<QueryResult> ExecuteReportAsync(DataTableRequest request, IReadOnlyDictionary<string, string> parameterValues, int offset, int limit, string userId = null, string username = null);
+
+		/// <summary>
+		/// شمارش کل رکوردهای نمایه (معادل RecordsTotal بدون فیلتر گرید)، با جدا کردن --!--mainsection.
+		/// </summary>
+		Task<int> ExecuteReportCountAsync(long profileId, string userId = null, string username = null);
 
 		/// <summary>
 		/// تبدیل گزارش ذخیره‌شده از حالت طراحی بصری (Diagram) به حالت نوشتن Query
@@ -440,6 +447,45 @@ namespace Data.Services.QueryBuilderServices
 		}
 
 		/// <summary>
+		/// شمارش کل رکوردهای نمایه بدون فیلتر گرید (معادل RecordsTotal)
+		/// </summary>
+		public async Task<int> ExecuteReportCountAsync(long profileId, string userId = null, string username = null)
+		{
+			var report = await GetReportAsync(profileId);
+			if (report == null)
+				throw new KeyNotFoundException("گزارش مورد نظر یافت نشد");
+
+			var queryDesign = JsonSerializer.Deserialize<QueryDesign>(report.QueryJson);
+			var columns = JsonSerializer.Deserialize<List<QueryColumn>>(report.ColumnsJson);
+
+			var paramValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var p in queryDesign.Parameters ?? Enumerable.Empty<QueryParameter>())
+			{
+				if (!string.IsNullOrEmpty(p.Name) && !paramValues.ContainsKey(p.Name))
+					paramValues[p.Name] = p.DefaultValue ?? "";
+			}
+
+			_parameterResolver.ResolveFiltersForInOperator(queryDesign.Filters ?? new List<FilterCondition>(), paramValues, userId, username);
+
+			string query;
+			if (!string.IsNullOrEmpty(queryDesign.CustomQuery))
+			{
+				query = queryDesign.CustomQuery;
+			}
+			else if (columns != null && columns.Any())
+			{
+				query = _queryBuilder.BuildQueryWithShaping(queryDesign, columns);
+			}
+			else
+			{
+				query = _queryBuilder.BuildQuery(queryDesign, columns);
+			}
+
+			var sqlParams = _parameterResolver.BuildParameters(query, paramValues, userId, username);
+			return await _schemaService.ExecuteCountAsync(query, sqlParams);
+		}
+
+		/// <summary>
 		/// اجرای گزارش با پشتیبانی از چند SELECT (حالت نوشتن Query)
 		/// </summary>
 		public async Task<QueryMultiResult> ExecuteReportMultiAsync(long id, IReadOnlyDictionary<string, string> parameterValues = null, string userId = null, string username = null)
@@ -633,9 +679,301 @@ namespace Data.Services.QueryBuilderServices
 			return "contains";
 		}
 
+		private static readonly PersianCalendar PersianCal = new();
+
+		private static readonly Regex MiladiDateFilterPattern = new(
+			@"^(?<y>\d{4})-(?<mo>\d{2})-(?<d>\d{2})(?: (?<h>\d{2}):(?<mi>\d{2})(?::(?<s>\d{2}))?)?$",
+			RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+		private static readonly Regex ShamsiDateFilterPattern = new(
+			@"^(?<y>\d{4})(?:/(?<mo>\d{1,2})(?:/(?<d>\d{1,2})(?: (?<h>\d{1,2}):(?<mi>\d{2})(?::(?<s>\d{2}))?)?)?)?$",
+			RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+		private enum DateFilterPrecision
+		{
+			Year,
+			Month,
+			Day,
+			Instant
+		}
+
+		private sealed class DateFilterBound
+		{
+			public DateFilterPrecision Precision { get; init; }
+			public DateTime Start { get; init; }
+			public DateTime EndExclusive { get; init; }
+			public string StartShamsi { get; init; } = "";
+			public string EndShamsiExclusive { get; init; } = "";
+		}
+
+		private static bool IsShamsiDateColumn(string? type)
+		{
+			var t = (type ?? "").ToLowerInvariant();
+			return t is "dateshamsi" or "datetimeshamsi" or "shamsidate" or "shamsidatetime";
+		}
+
+		/// <summary>
+		/// سال (1405)، سال‌وماه (1405/06) یا روز را به بازه تبدیل می‌کند.
+		/// ستون شمسی با رشتهٔ صفرپُر مقایسه می‌شود؛ ستون میلادی با datetime2.
+		/// </summary>
+		private static string? BuildDateColumnSearchClause(string bracketPath, string? type, string condition, string[] values)
+		{
+			if (values.Length == 0)
+				return null;
+
+			var shamsiColumn = IsShamsiDateColumn(type);
+			var op = condition;
+
+			if (string.Equals(op, "between", StringComparison.OrdinalIgnoreCase))
+			{
+				if (values.Length >= 2)
+				{
+					if (!TryParseDateFilter(StripDatePrefix(values[0]), out var from)
+						|| !TryParseDateFilter(StripDatePrefix(values[1]), out var to))
+						return "1 = 0";
+
+					var fromLit = SqlDateLiteral(shamsiColumn, from!.Start, from.StartShamsi);
+					if (from.Precision == DateFilterPrecision.Instant && to!.Precision == DateFilterPrecision.Instant)
+					{
+						var toLit = SqlDateLiteral(shamsiColumn, to.Start, to.StartShamsi);
+						return $"({bracketPath} >= {fromLit} AND {bracketPath} <= {toLit})";
+					}
+
+					var toEnd = SqlDateLiteral(shamsiColumn, to!.EndExclusive, to.EndShamsiExclusive);
+					return $"({bracketPath} >= {fromLit} AND {bracketPath} < {toEnd})";
+				}
+
+				var raw = values[0] ?? "";
+				if (raw.Contains("from", StringComparison.OrdinalIgnoreCase))
+					op = ">";
+				else if (raw.Contains("to", StringComparison.OrdinalIgnoreCase))
+					op = "<";
+				else
+					op = "=";
+			}
+
+			if (!TryParseDateFilter(StripDatePrefix(values[0]), out var bound) || bound == null)
+				return "1 = 0";
+
+			var startLit = SqlDateLiteral(shamsiColumn, bound.Start, bound.StartShamsi);
+			if (bound.Precision == DateFilterPrecision.Instant)
+			{
+				return op switch
+				{
+					"=" => $"{bracketPath} = {startLit}",
+					"!=" => $"{bracketPath} <> {startLit}",
+					">" => $"{bracketPath} > {startLit}",
+					">=" => $"{bracketPath} >= {startLit}",
+					"<" => $"{bracketPath} < {startLit}",
+					"<=" => $"{bracketPath} <= {startLit}",
+					_ => null
+				};
+			}
+
+			var endLit = SqlDateLiteral(shamsiColumn, bound.EndExclusive, bound.EndShamsiExclusive);
+			return op switch
+			{
+				"=" => $"({bracketPath} >= {startLit} AND {bracketPath} < {endLit})",
+				"!=" => $"({bracketPath} < {startLit} OR {bracketPath} >= {endLit})",
+				">" => $"{bracketPath} >= {endLit}",
+				">=" => $"{bracketPath} >= {startLit}",
+				"<" => $"{bracketPath} < {startLit}",
+				"<=" => $"{bracketPath} < {endLit}",
+				_ => null
+			};
+		}
+
+		private static string SqlDateLiteral(bool shamsiColumn, DateTime miladi, string shamsiText)
+		{
+			if (shamsiColumn)
+				return $"N'{EscapeSqlLiteral(shamsiText)}'";
+
+			var formatted = miladi.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+			return $"CONVERT(datetime2, '{formatted}', 120)";
+		}
+
+		private static bool TryParseDateFilter(string? raw, out DateFilterBound? bound)
+		{
+			bound = null;
+			if (string.IsNullOrWhiteSpace(raw))
+				return false;
+
+			var text = raw.Trim().Fa2En();
+			text = Regex.Replace(text, @"\s*/\s*", "/");
+			text = Regex.Replace(text, @"\s+", " ").Trim();
+
+			if (text.Contains('-'))
+				return TryParseMiladiDateFilter(text, out bound);
+
+			var match = ShamsiDateFilterPattern.Match(text);
+			if (!match.Success)
+				return false;
+
+			if (!int.TryParse(match.Groups["y"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var year))
+				return false;
+
+			var hasMonth = match.Groups["mo"].Success;
+			var hasDay = match.Groups["d"].Success;
+			var hasTime = match.Groups["h"].Success;
+
+			var month = 1;
+			var day = 1;
+			if (hasMonth && !int.TryParse(match.Groups["mo"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out month))
+				return false;
+			if (hasDay && !int.TryParse(match.Groups["d"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out day))
+				return false;
+
+			if (hasMonth && (month < 1 || month > 12))
+				return false;
+			if (hasDay && (day < 1 || day > 31))
+				return false;
+
+			try
+			{
+				if (hasTime)
+				{
+					if (!int.TryParse(match.Groups["h"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var hour)
+						|| !int.TryParse(match.Groups["mi"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var minute))
+						return false;
+
+					var second = 0;
+					if (match.Groups["s"].Success
+						&& !int.TryParse(match.Groups["s"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out second))
+						return false;
+
+					if (hour > 23 || minute > 59 || second > 59)
+						return false;
+
+					var at = PersianCal.ToDateTime(year, month, day, hour, minute, second, 0);
+					bound = new DateFilterBound
+					{
+						Precision = DateFilterPrecision.Instant,
+						Start = at,
+						EndExclusive = at,
+						StartShamsi = at.ToShamsiDateTime(),
+						EndShamsiExclusive = at.ToShamsiDateTime()
+					};
+					return true;
+				}
+
+				if (!hasMonth)
+				{
+					var start = PersianCal.ToDateTime(year, 1, 1, 0, 0, 0, 0);
+					var end = PersianCal.AddYears(start, 1);
+					bound = new DateFilterBound
+					{
+						Precision = DateFilterPrecision.Year,
+						Start = start,
+						EndExclusive = end,
+						StartShamsi = start.ToShamsiDate(),
+						EndShamsiExclusive = end.ToShamsiDate()
+					};
+					return true;
+				}
+
+				if (!hasDay)
+				{
+					var start = PersianCal.ToDateTime(year, month, 1, 0, 0, 0, 0);
+					var end = PersianCal.AddMonths(start, 1);
+					bound = new DateFilterBound
+					{
+						Precision = DateFilterPrecision.Month,
+						Start = start,
+						EndExclusive = end,
+						StartShamsi = start.ToShamsiDate(),
+						EndShamsiExclusive = end.ToShamsiDate()
+					};
+					return true;
+				}
+
+				if (day > PersianCal.GetDaysInMonth(year, month))
+					return false;
+
+				var dayStart = PersianCal.ToDateTime(year, month, day, 0, 0, 0, 0);
+				var dayEnd = PersianCal.AddDays(dayStart, 1);
+				bound = new DateFilterBound
+				{
+					Precision = DateFilterPrecision.Day,
+					Start = dayStart,
+					EndExclusive = dayEnd,
+					StartShamsi = dayStart.ToShamsiDate(),
+					EndShamsiExclusive = dayEnd.ToShamsiDate()
+				};
+				return true;
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				return false;
+			}
+		}
+
+		private static bool TryParseMiladiDateFilter(string text, out DateFilterBound? bound)
+		{
+			bound = null;
+			var match = MiladiDateFilterPattern.Match(text);
+			if (!match.Success)
+				return false;
+
+			if (!int.TryParse(match.Groups["y"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+				|| !int.TryParse(match.Groups["mo"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var month)
+				|| !int.TryParse(match.Groups["d"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var day))
+				return false;
+
+			var hasTime = match.Groups["h"].Success;
+			var hour = 0;
+			var minute = 0;
+			var second = 0;
+			if (hasTime)
+			{
+				if (!int.TryParse(match.Groups["h"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out hour)
+					|| !int.TryParse(match.Groups["mi"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out minute))
+					return false;
+				if (match.Groups["s"].Success
+					&& !int.TryParse(match.Groups["s"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out second))
+					return false;
+				if (hour > 23 || minute > 59 || second > 59)
+					return false;
+			}
+
+			try
+			{
+				var at = new DateTime(year, month, day, hour, minute, second, DateTimeKind.Unspecified);
+				if (hasTime)
+				{
+					bound = new DateFilterBound
+					{
+						Precision = DateFilterPrecision.Instant,
+						Start = at,
+						EndExclusive = at,
+						StartShamsi = at.ToShamsiDateTime(),
+						EndShamsiExclusive = at.ToShamsiDateTime()
+					};
+					return true;
+				}
+
+				var end = at.AddDays(1);
+				bound = new DateFilterBound
+				{
+					Precision = DateFilterPrecision.Day,
+					Start = at,
+					EndExclusive = end,
+					StartShamsi = at.ToShamsiDate(),
+					EndShamsiExclusive = end.ToShamsiDate()
+				};
+				return true;
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				return false;
+			}
+		}
+
 		private static string? BuildColumnSearchClause(string path, string? type, string condition, string[] values)
 		{
 			var bracketPath = $"[{path}]";
+
+			if (IsDateColumnType(type) && condition is "=" or "!=" or ">" or "<" or ">=" or "<=" or "between")
+				return BuildDateColumnSearchClause(bracketPath, type, condition, values);
 
 			switch (condition)
 			{
@@ -708,6 +1046,17 @@ namespace Data.Services.QueryBuilderServices
 			}
 		}
 
+		private static string? CombineColumnSearchClauses(IReadOnlyList<string> parts, string? logic)
+		{
+			if (parts.Count == 0)
+				return null;
+			if (parts.Count == 1)
+				return parts[0];
+
+			var joiner = string.Equals(logic, "or", StringComparison.OrdinalIgnoreCase) ? " OR " : " AND ";
+			return "(" + string.Join(joiner, parts.Select(p => $"({p})")) + ")";
+		}
+
 		private string BuildSearchQueryProfile(DataTableRequest request, List<QueryColumn> column)
 		{
 			var searchSection = new StringBuilder();
@@ -727,13 +1076,9 @@ namespace Data.Services.QueryBuilderServices
 					? null
 					: cl.Search.condition.Trim();
 
-				if (string.Equals(condition, "none", StringComparison.OrdinalIgnoreCase))
-					continue;
-
-				condition ??= ResolveDefaultSearchCondition(cl.type, values);
-
-				var needsValue = condition is not ("null" or "!null");
-				if (needsValue && values.Length == 0)
+				var extraRules = cl.Search.rules ?? new List<SearchRule>();
+				var skipPrimary = string.Equals(condition, "none", StringComparison.OrdinalIgnoreCase);
+				if (skipPrimary && extraRules.Count == 0)
 					continue;
 
 				var pc = column.FirstOrDefault(c =>
@@ -742,7 +1087,39 @@ namespace Data.Services.QueryBuilderServices
 					continue;
 
 				var path = pc.Alliance ?? pc.ColumnName.ToCamelCase();
-				var clause = BuildColumnSearchClause(path, cl.type, condition, values);
+				var parts = new List<string>();
+
+				if (!skipPrimary)
+				{
+					condition ??= ResolveDefaultSearchCondition(cl.type, values);
+					var needsValue = condition is not ("null" or "!null");
+					if (!needsValue || values.Length > 0)
+					{
+						var primary = BuildColumnSearchClause(path, cl.type, condition, values);
+						if (!string.IsNullOrEmpty(primary))
+							parts.Add(primary);
+					}
+				}
+
+				foreach (var rule in extraRules)
+				{
+					var ruleCondition = string.IsNullOrWhiteSpace(rule.condition) ? null : rule.condition.Trim();
+					if (string.IsNullOrEmpty(ruleCondition) || string.Equals(ruleCondition, "none", StringComparison.OrdinalIgnoreCase))
+						continue;
+
+					var ruleValues = (rule.value ?? Array.Empty<string>())
+						.Where(v => !string.IsNullOrWhiteSpace(v))
+						.ToArray();
+					var ruleNeedsValue = ruleCondition is not ("null" or "!null");
+					if (ruleNeedsValue && ruleValues.Length == 0)
+						continue;
+
+					var ruleClause = BuildColumnSearchClause(path, cl.type, ruleCondition, ruleValues);
+					if (!string.IsNullOrEmpty(ruleClause))
+						parts.Add(ruleClause);
+				}
+
+				var clause = CombineColumnSearchClauses(parts, cl.Search.logic);
 				if (string.IsNullOrEmpty(clause))
 					continue;
 

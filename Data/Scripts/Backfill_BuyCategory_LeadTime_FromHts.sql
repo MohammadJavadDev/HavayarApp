@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Backfill_BuyCategory_LeadTime_FromHts.sql  (WP5 / D37)
 ================================================================================
@@ -30,7 +30,7 @@ CalculateDelaysBuyDay (OpenOrderRequestJob) عملاً DelaysBuyDay را محا�
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
-DECLARE @DryRun            BIT = 1;
+DECLARE @DryRun            BIT = 0;
 DECLARE @RequireTitleMatch BIT = 1;
 DECLARE @OverwriteExisting BIT = 0;
 
@@ -126,11 +126,14 @@ BEGIN TRY
            @NullNonRoutineBefore = SUM(CASE WHEN NonRoutineLeadTimeInDay IS NULL THEN 1 ELSE 0 END)
     FROM Sup.BuyCategory;
 
+    DECLARE @MatchedCount INT = (SELECT COUNT(*) FROM #Map);
+    DECLARE @TitleMismatchCount INT = (SELECT COUNT(*) FROM #Map WHERE TitleMatches = 0);
+
     PRINT N'BEFORE: total=' + CAST(@Total AS NVARCHAR(10))
         + N' | Routine NULL=' + CAST(@NullRoutineBefore AS NVARCHAR(10))
         + N' | NonRoutine NULL=' + CAST(@NullNonRoutineBefore AS NVARCHAR(10))
-        + N' | matched(HTS)=' + CAST((SELECT COUNT(*) FROM #Map) AS NVARCHAR(10))
-        + N' | title-mismatch=' + CAST((SELECT COUNT(*) FROM #Map WHERE TitleMatches = 0) AS NVARCHAR(10));
+        + N' | matched(HTS)=' + CAST(@MatchedCount AS NVARCHAR(10))
+        + N' | title-mismatch=' + CAST(@TitleMismatchCount AS NVARCHAR(10));
 
     /* ─────────────────────────────────────────────
        4) UPDATE

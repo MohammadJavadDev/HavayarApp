@@ -194,7 +194,7 @@ WHERE [t1].[IsActive] = 1';
                 Mode = 1,
                 Type = 1,
                 ActionOptions = @ActionOptions,
-                CustomActionButtonsJson = N'[]',
+                -- دکمه چاپ در Seed_ProductionOrderForm_Report.sql است؛ اینجا بازنویسی نمی‌شود
                 EventScriptsJson = @EventScripts,
                 ModifiedById = 1,
                 ModifiedByName = @SeedUser,

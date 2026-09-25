@@ -1,0 +1,259 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@using Entities.App.FIN
+@using Entities.App.Inv
+@using Entities.App.Rpr.Enums
+@using Entities.App.SLS
+@using Entities.Auth
+@using Entities.Base
+@model Repairs
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(Repairs)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+				action-name="confirmRepair" title="تایید / لغو تایید"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-box"
+				action-name="addPartEntryNotify" title="اعلام ورود قطعه"></form-action-button>
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">تعمیرات CNG</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="partEntryNotifyId" value="@Model?.PartEntryNotifyId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold">شماره شناسنامه</label>
+				<input class="form-control" data-bind="idNumber" value="@Model?.IdNumber" readonly />
+			</div>
+			<div class="col-md-5 form-group-inline">
+				<label class="form-label fw-bold required">تجهیز</label>
+				@(Html.EntitySelector<Part>(
+					"CngRepairsProductSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+					c => new { c.Code, c.Name },
+					"{Code} {Name}",
+					"productId",
+					"productName",
+					Model?.ProductId > 0 ? Model.ProductId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold required">تعداد</label>
+				<input class="form-control" type="number" data-bind="count" data-required="true" asp-for="Count" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">سریال</label>
+				<input class="form-control" data-bind="serial" asp-for="Serial" />
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">نمایندگی</label>
+				@(Html.EntitySelector<Customer>(
+					"CngRepairsAgencySelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Code} {Party.FullName}",
+					"agencyId",
+					"agencyName",
+					Model?.AgencyId > 0 ? Model.AgencyId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"CngRepairsCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Code} {Party.FullName}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString()
+				))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">تفصیل</label>
+				@(Html.EntitySelector<DL>(
+					"CngRepairsDlSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+					c => new { c.Title, c.Code },
+					"{Code} {Title}",
+					"dlId",
+					"dlTitle",
+					Model?.DlId?.ToString()
+				))
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تلفن مشتری</label>
+				<input class="form-control" data-bind="customerPhone" asp-for="CustomerPhone" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">گارانتی</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="isGuarantee" asp-for="IsGuarantee" />
+			</div>
+
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">مقصد پس از تعمیر</label>
+				<select class="form-control" data-bind="destinationAfterRepair" data-required="true" asp-for="DestinationAfterRepair"
+						asp-items="Html.GetEnumSelectList(typeof(DestinationAfterRepairEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">آدرس مقصد</label>
+				<input class="form-control" data-bind="destinationAddress" asp-for="DestinationAddress" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">وضعیت</label>
+				<select class="form-control" data-bind="status" data-required="true" asp-for="Status"
+						asp-items="Html.GetEnumSelectList(typeof(RepairsStatusEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">تاریخ ورود</label>
+				<input class="form-control" data-bind="entryShamsiDate" data-required="true" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@Model?.EntryMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ تحویل انبار</label>
+				<input class="form-control" data-bind="warehouseDeliveryShamsiDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@Model?.WarehouseDeliveryMiladiDate" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ خروج انبار</label>
+				<input class="form-control" data-bind="warehouseExitShamsiDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@Model?.WarehouseExitMiladiDate" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">نحوه ارسال</label>
+				<select class="form-control" data-bind="sendMethod" asp-for="SendMethod"
+						asp-items="Html.GetEnumSelectList(typeof(RepairsSendMethodEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+			</div>
+
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">شماره پیش‌فاکتور</label>
+				<input class="form-control" type="number" data-bind="preFactorNumber" asp-for="PreFactorNumber" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">شماره فرم تحویل</label>
+				<input class="form-control" data-bind="deliveryFormNumber" asp-for="DeliveryFormNumber" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">شماره امانت</label>
+				<input class="form-control" type="number" data-bind="loanFormNumber" asp-for="LoanFormNumber" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تایید شده</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="isConfirmed" disabled
+					   @(Model?.IsConfirmed == true ? "checked" : "") />
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاییدکننده</label>
+				<input class="form-control" value="@(Model?.Confirmer?.NameFa ?? Model?.Confirmer?.Party?.FullName)" readonly />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ تایید</label>
+				<input class="form-control" data-bind="confirmShamsiDate" value="@Model?.ConfirmShamsiDate" readonly />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">ساعت تایید</label>
+				<input class="form-control" data-bind="confirmTime" value="@Model?.ConfirmTime" readonly />
+			</div>
+
+			<div class="col-md-2 form-group-inline">
+				<label class="form-label fw-bold">برون‌سپاری</label>
+				<input class="form-check-input mt-2" type="checkbox" data-bind="hasVendor" asp-for="HasVendor" />
+			</div>
+			<div class="col-md-5 form-group-inline">
+				<label class="form-label fw-bold">نام فروشنده</label>
+				<input class="form-control" data-bind="vendorName" asp-for="VendorName" />
+			</div>
+			<div class="col-md-5 form-group-inline">
+				<label class="form-label fw-bold">هزینه برون‌سپاری</label>
+				<input type="text" class="form-control" data-bind="vendoringCost" data-money="true" asp-for="VendoringCost" />
+			</div>
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">علت خرابی</label>
+				<textarea class="form-control" data-bind="failureReason" asp-for="FailureReason" rows="2"></textarea>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.productId || model.productId === '0' || model.productId === 0) {
+			toastr.error('تجهیز نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!model.agencyId || model.agencyId === '0' || model.agencyId === 0) {
+			toastr.error('نمایندگی نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	if (self.FormActionButtons.confirmRepair) {
+		self.FormActionButtons.confirmRepair.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			const $btn = $(this.element).block();
+			$$.post('/Panel/Cng/Repairs/Confirm?id=' + id, {}, function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) { toastr.error(r.message || 'خطا', 'خطا'); return; }
+				toastr.success('عملیات تایید انجام شد');
+				appController.refreshCurrentPage();
+			});
+		});
+	}
+	if (self.FormActionButtons.addPartEntryNotify) {
+		self.FormActionButtons.addPartEntryNotify.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			const $btn = $(this.element).block();
+			$$.post('/Panel/Cng/Repairs/AddPartEntryNotify?id=' + id, {}, function (r) {
+				$btn.block(false);
+				if (!r.isSuccess) { toastr.error(r.message || 'خطا', 'خطا'); return; }
+				toastr.success('اعلام ورود قطعه ثبت شد');
+				appController.refreshCurrentPage();
+			});
+		});
+	}
+</script>

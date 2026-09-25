@@ -31,7 +31,14 @@ namespace Entities.App.Bom
 		[DisplayName("شناسه های گروه محصول")]
 		[DisplayInfo(null, true, type: SystemType.ListLong)]
 		public string? ProductGroupIds { get; set; }
-		 
+
+		[DisplayName("نام های محصول")]
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? ProductFormulNames { get; set; }
+
+		[DisplayName("شناسه های محصول")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? ProductFormulIds { get; set; }
 
 		[DisplayName("قطعه جایگزین")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
@@ -77,6 +84,13 @@ namespace Entities.App.Bom
 		[DisplayInfo(null, true, type: SystemType.ListLong)]
 		public string? ChangedProductGroupIds { get; set; }
 
+		[DisplayName("نام های محصول ویرایش شده")]
+		[DisplayInfo(null, true, type: SystemType.ListString)]
+		public string? ChangedProductFormulNames { get; set; }
+
+		[DisplayName("شناسه های محصول ویرایش شده")]
+		[DisplayInfo(null, true, type: SystemType.ListLong)]
+		public string? ChangedProductFormulIds { get; set; }
 
 		[DisplayName("نام های فرمول ویرایش شده")]
 		[DisplayInfo(null, true, type: SystemType.ListString)]

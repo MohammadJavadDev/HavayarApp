@@ -18,6 +18,12 @@ namespace Entities.Hts.Pln
 		public byte? ProductionOrderRevision { get; set; }
 		public int ProductionOrderNumber { get; set; }
 
+		/// <summary>
+		/// HTS Pln_ProductionOrderItem.RahkaranId (= App Sale.ProductionOrderItem.RahkaranHistoryId).
+		/// Filled only by sync FromSqlRaw projections — not a physical column on Pln_ProductionOrderItemBom.
+		/// </summary>
+		public long? ItemRahkaranHistoryId { get; set; }
+
 		public short? Revision { get; set; }
 
 		public long? PartId { get; set; }

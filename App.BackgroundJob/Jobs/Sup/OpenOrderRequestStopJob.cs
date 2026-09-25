@@ -2,6 +2,7 @@ using Common.Attributes;
 using Common.Utilities;
 using Data;
 using Data.Contracts;
+using Entities.App.Hrm;
 using Entities.App.Sup;
 using Entities.App.Sup.Enums;
 using Entities.Base;
@@ -399,8 +400,8 @@ namespace App.BackgroundJob.Jobs.Sup
         /// معادل <c>SendSupplyCommentNotifications</c> در HTS:
         /// کامنت‌های غیرتوقف امروز روی درخواست فعال، یک کامنت آخر به ازای هر درخواست، یک ایمیل HTML به گروه
         /// <c>Sup.OpenOrderRequest.UnsentDispatchDigest</c> (در نبود عضو: <c>SupplyUnit</c>).
-        /// فرض: فیلد <c>CreatedOrgUnit_FK</c> در موجودیت جدید نیست — فیلتر واحد تدارکات (HTS = 51) اعمال نمی‌شود
-        /// و دایجست روی همهٴ کامنت‌های غیرتوقف امروز ساخته می‌شود.
+        /// فیلتر واحد سازمانی عین HTS: <c>CreatedOrgUnit_FK == 51</c> («تامین و خرید») —
+        /// در Havayar همان واحد با عنوان <c>تامین و خرید</c> (Id فعلی ۹۸) نگاشت می‌شود.
         /// </summary>
         [JobHandler(
             "دایجست تامین درخواست های برگ ارسال نخورده",
@@ -422,10 +423,23 @@ namespace App.BackgroundJob.Jobs.Sup
                 return;
             }
 
+            // HTS CreatedOrgUnit_FK == 51 («تامین و خرید») → Hrm.OrgUnit با همان عنوان
+            var supplyOrgUnitId = await unitOfWork.Repository<OrgUnit>().TableNoTracking
+                .Where(o => o.Title == "تامین و خرید")
+                .Select(o => o.Id)
+                .FirstOrDefaultAsync(cn);
+
+            if (supplyOrgUnitId is null or 0)
+            {
+                await LogWarningAsync(jobLogger, "واحد سازمانی «تامین و خرید» یافت نشد؛ دایجست رد شد.", cn);
+                return;
+            }
+
             var comments = await unitOfWork.Repository<OpenOrderRequestComment>().TableNoTracking
                 .Include(c => c.OpenOrderRequest).ThenInclude(o => o.Part)
                 .Include(c => c.OpenOrderRequest).ThenInclude(o => o.ManCompany).ThenInclude(s => s.Party)
                 .Where(c => !c.IsStop
+                            && c.CreatedOrgUnitId == supplyOrgUnitId
                             && c.MiladiDate.HasValue && c.MiladiDate.Value.Date == today
                             && c.OpenOrderRequest != null
                             && !c.OpenOrderRequest.IsDeleted
@@ -437,7 +451,7 @@ namespace App.BackgroundJob.Jobs.Sup
                 .Select(g => g.OrderByDescending(c => c.Id).First())
                 .ToList();
 
-            await LogInfoAsync(jobLogger, $"کامنت غیرتوقف امروز: {comments.Count} — درخواست یکتا: {latest.Count} (بدون فیلتر CreatedOrgUnit؛ فرض WP3).", cn);
+            await LogInfoAsync(jobLogger, $"کامنت غیرتوقف امروز (واحد تامین و خرید/{supplyOrgUnitId}): {comments.Count} — درخواست یکتا: {latest.Count}.", cn);
             if (latest.Count == 0)
                 return;
 

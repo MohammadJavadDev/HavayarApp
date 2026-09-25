@@ -1,0 +1,52 @@
+@using Entities.App.Srv
+@using Entities.App.Srv.Enums
+@model PmRequest
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(PmRequest)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+
+		<div class="row mb-3">
+			<div class="col-12"><h5 class="fw-bold mb-0">درخواست PM</h5></div>
+		</div>
+		<div class="row g-3 mb-4">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع</label>
+				<select class="form-control" data-bind="typeId" data-required="true"
+						asp-for="TypeId" asp-items="Html.GetEnumSelectList(typeof(PmRequestTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">متن درخواست</label>
+				<textarea class="form-control" data-bind="requestText" rows="4">@Model?.RequestText</textarea>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

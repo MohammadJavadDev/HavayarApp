@@ -62,6 +62,16 @@ namespace Entities.Base.DataTable
         /// عملگر فیلتر ستون: contains, !contains, starts, ends, =, !=, null, !null, between, &gt;, &lt;, none
         /// </summary>
         public string? condition { get; set; }
+        /// <summary>ترکیب شرط‌های همین ستون: and یا or</summary>
+        public string? logic { get; set; }
+        /// <summary>شرط‌های بعد از شرط اول همین ستون</summary>
+        public List<SearchRule>? rules { get; set; }
+    }
+
+    public class SearchRule
+    {
+        public string? condition { get; set; }
+        public string[]? value { get; set; }
     }
 
     public class OrderTable

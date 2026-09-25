@@ -38,3 +38,15 @@ public sealed class DocumentRevisionSummaryViewModel
     public long? ReplySheetId { get; set; }
 }
 
+/// <summary>
+/// Server-computed EditAsGroup toolbar flags (status + VPIS/DCC role).
+/// </summary>
+public sealed class DocumentEditActionFlags
+{
+	public bool CanSaveAndClose { get; set; }
+	public bool CanAddComment { get; set; }
+	public bool CanNewRevision { get; set; }
+	public bool CanAddReplySheet { get; set; }
+	public bool CanEditStatus { get; set; }
+}
+

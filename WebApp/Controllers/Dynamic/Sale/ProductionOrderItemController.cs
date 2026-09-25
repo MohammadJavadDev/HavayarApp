@@ -43,13 +43,156 @@ namespace WebApp.Controllers.Dynamic
 		private const string BomIndustrialNotificationGroupCode = "Sale.ProductionOrderItemBom.Industrial";
 		private const string BomEngineeringNotificationGroupCode = "Sale.ProductionOrderItemBom.Engineering";
 
+		/// <summary>معادل صفحه HTS 508 / Pln_ProductionOrderItemBom — عنوان: Bom اقلام سفارش ساخت</summary>
+		public const string BomManageRoleName = "Sale.ProductionOrderItemBom";
+
+		/// <summary>فقط فیلدهای جدید BOM (ProductionStep / NumberSupplied / Status) که در Pln_ProductionOrderItemBom نبودند</summary>
+		public const string BomNewFieldsRoleName = "تکمیل اطلاعات bom اقلام سفارش ساخت صنایع";
+
+		/// <summary>معادل HTS ProductionPermission روی صفحه 214 / گروه 361</summary>
+		public const string ProductionRoleName = "Sale.ProductionOrderItem.Production";
+
+		/// <summary>معادل HTS QcPermission روی صفحه 214 / گروه 362</summary>
+		public const string QcRoleName = "Sale.ProductionOrderItem.Qc";
+
+		/// <summary>معادل HTS گروه 596 «اقلام سفارش ساخت - کارشناسان فروش» برای تغییر وضعیت روی ۳۱۶۷</summary>
+		public const string SellTeamRoleName = "Sale.ProductionOrderItem.SellTeam";
+
+		private static readonly ProductionOrderItemProductionStepEnum[] ChangeStatusProductionSteps =
+		[
+			ProductionOrderItemProductionStepEnum.InProduction,
+			ProductionOrderItemProductionStepEnum.Testing,
+			ProductionOrderItemProductionStepEnum.Packaging
+		];
+
+		private bool CanManageBom() =>
+			IsAdministrator || CurrentUserHasAnyRole(BomManageRoleName);
+
+		private bool CanEditBomNewFields() =>
+			IsAdministrator || CurrentUserHasAnyRole(BomNewFieldsRoleName);
+
+		private bool CanOpenBomPage() =>
+			CanManageBom() || CanEditBomNewFields();
+
+		private bool HasPlanningEditRole() =>
+			IsAdministrator || CurrentUserHasAnyRole("Industries", "Sale.ProductionOrderItem.AcceptIndustrial");
+
+		/// <summary>
+		/// معادل HTS HasPlanningPermission + canBeSelect: ذخیره اقلام فقط برای صنایع روی ۱۹۰۴/۱۹۰۵ و غیرحذف‌شده؛
+		/// قلم جدید (بدون Id) فقط با نقش برنامه‌ریزی/صنایع.
+		/// </summary>
+		private bool CanSaveIndustrialItem(ProductionOrderItem? item, bool isNew)
+		{
+			if (IsAdministrator)
+				return true;
+			if (!HasPlanningEditRole())
+				return false;
+			if (isNew || item == null || item.Id is null or 0)
+				return true;
+			if (item.IsDeleted)
+				return false;
+			return item.CheckStatus is ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal
+				or ProductionOrderItemCheckStatusEnum.ForeignIndustryCatalog;
+		}
+
+		/// <summary>
+		/// معادل شرط دکمه ChangeStatus در HTS _ProductionOrderItemOriginal (خطوط ۵۱۲–۵۳۵).
+		/// </summary>
+		private bool CanChangeProductionStatus(ProductionOrderItem? item)
+		{
+			if (item == null || item.Id is null or 0)
+				return false;
+			if (IsAdministrator)
+				return true;
+
+			var stepOk = ChangeStatusProductionSteps.Contains(item.ProductionStep);
+
+			if (CurrentUserHasAnyRole(ProductionRoleName) && stepOk && item.ProductionStartMiladiDate.HasValue)
+				return true;
+			if (CurrentUserHasAnyRole(QcRoleName) && stepOk && item.ProductionEndMiladiDate.HasValue)
+				return true;
+			if (CurrentUserHasAnyRole("Sale.ProductionOrderItem.SupplyCommitteeBoss")
+				&& !item.IsRoutine
+				&& item.CheckStatus == ProductionOrderItemCheckStatusEnum.CommitteeHeadReviewPending)
+				return true;
+			if (CurrentUserHasAnyRole("Sale.ProductionOrderItem.Inquirer")
+				&& !item.IsRoutine
+				&& item.CheckStatus == ProductionOrderItemCheckStatusEnum.InquiryNeeded)
+				return true;
+			if (CurrentUserHasAnyRole("Sale.ProductionOrderItem.MinistryOfIndustryInquirer")
+				&& !item.IsRoutine
+				&& item.CheckStatus == ProductionOrderItemCheckStatusEnum.IndustrialMinistryReviewRequired)
+				return true;
+			if (CurrentUserHasAnyRole(SellTeamRoleName)
+				&& item.ProductionStatus == ProductionOrderItemProductionStatusEnum.ClientVisitStopStarted)
+				return true;
+
+			return false;
+		}
+
+		/// <summary>
+		/// معادل فیلتر کارتابل من / اعلان مهندسی: تاییدکننده تجهیز برای DeviceType قلم
+		/// (نقش رشته به‌تنهایی کافی نیست مگر وقتی برای آن DeviceType تاییدکننده‌ای تنظیم نشده باشد).
+		/// </summary>
+		private async Task<bool> IsCurrentUserEquipmentConfirmerAsync(ProductionOrderItem item, CancellationToken cn)
+		{
+			if (IsAdministrator)
+				return true;
+			if (CurrentUserId is null or <= 0 || !item.DeviceType.HasValue)
+				return false;
+
+			var isElectrical = ElectricalDeviceTypes.Contains(item.DeviceType.Value);
+			var confirmers = await unitOfWork.Repository<Entities.App.Pln.ProductionOrderEquipmentConfirmer>()
+				.TableNoTracking
+				.Where(c => c.DeviceType == item.DeviceType.Value)
+				.Select(c => new { c.MechanicalUserId, c.ElectricalUserId })
+				.ToListAsync(cn);
+
+			if (isElectrical)
+			{
+				var configured = confirmers.Any(c => c.ElectricalUserId != null);
+				if (configured)
+					return confirmers.Any(c => c.ElectricalUserId == CurrentUserId);
+				return CurrentUserHasAnyRole("Sale.ProductionOrderItem.AcceptEngineeringElectrical");
+			}
+
+			var mechConfigured = confirmers.Any(c => c.MechanicalUserId != null);
+			if (mechConfigured)
+				return confirmers.Any(c => c.MechanicalUserId == CurrentUserId);
+			return CurrentUserHasAnyRole("Sale.ProductionOrderItem.AcceptEngineeringMechanical");
+		}
+
+		private IActionResult? ForbidBomUnless(bool allowed, string message) =>
+			allowed ? null : Unauthorized(message);
+
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(ProductionOrderItem productionOrderItem, CancellationToken cn)
 		{
-			
+			var isNew = productionOrderItem.Id == null || productionOrderItem.Id == 0;
+			if (!isNew)
+			{
+				var existing = await unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
+					.Where(c => c.Id == productionOrderItem.Id)
+					.Select(c => new { c.Id, c.CheckStatus, c.IsDeleted })
+					.FirstOrDefaultAsync(cn);
+				if (existing == null)
+					return BadRequest("قلم سفارش ساخت یافت نشد");
+				var gate = new ProductionOrderItem
+				{
+					Id = existing.Id,
+					CheckStatus = existing.CheckStatus,
+					IsDeleted = existing.IsDeleted
+				};
+				if (!CanSaveIndustrialItem(gate, isNew: false))
+					return Unauthorized("شما دسترسی ذخیره این قلم را ندارید");
+			}
+			else if (!CanSaveIndustrialItem(productionOrderItem, isNew: true))
+			{
+				return Unauthorized("شما دسترسی ایجاد قلم سفارش ساخت را ندارید");
+			}
 
-			if (productionOrderItem.Id == null || productionOrderItem.Id == 0)
+			if (isNew)
 			{
 				return await Add(productionOrderItem, cn);
 			}
@@ -65,6 +208,9 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(ProductionOrderItem productionOrderItem, CancellationToken cn)
 		{
+			if (!CanSaveIndustrialItem(productionOrderItem, isNew: true))
+				return Unauthorized("شما دسترسی ایجاد قلم سفارش ساخت را ندارید");
+
 			var entity = await unitOfWork.Repository<ProductionOrderItem>().SaveAsync(productionOrderItem, cn, true);
 			return Ok(entity);
 		}
@@ -83,6 +229,9 @@ namespace WebApp.Controllers.Dynamic
 
 			if (oldEntity == null)
 				return BadRequest("قلم سفارش ساخت یافت نشد");
+
+			if (!CanSaveIndustrialItem(oldEntity, isNew: false))
+				return Unauthorized("شما دسترسی ویرایش این قلم را ندارید");
 
 			var previousSerial = oldEntity.Serial;
 			var previousProductionStep = oldEntity.ProductionStep;
@@ -186,37 +335,67 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
-		public IActionResult Edit(long? id)
+		public async Task<IActionResult> Edit(long? id, CancellationToken cn)
 		{
 			if (id != null && id != 0)
 			{
-				var entity = unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
+				var entity = await unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
 					.Include(c => c.ProductionOrder).ThenInclude(po => po!.ManagementConfirmationAttachmentFile)
 					.Include(c => c.ProductionOrder).ThenInclude(po => po!.DepositFactorAttachmentFile)
 					.Include(c => c.ProductionOrder).ThenInclude(po => po!.PreFactorAttachmentFile)
 					.Include(c => c.ProductionOrder).ThenInclude(po => po!.ContractAttachmentFile)
 					.Include(c => c.ProductionOrder).ThenInclude(po => po!.EngineeringAttachmentFile)
 					.Include(c => c.Part)
-					.FirstOrDefault(c => c.Id == id);
+					.FirstOrDefaultAsync(c => c.Id == id, cn);
 
-				 
-				// فاز ۶ - رابط کاربری: تشخیص رشته مهندسی (مکانیک/برق) این قلم برای نمایش انتخابی دکمه تایید/رد
-				// مهندسی سمت کلاینت. حتماً از همان لیست ElectricalDeviceTypes استفاده می‌شود که AcceptEngineering
-				// برای تشخیص دسترسی سمت سرور استفاده می‌کند تا منطق در دو جا تکرار/ناهماهنگ نشود.
-				ViewBag.IsElectricalDiscipline = entity != null &&
-					entity.DeviceType.HasValue &&
-					ElectricalDeviceTypes.Contains(entity.DeviceType.Value);
-
+				await PopulateEditButtonFlagsAsync(entity, isNew: false, cn);
 				return View(@"\Views\Panel\Sale\ProductionOrderItem\Edit.cshtml", entity);
 			}
+
 			var newEntity = new ProductionOrderItem();
+			await PopulateEditButtonFlagsAsync(newEntity, isNew: true, cn);
 			return View(@"\Views\Panel\Sale\ProductionOrderItem\Edit.cshtml", newEntity);
+		}
+
+		private async Task PopulateEditButtonFlagsAsync(ProductionOrderItem? entity, bool isNew, CancellationToken cn)
+		{
+			var isElectrical = entity != null &&
+				entity.DeviceType.HasValue &&
+				ElectricalDeviceTypes.Contains(entity.DeviceType.Value);
+			ViewBag.IsElectricalDiscipline = isElectrical;
+
+			var checkStatus = entity?.CheckStatus;
+			var hasSerial = !string.IsNullOrWhiteSpace(entity?.Serial);
+			var isEquipmentConfirmer = entity != null && !isNew
+				&& await IsCurrentUserEquipmentConfirmerAsync(entity, cn);
+
+			ViewBag.CanSaveItem = CanSaveIndustrialItem(entity, isNew);
+			ViewBag.CanChangeStatus = !isNew && CanChangeProductionStatus(entity);
+			ViewBag.CanAcceptEngineering = !isNew
+				&& checkStatus == ProductionOrderItemCheckStatusEnum.MechanicalEngineeringApprovalPending
+				&& isEquipmentConfirmer;
+			ViewBag.CanAcceptProjectManager = !isNew
+				&& checkStatus == ProductionOrderItemCheckStatusEnum.AwaitingProjectManagerApproval
+				&& (IsAdministrator || CurrentUserHasAnyRole("Sale.ProductionOrderItem.AcceptProjectManager"));
+			ViewBag.CanSendInquiryResult = !isNew && (
+				IsAdministrator
+				|| (checkStatus == ProductionOrderItemCheckStatusEnum.InquiryNeeded && CurrentUserHasAnyRole("Sale.ProductionOrderItem.Inquirer"))
+				|| (checkStatus == ProductionOrderItemCheckStatusEnum.IndustrialMinistryReviewRequired && CurrentUserHasAnyRole("Sale.ProductionOrderItem.MinistryOfIndustryInquirer")));
+			ViewBag.CanCommitteeDecide = !isNew
+				&& (IsAdministrator || CurrentUserHasAnyRole("Sale.ProductionOrderItem.SupplyCommitteeBoss"))
+				&& checkStatus is ProductionOrderItemCheckStatusEnum.SendToSupplyCommitteeChair
+					or ProductionOrderItemCheckStatusEnum.CommitteeHeadReviewPending;
+			ViewBag.CanStopActions = !isNew && hasSerial && entity is { IsDeleted: false };
+			ViewBag.CanViewChildLinks = !isNew;
 		}
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("لیست BOM قلم سفارش ساخت", ActionAccessType.View, ActionAccessItemType.Custom)]
 		public IActionResult BomListBy(long? productionOrderItemId)
 		{
+			var forbid = ForbidBomUnless(CanOpenBomPage(), "شما دسترسی مشاهده BOM اقلام سفارش ساخت را ندارید");
+			if (forbid != null) return forbid;
+
 			if (productionOrderItemId == null || productionOrderItemId == 0)
 				throw new Exception("شناسه قلم سفارش ساخت نمیتواند خالی باشد.");
 
@@ -239,7 +418,9 @@ namespace WebApp.Controllers.Dynamic
 				ProductionOrderItemId = item.Id!.Value,
 				ProductionOrderNumber = item.ProductionOrderNumber,
 				PartCode = item.PartCode,
-				PartName = item.PartName
+				PartName = item.PartName,
+				CanManageBom = CanManageBom(),
+				CanEditBomNewFields = CanEditBomNewFields()
 			};
 
 			return View(@"\Views\Panel\Sale\ProductionOrderItem\ListByParentId.cshtml", model);
@@ -249,11 +430,16 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("دریافت لیست BOM با شناسه قلم سفارش ساخت", ActionAccessType.Api, ActionAccessItemType.FetchData)]
 		public async Task<IActionResult> GetBomListByParentId(long? productionOrderItemId, CancellationToken cn)
 		{
+			var forbid = ForbidBomUnless(CanOpenBomPage(), "شما دسترسی مشاهده BOM اقلام سفارش ساخت را ندارید");
+			if (forbid != null) return forbid;
+
 			if (productionOrderItemId == null || productionOrderItemId == 0)
 				return BadRequest("شناسه قلم سفارش ساخت نمیتواند خالی باشد.");
 
 			// معادل HTS GetBomGridData → AddRoutineBomList: BOM خالیِ قلم روتین از الگوی محصول پر می‌شود
-			await EnsureRoutineBomAsync(productionOrderItemId.Value, cn);
+			// فقط نقش کامل BOM می‌تواند BOM روتین را تولید کند (نوشتن ردیف)
+			if (CanManageBom())
+				await EnsureRoutineBomAsync(productionOrderItemId.Value, cn);
 
 			var items = await QueryBomViewModels(productionOrderItemId.Value).ToListAsync(cn);
 			return Ok(items);
@@ -261,9 +447,10 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("درج اطلاعات", ActionAccessType.View, ActionAccessItemType.Create)]
-		public IActionResult New()
+		public async Task<IActionResult> New(CancellationToken cn)
 		{
 			var newEntity = new ProductionOrderItem();
+			await PopulateEditButtonFlagsAsync(newEntity, isNew: true, cn);
 			return View(@"\Views\Panel\Sale\ProductionOrderItem\Edit.cshtml", newEntity);
 		}
 
@@ -366,18 +553,8 @@ namespace WebApp.Controllers.Dynamic
 
 			var isElectrical = item.DeviceType.HasValue && ElectricalDeviceTypes.Contains(item.DeviceType.Value);
 
-			if (isElectrical)
-			{
-				//Seed Role => Sale.ProductionOrderItem.AcceptEngineeringElectrical => سفارش ساخت - تایید مهندسی برق
-				if (!IsAdministrator && !CurrentUserHasAnyRole("Sale.ProductionOrderItem.AcceptEngineeringElectrical"))
-					return Unauthorized("شما دسترسی تایید مهندسی برق را ندارید");
-			}
-			else
-			{
-				//Seed Role => Sale.ProductionOrderItem.AcceptEngineeringMechanical => سفارش ساخت - تایید مهندسی مکانیک
-				if (!IsAdministrator && !CurrentUserHasAnyRole("Sale.ProductionOrderItem.AcceptEngineeringMechanical"))
-					return Unauthorized("شما دسترسی تایید مهندسی مکانیک را ندارید");
-			}
+			if (!await IsCurrentUserEquipmentConfirmerAsync(item, cn))
+				return Unauthorized("شما تاییدکننده مهندسی این نوع تجهیز نیستید");
 
 			if (item.CheckStatus != ProductionOrderItemCheckStatusEnum.MechanicalEngineeringApprovalPending)
 				return BadRequest("این قلم در وضعیت انتظار تایید مهندسی نیست");
@@ -1352,6 +1529,12 @@ namespace WebApp.Controllers.Dynamic
 	[HttpGet("[action]")]
 	public IActionResult ProductionOrderItemBomPartial(long? id, long productionOrderItemId)
 	{
+		var forbid = ForbidBomUnless(CanOpenBomPage(), "شما دسترسی BOM اقلام سفارش ساخت را ندارید");
+		if (forbid != null) return forbid;
+
+		ViewBag.CanManageBom = CanManageBom();
+		ViewBag.CanEditBomNewFields = CanEditBomNewFields();
+
 		if (id != null && id > 0)
 		{
 			var bom = unitOfWork.Repository<ProductionOrderItemBom>()
@@ -1369,6 +1552,9 @@ namespace WebApp.Controllers.Dynamic
 	[ActionDisplayName("حذف BOM", ActionAccessType.Api, ActionAccessItemType.Delete)]
 	public async Task<IActionResult> DeleteBom(long id, CancellationToken cn)
 	{
+		var forbid = ForbidBomUnless(CanManageBom(), "شما دسترسی حذف BOM را ندارید");
+		if (forbid != null) return forbid;
+
 		var model = unitOfWork.Repository<ProductionOrderItemBom>().TableNoTracking.FirstOrDefault(c => c.Id == id);
 		if (model == null)
 			return BadRequest("رکورد BOM یافت نشد");
@@ -1381,6 +1567,9 @@ namespace WebApp.Controllers.Dynamic
 	[ActionDisplayName("دانلود نمونه اکسل BOM", ActionAccessType.Api, ActionAccessItemType.FetchData)]
 	public IActionResult DownloadBomExcelTemplate()
 	{
+		var forbid = ForbidBomUnless(CanManageBom(), "شما دسترسی BOM اقلام سفارش ساخت را ندارید");
+		if (forbid != null) return forbid;
+
 		var licensePath = _webHostEnvironment.WebRootPath + "\\Aspose.Total.NET.lic";
 		var wb = new Workbook();
 		if (!wb.IsLicensed)
@@ -1416,6 +1605,9 @@ namespace WebApp.Controllers.Dynamic
 		IFormFile? file = null,
 		CancellationToken cn = default)
 	{
+		var forbid = ForbidBomUnless(CanManageBom(), "شما دسترسی افزودن BOM از اکسل را ندارید");
+		if (forbid != null) return forbid;
+
 		if (productionOrderItemId <= 0)
 			return BadRequest("قلم سفارش ساخت مشخص نشده است");
 
@@ -1507,6 +1699,11 @@ namespace WebApp.Controllers.Dynamic
 		bool isApplyToAllSimilarBomPartsOnThisProductionOrder = false,
 		CancellationToken cn = default)
 	{
+		var canManage = CanManageBom();
+		var canEditNew = CanEditBomNewFields();
+		if (!canManage && !canEditNew)
+			return Unauthorized("شما دسترسی ذخیره BOM را ندارید");
+
 		if (bom.PartId <= 0)
 			return BadRequest("کالای BOM الزامی است");
 
@@ -1514,6 +1711,10 @@ namespace WebApp.Controllers.Dynamic
 			return BadRequest("قلم سفارش ساخت مشخص نشده است");
 
 		var isAdd = bom.Id == null || bom.Id == 0;
+
+		// افزودن ردیف جدید فقط با نقش کامل BOM (نه فقط نقش تکمیل فیلدهای جدید)
+		if (isAdd && !canManage)
+			return Unauthorized("افزودن ردیف BOM فقط برای نقش Bom اقلام سفارش ساخت مجاز است");
 
 		// معادل HTS: بررسی تکراری بودن Part در BOMهای آخرین نسخه همین قلم
 		var duplicatePartCode = await unitOfWork.Repository<ProductionOrderItemBom>()
@@ -1551,18 +1752,51 @@ namespace WebApp.Controllers.Dynamic
 		// معادل HTS DoBomSalesUnitOperation: اگر واحد فروش/مدیر پروژه روی BOM «تعیین تکلیف» کرد (توضیحات واحد فروش،
 		// نیاز به AVL، مرحله ساخت BOM) و قلم در «انتظار مدیر پروژه (۱۳۸۰)» بود → مرحله قلم «در انتظار صنایع (۲۷۴۴)»
 		var changesMadeWithProjectManager = false;
+		ProductionOrderItemBom? previousFull = null;
 		if (!isAdd)
 		{
-			var previous = await unitOfWork.Repository<ProductionOrderItemBom>()
+			previousFull = await unitOfWork.Repository<ProductionOrderItemBom>()
 				.TableNoTracking
-				.Where(b => b.Id == bom.Id)
-				.Select(b => new { b.SaleUnitDetails, b.NeedsAVL, b.ProductionStep })
-				.FirstOrDefaultAsync(cn);
+				.FirstOrDefaultAsync(b => b.Id == bom.Id, cn);
 
-			changesMadeWithProjectManager = previous != null
-				&& ((previous.SaleUnitDetails ?? string.Empty) != (bom.SaleUnitDetails ?? string.Empty)
-					|| previous.NeedsAVL != bom.NeedsAVL
-					|| previous.ProductionStep != bom.ProductionStep);
+			if (previousFull == null)
+				return BadRequest("رکورد BOM یافت نشد");
+
+			// نقش فقط تکمیل فیلدهای جدید: فیلدهای قدیمی نباید تغییر کنند
+			if (!canManage && canEditNew)
+			{
+				var oldFieldsChanged =
+					previousFull.PartId != bom.PartId
+					|| previousFull.Amount != bom.Amount
+					|| (previousFull.Description ?? string.Empty) != (bom.Description ?? string.Empty)
+					|| (previousFull.SaleUnitDetails ?? string.Empty) != (bom.SaleUnitDetails ?? string.Empty)
+					|| previousFull.NeedsAVL != bom.NeedsAVL
+					|| previousFull.IsLatest != bom.IsLatest
+					|| previousFull.Revision != bom.Revision;
+
+				if (oldFieldsChanged)
+					return BadRequest("با نقش «تکمیل اطلاعات bom اقلام سفارش ساخت صنایع» فقط فیلدهای مرحله ساخت، تعداد تامین‌شده و وضعیت قابل ویرایش هستند");
+			}
+
+			// نقش BOM بدون نقش تکمیل: فیلدهای جدید را به مقدار قبلی برمی‌گردانیم
+			if (canManage && !canEditNew)
+			{
+				bom.ProductionStep = previousFull.ProductionStep;
+				bom.NumberSupplied = previousFull.NumberSupplied;
+				bom.Status = previousFull.Status;
+			}
+
+			changesMadeWithProjectManager =
+				((previousFull.SaleUnitDetails ?? string.Empty) != (bom.SaleUnitDetails ?? string.Empty)
+					|| previousFull.NeedsAVL != bom.NeedsAVL
+					|| previousFull.ProductionStep != bom.ProductionStep);
+		}
+		else if (isAdd && canManage && !canEditNew)
+		{
+			// افزودن بدون نقش تکمیل: فیلدهای جدید روی پیش‌فرض بمانند
+			bom.ProductionStep = default;
+			bom.NumberSupplied = null;
+			bom.Status = default;
 		}
 
 		ProductionOrderItemBom entity;
@@ -2221,6 +2455,9 @@ namespace WebApp.Controllers.Dynamic
 			if (productionOrderItem == null)
 				return BadRequest("قلم سفارش ساخت یافت نشد");
 
+			if (!CanChangeProductionStatus(productionOrderItem))
+				return Unauthorized("شما دسترسی تغییر وضعیت این قلم را ندارید");
+
 			// معادل HTS DoChangeProductionStatusOperationOriginal: وضعیت جدید نباید با آخرین وضعیت یکی باشد
 			if (comment.ProductionStatus == productionOrderItem.ProductionStatus)
 				throw new Exception("وضعیت جدید نمیتواند با وضعیت فعلی یکی باشد.");
@@ -2751,6 +2988,8 @@ namespace WebApp.Controllers.Dynamic
 		public long? ProductionOrderNumber { get; set; }
 		public string? PartCode { get; set; }
 		public string? PartName { get; set; }
+		public bool CanManageBom { get; set; }
+		public bool CanEditBomNewFields { get; set; }
 	}
  
 }

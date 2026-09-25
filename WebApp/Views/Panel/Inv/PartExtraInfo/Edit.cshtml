@@ -631,7 +631,7 @@
 		}
 		var revision = $$("#revision").val()
 
-		if(!revision || revision ==0)
+		if(revision === '' || revision == null)
 		{
 			return toastr.error("نسخه شناسنامه نامشخص میباشد.");
 		}

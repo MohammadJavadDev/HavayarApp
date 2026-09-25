@@ -1,0 +1,391 @@
+@{
+	var partId = (long)ViewBag.PartId;
+	var productName = (string)(ViewBag.ProductName ?? "");
+	var productCode = (string)(ViewBag.ProductCode ?? "");
+}
+<div class="card shadow-sm border-0" id="partBookManageRoot">
+	<div class="card-header bg-white border-bottom py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+		<div>
+			<div class="fw-bold fs-5">دفترچه قطعات</div>
+			<div class="text-muted">@productCode — @productName</div>
+		</div>
+		<div class="d-flex gap-2 flex-wrap">
+			<button type="button" class="btn btn-sm btn-primary" data-action="addSection">افزودن دسته جدید</button>
+			<button type="button" class="btn btn-sm btn-light-primary" data-action="assignSection">انتخاب دسته موجود</button>
+			<button type="button" class="btn btn-sm btn-light-info" data-action="printPartBook">مشاهده / چاپ</button>
+			<button type="button" class="btn btn-sm btn-light" data-action="reloadManage">بارگذاری مجدد</button>
+		</div>
+	</div>
+	<div class="card-body">
+		<div id="partBookSections" class="d-flex flex-column gap-3"></div>
+		<div id="partBookEmpty" class="text-muted text-center py-5" style="display:none;">هنوز دسته‌ای به این محصول وصل نشده است.</div>
+	</div>
+</div>
+
+<style>
+	.pl-section-card { border: 1px solid #e4e6ef; border-radius: .65rem; background: #fff; }
+	.pl-section-head { display:flex; flex-wrap:wrap; gap:.75rem; align-items:flex-start; padding:1rem; border-bottom:1px solid #eff2f5; }
+	.pl-section-img-wrap { position:relative; display:inline-block; width:120px; height:90px; }
+	.pl-section-img { width:120px; height:90px; object-fit:contain; border:1px solid #eee; border-radius:.4rem; background:#fafafa; display:block; }
+	.pl-section-img-empty { width:120px; height:90px; display:flex; align-items:center; justify-content:center; border:1px dashed #ccc; border-radius:.4rem; color:#99a; font-size:.8rem; }
+	.pl-section-zoom {
+		position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+		border:0; border-radius:.4rem; background:rgba(0,0,0,.4); color:#fff;
+		opacity:0; transition:opacity .15s ease; cursor:pointer; padding:0;
+	}
+	.pl-section-img-wrap:hover .pl-section-zoom { opacity:1; }
+	.pl-img-lightbox {
+		position:fixed; inset:0; z-index:11000; background:rgba(0,0,0,.75);
+		display:flex; align-items:center; justify-content:center; padding:1.5rem;
+	}
+	.pl-img-lightbox img { max-width:min(96vw, 1100px); max-height:90vh; object-fit:contain; border-radius:.35rem; box-shadow:0 8px 32px rgba(0,0,0,.35); }
+	.pl-img-lightbox-close {
+		position:absolute; top:1rem; left:1rem; border:0; background:rgba(255,255,255,.15);
+		color:#fff; width:2.25rem; height:2.25rem; border-radius:50%; font-size:1.4rem; line-height:1; cursor:pointer;
+	}
+	.pl-img-lightbox-close:hover { background:rgba(255,255,255,.3); }
+	.pl-parts-table { width:100%; }
+	.pl-parts-table th, .pl-parts-table td { padding:.35rem .5rem; font-size:.9rem; }
+	.pl-search { max-width:220px; }
+</style>
+
+<script>
+	const partBookPartId = @partId;
+	const entityTypeSection = 'Entities.App.Inv.PartBookSection';
+
+	function decodeChildPartial(r) {
+		if (typeof r === 'string')
+			return { html: r, scripts: [] };
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: '', scripts: [] };
+	}
+
+	function escapeHtml(s) {
+		if (s == null) return '';
+		return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+	}
+
+	function loadManage() {
+		const $root = $$('#partBookManageRoot').block();
+		$$.get('/Panel/Inv/PartBook/GetManageData?partId=' + partBookPartId, function (r) {
+			$root.block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در دریافت اطلاعات');
+				return;
+			}
+			const data = r.data || r;
+			renderSections(data.sections || []);
+		});
+	}
+
+	function renderSections(sections) {
+		const $box = $$('#partBookSections').empty();
+		$$('#partBookEmpty').toggle(sections.length === 0);
+		sections.forEach(function (s) {
+			$box.append(buildSectionCard(s));
+		});
+	}
+
+	function buildSectionCard(s) {
+		const parts = s.parts || [];
+		const imgHtml = s.pictureUrl
+			? '<div class="pl-section-img-wrap">'
+				+ '<img class="pl-section-img" src="' + escapeHtml(s.pictureUrl) + '" alt="" />'
+				+ '<button type="button" class="pl-section-zoom" data-action="zoomPicture" data-src="' + escapeHtml(s.pictureUrl) + '" title="بزرگ‌نمایی">'
+				+ '<i class="ki-duotone ki-magnifier fs-2"><span class="path1"></span><span class="path2"></span></i>'
+				+ '</button></div>'
+			: '<div class="pl-section-img-empty">بدون تصویر</div>';
+
+		let rows = '';
+		parts.forEach(function (p) {
+			rows += '<tr data-part-row="1" data-search="' + escapeHtml(((p.partCode || '') + ' ' + (p.partName || '') + ' ' + (p.latinName || '')).toLowerCase()) + '">'
+				+ '<td>' + escapeHtml(p.order != null ? p.order : '') + '</td>'
+				+ '<td>' + escapeHtml(p.partCode) + '</td>'
+				+ '<td>' + escapeHtml(p.partName) + '</td>'
+				+ '<td>' + escapeHtml(p.usingRate) + '</td>'
+				+ '<td>' + escapeHtml(p.latinName) + '</td>'
+				+ '<td>' + (p.isCustom ? 'سفارشی' : 'BOM') + '</td>'
+				+ '<td>' + (p.isDisabled ? 'بله' : 'خیر') + '</td>'
+				+ '</tr>';
+		});
+
+		const $card = $('<div class="pl-section-card" data-section-id="' + s.id + '"></div>');
+		$card.html(
+			'<div class="pl-section-head">'
+			+ '<div>' + imgHtml
+			+ '<div class="mt-2 d-flex flex-wrap gap-1">'
+			+ '<label class="btn btn-sm btn-light-primary mb-0">جایگزینی<input type="file" accept=".jpg,.jpeg,.png" hidden data-action="replacePicture" data-section-id="' + s.id + '" /></label>'
+			+ '<button type="button" class="btn btn-sm btn-light-danger" data-action="clearPicture" data-section-id="' + s.id + '">حذف تصویر</button>'
+			+ '</div></div>'
+			+ '<div class="flex-grow-1">'
+			+ '<div class="d-flex flex-wrap gap-2 align-items-center mb-2">'
+			+ '<label class="mb-0">ترتیب</label>'
+			+ '<input type="number" class="form-control form-control-sm" style="width:80px" data-bind-order="1" data-section-id="' + s.id + '" value="' + s.order + '" />'
+			+ '<span class="fw-bold">' + escapeHtml(s.title) + '</span>'
+			+ (s.isForCustomBom ? '<span class="badge badge-light-info">BOM سفارشی</span>' : '')
+			+ '</div>'
+			+ '<div class="text-muted small">' + escapeHtml(s.comment || '') + '</div>'
+			+ '<div class="mt-2 d-flex flex-wrap gap-2">'
+			+ '<button type="button" class="btn btn-sm btn-light-primary" data-action="editSection" data-id="' + s.id + '">ویرایش دسته</button>'
+			+ '<button type="button" class="btn btn-sm btn-light-danger" data-action="removeSection" data-id="' + s.id + '">برداشتن از محصول</button>'
+			+ '<input type="search" class="form-control form-control-sm pl-search" placeholder="جستجوی قطعه در این دسته" data-action="searchParts" data-section-id="' + s.id + '" />'
+			+ '</div></div></div>'
+			+ '<div class="p-3"><div class="table-responsive"><table class="table table-row-bordered pl-parts-table mb-0">'
+			+ '<thead><tr><th>ترتیب</th><th>کد</th><th>نام</th><th>مقدار مصرف</th><th>نام لاتین</th><th>منبع</th><th>غیرفعال</th></tr></thead>'
+			+ '<tbody>' + (rows || '<tr><td colspan="7" class="text-muted">قطعه‌ای یافت نشد</td></tr>') + '</tbody>'
+			+ '</table></div></div>'
+		);
+		return $card;
+	}
+
+	function closePictureLightbox() {
+		$$('.pl-img-lightbox').remove();
+	}
+
+	function openPictureLightbox(src) {
+		if (!src) return;
+		closePictureLightbox();
+		const $overlay = $('<div class="pl-img-lightbox" role="dialog" aria-modal="true"></div>');
+		$overlay.append(
+			$('<button type="button" class="pl-img-lightbox-close" data-action="closePictureLightbox" aria-label="بستن">&times;</button>'),
+			$('<img alt="" />').attr('src', src)
+		);
+		$$().append($overlay);
+	}
+
+	page.$pageEl.on('click', '[data-action="zoomPicture"]', function (e) {
+		e.preventDefault();
+		e.stopPropagation();
+		openPictureLightbox($(this).attr('data-src') || $(this).closest('.pl-section-img-wrap').find('img').attr('src'));
+	});
+
+	page.$pageEl.on('click', '[data-action="closePictureLightbox"]', function (e) {
+		e.preventDefault();
+		e.stopPropagation();
+		closePictureLightbox();
+	});
+
+	page.$pageEl.on('click', '.pl-img-lightbox', function (e) {
+		if ($(e.target).closest('img').length) return;
+		closePictureLightbox();
+	});
+
+	page.$pageEl.on('click', '[data-action="reloadManage"]', function () { loadManage(); });
+
+	page.$pageEl.on('click', '[data-action="printPartBook"]', function () {
+		appController.addPage('/Panel/Inv/PartBook/Print?partId=' + partBookPartId, true, 'چاپ دفترچه قطعات');
+	});
+
+	page.$pageEl.on('change', '[data-bind-order]', function () {
+		const $inp = $(this);
+		const sectionId = $inp.data('section-id');
+		const newOrder = parseInt($inp.val(), 10);
+		if (!newOrder || newOrder < 1) {
+			toastr.error('ترتیب نامعتبر است');
+			return;
+		}
+		$$('#partBookManageRoot').block();
+		$$.post('/Panel/Inv/PartBook/ReorderSection', {
+			partId: partBookPartId,
+			sectionId: sectionId,
+			newOrder: newOrder
+		}, function (r) {
+			$$('#partBookManageRoot').block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در تغییر ترتیب');
+				return;
+			}
+			loadManage();
+		});
+	});
+
+	page.$pageEl.on('input', '[data-action="searchParts"]', function () {
+		const q = ($(this).val() || '').toString().toLowerCase().trim();
+		const sectionId = $(this).data('section-id');
+		const $card = $$('.pl-section-card[data-section-id="' + sectionId + '"]');
+		$card.find('tr[data-part-row]').each(function () {
+			const hay = ($(this).attr('data-search') || '');
+			$(this).toggle(!q || hay.indexOf(q) >= 0);
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="addSection"]', function () { openSectionModal(null); });
+	page.$pageEl.on('click', '[data-action="editSection"]', function () { openSectionModal($(this).data('id')); });
+
+	function openSectionModal(id) {
+		const url = '/Panel/Inv/PartBook/SectionForm?partId=' + partBookPartId + (id ? '&id=' + id : '');
+		page.getPartialView(url, function (r) {
+			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div class="partbook-section-modal" style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>')
+				.append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش دسته' : 'افزودن دسته جدید',
+				content: $bodyCn,
+				rtl: true,
+				columnClass: 'medium',
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							model.partId = partBookPartId;
+							model.isForCustomBom = !!$content.find('[data-bind="isForCustomBom"]').prop('checked');
+							const picVal = $content.find('[data-bind="pictureId"]').val();
+							model.pictureId = picVal ? parseInt(picVal, 10) : null;
+							model.order = parseInt(model.order, 10) || 0;
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Inv/PartBook/SaveSection', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp || !resp.isSuccess) {
+									toastr.error((resp && resp.message) || 'خطا در ذخیره');
+									return;
+								}
+								toastr.success('ذخیره شد');
+								selfConfirm.close();
+								loadManage();
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initFileUploaders === 'function')
+							initFileUploaders(selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="assignSection"]', function () {
+		$$.get('/Panel/Inv/PartBook/ListAvailableSections?partId=' + partBookPartId, function (r) {
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا');
+				return;
+			}
+			const list = r.data || r || [];
+			if (!list.length) {
+				toastr.info('دستهٔ آزادی برای انتخاب نیست');
+				return;
+			}
+			let opts = '<option value="">انتخاب کنید</option>';
+			list.forEach(function (s) {
+				opts += '<option value="' + s.id + '">' + escapeHtml(s.title) + (s.comment ? ' — ' + escapeHtml(s.comment) : '') + '</option>';
+			});
+			const $body = $('<div class="form-group-inline"><label>دسته مشترک</label><select class="form-select" id="pbAssignSectionSelect">' + opts + '</select></div>');
+			$.confirm({
+				title: 'انتخاب دسته موجود',
+				content: $body,
+				rtl: true,
+				columnClass: 'medium',
+				buttons: {
+					save: {
+						text: 'افزودن',
+						btnClass: 'btn-primary',
+						action: function () {
+							const sid = parseInt(this.$content.find('#pbAssignSectionSelect').val(), 10);
+							if (!sid) { toastr.error('دسته را انتخاب کنید'); return false; }
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Inv/PartBook/AssignSection', { partId: partBookPartId, partBookSectionId: sid }, function (resp) {
+								$saveBtn.block(false);
+								if (!resp || !resp.isSuccess) {
+									toastr.error((resp && resp.message) || 'خطا');
+									return;
+								}
+								toastr.success('اضافه شد');
+								selfConfirm.close();
+								loadManage();
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف' }
+				}
+			});
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="removeSection"]', function () {
+		const sectionId = $(this).data('id');
+		Swal.fire({
+			title: 'برداشتن دسته از این محصول؟',
+			text: 'خود دسته مشترک حذف نمی‌شود؛ فقط اتصال این محصول قطع می‌شود.',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'برداشتن',
+			cancelButtonText: 'انصراف'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.get('/Panel/Inv/PartBook/RemoveSection?partId=' + partBookPartId + '&sectionId=' + sectionId, function (r) {
+				if (!r || r.isSuccess === false) {
+					toastr.error((r && r.message) || 'خطا در حذف');
+					return;
+				}
+				toastr.success('برداشته شد');
+				loadManage();
+			});
+		});
+	});
+
+	page.$pageEl.on('change', '[data-action="replacePicture"]', function () {
+		const file = this.files && this.files[0];
+		const sectionId = $(this).data('section-id');
+		if (!file) return;
+		const fd = new FormData();
+		fd.append('file', file);
+		fd.append('entityId', sectionId);
+		$$('#partBookManageRoot').block();
+		$.ajax({
+			url: '/File/upload/' + encodeURIComponent(entityTypeSection) + '/Picture?entityId=' + sectionId,
+			method: 'POST',
+			data: fd,
+			processData: false,
+			contentType: false,
+			success: function (r) {
+				const fileId = r && (r.data && r.data.fileId || r.fileId);
+				if (!fileId) {
+					$$('#partBookManageRoot').block(false);
+					toastr.error('آپلود ناموفق');
+					return;
+				}
+				$$.post('/Panel/Inv/PartBook/SetSectionPicture', { sectionId: sectionId, pictureId: fileId }, function (resp) {
+					$$('#partBookManageRoot').block(false);
+					if (!resp || resp.isSuccess === false) {
+						toastr.error((resp && resp.message) || 'خطا در اتصال تصویر');
+						return;
+					}
+					toastr.success('تصویر ذخیره شد');
+					loadManage();
+				});
+			},
+			error: function () {
+				$$('#partBookManageRoot').block(false);
+				toastr.error('خطا در آپلود فایل');
+			}
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="clearPicture"]', function () {
+		const sectionId = $(this).data('section-id');
+		$$.post('/Panel/Inv/PartBook/SetSectionPicture', { sectionId: sectionId, pictureId: null }, function (resp) {
+			if (!resp || resp.isSuccess === false) {
+				toastr.error((resp && resp.message) || 'خطا');
+				return;
+			}
+			loadManage();
+		});
+	});
+
+	loadManage();
+</script>

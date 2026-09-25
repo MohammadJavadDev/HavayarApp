@@ -222,7 +222,19 @@ else if (Model.Type == ReportType.StimulSoft)
                     return;
                 }
                 const params = new URLSearchParams();
-                model.filters.forEach(f => params.append(f.columnName, `{values:["${f.values.join('","')}"],condition:"${f.condition}"}`));
+                const added = {};
+                model.filters.forEach(f => {
+                    params.append(f.columnName, `{values:["${f.values.join('","')}"],condition:"${f.condition}"}`);
+                    added[String(f.columnName).toLowerCase()] = true;
+                });
+                if (queryParams) {
+                    Object.keys(queryParams).forEach(function (key) {
+                        if (added[key.toLowerCase()]) return;
+                        const p = queryParams[key];
+                        if (!p || !p.values || !p.values.length) return;
+                        params.append(key, `{values:["${p.values.join('","')}"],condition:"${p.condition || '='}"}`);
+                    });
+                }
                 const url = `/System/ReportBuilder/StimulSoftViewReport?reportId=${repId}&${params.toString()}`;
                   $('#reportContent').html(`<iframe src="${url}" style="width:100%;min-height:1125px;border:none;"></iframe>`);
             });

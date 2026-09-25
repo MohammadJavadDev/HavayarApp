@@ -1,0 +1,685 @@
+<style>
+	#documentButtonFlow .df-toc {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	#documentButtonFlow .df-pill {
+		display: inline-flex;
+		align-items: center;
+		border-radius: 999px;
+		padding: 6px 12px;
+		font-weight: 700;
+		font-size: 13px;
+		white-space: nowrap;
+	}
+
+	#documentButtonFlow .df-pill.history { background: #1c1917; color: #fff; }
+	#documentButtonFlow .df-pill.producer { background: #0f766e; color: #fff; }
+	#documentButtonFlow .df-pill.review { background: #1d4ed8; color: #fff; }
+	#documentButtonFlow .df-pill.dcc { background: #b45309; color: #fff; }
+	#documentButtonFlow .df-pill.revision { background: #be123c; color: #fff; }
+	#documentButtonFlow .df-pill.reply { background: #6d28d9; color: #fff; }
+	#documentButtonFlow .df-pill.ghost,
+	#documentButtonFlow .df-pill.off {
+		background: #f5f5f4;
+		color: #a8a29e;
+		text-decoration: line-through;
+	}
+
+	#documentButtonFlow .df-tag {
+		font-size: 12px;
+		font-weight: 700;
+		border-radius: 999px;
+		padding: 2px 8px;
+		background: #f5f5f4;
+	}
+
+	#documentButtonFlow .df-mono {
+		font-family: ui-monospace, Consolas, monospace;
+		direction: ltr;
+		unicode-bidi: isolate;
+		font-size: 12.5px;
+	}
+
+	#documentButtonFlow .df-step {
+		display: grid;
+		grid-template-columns: 28px 1fr;
+		gap: 12px;
+		cursor: pointer;
+	}
+
+	#documentButtonFlow .df-rail { display: flex; flex-direction: column; align-items: center; }
+	#documentButtonFlow .df-dot {
+		width: 14px;
+		height: 14px;
+		border-radius: 50%;
+		margin-top: 18px;
+		background: #a8a29e;
+	}
+	#documentButtonFlow .df-stem { width: 2px; flex: 1; background: #e7e5e4; min-height: 12px; }
+	#documentButtonFlow .df-step.active .card { outline: 2px solid #1c1917; }
+	#documentButtonFlow .df-step.producer .df-dot { background: #0f766e; }
+	#documentButtonFlow .df-step.review .df-dot { background: #1d4ed8; }
+	#documentButtonFlow .df-step.dcc .df-dot { background: #b45309; }
+	#documentButtonFlow .df-step.revision .df-dot { background: #be123c; }
+	#documentButtonFlow .df-step.reply .df-dot { background: #6d28d9; }
+
+	#documentButtonFlow .df-loop {
+		margin: 0 0 10px 40px;
+		font-size: 13px;
+		color: #57534e;
+		border: 1px dashed #d6d3d1;
+		border-radius: 12px;
+		padding: 8px 12px;
+		background: #fff;
+	}
+
+	#documentButtonFlow .df-comment-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+	#documentButtonFlow .df-comment-list li {
+		display: flex;
+		justify-content: space-between;
+		gap: 10px;
+		align-items: center;
+		border: 1px solid #e7e5e4;
+		border-radius: 12px;
+		padding: 8px 10px;
+		font-size: 13.5px;
+		background: #fff;
+	}
+
+	#documentButtonFlow tr.df-clickable { cursor: pointer; }
+	#documentButtonFlow tr.df-clickable:hover td { background: #fffaf0; }
+
+	@@media (max-width: 900px) {
+		#documentButtonFlow .df-split { grid-template-columns: 1fr !important; }
+	}
+</style>
+
+<div id="documentButtonFlow">
+	<div class="card mb-5">
+		<div class="card-header">
+			<div class="card-title flex-column align-items-start">
+				<h3 class="mb-1">راهنمای گردش دکمه‌های مدارک</h3>
+				<div class="text-muted fs-7">صفحه ویرایش گروهی مدرک — نمایش دکمه بر اساس وضعیت، کاربر جاری و نقش</div>
+			</div>
+		</div>
+		<div class="card-body">
+			<div class="alert alert-primary d-flex flex-column mb-5">
+				<strong>اصل کلی</strong>
+				<span>تاریخچه برای همه و در همه وضعیت‌ها فعال است. بقیه دکمه‌ها فقط وقتی دیده می‌شوند که وضعیت مدرک و نقش کاربر جاری اجازه بدهد.</span>
+			</div>
+			<div class="df-toc">
+				<a class="btn btn-sm btn-light" href="#sec-actors">نقش‌ها</a>
+				<a class="btn btn-sm btn-light" href="#sec-sim">آزمایش</a>
+				<a class="btn btn-sm btn-light" href="#sec-flow">نقشه گردش</a>
+				<a class="btn btn-sm btn-light" href="#sec-matrix">جدول</a>
+				<a class="btn btn-sm btn-light" href="#sec-hours">نفرساعت</a>
+				<a class="btn btn-sm btn-light" href="#sec-revision">ریویژن جدید</a>
+				<a class="btn btn-sm btn-light" href="#sec-replysheet">ReplySheet</a>
+				<a class="btn btn-sm btn-light" href="#sec-send">ترانسمیتال</a>
+				<a class="btn btn-sm btn-light" href="#sec-open">موارد باز</a>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-actors">
+		<div class="card-header"><h3 class="card-title">چه کسی دکمه را می‌بیند</h3></div>
+		<div class="card-body">
+			<p class="text-muted">نقش از سند VPIS همان مدرک، یا عضویت در نقش DCC، سنجیده می‌شود.</p>
+			<div class="row g-4">
+				<div class="col-md-3">
+					<div class="border border-success rounded p-4 bg-light-success h-100">
+						<div class="fw-bold">تهیه‌کننده VPIS</div>
+						<div class="text-muted fs-7">ProducerId</div>
+					</div>
+				</div>
+				<div class="col-md-3">
+					<div class="border border-primary rounded p-4 bg-light-primary h-100">
+						<div class="fw-bold">بررسی‌کنندگان VPIS</div>
+						<div class="text-muted fs-7">ReviewersId — وضعیت Issue</div>
+					</div>
+				</div>
+				<div class="col-md-3">
+					<div class="border border-primary rounded p-4 bg-light-primary h-100">
+						<div class="fw-bold">تاییدکننده VPIS</div>
+						<div class="text-muted fs-7">ApproverId — وضعیت ApproveByReviewer</div>
+					</div>
+				</div>
+				<div class="col-md-3">
+					<div class="border border-warning rounded p-4 bg-light-warning h-100">
+						<div class="fw-bold">گروه DCC</div>
+						<div class="text-muted fs-7">نقش EdmsDocumentsDccUsers — شناسه 200000</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5">
+		<div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+			<div>
+				<div class="fw-bold">تاریخچه همیشه فعال است</div>
+				<div class="text-muted">مستقل از وضعیت مدرک و نقش کاربر. حتی وقتی هیچ دکمه دیگری نمایش داده نمی‌شود.</div>
+			</div>
+			<span class="df-pill history">تاریخچه</span>
+		</div>
+	</div>
+
+	<div class="card mb-5">
+		<div class="card-header"><h3 class="card-title">دکمه‌های نوار صفحه مدرک</h3></div>
+		<div class="card-body">
+			<p class="text-muted">دکمه‌های رنگی فقط در وضعیت خودشان دیده می‌شوند. دکمه‌های خط‌خورده در این قوانین مخفی‌اند.</p>
+			<div class="d-flex flex-wrap gap-2" id="legendButtons"></div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-sim">
+		<div class="card-header">
+			<div class="card-title flex-column align-items-start">
+				<h3 class="mb-1">آزمایش: این وضعیت و این کاربر چه می‌بیند</h3>
+				<div class="text-muted fs-7">وضعیت مدرک و نقش را انتخاب کنید.</div>
+			</div>
+		</div>
+		<div class="card-body">
+			<div class="row g-5 df-split">
+				<div class="col-md-4">
+					<label class="form-label fw-bold" for="statusPick">وضعیت فعلی مدرک</label>
+					<select class="form-select mb-4" id="statusPick"></select>
+					<label class="form-label fw-bold" for="actorPick">کاربر جاری</label>
+					<select class="form-select mb-4" id="actorPick">
+						<option value="producer">تهیه‌کننده همین سند VPIS</option>
+						<option value="reviewers">یکی از بررسی‌کنندگان VPIS</option>
+						<option value="approver">تاییدکننده سند VPIS</option>
+						<option value="dcc">عضو گروه DCC — شناسه 200000</option>
+						<option value="other">کاربر دیگر</option>
+					</select>
+					<label class="form-label fw-bold" for="modePick">حالت صفحه</label>
+					<select class="form-select" id="modePick">
+						<option value="normal">عادی، قبل از زدن ریویژن جدید</option>
+						<option value="afterRevision">بلافاصله بعد از زدن «ایجاد ریویژن جدید»</option>
+					</select>
+				</div>
+				<div class="col-md-8">
+					<div class="border rounded p-5 h-100">
+						<div class="text-muted mb-3" id="simCaption"></div>
+						<div class="d-flex flex-wrap gap-2" id="simButtons"></div>
+						<div class="mt-4" id="simComments"></div>
+						<div class="mt-3" id="simNote"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-flow">
+		<div class="card-header">
+			<div class="card-title flex-column align-items-start">
+				<h3 class="mb-1">نقشه گردش</h3>
+				<div class="text-muted fs-7">روی هر مرحله بزنید تا در آزمایش بالا همان وضعیت انتخاب شود.</div>
+			</div>
+		</div>
+		<div class="card-body">
+			<div class="row g-5">
+				<div class="col-lg-7" id="flowList"></div>
+				<div class="col-lg-5">
+					<div class="card border">
+						<div class="card-header"><h3 class="card-title" id="sideTitle">مرحله را انتخاب کنید</h3></div>
+						<div class="card-body" id="sideBody"><p class="text-muted mb-0">جزئیات دکمه و وضعیت‌های کامنت این‌جا می‌آید.</p></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-matrix">
+		<div class="card-header"><h3 class="card-title">جدول یک‌نگاه</h3></div>
+		<div class="card-body">
+			<div class="table-responsive">
+				<table class="table table-row-bordered align-middle gs-4 gy-3">
+					<thead>
+						<tr class="fw-bold text-muted">
+							<th>وضعیت مدرک</th>
+							<th>دکمه فعال</th>
+							<th>فقط برای</th>
+							<th>وضعیت‌های قابل انتخاب در افزودن کامنت</th>
+						</tr>
+					</thead>
+					<tbody id="matrixBody"></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-hours">
+		<div class="card-header"><h3 class="card-title">نفرساعت، هنگام ذخیره توسط تهیه‌کننده</h3></div>
+		<div class="card-body">
+			<div class="alert alert-success mb-0">
+				در وضعیت‌های NotIssue و CommentedByReviewer و CommentedByApprover و CommentedByDcc،
+				و همچنین بعد از ایجاد ریویژن جدید، فقط «ذخیره و بستن» برای تهیه‌کننده VPIS فعال است.
+				نفرساعت واردشده جایگزین نفرساعت قبلی همان مدرک می‌شود.
+				با ذخیره، مدرک به Issue می‌رود و یک کامنت Issue ثبت می‌شود.
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-revision">
+		<div class="card-header"><h3 class="card-title">ایجاد ریویژن جدید</h3></div>
+		<div class="card-body">
+			<div class="row g-5">
+				<div class="col-md-6">
+					<div class="border rounded p-5 h-100">
+						<div class="d-flex justify-content-between align-items-center mb-3">
+							<h4 class="mb-0">قبل از زدن دکمه</h4>
+							<span class="df-pill revision">ایجاد ریویژن جدید</span>
+						</div>
+						<p class="mb-0">در RejectByClient، ApprovedAsNoteByClient، CommentedByClient و ReIssued این دکمه فقط برای تهیه‌کننده سند VPIS دیده می‌شود. در سه وضعیت اول به‌علاوه UnHold، افزودن ReplySheet هم فقط برای همان تهیه‌کننده است. در ReIssued دکمه ReplySheet نیست.</p>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<div class="border rounded p-5 h-100">
+						<div class="d-flex justify-content-between align-items-center mb-3">
+							<h4 class="mb-0">بعد از زدن دکمه</h4>
+							<span class="df-pill producer">ذخیره و بستن</span>
+						</div>
+						<p class="mb-0">ریویژن جدید با NotIssue شروع می‌شود. تا قبل از ذخیره فقط «ذخیره و بستن» برای تهیه‌کننده می‌ماند. ذخیره، نفرساعت را جایگزین می‌کند، وضعیت را Issue می‌کند و کامنت Issue می‌سازد.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-replysheet">
+		<div class="card-header"><h3 class="card-title">افزودن ReplySheet</h3></div>
+		<div class="card-body">
+			<div class="alert alert-warning">
+				<strong>مقدار وضعیت.</strong>
+				ReplaySheet در سیستم برابر ۲۸ است. مقدار ۲۲ یعنی Commited و برای این دکمه استفاده نمی‌شود.
+			</div>
+			<ul class="mb-4">
+				<li>فایل ReplySheet الزامی است و فقط تهیه‌کننده VPIS می‌تواند آن را ثبت کند.</li>
+				<li>بار اول فایل روی ReplySheet می‌نشیند. اگر کامنت ReplaySheet از قبل باشد، فایل جایگزین SecondReplySheet می‌شود.</li>
+				<li>یک کامنت با وضعیت ReplaySheet و متن ReplySheet ساخته می‌شود.</li>
+				<li>اگر کاربر جاری بررسی‌کننده همان مدرک باشد، کامنت ApproveByReviewer هم اضافه می‌شود. اگر تاییدکننده همان مدرک باشد، کامنت ApproveByApprover آخرین کامنت است. وضعیت نهایی مدرک از آخرین کامنت می‌آید.</li>
+				<li>تاریخ کامنت همان زمان ذخیره است.</li>
+				<li>ترانسمیتال ReplySheet شماره واردشده کاربر را می‌گیرد و شمارنده خودکار پروژه را مصرف نمی‌کند.</li>
+			</ul>
+			<p class="text-muted mb-0">نمایش دکمه: RejectByClient، ApprovedAsNoteByClient، CommentedByClient و UnHold، فقط برای تهیه‌کننده. خود وضعیت ReplaySheet در نوار فقط تاریخچه دارد، مگر کامنت تایید اضافه وضعیت را جلو ببرد.</p>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-send">
+		<div class="card-header"><h3 class="card-title">ترانسمیتال و نظر کارفرما</h3></div>
+		<div class="card-body">
+			<div class="alert alert-primary">
+				بعد از ApprovedByDcc فقط کاربر DCC مدرک را ترانسمیتال می‌کند. با ایجاد ترانسمیتال وضعیت Not Review اضافه می‌شود.
+				نظر کارفرما بعد از Not Review، از نمایه داده «بررسی دریافت و ارسال اسناد» روی لیست مدارک بارگذاری می‌شود.
+			</div>
+			<ul class="mb-0">
+				<li>فرم ترانسمیتال فقط مدرک تاییدشده DCC، یا مدرکی که ReplySheet دارد، را نشان می‌دهد.</li>
+				<li>ترانسمیتال معمولی اگر مدرک ApprovedByDcc نباشد، یا کاربر DCC نباشد، ذخیره نمی‌شود.</li>
+				<li>اگر مدرک از قبل Not Review باشد، کامنت Not Review دوباره ساخته نمی‌شود.</li>
+				<li>نمایه داده روی همان لیست مدارک است و ردیف‌های Not Review را نشان می‌دهد. دکمه آن «نظر کارفرما» است.</li>
+			</ul>
+		</div>
+	</div>
+
+	<div class="card mb-5" id="sec-open">
+		<div class="card-header"><h3 class="card-title">مواردی که هنوز مشخص نشده‌اند</h3></div>
+		<div class="card-body">
+			<div class="row g-4">
+				<div class="col-md-4">
+					<div class="alert alert-success h-100 mb-0">
+						<strong>نوبت تاییدکننده</strong>
+						<div>بعد از ApproveByReviewer فقط تاییدکننده VPIS کامنت می‌زند.</div>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="alert alert-success h-100 mb-0">
+						<strong>ریویژن و ReplySheet</strong>
+						<div>هر دو فقط برای تهیه‌کننده سند VPIS هستند.</div>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<div class="alert alert-warning h-100 mb-0">
+						<strong>هنوز نامشخص</strong>
+						<div>وقتی خود وضعیت مدرک RejectByDcc یا ApproveByClient است، دکمه عملیاتی تعریف نشده. اولویت وقتی یک نفر چند نقش دارد هم مشخص نیست.</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const root = page.$pageEl[0];
+	const q = function (id) { return root.querySelector('#' + id); };
+
+	const BUTTONS = [
+		{ id: "history", title: "تاریخچه", cls: "history" },
+		{ id: "saveClose", title: "ذخیره و بستن", cls: "producer" },
+		{ id: "addComment", title: "افزودن کامنت", cls: "review" },
+		{ id: "newRevision", title: "ایجاد ریویژن جدید", cls: "revision" },
+		{ id: "reply", title: "افزودن ReplySheet", cls: "reply" },
+		{ id: "transmittal", title: "ایجاد ترانسمیتال", cls: "dcc" },
+		{ id: "save", title: "ذخیره", cls: "ghost" },
+		{ id: "reload", title: "به‌روزرسانی لیست ریویژن‌ها", cls: "ghost" },
+		{ id: "editStatus", title: "اصلاح وضعیت", cls: "ghost" }
+	];
+
+	const STATUSES = {
+		NotIssue: "صادر نشده",
+		CommentedByReviewer: "نظر داده‌شده بررسی‌کننده",
+		CommentedByApprover: "نظر داده‌شده تاییدکننده",
+		CommentedByDcc: "نظر داده‌شده DCC",
+		Issue: "صادر شده",
+		ApproveByReviewer: "تایید شده بررسی‌کننده",
+		ApproveByApprover: "تایید شده تاییدکننده",
+		ApprovedByDcc: "تایید DCC",
+		NotReview: "بررسی نشده (Not Review)",
+		RejectByDcc: "رد شده DCC",
+		ApproveByClient: "تایید توسط کارفرما",
+		RejectByClient: "رد توسط کارفرما",
+		ApprovedAsNoteByClient: "تایید با یادداشت توسط کارفرما",
+		ReIssued: "صادر مجدد",
+		CommentedByClient: "نظر داده‌شده توسط کارفرما",
+		UnHold: "خروج از Hold",
+		ReplaySheet: "برگه پاسخ (ReplaySheet)"
+	};
+
+	const RULES = [
+		{
+			id: "rule-producer",
+			tone: "producer",
+			title: "ویرایش تهیه‌کننده",
+			statuses: ["NotIssue", "CommentedByReviewer", "CommentedByApprover", "CommentedByDcc"],
+			actor: "producer",
+			actorLabel: "فقط تهیه‌کننده سند VPIS",
+			buttons: ["saveClose"],
+			comments: [],
+			note: "نفرساعت جایگزین مقدار قبلی مدرک می‌شود. با ذخیره، وضعیت به Issue می‌رود و کامنت Issue ثبت می‌شود.",
+			loop: "CommentedByReviewer و CommentedByApprover و CommentedByDcc مدرک را به همین مرحله برمی‌گردانند."
+		},
+		{
+			id: "rule-issue",
+			tone: "review",
+			title: "صادر شده — نوبت بررسی",
+			statuses: ["Issue"],
+			actor: "reviewers",
+			actorLabel: "فقط بررسی‌کنندگان سند VPIS",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApproveByReviewer", name: "تایید شده بررسی‌کننده", next: "نوبت تاییدکننده" },
+				{ code: "CommentedByReviewer", name: "نظر داده‌شده بررسی‌کننده", next: "بازگشت به تهیه‌کننده" }
+			]
+		},
+		{
+			id: "rule-approver",
+			tone: "review",
+			title: "تایید بررسی‌کننده — نوبت تاییدکننده",
+			statuses: ["ApproveByReviewer"],
+			actor: "approver",
+			actorLabel: "فقط تاییدکننده سند VPIS",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApproveByApprover", name: "تایید شده تاییدکننده", next: "نوبت DCC" },
+				{ code: "CommentedByApprover", name: "نظر داده‌شده تاییدکننده", next: "بازگشت به تهیه‌کننده" }
+			]
+		},
+		{
+			id: "rule-dcc-internal",
+			tone: "dcc",
+			title: "تایید تاییدکننده — نوبت DCC",
+			statuses: ["ApproveByApprover"],
+			actor: "dcc",
+			actorLabel: "فقط اعضای گروه DCC، شناسه 200000",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApprovedByDcc", name: "تایید DCC", next: "ترانسمیتال توسط DCC" },
+				{ code: "RejectByDcc", name: "رد شده DCC", next: "قانون دکمه تعریف نشده" },
+				{ code: "CommentedByDcc", name: "نظر داده‌شده DCC", next: "بازگشت به تهیه‌کننده" }
+			]
+		},
+		{
+			id: "rule-dcc-send",
+			tone: "dcc",
+			title: "تایید DCC — ترانسمیتال",
+			statuses: ["ApprovedByDcc"],
+			actor: "dcc",
+			actorLabel: "فقط اعضای گروه DCC، شناسه 200000",
+			buttons: ["transmittal"],
+			comments: [],
+			note: "فقط مدرک تاییدشده DCC در فرم ترانسمیتال قابل انتخاب است. با ایجاد ترانسمیتال یک کامنت Not Review ثبت می‌شود و وضعیت مدرک Not Review می‌شود. اگر از قبل Not Review باشد، دوباره ساخته نمی‌شود."
+		},
+		{
+			id: "rule-not-review",
+			tone: "dcc",
+			title: "Not Review — نظر کارفرما",
+			statuses: ["NotReview"],
+			actor: "dcc",
+			actorLabel: "فقط اعضای گروه DCC، نمایه داده بررسی دریافت و ارسال اسناد",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApproveByClient", name: "تایید توسط کارفرما", next: "بدون دکمه عملیاتی بعدی" },
+				{ code: "RejectByClient", name: "رد توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
+				{ code: "ApprovedAsNoteByClient", name: "تایید با یادداشت توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
+				{ code: "ReIssued", name: "صادر مجدد", next: "ریویژن جدید برای تهیه‌کننده" },
+				{ code: "CommentedByClient", name: "نظر داده‌شده توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" }
+			],
+			note: "بارگذاری نظر کارفرما از نمایه داده «بررسی دریافت و ارسال اسناد» روی لیست مدارک است، نه از صفحه جدا."
+		},
+		{
+			id: "rule-revision",
+			tone: "revision",
+			title: "برگشت از کارفرما — ریویژن جدید",
+			statuses: ["RejectByClient", "ApprovedAsNoteByClient", "CommentedByClient", "ReIssued"],
+			actor: "producer",
+			actorLabel: "فقط تهیه‌کننده سند VPIS",
+			buttons: ["newRevision"],
+			comments: [],
+			note: "روی سه وضعیت اول، ReplySheet هم فقط برای تهیه‌کننده است. ReIssued فقط ریویژن جدید دارد."
+		},
+		{
+			id: "rule-unhold",
+			tone: "reply",
+			title: "خروج از Hold — ReplySheet",
+			statuses: ["UnHold"],
+			actor: "producer",
+			actorLabel: "فقط تهیه‌کننده سند VPIS",
+			buttons: ["reply"],
+			comments: [],
+			note: "در UnHold فقط افزودن ReplySheet برای تهیه‌کننده دیده می‌شود."
+		}
+	];
+
+	const REPLY_STATUSES = new Set(["RejectByClient", "ApprovedAsNoteByClient", "CommentedByClient", "UnHold"]);
+	const GAPS = ["RejectByDcc", "ApproveByClient", "ReplaySheet"];
+	const statusPick = q("statusPick");
+	const actorPick = q("actorPick");
+	const modePick = q("modePick");
+
+	function buttonTitle(id) {
+		return BUTTONS.find(function (b) { return b.id === id; }).title;
+	}
+
+	function statusOptions() {
+		const groups = [
+			["ویرایش تهیه‌کننده", RULES[0].statuses],
+			["بررسی", RULES[1].statuses],
+			["تاییدکننده", RULES[2].statuses],
+			["DCC", RULES[3].statuses.concat(RULES[4].statuses)],
+			["Not Review", RULES[5].statuses],
+			["برگشت کارفرما / ریویژن", RULES[6].statuses],
+			["Hold", RULES[7].statuses],
+			["فقط تاریخچه", GAPS]
+		];
+		statusPick.innerHTML = groups.map(function (group) {
+			const opts = group[1].map(function (code) {
+				return '<option value="' + code + '">' + STATUSES[code] + ' — ' + code + '</option>';
+			}).join("");
+			return '<optgroup label="' + group[0] + '">' + opts + '</optgroup>';
+		}).join("");
+	}
+
+	function ruleFor(status) {
+		return RULES.find(function (rule) { return rule.statuses.indexOf(status) >= 0; }) || null;
+	}
+
+	function buttonsForStatus(status) {
+		const rule = ruleFor(status);
+		if (!rule) return [];
+		const list = rule.buttons.slice();
+		if (REPLY_STATUSES.has(status) && list.indexOf("reply") < 0) list.push("reply");
+		return list;
+	}
+
+	function visibleButtons(status, actor, mode) {
+		const shown = new Set(["history"]);
+		if (mode === "afterRevision") {
+			if (actor === "producer") shown.add("saveClose");
+			return shown;
+		}
+		const rule = ruleFor(status);
+		if (!rule) return shown;
+		if (rule.actor !== actor) return shown;
+		buttonsForStatus(status).forEach(function (id) { shown.add(id); });
+		return shown;
+	}
+
+	function paintButtons(container, shown) {
+		container.innerHTML = BUTTONS.map(function (btn) {
+			const on = shown.has(btn.id);
+			return '<span class="df-pill ' + (on ? btn.cls : "off") + '">' + btn.title + '</span>';
+		}).join("");
+	}
+
+	function renderSim() {
+		const status = statusPick.value;
+		const actor = actorPick.value;
+		const mode = modePick.value;
+		const shown = visibleButtons(status, actor, mode);
+		const rule = ruleFor(status);
+		const caption = q("simCaption");
+		const notes = q("simNote");
+		const comments = q("simComments");
+		paintButtons(q("simButtons"), shown);
+
+		if (mode === "afterRevision") {
+			caption.textContent = "بلافاصله بعد از ایجاد ریویژن جدید. ریویژن با NotIssue شروع می‌شود.";
+			comments.innerHTML = "";
+			notes.innerHTML = '<div class="alert alert-success mb-0">فقط ذخیره و بستن، و فقط برای تهیه‌کننده. نفرساعت جایگزین می‌شود، وضعیت به Issue می‌رود و کامنت Issue ثبت می‌شود. تاریخچه برای همه فعال است.</div>';
+			return;
+		}
+
+		caption.textContent = rule
+			? STATUSES[status] + " — " + rule.actorLabel
+			: STATUSES[status] + " — برای این وضعیت دکمه عملیاتی تعریف نشده است";
+
+		if (rule && shown.has("addComment")) {
+			comments.innerHTML = '<strong>وضعیت‌هایی که در افزودن کامنت می‌توان انتخاب کرد</strong><ul class="df-comment-list">' +
+				rule.comments.map(function (item) {
+					return '<li><span>' + item.name + '</span><span><span class="df-mono">' + item.code + '</span> · ' + item.next + '</span></li>';
+				}).join("") + '</ul>';
+		} else if (rule && rule.comments.length && !shown.has("addComment")) {
+			comments.innerHTML = '<div class="text-muted">افزودن کامنت برای این کاربر مخفی است.</div>';
+		} else {
+			comments.innerHTML = "";
+		}
+
+		const bits = [];
+		if (rule && rule.note) bits.push('<div class="alert alert-warning">' + rule.note + '</div>');
+		if (shown.has("reply")) bits.push('<div class="alert alert-primary mb-0">افزودن ReplySheet فقط به تهیه‌کننده سند VPIS نشان داده می‌شود.</div>');
+		if (!rule) bits.push('<div class="alert alert-secondary mb-0">در این وضعیت فقط تاریخچه دیده می‌شود.</div>');
+		if (rule && rule.actor !== actor) bits.push('<div class="alert alert-secondary mb-0">این کاربر نقش لازم را ندارد. فقط تاریخچه فعال است.</div>');
+		notes.innerHTML = bits.join("");
+	}
+
+	function renderFlow() {
+		const flow = q("flowList");
+		flow.innerHTML = RULES.map(function (rule, index) {
+			const last = index === RULES.length - 1;
+			const codes = rule.statuses.map(function (code) { return '<span class="df-tag">' + code + '</span>'; }).join("");
+			const loop = rule.loop ? '<div class="df-loop">' + rule.loop + '</div>' : "";
+			const btnLabels = buttonsForStatus(rule.statuses[0]).map(buttonTitle).join(" · ");
+			return '<div class="df-step ' + rule.tone + '" data-status="' + rule.statuses[0] + '" data-rule="' + rule.id + '">' +
+				'<div class="df-rail"><div class="df-dot"></div>' + (last ? "" : '<div class="df-stem"></div>') + '</div>' +
+				'<div class="card border mb-3"><div class="card-body py-4"><strong>' + rule.title + '</strong>' +
+				'<div class="d-flex flex-wrap gap-2 mt-2">' + codes + '<span class="df-tag">' + rule.actorLabel + '</span><span class="df-tag">' + btnLabels + '</span></div></div></div></div>' + loop;
+		}).join("") + '<div class="df-loop">بدون دکمه عملیاتی: RejectByDcc، ApproveByClient، و خود وضعیت ReplaySheet.</div>';
+
+		flow.querySelectorAll(".df-step").forEach(function (el) {
+			el.addEventListener("click", function () {
+				statusPick.value = el.dataset.status;
+				modePick.value = "normal";
+				root.querySelectorAll(".df-step").forEach(function (s) { s.classList.remove("active"); });
+				el.classList.add("active");
+				showSide(el.dataset.rule);
+				renderSim();
+			});
+		});
+	}
+
+	function showSide(ruleId) {
+		const rule = RULES.find(function (item) { return item.id === ruleId; });
+		q("sideTitle").textContent = rule.title;
+		const commentHtml = rule.comments.length
+			? '<ul class="df-comment-list">' + rule.comments.map(function (item) {
+				return '<li><span>' + item.name + '<br><span class="df-mono">' + item.code + '</span></span><span class="df-tag">' + item.next + '</span></li>';
+			}).join("") + '</ul>'
+			: '<p class="text-muted">در این مرحله افزودن کامنت فعال نیست.</p>';
+		q("sideBody").innerHTML =
+			'<p><b>دکمه:</b> ' + buttonsForStatus(rule.statuses[0]).map(buttonTitle).join(" · ") + '</p>' +
+			'<p><b>چه کسی:</b> ' + rule.actorLabel + '</p>' +
+			'<p><b>تاریخچه:</b> همیشه، برای همه</p>' +
+			(rule.note ? '<div class="alert alert-warning">' + rule.note + '</div>' : '') +
+			'<div><strong>انتخاب داخل کامنت</strong>' + commentHtml + '</div>';
+	}
+
+	function renderMatrix() {
+		const rows = [];
+		RULES.forEach(function (rule) {
+			rule.statuses.forEach(function (code) {
+				const comment = rule.comments.length
+					? rule.comments.map(function (item) { return '<span class="df-mono">' + item.code + '</span>'; }).join(" ، ")
+					: "—";
+				rows.push('<tr class="df-clickable" data-status="' + code + '"><td><b>' + STATUSES[code] + '</b><br><span class="df-mono">' + code + '</span></td><td>' +
+					buttonsForStatus(code).map(buttonTitle).join(" · ") + '<br><span class="text-muted fs-7">به‌علاوه تاریخچه</span></td><td>' +
+					rule.actorLabel + '</td><td>' + comment + '</td></tr>');
+			});
+		});
+		GAPS.forEach(function (code) {
+			rows.push('<tr class="bg-light"><td><b>' + STATUSES[code] + '</b><br><span class="df-mono">' + code + '</span></td><td>فقط تاریخچه</td><td>قانون دکمه نوشته نشده</td><td>—</td></tr>');
+		});
+		rows.push('<tr class="bg-light"><td><b>بعد از ایجاد ریویژن جدید</b></td><td>ذخیره و بستن</td><td>فقط تهیه‌کننده سند VPIS</td><td>ذخیره به Issue می‌رود</td></tr>');
+		const body = q("matrixBody");
+		body.innerHTML = rows.join("");
+		body.querySelectorAll("tr[data-status]").forEach(function (row) {
+			row.addEventListener("click", function () {
+				statusPick.value = row.dataset.status;
+				modePick.value = "normal";
+				renderSim();
+				q("sec-sim").scrollIntoView({ behavior: "smooth", block: "start" });
+			});
+		});
+	}
+
+	q("legendButtons").innerHTML = BUTTONS.map(function (btn) {
+		let hint = "فقط در وضعیت خودش";
+		if (btn.id === "history") hint = "همیشه";
+		else if (btn.cls === "ghost") hint = "در این قوانین مخفی";
+		else if (btn.id === "reply" || btn.id === "newRevision") hint = "فقط تهیه‌کننده";
+		else if (btn.id === "transmittal") hint = "فقط DCC · بعد از تایید DCC";
+		return '<span class="df-pill ' + (btn.cls === "ghost" ? "ghost" : btn.cls) + '">' + btn.title + '<span style="font-weight:500;opacity:.85"> · ' + hint + '</span></span>';
+	}).join("");
+
+	statusOptions();
+	renderFlow();
+	renderMatrix();
+	showSide("rule-producer");
+	root.querySelector('.df-step[data-rule="rule-producer"]').classList.add("active");
+	statusPick.addEventListener("change", function () { modePick.value = "normal"; renderSim(); });
+	actorPick.addEventListener("change", renderSim);
+	modePick.addEventListener("change", renderSim);
+	renderSim();
+</script>

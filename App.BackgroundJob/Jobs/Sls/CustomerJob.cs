@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace App.BackgroundJob.Jobs.Sls
 {
-	public class CustomerJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork)
+	public class CustomerJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork, ApplicationDbContext db)
 	{
 
 		[JobHandler("افزودن مشتریان از راهکاران")]
@@ -134,6 +134,9 @@ namespace App.BackgroundJob.Jobs.Sls
 				}
 
 				await unitOfWork.SaveChangesAsync(cn);
+
+				var industryRows = await db.Database.ExecuteSqlRawAsync(SyncIndustryFromHtsSql, cn);
+				await jobLogger?.LogInfoAsync($"صنعت مشتری از شرکت HTS به‌روز شد: {industryRows}", cn);
 				await jobLogger?.LogInfoAsync("همگام‌سازی مشتریان با موفقیت انجام شد", cn);
 			}
 			catch (Exception ex)
@@ -142,6 +145,28 @@ namespace App.BackgroundJob.Jobs.Sls
 				throw;
 			}
 		}
+
+		/// <summary>
+		/// مثل چاپ قدیمی: نوع صنعت از Gnr_ManCompany.IndustryHdr شرکت مشتری (Party.HamkaranId = Hamkaran_ManCompany_FK).
+		/// </summary>
+		private const string SyncIndustryFromHtsSql = """
+			UPDATE c
+			SET c.IndustryId = ind.Id
+			FROM SLS.Customer c
+			INNER JOIN Gnr.Party p ON p.Id = c.PartyId
+			OUTER APPLY (
+				SELECT TOP (1) mc.IndustryHdr_FK
+				FROM [TMS].[TotalSystem].[dbo].[Gnr_ManCompany] mc
+				WHERE p.HamkaranId IS NOT NULL
+				  AND mc.Hamkaran_ManCompany_FK IS NOT NULL
+				  AND mc.Hamkaran_ManCompany_FK <> 0
+				  AND CAST(mc.Hamkaran_ManCompany_FK AS BIGINT) = p.HamkaranId
+				  AND mc.IndustryHdr_FK IS NOT NULL
+				ORDER BY mc.ManCompany_ID
+			) mc
+			INNER JOIN Gnr.PartyIndustry ind ON ind.Code = CAST(mc.IndustryHdr_FK AS BIGINT)
+			WHERE c.IndustryId IS NULL OR c.IndustryId <> ind.Id;
+			""";
 
 		private class AddCustomerDto
 		{

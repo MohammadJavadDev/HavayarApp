@@ -91,13 +91,12 @@
 						</li>
 					</div>
 					<div id="pagesContainer">
-						 <div class="tab-pane fade " data-sys="system-tab"  id="dashbordContent">
-							<div class="row mb-4">
-								<div class="col-md-6">
+						 <div class="tab-pane fade havayar-home" data-sys="system-tab" id="dashbordContent">
+							<div class="havayar-home__toolbar">
+								<label class="havayar-home__picker" for="selectDashbords">
+									<span>داشبورد تخصصی</span>
 									<select class="form-select" id="selectDashbords">
-										<option value="0">
-											انتخاب کنید
-										</option>
+										<option value="0">نمایش خانه</option>
 										@foreach(var r in dashbords)
 										{
 											var optionValue = r.Type == "stimulsoft" ? $"stimulsoft:{r.Id}" : $"page:{r.Url}";
@@ -106,7 +105,29 @@
 											</option>
 										}
 									</select>
+								</label>
+							</div>
+							<div id="dashboardWorkCardsHost" class="havayar-home__section">
+								<div class="dwc-head">
+									<h2 class="dwc-head__title">کارهای منتظر</h2>
+									<button type="button" class="btn btn-sm dwc-head__refresh" id="dashboardWorkCardsRefresh" title="بروزرسانی تعدادها">
+										<i class="fas fa-sync-alt" aria-hidden="true"></i>
+										بروزرسانی
+									</button>
 								</div>
+								<div id="dashboardWorkCardsSlots"></div>
+							</div>
+							<div id="dashboardFavPagesHost" class="havayar-home__section">
+								<div class="dfp-head">
+									<h2 class="dfp-head__title">صفحات پرکاربرد</h2>
+								</div>
+								<div class="dfp-row" id="dashboardFavPagesSlots" role="list"></div>
+							</div>
+							<div id="dashboardRecentPagesHost" class="havayar-home__section">
+								<div class="dfp-head">
+									<h2 class="dfp-head__title">آخرین صفحات</h2>
+								</div>
+								<div class="dfp-row" id="dashboardRecentPagesSlots" role="list"></div>
 							</div>
 							<div id="dashbordRenderArea"></div>
 						</div> 

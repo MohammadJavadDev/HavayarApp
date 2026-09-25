@@ -1,0 +1,37 @@
+@using Entities.App.Cng
+@model WorkReportConsumedPart
+@{
+	Layout = null;
+}
+
+<input type="hidden" data-bind="id" value="@Model?.Id" />
+<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+
+<div class="row g-3">
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold">شماره فرم حواله</label>
+		<select class="form-select" data-bind="saleOrderId">
+			<option value="">انتخاب کنید</option>
+		</select>
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold required">کالا</label>
+		<select class="form-select" data-bind="partId" data-required="true">
+			<option value="">انتخاب کنید</option>
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label class="form-label fw-bold required">مقدار</label>
+		<input class="form-control ltr" type="number" step="any" data-bind="mount" data-required="true" value="@Model?.Mount" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label class="form-label fw-bold">وضعیت داغی</label>
+		<input class="form-control" data-bind="hotnessCondition" value="@Model?.HotnessCondition" />
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold">توضیح</label>
+		<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+	</div>
+</div>

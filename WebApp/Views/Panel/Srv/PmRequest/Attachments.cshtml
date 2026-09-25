@@ -1,0 +1,168 @@
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="srvPmRequestAttachmentCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">پیوست مدارک</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newPmRequestAttachment">جدید</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="srvPmRequestAttachmentTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>نام فایل</th>
+					<th>حجم</th>
+					<th>توضیحات</th>
+					<th>تاریخ</th>
+					<th>ساعت</th>
+					<th>ایجادکننده</th>
+					<th style="width:120px;" class="text-center">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	(function () {
+		const pmRequestAttachmentParentId = @parentId;
+		const pmRequestBaseUrl = '/Panel/Srv/PmRequest';
+		const maxAttachmentCount = 3;
+		const maxAttachmentKb = 1024;
+		const $card = $('#srvPmRequestAttachmentCard');
+		if (!$card.length || $card.data('inited')) return;
+		$card.data('inited', true);
+
+		const ajaxPost = (typeof $$ !== 'undefined' && $$.post) ? $$.post : post;
+		const pmRequestAttachmentTable = $card.find('#srvPmRequestAttachmentTable').DataTable({
+			serverSide: false,
+			autoWidth: false,
+			pageLength: 10,
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			ajax: {
+				url: pmRequestBaseUrl + '/GetAttachments?pmRequestId=' + pmRequestAttachmentParentId,
+				type: 'GET',
+				dataSrc: function (json) {
+					if (json && json.isSuccess === false) {
+						toastr.error(json.message || 'خطا در دریافت اطلاعات');
+						return [];
+					}
+					return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+				}
+			},
+			columns: [
+				{ data: 'fileName', defaultContent: '-' },
+				{ data: 'fileSize', defaultContent: '-' },
+				{ data: 'comment', defaultContent: '-' },
+				{ data: 'createdDate', defaultContent: '-' },
+				{ data: 'createdTime', defaultContent: '-' },
+				{ data: 'createdByName', defaultContent: '-' },
+				{
+					data: 'id',
+					orderable: false,
+					className: 'text-center',
+					render: function (id) {
+						return '<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="viewPmRequestAttachment" data-id="' + id + '" title="مشاهده"><i class="fa fa-eye"></i></button> '
+							+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deletePmRequestAttachment" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+					}
+				}
+			]
+		});
+
+		function openNewPmRequestAttachmentModal() {
+			const existingCount = pmRequestAttachmentTable.rows().count();
+			if (existingCount >= maxAttachmentCount) {
+				toastr.error('حداکثر ۳ پیوست برای هر درخواست مجاز است', 'خطا');
+				return;
+			}
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(
+				'<div class="row g-3">'
+				+ '<div class="col-md-12 form-group-inline"><label class="form-label fw-bold required">توضیحات</label>'
+				+ '<textarea class="form-control" data-bind="comment" data-required="true" rows="2"></textarea>'
+				+ '<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>'
+				+ '<div class="col-md-12 form-group-inline"><label class="form-label fw-bold required">فایل</label>'
+				+ '<input type="file" class="form-control" id="pmRequestAttachmentFile" data-required="true" />'
+				+ '<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>'
+				+ '</div>'
+			);
+			$.confirm({
+				title: 'افزودن پیوست',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const fileInput = $content.find('#pmRequestAttachmentFile')[0];
+							const file = fileInput && fileInput.files && fileInput.files[0];
+							if (!file) {
+								toastr.error('فایل اجباری است', 'خطا');
+								return false;
+							}
+							if (Math.ceil(file.size / 1024) > maxAttachmentKb) {
+								toastr.error('حجم فایل بیش از حد مجاز است', 'خطا');
+								return false;
+							}
+							const comment = ($content.find('[data-bind="comment"]').val() || '').trim();
+							if (!comment) {
+								toastr.error('توضیحات اجباری است', 'خطا');
+								return false;
+							}
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							const reader = new FileReader();
+							reader.onload = function (e) {
+								ajaxPost(pmRequestBaseUrl + '/SaveAttachment', {
+									pmRequestId: pmRequestAttachmentParentId,
+									comment: comment,
+									fileName: file.name,
+									fileBase64: e.target.result
+								}, function (resp) {
+									$saveBtn.block(false);
+									if (!resp.isSuccess) {
+										toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+										return;
+									}
+									toastr.success('ذخیره سازی با موفقیت انجام شد');
+									selfConfirm.close();
+									pmRequestAttachmentTable.ajax.reload(null, false);
+								});
+							};
+							reader.onerror = function () {
+								$saveBtn.block(false);
+								toastr.error('خطا در خواندن فایل', 'خطا');
+							};
+							reader.readAsDataURL(file);
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				}
+			});
+		}
+
+		$card.on('click', '[data-action="newPmRequestAttachment"]', function () {
+			openNewPmRequestAttachmentModal();
+		});
+		$card.on('click', '[data-action="viewPmRequestAttachment"]', function () {
+			const id = $(this).data('id');
+			window.open(pmRequestBaseUrl + '/ViewAttachment?id=' + id, '_blank');
+		});
+		$card.on('click', '[data-action="deletePmRequestAttachment"]', function () {
+			const id = $(this).data('id');
+			Swal.fire({ title: 'حذف', text: 'آیا از حذف این پیوست مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+				.then(function (result) {
+					if (!result.isConfirmed) return;
+					ajaxPost(pmRequestBaseUrl + '/DeleteAttachment?id=' + id, {}, function (r) {
+						if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+						toastr.success('رکورد با موفقیت حذف شد');
+						pmRequestAttachmentTable.ajax.reload(null, false);
+					});
+				});
+		});
+	})();
+</script>

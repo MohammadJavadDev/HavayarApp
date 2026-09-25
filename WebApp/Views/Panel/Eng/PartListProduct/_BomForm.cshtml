@@ -1,0 +1,45 @@
+@using Entities.App.Inv
+@using Entities.Base
+@model Entities.App.Eng.PartListProductBom
+@{
+	Layout = null;
+}
+<div class="partlist-bom-form">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="productId" value="@Model?.ProductId" />
+	<input type="hidden" data-bind="productSectionId" value="@Model?.ProductSectionId" />
+	<div class="row g-3">
+		<div class="col-md-12 form-group-inline">
+			<label>کالا</label>
+			@(Html.EntitySelector<Part>(
+				"PartListBomPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"partId",
+				"partName",
+				Model?.PartId > 0 ? Model.PartId.ToString() : null
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>مقدار</label>
+			<input type="text" class="form-control" data-bind="qty" value="@Model?.Qty" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ترتیب</label>
+			<input type="number" class="form-control" data-bind="order" value="@Model?.Order" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>غیرفعال</label>
+			<input type="checkbox" data-bind="isIgnored" @(Model?.IsIgnored == true ? "checked" : "") />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>توضیحات</label>
+			<textarea class="form-control" data-bind="comment">@Model?.Comment</textarea>
+		</div>
+	</div>
+</div>

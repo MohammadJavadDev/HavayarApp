@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Update_OpenOrderRequest_DataProfiles_EmailToSupplier.sql  (WP1 / D22 / D41)
 ================================================================================
@@ -58,6 +58,18 @@ DECLARE @ScriptSendToSupplier NVARCHAR(MAX) = N'function(ctx) {
         toastr.warning("لطفاً حداقل یک ردیف انتخاب کنید");
         return;
     }
+    var rows = (ctx.selectedRows && ctx.selectedRows.length) ? ctx.selectedRows
+        : (ctx.selectedRow ? [ctx.selectedRow] : []);
+    var hasCompany = rows.some(function (d) {
+        return d.tCo_IsHasCompany === true || d.tCo_IsHasCompany === 1 || d.tCo_IsHasCompany === "true" || d.tCo_IsHasCompany === "بله"
+            || d.t1_ManCompanyId
+            || (d.tCo_CompanyNames && String(d.tCo_CompanyNames).trim())
+            || (d.t12_FullName && String(d.t12_FullName).trim());
+    });
+    if (!hasCompany) {
+        toastr.warning("برای ارسال به پیمانکار، ردیف انتخاب‌شده باید شرکت/تامین‌کننده داشته باشد");
+        return;
+    }
     if (!AppSdk.hasRole("Sup.OpenOrderRequest.ConfigManage") && !AppSdk.hasRole("SupplyAndPurchase")) {
         toastr.error("شما دسترسی ارسال به پیمانکار را ندارید");
         return;
@@ -103,6 +115,25 @@ DECLARE @ScriptSendToSupplier NVARCHAR(MAX) = N'function(ctx) {
             }
         });
     });
+}';
+
+DECLARE @OnSelectedSendToSupplier NVARCHAR(MAX) = N'function(ctx) {
+    var $btn = (ctx.dataActionBtns && ctx.dataActionBtns.sendToSupplier)
+        || (ctx.$toolbar && ctx.$toolbar.find("[data-action=\"sendToSupplier\"]"));
+    if (!$btn || !$btn.length) return;
+    var rows = (ctx.selectedRows && ctx.selectedRows.length) ? ctx.selectedRows
+        : (ctx.selectedRow && !ctx.isDeselect ? [ctx.selectedRow] : []);
+    if (!rows.length) {
+        $btn.prop("disabled", true);
+        return;
+    }
+    var hasCompany = rows.some(function (d) {
+        return d.tCo_IsHasCompany === true || d.tCo_IsHasCompany === 1 || d.tCo_IsHasCompany === "true" || d.tCo_IsHasCompany === "بله"
+            || d.t1_ManCompanyId
+            || (d.tCo_CompanyNames && String(d.tCo_CompanyNames).trim())
+            || (d.t12_FullName && String(d.t12_FullName).trim());
+    });
+    $btn.prop("disabled", !hasCompany);
 }';
 
 DECLARE @BtnSendToSupplier NVARCHAR(MAX) = (
@@ -241,6 +272,24 @@ BEGIN TRY
             ModifiedDateMiladiDateTime = @Now, ModifiedDateShamsiDateTime = @NowShamsi
         WHERE Name = N'vw_openRequestConfig';
         PRINT N'  دکمه «ارسال به پیمانکار» به vw_openRequestConfig اضافه شد';
+    END
+
+    -- فعال‌شدن دکمه مثل صفحه 76: ردیف انتخاب‌شده + داشتن شرکت (IsHasCompany / ManCompany)
+    DECLARE @ConfigEv NVARCHAR(MAX);
+    SELECT @ConfigEv = EventScriptsJson FROM system.SavedQuery WHERE Name = N'vw_openRequestConfig';
+    IF @ConfigEv IS NOT NULL AND ISJSON(@ConfigEv) = 1
+    BEGIN
+        IF LEFT(LTRIM(@ConfigEv), 1) = N'['
+            SET @ConfigEv = JSON_MODIFY(@ConfigEv, N'$[0].onSelectedRow', @OnSelectedSendToSupplier);
+        ELSE
+            SET @ConfigEv = JSON_MODIFY(@ConfigEv, N'$.onSelectedRow', @OnSelectedSendToSupplier);
+
+        UPDATE system.SavedQuery
+        SET EventScriptsJson = @ConfigEv,
+            ModifiedById = 1, ModifiedByName = @SeedUser,
+            ModifiedDateMiladiDateTime = @Now, ModifiedDateShamsiDateTime = @NowShamsi
+        WHERE Name = N'vw_openRequestConfig';
+        PRINT N'  onSelectedRow فعال‌سازی ارسال به پیمانکار روی vw_openRequestConfig تنظیم شد';
     END
 
     COMMIT TRANSACTION;

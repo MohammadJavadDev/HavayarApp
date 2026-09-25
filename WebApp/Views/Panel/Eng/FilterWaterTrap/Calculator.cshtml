@@ -1,0 +1,277 @@
+@{
+	ViewBag.Title = "Filter & WaterTrap";
+}
+
+<style>
+	#filterWaterTrapPage {
+		direction: ltr;
+		text-align: left;
+	}
+
+	#filterWaterTrapPage .fwt-block {
+		border: 1px solid #b9b9b9;
+		border-radius: 15px;
+		padding: 12px;
+		margin-bottom: 1rem;
+	}
+
+	#filterWaterTrapPage .fwt-inputs {
+		display: grid;
+		gap: 0.35rem;
+		max-width: 260px;
+	}
+
+	#filterWaterTrapPage .fwt-results h5,
+	#filterWaterTrapPage .fwt-results h6 {
+		margin-bottom: 0.35rem;
+	}
+
+	#filterWaterTrapPage .resultlabel {
+		margin-left: 12px;
+		color: green;
+		font-weight: bold;
+		vertical-align: inherit;
+	}
+
+	#filterWaterTrapPage .fwt-diagram {
+		max-width: 280px;
+		width: 100%;
+		height: auto;
+	}
+</style>
+
+<div id="filterWaterTrapPage" dir="ltr">
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Filter &amp; WaterTrap</h3>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Water Trap Sizing</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3 align-items-start">
+				<div class="col-md-3">
+					<div class="fwt-block fwt-inputs">
+						<label for="wtFlowRate">FlowRate(Nm^3/hr)</label>
+						<input id="wtFlowRate" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="wtPressure">Pressure(Barg)</label>
+						<input id="wtPressure" class="form-control ltr" type="text" autocomplete="off" />
+						<button type="button" class="btn btn-primary mt-2" id="wtBtnCalculate" data-action="wtCalculate">Calculate</button>
+					</div>
+				</div>
+				<div class="col-md-5">
+					<div class="fwt-block fwt-results">
+						<h4>Technical Data</h4>
+						<h5>Model: <span id="wtModel" class="resultlabel"></span></h5>
+						<h5>Dimension (mm)</h5>
+						<h6>A: <span id="wtA" class="resultlabel"></span></h6>
+						<h6>B: <span id="wtB" class="resultlabel"></span></h6>
+						<h6>C: <span id="wtC" class="resultlabel"></span></h6>
+						<h6>D: <span id="wtD" class="resultlabel"></span></h6>
+						<h5>Mass</h5>
+						<h6>Kg: <span id="wtKg" class="resultlabel"></span></h6>
+					</div>
+				</div>
+				<div class="col-md-4">
+					<img class="fwt-diagram" src="~/images/eng/watertrap.png" alt="Water Trap" onerror="this.style.display='none'" />
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Filter Selection Sizing</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3 align-items-start">
+				<div class="col-md-3">
+					<div class="fwt-block fwt-inputs">
+						<label for="fsFlowRate">FlowRate(Nm^3/hr):</label>
+						<input id="fsFlowRate" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="fsPressure">Pressure(Barg)</label>
+						<input id="fsPressure" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="fsParticleClass">Particle Class:</label>
+						<input id="fsParticleClass" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="fsOilClass">Oil Class:</label>
+						<input id="fsOilClass" class="form-control ltr" type="text" autocomplete="off" />
+						<button type="button" class="btn btn-primary mt-2" id="fsBtnCalculate" data-action="fsCalculate">Calculate</button>
+					</div>
+				</div>
+				<div class="col-md-5">
+					<div class="fwt-block fwt-results">
+						<h4>Technical Data</h4>
+						<h6>Pre-Filter Element <span id="fsPreFilterElement" class="resultlabel"></span></h6>
+						<h6>After-Filter Element <span id="fsAfterFilterElement" class="resultlabel"></span></h6>
+						<h6>Pre-Filter type <span id="fsPreFilterType" class="resultlabel"></span></h6>
+						<h6>After-Filter type <span id="fsAfterFilterType" class="resultlabel"></span></h6>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">Calculation for sizing HDT</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3 align-items-start">
+				<div class="col-md-3">
+					<div class="fwt-block fwt-inputs">
+						<label for="hdtMinPressure">Minimum inlet pressure(barg):</label>
+						<input id="hdtMinPressure" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="hdtAirTemp">Inlet air temperature(°C):</label>
+						<input id="hdtAirTemp" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="hdtNominalFlow">Nominal Flow "Q"(Nm3/hr):</label>
+						<input id="hdtNominalFlow" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="hdtAllowance">Corrosion Allowance C.A.:</label>
+						<input id="hdtAllowance" class="form-control ltr" type="text" autocomplete="off" />
+						<label for="hdtDewPoint">Required presserized Dew Point(°C):</label>
+						<input id="hdtDewPoint" class="form-control ltr" type="text" autocomplete="off" />
+						<button type="button" class="btn btn-primary mt-2" id="hdtBtnCalculate" data-action="hdtCalculate">Calculate</button>
+						<button type="button" class="btn btn-light-primary mt-2" id="hdtBtnExport" data-action="hdtExport">ExportToExcel</button>
+					</div>
+				</div>
+				<div class="col-md-5">
+					<div class="fwt-block fwt-results">
+						<h4>Model</h4>
+						<h3><span id="hdtModel" class="resultlabel"></span></h3>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const urls = {
+		waterTrap: '/Panel/Eng/FilterWaterTrap/WaterTrapCalculation',
+		filter: '/Panel/Eng/FilterWaterTrap/FilterSelectionCalculation',
+		hdt: '/Panel/Eng/FilterWaterTrap/HdtSelectionCalculation',
+		hdtExport: '/Panel/Eng/FilterWaterTrap/HdtToExcelFile'
+	};
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return response?.message || response?.Message || 'Request failed.';
+	}
+
+	function setBusy($btn, busy) {
+		$btn.prop('disabled', !!busy);
+		if (busy) $btn.block();
+		else $btn.block(false);
+	}
+
+	page.$pageEl.on('click', '[data-action="wtCalculate"]', function () {
+		const $btn = $(this);
+		setBusy($btn, true);
+		$$.post(urls.waterTrap, {
+			flowrate: $$('#wtFlowRate').val(),
+			pressure: $$('#wtPressure').val()
+		}, function (r) {
+			setBusy($btn, false);
+			if (!r || r.isSuccess === false) {
+				toastr.error(errorMessage(r), 'Water Trap');
+				return;
+			}
+			const d = unwrap(r) || {};
+			$$('#wtModel').text(d.model ?? '');
+			$$('#wtA').text(d.a ?? '');
+			$$('#wtB').text(d.b ?? '');
+			$$('#wtC').text(d.c ?? '');
+			$$('#wtD').text(d.d ?? '');
+			$$('#wtKg').text(d.kg ?? '');
+			toastr.success('Calculation completed.', 'Water Trap');
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="fsCalculate"]', function () {
+		const $btn = $(this);
+		setBusy($btn, true);
+		$$.post(urls.filter, {
+			flowrate: $$('#fsFlowRate').val(),
+			pressure: $$('#fsPressure').val(),
+			particleClass: $$('#fsParticleClass').val(),
+			oilClass: $$('#fsOilClass').val()
+		}, function (r) {
+			setBusy($btn, false);
+			if (!r || r.isSuccess === false) {
+				toastr.error(errorMessage(r), 'Filter');
+				return;
+			}
+			const d = unwrap(r) || {};
+			$$('#fsPreFilterElement').text(d.preFilterElement ?? '');
+			$$('#fsAfterFilterElement').text(d.afterFilterElement ?? '');
+			const preType = [d.preFilterType, d.preFilterTypeDes].filter(Boolean).join(' | ');
+			const afterType = [d.afterFilterType, d.afterFilterTypeDes].filter(Boolean).join(' | ');
+			$$('#fsPreFilterType').text(preType);
+			$$('#fsAfterFilterType').text(afterType);
+			toastr.success('Calculation completed.', 'Filter');
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="hdtCalculate"]', function () {
+		const $btn = $(this);
+		setBusy($btn, true);
+		$$.post(urls.hdt, {
+			minPressure: $$('#hdtMinPressure').val(),
+			airTemp: $$('#hdtAirTemp').val(),
+			nominalFlow: $$('#hdtNominalFlow').val(),
+			allowance: $$('#hdtAllowance').val(),
+			dewPoint: $$('#hdtDewPoint').val()
+		}, function (r) {
+			setBusy($btn, false);
+			if (!r || r.isSuccess === false) {
+				toastr.error(errorMessage(r), 'HDT');
+				return;
+			}
+			const d = unwrap(r) || {};
+			$$('#hdtModel').text(d.hdtModel ?? '');
+			toastr.success('Calculation completed.', 'HDT');
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="hdtExport"]', async function () {
+		const $btn = $(this);
+		setBusy($btn, true);
+		try {
+			const response = await fetch(urls.hdtExport, {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: { 'Content-Type': 'application/json' },
+				body: '{}'
+			});
+			const contentType = (response.headers.get('content-type') || '').toLowerCase();
+			if (!response.ok || contentType.indexOf('application/json') >= 0) {
+				let message = 'HDT export failed.';
+				try {
+					const payload = await response.json();
+					message = errorMessage(payload) || message;
+				} catch (e) { }
+				toastr.error(message, 'HDT');
+				return;
+			}
+			const blob = await response.blob();
+			const downloadUrl = window.URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = downloadUrl;
+			link.download = 'HDT.xlsx';
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			window.URL.revokeObjectURL(downloadUrl);
+			toastr.success('HDT.xlsx downloaded.', 'HDT');
+		} catch (e) {
+			toastr.error('HDT export failed.', 'HDT');
+		} finally {
+			setBusy($btn, false);
+		}
+	});
+</script>

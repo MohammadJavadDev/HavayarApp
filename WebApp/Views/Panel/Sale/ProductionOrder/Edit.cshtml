@@ -18,12 +18,18 @@
 	var canObsolete = isAdmin || sdk.HasRole("Sale.ProductionOrder.Obsolete");
 
 	var delays = ViewBag.ProductionOrderDelayViewData as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
+	var showObsolete = canObsolete && Model?.State == ProductionOrderStateEnum.FinancialApproval;
 }
 <div class="card">
 	<div class="form-action-buttons">
 		<form-action-buttons entity-type="typeof(ProductionOrder)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-print"
+				action-name="printProductionOrder" title="چاپ سفارش ساخت"></form-action-button>
+			@if (showObsolete)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-dark" icon-class="fa fa-ban"
 				action-name="obsolete" title="منسوخ کردن"></form-action-button>
+			}
 		</form-action-buttons>
 	</div>
 </div>
@@ -239,7 +245,7 @@
 								{
 									Id = c.Id, Party_FullName = c.Party.FullName
 								},
-								c => new { c.Party },
+								c => new { c.Party.FullName },
 								"{Party.FullName}",
 								"SalesAgencyId",
 								"SalesAgencyName",
@@ -667,18 +673,16 @@
 		self.FormActionButtons.save.element.disabled = false;
 		self.FormActionButtons.saveandclose.element.disabled = false;
 		self.FormActionButtons.history.element.disabled = false;
-
-		// وضعیت‌های ProductionOrderStateEnum: Submit=1, FinancialUnitReview=2, FinancialApproval=3, Obsolete=4
-		// تایید مالی فقط از راهکاران (Job) انجام می‌شود؛ منسوخ‌سازی فقط روی سفارش تایید مالی شده (مثل HTS گروه 77)
-		if (permissions.canObsolete && productionOrder.state == 3) {
-			self.FormActionButtons.obsolete.element.disabled = false;
+		if (self.FormActionButtons.printProductionOrder) {
+			const existingId = page.$pageEl.find('[data-bind="id"]').val();
+			self.FormActionButtons.printProductionOrder.element.disabled = !(existingId && existingId !== '0');
 		}
 	}
 
 	initializePage()
 
 	//#region Obsolete
-	self.FormActionButtons.obsolete.onclick(function () {
+	self.FormActionButtons.obsolete && self.FormActionButtons.obsolete.onclick(function () {
 		const id = page.$pageEl.find('[data-bind="id"]').val();
 		if (!id || id == '0') {
 			toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
@@ -731,6 +735,17 @@
 				page.$pageEl.dataBind(r.data);
 				$btnAction.baseaction();
 			})
+	}
+
+	if (self.FormActionButtons.printProductionOrder) {
+		self.FormActionButtons.printProductionOrder.onclick(function () {
+			const id = page.$pageEl.find('[data-bind="id"]').val();
+			if (!id || id === '0') {
+				toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
+				return;
+			}
+			appController.addPage('/System/ReportBuilder/ViewReportByName/ProductionOrderForm?productionOrderId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+		});
 	}
 
 	self.FormActionButtons.save.onclick(function () { savefn(this) })

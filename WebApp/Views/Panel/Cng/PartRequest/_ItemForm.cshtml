@@ -1,0 +1,77 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@using Entities.App.Inv
+@using Entities.Base
+@model PartRequestItem?
+
+<div class="part-request-item-form">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="htsId" value="@(Model?.HtsId ?? 0)" />
+	<div class="row g-3">
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold required">کالا</label>
+			@(Html.EntitySelector<Part>(
+				"PartRequestItemPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} {Name}",
+				"partId",
+				"partTitle",
+				Model?.PartId > 0 ? Model.PartId.ToString() : null,
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">تعداد</label>
+			<input class="form-control" type="number" step="0.01" min="0" data-bind="mount" data-required="true"
+				value="@(Model?.Mount > 0 ? Model.Mount.ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">موجودی آزاد</label>
+			<span class="form-control-plaintext text-danger fw-bold" data-role="freeStock">—</span>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">محل مصرف</label>
+			<select class="form-select" data-bind="usagePlaceId" data-required="true">
+				<option value="">انتخاب کنید</option>
+				@if (Model?.UsagePlaceId == PartRequestUsagePlaceEnum.WarehouseCharge)
+				{
+					<option value="@((int)PartRequestUsagePlaceEnum.WarehouseCharge)" selected>شارژ انبار</option>
+				}
+				else
+				{
+					<option value="@((int)PartRequestUsagePlaceEnum.WarehouseCharge)">شارژ انبار</option>
+				}
+				@if (Model?.UsagePlaceId == PartRequestUsagePlaceEnum.Station)
+				{
+					<option value="@((int)PartRequestUsagePlaceEnum.Station)" selected>جایگاه</option>
+				}
+				else
+				{
+					<option value="@((int)PartRequestUsagePlaceEnum.Station)">جایگاه</option>
+				}
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline" data-role="stationRow">
+			<label class="form-label fw-bold">جایگاه</label>
+			@(Html.EntitySelector<StationInfo>(
+				"PartRequestItemStationSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, StationTitle = c.StationTitle },
+				c => new { c.StationTitle },
+				"{StationTitle}",
+				"stationId",
+				"stationTitle",
+				Model?.StationId?.ToString()
+			))
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold">کامنت</label>
+			<textarea class="form-control" data-bind="comment" rows="3">@Model?.Comment</textarea>
+		</div>
+	</div>
+</div>

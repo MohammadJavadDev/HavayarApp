@@ -55,27 +55,10 @@ always emit the full shape, using `null`/`false`/`[]` defaults, not missing keys
 | Field | Type | Notes |
 |---|---|---|
 | `TableName` | string | `"Schema.Table"` of the source column, e.g. `"Sale.OrderDetail"`. |
-| `ColumnName` | string | Raw column name in that table, e.g. `"Id"`. |
-| `DisplayName` | string | **Persian** header label — never leave this as the raw English column name. |
+| `ColumnName` | string | In Query-mode seeds, usually the same string as `Alliance` (e.g. `"t1_Id"`). May also be the raw source column name. |
+| `DisplayName` | string | **Persian** header label — never leave this as the raw English column name. Independent of `Alliance`. |
 | `Alliance` | string | The SQL **result** column name (the `AS` alias). DataTables `data`/search key. **Must equal the SELECT output name exactly** — see §3.1. |
 | `Address` | string | The bracketed SQL expression as written in the SELECT list, e.g. `"[t1].[Id]"`. |
-
-### 3.1 Query mode — SELECT name = column `Alliance` (required)
-
-In **Query** mode (`Mode = Query`, hand-written SQL in `CustomQuery`), every field you add in the SELECT list must use the **same name** as that field’s row in the columns table below (`Alliance` / ستون). Preview and the grid bind by that name. If they differ, preview is empty or columns show the wrong values.
-
-The name is the **output** identifier: `AS [alias]` if present, otherwise the bare column name.
-
-| SELECT in query | Columns table (`Alliance` / ستون) | |
-|---|---|---|
-| `[t2].[Code] AS [t2_Code]` | `t2_Code` | ✅ |
-| `[t2].[Code] AS [Code]` | `Code` | ✅ |
-| `[t2].[Code] AS [t2_Code]` | `Code` | ❌ — query is `t2_Code`, column is `Code` |
-| `[t2].[Code]` (no alias) | `Code` | ✅ |
-
-Do not leave Alliance as the raw source column (`Code`) when the query aliases it (`t2_Code`). After editing SQL, take **پیش‌نمایش** and fix any row whose ستون does not match that SELECT name — do not save a mismatch.
-
-Canonical seed shape uses `t1_Id`, `t2_Code`, … in both `CustomQuery` (`AS [t2_Code]`) and `ColumnsJson.Alliance`.
 | `SystemTypeName` / `SystemType` | string / int | See enum table in §4 — keep both fields consistent with each other. |
 | `Visible` | bool | Whether the column shows in the grid (id column is usually `false`). |
 | `PrimaryKey` | bool | Exactly one column (the row identity, usually the first) should be `true`. |
@@ -86,6 +69,43 @@ Canonical seed shape uses `t1_Id`, `t2_Code`, … in both `CustomQuery` (`AS [t2
 | `Render` | string\|null | A JS `function(data, type, row) {...}` **string** (not a real function) — the standard money-formatting one used across every existing profile is: `"function(data, type, row) { if (data == null || data === '') return ''; if (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) return MJUtil.formatMoney(data); return data; }"`. |
 | `IsCustom`, `CustomColType`, `HtmlTemplate`, `BtnConfig`, `InputConfig` | — | Only for custom button/html/input columns — leave `false`/`null` for plain data columns. |
 | `Width`, `Filterable`, `Sortable`, `ClassName` | int / bool / bool / string | UI column-manager defaults — `Filterable`/`Sortable` are `true` by default; `ClassName` is usually `""`. |
+
+### 3.1 Query mode — SELECT alias = `ColumnsJson.Alliance` (required)
+
+In **Query** mode (`Mode = Query`, hand-written SQL in `CustomQuery`), every `ColumnsJson` row’s **`Alliance`** must be the **exact same string** as that column’s SELECT output name (`AS [alias]`, same casing). The Query Designer «ستون» field is `Alliance`. Preview and the grid bind by that name. `DisplayName` is the Persian header and is independent of `Alliance` — never put English property names in `DisplayName`.
+
+| SELECT in query | `Alliance` | |
+|---|---|---|
+| `[t2].[Code] AS [t2_Code]` | `t2_Code` | ✅ |
+| `[t2].[Code] AS [Code]` | `Code` | ✅ |
+| `[t2].[Code] AS [t2_Code]` | `Code` | ❌ |
+| `[t2].[Code]` (no alias) | `Code` | ✅ |
+
+**Must:** after editing SQL, take **پیش‌نمایش** and fix any row whose `Alliance` ≠ SELECT alias — do not save a mismatch. Canonical seeds (`Seed_SaleServiceRequest_DataProfiles.sql`, `Seed_CngBasicInfo_DataProfiles.sql`) use `t1_Id`, `t2_Code`, … in both `AS [t2_Code]` and `Alliance` (and typically set `ColumnName` to the same alias string in Query-mode seeds).
+
+**Must not:** leave `Alliance` as the raw source column (`Code`) when the query aliases it (`t2_Code`); invent a different casing (`T1_Id` vs `t1_Id`).
+
+### 3.2 `--!--mainsection` — split DECLARE/setup from the grid SELECT (required when needed)
+
+`DatabaseSchemaService.ExecuteQueryWithPaginationAsync` splits `CustomQuery` on the exact marker `--!--mainsection` (`SqlStatementHelper.MainSectionMarker`):
+
+- **Before** the marker → run as-is (DECLARE / SET / lookup prep). Prefixed onto COUNT and paginated SQL so it is **not** wrapped inside `SELECT * FROM (… ) AS [__t]`.
+- **After** the marker → the **main grid SELECT** only. Wrapped in the pagination/COUNT subquery. `SqlQueryValidator` requires this part to start with `SELECT`, and the marker may appear **at most once**.
+
+Use the marker **only** when there is non-SELECT setup before the grid query. A plain `SELECT … FROM …` needs **no** marker.
+
+Minimal shape (canonical: `Seed_SaleServiceRequest_DataProfiles.sql` Cartable, `Seed_ProductionOrderItem_MyCartable_DataProfile.sql`):
+
+```sql
+DECLARE @CuId BIGINT = TRY_CAST(@CurrentUserId AS BIGINT);
+DECLARE @HasShowAll BIT = …;
+--!--mainsection
+SELECT [t1].[Id] AS [t1_Id], …
+FROM …
+WHERE @HasShowAll = 1 OR …
+```
+
+**Must not:** put DECLARE inside the main SELECT / CTE only to avoid the marker; omit the marker when DECLARE precedes SELECT (pagination will break); invent alternate spellings (`-- mainsection`, `--!mainsection`).
 
 ## 4. `SystemType` enum (Common/Attributes/DisplayInfoAttribute.cs) — keep `SystemType` (int) and `SystemTypeName` (string) in sync
 
@@ -206,6 +226,8 @@ Seed with `FOR JSON PATH, WITHOUT_ARRAY_WRAPPER` (see `Seed_BpmDocumentSystem_Da
 | Set `RoleAccess.EntityName` to the **Pascal-case** full type name | Reuse `SavedQuery.EntityFullName`'s lowercase value for `RoleAccess.EntityName` |
 | Emit every `QueryColumn` field (use `null`/`false`/`[]` defaults) | Omit fields you think are "unused" — the client-side column manager expects the full shape |
 | Translate `DisplayName` to Persian | Leave `DisplayName` as the raw English `ColumnName` |
+| Keep every `Alliance` identical to the SELECT `AS` alias (§3.1) | Save Alliance ≠ query alias (empty preview / wrong cells) |
+| Split DECLARE/setup with `--!--mainsection` before the grid SELECT (§3.2) | Omit the marker when DECLARE precedes SELECT, or invent another spelling |
 | Use the standard `MJUtil.formatMoney` render string for money columns (copy it verbatim) | Write a new ad-hoc render function per column |
 | Restart the app / clear `DataTableProfileCacheDb` after seeding via SQL | Assume the new profile appears immediately without a cache refresh |
 | Per-row grid coloring/styling in `EventScriptsJson.onRowAdded` | `draw.dt` / `createdRow` / `rowCallback` in a List `.cshtml` |

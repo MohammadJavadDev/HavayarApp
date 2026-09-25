@@ -82,5 +82,37 @@
 			<label>متن نامه</label>
 			<div class="border rounded p-3 bg-light" style="max-height: 40vh; overflow: auto;">@Html.Raw(Model?.Body ?? "-")</div>
 		</div>
+
+		<div class="col-12 mt-3 mb-2">
+			<h5 class="fw-semibold text-dark mb-0">پیوست‌ها (معادل HTS)</h5>
+			<div class="text-muted fs-8">پیوست درخواست باز / پیوست کالا / مدرک مهندسی</div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>پیوست درخواست باز</label>
+			<fileuploader bind="attachmentId"
+						  file-id="@Model?.AttachmentId"
+						  file-entity="@Model?.Attachment"
+						  accepted-file-types=".rar,.zip,.pdf"
+						  show-delete="false"
+						  disabled="true"></fileuploader>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>پیوست کالا</label>
+			<fileuploader bind="partAttachmentId"
+						  file-id="@Model?.PartAttachmentId"
+						  file-entity="@Model?.PartAttachment"
+						  accepted-file-types=".rar,.zip,.pdf"
+						  show-delete="false"
+						  disabled="true"></fileuploader>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>پیوست مدرک مهندسی</label>
+			<fileuploader bind="edmsDocumentAttachmentId"
+						  file-id="@Model?.EdmsDocumentAttachmentId"
+						  file-entity="@Model?.EdmsDocumentAttachment"
+						  accepted-file-types=".rar,.zip,.pdf"
+						  show-delete="false"
+						  disabled="true"></fileuploader>
+		</div>
 	</div>
 </div>

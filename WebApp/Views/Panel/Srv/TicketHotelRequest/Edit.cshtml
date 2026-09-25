@@ -1,0 +1,632 @@
+@using Entities.App.FIN
+@using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.Hcm
+@using Entities.App.Srv
+@using Entities.App.Srv.Enums
+@using Entities.Base
+@model TicketHotelRequest
+@{
+	string MiladiAttr(string? shamsi)
+	{
+		if (string.IsNullOrWhiteSpace(shamsi)) return "";
+		try { return shamsi.ToMiladiDateTimeWithSplitData().ToString("yyyy-MM-dd"); }
+		catch { return ""; }
+	}
+}
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(TicketHotelRequest)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+		<input type="hidden" data-bind="applicantsInText" value="@Model?.ApplicantsInText" />
+
+		<div class="row mb-3">
+			<div class="col-12"><h5 class="fw-bold mb-0">فرم درخواست صدور مجوز بلیط و هتل</h5></div>
+		</div>
+		<div class="row g-3 mb-4">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع درخواست</label>
+				<select class="form-control" data-bind="requestTypeId" data-required="true"
+						asp-for="RequestTypeId" asp-items="Html.GetEnumSelectList(typeof(RequestTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع خدمات</label>
+				<select class="form-control" data-bind="serviceTypeId" data-required="true"
+						asp-for="ServiceTypeId" asp-items="Html.GetEnumSelectList(typeof(ServiceTypeEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">متن نوع خدمات</label>
+				<input class="form-control" data-bind="serviceTypeText" value="@Model?.ServiceTypeText" />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">علت درخواست</label>
+				<select class="form-control" data-bind="requestReasonId" data-required="true"
+						asp-for="RequestReasonId" asp-items="Html.GetEnumSelectList(typeof(RequestReasonEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">متن علت</label>
+				<input class="form-control" data-bind="requestReasonText" value="@Model?.RequestReasonText" />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">شماره ماموریت</label>
+				<input class="form-control" data-bind="missionNumber" value="@Model?.MissionNumber" />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">مرتبط با پروژه</label>
+				<div class="form-check form-check-custom form-check-solid mt-2">
+					<input class="form-check-input" type="checkbox" data-bind="isRelatedToProject" asp-for="IsRelatedToProject" />
+				</div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">شرکت</label>
+				@(Html.EntitySelector<Party>(
+					"TicketHotelManCompanySelector",
+					c => c.IsActive == IsActiveEnum.Active && c.Type == PartyTypeEnum.Legal,
+					c => new { Id = c.Id, FullName = c.FullName, CompanyName = c.CompanyName },
+					c => new { c.FullName, c.CompanyName },
+					"{FullName}",
+					"manCompanyId",
+					null,
+					Model?.ManCompanyId > 0 ? Model.ManCompanyId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">پروژه</label>
+				@(Html.EntitySelector<DL>(
+					"TicketHotelProjectDlSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.TypeId == 5,
+					c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+					c => new { c.Title, c.Code },
+					"{Title} | {Code}",
+					"projectDlId",
+					null,
+					Model?.ProjectDlId > 0 ? Model.ProjectDlId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نام متقاضی</label>
+				@(Html.EntitySelector<Personel>(
+					"TicketHotelApplicantSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, Family = c.Family, FamilyDisplay = c.FamilyDisplay, Code = c.Code },
+					c => new { c.Name, c.Family, c.FamilyDisplay, c.Code },
+					"{Name} {FamilyDisplay}",
+					"applicantIds",
+					null,
+					Model?.ApplicantIds,
+					false,
+					true
+				))
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">وضعیت درخواست</label>
+				<select class="form-control" data-bind="requestStatusId" data-required="true"
+						asp-for="RequestStatusId" asp-items="Html.GetEnumSelectList(typeof(RequestStatusEnum))">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">مرکز هزینه</label>
+				@(Html.EntitySelector<CostCenter>(
+					"TicketHotelCostCenterSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title, Number = c.Number },
+					c => new { c.Title, c.Number },
+					"{Title}",
+					"costCenterId",
+					null,
+					Model?.CostCenterId > 0 ? Model.CostCenterId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+
+		<div class="row mb-3">
+			<div class="col-12"><h5 class="fw-bold mb-0">مبدأ و مقصد</h5></div>
+		</div>
+		<div class="row g-3 mb-4">
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">مبدا رفت</label>
+				<input class="form-control" data-bind="departureSource" data-required="true" value="@Model?.DepartureSource" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">مقصد رفت</label>
+				<input class="form-control" data-bind="departureDestination" data-required="true" value="@Model?.DepartureDestination" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ رفت</label>
+				<input class="form-control" data-bind="departureDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@MiladiAttr(Model?.DepartureDate)" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">ساعت رفت</label>
+				<input type="text" class="form-control ltr" data-bind="departureTime" data-time="true"
+					   placeholder="__:__" value="@Model?.DepartureTime" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مبدا برگشت</label>
+				<input class="form-control" data-bind="returnSource" value="@Model?.ReturnSource" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مقصد برگشت</label>
+				<input class="form-control" data-bind="returnDestination" value="@Model?.ReturnDestination" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ برگشت</label>
+				<input class="form-control" data-bind="returnDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@MiladiAttr(Model?.ReturnDate)" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">ساعت برگشت</label>
+				<input type="text" class="form-control ltr" data-bind="returnTime" data-time="true"
+					   placeholder="__:__" value="@Model?.ReturnTime" />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2" id="ticketHotelTicketCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+		<h5 class="mb-0 fw-bold">بلیط‌ها</h5>
+		<div class="d-flex gap-1">
+			<button type="button" class="btn btn-sm btn-primary" data-action="newTicket">افزودن</button>
+		</div>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100 nowrap ellipsis-tooltip-table" id="ticketHotelTicketTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>نوع بلیط</th>
+					<th>هواپیمایی</th>
+					<th>ترمینال</th>
+					<th>ایستگاه</th>
+					<th>آژانس</th>
+					<th>تاریخ صدور</th>
+					<th>شماره</th>
+					<th>مبلغ (ریال)</th>
+					<th>کنسل</th>
+					<th>تاریخ کنسل</th>
+					<th>علت کنسل</th>
+					<th>پرداخت متقاضی</th>
+					<th>پرداخت امور مالی</th>
+					<th>توضیح</th>
+					<th>ایجادکننده</th>
+					<th>تاریخ ایجاد</th>
+					<th style="width:140px;" class="text-center dt-ellipsis-skip">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+
+<div class="card my-2" id="ticketHotelHotelCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">هتل‌ها</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newHotel">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100 nowrap ellipsis-tooltip-table" id="ticketHotelHotelTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>نام هتل</th>
+					<th>تعداد ستاره</th>
+					<th>مبلغ</th>
+					<th>توضیح</th>
+					<th>ایجادکننده</th>
+					<th>تاریخ</th>
+					<th style="width:120px;" class="text-center dt-ellipsis-skip">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+
+<script>
+	const thrBaseUrl = '/Panel/Srv/TicketHotelRequest';
+
+	function getTicketHotelRequestId() {
+		return parseInt($$('[data-bind="id"]').val() || '0', 10) || 0;
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function boolCell(v) {
+		if (v === true || v === 'true' || v === 1) return 'بله';
+		if (v === false || v === 'false' || v === 0) return 'خیر';
+		return '-';
+	}
+
+	function moneyCell(v) {
+		if (v == null || v === '') return '-';
+		return typeof MJUtil !== 'undefined' && MJUtil.formatMoney ? MJUtil.formatMoney(v) : v;
+	}
+
+	function applyTicketTypeFields($root) {
+		const typeId = String($root.find('[data-bind="ticketTypeId"]').val() || '');
+		const $air = $root.find('[data-bind="airline"]');
+		const $term = $root.find('[data-bind="passengerTerminal"]');
+		const $rail = $root.find('[data-bind="railwayStation"]');
+		$air.prop('disabled', true);
+		$term.prop('disabled', true);
+		$rail.prop('disabled', true);
+		if (typeId === '1302') $air.prop('disabled', false);
+		else if (typeId === '1303') $rail.prop('disabled', false);
+		else if (typeId === '1304') $term.prop('disabled', false);
+		else {
+			$air.prop('disabled', false);
+			$term.prop('disabled', false);
+			$rail.prop('disabled', false);
+		}
+	}
+
+	function initChildForm($root) {
+		if (typeof initPersionDatePicker === 'function')
+			initPersionDatePicker($root);
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($root);
+		else if (typeof Inputmask !== 'undefined' && typeof moneyInputmaskOptions !== 'undefined')
+			Inputmask(moneyInputmaskOptions).mask($root.find('[data-money="true"]'));
+		if (typeof initTimeInputs === 'function')
+			initTimeInputs($root);
+		else if (typeof Inputmask !== 'undefined' && typeof timeInputmaskOptions !== 'undefined')
+			Inputmask(timeInputmaskOptions).mask($root.find('[data-time="true"]'));
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+		applyTicketTypeFields($root);
+		$root.on('change', '[data-bind="ticketTypeId"]', function () {
+			applyTicketTypeFields($root);
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			ensureTicketTable();
+			ensureHotelTable();
+			if (ticketTable) ticketTable.ajax.reload(null, false);
+			if (hotelTable) hotelTable.ajax.reload(null, false);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	let ticketTable = null;
+	function ensureTicketTable() {
+		const parentId = getTicketHotelRequestId();
+		if (!parentId || ticketTable) return ticketTable;
+		ticketTable = $$('#ticketHotelTicketTable').DataTable({
+			serverSide: false,
+			autoWidth: false,
+			pageLength: 10,
+			scrollX: true,
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			ajax: {
+				url: thrBaseUrl + '/GetTickets?ticketHotelRequestId=' + parentId,
+				type: 'GET',
+				dataSrc: function (json) {
+					if (json && json.isSuccess === false) {
+						toastr.error(json.message || 'خطا در دریافت اطلاعات');
+						return [];
+					}
+					return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+				}
+			},
+			columns: [
+				{ data: 'ticketTypeTitle', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'airline', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'passengerTerminal', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'railwayStation', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'travelAgency', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'issueDate', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'ticketNumber', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'ticketAmount', defaultContent: '-', render: function (v) { return moneyCell(v); } },
+				{ data: 'isCanceled', defaultContent: '-', render: function (v) { return boolCell(v); } },
+				{ data: 'cancelDateInText', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'cancelReason', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'isPaidByApplicant', defaultContent: '-', render: function (v) { return boolCell(v); } },
+				{ data: 'isPaidByFinancialDepartment', defaultContent: '-', render: function (v) { return boolCell(v); } },
+				{ data: 'comment', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'createdByName', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'createdDateInText', defaultContent: '-', render: renderEllipsisCell },
+				{
+					data: 'id',
+					orderable: false,
+					className: 'text-center',
+					render: function (id, type, row) {
+						return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editTicket" data-id="' + id + '" title="ویرایش"><i class="fa fa-edit"></i></button> '
+							+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteTicket" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button> '
+							+ '<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="cancelTicket" data-id="' + id + '" data-canceled="' + (row.isCanceled === true) + '" title="کنسل کردن"><i class="fa fa-ban"></i></button>';
+					}
+				}
+			]
+		});
+		bindEmbeddedTableCellTooltips(ticketTable);
+		return ticketTable;
+	}
+
+	let hotelTable = null;
+	function ensureHotelTable() {
+		const parentId = getTicketHotelRequestId();
+		if (!parentId || hotelTable) return hotelTable;
+		hotelTable = $$('#ticketHotelHotelTable').DataTable({
+			serverSide: false,
+			autoWidth: false,
+			pageLength: 10,
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			ajax: {
+				url: thrBaseUrl + '/GetHotels?ticketHotelRequestId=' + parentId,
+				type: 'GET',
+				dataSrc: function (json) {
+					if (json && json.isSuccess === false) {
+						toastr.error(json.message || 'خطا در دریافت اطلاعات');
+						return [];
+					}
+					return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+				}
+			},
+			columns: [
+				{ data: 'hotelTitle', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'starsNumber', defaultContent: '-' },
+				{ data: 'hotelAmount', defaultContent: '-', render: function (v) { return moneyCell(v); } },
+				{ data: 'comment', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'createdByName', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'createdDateInText', defaultContent: '-', render: renderEllipsisCell },
+				{
+					data: 'id',
+					orderable: false,
+					className: 'text-center',
+					render: function (id) {
+						return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editHotel" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+							+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteHotel" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+					}
+				}
+			]
+		});
+		bindEmbeddedTableCellTooltips(hotelTable);
+		return hotelTable;
+	}
+
+	ensureTicketTable();
+	ensureHotelTable();
+
+	function openTicketModal(id) {
+		const parentId = getTicketHotelRequestId();
+		if (!parentId) { toastr.error('ابتدا درخواست را ذخیره کنید'); return; }
+		const url = id
+			? thrBaseUrl + '/TicketEdit?id=' + id
+			: thrBaseUrl + '/TicketNew?ticketHotelRequestId=' + parentId;
+		const $trigger = id
+			? $$('#ticketHotelTicketCard').find('[data-action="editTicket"][data-id="' + id + '"]')
+			: $$('#ticketHotelTicketCard').find('[data-action="newTicket"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش بلیط' : 'افزودن بلیط',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post(thrBaseUrl + '/SaveTicket', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								ensureTicketTable();
+								if (ticketTable) ticketTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { initChildForm(selfConfirm.$body); }, 100);
+				}
+			});
+		});
+	}
+
+	function openHotelModal(id) {
+		const parentId = getTicketHotelRequestId();
+		if (!parentId) { toastr.error('ابتدا درخواست را ذخیره کنید'); return; }
+		const url = id
+			? thrBaseUrl + '/HotelEdit?id=' + id
+			: thrBaseUrl + '/HotelNew?ticketHotelRequestId=' + parentId;
+		const $trigger = id
+			? $$('#ticketHotelHotelCard').find('[data-action="editHotel"][data-id="' + id + '"]')
+			: $$('#ticketHotelHotelCard').find('[data-action="newHotel"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش هتل' : 'افزودن هتل',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post(thrBaseUrl + '/SaveHotel', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								ensureHotelTable();
+								if (hotelTable) hotelTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { initChildForm(selfConfirm.$body); }, 100);
+				}
+			});
+		});
+	}
+
+	function openCancelTicketModal(id) {
+		const $trigger = $$('#ticketHotelTicketCard').find('[data-action="cancelTicket"][data-id="' + id + '"]');
+		if ($trigger.data('canceled') === true || $trigger.attr('data-canceled') === 'true') {
+			toastr.warning('این بلیط قبلاً کنسل شده است');
+			return;
+		}
+		$trigger.block();
+		page.getPartialView(thrBaseUrl + '/CancelTicketForm?id=' + id, function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم', 'خطا'); return; }
+			if (r.isSuccess === false) {
+				toastr.warning(r.message || 'این بلیط قبلاً کنسل شده است');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$.confirm({
+				title: 'کنسل کردن بلیط',
+				columnClass: 'col-md-6',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'تایید کنسل',
+						btnClass: 'btn-danger',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post(thrBaseUrl + '/CancelTicket', {
+								id: model.id || id,
+								paySideId: model.paySideId,
+								cancelReason: model.cancelReason
+							}, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در کنسل', 'خطا');
+									return;
+								}
+								toastr.success('بلیط با موفقیت کنسل شد');
+								selfConfirm.close();
+								if (ticketTable) ticketTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				}
+			});
+		});
+	}
+
+	$$('#ticketHotelTicketCard').on('click', '[data-action="newTicket"]', function () { openTicketModal(null); });
+	$$('#ticketHotelTicketCard').on('click', '[data-action="editTicket"]', function () { openTicketModal($(this).data('id')); });
+	$$('#ticketHotelTicketCard').on('click', '[data-action="cancelTicket"]', function () { openCancelTicketModal($(this).data('id')); });
+	$$('#ticketHotelTicketCard').on('click', '[data-action="deleteTicket"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این بلیط مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get(thrBaseUrl + '/DeleteTicket?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					if (ticketTable) ticketTable.ajax.reload(null, false);
+				});
+			});
+	});
+
+	$$('#ticketHotelHotelCard').on('click', '[data-action="newHotel"]', function () { openHotelModal(null); });
+	$$('#ticketHotelHotelCard').on('click', '[data-action="editHotel"]', function () { openHotelModal($(this).data('id')); });
+	$$('#ticketHotelHotelCard').on('click', '[data-action="deleteHotel"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({ title: 'حذف', text: 'آیا از حذف این هتل مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				$$.get(thrBaseUrl + '/DeleteHotel?id=' + id, function (r) {
+					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
+					toastr.success('رکورد با موفقیت حذف شد');
+					if (hotelTable) hotelTable.ajax.reload(null, false);
+				});
+			});
+	});
+</script>

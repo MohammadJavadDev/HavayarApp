@@ -54,6 +54,7 @@ Entry points: `ReportBuilderController.ViewReport`, `ViewReportByName`, `StimulS
 
 - Design the `.mrt` in the ReportBuilder Designer UI — **do not** write new C# that renders a report.
 - Stimulsoft is **only** for print/official documents (certificates, signed forms, printable layouts). Not for List grids and not for dashboard charts.
+- Font, RTL, and alignment of print text follow `havayar-stimulsoft-print.mdc` (canonical: edited `ProductionOrderForm`).
 
 ## 4. Must / must-not
 

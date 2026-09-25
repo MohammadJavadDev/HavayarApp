@@ -31,7 +31,7 @@ namespace Entities.App.Inv
 
 
 		[DisplayName("شماره")]
-		[DisplayInfo(null, true, type: SystemType.String, required: true)]
+		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? Number { get; set; }
 
 
@@ -133,6 +133,15 @@ namespace Entities.App.Inv
 		[DisplayName("شناسه HTS")]
 		[DisplayInfo(null, false, type: SystemType.Long)]
 		public long HtsId { get; set; }
+
+		/// <summary>
+		/// Denormalized CSV of assigned part-book section titles (HTS Inv_Part.PartBookSection).
+		/// Kept in sync on assign/unassign like HTS InvPartBookPartSectionController.DoOperation.
+		/// </summary>
+		[DisplayName("دسته‌های دفترچه قطعات")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(2048)]
+		public string? PartBookSection { get; set; }
 
 	}
 

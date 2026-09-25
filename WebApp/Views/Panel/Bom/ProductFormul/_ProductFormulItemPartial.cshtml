@@ -4,7 +4,7 @@
 @model ProductFormulItem
 <div class="entity-item">
 	<input class='form-control' type="hidden" data-bind='items.id' value='@Model?.Id' />
-	<div class='col-md-3'>
+	<div class='col-md-4'>
 		<label class=''>قطعه</label>
 		@(Html.EntitySelector<Part>(
 			"itemsPartSelector",
@@ -17,32 +17,12 @@
 			 "{Code} || {Name}",
 			"items.partId",
 			null,
-			Model?.PartId?.ToString()
+			Model?.PartId.ToString()
 		))
 		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 	</div>
 
-		<div class='col-md-3'>
-		<label class=''>نیمه ساخته (فرمول)</label>
-		@(Html.EntitySelector<Formul>(
-			"itemsFormulSelector",
-			c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-			c => new
-			{
-				Id = c.Id,  Title = c.Title
-			},
-			c => new {  c.Title },
-			 "{Title}",
-			"items.formulId",
-			null,
-			Model?.FormulId?.ToString()
-		))
-		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-	</div>
-
-
-	
-	<div class='col-md-3'>
+	<div class='col-md-4'>
 		<label class=''>ضریب مصرفی</label>
 		<input class='form-control' data-bind='items.usingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.UsingRate' />
 		<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>

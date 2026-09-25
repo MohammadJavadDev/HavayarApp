@@ -10,6 +10,8 @@ using Entities.App.Edms;
 using Entities.App.Edms.Enums;
 using Entities.App.Gnr;
 using Entities.App.Hrm;
+using Entities.App.Inv;
+using Entities.App.Inv.Enums;
 using Entities.App.Pln;
 using Entities.App.Sup;
 using Entities.App.Sup.Enums;
@@ -299,7 +301,8 @@ namespace WebApp.Controllers.Dynamic
 					OpenOrderRequestId = request.OpenOrderRequestId,
 					ShamsiDate = request.CommentShamsiDate,
 					MiladiDate = string.IsNullOrEmpty(request.CommentShamsiDate) ? null : request.CommentShamsiDate.ToMiladiDate(),
-					CommentValue = request.CommentValue
+					CommentValue = request.CommentValue,
+					CreatedOrgUnitId = CurrentOrganizationUnitId
 				};
 
 				await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
@@ -483,7 +486,8 @@ namespace WebApp.Controllers.Dynamic
 					MiladiDate = now,
 					HasSalesUnitConfirmation = true,
 					SalesUnitConfirmationComment = "تایید درخواست باز توسط واحد پروژه/فروش",
-					CommentValue = request.SalesUnitConfirmationComment
+					CommentValue = request.SalesUnitConfirmationComment,
+					CreatedOrgUnitId = CurrentOrganizationUnitId
 				};
 
 				await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
@@ -568,6 +572,7 @@ namespace WebApp.Controllers.Dynamic
 							BeneficiariesIds = request.BeneficiariesIds,
 							AttachmentId = request.AttachmentId,
 							ResponseDeadlineMiladiDate = now.AddDays(openOrderRequest.IsRoutineRequest ? 2 : 3),
+							CreatedOrgUnitId = CurrentOrganizationUnitId,
 						};
 						comment.ResponseDeadlineShamsiDate = comment.ResponseDeadlineMiladiDate.Value.ToShamsiDate();
 
@@ -618,7 +623,8 @@ namespace WebApp.Controllers.Dynamic
 									ProjectManagerApproximateCommentShamsiDate = request.ProjectManagerApproximateCommentShamsiDate,
 									ProjectManagerApproximateCommentMiladiDate = string.IsNullOrEmpty(request.ProjectManagerApproximateCommentShamsiDate) 
 										? null : request.ProjectManagerApproximateCommentShamsiDate.ToMiladiDate(),
-									AlternativeAttachmentId = request.AlternativeAttachmentId
+									AlternativeAttachmentId = request.AlternativeAttachmentId,
+									CreatedOrgUnitId = CurrentOrganizationUnitId
 								};
 
 								await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
@@ -685,7 +691,8 @@ namespace WebApp.Controllers.Dynamic
 								BeneficiariesIds = currentComment.BeneficiariesIds,
 								StopCheckingStatus = request.StopCheckingStatus,
 								StopCheckingStatusComment = request.StopCheckingStatusComment,
-								AttachmentId = request.AttachmentId
+								AttachmentId = request.AttachmentId,
+								CreatedOrgUnitId = CurrentOrganizationUnitId
 							};
 
 							await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
@@ -710,7 +717,8 @@ namespace WebApp.Controllers.Dynamic
 								MiladiDate = now,
 								CommentValue = $"درخواست توسط کاربر راه اندازی شد",
 								IsStop = false,
-								IsLaunched = true
+								IsLaunched = true,
+								CreatedOrgUnitId = CurrentOrganizationUnitId
 							};
 							await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(restartComment, cn);
 						}
@@ -814,7 +822,8 @@ namespace WebApp.Controllers.Dynamic
 					MiladiDate = now,
 					CommentValue = "درخواست راه اندازی شد",
 					IsStop = false,
-					IsLaunched = true
+					IsLaunched = true,
+					CreatedOrgUnitId = CurrentOrganizationUnitId
 				};
 
 				await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
@@ -945,7 +954,8 @@ namespace WebApp.Controllers.Dynamic
 				OpenOrderRequestId = openOrderRequest.Id!.Value,
 				ShamsiDate = now.ToShamsiDate(),
 				MiladiDate = now,
-				CommentValue = $"اختتام یافته در Portal توسط {CurrentUserFullName ?? CurrentUserName ?? CurrentUserId?.ToString()}"
+				CommentValue = $"اختتام یافته در Portal توسط {CurrentUserFullName ?? CurrentUserName ?? CurrentUserId?.ToString()}",
+				CreatedOrgUnitId = CurrentOrganizationUnitId
 			};
 
 			await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
@@ -1082,6 +1092,52 @@ namespace WebApp.Controllers.Dynamic
 					CreatedOnMiladiDateTime = attachment.CreatedOnMiladiDateTime,
 					CanDelete = canDeleteAttachment
 				});
+			}
+
+			var partId = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => o.Id == openOrderRequestId)
+				.Select(o => o.PartId)
+				.FirstOrDefaultAsync(cn);
+
+			if (partId > 0)
+			{
+				var partDocTypes = new[]
+				{
+					PartDocumentTypeEnum.Data_Sheet,
+					PartDocumentTypeEnum.Detail_Drawing,
+					PartDocumentTypeEnum.Wiring_Diagram,
+					PartDocumentTypeEnum.Technical_Documents
+				};
+				var partDocs = await unitOfWork.Repository<PartDocument>().TableNoTracking
+					.Include(d => d.Attachment)
+					.Where(d => d.PartId == partId
+						&& d.Main == true
+						&& d.AttachmentId > 0
+						&& d.Type != null
+						&& partDocTypes.Contains(d.Type.Value))
+					.ToListAsync(cn);
+
+				foreach (var doc in partDocs
+					.GroupBy(d => d.Type)
+					.Select(g => g.OrderByDescending(x => x.Id).First()))
+				{
+					items.Add(new OpenOrderRequestAttachmentListItemVm
+					{
+						Id = doc.Id!.Value,
+						IsFromVpis = false,
+						FileTypeDisplay = doc.Type?.ToDisplay() ?? "پیوست کالا",
+						FileName = doc.Attachment?.OriginalName,
+						DownloadFileId = doc.AttachmentId,
+						SizeDisplay = doc.Attachment != null
+							? (doc.Attachment.Size / 1024.0).ToString("N2") + " KB"
+							: "-",
+						Comment = doc.Comment,
+						CreatedByName = doc.CreatedByName,
+						CreatedOnShamsiDateTime = doc.CreatedOnShamsiDateTime,
+						CreatedOnMiladiDateTime = doc.CreatedOnMiladiDateTime,
+						CanDelete = false
+					});
+				}
 			}
 
 			var vpisLinks = await unitOfWork.Repository<OpenOrderRequestVpis>()
@@ -2322,25 +2378,60 @@ namespace WebApp.Controllers.Dynamic
 				var subject = "سفارش ساخت - لطفا Replay نفرمایید";
 				var body = BuildSendToSupplierBody(openOrderRequests, companyName, request.Message);
 				var ccEmails = await CollectSendToSupplierCcEmails(openOrderRequests, cn);
+				var notificationFileIds = new List<long>();
 
 				foreach (var item in openOrderRequests)
 				{
 					item.Changed = false;
 					item.ManCompanyId = request.SupplierId;
 
-					await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(new OpenOrderRequestEmailToSupplier
+					var packs = await CollectSendToSupplierAttachmentPacksAsync(item.Id!.Value, item.PartId, cn);
+					foreach (var fileId in packs.SelectMany(p => p.FileIds))
 					{
-						OpenOrderRequestId = item.Id!.Value,
-						SupplierId = request.SupplierId,
-						SendMiladiDateTime = now,
-						SendShamsiDateTime = now.ToShamsiDateTime(),
-						SenderUserId = senderId,
-						ToEmail = toEmail,
-						Subject = subject,
-						Body = body,
-						Comment = string.IsNullOrWhiteSpace(request.Message) ? "ارسال شده بدون فایل پیوست" : request.Message,
-						SendingCount = request.SendingCount ?? item.RequiredQty
-					}, cn);
+						if (!notificationFileIds.Contains(fileId))
+							notificationFileIds.Add(fileId);
+					}
+
+					if (packs.Count == 0)
+					{
+						await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(new OpenOrderRequestEmailToSupplier
+						{
+							OpenOrderRequestId = item.Id!.Value,
+							SupplierId = request.SupplierId,
+							SendMiladiDateTime = now,
+							SendShamsiDateTime = now.ToShamsiDateTime(),
+							SenderUserId = senderId,
+							ToEmail = toEmail,
+							Subject = subject,
+							Body = body,
+							Comment = string.IsNullOrWhiteSpace(request.Message) ? "ارسال شده بدون فایل پیوست" : request.Message,
+							SendingCount = request.SendingCount ?? item.RequiredQty
+						}, cn);
+					}
+					else
+					{
+						foreach (var pack in packs)
+						{
+							await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(new OpenOrderRequestEmailToSupplier
+							{
+								OpenOrderRequestId = item.Id!.Value,
+								SupplierId = request.SupplierId,
+								SendMiladiDateTime = now,
+								SendShamsiDateTime = now.ToShamsiDateTime(),
+								SenderUserId = senderId,
+								ToEmail = toEmail,
+								Subject = subject,
+								Body = body,
+								Comment = string.IsNullOrWhiteSpace(request.Message)
+									? pack.Comment
+									: request.Message,
+								SendingCount = request.SendingCount ?? item.RequiredQty,
+								AttachmentId = pack.OpenOrderAttachmentFileId,
+								PartAttachmentId = pack.PartAttachmentFileId,
+								EdmsDocumentAttachmentId = pack.EdmsDocumentFileId
+							}, cn);
+						}
+					}
 				}
 
 				await unitOfWork.Repository<Notification>().AddAsync(new Notification
@@ -2353,6 +2444,7 @@ namespace WebApp.Controllers.Dynamic
 					ViewPath = "/Panel/Sup/OpenOrderRequest/List",
 					ToEmails = new List<string> { toEmail! },
 					CcEmails = ccEmails.Count == 0 ? null : ccEmails,
+					AttachmentFileIds = notificationFileIds.Count == 0 ? null : notificationFileIds,
 					IsRead = false
 				}, cn);
 
@@ -2362,13 +2454,108 @@ namespace WebApp.Controllers.Dynamic
 				{
 					message = "ارسال به پیمانکار در صف اعلان ثبت شد",
 					sentCount = openOrderRequests.Count,
-					supplierId = request.SupplierId
+					supplierId = request.SupplierId,
+					attachmentCount = notificationFileIds.Count
 				});
 			}
 			catch (Exception ex)
 			{
 				return StatusCode(500, "خطا در ارسال به پیمانکار: " + ex.Message);
 			}
+		}
+
+		/// <summary>
+		/// معادل HTS GetAttachmentModel برای ارسال به پیمانکار:
+		/// پیوست درخواست باز + پیوست کالای اصلی (انواع فنی) + مدارک مهندسی VPIS.
+		/// </summary>
+		private async Task<List<SendToSupplierAttachmentPack>> CollectSendToSupplierAttachmentPacksAsync(
+			long openOrderRequestId,
+			long partId,
+			CancellationToken cn)
+		{
+			var packs = new List<SendToSupplierAttachmentPack>();
+
+			var oorAtts = await unitOfWork.Repository<OpenOrderRequestAttachment>().TableNoTracking
+				.Where(a => a.OpenOrderRequestId == openOrderRequestId
+					&& a.AttachmentId != null
+					&& (a.Comment == null || a.Comment != "Add automatically by system"))
+				.Select(a => new { a.AttachmentId, a.Comment })
+				.ToListAsync(cn);
+
+			foreach (var a in oorAtts)
+			{
+				packs.Add(new SendToSupplierAttachmentPack
+				{
+					OpenOrderAttachmentFileId = a.AttachmentId,
+					Comment = a.Comment,
+					FileIds = a.AttachmentId.HasValue ? [a.AttachmentId.Value] : []
+				});
+			}
+
+			var partDocTypes = new[]
+			{
+				PartDocumentTypeEnum.Data_Sheet,
+				PartDocumentTypeEnum.Detail_Drawing,
+				PartDocumentTypeEnum.Wiring_Diagram,
+				PartDocumentTypeEnum.Technical_Documents
+			};
+
+			var partDocsRaw = await unitOfWork.Repository<PartDocument>().TableNoTracking
+				.Where(d => d.PartId == partId
+					&& d.Main == true
+					&& d.AttachmentId > 0
+					&& d.Type != null
+					&& partDocTypes.Contains(d.Type.Value))
+				.ToListAsync(cn);
+
+			var partDocs = partDocsRaw
+				.GroupBy(d => d.Type)
+				.Select(g => g.OrderByDescending(x => x.Id).First())
+				.ToList();
+
+			foreach (var doc in partDocs)
+			{
+				packs.Add(new SendToSupplierAttachmentPack
+				{
+					PartAttachmentFileId = doc.AttachmentId,
+					Comment = doc.Comment,
+					FileIds = [doc.AttachmentId]
+				});
+			}
+
+			var vpisLinks = await unitOfWork.Repository<OpenOrderRequestVpis>().TableNoTracking
+				.Include(v => v.ProjectVpis)
+					.ThenInclude(pv => pv.ProjectName)
+				.Include(v => v.Project)
+				.Include(v => v.Document)
+				.Where(v => v.OpenOrderRequestId == openOrderRequestId && v.IsLatest)
+				.ToListAsync(cn);
+
+			foreach (var link in vpisLinks)
+			{
+				if (!OpenOrderRequestVpisRules.IsEligibleForOpenOrderLink(link.Document, link.ProjectVpis, link.Project))
+					continue;
+				if (link.Document?.MainFileId is not long mainFileId || mainFileId <= 0)
+					continue;
+
+				packs.Add(new SendToSupplierAttachmentPack
+				{
+					EdmsDocumentFileId = mainFileId,
+					Comment = link.Comment,
+					FileIds = [mainFileId]
+				});
+			}
+
+			return packs;
+		}
+
+		private sealed class SendToSupplierAttachmentPack
+		{
+			public long? OpenOrderAttachmentFileId { get; set; }
+			public long? PartAttachmentFileId { get; set; }
+			public long? EdmsDocumentFileId { get; set; }
+			public string? Comment { get; set; }
+			public List<long> FileIds { get; set; } = [];
 		}
 
 		/// <summary>HTS AddComponyMansToRequests — فقط ManCompanyId.</summary>

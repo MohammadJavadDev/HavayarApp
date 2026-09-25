@@ -1,0 +1,157 @@
+@using Entities.App.Cng
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="cngRepairsPartCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">قطعات مصرفی</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="cngRepairsPartTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>کد کالا</th>
+					<th>نام کالا</th>
+					<th>آسیب‌دیده</th>
+					<th>مصرف</th>
+					<th>برگشتی</th>
+					<th>خرید</th>
+					<th>فروش</th>
+					<th style="width:80px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const cngRepairsPartParentId = @parentId;
+	const cngRepairsPartTable = $$('#cngRepairsPartTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Cng/RepairsPart/GetListByParentId?repairsId=' + cngRepairsPartParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'partCode', defaultContent: '-' },
+			{ data: 'partName', defaultContent: '-' },
+			{
+				data: 'damagedPart',
+				render: function (v) { return v ? 'بله' : 'خیر'; }
+			},
+			{ data: 'usedMount', defaultContent: '-' },
+			{ data: 'returnMount', defaultContent: '-' },
+			{
+				data: 'buyPrice',
+				defaultContent: '-',
+				render: function (v) { return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : v; }
+			},
+			{
+				data: 'salePrice',
+				defaultContent: '-',
+				render: function (v) { return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : v; }
+			},
+			{
+				data: 'id',
+				orderable: false,
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button>';
+				}
+			}
+		]
+	});
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function initChildModalForm($root) {
+		if (typeof initPersionDatePicker === 'function')
+			initPersionDatePicker($root);
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+		if (typeof initMoneyInputs === 'function')
+			initMoneyInputs($root);
+		else if (window.Inputmask && window.moneyInputmaskOptions)
+			Inputmask(moneyInputmaskOptions).mask($root.find('[data-money="true"]'));
+	}
+
+	function openCngRepairsPartModal(id) {
+		const url = id
+			? '/Panel/Cng/RepairsPart/Edit?id=' + id + '&repairsId=' + cngRepairsPartParentId
+			: '/Panel/Cng/RepairsPart/New?repairsId=' + cngRepairsPartParentId;
+		const $trigger = id
+			? $$('#cngRepairsPartCard').find('[data-action="editChild"][data-id="' + id + '"]')
+			: $$('#cngRepairsPartCard').find('[data-action="newChild"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش قطعه' : 'افزودن قطعه',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							model.repairsId = cngRepairsPartParentId;
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Cng/RepairsPart/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								cngRepairsPartTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () { initChildModalForm(selfConfirm.$body); }, 100);
+				}
+			});
+		});
+	}
+
+	$$('#cngRepairsPartCard').on('click', '[data-action="newChild"]', function () {
+		openCngRepairsPartModal(null);
+	});
+	$$('#cngRepairsPartCard').on('click', '[data-action="editChild"]', function () {
+		openCngRepairsPartModal($(this).data('id'));
+	});
+</script>

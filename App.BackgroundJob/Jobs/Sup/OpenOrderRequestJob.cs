@@ -18,6 +18,7 @@ using Entities.Auth;
 using Entities.Base;
 using Entities.Base.Enums;
 using Entities.Base.Notification;
+using Entities.Hts.Edms;
 using Microsoft.EntityFrameworkCore;
 using Services.FileServices;
 using Services.Job;
@@ -39,6 +40,16 @@ namespace App.BackgroundJob.Jobs.Sup
         {
             try
             {
+                // HtsTaskService: BaseHamkaranTask فقط بین ۰۶:۰۰ تا ۲۱:۰۰ (ساعت ایران)
+                var iranTz = TimeZoneInfo.FindSystemTimeZoneById("Iran Standard Time");
+                var iranNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, iranTz);
+                var localHour = iranNow.Hour;
+                if (localHour < 6 || localHour > 21)
+                {
+                    jobLogger?.LogInfoAsync($"SyncOpenOrderRequestJobFromRahkaran skipped (IranHour={localHour}; runs only 06:00–21:00 Iran).");
+                    return;
+                }
+
                 jobLogger?.LogInfoAsync("Starting SyncOpenOrderRequestJobFromRahkaran...");
 
                 // 1. Prepare Date Parameters
@@ -79,6 +90,8 @@ namespace App.BackgroundJob.Jobs.Sup
                 // 4. Fetch Local Data
                 var localOrders = await unitOfWork.Repository<OpenOrderRequest>().Table.ToListAsync(cn);
                 var insertedThisRun = new List<OpenOrderRequest>();
+                // HTS active pairs — never revive a soft-deleted local row unless this key is active in HTS
+                var htsActiveKeysForSync = await LoadHtsActiveOpenOrderKeysAsync(cn);
 
                 // 5. Sync Loop (Insert/Update)
                 foreach (var remoteOrder in hamkaranOrders)
@@ -244,9 +257,14 @@ namespace App.BackgroundJob.Jobs.Sup
 
                             if (updated)
                             {
-                                localOrder.IsDeleted = false;
-                                localOrder.IsDeletedMiladiDate = null;
-                                 localOrder.IsDeletedShamsiDate = null;
+                                // Do not reactivate when HTS has this (PR,OrderRow) deleted / absent from active set
+                                var syncKey = (localOrder.PurchaseRequestItemId, remoteOrder.OrderRowId ?? localOrder.OrderRowId ?? 0L);
+                                if (!localOrder.IsDeleted || htsActiveKeysForSync.Contains(syncKey))
+                                {
+                                    localOrder.IsDeleted = false;
+                                    localOrder.IsDeletedMiladiDate = null;
+                                    localOrder.IsDeletedShamsiDate = null;
+                                }
                                 localOrder.Year = remoteOrder.Year;
                                 localOrder.PurchaseRequestNumber = remoteOrder.PurchaseRequestNumber?.ToLong() ?? 0;
 
@@ -1165,6 +1183,8 @@ namespace App.BackgroundJob.Jobs.Sup
 
                 // 6. Reactivation Logic - راه‌اندازی دوباره
                 // Items that are deleted but now back in open requests
+                // Never revive when (PR,OrderRow) is not an active HTS pair (deleted in HTS or PR has no active HTS row)
+                var htsActiveKeys = await LoadHtsActiveOpenOrderKeysAsync(cn);
                 var openRequestKeys = openOrderRequests.Select(x => x.PurchaseRequestItemId).ToHashSet();
 
                 foreach (var local in localOrders)
@@ -1174,6 +1194,10 @@ namespace App.BackgroundJob.Jobs.Sup
                         var matchingRemote = openOrderRequests.FirstOrDefault(x => x.PurchaseRequestItemId == local.PurchaseRequestItemId);
                         if (matchingRemote != null)
                         {
+                            var localKey = (local.PurchaseRequestItemId, local.OrderRowId ?? 0L);
+                            if (!htsActiveKeys.Contains(localKey))
+                                continue;
+
                             // Reactivate if not manually deleted and not contains "توسط" in comment
                             if (local.Comment?.Contains("توسط") != true)
                             {
@@ -1181,9 +1205,9 @@ namespace App.BackgroundJob.Jobs.Sup
                                 if (local.OrderRowId == null)
                                 {
                                     local.IsDeleted = false;
-								local.IsDeletedMiladiDate = now;
-								local.IsDeletedShamsiDate = now.ToShamsiDateTime();
-									local.Comment = (local.Comment ?? "") + (local.Comment?.Contains("راه اندازی دوباره") == true ? "" : "|| راه اندازی دوباره بجهت خروج از اختتام");
+                                    local.IsDeletedMiladiDate = null;
+                                    local.IsDeletedShamsiDate = null;
+                                    local.Comment = (local.Comment ?? "") + (local.Comment?.Contains("راه اندازی دوباره") == true ? "" : "|| راه اندازی دوباره بجهت خروج از اختتام");
                                 }
                                 // Order reactivation (with OrderRowId check and quantity check)
                                 else if (local.OrderRowId == matchingRemote.OrderRowId)
@@ -1191,9 +1215,9 @@ namespace App.BackgroundJob.Jobs.Sup
                                     if (local.FactoredCount < matchingRemote.RequestItemQuantity && !local.IsStop)
                                     {
                                         local.IsDeleted = false;
-							     local.IsDeletedMiladiDate = now;
-							     local.IsDeletedShamsiDate = now.ToShamsiDateTime();
-							     local.Comment = (local.Comment ?? "") + (local.Comment?.Contains("راه اندازی دوباره") == true ? "" : "|| راه اندازی دوباره بجهت خروج از اختتام");
+                                        local.IsDeletedMiladiDate = null;
+                                        local.IsDeletedShamsiDate = null;
+                                        local.Comment = (local.Comment ?? "") + (local.Comment?.Contains("راه اندازی دوباره") == true ? "" : "|| راه اندازی دوباره بجهت خروج از اختتام");
                                     }
                                 }
                             }
@@ -1247,6 +1271,28 @@ namespace App.BackgroundJob.Jobs.Sup
                     }
                 }
 
+                // 8b. Soft-delete fully factored (HTS WriteData: FactoredCount == RequiredQty ⇒ IsDeleted)
+                foreach (var local in localOrders)
+                {
+                    if (local.IsDeleted || local.IsForceDeletedByUser)
+                        continue;
+
+                    if (local.RequiredQty > 0 && local.FactoredCount >= local.RequiredQty)
+                    {
+                        local.IsDeleted = true;
+                        local.IsDeletedMiladiDate = now;
+                        local.IsDeletedShamsiDate = now.ToShamsiDateTime();
+                        if (string.IsNullOrEmpty(local.CompletionShamsiDate))
+                        {
+                            local.CompletionShamsiDate = currentDate;
+                            local.CompletionMiladiDate = now;
+                        }
+                    }
+                }
+
+                // 8c. Align IsDeleted with HTS by PurchaseRequestItemId+OrderRowId (active-set parity)
+                await AlignIsDeletedWithHtsAsync(localOrders, htsActiveKeys, now, logger, cn);
+
                 // 9. Update SalesUnit Info from ProductionOrder
                 var ordersNeedingSalesUpdate = localOrders
                     .Where(o => o.ProductionOrderId.HasValue && o.SalesUnitSalesExpertId == null)
@@ -1293,6 +1339,55 @@ namespace App.BackgroundJob.Jobs.Sup
                 }
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Active (IsDeleted=0) HTS keys on (PurchaseRequestItemId, OrderRowId??0).
+        /// </summary>
+        private async Task<HashSet<(long PurchaseRequestItemId, long OrderRowId)>> LoadHtsActiveOpenOrderKeysAsync(CancellationToken cn)
+        {
+            var rows = await htsDb.Hts_Sup_OpenOrderRequests.AsNoTracking()
+                .Where(o => !o.IsDeleted)
+                .Select(o => new { o.PurchaseRequestItemId, o.OrderRowId })
+                .ToListAsync(cn);
+
+            return rows
+                .Select(o => (o.PurchaseRequestItemId, OrderRowId: o.OrderRowId ?? 0L))
+                .ToHashSet();
+        }
+
+        /// <summary>
+        /// هم‌ترازی IsDeleted با TotalSystem روی کلید PurchaseRequestItemId+OrderRowId.
+        /// هر ردیف فعال محلی که جفتش در HTS فعال نیست → soft-delete
+        /// (شامل: همان کلید حذف‌شده در HTS، OrderRow اشتباه، یا PR بدون هیچ ردیف فعال HTS).
+        /// نباید با همگام‌سازی Rahkaran دوباره فعال شود.
+        /// </summary>
+        private async Task AlignIsDeletedWithHtsAsync(
+            List<OpenOrderRequest> localOrders,
+            HashSet<(long PurchaseRequestItemId, long OrderRowId)> htsActiveKeys,
+            DateTime now,
+            IJobLogger? logger,
+            CancellationToken cn)
+        {
+            htsActiveKeys ??= await LoadHtsActiveOpenOrderKeysAsync(cn);
+
+            var softDeleted = 0;
+            foreach (var local in localOrders)
+            {
+                if (local.IsForceDeletedByUser || local.IsDeleted)
+                    continue;
+
+                var key = (local.PurchaseRequestItemId, local.OrderRowId ?? 0L);
+                if (htsActiveKeys.Contains(key))
+                    continue;
+
+                local.IsDeleted = true;
+                local.IsDeletedMiladiDate = now;
+                local.IsDeletedShamsiDate = now.ToShamsiDateTime();
+                softDeleted++;
+            }
+
+            logger?.LogInfoAsync($"AlignIsDeletedWithHts soft-deleted={softDeleted}");
         }
 
         private async Task CalculateDelaysBuyDay(List<OpenOrderRequest> localOrders, CancellationToken cn)
@@ -2211,6 +2306,8 @@ WHERE
                 var unmatchedProject = 0;
                 var unmatchedVpis = 0;
                 var unmatchedDocument = 0;
+                var documentIdsForFileCheck = new HashSet<long>();
+                var documentIdToHtsId = new Dictionary<long, long>();
 
                 foreach (var link in htsLinks)
                 {
@@ -2257,6 +2354,8 @@ WHERE
                             continue;
                         }
                         localDocumentId = mappedDocId;
+                        documentIdsForFileCheck.Add(mappedDocId);
+                        documentIdToHtsId[mappedDocId] = link.DocumentId.Value;
                     }
 
                     var key = (localOrderId.Value, localDocumentId, localVpisId);
@@ -2283,9 +2382,15 @@ WHERE
 
                 await unitOfWork.SaveChangesAsync(cn);
 
+                var filesCopied = await EnsureDocumentMainFilesFromHtsAsync(
+                    documentIdsForFileCheck,
+                    documentIdToHtsId,
+                    jobLogger,
+                    cn);
+
                 if (jobLogger != null)
                     await jobLogger.LogInfoAsync(
-                        $"پایان پل VPIS از HTS. Inserted={inserted}, Skipped={skipped}, UnmatchedRequest={unmatchedRequest}, UnmatchedProject={unmatchedProject}, UnmatchedVpis={unmatchedVpis}, UnmatchedDocument={unmatchedDocument}",
+                        $"پایان پل VPIS از HTS. Inserted={inserted}, Skipped={skipped}, UnmatchedRequest={unmatchedRequest}, UnmatchedProject={unmatchedProject}, UnmatchedVpis={unmatchedVpis}, UnmatchedDocument={unmatchedDocument}, FilesCopied={filesCopied}",
                         cn);
 
                 await AutoInsertVpisLinksForActiveRequestsAsync(jobLogger, cn);
@@ -2296,6 +2401,140 @@ WHERE
                     await jobLogger.LogErrorAsync($"خطای کلی SyncOpenOrderRequestVpisFromHts: {ex.Message}", 0, cn);
                 throw;
             }
+        }
+
+        private const string PortalEdmsRoot = @"D:\PortalData\EDMS";
+        private const string EdmsPathMarker = @"\EDMS\";
+
+        /// <summary>
+        /// اگر مدرک در سیستم جدید هست ولی MainFile ندارد، بایت فایل را از مسیر HTS/Portal می‌خواند
+        /// و با همان الگوی UploadAsync پیوست‌ها در FileEntity ذخیره می‌کند.
+        /// </summary>
+        private async Task<int> EnsureDocumentMainFilesFromHtsAsync(
+            HashSet<long> localDocumentIds,
+            Dictionary<long, long> localIdToHtsId,
+            IJobLogger? jobLogger,
+            CancellationToken cn)
+        {
+            if (localDocumentIds.Count == 0)
+                return 0;
+
+            var documents = await unitOfWork.Repository<Document>().Table
+                .Where(d => d.Id != null && localDocumentIds.Contains(d.Id.Value) && d.MainFileId == null)
+                .ToListAsync(cn);
+
+            if (documents.Count == 0)
+                return 0;
+
+            var copied = 0;
+            foreach (var document in documents)
+            {
+                try
+                {
+                    if (!document.Id.HasValue)
+                        continue;
+
+                    if (!localIdToHtsId.TryGetValue(document.Id.Value, out var htsDocumentId))
+                        htsDocumentId = document.HtsId;
+
+                    if (htsDocumentId == 0)
+                        continue;
+
+                    var hts = await htsDb.Hts_Edms_Documents.AsNoTracking()
+                        .Where(d => d.Document_ID == (int)htsDocumentId)
+                        .Select(d => new { d.Document_FilePath, d.Document_FileName })
+                        .FirstOrDefaultAsync(cn);
+
+                    if (hts == null)
+                        continue;
+
+                    if (string.IsNullOrWhiteSpace(hts.Document_FilePath) && string.IsNullOrWhiteSpace(hts.Document_FileName))
+                        continue;
+
+                    var fileBytes = ReadHtsDocumentFileBytes(hts.Document_FilePath);
+                    if (fileBytes == null || fileBytes.Length == 0)
+                    {
+                        if (jobLogger != null)
+                            await jobLogger.LogWarningAsync(
+                                $"فایل مدرک HTS یافت نشد. DocumentId={htsDocumentId}, Path={hts.Document_FilePath}",
+                                0,
+                                cn);
+                        continue;
+                    }
+
+                    var fileName = string.IsNullOrWhiteSpace(hts.Document_FileName)
+                        ? $"document_{htsDocumentId}"
+                        : hts.Document_FileName.Trim();
+
+                    var uploaded = await fileService.UploadAsync(
+                        fileBytes,
+                        fileName,
+                        null,
+                        typeof(Document).FullName,
+                        nameof(Document.MainFile),
+                        document.Id,
+                        cn);
+
+                    document.MainFileId = uploaded.Id;
+                    copied++;
+                }
+                catch (Exception ex)
+                {
+                    if (jobLogger != null)
+                        await jobLogger.LogErrorAsync(
+                            $"خطا در کپی فایل مدرک DocumentId={document.Id}: {ex.Message}",
+                            0,
+                            cn);
+                }
+            }
+
+            if (copied > 0)
+                await unitOfWork.SaveChangesAsync(cn);
+
+            return copied;
+        }
+
+        private static byte[]? ReadHtsDocumentFileBytes(string? htsPath)
+        {
+            var sourcePath = LocatePortalEdmsFile(htsPath);
+            if (string.IsNullOrWhiteSpace(sourcePath))
+                return null;
+
+            try
+            {
+                var info = new FileInfo(sourcePath);
+                if (!info.Exists || info.Length == 0)
+                    return null;
+                return File.ReadAllBytes(sourcePath);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string? LocatePortalEdmsFile(string? htsPath)
+        {
+            if (string.IsNullOrWhiteSpace(htsPath))
+                return null;
+
+            var normalized = htsPath.Trim().Replace('/', '\\');
+            if (File.Exists(normalized))
+                return normalized;
+
+            var markerIndex = normalized.IndexOf(EdmsPathMarker, StringComparison.OrdinalIgnoreCase);
+            string? expected;
+            if (markerIndex >= 0)
+            {
+                var relative = normalized[(markerIndex + EdmsPathMarker.Length)..].TrimStart('\\');
+                expected = Path.Combine(PortalEdmsRoot, relative);
+            }
+            else
+            {
+                expected = normalized;
+            }
+
+            return File.Exists(expected) ? expected : null;
         }
 
         private async Task AutoInsertVpisLinksForActiveRequestsAsync(IJobLogger? jobLogger, CancellationToken cn)

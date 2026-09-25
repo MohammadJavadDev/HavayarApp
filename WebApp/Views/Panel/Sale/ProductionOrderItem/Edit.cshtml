@@ -12,28 +12,25 @@
 
 	var isAdmin = sdk.IsAdministrator;
 
+	// پرچم‌های نمایش دکمه از ProductionOrderItemController.Edit / New (معادل HTS؛ مخفی نه فقط disabled)
+	var canSaveItem = ViewBag.CanSaveItem as bool? ?? false;
+	var canChangeStatus = ViewBag.CanChangeStatus as bool? ?? false;
+	var canAcceptEngineering = ViewBag.CanAcceptEngineering as bool? ?? false;
+	var canAcceptProjectManager = ViewBag.CanAcceptProjectManager as bool? ?? false;
+	var canSendInquiryResult = ViewBag.CanSendInquiryResult as bool? ?? false;
+	var canCommitteeDecide = ViewBag.CanCommitteeDecide as bool? ?? false;
+	var canStopActions = ViewBag.CanStopActions as bool? ?? false;
+	var canViewChildLinks = ViewBag.CanViewChildLinks as bool? ?? false;
+
 	// فاز ۶ - رابط کاربری: رشته مهندسی (مکانیک/برق) این قلم توسط ProductionOrderItemController.Edit محاسبه و
 	// از طریق ViewBag تامین می‌شود تا منطق تشخیص DeviceType در دو جا (سرور/کلاینت) تکرار نشود
 	var isElectricalDiscipline = ViewBag.IsElectricalDiscipline as bool? ?? false;
 
-	//Seed Role => Sale.ProductionOrderItem.AcceptEngineeringMechanical => سفارش ساخت - تایید مهندسی مکانیک
-	//Seed Role => Sale.ProductionOrderItem.AcceptEngineeringElectrical => سفارش ساخت - تایید مهندسی برق
-	// TODO(Role): Role های بالا را در پنل مدیریت نقش‌ها ایجاد و کاربران واحد مهندسی مکانیک/برق را متناظر انتساب بده
-	var canAcceptEngineering = isAdmin || (isElectricalDiscipline
-		? sdk.HasRole("Sale.ProductionOrderItem.AcceptEngineeringElectrical")
-		: sdk.HasRole("Sale.ProductionOrderItem.AcceptEngineeringMechanical"));
-
-	//Seed Role => Sale.ProductionOrderItem.AcceptProjectManager => سفارش ساخت - تایید مدیر پروژه
-	var canAcceptProjectManager = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.AcceptProjectManager");
-
-	//Seed Role => Sale.ProductionOrderItem.Inquirer => سفارش ساخت - استعلام (اقدام روی ۱۹۰۶ — عین HTS Pln_Inquirer)
-	var canInquiry = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.Inquirer");
-
-	//Seed Role => Sale.ProductionOrderItem.MinistryOfIndustryInquirer => سفارش ساخت - استعلام وزارت صنایع (اقدام روی ۱۹۰۸)
-	var canMinistryReview = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.MinistryOfIndustryInquirer");
-
-	//Seed Role => Sale.ProductionOrderItem.SupplyCommitteeBoss => سفارش ساخت - رئیس کمیته تامین (اقدام روی ۲۲۰۲/۱۹۰۹)
-	var canSupplyCommitteeBoss = isAdmin || sdk.HasRole("Sale.ProductionOrderItem.SupplyCommitteeBoss");
+	//Seed Role => Sale.ProductionOrderItemBom => Bom اقلام سفارش ساخت (صفحه HTS 508)
+	var canManageBom = isAdmin || sdk.HasRole(ProductionOrderItemController.BomManageRoleName);
+	//Seed Role => تکمیل اطلاعات bom اقلام سفارش ساخت صنایع => فقط فیلدهای جدید BOM
+	var canEditBomNewFields = isAdmin || sdk.HasRole(ProductionOrderItemController.BomNewFieldsRoleName);
+	var canOpenBom = canManageBom || canEditBomNewFields;
 
 	// پیوست‌های سربرگ سفارش ساخت (معادل دکمه «دانلود پیوست سفارش» ریبون اقلام در HTS)
 	var po = Model?.ProductionOrder;
@@ -48,29 +45,56 @@
 }
 
 <div class="card">
-   <form-action-buttons entity-type="typeof(ProductionOrderItem)">
+   <form-action-buttons entity-type="typeof(ProductionOrderItem)"
+						save-btn="@canSaveItem"
+						save-and-close-btn="@canSaveItem"
+						save-and-new-btn="false">
+			@if (canChangeStatus)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-exchange"
 				action-name="addComment" title="تغییر وضعیت"></form-action-button>
+			}
 			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-list"
 							action-name="viewComments" title="تاریخچه تغییر وضعیت"></form-action-button>
+			@if (canStopActions)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-stop-circle"
 				action-name="addStopRequest" title="ثبت توقف"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-clock"
 				action-name="viewStopRequests" title="لیست توقفات"></form-action-button>
+			}
+			@if (canOpenBom)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-sitemap"
 							action-name="viewBom" title="Bom محصول"></form-action-button>
+			}
+			@if (canAcceptEngineering)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-cog"
 				action-name="acceptEngineering" title="تایید/رد مهندسی"></form-action-button>
+			}
+			@if (canAcceptProjectManager)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-tie"
 				action-name="acceptProjectManager" title="تایید/رد مدیر پروژه"></form-action-button>
+			}
+			@if (canSendInquiryResult)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-users"
 				action-name="sendToSupplyCommittee" title="ارسال نتیجه استعلام به کمیته تامین"></form-action-button>
+			}
+			@if (canCommitteeDecide)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check-double"
 				action-name="committeeDecide" title="تصمیم کمیته تامین"></form-action-button>
+			}
+			@if (canViewChildLinks)
+			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-secondary" icon-class="fa fa-cogs"
 				action-name="viewSpareParts" title="قطعات یدکی"></form-action-button>
 			<form-action-button color-class="btn-active-icon-dark btn-color-secondary" icon-class="fa fa-paperclip"
 				action-name="viewOrderAttachments" title="پیوست‌های سفارش ساخت"></form-action-button>
+			}
 		</form-action-buttons>
 </div>
 
@@ -565,13 +589,17 @@
 
 <script>
 	 
-	// TODO(Role): نگاه کن به بالای فایل Razor برای فهرست کامل Roleهای مورد نیاز هر پرچم زیر
 	var permissions = @Html.Raw(Json.Serialize(new {
+		   canSaveItem,
+		   canChangeStatus,
 		   canAcceptEngineering,
 		   canAcceptProjectManager,
-		   canInquiry,
-		   canMinistryReview,
-		   canSupplyCommitteeBoss
+		   canSendInquiryResult,
+		   canCommitteeDecide,
+		   canStopActions,
+		   canViewChildLinks,
+		   canManageBom,
+		   canOpenBom
 	   }));
 	var productionOrderItem = @Html.Raw(Json.Serialize(Model));
 	var isNewMode = @(newMode ? "true" : "false");
@@ -590,48 +618,9 @@
 		AwaitingProjectManagerApproval: 2258
 	};
 
+	// دکمه‌های غیرمجاز اصلاً رندر نمی‌شوند (معادل HTS enable(false) → مخفی در پنل جدید)
 	function initializePage() {
-		for (let btn in self.FormActionButtons) {
-			self.FormActionButtons[btn].element.disabled = true;
-		}
-
-		self.FormActionButtons.save.element.disabled = false;
-		self.FormActionButtons.saveandclose.element.disabled = false;
-		self.FormActionButtons.history.element.disabled = false;
-		self.FormActionButtons.addComment.element.disabled = false;
-		self.FormActionButtons.viewComments.element.disabled = false;
-		self.FormActionButtons.addStopRequest.element.disabled = false;
-		self.FormActionButtons.viewStopRequests.element.disabled = false;
-		self.FormActionButtons.viewBom.element.disabled = false;
-
-		const checkStatus = productionOrderItem.checkStatus;
-
-		// TODO(Role): دکمه تایید/رد مهندسی صرفاً بر اساس permissions.canAcceptEngineering فعال می‌شود که سرور
-		// (Razor) بر اساس رشته مکانیک/برق این قلم و نقش متناظر محاسبه کرده است؛ سرور در اکشن AcceptEngineering
-		// دوباره همین بررسی را انجام می‌دهد
-		if (permissions.canAcceptEngineering && checkStatus == CHECK_STATUS.MechanicalEngineeringApprovalPending) {
-			self.FormActionButtons.acceptEngineering.element.disabled = false;
-		}
-
-		if (permissions.canAcceptProjectManager && checkStatus == CHECK_STATUS.AwaitingProjectManagerApproval) {
-			self.FormActionButtons.acceptProjectManager.element.disabled = false;
-		}
-
-		// عین شرط دکمه «تغییر وضعیت» HTS: استعلام‌گر فقط روی ۱۹۰۶، استعلام‌گر وزارت فقط روی ۱۹۰۸ (نتیجه → ۱۹۰۹)
-		if ((permissions.canInquiry && checkStatus == CHECK_STATUS.InquiryNeeded)
-			|| (permissions.canMinistryReview && checkStatus == CHECK_STATUS.IndustrialMinistryReviewRequired)) {
-			self.FormActionButtons.sendToSupplyCommittee.element.disabled = false;
-		}
-
-		// معادل HTS: رئیس کمیته تامین روی ۲۲۰۲ (و ۱۹۰۹ که در HTS به‌علت باگ UI قابل اقدام نبود) مقصد را انتخاب می‌کند
-		if (permissions.canSupplyCommitteeBoss && [CHECK_STATUS.SendToSupplyCommitteeChair, CHECK_STATUS.CommitteeHeadReviewPending].includes(checkStatus)) {
-			self.FormActionButtons.committeeDecide.element.disabled = false;
-		}
-
-		if (!isNewMode) {
-			self.FormActionButtons.viewSpareParts.element.disabled = false;
-			self.FormActionButtons.viewOrderAttachments.element.disabled = false;
-		}
+		// no-op: visibility is server-rendered
 	}
 
 	initializePage()
@@ -640,7 +629,7 @@
 		return $$("#changeDataSection [data-bind='id']").val();
 	}
 
-	self.FormActionButtons.viewBom.onclick(function () {
+	self.FormActionButtons.viewBom && self.FormActionButtons.viewBom.onclick(function () {
 		const id = currentProductionOrderItemId();
 		if (!id || id == '0') {
 			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
@@ -650,7 +639,7 @@
 	});
 
 	//#region Accept/Reject Engineering
-	self.FormActionButtons.acceptEngineering.onclick(function () {
+	self.FormActionButtons.acceptEngineering && self.FormActionButtons.acceptEngineering.onclick(function () {
 		const id = currentProductionOrderItemId();
 		if (!id || id == '0') {
 			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
@@ -707,7 +696,7 @@
 	//#endregion
 
 	//#region Accept/Reject Project Manager
-	self.FormActionButtons.acceptProjectManager.onclick(function () {
+	self.FormActionButtons.acceptProjectManager && self.FormActionButtons.acceptProjectManager.onclick(function () {
 		const id = currentProductionOrderItemId();
 		if (!id || id == '0') {
 			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
@@ -855,19 +844,19 @@
 		});
 	}
 
-	self.FormActionButtons.sendToSupplyCommittee.onclick(function () {
-		if (!permissions.canInquiry && !permissions.canMinistryReview) { toastr.error('شما دسترسی ارسال نتیجه استعلام به کمیته تامین را ندارید'); return; }
+	self.FormActionButtons.sendToSupplyCommittee && self.FormActionButtons.sendToSupplyCommittee.onclick(function () {
+		if (!permissions.canSendInquiryResult) { toastr.error('شما دسترسی ارسال نتیجه استعلام به کمیته تامین را ندارید'); return; }
 		openInquiryModal(false);
 	});
 
-	self.FormActionButtons.committeeDecide.onclick(function () {
-		if (!permissions.canSupplyCommitteeBoss) { toastr.error('شما دسترسی تصمیم کمیته تامین را ندارید'); return; }
+	self.FormActionButtons.committeeDecide && self.FormActionButtons.committeeDecide.onclick(function () {
+		if (!permissions.canCommitteeDecide) { toastr.error('شما دسترسی تصمیم کمیته تامین را ندارید'); return; }
 		openInquiryModal(true);
 	});
 	//#endregion
 
 	//#region Spare parts / order attachments (معادل دکمه‌های «قطعه یدکی» و «دانلود پیوست سفارش» ریبون HTS)
-	self.FormActionButtons.viewSpareParts.onclick(function () {
+	self.FormActionButtons.viewSpareParts && self.FormActionButtons.viewSpareParts.onclick(function () {
 		const id = currentProductionOrderItemId();
 		if (!id || id == '0') { toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید'); return; }
 
@@ -882,7 +871,7 @@
 		});
 	});
 
-	self.FormActionButtons.viewOrderAttachments.onclick(function () {
+	self.FormActionButtons.viewOrderAttachments && self.FormActionButtons.viewOrderAttachments.onclick(function () {
 		if (!orderAttachments || orderAttachments.length === 0) {
 			toastr.info('برای سفارش ساخت این قلم پیوستی ثبت نشده است');
 			return;
@@ -952,27 +941,27 @@
 			})
 	}
 
-	self.FormActionButtons.save.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+	self.FormActionButtons.save && self.FormActionButtons.save.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandnew && self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveandclose && self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 
 	// دکمه افزودن تغییر وضعیت
-	self.FormActionButtons.addComment.onclick(function () {
+	self.FormActionButtons.addComment && self.FormActionButtons.addComment.onclick(function () {
 		openCommentModal();
 	});
 
 	// دکمه نمایش لیست تاریخچه تغییر وضعیت
-	self.FormActionButtons.viewComments.onclick(function () {
+	self.FormActionButtons.viewComments && self.FormActionButtons.viewComments.onclick(function () {
 		viewCommentsList();
 	});
 
 	// دکمه ثبت توقف
-	self.FormActionButtons.addStopRequest.onclick(function () {
+	self.FormActionButtons.addStopRequest && self.FormActionButtons.addStopRequest.onclick(function () {
 		openStopRequestModal();
 	});
 
 	// دکمه نمایش لیست توقفات
-	self.FormActionButtons.viewStopRequests.onclick(function () {
+	self.FormActionButtons.viewStopRequests && self.FormActionButtons.viewStopRequests.onclick(function () {
 		viewStopRequestsList();
 	});
 

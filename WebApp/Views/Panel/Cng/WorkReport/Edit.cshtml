@@ -1,0 +1,556 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@using Entities.Base
+@model WorkReport
+@{
+	var hasFile = ViewBag.HasFile as bool? == true;
+	var errorFailures = ViewBag.ErrorFailures as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>();
+	var selectedErrors = (ViewBag.SelectedErrorFailureIds as IEnumerable<long>)?.ToList() ?? new List<long>();
+	var requestVal = (int)(Model?.RequestTypeId ?? 0);
+	var serviceVal = Model?.ServiceTypeId != null ? (int)Model.ServiceTypeId : 0;
+	var oilVal = Model?.ConsumedOilTypeId != null ? (int)Model.ConsumedOilTypeId : 0;
+	var customerId = Model?.Station?.CustomerId;
+}
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(WorkReport)" save-and-new-btn="false" save-and-close-btn="false"
+			history-btn="false" new-page-btn="false">
+			<form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-download"
+				action-name="downloadFile" title="دانلود فایل"></form-action-button>
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">گزارش کار</h4></div></div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+		<input type="hidden" data-bind="fileId" value="@Model?.FileId" />
+		<input type="hidden" data-bind="workReportFileAddress" value="@Model?.WorkReportFileAddress" />
+		<input type="hidden" data-bind="workReportFileType" value="@Model?.WorkReportFileType" />
+		<input type="hidden" id="workReportHasFile" value="@(hasFile ? "1" : "0")" />
+		<input type="hidden" id="workReportCustomerId" value="@customerId" />
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">جایگاه</label>
+				@(Html.EntitySelector<StationInfo>(
+					"CngWorkReportStationSelector",
+					c => c.IsActive == IsActiveEnum.Active && c.CustomerId != null,
+					c => new { Id = c.Id, StationTitle = c.StationTitle, CustomerId = c.CustomerId, CustomerName = c.Customer.Party.FullName, RepresentativeName = c.RepresentativeName, RepresentativeMobileNumber = c.RepresentativeMobileNumber, RepresentativeEmailAddress = c.RepresentativeEmailAddress },
+					c => new { c.StationTitle, CustomerName = c.Customer.Party.FullName },
+					"{StationTitle} | {Customer.Party.FullName}",
+					"stationInfoId",
+					"stationTitle",
+					Model?.StationInfoId > 0 ? Model.StationInfoId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع درخواست</label>
+				<select class="form-select" data-bind="requestTypeId" data-required="true">
+					<option value="">انتخاب کنید</option>
+					@foreach (WorkReportRequestTypeEnum e in Enum.GetValues(typeof(WorkReportRequestTypeEnum)))
+					{
+						var v = (int)e;
+						var name = e.GetType().GetMember(e.ToString())[0]
+							.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+							.Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>().FirstOrDefault()?.Name ?? e.ToString();
+						if (requestVal == v) { <option value="@v" selected>@name</option> }
+						else { <option value="@v">@name</option> }
+					}
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نوع خدمات</label>
+				<select class="form-select" data-bind="serviceTypeId">
+					<option value="">انتخاب کنید</option>
+					@foreach (WorkReportServiceTypeEnum e in Enum.GetValues(typeof(WorkReportServiceTypeEnum)))
+					{
+						var v = (int)e;
+						var name = e.GetType().GetMember(e.ToString())[0]
+							.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+							.Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>().FirstOrDefault()?.Name ?? e.ToString();
+						if (serviceVal == v) { <option value="@v" selected>@name</option> }
+						else { <option value="@v">@name</option> }
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">شماره گزارش</label>
+				<input class="form-control" data-bind="reportNumber" value="@Model?.ReportNumber" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold required">تاریخ گزارش</label>
+				<input class="form-control" data-bind="reportShamsiDate" data-required="true" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.ReportMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">ساعت کارکرد</label>
+				<input class="form-control ltr" type="number" data-bind="workingHours" value="@Model?.WorkingHours" />
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مقدار Coss تتا</label>
+				<input class="form-control" data-bind="cossTetaValue" value="@Model?.CossTetaValue" />
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نوع روغن مصرفی</label>
+				<select class="form-select" data-bind="consumedOilTypeId">
+					<option value="">انتخاب کنید</option>
+					@foreach (WorkReportConsumedOilTypeEnum e in Enum.GetValues(typeof(WorkReportConsumedOilTypeEnum)))
+					{
+						var v = (int)e;
+						var name = e.GetType().GetMember(e.ToString())[0]
+							.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false)
+							.Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>().FirstOrDefault()?.Name ?? e.ToString();
+						if (oilVal == v) { <option value="@v" selected>@name</option> }
+						else { <option value="@v">@name</option> }
+					}
+				</select>
+			</div>
+			<div class="col-md-8 form-group-inline">
+				<label class="form-label fw-bold">فایل گزارش کار</label>
+				<fileuploader bind="fileId" accepted-file-types=".pdf,.doc,.docx"
+					file-id="@Model?.FileId"
+					file-entity="@Model?.File"
+					entity-prop-name="File"
+					entity-type="@typeof(WorkReport).FullName"
+					max-file-size="5" label="انتخاب فایل">
+				</fileuploader>
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">عنوان و سمت نماینده</label>
+				<input class="form-control" data-bind="representativeName" data-required="true" value="@Model?.RepresentativeName" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">شماره موبایل نماینده</label>
+				<input class="form-control" data-bind="representativeMobileNumber" data-required="true" value="@Model?.RepresentativeMobileNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">آدرس ایمیل نماینده</label>
+				<input class="form-control" data-bind="representativeEmailAddress" value="@Model?.RepresentativeEmailAddress" />
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">گزارش حضور در جایگاه</label>
+				<textarea class="form-control" data-bind="failureExpertComment" rows="3">@Model?.FailureExpertComment</textarea>
+			</div>
+		</div>
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">خطاها</label>
+				<select class="form-select" id="workReportErrorFailures" multiple size="6">
+					@foreach (var f in errorFailures)
+					{
+						var fid = (long)f.Id;
+						if (selectedErrors.Contains(fid))
+						{
+							<option value="@fid" selected="selected">@f.Title</option>
+						}
+						else
+						{
+							<option value="@fid">@f.Title</option>
+						}
+					}
+				</select>
+			</div>
+		</div>
+
+		<div class="card border mt-3 mb-3">
+			<div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+				<span class="fw-bold">قطعات مصرفی</span>
+				<button type="button" class="btn btn-sm btn-primary" data-action="addConsumedPart">
+					<i class="fa fa-plus"></i> افزودن
+				</button>
+			</div>
+			<div class="card-body p-0">
+				<table class="table table-sm table-hover mb-0" id="workReportConsumedPartsTable">
+					<thead>
+						<tr>
+							<th>شماره فرم حواله</th>
+							<th>کالا</th>
+							<th>مقدار</th>
+							<th>وضعیت داغی</th>
+							<th>توضیح</th>
+							<th style="width:100px" class="text-center dt-ellipsis-skip">عملیات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+
+		<div class="card border mt-3">
+			<div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+				<span class="fw-bold">پارامترهای فنی</span>
+				<button type="button" class="btn btn-sm btn-primary" data-action="addFailure">
+					<i class="fa fa-plus"></i> افزودن
+				</button>
+			</div>
+			<div class="card-body p-0">
+				<table class="table table-sm table-hover mb-0" id="workReportFailuresTable">
+					<thead>
+						<tr>
+							<th>گروه</th>
+							<th>پارامتر فنی</th>
+							<th>مقدار</th>
+							<th>ست‌پوینت</th>
+							<th>توضیح</th>
+							<th style="width:100px" class="text-center dt-ellipsis-skip">عملیات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	let consumedParts = [];
+	let technicalFailures = [];
+	let editingConsumedIndex = null;
+	let editingFailureIndex = null;
+
+	const failureGroupLabels = {
+		'@((int)FailureInfoGroupEnum.Compressor)': 'Compressor',
+		'@((int)FailureInfoGroupEnum.Dryer)': 'Dryer',
+		'@((int)FailureInfoGroupEnum.StorageModule)': 'StorageModule',
+		'@((int)FailureInfoGroupEnum.AirCompressor)': 'Air Compressor',
+		'@((int)FailureInfoGroupEnum.FG)': 'F&G',
+		'@((int)FailureInfoGroupEnum.Dispenser)': 'Dispenser'
+	};
+
+	function esc(s) {
+		return String(s == null ? '' : s)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	function refreshDownloadBtn() {
+		const model = page.$pageEl.dataBind();
+		const hasFile = $$('#workReportHasFile').val() === '1' || !!(model.fileId) || !!(model.workReportFileAddress);
+		if (self.FormActionButtons.downloadFile)
+			$(self.FormActionButtons.downloadFile.element).toggle(!!hasFile);
+	}
+
+	function renderConsumedParts() {
+		const $tb = $$('#workReportConsumedPartsTable tbody');
+		$tb.empty();
+		consumedParts.forEach(function (item, idx) {
+			const actions = '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteConsumedPart" data-index="' + idx + '" title="حذف"><i class="fa fa-trash"></i></button>';
+			$tb.append('<tr><td>' + esc(item.saleOrderTitle) + '</td><td title="' + esc(item.partTitle) + '">'
+				+ esc(item.partTitle) + '</td><td>' + esc(item.mount) + '</td><td>' + esc(item.hotnessCondition)
+				+ '</td><td title="' + esc(item.comment) + '">' + esc(item.comment) + '</td><td class="text-center">' + actions + '</td></tr>');
+		});
+	}
+
+	function renderFailures() {
+		const $tb = $$('#workReportFailuresTable tbody');
+		$tb.empty();
+		technicalFailures.forEach(function (item, idx) {
+			const actions = '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteFailure" data-index="' + idx + '" title="حذف"><i class="fa fa-trash"></i></button>';
+			const groupLabel = failureGroupLabels[String(item.groupId)] || item.groupTitle || '';
+			$tb.append('<tr><td>' + esc(groupLabel) + '</td><td>' + esc(item.failureInfoTitle) + '</td><td>'
+				+ esc(item.value) + '</td><td>' + esc(item.setPointValue) + '</td><td title="' + esc(item.comment) + '">'
+				+ esc(item.comment) + '</td><td class="text-center">' + actions + '</td></tr>');
+		});
+	}
+
+	function seedChildrenFromModel() {
+		@if (Model?.ConsumedParts != null)
+		{
+			@:consumedParts = [
+			foreach (var p in Model.ConsumedParts)
+			{
+				var orderTitle = p.SaleOrder != null
+					? ((p.SaleOrder.HtsVchNo ?? p.SaleOrder.OrderNumber)?.ToString() ?? "") + " | " + (p.SaleOrder.VchDateShamsiDate ?? "")
+					: "";
+				var partTitle = p.Part != null ? ((p.Part.Code ?? "") + " | " + (p.Part.Name ?? "")).Trim() : "";
+				@:{ id: @(p.Id?.ToString() ?? "null"), htsId: @(p.HtsId), saleOrderId: @(p.SaleOrderId?.ToString() ?? "null"), saleOrderTitle: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(orderTitle)), partId: @(p.PartId), partTitle: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(partTitle)), mount: @(p.Mount.ToString(System.Globalization.CultureInfo.InvariantCulture)), hotnessCondition: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(p.HotnessCondition ?? "")), comment: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(p.Comment ?? "")) },
+			}
+			@:];
+		}
+		@if (Model?.Failures != null)
+		{
+			@:technicalFailures = [
+			foreach (var f in Model.Failures)
+			{
+				var gId = f.FailureInfo?.Group != null ? (int)f.FailureInfo.Group : 0;
+				var gTitle = f.FailureInfo?.Group?.ToString() ?? "";
+				var fTitle = f.FailureInfo?.Title ?? "";
+				@:{ id: @(f.Id?.ToString() ?? "null"), htsId: @(f.HtsId), failureInfoId: @(f.FailureInfoId), failureInfoTitle: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(fTitle)), groupId: @gId, groupTitle: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(gTitle)), value: @(f.Value?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null"), setPointValue: @(f.SetPointValue?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null"), comment: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(f.Comment ?? "")) },
+			}
+			@:];
+		}
+		renderConsumedParts();
+		renderFailures();
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function currentCustomerId() {
+		const fromHidden = $$('#workReportCustomerId').val();
+		if (fromHidden) return fromHidden;
+		const $wrap = $$('[data-bind="stationInfoId"]').closest('.entity-selector-wrapper');
+		const data = $wrap.data('selectedItem') || $wrap.data('selected');
+		if (data && data.CustomerId) return data.CustomerId;
+		return null;
+	}
+
+	function openConsumedPartModal() {
+		editingConsumedIndex = null;
+		const customerId = currentCustomerId();
+		if (!customerId) { toastr.error('ابتدا جایگاه را انتخاب کنید'); return; }
+		const $trigger = $$('[data-action="addConsumedPart"]');
+		$trigger.block();
+		page.getPartialView('/Panel/Cng/WorkReport/ConsumedPartForm?customerId=' + encodeURIComponent(customerId), function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$.confirm({
+				title: 'افزودن قطعه مصرفی',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const m = $content.dataBind();
+							if (!m.partId || m.partId === '0') { toastr.error('کالا نمی‌تواند خالی باشد'); return false; }
+							const mount = parseFloat(m.mount);
+							if (!mount || mount <= 0) { toastr.error('مقدار نامعتبر است'); return false; }
+							const row = {
+								id: null, htsId: 0,
+								saleOrderId: m.saleOrderId ? parseInt(m.saleOrderId, 10) : null,
+								saleOrderTitle: m.saleOrderTitle || $content.find('[data-bind="saleOrderId"] option:selected').text() || '',
+								partId: parseInt(m.partId, 10),
+								partTitle: m.partTitle || $content.find('[data-bind="partId"] option:selected').text() || '',
+								mount: mount,
+								hotnessCondition: m.hotnessCondition || '',
+								comment: m.comment || ''
+							};
+							consumedParts.push(row);
+							renderConsumedParts();
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						initConsumedPartLookups(selfConfirm.$body, customerId);
+					}, 50);
+				}
+			});
+		});
+	}
+
+	function initConsumedPartLookups($root, customerId) {
+		const $order = $root.find('[data-bind="saleOrderId"]');
+		const $part = $root.find('[data-bind="partId"]');
+		$$.get('/Panel/Cng/WorkReport/GetSaleOrders?customerId=' + encodeURIComponent(customerId), function (r) {
+			const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+			$order.empty().append('<option value="">انتخاب کنید</option>');
+			(rows || []).forEach(function (x) {
+				$order.append('<option value="' + x.id + '">' + esc(x.text) + '</option>');
+			});
+		});
+		$order.off('change.wr').on('change.wr', function () {
+			const oid = $(this).val();
+			$part.empty().append('<option value="">انتخاب کنید</option>');
+			if (!oid) return;
+			$$.get('/Panel/Cng/WorkReport/GetPartsByOrder?orderId=' + encodeURIComponent(oid), function (r) {
+				const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+				(rows || []).forEach(function (x) {
+					$part.append('<option value="' + x.id + '">' + esc(x.text) + '</option>');
+				});
+			});
+		});
+	}
+
+	function openFailureModal() {
+		editingFailureIndex = null;
+		const $trigger = $$('[data-action="addFailure"]');
+		$trigger.block();
+		page.getPartialView('/Panel/Cng/WorkReport/FailureForm', function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$.confirm({
+				title: 'افزودن پارامتر فنی',
+				columnClass: 'col-md-10',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const m = $content.dataBind();
+							const groupId = parseInt($content.find('[data-bind="groupId"]').val(), 10);
+							if (!groupId) { toastr.error('گروه اجباری است'); return false; }
+							if (!m.failureInfoId || m.failureInfoId === '0') { toastr.error('پارامتر فنی اجباری است'); return false; }
+							const row = {
+								id: null, htsId: 0,
+								failureInfoId: parseInt(m.failureInfoId, 10),
+								failureInfoTitle: $content.find('[data-bind="failureInfoId"] option:selected').text() || '',
+								groupId: groupId,
+								groupTitle: failureGroupLabels[String(groupId)] || '',
+								value: m.value !== '' && m.value != null ? parseFloat(m.value) : null,
+								setPointValue: m.setPointValue !== '' && m.setPointValue != null ? parseFloat(m.setPointValue) : null,
+								comment: m.comment || ''
+							};
+							technicalFailures.push(row);
+							renderFailures();
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						initFailureLookups(selfConfirm.$body);
+					}, 50);
+				}
+			});
+		});
+	}
+
+	function initFailureLookups($root) {
+		const $group = $root.find('[data-bind="groupId"]');
+		const $fail = $root.find('[data-bind="failureInfoId"]');
+		$group.off('change.wr').on('change.wr', function () {
+			const gid = $(this).val();
+			$fail.empty().append('<option value="">انتخاب کنید</option>');
+			if (!gid) return;
+			$$.get('/Panel/Cng/WorkReport/GetFailuresByGroup?groupId=' + encodeURIComponent(gid), function (r) {
+				const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+				(rows || []).forEach(function (x) {
+					$fail.append('<option value="' + x.id + '" data-initial="' + (x.initialValue != null ? x.initialValue : '') + '">' + esc(x.text) + '</option>');
+				});
+			});
+		});
+		$fail.off('change.wr').on('change.wr', function () {
+			const initial = $(this).find('option:selected').data('initial');
+			if (initial !== undefined && initial !== '')
+				$root.find('[data-bind="value"]').val(initial);
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.stationInfoId || model.stationInfoId === '0') { toastr.error('جایگاه اجباری است'); return; }
+		if (!model.requestTypeId) { toastr.error('نوع درخواست اجباری است'); return; }
+		if (!model.reportShamsiDate) { toastr.error('تاریخ گزارش اجباری است'); return; }
+		if (!model.representativeName) { toastr.error('نام نماینده اجباری است'); return; }
+		if (!model.representativeMobileNumber) { toastr.error('موبایل نماینده اجباری است'); return; }
+
+		model.errorFailureInfoIds = $$('#workReportErrorFailures').val() || [];
+		const errorIds = (model.errorFailureInfoIds || []).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return x > 0; });
+		model.consumedParts = consumedParts.map(function (x) {
+			return {
+				id: x.id, htsId: x.htsId || 0, saleOrderId: x.saleOrderId, partId: x.partId,
+				mount: x.mount, hotnessCondition: x.hotnessCondition, comment: x.comment
+			};
+		});
+		model.failures = technicalFailures.map(function (x) {
+			return {
+				id: x.id, htsId: x.htsId || 0, failureInfoId: x.failureInfoId,
+				value: x.value, setPointValue: x.setPointValue, comment: x.comment
+			};
+		}).concat(errorIds.map(function (eid) {
+			return { failureInfoId: eid };
+		}));
+		delete model.errorFailureInfoIds;
+
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			if (r.data) {
+				$$('#workReportHasFile').val(r.data.fileId || r.data.workReportFileAddress ? '1' : '0');
+				if (r.data.station && r.data.station.customerId)
+					$$('#workReportCustomerId').val(r.data.station.customerId);
+			}
+			refreshDownloadBtn();
+			$btnAction.baseaction();
+			appController.refreshCurrentPage();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+
+	if (self.FormActionButtons.downloadFile) {
+		self.FormActionButtons.downloadFile.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			window.open('/Panel/Cng/WorkReport/Download?id=' + id, '_blank');
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="addConsumedPart"]', function () { openConsumedPartModal(); });
+	page.$pageEl.on('click', '[data-action="addFailure"]', function () { openFailureModal(); });
+	page.$pageEl.on('click', '[data-action="deleteConsumedPart"]', function () {
+		const idx = parseInt($(this).data('index'), 10);
+		Swal.fire({ title: 'حذف', text: 'آیا مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				consumedParts.splice(idx, 1);
+				renderConsumedParts();
+			});
+	});
+	page.$pageEl.on('click', '[data-action="deleteFailure"]', function () {
+		const idx = parseInt($(this).data('index'), 10);
+		Swal.fire({ title: 'حذف', text: 'آیا مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
+			.then(function (result) {
+				if (!result.isConfirmed) return;
+				technicalFailures.splice(idx, 1);
+				renderFailures();
+			});
+	});
+
+	page.$pageEl.on('change', '[data-bind="stationInfoId"]', function () {
+		const $wrap = $(this).closest('.entity-selector-wrapper');
+		const data = $wrap.data('selectedItem') || $wrap.data('selected') || $wrap.data('entity');
+		if (!data) return;
+		if (data.CustomerId) $$('#workReportCustomerId').val(data.CustomerId);
+		if (data.RepresentativeName != null) $$('[data-bind="representativeName"]').val(data.RepresentativeName);
+		if (data.RepresentativeMobileNumber != null) $$('[data-bind="representativeMobileNumber"]').val(data.RepresentativeMobileNumber);
+		if (data.RepresentativeEmailAddress != null) $$('[data-bind="representativeEmailAddress"]').val(data.RepresentativeEmailAddress);
+	});
+
+	seedChildrenFromModel();
+	refreshDownloadBtn();
+</script>

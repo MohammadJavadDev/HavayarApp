@@ -1,0 +1,251 @@
+@using Entities.App.Cng
+@using Entities.App.Cng.Enums
+@using Entities.App.SLS
+@using Entities.Base
+@model StationInfo
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(StationInfo)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">اطلاعات مشتری/جایگاه</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"CngStationInfoCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Code} {Party.FullName}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId?.ToString(),
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">جایگاه</label>
+				<input class="form-control" data-bind="stationTitle" data-required="true" asp-for="StationTitle" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع تجهیز</label>
+				<select class="form-control" data-bind="equipmentType" data-required="true" asp-for="EquipmentType" asp-items="Html.GetEnumSelectList(typeof(StationEquipmentTypeEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال کمپرسور</label>
+				<select class="form-control" id="cmbCompressorSerial"></select>
+				<input class="form-control mt-1 d-none" id="txtCompressorSerialManual" data-bind="compressorSerial" asp-for="CompressorSerial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال درایر</label>
+				<select class="form-control" id="cmbDryerSerial"></select>
+				<input class="form-control mt-1 d-none" id="txtDryerSerialManual" data-bind="dryerSerial" asp-for="DryerSerial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال دیسپنسر1</label>
+				<select class="form-control" id="cmbDispenser1Serial"></select>
+				<input class="form-control mt-1 d-none" id="txtDispenser1SerialManual" data-bind="dispenser1Serial" asp-for="Dispenser1Serial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال دیسپنسر2</label>
+				<select class="form-control" id="cmbDispenser2Serial"></select>
+				<input class="form-control mt-1 d-none" id="txtDispenser2SerialManual" data-bind="dispenser2Serial" asp-for="Dispenser2Serial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال دیسپنسر3</label>
+				<select class="form-control" id="cmbDispenser3Serial"></select>
+				<input class="form-control mt-1 d-none" id="txtDispenser3SerialManual" data-bind="dispenser3Serial" asp-for="Dispenser3Serial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">سریال دیسپنسر4</label>
+				<select class="form-control" id="cmbDispenser4Serial"></select>
+				<input class="form-control mt-1 d-none" id="txtDispenser4SerialManual" data-bind="dispenser4Serial" asp-for="Dispenser4Serial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">ماژول ذخیره سازی</label>
+				<input class="form-control" data-bind="storageModule" asp-for="StorageModule" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ راه اندازی</label>
+				<input class="form-control" data-bind="launchShamsiDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@Model?.LaunchMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ تحویل نهایی</label>
+				<input class="form-control" data-bind="permanentDeliveryShamsiDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@Model?.PermanentDeliveryMiladiDate" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">کامنت</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+
+			<div class="col-12 mt-2"><h5 class="fw-bold text-dark border-bottom pb-2">اطلاعات تماس</h5></div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">عنوان و سمت نماینده</label>
+				<input class="form-control" data-bind="representativeName" data-required="true" asp-for="RepresentativeName" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">شماره تلفن نماینده</label>
+				<input class="form-control ltr" data-bind="representativeTellNumber" asp-for="RepresentativeTellNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">شماره موبایل نماینده</label>
+				<input class="form-control ltr" data-bind="representativeMobileNumber" asp-for="RepresentativeMobileNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">آدرس ایمیل نماینده</label>
+				<input class="form-control ltr" data-bind="representativeEmailAddress" asp-for="RepresentativeEmailAddress" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	const MANUAL_SERIAL_ID = '1000';
+	const serialFields = [
+		{ cmb: '#cmbCompressorSerial', txt: '#txtCompressorSerialManual', value: '@(Model?.CompressorSerial ?? "")' },
+		{ cmb: '#cmbDryerSerial', txt: '#txtDryerSerialManual', value: '@(Model?.DryerSerial ?? "")' },
+		{ cmb: '#cmbDispenser1Serial', txt: '#txtDispenser1SerialManual', value: '@(Model?.Dispenser1Serial ?? "")' },
+		{ cmb: '#cmbDispenser2Serial', txt: '#txtDispenser2SerialManual', value: '@(Model?.Dispenser2Serial ?? "")' },
+		{ cmb: '#cmbDispenser3Serial', txt: '#txtDispenser3SerialManual', value: '@(Model?.Dispenser3Serial ?? "")' },
+		{ cmb: '#cmbDispenser4Serial', txt: '#txtDispenser4SerialManual', value: '@(Model?.Dispenser4Serial ?? "")' }
+	];
+
+	function syncManualVisibility($cmb, $txt) {
+		if ($cmb.val() === MANUAL_SERIAL_ID) {
+			$txt.removeClass('d-none');
+		} else if ($cmb.val()) {
+			$txt.addClass('d-none');
+			$txt.val($cmb.find('option:selected').text());
+		} else {
+			$txt.removeClass('d-none');
+		}
+	}
+
+	function fillSerialSelects(items, keepValues) {
+		serialFields.forEach(function (f) {
+			const $cmb = $$(f.cmb);
+			const $txt = $$(f.txt);
+			const previousText = keepValues ? ($txt.val() || f.value) : '';
+			$cmb.empty();
+			$cmb.append($('<option></option>').attr('value', '').text('لطفا انتخاب کنید'));
+			(items || []).forEach(function (item) {
+				$cmb.append($('<option></option>').attr('value', item.id).text(item.text));
+			});
+			if (previousText) {
+				const match = $cmb.find('option').filter(function () {
+					return $(this).text() === previousText;
+				}).first();
+				if (match.length) {
+					$cmb.val(match.val());
+					$txt.val(previousText);
+					$txt.addClass('d-none');
+				} else {
+					$cmb.val(MANUAL_SERIAL_ID);
+					$txt.val(previousText);
+					$txt.removeClass('d-none');
+				}
+			} else {
+				$cmb.val('');
+				$txt.val('');
+				$txt.addClass('d-none');
+			}
+		});
+	}
+
+	function loadSerials(customerId, keepValues) {
+		if (!customerId) {
+			fillSerialSelects([{ id: MANUAL_SERIAL_ID, text: 'ورود دستی سریال' }], keepValues);
+			return;
+		}
+		$$.get('GetSerials?customerId=' + customerId, function (r) {
+			const items = (r && r.isSuccess !== false && r.data) ? r.data : (Array.isArray(r) ? r : []);
+			fillSerialSelects(items, keepValues);
+		});
+	}
+
+	serialFields.forEach(function (f) {
+		$$(f.cmb).on('change', function () {
+			syncManualVisibility($(this), $$(f.txt));
+		});
+	});
+
+	page.$pageEl.on('change', '[data-bind="customerId"], #CngStationInfoCustomerSelector input, #CngStationInfoCustomerSelector select', function () {
+		const model = page.$pageEl.dataBind();
+		loadSerials(model.customerId, false);
+	});
+
+	loadSerials(@(Model?.CustomerId ?? 0), true);
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.customerId) {
+			toastr.error('مشتری نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!model.stationTitle) {
+			toastr.error('جایگاه نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!model.equipmentType) {
+			toastr.error('نوع تجهیز نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!model.representativeName) {
+			toastr.error('عنوان و سمت نماینده نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!model.representativeEmailAddress && !model.representativeMobileNumber) {
+			toastr.error('حداقل یکی از فیلدهای آدرس ایمیل نماینده یا شماره موبایل نماینده باید پر شود', 'خطا');
+			return;
+		}
+
+		serialFields.forEach(function (f) {
+			const $cmb = $$(f.cmb);
+			const $txt = $$(f.txt);
+			const bindKey = $txt.attr('data-bind');
+			if ($cmb.val() && $cmb.val() !== MANUAL_SERIAL_ID) {
+				model[bindKey] = $cmb.find('option:selected').text();
+			} else {
+				model[bindKey] = $txt.val();
+			}
+		});
+
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

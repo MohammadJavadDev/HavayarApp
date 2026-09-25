@@ -2524,6 +2524,30 @@ div.dt-scroll-head table.dataTable tr.dt-inline-filter-row > th.dt-inline-filter
 	gap: 2px;
 }
 
+.dt-inline-filter-date {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+	width: 100%;
+}
+
+.dt-inline-filter-date .dt-inline-filter-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.dt-inline-filter-cal,
+.filter-date-cal {
+	flex: 0 0 28px;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
 .dt-inline-filter-wrap .form-control,
 .dt-inline-filter-wrap .form-select,
 .dt-inline-filter-wrap select.form-control {
@@ -2534,9 +2558,130 @@ div.dt-scroll-head table.dataTable tr.dt-inline-filter-row > th.dt-inline-filter
 	height: 28px;
 }
 
+.dt-inline-filter-wrap .dt-inline-filter-date .dt-inline-filter-input {
+	width: auto;
+	flex: 1 1 auto;
+}
+
 .dt-filter-op-menu {
 	min-width: 180px;
 	padding: 0.25rem 0;
+}
+
+
+.dt-inline-filter-op {
+	position: relative;
+}
+
+.dt-inline-filter-op .dt-filter-rule-count,
+.filter-icon + .dt-filter-rule-count {
+	position: absolute;
+	top: -5px;
+	inset-inline-start: -6px;
+	min-width: 15px;
+	height: 15px;
+	padding: 0 3px;
+	border-radius: 8px;
+	background: var(--bs-warning);
+	color: #111;
+	font-size: 9px;
+	font-weight: 700;
+	line-height: 15px;
+	text-align: center;
+	pointer-events: none;
+}
+
+.filter-icon {
+	position: relative;
+}
+
+.dt-filter-rule-panel {
+	background: #fff;
+	border: 1px solid rgba(0, 0, 0, 0.08);
+	border-radius: 10px;
+	max-height: min(70vh, 520px);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.dt-rule-panel-head,
+.dt-rule-panel-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 10px 12px;
+	background: #f8f9fa;
+}
+
+.dt-rule-panel-head {
+	border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+	font-weight: 600;
+}
+
+.dt-rule-panel-foot {
+	border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dt-rule-logic .btn.active {
+	background: var(--bs-warning);
+	border-color: var(--bs-warning);
+	color: #111;
+}
+
+.dt-rule-logic-hint {
+	padding: 6px 12px 0;
+	color: #6c757d;
+	font-size: 12px;
+}
+
+.dt-rule-list {
+	overflow: auto;
+	padding: 8px 12px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.dt-rule-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.dt-rule-op {
+	flex: 0 0 118px;
+	width: 118px;
+}
+
+.dt-rule-value-host {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.dt-rule-value-wrap {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.dt-rule-value-wrap .dt-rule-value,
+.dt-rule-value-host > .dt-rule-value {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: 100%;
+}
+
+.dt-rule-remove,
+.dt-rule-cal {
+	flex: 0 0 30px;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 }
 
 .dt-filter-op-menu .dropdown-item.active,
@@ -2693,4 +2838,51 @@ div.dt-container.dt-page-fit div.dt-scroll-body {
 	box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.45);
 }
 
- 
+#dashbordContent.havayar-home {
+	background: #F4F7FB;
+	margin: -.25rem -.35rem 0;
+	padding: 1rem 1.15rem 1.75rem;
+	min-height: calc(100vh - 8.5rem);
+}
+#dashbordContent .havayar-home__toolbar {
+	display: flex;
+	justify-content: flex-start;
+	margin-bottom: 1.15rem;
+}
+#dashbordContent .havayar-home__picker {
+	display: flex;
+	align-items: center;
+	gap: .65rem;
+	margin: 0;
+	min-width: 0;
+}
+#dashbordContent .havayar-home__picker > span {
+	font-size: .82rem;
+	font-weight: 600;
+	color: #5E6278;
+	white-space: nowrap;
+}
+#dashbordContent #selectDashbords {
+	width: 17rem;
+	max-width: min(17rem, 70vw);
+	min-height: 2.25rem;
+	padding-top: .35rem;
+	padding-bottom: .35rem;
+	border-color: #E4E6EF;
+	background-color: #fff;
+	box-shadow: none;
+}
+#dashbordContent .havayar-home__section {
+	margin-bottom: 1.35rem;
+}
+#dashbordContent #dashbordRenderArea:empty {
+	display: none;
+}
+#dashbordContent #dashbordRenderArea:not(:empty) {
+	margin-top: .25rem;
+	background: #fff;
+	border: 1px solid #E4E6EF;
+	border-radius: .65rem;
+	padding: .75rem;
+}
+

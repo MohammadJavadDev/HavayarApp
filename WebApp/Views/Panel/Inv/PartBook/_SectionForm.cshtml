@@ -1,0 +1,58 @@
+@model Entities.App.Inv.PartBookSection
+@{
+	Layout = null;
+	var pictureId = Model?.PictureId;
+	var partId = ViewBag.PartId as long?;
+}
+<div class="partbook-section-form">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="partId" value="@partId" />
+	<div class="row g-3">
+		<div class="col-md-12 form-group-inline">
+			<label>عنوان</label>
+			<input type="text" class="form-control" data-bind="title" value="@Model?.Title" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ترتیب</label>
+			<input type="number" class="form-control" data-bind="order" value="@(Model?.Order > 0 ? Model.Order.ToString() : "")" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>برای BOM سفارشی</label>
+			<input type="checkbox" data-bind="isForCustomBom" @(Model?.IsForCustomBom == true ? "checked" : "") />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>تصویر</label>
+			<div class="file-uploader-container file-uploader-form">
+				<div class="file-uploader-wrapper">
+					<div class="dropzone-area"
+						 data-file-uploader="true"
+						 data-bindid="pictureId"
+						 data-file-id="@(pictureId?.ToString() ?? "")"
+						 data-multiple="false"
+						 data-max-files="1"
+						 data-max-file-size="10"
+						 data-accepted-file-types=".jpg,.jpeg,.png"
+						 data-entity-type="Entities.App.Inv.PartBookSection"
+						 data-entity-id="@(Model?.Id?.ToString() ?? "")"
+						 data-show-preview="true"
+						 data-show-download="true"
+						 data-show-delete="true"
+						 data-entity-prop-name="Picture"
+						 data-required="false">
+						<div class="dz-message">
+							<p>فایل را اینجا رها کنید یا کلیک کنید</p>
+							<p class="text-muted small">jpg / jpeg / png</p>
+						</div>
+					</div>
+				</div>
+				<input type="hidden" data-bind="pictureId" value="@(pictureId?.ToString() ?? "")" />
+			</div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>توضیحات</label>
+			<textarea class="form-control" data-bind="comment">@Model?.Comment</textarea>
+		</div>
+	</div>
+</div>

@@ -1,0 +1,33 @@
+---
+description: Stimulsoft print layout — IRANSans FaNum, RTL for Persian, LTR for codes and dates. Follow when designing or generating a ReportBuilder print template.
+globs: Data/Seed/**/*.{json,py},ReportBuilder.WebApp/**/*,Data/Scripts/**/*Report*.sql
+alwaysApply: false
+---
+
+# Stimulsoft print design
+
+Taken from the edited `ProductionOrderForm` template (ReportBuilder report 39). New print forms use the same text rules.
+
+## Font
+
+- Persian labels, values, titles, and grid headers: `IRANSansWeb(FaNum) Medium` (FaNum so digits stay Persian).
+- Do not use Tahoma for those texts. Do not set Bold on body values.
+- Title of the form: same family, size 18, center.
+- Grid column headers: size 7, center.
+- Header number and date values: size 10, color maroon `128,0,0`. Their labels: size 9.
+
+## Direction
+
+- Page `RightToLeft = true`.
+- Persian text (labels and Persian names): `TextOptions.RightToLeft = true`.
+- Codes, dates, quantities, and the row number: `RightToLeft = false` so the digits are not reversed. Same for the order number and the header date.
+- Grid cells (headers and item values): horizontal alignment Center.
+
+## Example
+
+```text
+Font: IRANSansWeb(FaNum) Medium
+عنوان / نام مشتری     RightToLeft true
+کد تجهیز / تاریخ / تعداد / شماره ردیف     RightToLeft false, Center
+شماره و تاریخ سربرگ     size 10, maroon, RightToLeft false
+```

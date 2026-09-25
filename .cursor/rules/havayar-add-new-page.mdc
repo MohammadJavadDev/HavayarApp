@@ -88,6 +88,22 @@ public class EntityNameController(IUnitOfWork unitOfWork, IWebHostEnvironment en
 }
 ```
 
+### Controller class names must be unique (assembly-wide)
+
+Incident: `/panel/cng/partprice/list` showed «نام یا نوع موجودیت تعریف نشده است» because CNG and Sale both used class `PartPriceController`.
+
+- **`EndpointService.GetAllEndpoints()`** (`Services/AccessServices/EndpointService.cs`) groups `ControllerActionDescriptor`s with **`GroupBy(ad => ad.ControllerName)` only** — ASP.NET’s short name (class without the `Controller` suffix). Namespace, folder, and route template are **not** part of the key.
+- That yields one `AccessController` whose `EntityType` comes from the **first** descriptor in the group. The second entity is never registered.
+- **`DataTableProfileTagHelper`** (`WebFramework/TagHelpers/DataTableProfileTagHelper.cs`) then calls `GetAccessControllerBy(entityType)` and, when null, renders «نام یا نوع موجودیت تعریف نشده است».
+
+| Do | Don't |
+|---|---|
+| Before naming a controller, search WebApp for an existing `*Controller` with the **same class name** | Assume a different namespace/folder/module disambiguates |
+| If the natural name is taken, prefix the class with the module: `CngPartPriceController` | Rename only by moving the class to another namespace or folder |
+| Keep the public URL with an **explicit** route, e.g. `[Route("Panel/Cng/PartPrice")]` | Use `[Route("Panel/Cng/[controller]")]` after a module prefix — that becomes `/panel/cng/cngpartprice` |
+
+Canonical fix: `WebApp/Controllers/Dynamic/Cng/CngPartPriceController.cs` + `CngPartPriceAttachmentController.cs` with `[Route("Panel/Cng/PartPrice")]` / `[Route("Panel/Cng/PartPriceAttachment")]`, vs existing `WebApp/Controllers/Dynamic/Sale/PartPriceController.cs`.
+
 - **`[ControllerInfo]` is required** for the controller to be discovered by the permission system at all (`Services/AccessServices/EndpointService.cs` skips controllers without it).
 - Standard actions and their attributes:
 
@@ -187,12 +203,14 @@ These exist across the codebase; treat them as pre-existing variation, not bugs 
 2. **Controller folder / route prefix** can differ from the view folder path (e.g. `Controllers/Dynamic/Sale/ProductionOrderItemController.cs` with `[Route("Panel/[controller]")]` vs `Views/Panel/Sale/ProductionOrderItem/`).
 3. **Service layer usage** is inconsistent in the existing codebase, but the intended standard going forward is: **no service layer, logic in the controller**. A minority of older pages (reports, complex workflows) have a dedicated service registered in `Program.cs` — don't copy that pattern into new simple CRUD pages, and don't add a service layer "for consistency" unless the user asks for it.
 4. Helper APIs **must** omit `[ActionDisplayName]` (`GetMissionInfo`-style calc/lookup). Primary CRUD/list/report actions **must** have it. Do not "fix" a helper by adding the attribute, and do not drop it from List/Edit/Save.
+5. When two modules need the same entity-shaped name, **class names still must be unique** (Step 5 subsection above). Existing Sale `PartPriceController` vs CNG `CngPartPriceController` is the pattern — do not invent a second `PartPriceController` in another folder.
 
 ## Quick reference paths
 
 | Concern | Path |
 |---|---|
 | Example controller | `WebApp/Controllers/Dynamic/Sale/ProductionOrderItemController.cs` |
+| Unique-name clash example | `Sale/PartPriceController.cs` vs `Cng/CngPartPriceController.cs` (explicit `[Route("Panel/Cng/PartPrice")]`) |
 | Example entity | `Entities/App/Sale/ProductionOrderItem.cs` |
 | Before/After-save "trigger" examples | `WebApp/Actions/Sale/ProductionOrderItemAction.cs`, `WebApp/Actions/Edms/ProjectAction.cs` |
 | Action attribute / trigger enum | `Data/Actions/EntityActionAttribute.cs` (`EntityActionTrigger`) |

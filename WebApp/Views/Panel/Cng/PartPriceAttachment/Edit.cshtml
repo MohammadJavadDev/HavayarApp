@@ -1,0 +1,68 @@
+@using Entities.App.Cng
+@model PartPriceAttachment
+@{
+	var isFullPage = ViewData["RenderLayout"] as bool? != false;
+}
+
+<div class="card shadow-sm border-0">
+	@if (isFullPage)
+	{
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(PartPriceAttachment)"></form-action-buttons>
+		</div>
+	}
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">پیوست قیمت قطعات</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="partPriceId" value="@Model?.PartPriceId" type="hidden" />
+		<input class="form-control" data-bind="fileIds" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-12 form-group-inline">
+				<fileuploader bind="fileId" file-id="@Model?.FileId" file-entity="@Model?.File"
+							  label="فایل" entity-type="@typeof(PartPriceAttachment).FullName" entity-prop-name="File"
+							  max-file-size="50" max-files="20" multiple="true"
+							  accepted-file-types=".pdf,.zip,.rar,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+							  required="true"></fileuploader>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+@if (isFullPage)
+{
+<script>
+	function collectFileIds() {
+		const ids = [];
+		$$('.existing-file-item').each(function () {
+			const id = $(this).data('file-id');
+			if (id && ids.indexOf(String(id)) < 0) ids.push(String(id));
+		});
+		const bound = $$('[data-bind="fileId"]').val();
+		if (bound && ids.indexOf(String(bound)) < 0) ids.push(String(bound));
+		return ids;
+	}
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const fileIds = collectFileIds();
+		if (fileIds.length === 0) {
+			toastr.error('انتخاب فایل الزامی است', 'خطا');
+			return;
+		}
+		model.fileIds = fileIds.join(',');
+		if (fileIds.length > 0) model.fileId = fileIds[fileIds.length - 1];
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>
+}

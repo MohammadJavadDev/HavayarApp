@@ -1,0 +1,200 @@
+@using Entities.App.Hcm
+@using Entities.App.Sec
+@using Entities.Base
+@model Personnel
+
+@{
+	var hasPicture = Model?.Picture != null && Model.Picture.Length > 0;
+	var hasSecond = Model?.SecondPicture != null && Model.SecondPicture.Length > 0;
+}
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(Personnel)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">مدیریت پرسنل دبیرخانه</h4></div></div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+		<input type="hidden" data-bind="pictureBase64" id="pictureBase64" value="" />
+		<input type="hidden" data-bind="secondPictureBase64" id="secondPictureBase64" value="" />
+		<input type="hidden" data-bind="removePicture" id="removePicture" value="false" />
+		<input type="hidden" data-bind="removeSecondPicture" id="removeSecondPicture" value="false" />
+
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">پرسنل</label>
+				@(Html.EntitySelector<Personel>(
+					"PersonelSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name, Family = c.Family },
+					c => new { c.Code, c.Name, c.Family },
+					"{Code} {Name} {Family}",
+					"PersonelId",
+					"PersonelName",
+					Model?.PersonelId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نام نمایشی</label>
+				<input class="form-control" data-bind="nameDisplay" asp-for="NameDisplay" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">نام‌خانوادگی نمایشی</label>
+				<input class="form-control" data-bind="familyDisplay" asp-for="FamilyDisplay" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ تولد</label>
+				<input class="form-control ltr" data-bind="birthDate" asp-for="BirthDate" placeholder="1370/01/15" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ شروع به کار</label>
+				<input class="form-control ltr" data-bind="employmentDate" asp-for="EmploymentDate" placeholder="1390/01/01" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">گیرنده</label>
+				@(Html.EntitySelector<ReciversGroup>(
+					"ReciversGroupSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, ReciversTitle = c.ReciversTitle, ReciversEmails = c.ReciversEmails },
+					c => new { c.ReciversTitle },
+					"{ReciversTitle}",
+					"ReciversGroupId",
+					"ReciversGroupName",
+					Model?.ReciversGroupId?.ToString()
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">فعال</label>
+				<select class="form-control" data-bind="isActive" asp-for="IsActive" asp-items="Html.GetEnumSelectList(typeof(IsActiveEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">اجبار ارسال</label>
+				<input type="checkbox" class="form-check-input" data-bind="forceToSend"
+					   @(Model?.ForceToSend == true ? "checked" : "") />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">تصویر تولد</label>
+				<div class="d-flex align-items-start gap-3 flex-wrap">
+					<img id="picturePreview" class="border rounded" style="max-width:180px;max-height:140px;@(hasPicture ? "" : "display:none")"
+						 src="@(hasPicture && Model?.Id > 0 ? $"/Panel/Sec/Personnel/GetPicture?id={Model.Id}" : "")" alt="" />
+					<div>
+						<input type="file" id="pictureFile" accept="image/*" class="form-control mb-2" />
+						<button type="button" class="btn btn-sm btn-light-danger" data-action="removePicture" style="@(hasPicture ? "" : "display:none")">حذف تصویر</button>
+					</div>
+				</div>
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">تصویر سالروز حضور</label>
+				<div class="d-flex align-items-start gap-3 flex-wrap">
+					<img id="secondPicturePreview" class="border rounded" style="max-width:180px;max-height:140px;@(hasSecond ? "" : "display:none")"
+						 src="@(hasSecond && Model?.Id > 0 ? $"/Panel/Sec/Personnel/GetSecondPicture?id={Model.Id}" : "")" alt="" />
+					<div>
+						<input type="file" id="secondPictureFile" accept="image/*" class="form-control mb-2" />
+						<button type="button" class="btn btn-sm btn-light-danger" data-action="removeSecondPicture" style="@(hasSecond ? "" : "display:none")">حذف تصویر</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	function readFileAsBase64(file, callback) {
+		const reader = new FileReader();
+		reader.onload = function (e) { callback(e.target.result); };
+		reader.readAsDataURL(file);
+	}
+
+	$$('#pictureFile').on('change', function () {
+		const file = this.files && this.files[0];
+		if (!file) return;
+		readFileAsBase64(file, function (dataUrl) {
+			$$('#pictureBase64').val(dataUrl);
+			$$('#removePicture').val('false');
+			$$('#picturePreview').attr('src', dataUrl).show();
+			$$('[data-action="removePicture"]').show();
+		});
+	});
+
+	$$('#secondPictureFile').on('change', function () {
+		const file = this.files && this.files[0];
+		if (!file) return;
+		readFileAsBase64(file, function (dataUrl) {
+			$$('#secondPictureBase64').val(dataUrl);
+			$$('#removeSecondPicture').val('false');
+			$$('#secondPicturePreview').attr('src', dataUrl).show();
+			$$('[data-action="removeSecondPicture"]').show();
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="removePicture"]', function () {
+		$$('#pictureBase64').val('');
+		$$('#removePicture').val('true');
+		$$('#pictureFile').val('');
+		$$('#picturePreview').attr('src', '').hide();
+		$(this).hide();
+	});
+
+	page.$pageEl.on('click', '[data-action="removeSecondPicture"]', function () {
+		$$('#secondPictureBase64').val('');
+		$$('#removeSecondPicture').val('true');
+		$$('#secondPictureFile').val('');
+		$$('#secondPicturePreview').attr('src', '').hide();
+		$(this).hide();
+	});
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		model.removePicture = $$('#removePicture').val() === 'true';
+		model.removeSecondPicture = $$('#removeSecondPicture').val() === 'true';
+		model.pictureBase64 = $$('#pictureBase64').val() || null;
+		model.secondPictureBase64 = $$('#secondPictureBase64').val() || null;
+		if (!model.personelId && !model.nameDisplay) {
+			toastr.error('نام نمایشی یا انتخاب پرسنل الزامی است', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$$('#pictureBase64').val('');
+			$$('#secondPictureBase64').val('');
+			$$('#removePicture').val('false');
+			$$('#removeSecondPicture').val('false');
+			if (r.data && r.data.id) {
+				if (r.data.hasPicture)
+					$$('#picturePreview').attr('src', '/Panel/Sec/Personnel/GetPicture?id=' + r.data.id + '&t=' + Date.now()).show();
+				if (r.data.hasSecondPicture)
+					$$('#secondPicturePreview').attr('src', '/Panel/Sec/Personnel/GetSecondPicture?id=' + r.data.id + '&t=' + Date.now()).show();
+			}
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

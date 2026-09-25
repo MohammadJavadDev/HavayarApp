@@ -37,6 +37,10 @@ namespace Data.Services.QueryBuilderServices
 
 		Task<QueryResult> ExecuteQueryWithPaginationAsync(string mainQuery, string whereQuery, string orderQuery, Dictionary<string, object> parameters, int offset, int limit);
 
+		/// <summary>
+		/// فقط COUNT(*) با جدا کردن --!--mainsection؛ بدون برگرداندن ردیف.
+		/// </summary>
+		Task<int> ExecuteCountAsync(string mainQuery, Dictionary<string, object> parameters = null);
 
 		Task<bool> ValidateQueryAsync(string query);
 		/// <summary>
@@ -523,6 +527,48 @@ OFFSET @__offset ROWS FETCH NEXT @__limit ROWS ONLY";
 			}
 
 			return result;
+		}
+
+		/// <summary>
+		/// فقط COUNT(*) با جدا کردن --!--mainsection؛ بدون برگرداندن ردیف.
+		/// </summary>
+		public async Task<int> ExecuteCountAsync(string mainQuery, Dictionary<string, object> parameters = null)
+		{
+			var splitedQuery = mainQuery.Split(SqlStatementHelper.MainSectionMarker);
+			var beforeQuery = "";
+			if (splitedQuery.Length > 1)
+			{
+				beforeQuery = splitedQuery[0];
+				mainQuery = splitedQuery[1];
+			}
+
+			using (var connection = new SqlConnection(_connectionString))
+			{
+				await connection.OpenAsync();
+
+				var countQuery = $"{beforeQuery}  SELECT COUNT(*) FROM ({mainQuery}) AS [__t]";
+				using (var countCmd = new SqlCommand(countQuery, connection))
+				{
+					countCmd.CommandTimeout = 300;
+					if (parameters != null)
+					{
+						foreach (var param in parameters)
+						{
+							countCmd.Parameters.AddWithValue(param.Key, param.Value ?? DBNull.Value);
+						}
+					}
+
+					try
+					{
+						return Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+					}
+					catch (SqlException e)
+					{
+						var userFriendlyMessage = SqlUtils.Translate(e);
+						throw new Exception(userFriendlyMessage, e);
+					}
+				}
+			}
 		}
 
 		/// <summary>

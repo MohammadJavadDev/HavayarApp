@@ -55,6 +55,9 @@ namespace WebApp.Controllers.Dynamic
 				.Include(e => e.Supplier)
 					.ThenInclude(s => s.Party)
 				.Include(e => e.SenderUser)
+				.Include(e => e.Attachment)
+				.Include(e => e.PartAttachment)
+				.Include(e => e.EdmsDocumentAttachment)
 				.FirstOrDefault(e => e.Id == id);
 
 			if (entity == null)

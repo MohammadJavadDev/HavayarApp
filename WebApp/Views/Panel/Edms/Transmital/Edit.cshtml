@@ -31,7 +31,9 @@
 			@(Html.EntitySelector<Document>
 						(
 						"DocumentIdSelector",
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsLatest == true,
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsLatest == true
+							&& (c.Status == DocumentStatusEnums.ApprovedByDcc
+								|| c.Comments.Any(x => x.Status == DocumentStatusEnums.ReplaySheet)),
 						c => new
 						{
 							Id = c.Id,
@@ -152,8 +154,6 @@
 				$btnAction.baseaction();
 			})
 	}
-
-	debugger
 
 	 $('#DocumentIdSelector').entitySelector({
 	    filters: function() {

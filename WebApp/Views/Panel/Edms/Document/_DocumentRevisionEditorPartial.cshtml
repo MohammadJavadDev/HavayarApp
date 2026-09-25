@@ -161,11 +161,31 @@
 						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
 			</div>
 
-			<div class='col-md-6'>
-				<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
-						    label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" bindid="replySheet"
-						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
-			</div>
+			@* ReplySheet file is collected only via Add ReplySheet action (modal), not during normal edit *@
+			@if (Model?.ReplySheetId.HasValue == true && Model.ReplySheetId.Value > 0)
+			{
+				<div class='col-md-6'>
+					<label class="form-label">فایل ReplySheet</label>
+					<div class="d-flex align-items-center gap-2">
+						<a href="/File/download/@Model.ReplySheetId.Value" class="btn btn-sm btn-light-primary" target="_blank">
+							<i class="ki-file-down ki-solid fs-2"></i>
+							دانلود
+						</a>
+					</div>
+				</div>
+			}
+			@if (Model?.SecondReplySheetId.HasValue == true && Model.SecondReplySheetId.Value > 0)
+			{
+				<div class='col-md-6'>
+					<label class="form-label">فایل ReplySheet دوم</label>
+					<div class="d-flex align-items-center gap-2">
+						<a href="/File/download/@Model.SecondReplySheetId.Value" class="btn btn-sm btn-light-primary" target="_blank">
+							<i class="ki-file-down ki-solid fs-2"></i>
+							دانلود
+						</a>
+					</div>
+				</div>
+			}
 
 		
 
@@ -197,5 +217,9 @@
 
 	</div>
  
+	@{
+		var actionFlags = ViewData["ActionFlags"] as WebApp.ViewModels.Edms.DocumentEditActionFlags
+			?? new WebApp.ViewModels.Edms.DocumentEditActionFlags();
+	}
+	<script type="application/json" id="documentActionFlags">@Html.Raw(Json.Serialize(actionFlags))</script>
 </div>
- 

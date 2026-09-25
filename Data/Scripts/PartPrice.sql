@@ -61,7 +61,7 @@ ListData AS (
         Product.SaleRate,
         Part.[Foreign]
     FROM Inv.Part AS Product
-    LEFT JOIN dbo.vw_BomProductItems AS Vw_Bom_Product_Items
+    LEFT JOIN dbo.vw_BomProductItem AS Vw_Bom_Product_Items
         ON Vw_Bom_Product_Items.ProductId = Product.Id
     JOIN inv.Part AS Part
         ON Part.Id = Vw_Bom_Product_Items.PartItemId
@@ -185,7 +185,7 @@ LEFT JOIN (
 
 LEFT JOIN (
     SELECT DISTINCT ProductFormulId
-    FROM Bom.vw_ProductItems
+    FROM Bom.vw_ProductItem
     WHERE ProductFormulId IN (SELECT Id FROM BaseQuery)
 ) bom ON p.Id = bom.ProductFormulId
 

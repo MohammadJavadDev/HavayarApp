@@ -120,6 +120,47 @@ public class FileService : IFileService
 		TryDeletePhysical(file.PhysicalPath);
 	}
 
+	public async Task<FileEntity> RegisterExistingAsync(
+		string fullPath,
+		string originalName,
+		string? entityType,
+		string? entityPropName,
+		long? entityId,
+		CancellationToken ct)
+	{
+		if (string.IsNullOrWhiteSpace(fullPath))
+			throw new ArgumentException("File path is empty");
+
+		var info = new FileInfo(fullPath);
+		if (!info.Exists)
+			info = new FileInfo(ToLongPath(fullPath));
+		if (!info.Exists || info.Length == 0)
+			throw new FileNotFoundException("File is missing or empty", fullPath);
+
+		var storedPath = info.FullName;
+		if (storedPath.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+			storedPath = @"\\" + storedPath[@"\\?\UNC\".Length..];
+		else if (storedPath.StartsWith(@"\\?\", StringComparison.Ordinal))
+			storedPath = storedPath[4..];
+
+		var name = string.IsNullOrWhiteSpace(originalName) ? info.Name : originalName.Trim();
+		var entity = new FileEntity
+		{
+			PhysicalPath = storedPath,
+			OriginalName = name,
+			ContentType = DetectContentType(name),
+			Size = info.Length,
+			EntityType = entityType,
+			EntityPropName = entityPropName,
+			EntityId = entityId,
+			IsActive = IsActiveEnum.Active
+		};
+
+		await _unitOfWork.Repository<FileEntity>().AddAsync(entity, ct);
+		await _unitOfWork.SaveChangesAsync(ct);
+		return entity;
+	}
+
 	// ----------------------------------------------------
 	// Get
 	// ----------------------------------------------------
@@ -147,13 +188,71 @@ public class FileService : IFileService
 		try
 		{
 			var fullPath = GetFullPhysicalPath(relativePath);
-			if (System.IO.File.Exists(fullPath))
-				System.IO.File.Delete(fullPath);
+			if (!IsUnderUploadsRoot(fullPath) || !System.IO.File.Exists(fullPath))
+				return;
+
+			System.IO.File.Delete(fullPath);
 		}
 		catch
 		{
 			// Log & schedule cleanup
 		}
+	}
+
+	private bool IsUnderUploadsRoot(string fullPath)
+	{
+		if (string.IsNullOrWhiteSpace(fullPath) || string.IsNullOrWhiteSpace(_uploadsRoot))
+			return false;
+
+		var root = Path.GetFullPath(_uploadsRoot)
+			.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+			+ Path.DirectorySeparatorChar;
+		var candidate = Path.GetFullPath(fullPath);
+		return candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static string ToLongPath(string path)
+	{
+		var full = Path.GetFullPath(path);
+		if (full.StartsWith(@"\\?\", StringComparison.Ordinal))
+			return full;
+		if (full.StartsWith(@"\\", StringComparison.Ordinal))
+			return @"\\?\UNC\" + full[2..];
+		return @"\\?\" + full;
+	}
+
+	private static string DetectContentType(string fileName)
+	{
+		var mimeTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			{ ".txt", "text/plain" },
+			{ ".csv", "text/csv" },
+			{ ".json", "application/json" },
+			{ ".xml", "application/xml" },
+			{ ".html", "text/html" },
+			{ ".htm", "text/html" },
+			{ ".jpg", "image/jpeg" },
+			{ ".jpeg", "image/jpeg" },
+			{ ".png", "image/png" },
+			{ ".gif", "image/gif" },
+			{ ".bmp", "image/bmp" },
+			{ ".pdf", "application/pdf" },
+			{ ".doc", "application/msword" },
+			{ ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
+			{ ".xls", "application/vnd.ms-excel" },
+			{ ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+			{ ".ppt", "application/vnd.ms-powerpoint" },
+			{ ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
+			{ ".zip", "application/zip" },
+			{ ".rar", "application/x-rar-compressed" },
+			{ ".dwg", "application/acad" },
+		};
+
+		var ext = Path.GetExtension(fileName);
+		if (!string.IsNullOrEmpty(ext) && mimeTypes.TryGetValue(ext, out var detectedType))
+			return detectedType;
+
+		return "application/octet-stream";
 	}
 	public async Task<(Stream Stream, string ContentType, string FileName)>
     DownloadAsync(long fileId, CancellationToken ct)
@@ -199,41 +298,7 @@ public class FileService : IFileService
 
 		// حدس زدن contentType بر اساس پسوند فایل
 		if (string.IsNullOrWhiteSpace(contentType))
-		{
-			var mimeTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-	   {
-		  { ".txt", "text/plain" },
-		  { ".csv", "text/csv" },
-		  { ".json", "application/json" },
-		  { ".xml", "application/xml" },
-		  { ".html", "text/html" },
-		  { ".htm", "text/html" },
-		  { ".jpg", "image/jpeg" },
-		  { ".jpeg", "image/jpeg" },
-		  { ".png", "image/png" },
-		  { ".gif", "image/gif" },
-		  { ".bmp", "image/bmp" },
-		  { ".pdf", "application/pdf" },
-		  { ".doc", "application/msword" },
-		  { ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-		  { ".xls", "application/vnd.ms-excel" },
-		  { ".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-		  { ".ppt", "application/vnd.ms-powerpoint" },
-		  { ".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation" },
-		  { ".zip", "application/zip" },
-		  { ".rar", "application/x-rar-compressed" },
-	   };
-
-			var ext = Path.GetExtension(fileName);
-			if (!string.IsNullOrEmpty(ext) && mimeTypes.TryGetValue(ext, out var detectedType))
-			{
-				contentType = detectedType;
-			}
-			else
-			{
-				contentType = "application/octet-stream"; // پیش‌فرض
-			}
-		}
+			contentType = DetectContentType(fileName);
 
 		var entity = new FileEntity
 		{

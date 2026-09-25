@@ -1,0 +1,16 @@
+@using Entities.App.Edms
+@model Document
+
+<div id="ReplySheetForm" class="row p-2 align-items-center">
+	<input type="hidden" data-bind="documentId" value="@Model?.Id" />
+	<div class="col-12">
+		<fileuploader bind="replySheetFileId"
+					  label="فایل ReplySheet"
+					  entity-type="@typeof(Document).FullName"
+					  entity-prop-name="ReplySheet"
+					  max-file-size="50"
+					  accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx"
+					  required="true"></fileuploader>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

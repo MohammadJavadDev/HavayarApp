@@ -18,7 +18,18 @@
 		: "null";
 }
 <div class="card">
-	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(ProductionOrderDelay)"></form-action-buttons></div>
+	<div class="form-action-buttons">
+		<form-action-buttons entity-type="typeof(ProductionOrderDelay)">
+		 
+			<form-action-button
+						icon-class="fa-light fa-floppy-disk-circle-arrow-right" 
+							color-class="btn-active-icon-dark btn-color-success"
+						action-name="saveforNew"
+						title="ذخیره و جدید "
+								>
+			</form-action-button>
+		</form-action-buttons>
+	</div>
 </div>
 <div class="card my-3">
 	<div class="card-body row">
@@ -831,7 +842,7 @@
 				currentDelayId = (r.data && (r.data.id || r.data.Id)) || currentDelayId;
 				loadExistingDelays();
 
-				if ($btnAction === self.FormActionButtons.saveandnew && lockedProductionOrderId > 0) {
+				if ($btnAction === self.FormActionButtons.saveforNew && lockedProductionOrderId > 0) {
 					appController.addPage('/Panel/ProductionOrderDelay/New?productionOrderId=' + lockedProductionOrderId);
 					return;
 				}
@@ -842,6 +853,7 @@
 	self.FormActionButtons.save.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+	self.FormActionButtons.saveforNew.onclick(function () { savefn(this) })
 
 	$$('#delayResponsibleSelect').change(function () {
 		loadResponsibleUsers();

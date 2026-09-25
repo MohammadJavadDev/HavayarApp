@@ -118,33 +118,6 @@ BEGIN TRY
         Flag                 NVARCHAR(20)   NOT NULL
     );
     INSERT INTO #PagePath (PageId, Path, ActionAccessType, ActionAccessItemType, EntityName, Flag) VALUES
-        (95, N'/panel/bom/formulgroup/list', 1, 1, N'Entities.App.Bom.FormulGroup', N'read'),
-        (95, N'/panel/bom/formulgroup/edit', 1, 5, N'Entities.App.Bom.FormulGroup', N'read'),
-        (95, N'/panel/bom/formulgroup/fetchdata', 2, 2, N'Entities.App.Bom.FormulGroup', N'read'),
-        (95, N'/panel/bom/formulgroup/exporttoexcel', 2, 0, N'Entities.App.Bom.FormulGroup', N'export'),
-        (95, N'/panel/bom/formulgroup/new', 1, 4, N'Entities.App.Bom.FormulGroup', N'write'),
-        (95, N'/panel/bom/formulgroup/add', 2, 4, N'Entities.App.Bom.FormulGroup', N'write'),
-        (95, N'/panel/bom/formulgroup/save', 2, 3, N'Entities.App.Bom.FormulGroup', N'write'),
-        (95, N'/panel/bom/formulgroup/update', 2, 5, N'Entities.App.Bom.FormulGroup', N'write'),
-        (95, N'/panel/bom/formulgroup/delete', 2, 6, N'Entities.App.Bom.FormulGroup', N'delete'),
-        (96, N'/panel/bom/formul/list', 1, 1, N'Entities.App.Bom.Formul', N'read'),
-        (96, N'/panel/bom/formul/edit', 1, 5, N'Entities.App.Bom.Formul', N'read'),
-        (96, N'/panel/bom/formul/fetchdata', 2, 2, N'Entities.App.Bom.Formul', N'read'),
-        (96, N'/panel/bom/formul/exporttoexcel', 2, 0, N'Entities.App.Bom.Formul', N'export'),
-        (96, N'/panel/bom/formul/new', 1, 4, N'Entities.App.Bom.Formul', N'write'),
-        (96, N'/panel/bom/formul/add', 2, 4, N'Entities.App.Bom.Formul', N'write'),
-        (96, N'/panel/bom/formul/save', 2, 3, N'Entities.App.Bom.Formul', N'write'),
-        (96, N'/panel/bom/formul/update', 2, 5, N'Entities.App.Bom.Formul', N'write'),
-        (96, N'/panel/bom/formul/delete', 2, 6, N'Entities.App.Bom.Formul', N'delete'),
-        (97, N'/panel/bom/formul/list', 1, 1, N'Entities.App.Bom.Formul', N'read'),
-        (97, N'/panel/bom/formul/edit', 1, 5, N'Entities.App.Bom.Formul', N'read'),
-        (97, N'/panel/bom/formul/fetchdata', 2, 2, N'Entities.App.Bom.Formul', N'read'),
-        (97, N'/panel/bom/formul/exporttoexcel', 2, 0, N'Entities.App.Bom.Formul', N'export'),
-        (97, N'/panel/bom/formul/new', 1, 4, N'Entities.App.Bom.Formul', N'write'),
-        (97, N'/panel/bom/formul/add', 2, 4, N'Entities.App.Bom.Formul', N'write'),
-        (97, N'/panel/bom/formul/save', 2, 3, N'Entities.App.Bom.Formul', N'write'),
-        (97, N'/panel/bom/formul/update', 2, 5, N'Entities.App.Bom.Formul', N'write'),
-        (97, N'/panel/bom/formul/delete', 2, 6, N'Entities.App.Bom.Formul', N'delete'),
         (98, N'/panel/bom/productformul/list', 1, 1, N'Entities.App.Bom.ProductFormul', N'read'),
         (98, N'/panel/bom/productformul/edit', 1, 5, N'Entities.App.Bom.ProductFormul', N'read'),
         (98, N'/panel/bom/productformul/fetchdata', 2, 2, N'Entities.App.Bom.ProductFormul', N'read'),
@@ -175,15 +148,6 @@ BEGIN TRY
         (101, N'/panel/bom/productformul/save', 2, 3, N'Entities.App.Bom.ProductFormul', N'write'),
         (101, N'/panel/bom/productformul/update', 2, 5, N'Entities.App.Bom.ProductFormul', N'write'),
         (101, N'/panel/bom/productformul/delete', 2, 6, N'Entities.App.Bom.ProductFormul', N'delete'),
-        (102, N'/panel/bom/formul/list', 1, 1, N'Entities.App.Bom.Formul', N'read'),
-        (102, N'/panel/bom/formul/edit', 1, 5, N'Entities.App.Bom.Formul', N'read'),
-        (102, N'/panel/bom/formul/fetchdata', 2, 2, N'Entities.App.Bom.Formul', N'read'),
-        (102, N'/panel/bom/formul/exporttoexcel', 2, 0, N'Entities.App.Bom.Formul', N'export'),
-        (102, N'/panel/bom/formul/new', 1, 4, N'Entities.App.Bom.Formul', N'write'),
-        (102, N'/panel/bom/formul/add', 2, 4, N'Entities.App.Bom.Formul', N'write'),
-        (102, N'/panel/bom/formul/save', 2, 3, N'Entities.App.Bom.Formul', N'write'),
-        (102, N'/panel/bom/formul/update', 2, 5, N'Entities.App.Bom.Formul', N'write'),
-        (102, N'/panel/bom/formul/delete', 2, 6, N'Entities.App.Bom.Formul', N'delete'),
         (103, N'/panel/bom/productgroup/list', 1, 1, N'Entities.App.Bom.ProductGroup', N'read'),
         (103, N'/panel/bom/productgroup/edit', 1, 5, N'Entities.App.Bom.ProductGroup', N'read'),
         (103, N'/panel/bom/productgroup/fetchdata', 2, 2, N'Entities.App.Bom.ProductGroup', N'read'),
@@ -461,31 +425,45 @@ BEGIN TRY
         (449, N'/panel/eng/compressorsizing/selectbyreliability', 2, 1000, NULL, N'fullonly'),
         (449, N'/panel/eng/compressorsizing/analyze', 2, 1000, NULL, N'fullonly'),
         (449, N'/panel/eng/compressorsizing/exportdatasheet', 2, 1000, NULL, N'fullonly'),
-        (495, N'/panel/eng/partlistgroup/list', 1, 1, N'Entities.App.Eng.PartListGroup', N'read'),
-        (495, N'/panel/eng/partlistgroup/edit', 1, 5, N'Entities.App.Eng.PartListGroup', N'read'),
-        (495, N'/panel/eng/partlistgroup/fetchdata', 2, 2, N'Entities.App.Eng.PartListGroup', N'read'),
-        (495, N'/panel/eng/partlistgroup/exporttoexcel', 2, 0, N'Entities.App.Eng.PartListGroup', N'export'),
-        (495, N'/panel/eng/partlistgroup/new', 1, 4, N'Entities.App.Eng.PartListGroup', N'write'),
-        (495, N'/panel/eng/partlistgroup/add', 2, 4, N'Entities.App.Eng.PartListGroup', N'write'),
-        (495, N'/panel/eng/partlistgroup/save', 2, 3, N'Entities.App.Eng.PartListGroup', N'write'),
-        (495, N'/panel/eng/partlistgroup/update', 2, 5, N'Entities.App.Eng.PartListGroup', N'write'),
-        (495, N'/panel/eng/partlistgroup/delete', 2, 6, N'Entities.App.Eng.PartListGroup', N'delete'),
-        (496, N'/panel/eng/partlist/list', 1, 1, N'Entities.App.Eng.PartList', N'read'),
-        (496, N'/panel/eng/partlist/edit', 1, 5, N'Entities.App.Eng.PartList', N'read'),
-        (496, N'/panel/eng/partlist/fetchdata', 2, 2, N'Entities.App.Eng.PartList', N'read'),
-        (496, N'/panel/eng/partlist/exporttoexcel', 2, 0, N'Entities.App.Eng.PartList', N'export'),
-        (496, N'/panel/eng/partlist/new', 1, 4, N'Entities.App.Eng.PartList', N'write'),
-        (496, N'/panel/eng/partlist/add', 2, 4, N'Entities.App.Eng.PartList', N'write'),
-        (496, N'/panel/eng/partlist/save', 2, 3, N'Entities.App.Eng.PartList', N'write'),
-        (496, N'/panel/eng/partlist/update', 2, 5, N'Entities.App.Eng.PartList', N'write'),
-        (496, N'/panel/eng/partlist/delete', 2, 6, N'Entities.App.Eng.PartList', N'delete'),
-        (497, N'/panel/eng/projectutilizedmaterial/list', 1, 1, N'Entities.App.Eng.PartList', N'read'),
-        (497, N'/panel/eng/projectutilizedmaterial/edit', 1, 5, N'Entities.App.Eng.PartList', N'read'),
-        (497, N'/panel/eng/projectutilizedmaterial/new', 1, 4, N'Entities.App.Eng.PartList', N'write'),
-        (497, N'/panel/eng/projectutilizedmaterial/add', 2, 4, N'Entities.App.Eng.PartList', N'write'),
-        (497, N'/panel/eng/projectutilizedmaterial/save', 2, 3, N'Entities.App.Eng.PartList', N'write'),
-        (497, N'/panel/eng/projectutilizedmaterial/update', 2, 5, N'Entities.App.Eng.PartList', N'write'),
-        (497, N'/panel/eng/projectutilizedmaterial/delete', 2, 6, N'Entities.App.Eng.PartList', N'delete'),
+        (430, N'/panel/eng/filterwatertrap/calculator', 1, 0, NULL, N'read'),
+        (430, N'/panel/eng/filterwatertrap/watertrapcalculation', 2, 1000, NULL, N'read'),
+        (430, N'/panel/eng/filterwatertrap/filterselectioncalculation', 2, 1000, NULL, N'read'),
+        (430, N'/panel/eng/filterwatertrap/hdtselectioncalculation', 2, 1000, NULL, N'read'),
+        (430, N'/panel/eng/filterwatertrap/hdttoexcelfile', 2, 1000, NULL, N'read'),
+        -- 495: مدیریت دسته داخل پارت لیست محصول (منوی جدا حذف شد)
+        (495, N'/panel/eng/partlistproduct/list', 1, 1, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (495, N'/panel/eng/partlistproduct/edit', 1, 5, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (495, N'/panel/eng/partlistproduct/manage', 1, 5, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (495, N'/panel/eng/partlistproduct/fetchdata', 2, 2, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (495, N'/panel/eng/partlistproduct/exporttoexcel', 2, 0, N'Entities.App.Eng.PartListProductSection', N'export'),
+        (495, N'/panel/eng/partlistproduct/new', 1, 4, N'Entities.App.Eng.PartListProductSection', N'write'),
+        (495, N'/panel/eng/partlistproduct/savesection', 2, 3, N'Entities.App.Eng.PartListProductSection', N'write'),
+        (495, N'/panel/eng/partlistproduct/reordersection', 2, 5, N'Entities.App.Eng.PartListProductSection', N'write'),
+        (495, N'/panel/eng/partlistproduct/deletesection', 2, 6, N'Entities.App.Eng.PartListProductSection', N'delete'),
+        (495, N'/panel/eng/partlistproduct/savebom', 2, 3, N'Entities.App.Eng.PartListProductBom', N'write'),
+        (495, N'/panel/eng/partlistproduct/deletebom', 2, 6, N'Entities.App.Eng.PartListProductBom', N'delete'),
+        (495, N'/panel/eng/partlistproduct/setsectionpicture', 2, 5, N'Entities.App.Eng.PartListProductSection', N'write'),
+        -- 496: پارت لیست محصول
+        (496, N'/panel/eng/partlistproduct/list', 1, 1, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (496, N'/panel/eng/partlistproduct/edit', 1, 5, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (496, N'/panel/eng/partlistproduct/manage', 1, 5, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (496, N'/panel/eng/partlistproduct/fetchdata', 2, 2, N'Entities.App.Eng.PartListProductSection', N'read'),
+        (496, N'/panel/eng/partlistproduct/exporttoexcel', 2, 0, N'Entities.App.Eng.PartListProductSection', N'export'),
+        (496, N'/panel/eng/partlistproduct/new', 1, 4, N'Entities.App.Eng.PartListProductSection', N'write'),
+        (496, N'/panel/eng/partlistproduct/savesection', 2, 3, N'Entities.App.Eng.PartListProductSection', N'write'),
+        (496, N'/panel/eng/partlistproduct/reordersection', 2, 5, N'Entities.App.Eng.PartListProductSection', N'write'),
+        (496, N'/panel/eng/partlistproduct/deletesection', 2, 6, N'Entities.App.Eng.PartListProductSection', N'delete'),
+        (496, N'/panel/eng/partlistproduct/savebom', 2, 3, N'Entities.App.Eng.PartListProductBom', N'write'),
+        (496, N'/panel/eng/partlistproduct/deletebom', 2, 6, N'Entities.App.Eng.PartListProductBom', N'delete'),
+        (496, N'/panel/eng/partlistproduct/setsectionpicture', 2, 5, N'Entities.App.Eng.PartListProductSection', N'write'),
+        -- 497: پارت لیست مصرفی
+        (497, N'/panel/eng/partlistdlbom/list', 1, 1, N'Entities.App.Eng.PartListDlBom', N'read'),
+        (497, N'/panel/eng/partlistdlbom/edit', 1, 5, N'Entities.App.Eng.PartListDlBom', N'read'),
+        (497, N'/panel/eng/partlistdlbom/fetchdata', 2, 2, N'Entities.App.Eng.PartListDlBom', N'read'),
+        (497, N'/panel/eng/partlistdlbom/exporttoexcel', 2, 0, N'Entities.App.Eng.PartListDlBom', N'export'),
+        (497, N'/panel/eng/partlistdlbom/save', 2, 3, N'Entities.App.Eng.PartListDlBom', N'write'),
+        (497, N'/panel/eng/partlistdlbom/renew', 2, 1000, N'Entities.App.Eng.PartListDlBom', N'write'),
+        (497, N'/panel/eng/partlistdlbom/print', 1, 0, N'Entities.App.Eng.PartListDlBom', N'read'),
         (526, N'/panel/bom/productpricecompare/list', 1, 1, N'Entities.App.Bom.ProductPriceCompare', N'read'),
         (526, N'/panel/bom/productpricecompare/fetchdata', 2, 2, N'Entities.App.Bom.ProductPriceCompare', N'read'),
         (526, N'/panel/bom/productpricecompare/details', 1, 1, N'Entities.App.Bom.ProductPriceCompare', N'read'),
@@ -508,9 +486,6 @@ BEGIN TRY
         (543, N'/panel/edms/document/fetchdata', 2, 2, N'Entities.App.Edms.Document', N'read'),
         (543, N'/panel/edms/document/update', 2, 5, N'Entities.App.Edms.Document', N'write'),
         (543, N'/panel/edms/document/save', 2, 3, N'Entities.App.Edms.Document', N'write'),
-        (561, N'/panel/bom/formul/list', 1, 1, N'Entities.App.Bom.Formul', N'read'),
-        (561, N'/panel/bom/formul/fetchdata', 2, 2, N'Entities.App.Bom.Formul', N'read'),
-        (561, N'/panel/bom/formul/exporttoexcel', 2, 0, N'Entities.App.Bom.Formul', N'export'),
         (563, N'/panel/inv/partextrainfo/list', 1, 1, N'Entities.App.Inv.PartExtraInfo', N'read'),
         (563, N'/panel/inv/partextrainfo/edit', 1, 5, N'Entities.App.Inv.PartExtraInfo', N'read'),
         (563, N'/panel/inv/partextrainfo/fetchdata', 2, 2, N'Entities.App.Inv.PartExtraInfo', N'read'),
@@ -529,10 +504,6 @@ BEGIN TRY
         Flag        NVARCHAR(20)  NOT NULL
     );
     INSERT INTO #PageProfile (PageId, ProfileName, Flag) VALUES
-        (95, N'formulgroup_listinfo', N'read'),
-        (96, N'formul_listinfo', N'read'),
-        (96, N'vw_formulwithItems', N'read'),
-        (97, N'vw_formulwithItems', N'read'),
         (98, N'productformul_listinfo', N'read'),
         (98, N'vw_productformulwithBom', N'read'),
         (98, N'vw_productformulwithBomWithPrice', N'price'),
@@ -587,7 +558,6 @@ BEGIN TRY
         (541, N'partextrainfo_listinfo', N'read'),
         (541, N'vw_PartextrainfoOilFree', N'read'),
         (543, N'vw_DocumentAllProjectInfo', N'read'),
-        (561, N'vw_formulwithItems', N'read'),
         (563, N'partextrainfo_listinfo', N'read'),
         (563, N'vw_PartextrainfoStatic', N'read');
 
@@ -629,7 +599,6 @@ BEGIN TRY
         (407, N'نرخ ارز مهندسی — به Acc داده نمی‌شود'),
         (411, N'وزن مخازن — کنترلر نیست'),
         (429, N'فیلتر سایزینگ — کنترلر نیست'),
-        (430, N'Water Trap — کنترلر نیست'),
         (465, N'سایزینگ نیتروژن‌ساز — کنترلر نیست'),
         (558, N'اقلام پروژه 558 — کنترلر جدا نیست'),
         (566, N'استعلام فنی پیمانکاران — صفحه نیست');
@@ -910,6 +879,42 @@ BEGIN TRY
     PRINT N'  Already had role (skipped): ' + CAST(@SkippedAlready AS nvarchar(20));
     PRINT N'  Missing users (logged): ' + CAST(@Missing AS nvarchar(20));
 
+    -----------------------------------------------------------------------------
+    PRINT N'=== [6b] Ensure Zare.mo has Filter/WaterTrap FullAccess role ===';
+    -----------------------------------------------------------------------------
+    -- HTS granted page 430 FullAccess to Zare.mo without a group; keep idempotent.
+    DECLARE @ZareRoleId BIGINT = 260089;
+    DECLARE @ZareUserId BIGINT = NULL;
+    SELECT TOP 1 @ZareUserId = u.Id
+    FROM system.[User] u
+    WHERE u.Id = 240 OR LOWER(u.Username) = N'zare.mo';
+
+    IF @ZareUserId IS NOT NULL
+       AND EXISTS (SELECT 1 FROM system.Role r WHERE r.Id = @ZareRoleId AND r.IsActive = 1)
+       AND NOT EXISTS (
+            SELECT 1
+            FROM system.[User] u
+            CROSS APPLY OPENJSON(ISNULL(u.RoleIds, N'[]')) j
+            WHERE u.Id = @ZareUserId
+              AND TRY_CAST(j.value AS bigint) IN (260089, 260350, 260488)
+       )
+    BEGIN
+        UPDATE system.[User]
+        SET RoleIds = CASE
+                WHEN RoleIds IS NULL OR LTRIM(RTRIM(RoleIds)) = N'' OR RoleIds = N'[]'
+                    THEN N'[' + CAST(@ZareRoleId AS nvarchar(20)) + N']'
+                ELSE STUFF(RoleIds, LEN(RoleIds), 1, N',' + CAST(@ZareRoleId AS nvarchar(20)) + N']')
+            END,
+            ModifiedById = 1,
+            ModifiedByName = @SeedUser,
+            ModifiedDateMiladiDateTime = @Now,
+            ModifiedDateShamsiDateTime = @NowShamsi
+        WHERE Id = @ZareUserId;
+        PRINT N'  Assigned role 260089 to Zare.mo for Filter/WaterTrap.';
+    END
+    ELSE
+        PRINT N'  Zare.mo already has 260089/260350/260488 (or user/role missing) — skipped.';
+
     COMMIT TRANSACTION;
     PRINT N'=== DONE: Seed_Engineering_HtsGroups_RolesAndUsers committed ===';
 END TRY
@@ -950,6 +955,10 @@ WHERE TRY_CAST(j.value AS bigint) = 260441;
 SELECT N'CompressorSizing RoleAccess' AS CheckName, COUNT(*) AS Cnt
 FROM system.RoleAccess
 WHERE Path LIKE N'/panel/eng/compressorsizing/%';
+
+SELECT N'FilterWaterTrap RoleAccess' AS CheckName, COUNT(*) AS Cnt
+FROM system.RoleAccess
+WHERE Path LIKE N'/panel/eng/filterwatertrap/%';
 
 SELECT N'Eng HTS roles 260000+' AS CheckName, COUNT(*) AS Cnt
 FROM system.Role

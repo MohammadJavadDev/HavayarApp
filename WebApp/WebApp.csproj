@@ -91,6 +91,10 @@
   </ItemGroup>
 	 
   <ItemGroup>
+    <Content Include="AppData\Document-EditAsGroup-ButtonFlow.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Content Update="wwwroot\account.dat">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Content>

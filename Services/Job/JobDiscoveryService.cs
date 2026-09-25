@@ -20,6 +20,12 @@ namespace Services.Job
 			"App.BackgroundJob.Jobs.Sls.CustomerAddressJob.FillEmptyAgencyDlFromRahkaranRegion";
 		private const string AgencyPartCardexJobId =
 			"App.BackgroundJob.Jobs.Sale.AgencyPartCardexJob.AddNewItemsByCheckSaleOrders";
+		private const string CngRepairsUsedPartImportJobId =
+			"App.BackgroundJob.Jobs.Cng.CngRepairsUsedPartImportJob.ImportFromRahkaran";
+		private const string CngMaintenanceContractExpireJobId =
+			"App.BackgroundJob.Jobs.Cng.CngMaintenanceContractExpireJob.CheckExpiredItems";
+		private const string DabirkhanehEmailJobId =
+			"App.BackgroundJob.Jobs.Sec.DabirkhanehEmailJob.SendBirthAndEmploymentEmails";
 
 		private readonly IServiceProvider _serviceProvider;
 
@@ -144,6 +150,60 @@ namespace Services.Job
 					IsActive = true,
 					ScheduleType = ScheduleType.Interval,
 					IntervalSeconds = 1200,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS Import_Cng_Repairing_UsedPart: هر ۱۵ دقیقه
+			var cngRepairsUsedPartJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == CngRepairsUsedPartImportJobId, cancellationToken);
+			if (cngRepairsUsedPartJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == cngRepairsUsedPartJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = cngRepairsUsedPartJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 900,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS CngSystemTask CheckExpiredItems: هر ۲۰ دقیقه
+			var cngMaintenanceExpireJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == CngMaintenanceContractExpireJobId, cancellationToken);
+			if (cngMaintenanceExpireJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == cngMaintenanceExpireJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = cngMaintenanceExpireJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1200,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS DabirkhanehTask: هر ۳۰ دقیقه، ساعت ۲ تا ۱۷ (فیلتر ساعت داخل خود جاب)
+			var dabirkhanehJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == DabirkhanehEmailJobId, cancellationToken);
+			if (dabirkhanehJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == dabirkhanehJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = dabirkhanehJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1800,
 					NextRunTime = DateTime.Now.AddMinutes(1),
 					LastStatus = JobStatus.Idle
 				});

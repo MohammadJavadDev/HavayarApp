@@ -145,16 +145,28 @@ SELECT
     r.MissingPreparationCount,
     r.TotalItemsCount,
     ISNULL(da.RegisteredDelayDays, 0) AS RegisteredDelayDays,
-    r.MaxDelayDays - ISNULL(da.RegisteredDelayDays, 0) AS NeedsDelayRegistrationDays
+    r.MaxDelayDays - ISNULL(da.RegisteredDelayDays, 0) AS NeedsDelayRegistrationDays,
+    [t5].FullName AS CustomerName
 FROM OrderAgg r
 INNER JOIN Sale.ProductionOrder po ON po.Id = r.ProductionOrderId
 LEFT JOIN DelayAgg da ON da.ProductionOrderId = r.ProductionOrderId
 LEFT JOIN MaxDelayItem mdi ON mdi.ProductionOrderId = r.ProductionOrderId
 LEFT JOIN Inv.Part part ON part.Id = mdi.PartId
+LEFT JOIN [SLS].[Contract] AS [t3] ON po.[ContractId] = [t3].[Id]
+LEFT JOIN [SLS].[Customer] AS [t4] ON [t3].[CustomerId] = [t4].[Id]
+LEFT JOIN [Gnr].[Party] AS [t5] ON [t4].[PartyId] = [t5].[Id]
 WHERE r.MaxDelayDays > 0
   AND ISNULL(da.RegisteredDelayDays, 0) < r.MaxDelayDays';
 
-    DECLARE @AllPodQuery NVARCHAR(MAX) = @ItemCte + N'
+    DECLARE @AllPodQuery NVARCHAR(MAX) = @ItemCte + N', DelayAgg AS (
+    SELECT
+        pod.ProductionOrderId,
+        SUM(ISNULL(pod.DelayDays, 0)) AS RegisteredDelayDays
+    FROM Pln.ProductionOrderDelay pod
+    WHERE pod.IsActive = 1
+    GROUP BY pod.ProductionOrderId
+)
+
 --!--mainsection
 SELECT
     r.ProductionOrderId,
@@ -169,11 +181,18 @@ SELECT
     r.MaxDelayDays AS DelayDay,
     CASE WHEN r.MissingPreparationCount = 0 THEN N''کامل شده'' ELSE N''کامل نشده'' END AS PreparationStatus,
     r.MissingPreparationCount,
-    r.TotalItemsCount
+    r.TotalItemsCount,
+    ISNULL(da.RegisteredDelayDays, 0) AS RegisteredDelayDays,
+    r.MaxDelayDays - ISNULL(da.RegisteredDelayDays, 0) AS NeedsDelayRegistrationDays,
+    [t5].FullName AS CustomerName
 FROM OrderAgg r
 INNER JOIN Sale.ProductionOrder po ON po.Id = r.ProductionOrderId
+LEFT JOIN DelayAgg da ON da.ProductionOrderId = r.ProductionOrderId
 LEFT JOIN MaxDelayItem mdi ON mdi.ProductionOrderId = r.ProductionOrderId
 LEFT JOIN Inv.Part part ON part.Id = mdi.PartId
+LEFT JOIN [SLS].[Contract] AS [t3] ON po.[ContractId] = [t3].[Id]
+LEFT JOIN [SLS].[Customer] AS [t4] ON [t3].[CustomerId] = [t4].[Id]
+LEFT JOIN [Gnr].[Party] AS [t5] ON [t4].[PartyId] = [t5].[Id]
 WHERE r.MaxDelayDays > 0';
 
     DECLARE @NeedPodId BIGINT;
@@ -217,20 +236,30 @@ WHERE r.MaxDelayDays > 0';
         FROM system.SavedQuery
         WHERE Id = @ProfileId;
 
-        SELECT @PkCol = [value]
-        FROM OPENJSON(@ProfileColumns)
-        WHERE JSON_VALUE([value], '$.ColumnName') = N'ProductionOrderId';
+        IF EXISTS (
+            SELECT 1
+            FROM OPENJSON(@ProfileColumns)
+            WHERE JSON_VALUE([value], '$.ColumnName') = N'CustomerName'
+              AND JSON_VALUE([value], '$.Alliance') = N'CustomerName'
+        )
+            SET @NewColumns = @ProfileColumns;
+        ELSE
+        BEGIN
+            SELECT @PkCol = [value]
+            FROM OPENJSON(@ProfileColumns)
+            WHERE JSON_VALUE([value], '$.ColumnName') = N'ProductionOrderId';
 
-        SELECT @RestCols = STRING_AGG(CAST([value] AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY CAST([key] AS INT))
-        FROM OPENJSON(@ProfileColumns)
-        WHERE JSON_VALUE([value], '$.ColumnName') NOT IN (
-            N'ProductionOrderId',
-            N'DelayCausePartName',
-            N'DelayCausePartCode',
-            N'DelayCauseSerial'
-        );
+            SELECT @RestCols = STRING_AGG(CAST([value] AS NVARCHAR(MAX)), N',') WITHIN GROUP (ORDER BY CAST([key] AS INT))
+            FROM OPENJSON(@ProfileColumns)
+            WHERE JSON_VALUE([value], '$.ColumnName') NOT IN (
+                N'ProductionOrderId',
+                N'DelayCausePartName',
+                N'DelayCausePartCode',
+                N'DelayCauseSerial'
+            );
 
-        SET @NewColumns = N'[' + ISNULL(@PkCol + N',', N'') + @CauseCols + CASE WHEN @RestCols IS NULL THEN N'' ELSE N',' + @RestCols END + N']';
+            SET @NewColumns = N'[' + ISNULL(@PkCol + N',', N'') + @CauseCols + CASE WHEN @RestCols IS NULL THEN N'' ELSE N',' + @RestCols END + N']';
+        END
 
         UPDATE system.SavedQuery
         SET QueryJson = CASE WHEN Id = @NeedPodId THEN @NeedPodJson ELSE @AllPodJson END,

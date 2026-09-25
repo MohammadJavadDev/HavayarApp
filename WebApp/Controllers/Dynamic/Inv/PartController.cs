@@ -28,6 +28,9 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Save(Part part, CancellationToken cn)
 		{
 			 
+			part.SpareParts = null!;
+			part.Documents = null!;
+
 			if (part.Id == null || part.Id == 0)
 			{
 				return await Add(part, cn);
@@ -73,8 +76,6 @@ namespace WebApp.Controllers.Dynamic
 			if (id != null && id != 0)
 			{
 				var entity = unitOfWork.Repository<Part>().TableNoTracking
-					.Include(c => c.SpareParts)
-					.Include(c => c.Documents)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Inv\Part\Edit.cshtml", entity);
 			}
@@ -120,18 +121,6 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 		{
 			return Ok(await unitOfWork.Repository<Part>().FetchDataAsync(request, cn));
-		}
-
-		[HttpGet("[action]")]
-		public IActionResult PartSparePartPartial()
-		{
-			return PartialView(@"\Views\Panel\Inv\Part\_PartSparePartPartial.cshtml");
-		}
-
-		[HttpGet("[action]")]
-		public IActionResult PartDocumentPartial()
-		{
-			return PartialView(@"\Views\Panel\Inv\Part\_PartDocumentPartial.cshtml");
 		}
 
 		[HttpGet("[action]")]

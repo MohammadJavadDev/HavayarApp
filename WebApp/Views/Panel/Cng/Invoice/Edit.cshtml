@@ -1,0 +1,282 @@
+@using Entities.App.Cng
+@using Entities.App.SLS
+@using Entities.Base
+@model Invoice
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(Invoice)"
+			save-btn="true"
+			save-and-close-btn="true"
+			new-page-btn="false"
+			save-and-new-btn="false"
+			history-btn="false">
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">فاکتور</h4></div></div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"CngInvoiceCustomerSelector",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Code} {Party.FullName}",
+					"customerId",
+					"customerName",
+					Model?.CustomerId > 0 ? Model.CustomerId.ToString() : null,
+					true
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">شماره فاکتور</label>
+				<input class="form-control" data-bind="invoiceNumber" data-required="true" value="@Model?.InvoiceNumber" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">تاریخ فاکتور</label>
+				<input class="form-control" data-bind="invoiceDate" data-required="true" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@Model?.InvoiceDate.ToMiladiDateTimeWithSplitData()" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+
+		<div class="card border mt-3">
+			<div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+				<span class="fw-bold">اقلام</span>
+				<button type="button" class="btn btn-sm btn-primary" data-action="addItem">
+					<i class="fa fa-plus"></i> افزودن
+				</button>
+			</div>
+			<div class="card-body p-0">
+				<table class="table table-sm table-hover mb-0" id="cngInvoiceItemsTable">
+					<thead>
+						<tr>
+							<th>کد کالا</th>
+							<th>نام کالا</th>
+							<th>مقدار</th>
+							<th>مبلغ</th>
+							<th>کاربر ایجادکننده</th>
+							<th>تاریخ ایجاد</th>
+							<th style="width:120px" class="text-center dt-ellipsis-skip">عملیات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	let invoiceItems = [];
+	let editingItemIndex = null;
+
+	function esc(s) {
+		return String(s == null ? '' : s)
+			.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	function formatMoneyCell(v) {
+		if (v == null || v === '') return '';
+		if (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) return MJUtil.formatMoney(v);
+		return String(v);
+	}
+
+	function renderItems() {
+		const $tb = $$('#cngInvoiceItemsTable tbody');
+		$tb.empty();
+		invoiceItems.forEach(function (item, idx) {
+			const actions =
+				'<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="editItem" data-index="' + idx + '" title="ویرایش"><i class="fa fa-pen"></i></button> '
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteItem" data-index="' + idx + '" title="حذف"><i class="fa fa-trash"></i></button>';
+			$tb.append(
+				'<tr>'
+				+ '<td>' + esc(item.partCode) + '</td>'
+				+ '<td title="' + esc(item.partName) + '">' + esc(item.partName) + '</td>'
+				+ '<td>' + esc(item.quantity) + '</td>'
+				+ '<td>' + esc(formatMoneyCell(item.price)) + '</td>'
+				+ '<td>' + esc(item.createdUser) + '</td>'
+				+ '<td>' + esc(item.createdDateInText) + '</td>'
+				+ '<td class="text-center">' + actions + '</td>'
+				+ '</tr>'
+			);
+		});
+	}
+
+	function loadItemsFromServer(id) {
+		if (!id) { invoiceItems = []; renderItems(); return; }
+		$$.get('/Panel/Cng/Invoice/GetItems?invoiceId=' + id, function (r) {
+			const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+			invoiceItems = (rows || []).map(function (x) {
+				return {
+					id: x.id,
+					htsId: x.htsId || 0,
+					partId: x.partId,
+					partCode: x.partCode || '',
+					partName: x.partName || '',
+					partTitle: x.partTitle || (((x.partCode || '') + ' | ' + (x.partName || '')).trim()),
+					quantity: x.quantity,
+					price: x.price,
+					createdUser: x.createdUser || '',
+					createdDateInText: x.createdDateInText || ''
+				};
+			});
+			renderItems();
+		});
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function buildItemFormUrl(item) {
+		let url = '/Panel/Cng/Invoice/ItemForm?';
+		if (!item) return url;
+		url += 'id=' + encodeURIComponent(item.id || '') + '&';
+		url += 'htsId=' + encodeURIComponent(item.htsId || 0) + '&';
+		url += 'partId=' + encodeURIComponent(item.partId || '') + '&';
+		url += 'quantity=' + encodeURIComponent(item.quantity || '') + '&';
+		url += 'price=' + encodeURIComponent(item.price || '');
+		return url;
+	}
+
+	function openItemModal(item) {
+		editingItemIndex = item ? invoiceItems.indexOf(item) : null;
+		const $trigger = $$('[data-action="addItem"]');
+		$trigger.block();
+		page.getPartialView(buildItemFormUrl(item), function (r) {
+			$trigger.block(false);
+			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$.confirm({
+				title: item ? 'ویرایش قلم' : 'افزودن قلم',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const m = $content.dataBind();
+							const partId = m.partId;
+							const quantity = parseInt(m.quantity, 10);
+							const price = typeof MJUtil !== 'undefined' && MJUtil.unformatMoney
+								? MJUtil.unformatMoney(m.price)
+								: parseFloat(String(m.price || '').replace(/,/g, ''));
+							if (!partId || partId === '0' || partId === 0) {
+								toastr.error('کالا نمی‌تواند خالی باشد'); return false;
+							}
+							if (!quantity || quantity <= 0) {
+								toastr.error('مقدار نامعتبر است'); return false;
+							}
+							if (price == null || price === '' || isNaN(price) || price < 0) {
+								toastr.error('مبلغ نامعتبر است'); return false;
+							}
+							const partTitle = m.partTitle || '';
+							const parts = partTitle.split('|');
+							const row = {
+								id: m.id || null,
+								htsId: m.htsId || 0,
+								partId: parseInt(partId, 10),
+								partCode: (parts[0] || '').trim(),
+								partName: (parts.slice(1).join('|') || '').trim() || partTitle,
+								partTitle: partTitle,
+								quantity: quantity,
+								price: price,
+								createdUser: item ? (item.createdUser || '') : '',
+								createdDateInText: item ? (item.createdDateInText || '') : ''
+							};
+							if (editingItemIndex != null && editingItemIndex >= 0)
+								invoiceItems[editingItemIndex] = row;
+							else
+								invoiceItems.push(row);
+							renderItems();
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+						if (typeof Inputmask !== 'undefined' && typeof moneyInputmaskOptions !== 'undefined')
+							Inputmask(moneyInputmaskOptions).mask(selfConfirm.$body.find('[data-money="true"]'));
+						else if (typeof initMoneyInputs === 'function')
+							initMoneyInputs(selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.customerId || model.customerId === '0' || model.customerId === 0) {
+			toastr.error('مشتری نمی‌تواند خالی باشد', 'خطا'); return;
+		}
+		if (!model.invoiceNumber) {
+			toastr.error('شماره فاکتور نمی‌تواند خالی باشد', 'خطا'); return;
+		}
+		if (!model.invoiceDate) {
+			toastr.error('تاریخ فاکتور نمی‌تواند خالی باشد', 'خطا'); return;
+		}
+		model.items = invoiceItems.map(function (x) {
+			return {
+				id: x.id, htsId: x.htsId || 0,
+				partId: x.partId, quantity: x.quantity, price: x.price
+			};
+		});
+
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			if (r.data && r.data.id)
+				loadItemsFromServer(r.data.id);
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	page.$pageEl.on('click', '[data-action="addItem"]', function () { openItemModal(null); });
+	page.$pageEl.on('click', '[data-action="editItem"]', function () {
+		const idx = parseInt($(this).data('index'), 10);
+		openItemModal(invoiceItems[idx]);
+	});
+	page.$pageEl.on('click', '[data-action="deleteItem"]', function () {
+		const idx = parseInt($(this).data('index'), 10);
+		Swal.fire({
+			title: 'حذف قلم', text: 'آیا مطمئن هستید؟', icon: 'warning',
+			showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			invoiceItems.splice(idx, 1);
+			renderItems();
+		});
+	});
+
+	loadItemsFromServer(page.$pageEl.dataBind().id);
+</script>

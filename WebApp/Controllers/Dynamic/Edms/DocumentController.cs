@@ -91,12 +91,14 @@ namespace WebApp.Controllers.Dynamic
         [ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
         public async Task<IActionResult> Add(Document document, bool? CanEditDocument, CancellationToken cn)
         {
+			await EnsureCanProducerSaveAsync(document.DocumentVpisId, DocumentStatusEnums.NotIssue, cn);
 
                if(!(CanEditDocument ?? false))
                {
                     document.Comments = null;
 
 			}
+			// HourPrePerson from the form replaces any prior value (new row — just persist posted value)
                document.Status = DocumentStatusEnums.Issue;
 			 
 			// Add logic here
@@ -109,7 +111,7 @@ namespace WebApp.Controllers.Dynamic
 				Status = DocumentStatusEnums.Issue
 			};
 
-			await unitOfWork.Repository<DocumentComment>().AddAsync(newDocumentReplay, cn, false, false,false);
+			await unitOfWork.Repository<DocumentComment>().AddAsync(newDocumentReplay, cn, false);
 			return Ok(entity);
         }
 
@@ -123,19 +125,37 @@ namespace WebApp.Controllers.Dynamic
 				document.Comments = null;
 			}
 
-			if (document.Status == DocumentStatusEnums.NotIssue)
+			var existing = await unitOfWork.Repository<Document>().TableNoTracking
+				.FirstOrDefaultAsync(d => d.Id == document.Id, cn)
+				?? throw new Exception("مدرک یافت نشد.");
+
+			if (!IsAdministrator && !existing.IsLatest)
+				throw new Exception("فقط روی آخرین ریویژن می‌توان عملیات انجام داد.");
+
+			await EnsureCanProducerSaveAsync(document.DocumentVpisId ?? existing.DocumentVpisId, existing.Status, cn);
+
+			// Preserve reply-sheet files — editor no longer posts them; ReplySheet has its own action
+			document.ReplySheetId = existing.ReplySheetId;
+			document.SecondReplySheetId = existing.SecondReplySheetId;
+
+			// HourPrePerson from the form replaces the previous document value (do not add)
+			var postedHourPrePerson = document.HourPrePerson;
+
+			var shouldCreateIssueComment = IsProducerEditableStatus(existing.Status);
+			if (shouldCreateIssueComment)
 			{
 				document.Status = DocumentStatusEnums.Issue;
+				document.HourPrePerson = postedHourPrePerson;
 			}
- 
-				// Update logic here
-	      	var entity = await unitOfWork.Repository<Document>().UpdateAsync(document, cn, true);
-
-
-			if (document.Status == DocumentStatusEnums.NotIssue)
+			else
 			{
-				document.Status = DocumentStatusEnums.Issue;
+				document.Status = existing.Status;
+			}
 
+			var entity = await unitOfWork.Repository<Document>().UpdateAsync(document, cn, true);
+
+			if (shouldCreateIssueComment)
+			{
 				var newDocumentReplay = new DocumentComment()
 				{
 					DocumentId = entity.Id.Value,
@@ -143,20 +163,9 @@ namespace WebApp.Controllers.Dynamic
 					Status = DocumentStatusEnums.Issue
 				};
 
-				await unitOfWork.Repository<DocumentComment>().AddAsync(newDocumentReplay, cn, false, false, false);
+				await unitOfWork.Repository<DocumentComment>().AddAsync(newDocumentReplay, cn, false);
 			}
 
-			if (document.Status == DocumentStatusEnums.ReplaySheet)
-			{
-				var newDocumentReplay = new DocumentComment()
-				{
-					DocumentId = entity.Id.Value,
-					Comment = "ReplySheet",
-					Status = DocumentStatusEnums.ReplaySheet
-				};
-
-				await unitOfWork.Repository<DocumentComment>().AddAsync(newDocumentReplay, cn, false, false, false);
-			}
 			return Ok(entity);
         }
 
@@ -279,13 +288,13 @@ namespace WebApp.Controllers.Dynamic
                         ProjectId = projectId.Value,
                         DocumentVpisId = documentVpisId.Value,
                         Revision = 0,
-                        Status = DocumentStatusEnums.NotReview
+                        Status = DocumentStatusEnums.NotIssue
                     };
                 }
             }
 
             // Attach comments for the current revision (so view can render the timeline/table)
-            if (current?.Id.HasValue == true && current.Id.Value > 0)
+            if (current?.Id.HasValue == true && current.Id.Value != 0)
             {
                 current.Comments = unitOfWork.Repository<DocumentComment>().TableNoTracking
                          .Include(c=>c.HOLDOwner)
@@ -295,6 +304,8 @@ namespace WebApp.Controllers.Dynamic
             }
 
             vm.Current = current ?? new Document();
+
+			SetDocumentActionFlags(vm.DocumentVpis, vm.Current?.Status, vm.Current?.IsLatest ?? true);
 
                if (sdk.CurrentUser.IsAdministrator)
                {
@@ -320,6 +331,13 @@ namespace WebApp.Controllers.Dynamic
         {
             return View(@"\Views\Panel\Edms\Document\List.cshtml");
         }
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("راهنمای گردش دکمه‌ها", ActionAccessType.View, ActionAccessItemType.Show)]
+		public IActionResult ButtonFlow()
+		{
+			return View(@"\Views\Panel\Edms\Document\ButtonFlow.cshtml");
+		}
         [HttpPost("[action]")]
         [ActionDisplayName("خروجی اکسل", ActionAccessType.Api)]
         public async Task<IActionResult> ExportToExcel(DataTableRequest request, CancellationToken cn)
@@ -418,7 +436,27 @@ namespace WebApp.Controllers.Dynamic
 
 			if (model.Status == null)
 				throw new Exception("وضعیت مدرک انتخاب نشده است");
- 
+
+			var document = await unitOfWork.Repository<Document>().TableNoTracking
+				.FirstOrDefaultAsync(d => d.Id == model.DocumentId, ct)
+				?? throw new Exception("مدرک یافت نشد.");
+
+			if (document.Status == null)
+				throw new Exception("وضعیت فعلی مدرک مشخص نیست.");
+
+			if (!IsAdministrator && !document.IsLatest)
+				throw new Exception("فقط روی آخرین ریویژن می‌توان عملیات انجام داد.");
+
+			if (!IsAdministrator)
+			{
+				var allowed = GetAllowedCommentStatuses(document.Status.Value);
+				if (!allowed.Contains(model.Status.Value))
+					throw new Exception("وضعیت انتخاب‌شده برای افزودن کامنت مجاز نیست.");
+
+				var vpis = await GetProjectVpisAsync(document.DocumentVpisId, ct);
+				if (!CanActorAddCommentForStatus(document.Status.Value, vpis))
+					throw new Exception("شما مجاز به افزودن کامنت در این وضعیت نیستید.");
+			}
 
                model = await unitOfWork.Repository<DocumentComment>().AddAsync(model , ct,false);
 			  
@@ -427,11 +465,98 @@ namespace WebApp.Controllers.Dynamic
           }
 
 		[HttpPost("[action]")]
+		public async Task<IActionResult> AddReplySheet(long documentId, long replySheetFileId, CancellationToken ct)
+		{
+			if (replySheetFileId <= 0)
+				throw new Exception("فایل ReplySheet الزامی است.");
+
+			var document = await unitOfWork.Repository<Document>().Table
+				.FirstOrDefaultAsync(d => d.Id == documentId, ct)
+				?? throw new Exception("مدرک یافت نشد.");
+
+			if (!IsAdministrator && !document.IsLatest)
+				throw new Exception("فقط روی آخرین ریویژن می‌توان عملیات انجام داد.");
+
+			if (!IsAdministrator)
+			{
+				if (!IsReplySheetAllowedStatus(document.Status))
+					throw new Exception("در وضعیت فعلی امکان افزودن ReplySheet وجود ندارد.");
+
+				var vpis = await GetProjectVpisAsync(document.DocumentVpisId, ct);
+				if (!IsCurrentUserProducer(vpis))
+					throw new Exception("فقط تهیه‌کننده VPIS مجاز به افزودن ReplySheet است.");
+			}
+
+			var hasReplySheetComment = await unitOfWork.Repository<DocumentComment>().TableNoTracking
+				.AnyAsync(c => c.DocumentId == documentId && c.Status == DocumentStatusEnums.ReplaySheet, ct);
+
+			if (!hasReplySheetComment)
+				document.ReplySheetId = replySheetFileId;
+			else
+				document.SecondReplySheetId = replySheetFileId;
+
+			await unitOfWork.SaveChangesAsync(ct);
+
+			await unitOfWork.Repository<DocumentComment>().AddAsync(new DocumentComment
+			{
+				DocumentId = documentId,
+				Comment = "ReplySheet",
+				Status = DocumentStatusEnums.ReplaySheet
+			}, ct, false);
+
+			var userId = CurrentUserId;
+			if (userId.HasValue && document.ReviewerId == userId.Value)
+			{
+				await unitOfWork.Repository<DocumentComment>().AddAsync(new DocumentComment
+				{
+					DocumentId = documentId,
+					Comment = "ReplySheet",
+					Status = DocumentStatusEnums.ApproveByReviewer
+				}, ct, false);
+			}
+
+			if (userId.HasValue && document.ApproverId == userId.Value)
+			{
+				await unitOfWork.Repository<DocumentComment>().AddAsync(new DocumentComment
+				{
+					DocumentId = documentId,
+					Comment = "ReplySheet",
+					Status = DocumentStatusEnums.ApproveByApprover
+				}, ct, false);
+			}
+
+			var updated = await unitOfWork.Repository<Document>().TableNoTracking
+				.FirstAsync(d => d.Id == documentId, ct);
+			return Ok(updated);
+		}
+
+		[HttpGet("[action]")]
+		public IActionResult ReplySheetPartial(long documentId)
+		{
+			var document = unitOfWork.Repository<Document>().TableNoTracking
+				.FirstOrDefault(d => d.Id == documentId);
+
+			if (document == null)
+				return Content("<div class='alert alert-danger m-0'>مدرک یافت نشد.</div>", "text/html; charset=utf-8");
+
+			return PartialView(@"\Views\Panel\Edms\Document\_DocumentReplySheetPartial.cshtml", document);
+		}
+
+		[HttpPost("[action]")]
 		public async Task<IActionResult> AddEditComment(DocumentComment model, CancellationToken ct)
 		{
 
 			if (model.Status == null)
 				throw new Exception("وضعیت مدرک انتخاب نشده است");
+
+			if (!IsAdministrator && !IsCurrentUserDcc())
+				throw new Exception("اصلاح وضعیت فقط برای مدیر سیستم و گروه DCC مجاز است.");
+
+			var target = await unitOfWork.Repository<Document>().TableNoTracking
+				.FirstOrDefaultAsync(d => d.Id == model.DocumentId, ct)
+				?? throw new Exception("مدرک یافت نشد.");
+			if (!IsAdministrator && !target.IsLatest)
+				throw new Exception("فقط روی آخرین ریویژن می‌توان عملیات انجام داد.");
 
 			model.Comment += " *اصلاح* ";
 
@@ -507,6 +632,10 @@ namespace WebApp.Controllers.Dynamic
 
                ViewData["CanEditDocument"] = canEditDocument;
 
+			var vpis = document.DocumentVpisId.HasValue
+				? unitOfWork.Repository<ProjectVpis>().TableNoTracking.FirstOrDefault(v => v.Id == document.DocumentVpisId.Value)
+				: null;
+			SetDocumentActionFlags(vpis, document.Status, document.IsLatest);
 
 		  return PartialView(@"\Views\Panel\Edms\Document\_DocumentRevisionEditorPartial.cshtml", document);
         }
@@ -555,9 +684,16 @@ namespace WebApp.Controllers.Dynamic
                 ProjectId = projectId,
                 DocumentVpisId = documentVpisId,
                 Revision = maxRevision + 1,
-                Status = DocumentStatusEnums.NotReview,
+                Status = DocumentStatusEnums.NotIssue,
                 Comments = new List<DocumentComment>()
             };
+
+			var vpis = unitOfWork.Repository<ProjectVpis>().TableNoTracking
+				.FirstOrDefault(v => v.Id == documentVpisId);
+			if (!IsAdministrator && !IsCurrentUserProducer(vpis))
+				return Content("<div class='alert alert-warning m-0'>فقط تهیه‌کننده VPIS می‌تواند ریویژن جدید ایجاد کند.</div>", "text/html; charset=utf-8");
+
+			SetDocumentActionFlags(vpis, DocumentStatusEnums.NotIssue);
 
             return PartialView(@"\Views\Panel\Edms\Document\_DocumentRevisionEditorPartial.cshtml", doc);
         }
@@ -587,33 +723,21 @@ namespace WebApp.Controllers.Dynamic
 			if (canEdit)
 				ViewData["CanEditDocument"] = true;
 
-			
+			if (editStatus && !IsAdministrator && !IsCurrentUserDcc())
+				throw new Exception("اصلاح وضعیت فقط برای مدیر سیستم و گروه DCC مجاز است.");
 
-	   
-			var currentUserIsDcc = CurrentUserHasRole("Edms.Documents.DccUsers");
-
-			var project = unitOfWork.Repository<Project>()
-				.TableNoTracking
-				.FirstOrDefault(c => c.Id == projectId);
-
-			var projectType = 0;
-
-			if(project.ProjectIsVendoriType)
+			if (editStatus || IsAdministrator)
 			{
-				projectType = 1;
-			}
-			if (!editStatus)
-			{
-				ViewData["StatusOptions"] = GetFilteredStatusOptions(currentStatus, projectType, currentUserIsDcc);
+				ViewData["StatusOptions"] = Enum.GetValues(typeof(DocumentStatusEnums))
+					.Cast<DocumentStatusEnums>().Select(e => new SelectListItem
+					{
+						Value = Convert.ToInt32(e).ToString(),
+						Text = e.ToDisplay()
+					}).ToList();
 			}
 			else
 			{
-				ViewData["StatusOptions"] =  Enum.GetValues(typeof(DocumentStatusEnums))
-				    .Cast<DocumentStatusEnums>().Select(e => new SelectListItem
-				    {
-					    Value = Convert.ToInt32(e).ToString(),
-					    Text = e.ToString()
-				    }).ToList();
+				ViewData["StatusOptions"] = GetFilteredStatusOptions(currentStatus);
 			}
 
 
@@ -1256,114 +1380,163 @@ namespace WebApp.Controllers.Dynamic
 
 		public static List<SelectListItem> GetFilteredStatusOptions(DocumentStatusEnums currentStatus, int? projectType = null , bool isDccUser = false)
 		{
-			  
-			var enumType = typeof(DocumentStatusEnums);
-			var items = Enum.GetValues(enumType)
-			    .Cast<DocumentStatusEnums>();
-
-			var filtered = new List<SelectListItem>();
-			// 0 = Sp Project
-
-			if(isDccUser)
-			{
-				filtered = items.Where(item =>
-				{
-					if (currentStatus == DocumentStatusEnums.NotIssue)
-						return item == DocumentStatusEnums.Issue;
-
-					if (currentStatus == DocumentStatusEnums.Issue || currentStatus == DocumentStatusEnums.ReviewIssuer)
-						return item == DocumentStatusEnums.ApproveByReviewer
-						|| item == DocumentStatusEnums.RejectByReviewer
-						|| item == DocumentStatusEnums.CommentedByReviewer;
-
-					if (currentStatus == DocumentStatusEnums.ApproveByReviewer)
-						return item == DocumentStatusEnums.ApproveByApprover
-						|| item == DocumentStatusEnums.RejectByApprover
-						|| item == DocumentStatusEnums.CommentedByApprover;
-
-					if (currentStatus == DocumentStatusEnums.ApproveByApprover)
-						return item == DocumentStatusEnums.ApprovedByDcc 
-						   || item == DocumentStatusEnums.RejectByDcc;
-
-					if (currentStatus == DocumentStatusEnums.NotReview || item == DocumentStatusEnums.ApprovedByDcc)
-						return item == DocumentStatusEnums.ApproveByClient
-						|| item == DocumentStatusEnums.RejectByClient
-						|| item == DocumentStatusEnums.CommentedByClient
-						|| item == DocumentStatusEnums.ApprovedAsNoteByClient
-						|| item == DocumentStatusEnums.ReIssued;
-
-					if (currentStatus == DocumentStatusEnums.ApproveByClient)
-						return item == DocumentStatusEnums.ReIssued;
-						 
-
-					return false;
-
-				}).Select(e => new SelectListItem
+			return GetAllowedCommentStatuses(currentStatus)
+				.Select(e => new SelectListItem
 				{
 					Value = Convert.ToInt32(e).ToString(),
 					Text = e.ToString()
 				}).ToList();
-			}
-			else if (projectType == 0)
+		}
+
+		private const long DccRoleId = 200000;
+		private const string DccRoleName = "EdmsDocumentsDccUsers";
+
+		private static bool IsProducerEditableStatus(DocumentStatusEnums? status) =>
+			status is DocumentStatusEnums.NotIssue
+				or DocumentStatusEnums.CommentedByReviewer
+				or DocumentStatusEnums.CommentedByApprover
+				or DocumentStatusEnums.CommentedByDcc;
+
+		private static bool IsReplySheetAllowedStatus(DocumentStatusEnums? status) =>
+			status is DocumentStatusEnums.UnHold
+				or DocumentStatusEnums.RejectByClient
+				or DocumentStatusEnums.ApprovedAsNoteByClient
+				or DocumentStatusEnums.CommentedByClient;
+
+		private static List<DocumentStatusEnums> GetAllowedCommentStatuses(DocumentStatusEnums currentStatus) =>
+			currentStatus switch
 			{
+				DocumentStatusEnums.Issue =>
+					[DocumentStatusEnums.ApproveByReviewer, DocumentStatusEnums.CommentedByReviewer],
+				DocumentStatusEnums.ApproveByReviewer =>
+					[DocumentStatusEnums.ApproveByApprover, DocumentStatusEnums.CommentedByApprover],
+				DocumentStatusEnums.ApproveByApprover =>
+					[DocumentStatusEnums.ApprovedByDcc, DocumentStatusEnums.RejectByDcc, DocumentStatusEnums.CommentedByDcc],
+				DocumentStatusEnums.NotReview =>
+				[
+					DocumentStatusEnums.ApproveByClient,
+					DocumentStatusEnums.RejectByClient,
+					DocumentStatusEnums.ApprovedAsNoteByClient,
+					DocumentStatusEnums.ReIssued,
+					DocumentStatusEnums.CommentedByClient
+				],
+				_ => []
+			};
 
-	 
-				  filtered = items.Where(item =>
-				{
-					if (currentStatus == DocumentStatusEnums.NotIssue)
-						return item == DocumentStatusEnums.Issue;
-					
-					if (currentStatus == DocumentStatusEnums.Issue || currentStatus == DocumentStatusEnums.ReviewIssuer)
-						return item == DocumentStatusEnums.ApproveByReviewer 
-						|| item == DocumentStatusEnums.RejectByReviewer 
-						|| item == DocumentStatusEnums.CommentedByReviewer;
+		private bool IsCurrentUserDcc() =>
+			CurrentUserHasRole(DccRoleId) || CurrentUserHasRole(DccRoleName);
 
-					if (currentStatus == DocumentStatusEnums.ApproveByReviewer )
-						return item == DocumentStatusEnums.ApproveByApprover 
-						|| item == DocumentStatusEnums.RejectByApprover 
-						|| item == DocumentStatusEnums.CommentedByApprover;
+		private static HashSet<long> ParseUserIdList(string? raw)
+		{
+			var set = new HashSet<long>();
+			if (string.IsNullOrWhiteSpace(raw))
+				return set;
 
-					
-
-					return false;
-				}).Select(e => new SelectListItem
-				{
-					Value = Convert.ToInt32(e).ToString(),
-					Text = e.ToString()
-				}).ToList();
-			}
-			else
+			foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
 			{
-				// 1 = Vp Project
-
-				filtered = items.Where(item =>
-				{
-
-					if (currentStatus == DocumentStatusEnums.NotIssue)
-						return item == DocumentStatusEnums.Issue;
-
-					if (currentStatus == DocumentStatusEnums.Issue || currentStatus == DocumentStatusEnums.ReviewIssuer)
-						return item == DocumentStatusEnums.ApproveByReviewer
-						|| item == DocumentStatusEnums.RejectByReviewer
-						|| item == DocumentStatusEnums.CommentedByReviewer;
-
-					if (currentStatus == DocumentStatusEnums.ApproveByReviewer)
-						return item == DocumentStatusEnums.ApproveByApprover
-						|| item == DocumentStatusEnums.RejectByApprover
-						|| item == DocumentStatusEnums.CommentedByApprover;
-
-					return false;
-				}).Select(e => new SelectListItem
-				{
-					Value = Convert.ToInt32(e).ToString(),
-					Text = e.ToString()
-				}).ToList();
-
+				if (long.TryParse(part, out var id))
+					set.Add(id);
 			}
 
-			 
-		 
-			return filtered;
+			return set;
+		}
+
+		private bool IsCurrentUserProducer(ProjectVpis? vpis) =>
+			vpis?.ProducerId != null && CurrentUserId == vpis.ProducerId;
+
+		private bool IsCurrentUserVpisReviewer(ProjectVpis? vpis)
+		{
+			if (vpis == null || !CurrentUserId.HasValue)
+				return false;
+
+			return ParseUserIdList(vpis.ReviewersId).Contains(CurrentUserId.Value);
+		}
+
+		private bool IsCurrentUserVpisApprover(ProjectVpis? vpis) =>
+			vpis?.ApproverId != null && CurrentUserId == vpis.ApproverId;
+
+		private async Task<ProjectVpis?> GetProjectVpisAsync(long? documentVpisId, CancellationToken ct)
+		{
+			if (!documentVpisId.HasValue || documentVpisId.Value == 0)
+				return null;
+
+			return await unitOfWork.Repository<ProjectVpis>().TableNoTracking
+				.FirstOrDefaultAsync(v => v.Id == documentVpisId.Value, ct);
+		}
+
+		private async Task EnsureCanProducerSaveAsync(long? documentVpisId, DocumentStatusEnums? status, CancellationToken ct)
+		{
+			if (IsAdministrator)
+				return;
+
+			if (!IsProducerEditableStatus(status))
+				throw new Exception("در وضعیت فعلی امکان ذخیره مدرک وجود ندارد.");
+
+			var vpis = await GetProjectVpisAsync(documentVpisId, ct);
+			if (!IsCurrentUserProducer(vpis))
+				throw new Exception("فقط تهیه‌کننده VPIS مجاز به ذخیره این مدرک است.");
+		}
+
+		private bool CanActorAddCommentForStatus(DocumentStatusEnums currentStatus, ProjectVpis? vpis) =>
+			currentStatus switch
+			{
+				DocumentStatusEnums.Issue => IsCurrentUserVpisReviewer(vpis),
+				DocumentStatusEnums.ApproveByReviewer => IsCurrentUserVpisApprover(vpis),
+				DocumentStatusEnums.ApproveByApprover => IsCurrentUserDcc(),
+				DocumentStatusEnums.NotReview => IsCurrentUserDcc(),
+				_ => false
+			};
+
+		private DocumentEditActionFlags BuildActionFlags(DocumentStatusEnums? status, ProjectVpis? vpis, bool isLatest)
+		{
+			var flags = new DocumentEditActionFlags();
+
+			if (IsAdministrator)
+			{
+				flags.CanSaveAndClose = true;
+				flags.CanAddComment = true;
+				flags.CanNewRevision = true;
+				flags.CanAddReplySheet = true;
+				flags.CanEditStatus = true;
+				return flags;
+			}
+
+			if (!isLatest)
+				return flags;
+
+			if (IsCurrentUserDcc())
+				flags.CanEditStatus = true;
+
+			if (IsProducerEditableStatus(status) && IsCurrentUserProducer(vpis))
+				flags.CanSaveAndClose = true;
+
+			if (status == DocumentStatusEnums.Issue && IsCurrentUserVpisReviewer(vpis))
+				flags.CanAddComment = true;
+			else if (status == DocumentStatusEnums.ApproveByReviewer && IsCurrentUserVpisApprover(vpis))
+				flags.CanAddComment = true;
+			else if (status == DocumentStatusEnums.ApproveByApprover && IsCurrentUserDcc())
+				flags.CanAddComment = true;
+			else if (status == DocumentStatusEnums.NotReview && IsCurrentUserDcc())
+				flags.CanAddComment = true;
+
+			if (IsCurrentUserProducer(vpis))
+			{
+				if (status is DocumentStatusEnums.RejectByClient
+					or DocumentStatusEnums.ApprovedAsNoteByClient
+					or DocumentStatusEnums.CommentedByClient
+					or DocumentStatusEnums.ReIssued)
+					flags.CanNewRevision = true;
+
+				if (IsReplySheetAllowedStatus(status))
+					flags.CanAddReplySheet = true;
+			}
+
+			return flags;
+		}
+
+		private void SetDocumentActionFlags(ProjectVpis? vpis, DocumentStatusEnums? status, bool isLatest = true)
+		{
+			ViewData["ActionFlags"] = BuildActionFlags(status, vpis, isLatest);
 		}
 	}
 }

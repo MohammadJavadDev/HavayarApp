@@ -5,6 +5,7 @@ using Data.Repositories;
 using Data.Services;
 using Data.Services.Edms;
 using Data.Services.Eng.CompressorSizing;
+using Data.Services.Eng.FilterWaterTrap;
 using Data.Services.Pln;
 using Data.Services.Trn;
 using Data.Services.QueryBuilderServices;
@@ -13,6 +14,7 @@ using Entities.Auth;
 using Entities.Services;
 using Infrastructure.CrudEventInterceptors;
 using Infrastructure.Messaging;
+using Services.Cng;
 using Infrastructure.NotificationServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -96,6 +98,7 @@ builder.Services.AddSingleton<IEnvironmentService, EnvironmentService>();
 builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
+builder.Services.AddScoped<ICngRepairsUsedPartImporter, CngRepairsUsedPartImporter>();
 
 builder.Services.AddEntityActions(
 	typeof(Program).Assembly
@@ -248,6 +251,35 @@ builder.Services.AddSingleton<ICompressorSizingService>(sp =>
 
 	directories.Add(@"E:\Uploads\SizingExcels");
 	return new CompressorSizingService(directories);
+});
+
+builder.Services.AddSingleton<IFilterWaterTrapService>(sp =>
+{
+	var env = sp.GetRequiredService<IWebHostEnvironment>();
+	var config = sp.GetRequiredService<IConfiguration>();
+	var directories = new List<string>();
+
+	var configured = config["FilterWaterTrap:DataDirectory"] ?? config["CompressorSizing:DataDirectory"];
+	if (!string.IsNullOrWhiteSpace(configured))
+	{
+		directories.Add(Path.IsPathRooted(configured)
+			? configured
+			: Path.Combine(env.ContentRootPath, configured));
+	}
+
+	directories.Add(Path.Combine(env.ContentRootPath, "App_Data", "SizingExcels"));
+	if (!string.IsNullOrWhiteSpace(env.WebRootPath))
+		directories.Add(Path.Combine(env.WebRootPath, "SizingExcels"));
+
+	var uploads = config["Storage:UploadsPath"];
+	if (!string.IsNullOrWhiteSpace(uploads))
+	{
+		var uploadsFull = Path.IsPathRooted(uploads) ? uploads : Path.Combine(env.ContentRootPath, uploads);
+		directories.Add(Path.Combine(uploadsFull, "SizingExcels"));
+	}
+
+	directories.Add(@"E:\Uploads\SizingExcels");
+	return new FilterWaterTrapService(directories);
 });
 
 // سرویس جایگزینی پارامترها

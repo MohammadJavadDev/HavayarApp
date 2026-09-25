@@ -1,6 +1,8 @@
 using Common.Attributes;
 using Entities.App.Inv;
 using Entities.Base;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -47,25 +49,27 @@ namespace Entities.App.Bom
 		public ProductFormul ProductFormul { get; set; }
 
 		[DisplayName("قطعه")]
-		[DisplayInfo(null, false, type: SystemType.Entity)]
-		public Part? Part { get; set; }
+		[DisplayInfo(null, false, type: SystemType.Entity, required: true)]
+		public Part Part { get; set; }
 
-		public long? PartId { get; set; }
-
-
-		[DisplayName("فرمول")]
-		[DisplayInfo(null, false, type: SystemType.Entity)]
-		public Formul? Formul { get; set; }
-
-		public long? FormulId { get; set; }
-	
-
+		public long PartId { get; set; }
 
 		[DisplayName("ضریب مصرفی")]
 		[DisplayInfo(null, false, type: SystemType.Decimal)]
 		public decimal? UsingRate { get; set; }
 
 
+	}
+
+	public class ProductFormulItemConfiguration : IEntityTypeConfiguration<ProductFormulItem>
+	{
+		public void Configure(EntityTypeBuilder<ProductFormulItem> builder)
+		{
+			builder.HasOne(x => x.Part)
+				.WithMany()
+				.HasForeignKey(x => x.PartId)
+				.OnDelete(DeleteBehavior.Restrict);
+		}
 	}
 
 }

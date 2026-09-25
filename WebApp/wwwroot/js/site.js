@@ -2274,6 +2274,8 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	/** @type {Map<string, string>} key = column.data, value = filter condition */
 	const columnFilterConditions = new Map();
+	/** @type {Map<string, {logic: string, extras: {condition: string, value: string}[]}>} */
+	const columnFilterGroups = new Map();
 
 	let currentTable;
 	let fetchUrl = "/System/FetchDataProfile";
@@ -3790,23 +3792,24 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
         </div>
     `);
 	 
-	let defaultMultiSelectEnabled = false;
+	let multiSelectAllowed = false;
 	if (dataTable.actionOptions && dataTable.actionOptions.length>0) {
 		var actionOptions = JSON.parse(dataTable.actionOptions);
 
 		actionOptions.forEach(c => {
 			if (c.dataActionName === 'defaultMultiSelect') {
-				defaultMultiSelectEnabled = c.enable === true;
+				multiSelectAllowed = c.enable === true;
 				return;
 			}
-			if (top1startBtns.find(`[data-action=${c.dataActionName}]`).length > 0) {
-				if (c.enable === false) {
-					top1startBtns.find(`[data-action=${c.dataActionName}]`).prop("disabled", "disabled")
-					top1startBtns.find(`[data-action=${c.dataActionName}]`).attr("forcedisabled",'true')
-				}
+			if (c.enable === false) {
+				top1startBtns.find(`[data-action=${c.dataActionName}]`).remove();
 			}
 		})
 
+	}
+
+	if (!multiSelectAllowed) {
+		top1startBtns.find('[data-action=multiSelect]').remove();
 	}
 
 	
@@ -3892,14 +3895,17 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	 
 	 
-	let order = [];
+	const sortCols = [];
 	columns.forEach((c, i) => {
 		if (c.type === 'rowNumber' || c.type === 'rowSelect') return;
 		if (c.sortable === false) return;
-		if (c.sortOrder == null && c.sortDirection == null) return;
-		const desc = c.sortOrder === 1 || c.sortDirection === 1;
-		order.push([i, desc ? 'desc' : 'asc']);
+		if (c.sortDirection == null || c.sortDirection === '') return;
+		const desc = c.sortDirection === 1 || c.sortDirection === '1' || c.sortDirection === 'Descending';
+		const priority = c.sortOrder == null || c.sortOrder === '' ? 999 : Number(c.sortOrder);
+		sortCols.push({ index: i, desc, priority: isNaN(priority) ? 999 : priority });
 	});
+	sortCols.sort((a, b) => a.priority - b.priority);
+	const order = sortCols.map(c => [c.index, c.desc ? 'desc' : 'asc']);
 
 	var table = new DataTable($el, {
 		rowCallback: function (row, data) {
@@ -3965,7 +3971,7 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 				table.getPrimaryKeyValue = api.getPrimaryKeyValue;
 
 			// Filter icons setup
-			_initColumnFilterIcons(api, columns, columnFilterConditions, searchBuilderCollapseId);
+			_initColumnFilterIcons(api, columns, columnFilterConditions, searchBuilderCollapseId, columnFilterGroups);
 			table.clearAllColumnFilters = api.clearAllColumnFilters;
 
 			// searchBuilder container
@@ -4031,6 +4037,16 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 					} else if (Array.isArray(col.search.value)) {
 						col.search.value = col.search.value.filter(v => v !== '__op__');
 					}
+
+					const group = columnFilterGroups.get(col.data);
+					const extras = Array.isArray(group?.extras) ? group.extras : [];
+					col.search.logic = group?.logic === 'or' ? 'or' : 'and';
+					col.search.rules = extras
+						.filter(r => r && r.condition && r.condition !== 'none')
+						.map(r => ({
+							condition: r.condition,
+							value: r.value ? [String(r.value)] : []
+						}));
 				});
 
 				d.order = d.order.map(o => ({
@@ -4301,7 +4317,7 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	table.on('dblclick', 'tbody tr', (e) => {
 		e.preventDefault();
 		if (multiSelectMode) return;
-		if ($editBtn.attr("forcedisabled") === "true") return;
+		if (!$editBtn.length) return;
 		if (!canEdit) return;
 
 		const pkData = table.columns().context[0].aoColumns
@@ -4409,10 +4425,6 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 				setRowMultiSelected($(node), data, checked);
 			});
 		});
-
-		if (defaultMultiSelectEnabled) {
-			setMultiSelectMode(true);
-		}
 
 		$drawBtn.parent().parent().parent().addClass("datatabel-action-btns");
 		appController.createBootstrapTooltips();
@@ -4708,6 +4720,116 @@ function destroyProfilePersianDatepickers(api, searchBuilderCollapseId) {
 	cleanupOrphanProfileDatepickers();
 }
 
+const columnDateFilterHint = '1405 یا 1405/06 یا 1405/06/01';
+
+function normalizeDateFilterText(raw) {
+	const source = raw == null ? '' : String(raw);
+	let v = (typeof MJUtil !== 'undefined' && MJUtil.toEnglishNumbers)
+		? MJUtil.toEnglishNumbers(source)
+		: source;
+	if (v == null) v = '';
+	return String(v).trim().replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ');
+}
+
+function isColumnDateFilterText(value) {
+	const text = normalizeDateFilterText(value);
+	const clockOk = (hour, minute, second) => {
+		if (hour == null || hour === '') return true;
+		const h = parseInt(hour, 10);
+		const mi = parseInt(minute, 10);
+		if (h > 23 || mi > 59) return false;
+		if (second != null && second !== '' && parseInt(second, 10) > 59) return false;
+		return true;
+	};
+
+	let m = text.match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+	if (m) {
+		const mo = parseInt(m[2], 10);
+		const d = parseInt(m[3], 10);
+		return mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && clockOk(m[4], m[5], m[6]);
+	}
+
+	m = text.match(/^(\d{4})(?:\/(\d{1,2})(?:\/(\d{1,2})(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?)?)?$/);
+	if (!m) return false;
+	if (m[2] == null) return true;
+	const mo = parseInt(m[2], 10);
+	if (mo < 1 || mo > 12) return false;
+	if (m[3] != null && m[3] !== '') {
+		const d = parseInt(m[3], 10);
+		if (d < 1 || d > 31) return false;
+	}
+	return clockOk(m[4], m[5], m[6]);
+}
+
+/** مقدار خالی یعنی پاک‌کردن فیلتر؛ null یعنی قالب نامعتبر و نباید اعمال شود. */
+function readColumnDateFilterValue(raw) {
+	const v = normalizeDateFilterText(raw);
+	if (!v) return '';
+	if (!isColumnDateFilterText(v)) {
+		toastr.error('تاریخ را مثل ' + columnDateFilterHint + ' وارد کنید', 'خطا');
+		return null;
+	}
+	return v;
+}
+
+function bindColumnFilterDatePicker($input, withTime) {
+	if (!$input.length || $input.data('datepicker') || typeof $input.pDatepicker !== 'function') return;
+	const currentVal = $input.val();
+	$input.pDatepicker({
+		format: withTime ? 'YYYY/MM/DD HH:mm:ss' : 'YYYY/MM/DD',
+		autoClose: true,
+		initialValue: false,
+		persianDigit: false,
+		observer: false,
+		timePicker: withTime ? { enabled: true } : { enabled: false }
+	});
+	markProfilePersianDatepicker($input);
+	// تقویم با فوکوس باز نشود تا تایپ سال یا سال‌وماه پاک نشود
+	$input.off('focus click');
+	if (currentVal && $input.val() !== currentVal)
+		$input.val(currentVal);
+
+	const full = normalizeDateFilterText(currentVal);
+	if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(full) || /^\d{4}-\d{2}-\d{2}/.test(full)) {
+		try {
+			const miladi = /^\d{4}-/.test(full) ? full : MJUtil.shamsiToMiladi(full);
+			const date = new Date(miladi);
+			if (!isNaN(date.getTime())) {
+				const picker = $input.data('datepicker');
+				if (picker && typeof picker.setDate === 'function')
+					picker.setDate(date.getTime());
+			}
+		} catch (_) { /* مقدار ناقص مثل 1405 همین‌طور بماند */ }
+	}
+}
+
+function showColumnFilterDatePicker($input) {
+	const picker = $input.data('datepicker');
+	if (!picker || typeof picker.show !== 'function') return;
+	const $container = picker.model && picker.model.view && picker.model.view.$container;
+	if ($container && $container.length && !$container.hasClass('pwt-hide')) {
+		if (typeof picker.hide === 'function') picker.hide();
+		$(document).off('mousedown.dtFilterDateDismiss');
+		return;
+	}
+	picker.show();
+	$(document).off('mousedown.dtFilterDateDismiss');
+	setTimeout(function () {
+		$(document).on('mousedown.dtFilterDateDismiss', function (ev) {
+			if ($(ev.target).closest('.datepicker-container, .datepicker-plot-area, .dt-inline-filter-cal, .filter-date-cal, .dt-rule-cal').length)
+				return;
+			if (typeof picker.hide === 'function') picker.hide();
+			$(document).off('mousedown.dtFilterDateDismiss');
+		});
+	}, 0);
+}
+
+function hideColumnFilterDatePicker($input) {
+	const picker = $input && $input.length ? $input.data('datepicker') : null;
+	if (picker && typeof picker.hide === 'function') picker.hide();
+	$(document).off('mousedown.dtFilterDateDismiss');
+}
+
 function getDefaultFilterCondition(columnType) {
 	const t = (columnType || 'string').toLowerCase();
 	if (t === 'select' || t === 'boolean' || t === 'bool' || t === 'entity')
@@ -4812,7 +4934,7 @@ function updateFilterValueInputsVisibility($popup, columnType, condition) {
  * @param {Map<string, string>} columnFilterConditions
  * @param {string} [searchBuilderCollapseId]
  */
-function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map(), searchBuilderCollapseId) {
+function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map(), searchBuilderCollapseId, columnFilterGroups = new Map()) {
 
 
 	// Store filter popups for each column (using Map for better performance)
@@ -4820,6 +4942,30 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 
 	// Store column references for better performance
 	const columnReferences = new Map();
+
+	// بعد از جابه‌جایی ستون، اندیس aoColumns عوض می‌شود؛ ارجاع‌های کش‌شده باید با mapping جدید هم‌خوان شوند
+	api.on('column-reorder.dt', function (e, settings, details) {
+		if (!details || !details.mapping) return;
+		const mapping = details.mapping;
+
+		const nextRefs = new Map();
+		columnReferences.forEach(function (col, oldIdx) {
+			const newIdx = mapping[oldIdx];
+			if (newIdx == null) return;
+			nextRefs.set(newIdx, api.column(newIdx));
+		});
+		columnReferences.clear();
+		nextRefs.forEach(function (col, idx) { columnReferences.set(idx, col); });
+
+		const nextPopups = new Map();
+		columnFilterPopups.forEach(function (pop, oldIdx) {
+			const newIdx = mapping[oldIdx];
+			if (newIdx == null) return;
+			nextPopups.set(newIdx, pop);
+		});
+		columnFilterPopups.clear();
+		nextPopups.forEach(function (pop, idx) { columnFilterPopups.set(idx, pop); });
+	});
 
 	// Track columns that are being cleared to prevent race conditions
 	const columnsBeingCleared = new Set();
@@ -4869,7 +5015,8 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			const isClickOnFilterIcon = $target.closest('.filter-icon').length > 0;
 			const isClickInsidePopover = $target.closest('.popover').length > 0;
 			const isClickOnOperatorMenu = $target.closest('.filter-operator-menu').length > 0
-				|| $target.closest('.dropdown-menu').length > 0;
+				|| $target.closest('.dropdown-menu').length > 0
+				|| $target.closest('.dt-filter-rule-panel').length > 0;
 
 			// Check if click is on datepicker calendar (Persian Datepicker)
 			const isClickOnDatepicker = $target.closest('.datepicker-container').length > 0 ||
@@ -4941,27 +5088,11 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 				} else {
 					booleanValue = 'null';
 				}
-			} else if (typeLower === 'date' || typeLower === 'datetime') {
+			} else if (typeLower === 'date' || typeLower === 'datetime' || typeLower === 'shamsidate'
+				|| typeLower === 'dateshamsi' || typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
 				const raw = searchVals.find(v => typeof v === 'string' && v !== '__op__');
 				if (raw) {
-					const dateStr = raw.replace(/^from\s+/i, '').replace(/^to\s+/i, '');
-					try {
-						const date = new Date(dateStr);
-						if (!isNaN(date.getTime())) {
-							const shamsi = MJUtil.miladiToShamsi(date.toISOString());
-							if (typeLower.includes('datetime')) dateTimeValue = shamsi;
-							else dateValue = shamsi;
-						}
-					} catch (e) {
-						console.warn('Error parsing date filter:', e);
-					}
-				}
-			}
-			else if (typeLower === 'shamsidate' || typeLower === 'dateshamsi' ||
-				typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
-				const raw = searchVals.find(v => typeof v === 'string' && v !== '__op__');
-				if (raw) {
-					const dateStr = raw.replace(/^from\s+/i, '').replace(/^to\s+/i, '');
+					const dateStr = normalizeDateFilterText(raw.replace(/^from\s+/i, '').replace(/^to\s+/i, ''));
 					if (typeLower.includes('datetime')) dateTimeValue = dateStr;
 					else dateValue = dateStr;
 				}
@@ -4977,10 +5108,15 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			return div.innerHTML;
 		};
 
+		const extraRuleCount = getFilterGroup(columnIndex).extras.length;
+		const moreRulesLabel = extraRuleCount > 0 ? ('شرط‌ها (' + (extraRuleCount + 1) + ')') : 'شرط‌های بیشتر';
 		const actionsHtml = `
-			<div class="d-flex gap-2 justify-content-end">
-				<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
-				<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
+			<div class="d-flex gap-2 justify-content-between align-items-center">
+				<button type="button" class="btn btn-sm btn-light border filter-more-rules">${moreRulesLabel}</button>
+				<div class="d-flex gap-2">
+					<button type="button" class="btn btn-sm btn-secondary filter-clear" data-column-index="${columnIndex}">پاک کردن</button>
+					<button type="button" class="btn btn-sm btn-primary filter-apply" data-column-index="${columnIndex}">اعمال</button>
+				</div>
 			</div>
 		`;
 
@@ -5008,7 +5144,10 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 					<div class="p-3" data-filter-condition="${currentCondition}">
 						${operatorToolbar}
 						<div class="filter-value-section mb-3" ${valueSectionStyle}>
-							<input type="text" class="form-control filter-date-input" data-column-index="${columnIndex}" placeholder="انتخاب تاریخ" value="${escapeHtml(dateValue)}" />
+							<div class="d-flex align-items-center gap-1">
+								<input type="text" class="form-control filter-date-input" data-column-index="${columnIndex}" title="سال، سال و ماه، یا تاریخ کامل" value="${escapeHtml(dateValue)}" />
+								<button type="button" class="btn btn-sm btn-light border filter-date-cal" title="انتخاب روز از تقویم"><i class="fa-light fa-calendar"></i></button>
+							</div>
 						</div>
 						${actionsHtml}
 					</div>
@@ -5022,7 +5161,10 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 					<div class="p-3" data-filter-condition="${currentCondition}">
 						${operatorToolbar}
 						<div class="filter-value-section mb-3" ${valueSectionStyle}>
-							<input type="text" class="form-control filter-datetime-input" data-column-index="${columnIndex}" placeholder="انتخاب تاریخ و زمان" value="${escapeHtml(dateTimeValue)}" />
+							<div class="d-flex align-items-center gap-1">
+								<input type="text" class="form-control filter-datetime-input" data-column-index="${columnIndex}" title="سال، سال و ماه، تاریخ، یا تاریخ و ساعت" value="${escapeHtml(dateTimeValue)}" />
+								<button type="button" class="btn btn-sm btn-light border filter-date-cal" title="انتخاب روز از تقویم"><i class="fa-light fa-calendar"></i></button>
+							</div>
 						</div>
 						${actionsHtml}
 					</div>
@@ -5105,13 +5247,28 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 		const $inlineOp = findInlineFilterWrap(columnIndex, column).find('.dt-inline-filter-op');
 		const $popupIcon = column ? $(column.header()).find('.filter-icon') : $();
 		const $icons = $inlineOp.add($popupIcon);
+		const extraCount = getFilterGroup(columnIndex).extras.length;
+		const active = !!hasFilter || extraCount > 0;
+		const count = (hasFilter ? 1 : 0) + extraCount;
 
 		if ($icons.length) {
-			if (hasFilter) {
+			if (active) {
 				$icons.removeClass('text-muted').addClass('text-warning');
 			} else {
 				$icons.removeClass('text-warning').addClass('text-muted');
 			}
+		}
+
+		$inlineOp.find('.dt-filter-rule-count').remove();
+		$popupIcon.siblings('.dt-filter-rule-count').remove();
+		if (count > 1) {
+			const logicLabel = getFilterGroup(columnIndex).logic === 'or' ? 'یا' : 'و';
+			const title = count + ' شرط با «' + logicLabel + '»';
+			$inlineOp.attr('title', title);
+			$inlineOp.append('<span class="dt-filter-rule-count">' + count + '</span>');
+			$popupIcon.after('<span class="dt-filter-rule-count" title="' + title + '">' + count + '</span>');
+		} else if ($inlineOp.length) {
+			$inlineOp.attr('title', 'نوع فیلتر');
 		}
 	}
 
@@ -5120,8 +5277,401 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 		$('.dt-filter-op-menu').remove();
 	}
 
-	function showFilterOperatorMenu($anchor, columnType, currentCondition, onSelect) {
+	const columnRuleLimit = 10;
+
+	function getFilterGroup(columnIndex) {
+		const key = getColumnDataKey(columnIndex);
+		const group = key ? columnFilterGroups.get(key) : null;
+		return {
+			logic: group?.logic === 'or' ? 'or' : 'and',
+			extras: Array.isArray(group?.extras) ? group.extras : []
+		};
+	}
+
+	function setFilterGroup(columnIndex, group) {
+		const key = getColumnDataKey(columnIndex);
+		if (!key) return;
+		const extras = (group?.extras || []).filter(r => r && r.condition && r.condition !== 'none');
+		if (!extras.length) columnFilterGroups.delete(key);
+		else columnFilterGroups.set(key, { logic: group?.logic === 'or' ? 'or' : 'and', extras });
+	}
+
+	function closeColumnRulePanel() {
+		const $panel = $('.dt-filter-rule-panel');
+		if ($panel.length) destroyPersianDatepickersIn($panel);
+		$panel.remove();
+		$(document).off('.dtFilterRulePanel');
+	}
+
+	function displayRuleValue(columnType, value) {
+		const t = (columnType || '').toLowerCase();
+		if (t === 'boolean' || t === 'bool') {
+			if (value === '1' || value === 'true') return 'true';
+			if (value === '0' || value === 'false') return 'false';
+			return '';
+		}
+		if (value == null || value === 'null') return '';
+		return String(value);
+	}
+
+	function createRuleRow(columnIndex, columnType, rule) {
+		const t = (columnType || 'string').toLowerCase();
+		const condition = rule?.condition || getDefaultFilterCondition(columnType);
+		const shown = displayRuleValue(columnType, rule?.value);
+
+		const $row = $('<div class="dt-rule-row"></div>');
+		const $op = $('<select class="form-select form-select-sm dt-rule-op"></select>');
+		getFilterOperatorsForType(columnType).forEach(op => {
+			if (op.value === 'none') return;
+			$op.append($('<option></option>').val(op.value).text(op.label));
+		});
+		if ($op.find(`option[value="${condition}"]`).length) $op.val(condition);
+
+		const $host = $('<div class="dt-rule-value-host"></div>');
+		if (t === 'select' || t === 'entity') {
+			const $sel = $('<select class="form-select form-select-sm dt-rule-value"></select>');
+			$sel.append($('<option></option>').val('').text('...'));
+			(columns[columnIndex]?.options || []).forEach(opt => {
+				$sel.append($('<option></option>').val(opt.value ?? '').text(opt.name ?? ''));
+			});
+			$sel.val(shown);
+			$host.append($sel);
+		} else if (t === 'boolean' || t === 'bool') {
+			const $sel = $('<select class="form-select form-select-sm dt-rule-value"></select>');
+			$sel.append($('<option></option>').val('').text('...'));
+			$sel.append($('<option></option>').val('true').text('بله'));
+			$sel.append($('<option></option>').val('false').text('خیر'));
+			$sel.val(shown);
+			$host.append($sel);
+		} else if (t.includes('date')) {
+			const $wrap = $('<div class="dt-rule-value-wrap"></div>');
+			const $input = $('<input type="text" class="form-control form-control-sm dt-rule-value dt-rule-date" />').val(shown);
+			const $cal = $('<button type="button" class="btn btn-sm btn-light border dt-rule-cal" title="انتخاب روز"><i class="fa-light fa-calendar"></i></button>');
+			$wrap.append($input, $cal);
+			$host.append($wrap);
+		} else {
+			$host.append($('<input type="text" class="form-control form-control-sm dt-rule-value" />').val(shown));
+		}
+
+		const $remove = $('<button type="button" class="btn btn-sm btn-light border dt-rule-remove" title="حذف این شرط"><i class="fa-light fa-xmark"></i></button>');
+		$row.append($op, $host, $remove);
+		if (!filterConditionNeedsValue($op.val())) $host.hide();
+		return $row;
+	}
+
+	function wireRuleRow($row, columnType) {
+		const t = (columnType || '').toLowerCase();
+		if (!t.includes('date')) return;
+		bindColumnFilterDatePicker($row.find('.dt-rule-date'), t.includes('datetime'));
+	}
+
+	function readSurfaceRule(columnIndex, column, columnType, source) {
+		const t = (columnType || '').toLowerCase();
+		if (source === 'popup') {
+			const $popup = $(`.filter-popup[data-column-index="${columnIndex}"]`);
+			if ($popup.length) {
+				const condition = $popup.find('.filter-operator-btn').attr('data-condition') || getColumnCondition(columnIndex, columnType);
+				let value = '';
+				if (t === 'select' || t === 'entity') value = $popup.find('.filter-select').val() || '';
+				else if (t === 'boolean' || t === 'bool') value = $popup.find('.filter-boolean').val() || '';
+				else if (t.includes('date')) value = $popup.find('.filter-date-input, .filter-datetime-input').val() || '';
+				else value = $popup.find('.filter-input').val() || '';
+				if (value === 'null') value = '';
+				return { condition, value };
+			}
+		}
+
+		const $wrap = findInlineFilterWrap(columnIndex, column);
+		const condition = $wrap.attr('data-condition') || getColumnCondition(columnIndex, columnType);
+		let value = '';
+		if ($wrap.length) {
+			if (t === 'select' || t === 'entity' || t === 'boolean' || t === 'bool')
+				value = $wrap.find('.dt-inline-filter-select').val() || '';
+			else
+				value = $wrap.find('.dt-inline-filter-input').val() || '';
+		} else {
+			value = getCurrentSearchDisplayValue(column, columnType);
+		}
+		if (value === 'null') value = '';
+		return { condition, value };
+	}
+
+	function writeFirstRuleToPopup(columnIndex, columnType, rule) {
+		const $popup = $(`.filter-popup[data-column-index="${columnIndex}"]`);
+		if (!$popup.length) return false;
+		const t = (columnType || '').toLowerCase();
+		const needs = filterConditionNeedsValue(rule.condition);
+		$popup.find('.filter-operator-btn')
+			.attr('data-condition', rule.condition)
+			.find('.filter-operator-label')
+			.text(getFilterOperatorLabel(columnType, rule.condition));
+		$popup.find('.filter-operator-item').removeClass('active');
+		$popup.find(`.filter-operator-item[data-condition="${rule.condition}"]`).addClass('active');
+		$popup.attr('data-filter-condition', rule.condition);
+		updateFilterValueInputsVisibility($popup, columnType, rule.condition);
+		if (t === 'select' || t === 'entity') {
+			$popup.find('.filter-select').val(rule.value || 'null');
+		} else if (t === 'boolean' || t === 'bool') {
+			const v = rule.value === '1' ? 'true' : rule.value === '0' ? 'false' : 'null';
+			$popup.find('.filter-boolean').val(v);
+		} else if (t.includes('date')) {
+			$popup.find('.filter-date-input, .filter-datetime-input').val(needs ? (rule.value || '') : '');
+		} else {
+			$popup.find('.filter-input').val(needs ? (rule.value || '') : '');
+		}
+		return true;
+	}
+
+	function commitColumnRules(columnIndex, column, columnType, logic, rules, source) {
+		if (!rules.length) {
+			clearColumnFilter(columnIndex, column);
+			return;
+		}
+		const first = rules[0];
+		setColumnCondition(columnIndex, first.condition);
+		setFilterGroup(columnIndex, { logic, extras: rules.slice(1) });
+
+		if (source === 'popup' && writeFirstRuleToPopup(columnIndex, columnType, first)) {
+			applyColumnFilter(columnIndex, column, columnType);
+			const pop = columnFilterPopups.get(columnIndex);
+			if (pop) {
+				try { pop.hide(); } catch (_) { /* ignore */ }
+			}
+			return;
+		}
+
+		const $wrap = findInlineFilterWrap(columnIndex, column);
+		if ($wrap.length) {
+			const t = (columnType || '').toLowerCase();
+			const needs = filterConditionNeedsValue(first.condition);
+			$wrap.attr('data-condition', first.condition);
+			if (t === 'select' || t === 'entity') {
+				$wrap.find('.dt-inline-filter-select').val(first.value || 'null').prop('disabled', !needs);
+			} else if (t === 'boolean' || t === 'bool') {
+				const v = first.value === '1' ? 'true' : first.value === '0' ? 'false' : 'null';
+				$wrap.find('.dt-inline-filter-select').val(v).prop('disabled', !needs);
+			} else {
+				$wrap.find('.dt-inline-filter-input').val(needs ? (first.value || '') : '').prop('disabled', !needs);
+				$wrap.find('.dt-inline-filter-cal').prop('disabled', !needs);
+			}
+			applyInlineColumnFilter(columnIndex, column, columnType);
+			return;
+		}
+
+		if (!filterConditionNeedsValue(first.condition)) column.search(['__op__']);
+		else column.search(first.value ? [first.value] : []);
+		updateFilterIcon(columnIndex, true, column);
+		table.draw();
+	}
+
+	function collectPanelRules($panel, columnType) {
+		const logic = $panel.find('.dt-rule-logic button.active').attr('data-logic') === 'or' ? 'or' : 'and';
+		const rules = [];
+		let invalid = false;
+		$panel.find('.dt-rule-row').each(function () {
+			if (invalid) return;
+			const condition = $(this).find('.dt-rule-op').val();
+			const raw = $(this).find('.dt-rule-value').val();
+			if (!filterConditionNeedsValue(condition)) {
+				rules.push({ condition, value: '' });
+				return;
+			}
+			const t = (columnType || '').toLowerCase();
+			if (t.includes('date')) {
+				const parsed = readColumnDateFilterValue(raw);
+				if (parsed === null) {
+					invalid = true;
+					return false;
+				}
+				if (!parsed) return;
+				rules.push({ condition, value: parsed });
+				return;
+			}
+			if (t === 'boolean' || t === 'bool') {
+				if (raw === 'true') rules.push({ condition, value: '1' });
+				else if (raw === 'false') rules.push({ condition, value: '0' });
+				return;
+			}
+			if (t === 'select' || t === 'entity') {
+				if (raw && raw !== 'null') rules.push({ condition, value: String(raw) });
+				return;
+			}
+			const text = String(raw || '').trim();
+			if (text) rules.push({ condition, value: text });
+		});
+		return { logic, rules, invalid };
+	}
+
+	function refreshRuleHint($panel) {
+		const n = $panel.find('.dt-rule-row').length;
+		const logic = $panel.find('.dt-rule-logic button.active').attr('data-logic') === 'or' ? 'or' : 'and';
+		const $hint = $panel.find('.dt-rule-logic-hint');
+		if (n < 2) {
+			$hint.text('برای ترکیب چند مقدار، شرط اضافه کنید.');
+			return;
+		}
+		$hint.text(logic === 'or'
+			? 'کافی است یکی از شرط‌ها برقرار باشد.'
+			: 'همه شرط‌ها باید برقرار باشند.');
+	}
+
+	function showColumnRulePanel($anchor, columnIndex, column, columnType, source, addBlank) {
 		closeFilterOperatorMenus();
+		closeColumnRulePanel();
+		if (!$anchor || !$anchor.length) return;
+
+		const surface = readSurfaceRule(columnIndex, column, columnType, source);
+		const group = getFilterGroup(columnIndex);
+		const rules = [{ condition: surface.condition, value: surface.value }].concat(group.extras.map(r => ({ ...r })));
+		if (addBlank && rules.length < columnRuleLimit) {
+			const seed = filterConditionNeedsValue(surface.condition)
+				? surface.condition
+				: getDefaultFilterCondition(columnType);
+			rules.push({ condition: seed, value: '' });
+		}
+
+		const $panel = $(`
+			<div class="dt-filter-rule-panel shadow" dir="rtl">
+				<div class="dt-rule-panel-head">
+					<span>شرط‌های این ستون</span>
+					<div class="btn-group btn-group-sm dt-rule-logic" role="group">
+						<button type="button" class="btn btn-sm btn-light ${group.logic === 'or' ? '' : 'active'}" data-logic="and">و</button>
+						<button type="button" class="btn btn-sm btn-light ${group.logic === 'or' ? 'active' : ''}" data-logic="or">یا</button>
+					</div>
+				</div>
+				<div class="dt-rule-logic-hint"></div>
+				<div class="dt-rule-list"></div>
+				<div class="dt-rule-panel-foot">
+					<button type="button" class="btn btn-sm btn-light border dt-rule-add">افزودن شرط</button>
+					<div class="d-flex gap-2">
+						<button type="button" class="btn btn-sm btn-secondary dt-rule-clear">پاک کردن</button>
+						<button type="button" class="btn btn-sm btn-primary dt-rule-apply">اعمال</button>
+					</div>
+				</div>
+			</div>
+		`);
+
+		const $list = $panel.find('.dt-rule-list');
+		rules.forEach(rule => {
+			const $row = createRuleRow(columnIndex, columnType, rule);
+			$list.append($row);
+			wireRuleRow($row, columnType);
+		});
+		refreshRuleHint($panel);
+
+		$panel.on('click', function (e) { e.stopPropagation(); });
+
+		$panel.on('click', '.dt-rule-logic button', function () {
+			$(this).addClass('active').siblings().removeClass('active');
+			refreshRuleHint($panel);
+		});
+
+		$panel.on('change', '.dt-rule-op', function () {
+			const needs = filterConditionNeedsValue($(this).val());
+			$(this).closest('.dt-rule-row').find('.dt-rule-value-host').toggle(needs);
+		});
+
+		$panel.on('click', '.dt-rule-cal', function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+			showColumnFilterDatePicker($(this).closest('.dt-rule-value-wrap').find('.dt-rule-date'));
+		});
+
+		$panel.on('click', '.dt-rule-remove', function () {
+			const $rows = $panel.find('.dt-rule-row');
+			const $row = $(this).closest('.dt-rule-row');
+			if ($rows.length <= 1) {
+				$row.find('.dt-rule-op').val(getDefaultFilterCondition(columnType));
+				$row.find('.dt-rule-value').val('');
+				$row.find('.dt-rule-value-host').show();
+				refreshRuleHint($panel);
+				return;
+			}
+			destroyPersianDatepickersIn($row);
+			$row.remove();
+			refreshRuleHint($panel);
+		});
+
+		$panel.on('click', '.dt-rule-add', function () {
+			if ($panel.find('.dt-rule-row').length >= columnRuleLimit) {
+				toastr.warning('برای هر ستون حداکثر ' + columnRuleLimit + ' شرط می‌توان گذاشت');
+				return;
+			}
+			const firstOp = $panel.find('.dt-rule-op').first().val() || getDefaultFilterCondition(columnType);
+			const seed = filterConditionNeedsValue(firstOp) ? firstOp : getDefaultFilterCondition(columnType);
+			const $row = createRuleRow(columnIndex, columnType, { condition: seed, value: '' });
+			$list.append($row);
+			wireRuleRow($row, columnType);
+			refreshRuleHint($panel);
+			$row.find('.dt-rule-value').trigger('focus');
+		});
+
+		function applyPanel() {
+			const collected = collectPanelRules($panel, columnType);
+			if (collected.invalid) return;
+			closeColumnRulePanel();
+			commitColumnRules(columnIndex, column, columnType, collected.logic, collected.rules, source);
+		}
+
+		$panel.on('click', '.dt-rule-apply', function (e) {
+			e.preventDefault();
+			applyPanel();
+		});
+
+		$panel.on('click', '.dt-rule-clear', function (e) {
+			e.preventDefault();
+			closeColumnRulePanel();
+			clearColumnFilter(columnIndex, column);
+			const pop = columnFilterPopups.get(columnIndex);
+			if (pop) {
+				try { pop.hide(); } catch (_) { /* ignore */ }
+			}
+		});
+
+		$panel.on('keydown', '.dt-rule-value', function (e) {
+			if (e.key !== 'Enter') return;
+			e.preventDefault();
+			applyPanel();
+		});
+
+		placeFloatingPanel($panel, $anchor);
+
+		setTimeout(function () {
+			$(document).on('mousedown.dtFilterRulePanel', function (ev) {
+				if ($(ev.target).closest('.dt-filter-rule-panel, .datepicker-container, .datepicker-plot-area, .dt-inline-filter-op, .filter-more-rules, .dt-filter-more-rules').length)
+					return;
+				closeColumnRulePanel();
+			});
+			$(document).on('keydown.dtFilterRulePanel', function (ev) {
+				if (ev.key === 'Escape') closeColumnRulePanel();
+			});
+		}, 0);
+
+		const $focus = $list.find('.dt-rule-row').last().find('.dt-rule-value');
+		if ($focus.length && !$focus.val()) $focus.trigger('focus');
+	}
+
+	function placeFloatingPanel($panel, $anchor) {
+		$('body').append($panel);
+		const rect = $anchor[0].getBoundingClientRect();
+		const width = Math.min(380, window.innerWidth - 16);
+		$panel.css({ position: 'fixed', width: width + 'px', zIndex: 10050 });
+		const menuWidth = $panel.outerWidth();
+		const menuHeight = $panel.outerHeight();
+		let top = rect.bottom + 4;
+		let left = rect.left;
+		if (left + menuWidth > window.innerWidth - 8)
+			left = Math.max(8, window.innerWidth - menuWidth - 8);
+		if (top + menuHeight > window.innerHeight - 8)
+			top = Math.max(8, window.innerHeight - menuHeight - 8);
+		if (top < 8) top = 8;
+		$panel.css({ top: top, left: left });
+	}
+
+
+	function showFilterOperatorMenu($anchor, columnType, currentCondition, onSelect, more) {
+		closeFilterOperatorMenus();
+		closeColumnRulePanel();
 		const ops = getFilterOperatorsForType(columnType);
 		if (!ops.length || !$anchor?.length) return;
 
@@ -5136,6 +5686,18 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			});
 			$menu.append($item);
 		});
+
+		if (more && more.label) {
+			$menu.append('<div class="dropdown-divider"></div>');
+			const $more = $('<button type="button" class="dropdown-item dt-filter-more-rules"></button>').text(more.label);
+			$more.on('click', function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				closeFilterOperatorMenus();
+				if (typeof more.onClick === 'function') more.onClick();
+			});
+			$menu.append($more);
+		}
 
 		$('body').append($menu);
 		const rect = $anchor[0].getBoundingClientRect();
@@ -5209,6 +5771,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			column.search(['__op__']);
 			updateFilterIcon(columnIndex, true, column);
 			$wrap.find('.dt-inline-filter-input, .dt-inline-filter-select').prop('disabled', true).val('');
+			$wrap.find('.dt-inline-filter-cal').prop('disabled', true);
 			table.draw();
 			return;
 		}
@@ -5228,17 +5791,11 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			}
 		} else if (typeLower === 'date' || typeLower === 'datetime' || typeLower === 'shamsidate'
 			|| typeLower === 'dateshamsi' || typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
-			const raw = ($wrap.find('.dt-inline-filter-input').val() || '').trim();
-			const isShamsi = typeLower.includes('shamsi') || typeLower === 'shamsidate' || typeLower === 'shamsidatetime';
-			const normalize = (v) => isShamsi ? MJUtil.toEnglishNumbers(v) : v;
-			const values = [];
-			if (raw) {
-				const normalized = normalize(raw);
-				if (condition === '<' ) values.push(`to ${normalized}`);
-				else if (condition === '>') values.push(`from ${normalized}`);
-				else values.push(normalized);
-			}
-			column.search(values);
+			const $dateInput = $wrap.find('.dt-inline-filter-input');
+			hideColumnFilterDatePicker($dateInput);
+			const parsed = readColumnDateFilterValue($dateInput.val());
+			if (parsed === null) return;
+			column.search(parsed ? [parsed] : []);
 		} else {
 			const stringValue = ($wrap.find('.dt-inline-filter-input').val() || '').trim();
 			column.search(stringValue ? [stringValue] : []);
@@ -5254,7 +5811,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 		const condition = getColumnCondition(columnIndex, columnType);
 		const needsValue = filterConditionNeedsValue(condition);
 		$wrap.attr('data-condition', condition);
-		$wrap.find('.dt-inline-filter-input, .dt-inline-filter-select')
+		$wrap.find('.dt-inline-filter-input, .dt-inline-filter-select, .dt-inline-filter-cal')
 			.prop('disabled', !needsValue);
 		if (!needsValue) {
 			$wrap.find('.dt-inline-filter-input').val('');
@@ -5296,25 +5853,6 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 		}
 	}
 
-	function parseMiladiDateFromPopup($input, fallbackVal) {
-		try {
-			const el = $input[0];
-			if (!el) return null;
-			let date;
-			if (el.model && el.model.selected) {
-				date = new Date(el.model.selected);
-			} else if (fallbackVal) {
-				date = new Date(MJUtil.shamsiToMiladi(fallbackVal));
-			}
-			if (date && !isNaN(date.getTime())) {
-				return moment(date).format('yyyy-MM-DD HH:mm:ss');
-			}
-		} catch (e) {
-			console.warn('Error parsing date:', e);
-		}
-		return null;
-	}
-
 	/**
 	 * Applies filter to column
 	 */
@@ -5352,64 +5890,17 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 				break;
 
 			case 'date':
-				{
-					const dateVal = $popup.find('.filter-date-input').val()?.trim() || '';
-					const dateValues = [];
-					if (dateVal) {
-						const parsed = parseMiladiDateFromPopup($popup.find('.filter-date-input'), dateVal);
-						if (parsed) {
-							if (condition === '<') dateValues.push(`to ${parsed}`);
-							else if (condition === '>') dateValues.push(`from ${parsed}`);
-							else dateValues.push(parsed);
-						}
-					}
-					column.search(dateValues);
-				}
-				break;
-
-			case 'datetime':
-				{
-					const dateTimeVal = $popup.find('.filter-datetime-input').val()?.trim() || '';
-					const datetimeValues = [];
-					if (dateTimeVal) {
-						const parsed = parseMiladiDateFromPopup($popup.find('.filter-datetime-input'), dateTimeVal);
-						if (parsed) {
-							if (condition === '<') datetimeValues.push(`to ${parsed}`);
-							else if (condition === '>') datetimeValues.push(`from ${parsed}`);
-							else datetimeValues.push(parsed);
-						}
-					}
-					column.search(datetimeValues);
-				}
-				break;
-
 			case 'shamsidate':
 			case 'dateshamsi':
-				{
-					const dateShamsi = $popup.find('.filter-date-input').val()?.trim() || '';
-					const dateValuesShamsi = [];
-					if (dateShamsi) {
-						const normalized = MJUtil.toEnglishNumbers(dateShamsi);
-						if (condition === '<') dateValuesShamsi.push(`to ${normalized}`);
-						else if (condition === '>') dateValuesShamsi.push(`from ${normalized}`);
-						else dateValuesShamsi.push(normalized);
-					}
-					column.search(dateValuesShamsi);
-				}
-				break;
-
+			case 'datetime':
 			case 'datetimeshamsi':
 			case 'shamsidatetime':
 				{
-					const dateTimeShamsi = $popup.find('.filter-datetime-input').val()?.trim() || '';
-					const datetimeshamsiValues = [];
-					if (dateTimeShamsi) {
-						const normalized = MJUtil.toEnglishNumbers(dateTimeShamsi);
-						if (condition === '<') datetimeshamsiValues.push(`to ${normalized}`);
-						else if (condition === '>') datetimeshamsiValues.push(`from ${normalized}`);
-						else datetimeshamsiValues.push(normalized);
-					}
-					column.search(datetimeshamsiValues);
+					const $dateInput = $popup.find('.filter-date-input, .filter-datetime-input');
+					hideColumnFilterDatePicker($dateInput);
+					const parsed = readColumnDateFilterValue($dateInput.val());
+					if (parsed === null) return false;
+					column.search(parsed ? [parsed] : []);
 				}
 				break;
 
@@ -5442,6 +5933,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 
 		updateFilterIcon(columnIndex, hasActiveFilter(column), column);
 		table.draw();
+		return true;
 	}
 
 	/**
@@ -5454,6 +5946,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 		const skipDraw = options.skipDraw === true;
 		columnsBeingCleared.add(columnIndex);
 		setColumnCondition(columnIndex, 'none');
+		setFilterGroup(columnIndex, { logic: 'and', extras: [] });
 		const columnType = columns[columnIndex]?.type || 'string';
 		const defaultCondition = getDefaultFilterCondition(columnType);
 
@@ -5490,6 +5983,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 				$input.val('').prop('disabled', false);
 			});
 			$inline.find('.dt-inline-filter-select').val('null').prop('disabled', false);
+			$inline.find('.dt-inline-filter-cal').prop('disabled', false);
 		}
 
 		if (column) {
@@ -5542,6 +6036,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 		});
 
 		columnFilterConditions.clear();
+		columnFilterGroups.clear();
 
 		const $container = $(api.table().container());
 		$container.find('.dt-scroll-head .filter-icon, .dt-scroll-head .dt-inline-filter-op, tr.dt-inline-filter-row .dt-inline-filter-op')
@@ -5599,10 +6094,10 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 
 	function initPopupMode() {
 	api.columns().every(function () {
-		const column = this;
-		const columnIndex = column.index();
+		let column = this;
+		let columnIndex = column.index();
 		const columnHeader = column.header();
-		const columnType = columns[columnIndex]?.type || 'string';
+		let columnType = columns[columnIndex]?.type || 'string';
 
 		if (!columnHeader || !column.visible()) {
 			return;
@@ -5640,7 +6135,13 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			e.stopPropagation();
 			e.stopImmediatePropagation();
 			e.preventDefault();
-			 
+
+			const freshIndex = parseInt($filterIcon.attr('data-column-index'), 10);
+			if (!isNaN(freshIndex)) {
+				columnIndex = freshIndex;
+				column = columnReferences.get(columnIndex) || api.column(columnIndex);
+				columnType = columns[columnIndex]?.type || columnType;
+			}
 
 			// Toggle popover manually
 			const popoverInstance = bootstrap.Popover.getInstance($filterIcon[0]);
@@ -5714,43 +6215,18 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 							}
 						});
 
-						// Initialize single datepicker (persian-datepicker بازه روی یک input ندارد)
-						const initSingleDatePicker = ($input, withTime) => {
-							if (!$input.length || $input.data('datepicker')) return;
-							const currentVal = $input.val();
-							$input.pDatepicker({
-								format: withTime ? 'YYYY/MM/DD HH:mm:ss' : 'YYYY/MM/DD',
-								autoClose: true,
-								initialValue: false,
-								timePicker: withTime ? { enabled: true } : { enabled: false },
-								onSelect: function () { }
-							});
-							markProfilePersianDatepicker($input);
-							if (currentVal) {
-								try {
-									const miladi = MJUtil.shamsiToMiladi
-										? MJUtil.shamsiToMiladi(currentVal)
-										: currentVal;
-									const date = new Date(miladi);
-									if (!isNaN(date.getTime())) {
-										setTimeout(function () {
-											const picker = $input.data('datepicker');
-											if (picker && typeof picker.setDate === 'function') {
-												picker.setDate(date.getTime());
-											}
-										}, 50);
-									}
-								} catch (e) {
-									console.warn('Error setting date filter value:', e);
-								}
-							}
-						};
-
 						if (typeLower === 'date' || typeLower === 'shamsidate' || typeLower === 'dateshamsi') {
-							initSingleDatePicker($popup.find('.filter-date-input'), false);
+							bindColumnFilterDatePicker($popup.find('.filter-date-input'), false);
 						} else if (typeLower === 'datetime' || typeLower === 'datetimeshamsi' || typeLower === 'shamsidatetime') {
-							initSingleDatePicker($popup.find('.filter-datetime-input'), true);
+							bindColumnFilterDatePicker($popup.find('.filter-datetime-input'), true);
 						}
+
+						$popoverContent.off('click', '.filter-date-cal').on('click', '.filter-date-cal', function (e) {
+							e.preventDefault();
+							e.stopPropagation();
+							const $input = $(this).closest('.filter-value-section').find('.filter-date-input, .filter-datetime-input');
+							showColumnFilterDatePicker($input);
+						});
 
 						// Prevent clicks inside popover from closing it and triggering sort
 						$popoverContent.on('click', function (e) {
@@ -5769,12 +6245,18 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 						});
 
 						// Bind filter apply button (use event delegation)
+						$popoverContent.off('click', '.filter-more-rules').on('click', '.filter-more-rules', function (e) {
+							e.preventDefault();
+							e.stopPropagation();
+							showColumnRulePanel($(this), columnIndex, column, columnType, 'popup', getFilterGroup(columnIndex).extras.length === 0);
+						});
+
 						$popoverContent.off('click', '.filter-apply').on('click', '.filter-apply', function (e) {
 							e.preventDefault();
 							e.stopPropagation();
 
 
-							applyColumnFilter(columnIndex, column, columnType);
+							if (applyColumnFilter(columnIndex, column, columnType) === false) return;
 							if (popover) {
 								popover.hide();
 							}
@@ -5791,11 +6273,11 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 						});
 
 						// Bind Enter key for text inputs
-						$popoverContent.off('keypress', '.filter-input').on('keypress', '.filter-input', function (e) {
+						$popoverContent.off('keypress', '.filter-input, .filter-date-input, .filter-datetime-input').on('keypress', '.filter-input, .filter-date-input, .filter-datetime-input', function (e) {
 							if (e.which === 13) {
 								e.preventDefault();
 								e.stopPropagation();
-								applyColumnFilter(columnIndex, column, columnType);
+								if (applyColumnFilter(columnIndex, column, columnType) === false) return;
 								if (popover) {
 									popover.hide();
 								}
@@ -5959,6 +6441,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			const column = columnReferences.get(columnIndex) || api.column(columnIndex);
 			const columnType = columns[columnIndex]?.type || 'string';
 			const current = $wrap.attr('data-condition') || getDefaultFilterCondition(columnType);
+			const extraCount = getFilterGroup(columnIndex).extras.length;
 
 			showFilterOperatorMenu($btn, columnType, current, function (selected) {
 				if (selected === 'none') {
@@ -5978,6 +6461,11 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 					if (hasVal) {
 						applyInlineColumnFilter(columnIndex, column, columnType);
 					}
+				}
+			}, {
+				label: extraCount > 0 ? ('شرط‌های بیشتر (' + (extraCount + 1) + ')') : 'افزودن شرط',
+				onClick: function () {
+					showColumnRulePanel($btn, columnIndex, column, columnType, 'inline', extraCount === 0);
 				}
 			});
 		};
@@ -6000,12 +6488,20 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 			if (e.key !== 'Enter') return;
 			e.preventDefault();
 			e.stopPropagation();
+			hideColumnFilterDatePicker($(this));
 			const $wrap = $(this).closest('.dt-inline-filter-wrap');
 			const columnIndex = parseInt($wrap.attr('data-column-index'), 10);
 			if (isNaN(columnIndex)) return;
 			const column = columnReferences.get(columnIndex) || api.column(columnIndex);
 			const columnType = columns[columnIndex]?.type || 'string';
 			applyInlineColumnFilter(columnIndex, column, columnType);
+		});
+
+		$container.on('click.dtInlineFilterDelegated', '.dt-scroll-head .dt-inline-filter-cal', function (e) {
+			e.preventDefault();
+			e.stopPropagation();
+			const $input = $(this).closest('.dt-inline-filter-date').find('.dt-inline-filter-input');
+			showColumnFilterDatePicker($input);
 		});
 	}
 
@@ -6077,11 +6573,21 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 						<option value="true" ${boolDisp === 'true' ? 'selected' : ''}>بله</option>
 						<option value="false" ${boolDisp === 'false' ? 'selected' : ''}>خیر</option>
 					</select>`;
+			} else if (typeLower.includes('date')) {
+				const safeValue = (displayValue || '').replace(/"/g, '&quot;');
+				valueControlHtml = `
+					<div class="dt-inline-filter-date">
+						<input type="text" class="form-control form-control-sm dt-inline-filter-input"
+							   title="سال، سال و ماه، یا تاریخ کامل. با Enter اعمال می‌شود"
+							   value="${safeValue}"
+							   ${needsValue ? '' : 'disabled'} />
+						<button type="button" class="btn btn-sm btn-light border dt-inline-filter-cal" title="انتخاب روز از تقویم" ${needsValue ? '' : 'disabled'}>
+							<i class="fa-light fa-calendar"></i>
+						</button>
+					</div>`;
 			} else {
-				const isDate = typeLower.includes('date');
 				valueControlHtml = `
 					<input type="text" class="form-control form-control-sm dt-inline-filter-input"
-						   placeholder="${isDate ? 'تاریخ' : ''}"
 						   value="${(displayValue || '').replace(/"/g, '&quot;')}"
 						   ${needsValue ? '' : 'disabled'} />`;
 			}
@@ -6104,17 +6610,7 @@ function _initColumnFilterIcons(api, columns, columnFilterConditions = new Map()
 
 			// datepicker تکی برای ستون‌های تاریخ — اعمال فقط با Enter
 			if (typeLower.includes('date')) {
-				const $dateInput = $wrap.find('.dt-inline-filter-input');
-				if ($dateInput.length && !$dateInput.data('datepicker') && typeof $dateInput.pDatepicker === 'function') {
-					const withTime = typeLower.includes('datetime');
-					$dateInput.pDatepicker({
-						format: withTime ? 'YYYY/MM/DD HH:mm:ss' : 'YYYY/MM/DD',
-						autoClose: true,
-						initialValue: false,
-						timePicker: withTime ? { enabled: true } : { enabled: false }
-					});
-					markProfilePersianDatepicker($dateInput);
-				}
+				bindColumnFilterDatePicker($wrap.find('.dt-inline-filter-input'), typeLower.includes('datetime'));
 			}
 
 			updateFilterIcon(columnIndex, active, column);
@@ -8286,6 +8782,9 @@ class AppController {
 					page.title = decoded.title;
 				}
 
+				if (typeof window.DashboardRecentPages !== "undefined" && window.DashboardRecentPages.recordPage)
+					window.DashboardRecentPages.recordPage(page);
+
 				if (window.UpdateCurrentPage) {
 
 					window.UpdateCurrentPage(page.address,page.title)
@@ -8358,7 +8857,31 @@ class AppController {
 			return Promise.resolve(null);
 		}
 
-		if (!$dataProfileSelect.val()) {
+		let selectedFromUrl = false;
+		if (page && page.address) {
+			try {
+				const qIdx = String(page.address).indexOf('?');
+				if (qIdx >= 0) {
+					const params = new URLSearchParams(String(page.address).substring(qIdx + 1));
+					let profileIdFromUrl = null;
+					params.forEach(function (value, key) {
+						if (String(key).toLowerCase() === 'profileid')
+							profileIdFromUrl = value;
+					});
+					if (profileIdFromUrl) {
+						const $opt = $dataProfileSelect.find('option').filter(function () {
+							return String($(this).val()) === String(profileIdFromUrl);
+						});
+						if ($opt.length && $opt.val()) {
+							$dataProfileSelect.val($opt.val());
+							selectedFromUrl = true;
+						}
+					}
+				}
+			} catch (e) { /* keep default */ }
+		}
+
+		if (!selectedFromUrl && !$dataProfileSelect.val()) {
 			// No profile selected yet - fall back to the first real option
 			const $firstOption = $dataProfileSelect.find('option:not([value=""])').first();
 			if (!$firstOption.length || !$firstOption.val()) {
@@ -9749,6 +10272,17 @@ class AppController {
 
 			let newUrl = address.startsWith("/") ? address : "/" + address;
 			history.pushState({ address: address }, "", newUrl);
+		}
+
+		if (typeof window.DashboardRecentPages !== "undefined" && window.DashboardRecentPages.recordPage)
+			window.DashboardRecentPages.recordPage(page);
+
+		if (page && page.address === "dashbord"
+			&& typeof window.DashboardRecentPages !== "undefined"
+			&& window.DashboardRecentPages.reload) {
+			setTimeout(function () {
+				window.DashboardRecentPages.reload();
+			}, 0);
 		}
 	}
 
@@ -13103,13 +13637,1622 @@ $(document).ready(function () {
 		window.location.pathname + window.location.search
 	);
 
+	const DashboardWorkCards = (function () {
+		const apiBase = "/panel/system/dashboardcard";
+		const icons = [
+			"fas fa-inbox",
+			"fas fa-tasks",
+			"fas fa-clipboard-list",
+			"fas fa-users",
+			"fas fa-file-alt",
+			"fas fa-shopping-cart",
+			"fas fa-wrench",
+			"fas fa-chart-bar",
+			"fas fa-bell",
+			"fas fa-folder-open",
+			"fas fa-calendar-alt",
+			"fas fa-truck",
+			"fas fa-cogs",
+			"fas fa-user-check",
+			"fas fa-list-ul",
+			"fas fa-briefcase"
+		];
+		const colors = [
+			{ key: "primary", label: "آبی" },
+			{ key: "success", label: "سبز" },
+			{ key: "danger", label: "قرمز" },
+			{ key: "warning", label: "نارنجی" },
+			{ key: "info", label: "فیروزه‌ای" },
+			{ key: "dark", label: "تیره" }
+		];
+
+		let cardsBySlot = {};
+
+		function $host() { return $("#dashboardWorkCardsHost"); }
+		function $slots() { return $("#dashboardWorkCardsSlots"); }
+
+		function ensureStyles() {
+			if (document.getElementById("dashboardWorkCardsStyles")) return;
+			const css = `
+#dashboardWorkCardsHost{
+	--dwc-ink:#181C32;
+	--dwc-muted:#7E8299;
+	--dwc-line:#E1E3EA;
+	--dwc-surface:#FFFFFF;
+	--dwc-soft:#F5F8FA;
+	--dwc-primary:#3E97FF;
+}
+#dashboardWorkCardsHost .dwc-head{
+	display:flex;
+	align-items:center;
+	justify-content:space-between;
+	gap:.75rem;
+	margin-bottom:.7rem;
+}
+#dashboardWorkCardsHost .dwc-head__title{
+	margin:0;
+	font-size:.92rem;
+	font-weight:650;
+	color:#5E6278;
+}
+#dashboardWorkCardsHost .dwc-head__refresh{
+	border:1px solid var(--dwc-line);
+	background:var(--dwc-surface);
+	color:var(--dwc-muted);
+	font-weight:600;
+}
+#dashboardWorkCardsHost .dwc-head__refresh:hover,
+#dashboardWorkCardsHost .dwc-head__refresh:focus{
+	border-color:var(--dwc-primary);
+	color:var(--dwc-primary);
+	background:#EEF6FF;
+}
+#dashboardWorkCardsSlots{
+	display:grid;
+	grid-template-columns:repeat(4, minmax(0, 1fr));
+	gap:.85rem;
+}
+@media (max-width:991.98px){
+	#dashboardWorkCardsSlots{grid-template-columns:repeat(2, minmax(0, 1fr));}
+}
+@media (max-width:575.98px){
+	#dashboardWorkCardsSlots{grid-template-columns:1fr;}
+}
+#dashboardWorkCardsSlots .dwc-loading{
+	grid-column:1 / -1;
+	text-align:center;
+	color:var(--dwc-muted);
+	padding:1.5rem 0;
+}
+.dashboard-work-card,
+.dashboard-work-card-empty{
+	position:relative;
+	display:flex;
+	flex-direction:column;
+	height:100%;
+	min-height:8.75rem;
+	border-radius:.7rem;
+	cursor:pointer;
+	outline:none;
+	box-shadow:none;
+	transition:border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.dashboard-work-card{
+	background:var(--dwc-surface);
+	border:1px solid var(--dwc-line);
+	overflow:hidden;
+}
+.dashboard-work-card::before{
+	content:"";
+	position:absolute;
+	inset-block:0;
+	inset-inline-start:0;
+	width:3px;
+	background:var(--dwc-accent, var(--dwc-primary));
+}
+.dashboard-work-card[data-color="primary"]{--dwc-accent:#3E97FF;--dwc-accent-soft:#EEF6FF;}
+.dashboard-work-card[data-color="success"]{--dwc-accent:#50CD89;--dwc-accent-soft:#E8FFF3;}
+.dashboard-work-card[data-color="danger"]{--dwc-accent:#F1416C;--dwc-accent-soft:#FFF5F8;}
+.dashboard-work-card[data-color="warning"]{--dwc-accent:#FFC700;--dwc-accent-soft:#FFF8DD;}
+.dashboard-work-card[data-color="info"]{--dwc-accent:#7239EA;--dwc-accent-soft:#F8F5FF;}
+.dashboard-work-card[data-color="dark"]{--dwc-accent:#071437;--dwc-accent-soft:#F1F1F4;}
+.dashboard-work-card:hover{
+	border-color:#C4CADA;
+	box-shadow:0 1px 0 rgba(24,28,50,.04);
+}
+.dashboard-work-card[data-color="primary"]:hover{border-color:#9DC8FF;}
+.dashboard-work-card[data-color="success"]:hover{border-color:#9AE0BC;}
+.dashboard-work-card[data-color="danger"]:hover{border-color:#F7A0B4;}
+.dashboard-work-card[data-color="warning"]:hover{border-color:#FFE080;}
+.dashboard-work-card[data-color="info"]:hover{border-color:#B89AF3;}
+.dashboard-work-card[data-color="dark"]:hover{border-color:#6B7280;}
+.dashboard-work-card:focus-visible,
+.dashboard-work-card-empty:focus-visible{
+	outline:2px solid var(--dwc-accent, var(--dwc-primary));
+	outline-offset:2px;
+}
+.dashboard-work-card__body{
+	display:flex;
+	flex-direction:column;
+	flex:1;
+	padding:1rem 1.1rem 1.05rem 1.15rem;
+	gap:.35rem;
+}
+.dashboard-work-card__top{
+	display:flex;
+	align-items:flex-start;
+	justify-content:space-between;
+	gap:.5rem;
+	margin-bottom:.15rem;
+}
+.dashboard-work-card__icon{
+	display:inline-flex;
+	align-items:center;
+	justify-content:center;
+	width:2rem;
+	height:2rem;
+	border-radius:.4rem;
+	background:var(--dwc-accent-soft, #EEF6FF);
+	color:var(--dwc-accent, var(--dwc-primary));
+	font-size:.95rem;
+	flex-shrink:0;
+}
+.dashboard-work-card__menu.dropdown{position:relative;}
+@media (hover:hover){
+	.dashboard-work-card__menu{opacity:0;}
+	.dashboard-work-card:hover .dashboard-work-card__menu,
+	.dashboard-work-card:focus-within .dashboard-work-card__menu{opacity:1;}
+}
+.dashboard-work-card__menu-btn{
+	width:1.85rem;
+	height:1.85rem;
+	padding:0;
+	border:0;
+	border-radius:.35rem;
+	background:transparent;
+	color:var(--dwc-muted);
+	line-height:1;
+}
+.dashboard-work-card__menu-btn:hover,
+.dashboard-work-card__menu-btn:focus{
+	background:var(--dwc-soft);
+	color:var(--dwc-ink);
+}
+.dashboard-work-card__menu .dropdown-menu{
+	min-width:9.5rem;
+	inset-inline-end:0;
+	inset-inline-start:auto;
+	margin-top:.25rem;
+	border:1px solid var(--dwc-line);
+	border-radius:.45rem;
+	box-shadow:0 8px 24px rgba(24,28,50,.08);
+	z-index:1050;
+}
+.dashboard-work-card__menu .dropdown-menu.show{display:block;}
+.dashboard-work-card__count{
+	margin:0;
+	font-size:2.35rem;
+	font-weight:700;
+	line-height:1.05;
+	color:var(--dwc-ink);
+	letter-spacing:-.02em;
+	font-variant-numeric:tabular-nums;
+	transition:transform .15s ease, color .15s ease;
+}
+.dashboard-work-card:hover .dashboard-work-card__count{
+	color:var(--dwc-accent, var(--dwc-ink));
+}
+.dashboard-work-card__title{
+	margin:0;
+	font-size:.88rem;
+	font-weight:600;
+	color:var(--dwc-muted);
+	line-height:1.35;
+	overflow:hidden;
+	display:-webkit-box;
+	-webkit-line-clamp:2;
+	-webkit-box-orient:vertical;
+}
+.dashboard-work-card-empty{
+	align-items:center;
+	justify-content:center;
+	background:transparent;
+	border:1px dashed #B5B5C3;
+	padding:1.25rem 1rem;
+	text-align:center;
+	color:var(--dwc-muted);
+}
+.dashboard-work-card-empty:hover{
+	border-color:var(--dwc-primary);
+	background:rgba(62,151,255,.04);
+	color:var(--dwc-primary);
+}
+.dashboard-work-card-empty__plus{
+	display:inline-flex;
+	align-items:center;
+	justify-content:center;
+	width:2.5rem;
+	height:2.5rem;
+	margin-bottom:.65rem;
+	border-radius:999px;
+	background:#EEF6FF;
+	color:var(--dwc-primary);
+	font-size:1rem;
+}
+.dashboard-work-card-empty__label{
+	display:block;
+	font-size:.92rem;
+	font-weight:700;
+	color:inherit;
+}
+.dashboard-work-card-empty__hint{
+	display:block;
+	font-size:.78rem;
+	font-weight:500;
+	opacity:.85;
+	line-height:1.4;
+}
+@media (prefers-reduced-motion:reduce){
+	.dashboard-work-card,
+	.dashboard-work-card-empty,
+	.dashboard-work-card__count{
+		transition:none;
+	}
+	.dashboard-work-card:hover .dashboard-work-card__count{
+		color:var(--dwc-ink);
+	}
+}`;
+			const style = document.createElement("style");
+			style.id = "dashboardWorkCardsStyles";
+			style.textContent = css;
+			document.head.appendChild(style);
+		}
+
+		function setVisible(show) {
+			const $h = $host();
+			if (!$h.length) return;
+			if (show) $h.show();
+			else $h.hide();
+		}
+
+		function formatCount(n) {
+			if (n === null || n === undefined) return "…";
+			if (n < 0) return "—";
+			return Number(n).toLocaleString("fa-IR");
+		}
+
+		function escapeHtml(s) {
+			return $("<div/>").text(s || "").html();
+		}
+
+		function renderSlots() {
+			const $container = $slots();
+			if (!$container.length) return;
+			$container.empty();
+
+			for (let slot = 1; slot <= 4; slot++) {
+				const card = cardsBySlot[slot];
+				const $col = $("<div></div>");
+				if (!card) {
+					$col.append(`
+						<div class="dashboard-work-card-empty" data-slot="${slot}" role="button" tabindex="0"
+							aria-label="افزودن کارت کار در جایگاه ${slot}">
+							<span class="dashboard-work-card-empty__plus" aria-hidden="true"><i class="fas fa-plus"></i></span>
+							<span class="dashboard-work-card-empty__label">افزودن</span>
+						</div>`);
+				} else {
+					const color = card.colorClass || "primary";
+					const titleHtml = escapeHtml(card.title || "");
+					$col.append(`
+						<div class="dashboard-work-card" data-slot="${slot}" data-color="${color}"
+							data-profile-id="${card.savedQueryId}" data-list-path="${card.listPath || ''}"
+							role="button" tabindex="0" aria-label="${titleHtml}">
+							<div class="dashboard-work-card__body">
+								<div class="dashboard-work-card__top">
+									<span class="dashboard-work-card__icon" aria-hidden="true">
+										<i class="${card.iconClass || 'fas fa-inbox'}"></i>
+									</span>
+									<div class="dropdown dashboard-work-card__menu" data-card-menu="true">
+										<button type="button" class="dashboard-work-card__menu-btn" data-action="card-menu"
+											aria-label="منوی کارت" aria-haspopup="true" aria-expanded="false">
+											<i class="fas fa-ellipsis-v"></i>
+										</button>
+										<div class="dropdown-menu dropdown-menu-end py-2"
+											data-card-dropdown="true">
+											<a href="javascript:;" class="dropdown-item" data-action="edit-card">ویرایش</a>
+											<a href="javascript:;" class="dropdown-item text-danger" data-action="delete-card">حذف</a>
+										</div>
+									</div>
+								</div>
+								<div class="dashboard-work-card__count" data-count-for="${card.savedQueryId}">${formatCount(card._count)}</div>
+								<div class="dashboard-work-card__title" title="${titleHtml}">${titleHtml}</div>
+							</div>
+						</div>`);
+				}
+				$container.append($col);
+			}
+		}
+
+		function loadCards(thenCounts) {
+			const $container = $slots();
+			if (!$container.length) return;
+			$container.html('<div class="dwc-loading"><span class="spinner-border spinner-border-sm text-primary"></span> در حال بارگذاری…</div>');
+
+			get(apiBase + "/cards", function (r) {
+				if (!r || !r.isSuccess) {
+					$container.html('<div class="dwc-loading"><div class="alert alert-danger mb-0">خطا در دریافت کارت‌ها</div></div>');
+					toastr.error((r && r.message) || "خطا در دریافت کارت‌ها", "خطا");
+					return;
+				}
+				cardsBySlot = {};
+				(r.data || []).forEach(function (c) {
+					if (c && c.slot >= 1 && c.slot <= 4)
+						cardsBySlot[c.slot] = c;
+				});
+				renderSlots();
+				if (thenCounts !== false)
+					loadCounts(false);
+			});
+		}
+
+		function loadCounts(refresh) {
+			const profileIds = Object.keys(cardsBySlot).map(function (k) {
+				return cardsBySlot[k].savedQueryId;
+			}).filter(Boolean);
+			if (!profileIds.length) return;
+
+			const $btn = $("#dashboardWorkCardsRefresh");
+			if ($btn.length) $btn.block();
+
+			post(apiBase + "/counts", { profileIds: profileIds, refresh: !!refresh }, function (r) {
+				if ($btn.length) $btn.block(false);
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || "خطا در شمارش", "خطا");
+					return;
+				}
+				const map = r.data || {};
+				Object.keys(cardsBySlot).forEach(function (slot) {
+					const card = cardsBySlot[slot];
+					const key = String(card.savedQueryId);
+					const count = map[key] != null ? map[key] : map[card.savedQueryId];
+					card._count = count;
+					$slots().find('[data-count-for="' + card.savedQueryId + '"]').text(formatCount(count));
+				});
+			});
+		}
+
+		function closeMenus() {
+			$slots().find("[data-card-dropdown]").removeClass("show");
+			$slots().find("[data-action='card-menu']").attr("aria-expanded", "false");
+		}
+
+		function openCardModal(slot, existing) {
+			const isEdit = !!existing;
+			get(apiBase + "/lists", function (r) {
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || "خطا در دریافت لیست‌ها", "خطا");
+					return;
+				}
+				const groups = r.data || [];
+				if (!groups.length) {
+					toastr.warning("هیچ لیست مجازی برای شما یافت نشد");
+					return;
+				}
+
+				const $step1 = $('<div class="dashboard-card-modal-step1"></div>');
+				$step1.append('<label class="form-label required">لیست</label>');
+				const $listSelect = $('<select class="form-select" data-field="listPath"></select>');
+				$listSelect.append('<option value="">انتخاب کنید</option>');
+				groups.forEach(function (g) {
+					const $og = $('<optgroup></optgroup>').attr("label", g.groupTitle || "");
+					(g.items || []).forEach(function (item) {
+						const $o = $("<option></option>")
+							.val(item.path)
+							.text(item.title || item.path)
+							.attr("data-entity-name", item.entityName || "");
+						$og.append($o);
+					});
+					$listSelect.append($og);
+				});
+				$step1.append($listSelect);
+
+				$.confirm({
+					title: isEdit ? "ویرایش کارت کار" : "افزودن کارت کار",
+					content: $step1,
+					rtl: true,
+					columnClass: "medium",
+					buttons: {
+						next: {
+							text: "ادامه",
+							btnClass: "btn-primary",
+							action: function () {
+								const path = $listSelect.val();
+								const entityName = $listSelect.find("option:selected").attr("data-entity-name");
+								if (!path || !entityName) {
+									toastr.error("لطفاً یک لیست انتخاب کنید", "خطا");
+									return false;
+								}
+								const jc = this;
+								openStep2(slot, existing, path, entityName, isEdit);
+								jc.close();
+								return false;
+							}
+						},
+						cancel: { text: "انصراف" }
+					},
+					onContentReady: function () {
+						if (existing && existing.listPath) {
+							$listSelect.val(String(existing.listPath).toLowerCase());
+							if (!$listSelect.val()) {
+								$listSelect.find("option").each(function () {
+									if (String($(this).val()).toLowerCase() === String(existing.listPath).toLowerCase())
+										$listSelect.val($(this).val());
+								});
+							}
+						}
+					}
+				});
+			});
+		}
+
+		function openStep2(slot, existing, listPath, entityName, isEdit) {
+			get(apiBase + "/profiles?entityName=" + encodeURIComponent(entityName), function (r) {
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || "خطا در دریافت نمایه‌ها", "خطا");
+					return;
+				}
+				const profiles = r.data || [];
+				if (!profiles.length) {
+					toastr.warning("برای این لیست نمایه مجازی ندارید");
+					return;
+				}
+
+				const $form = $('<div class="dashboard-card-modal-step2"></div>');
+				$form.append('<label class="form-label required">نمایه داده</label>');
+				const $profile = $('<select class="form-select mb-3" data-field="savedQueryId"></select>');
+				profiles.forEach(function (p) {
+					$profile.append($("<option></option>").val(p.id).text(p.title || p.name || p.id));
+				});
+				$form.append($profile);
+
+				$form.append('<label class="form-label required">عنوان کارت</label>');
+				const $title = $('<input type="text" class="form-control mb-3" data-field="title" maxlength="200" />');
+				$form.append($title);
+
+				$form.append('<label class="form-label required">آیکن</label>');
+				const $iconRow = $('<div class="d-flex flex-wrap gap-2 mb-3" data-field="iconClass"></div>');
+				icons.forEach(function (ic) {
+					const $btn = $(`<button type="button" class="btn btn-sm btn-light dashboard-icon-pick" data-icon="${ic}"><i class="${ic}"></i></button>`);
+					$iconRow.append($btn);
+				});
+				$form.append($iconRow);
+
+				$form.append('<label class="form-label required">رنگ</label>');
+				const $colorRow = $('<div class="d-flex flex-wrap gap-2 mb-1" data-field="colorClass"></div>');
+				colors.forEach(function (c) {
+					const $btn = $(`<button type="button" class="btn btn-sm btn-light-${c.key} dashboard-color-pick" data-color="${c.key}">${c.label}</button>`);
+					$colorRow.append($btn);
+				});
+				$form.append($colorRow);
+
+				let selectedIcon = (existing && existing.iconClass) || icons[0];
+				let selectedColor = (existing && existing.colorClass) || colors[0].key;
+
+				function syncPicks() {
+					$iconRow.find(".dashboard-icon-pick").removeClass("active btn-primary").addClass("btn-light");
+					$iconRow.find('[data-icon="' + selectedIcon + '"]').removeClass("btn-light").addClass("btn-primary active");
+					$colorRow.find(".dashboard-color-pick").removeClass("active border border-dark");
+					$colorRow.find('[data-color="' + selectedColor + '"]').addClass("active border border-dark");
+				}
+
+				$.confirm({
+					title: isEdit ? "تنظیمات کارت" : "تنظیمات کارت جدید",
+					content: $form,
+					rtl: true,
+					columnClass: "medium",
+					buttons: {
+						save: {
+							text: "ذخیره",
+							btnClass: "btn-primary",
+							action: function () {
+								const savedQueryId = parseInt($profile.val(), 10);
+								const title = ($title.val() || "").trim();
+								if (!savedQueryId) {
+									toastr.error("نمایه را انتخاب کنید", "خطا");
+									return false;
+								}
+								if (!title) {
+									toastr.error("عنوان الزامی است", "خطا");
+									return false;
+								}
+								const selfConfirm = this;
+								const $saveBtn = $(this.buttons.save.el).block();
+								post(apiBase + "/save", {
+									slot: slot,
+									savedQueryId: savedQueryId,
+									title: title,
+									iconClass: selectedIcon,
+									colorClass: selectedColor,
+									listPath: listPath
+								}, function (resp) {
+									$saveBtn.block(false);
+									if (!resp || !resp.isSuccess) {
+										toastr.error((resp && resp.message) || "خطا در ذخیره", "خطا");
+										return;
+									}
+									toastr.success("کارت ذخیره شد");
+									selfConfirm.close();
+									loadCards(true);
+								});
+								return false;
+							}
+						},
+						cancel: { text: "انصراف" }
+					},
+					onContentReady: function () {
+						if (existing) {
+							if (existing.savedQueryId)
+								$profile.val(String(existing.savedQueryId));
+							$title.val(existing.title || "");
+						} else {
+							const firstTitle = $profile.find("option:selected").text();
+							$title.val(firstTitle || "");
+						}
+						syncPicks();
+						$iconRow.on("click", ".dashboard-icon-pick", function (e) {
+							e.preventDefault();
+							selectedIcon = $(this).attr("data-icon");
+							syncPicks();
+						});
+						$colorRow.on("click", ".dashboard-color-pick", function (e) {
+							e.preventDefault();
+							selectedColor = $(this).attr("data-color");
+							syncPicks();
+						});
+						$profile.on("change", function () {
+							if (!existing)
+								$title.val($(this).find("option:selected").text() || "");
+						});
+					}
+				});
+			});
+		}
+
+		function bindEvents() {
+			const $container = $slots();
+			if (!$container.length) return;
+
+			$container.off(".dashboardCards");
+
+			$container.on("click.dashboardCards", ".dashboard-work-card-empty", function () {
+				const slot = parseInt($(this).attr("data-slot"), 10);
+				openCardModal(slot, null);
+			});
+
+			$container.on("click.dashboardCards", ".dashboard-work-card", function (e) {
+				if ($(e.target).closest("[data-card-menu]").length)
+					return;
+				const $card = $(this);
+				const path = $card.attr("data-list-path");
+				const profileId = $card.attr("data-profile-id");
+				if (!path || !profileId) return;
+				const sep = path.indexOf("?") >= 0 ? "&" : "?";
+				appController.addPage(path + sep + "profileId=" + profileId);
+			});
+
+			$container.on("click.dashboardCards", "[data-action='card-menu']", function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				const $btn = $(this);
+				const $dd = $btn.closest("[data-card-menu]").find("[data-card-dropdown]");
+				const wasHidden = !$dd.hasClass("show");
+				closeMenus();
+				if (wasHidden) {
+					$dd.addClass("show");
+					$btn.attr("aria-expanded", "true");
+				}
+			});
+
+			$container.on("keydown.dashboardCards", ".dashboard-work-card, .dashboard-work-card-empty", function (e) {
+				if (e.key !== "Enter" && e.key !== " ") return;
+				if ($(e.target).closest("[data-card-menu]").length) return;
+				e.preventDefault();
+				$(this).trigger("click");
+			});
+
+			$container.on("click.dashboardCards", "[data-action='edit-card']", function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				closeMenus();
+				const slot = parseInt($(this).closest(".dashboard-work-card").attr("data-slot"), 10);
+				openCardModal(slot, cardsBySlot[slot] || null);
+			});
+
+			$container.on("click.dashboardCards", "[data-action='delete-card']", function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				closeMenus();
+				const slot = parseInt($(this).closest(".dashboard-work-card").attr("data-slot"), 10);
+				Swal.fire({
+					title: "حذف کارت",
+					text: "آیا از حذف این کارت مطمئن هستید؟",
+					icon: "warning",
+					showCancelButton: true,
+					confirmButtonText: "بله، حذف شود",
+					cancelButtonText: "انصراف"
+				}).then(function (result) {
+					if (!result.isConfirmed) return;
+					post(apiBase + "/delete", { slot: slot }, function (r) {
+						if (!r || !r.isSuccess) {
+							toastr.error((r && r.message) || "خطا در حذف", "خطا");
+							return;
+						}
+						toastr.success("کارت حذف شد");
+						loadCards(true);
+					});
+				});
+			});
+
+			$(document).off("click.dashboardCardsDoc").on("click.dashboardCardsDoc", function (e) {
+				if ($(e.target).closest("[data-card-menu]").length)
+					return;
+				closeMenus();
+			});
+
+			$("#dashboardWorkCardsRefresh").off("click.dashboardCards").on("click.dashboardCards", function () {
+				loadCounts(true);
+			});
+		}
+
+		function init() {
+			if (!$host().length) return;
+			ensureStyles();
+			bindEvents();
+			const selVal = $("#selectDashbords").val();
+			const show = !selVal || selVal === "0";
+			setVisible(show);
+			if (show) loadCards(true);
+		}
+
+		return { init: init, setVisible: setVisible, reload: loadCards };
+	})();
+
+	const DashboardFavPages = (function () {
+		const STORAGE_PREFIX = "havayar.dashboard.favPages";
+		const TILE_SIZE_PX = 120;
+
+		let slots = [];
+
+		function $host() { return $("#dashboardFavPagesHost"); }
+		function $slots() { return $("#dashboardFavPagesSlots"); }
+
+		function storageKey() {
+			let userId = null;
+			try {
+				if (window.AppSdk && typeof window.AppSdk.getUserId === "function")
+					userId = window.AppSdk.getUserId();
+			} catch (e) { /* ignore */ }
+			if (userId != null && userId !== "" && Number(userId) > 0)
+				return STORAGE_PREFIX + "." + userId;
+			return STORAGE_PREFIX;
+		}
+
+		function normalizePath(path) {
+			return String(path || "").trim().toLowerCase();
+		}
+
+		function escapeHtml(s) {
+			return $("<div/>").text(s || "").html();
+		}
+
+		function ensureStyles() {
+			if (document.getElementById("dashboardFavPagesStyles")) return;
+			const css = `
+#dashboardFavPagesHost,
+#dashboardRecentPagesHost{
+	--dfp-ink:#181C32;
+	--dfp-muted:#7E8299;
+	--dfp-line:#E1E3EA;
+	--dfp-surface:#FFFFFF;
+	--dfp-soft:#F5F8FA;
+	--dfp-primary:#3E97FF;
+	--dfp-accent:#5E6278;
+	--dfp-accent-soft:#F1F1F4;
+	--dfp-tile-size:${TILE_SIZE_PX}px;
+}
+#dashboardFavPagesHost .dfp-head,
+#dashboardRecentPagesHost .dfp-head{
+	display:flex;
+	align-items:center;
+	justify-content:space-between;
+	gap:.75rem;
+	margin-bottom:.7rem;
+}
+#dashboardFavPagesHost .dfp-head__title,
+#dashboardRecentPagesHost .dfp-head__title{
+	margin:0;
+	font-size:.92rem;
+	font-weight:650;
+	color:#5E6278;
+}
+#dashboardFavPagesHost .dfp-row{
+	display:flex;
+	flex-wrap:wrap;
+	justify-content:flex-start;
+	align-items:flex-start;
+	gap:.85rem;
+}
+#dashboardRecentPagesHost .dfp-row{
+	display:flex;
+	flex-wrap:nowrap;
+	justify-content:flex-start;
+	align-items:flex-start;
+	gap:.85rem;
+	overflow:hidden;
+}
+.dashboard-fav-page,
+.dashboard-fav-page-empty{
+	position:relative;
+	box-sizing:border-box;
+	flex:0 0 var(--dfp-tile-size);
+	width:var(--dfp-tile-size);
+	height:var(--dfp-tile-size);
+	aspect-ratio:1 / 1;
+	display:flex;
+	flex-direction:column;
+	align-items:center;
+	justify-content:center;
+	padding:.65rem .55rem;
+	border-radius:.55rem;
+	cursor:pointer;
+	outline:none;
+	box-shadow:none;
+	text-align:center;
+	overflow:hidden;
+	transition:border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+.dashboard-fav-page{
+	background:var(--dfp-surface);
+	border:1px solid var(--dfp-line);
+}
+.dashboard-fav-page:hover{
+	border-color:#C4CADA;
+	box-shadow:0 1px 0 rgba(24,28,50,.04);
+}
+.dashboard-fav-page:focus-visible,
+.dashboard-fav-page-empty:focus-visible{
+	outline:2px solid var(--dfp-accent, var(--dfp-primary));
+	outline-offset:2px;
+}
+.dashboard-fav-page__menu.dropdown{
+	position:absolute;
+	inset-block-start:.35rem;
+	inset-inline-end:.35rem;
+	z-index:2;
+}
+@media (hover:hover){
+	.dashboard-fav-page__menu{opacity:0;}
+	.dashboard-fav-page:hover .dashboard-fav-page__menu,
+	.dashboard-fav-page:focus-within .dashboard-fav-page__menu{opacity:1;}
+}
+.dashboard-fav-page__menu-btn{
+	width:1.65rem;
+	height:1.65rem;
+	padding:0;
+	border:0;
+	border-radius:.35rem;
+	background:transparent;
+	color:var(--dfp-muted);
+	line-height:1;
+}
+.dashboard-fav-page__menu-btn:hover,
+.dashboard-fav-page__menu-btn:focus{
+	background:var(--dfp-soft);
+	color:var(--dfp-ink);
+}
+.dashboard-fav-page__menu .dropdown-menu{
+	min-width:9.5rem;
+	inset-inline-end:0;
+	inset-inline-start:auto;
+	margin-top:.25rem;
+	border:1px solid var(--dfp-line);
+	border-radius:.45rem;
+	box-shadow:0 8px 24px rgba(24,28,50,.08);
+	z-index:1050;
+}
+.dashboard-fav-page__menu .dropdown-menu.show{display:block;}
+.dashboard-fav-page__icon{
+	display:inline-flex;
+	align-items:center;
+	justify-content:center;
+	width:2.15rem;
+	height:2.15rem;
+	margin-bottom:.4rem;
+	border-radius:.4rem;
+	background:var(--dfp-accent-soft);
+	color:var(--dfp-accent);
+	font-size:1rem;
+	flex-shrink:0;
+}
+.dashboard-fav-page__title{
+	margin:0;
+	font-size:.78rem;
+	font-weight:600;
+	color:var(--dfp-ink);
+	line-height:1.3;
+	max-width:100%;
+	overflow:hidden;
+	display:-webkit-box;
+	-webkit-line-clamp:2;
+	-webkit-box-orient:vertical;
+	word-break:break-word;
+}
+.dashboard-fav-page-empty{
+	background:transparent;
+	border:1px dashed #B5B5C3;
+	color:var(--dfp-muted);
+}
+.dashboard-fav-page-empty:hover{
+	border-color:var(--dfp-primary);
+	background:rgba(62,151,255,.04);
+	color:var(--dfp-primary);
+}
+.dashboard-fav-page-empty__plus{
+	display:inline-flex;
+	align-items:center;
+	justify-content:center;
+	width:2.1rem;
+	height:2.1rem;
+	margin-bottom:.4rem;
+	border-radius:999px;
+	background:#EEF6FF;
+	color:var(--dfp-primary);
+	font-size:.9rem;
+	flex-shrink:0;
+}
+.dashboard-fav-page-empty__label{
+	font-size:.78rem;
+	font-weight:700;
+	color:inherit;
+	line-height:1.3;
+	max-width:100%;
+	overflow:hidden;
+	display:-webkit-box;
+	-webkit-line-clamp:2;
+	-webkit-box-orient:vertical;
+}
+@media (prefers-reduced-motion:reduce){
+	.dashboard-fav-page,
+	.dashboard-fav-page-empty{
+		transition:none;
+	}
+}`;
+			const style = document.createElement("style");
+			style.id = "dashboardFavPagesStyles";
+			style.textContent = css;
+			document.head.appendChild(style);
+		}
+
+		function setVisible(show) {
+			const $h = $host();
+			if (!$h.length) return;
+			if (show) $h.show();
+			else $h.hide();
+		}
+
+		function collectMenuPages() {
+			const pages = [];
+			const seen = {};
+			$("#kt_app_sidebar_menu a.menu-link").each(function () {
+				const $a = $(this);
+				const path = ($a.attr("href") || "").trim();
+				if (!path || path === "#" || path.toLowerCase().indexOf("javascript:") === 0)
+					return;
+				const key = normalizePath(path);
+				if (seen[key]) return;
+				seen[key] = true;
+
+				const title = ($a.find(".menu-title").first().text() || "").trim();
+				if (!title) return;
+
+				const $icon = $a.find(".menu-icon i").first();
+				let iconClass = ($icon.attr("class") || "").trim();
+				if (!iconClass)
+					iconClass = "fas fa-file-alt";
+
+				let iconColor = "";
+				const styleAttr = ($icon.attr("style") || "");
+				const m = /color\s*:\s*([^;]+)/i.exec(styleAttr);
+				if (m) iconColor = m[1].trim();
+
+				let group = "";
+				const $accordion = $a.closest(".menu-sub").closest(".menu-item.menu-accordion");
+				if ($accordion.length)
+					group = ($accordion.children(".menu-link").find(".menu-title").first().text() || "").trim();
+
+				pages.push({
+					path: path,
+					title: title,
+					iconClass: iconClass,
+					iconColor: iconColor,
+					group: group
+				});
+			});
+			return pages;
+		}
+
+		function findMenuPage(path, menuPages) {
+			const key = normalizePath(path);
+			for (let i = 0; i < menuPages.length; i++) {
+				if (normalizePath(menuPages[i].path) === key)
+					return menuPages[i];
+			}
+			return null;
+		}
+
+		function readStoredPaths() {
+			try {
+				const raw = localStorage.getItem(storageKey());
+				if (!raw) return [];
+				const parsed = JSON.parse(raw);
+				if (!Array.isArray(parsed)) return [];
+				const out = [];
+				const seen = {};
+				parsed.forEach(function (item) {
+					const path = typeof item === "string" ? item : (item && item.path);
+					if (!path || typeof path !== "string") return;
+					const key = normalizePath(path);
+					if (seen[key]) return;
+					seen[key] = true;
+					out.push(path.trim());
+				});
+				return out;
+			} catch (e) {
+				return [];
+			}
+		}
+
+		function writeStoredPaths(paths) {
+			try {
+				const clean = (paths || []).filter(Boolean);
+				localStorage.setItem(storageKey(), JSON.stringify(clean));
+			} catch (e) {
+				toastr.error("ذخیره صفحات پرکاربرد ممکن نشد", "خطا");
+			}
+		}
+
+		function softAccent(hex) {
+			if (!hex || hex.charAt(0) !== "#" || (hex.length !== 7 && hex.length !== 4))
+				return "#F1F1F4";
+			let r, g, b;
+			if (hex.length === 4) {
+				r = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+				g = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+				b = parseInt(hex.charAt(3) + hex.charAt(3), 16);
+			} else {
+				r = parseInt(hex.slice(1, 3), 16);
+				g = parseInt(hex.slice(3, 5), 16);
+				b = parseInt(hex.slice(5, 7), 16);
+			}
+			if (isNaN(r) || isNaN(g) || isNaN(b)) return "#F1F1F4";
+			return "rgba(" + r + "," + g + "," + b + ",0.14)";
+		}
+
+		function loadAndRender() {
+			const menuPages = collectMenuPages();
+			const stored = readStoredPaths();
+			const valid = [];
+			stored.forEach(function (path) {
+				const page = findMenuPage(path, menuPages);
+				if (page) valid.push(page);
+			});
+			if (valid.length !== stored.length)
+				writeStoredPaths(valid.map(function (p) { return p.path; }));
+
+			slots = valid;
+			renderSlots();
+		}
+
+		function renderSlots() {
+			const $container = $slots();
+			if (!$container.length) return;
+			$container.empty();
+
+			slots.forEach(function (page, slot) {
+				const titleHtml = escapeHtml(page.title || "");
+				const iconClass = escapeHtml(page.iconClass || "fas fa-file-alt");
+				const accent = page.iconColor || "#5E6278";
+				const soft = softAccent(page.iconColor);
+				const $card = $(`
+					<div class="dashboard-fav-page" data-slot="${slot}" data-path="${escapeHtml(page.path)}"
+						role="listitem" tabindex="0" aria-label="${titleHtml}">
+						<div class="dropdown dashboard-fav-page__menu" data-fav-menu="true">
+							<button type="button" class="dashboard-fav-page__menu-btn" data-action="fav-menu"
+								aria-label="منوی میانبر" aria-haspopup="true" aria-expanded="false">
+								<i class="fas fa-ellipsis-v"></i>
+							</button>
+							<div class="dropdown-menu dropdown-menu-end py-2" data-fav-dropdown="true">
+								<a href="javascript:;" class="dropdown-item" data-action="edit-fav">ویرایش</a>
+								<a href="javascript:;" class="dropdown-item text-danger" data-action="delete-fav">حذف</a>
+							</div>
+						</div>
+						<span class="dashboard-fav-page__icon" aria-hidden="true">
+							<i class="${iconClass}"></i>
+						</span>
+						<div class="dashboard-fav-page__title" title="${titleHtml}">${titleHtml}</div>
+					</div>`);
+				$card.css({
+					"--dfp-accent": accent,
+					"--dfp-accent-soft": soft
+				});
+				if (page.iconColor)
+					$card.find(".dashboard-fav-page__icon i").css("color", page.iconColor);
+				$container.append($card);
+			});
+
+			$container.append(`
+				<div class="dashboard-fav-page-empty" role="listitem" tabindex="0"
+					aria-label="افزودن صفحه پرکاربرد">
+					<span class="dashboard-fav-page-empty__plus" aria-hidden="true"><i class="fas fa-plus"></i></span>
+					<span class="dashboard-fav-page-empty__label">افزودن صفحه</span>
+				</div>`);
+		}
+
+		function persistSlots() {
+			writeStoredPaths(slots.map(function (p) { return p && p.path; }).filter(Boolean));
+		}
+
+		function closeMenus() {
+			$slots().find("[data-fav-dropdown]").removeClass("show");
+			$slots().find("[data-action='fav-menu']").attr("aria-expanded", "false");
+		}
+
+		function openPicker(slot, existing) {
+			const menuPages = collectMenuPages();
+			if (!menuPages.length) {
+				toastr.warning("صفحه‌ای در منوی شما یافت نشد");
+				return;
+			}
+
+			const used = {};
+			slots.forEach(function (page, i) {
+				if (i === slot) return;
+				if (page && page.path)
+					used[normalizePath(page.path)] = true;
+			});
+
+			const isEdit = !!existing;
+			const $form = $('<div class="dashboard-fav-page-modal"></div>');
+			$form.append('<label class="form-label required">صفحه از منو</label>');
+			const $select = $('<select class="form-select" data-field="path"></select>');
+			$select.append('<option value="">انتخاب کنید</option>');
+
+			const byGroup = {};
+			const ungrouped = [];
+			menuPages.forEach(function (p) {
+				if (used[normalizePath(p.path)]) return;
+				if (p.group) {
+					if (!byGroup[p.group]) byGroup[p.group] = [];
+					byGroup[p.group].push(p);
+				} else {
+					ungrouped.push(p);
+				}
+			});
+
+			Object.keys(byGroup).sort().forEach(function (g) {
+				const $og = $("<optgroup></optgroup>").attr("label", g);
+				byGroup[g].forEach(function (p) {
+					$og.append($("<option></option>").val(p.path).text(p.title));
+				});
+				$select.append($og);
+			});
+			ungrouped.forEach(function (p) {
+				$select.append($("<option></option>").val(p.path).text(p.title));
+			});
+
+			if ($select.find("option").length <= 1) {
+				toastr.warning("صفحه قابل افزودن دیگری در منو نیست");
+				return;
+			}
+
+			$form.append($select);
+			$form.append('<div class="text-muted fs-7 mt-2">عنوان، آیکن و رنگ از همان آیتم منو خوانده می‌شود.</div>');
+
+			$.confirm({
+				title: isEdit ? "ویرایش صفحه پرکاربرد" : "افزودن صفحه پرکاربرد",
+				content: $form,
+				rtl: true,
+				columnClass: "medium",
+				buttons: {
+					save: {
+						text: "ذخیره",
+						btnClass: "btn-primary",
+						action: function () {
+							const path = $select.val();
+							if (!path) {
+								toastr.error("لطفاً یک صفحه انتخاب کنید", "خطا");
+								return false;
+							}
+							const page = findMenuPage(path, menuPages);
+							if (!page) {
+								toastr.error("صفحه انتخاب‌شده در منو یافت نشد", "خطا");
+								return false;
+							}
+							if (isEdit && slot >= 0 && slot < slots.length)
+								slots[slot] = page;
+							else
+								slots.push(page);
+							persistSlots();
+							renderSlots();
+							toastr.success(isEdit ? "میانبر به‌روز شد" : "میانبر اضافه شد");
+						}
+					},
+					cancel: { text: "انصراف" }
+				},
+				onContentReady: function () {
+					if (existing && existing.path) {
+						$select.val(existing.path);
+						if (!$select.val()) {
+							$select.find("option").each(function () {
+								if (normalizePath($(this).val()) === normalizePath(existing.path))
+									$select.val($(this).val());
+							});
+						}
+					}
+				}
+			});
+		}
+
+		function bindEvents() {
+			const $container = $slots();
+			if (!$container.length) return;
+
+			$container.off(".dashboardFavPages");
+
+			$container.on("click.dashboardFavPages", ".dashboard-fav-page-empty", function () {
+				openPicker(-1, null);
+			});
+
+			$container.on("click.dashboardFavPages", ".dashboard-fav-page", function (e) {
+				if ($(e.target).closest("[data-fav-menu]").length)
+					return;
+				const path = $(this).attr("data-path");
+				if (!path) return;
+				appController.addPage(path);
+			});
+
+			$container.on("click.dashboardFavPages", "[data-action='fav-menu']", function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				const $btn = $(this);
+				const $dd = $btn.closest("[data-fav-menu]").find("[data-fav-dropdown]");
+				const wasHidden = !$dd.hasClass("show");
+				closeMenus();
+				if (wasHidden) {
+					$dd.addClass("show");
+					$btn.attr("aria-expanded", "true");
+				}
+			});
+
+			$container.on("keydown.dashboardFavPages", ".dashboard-fav-page, .dashboard-fav-page-empty", function (e) {
+				if (e.key !== "Enter" && e.key !== " ") return;
+				if ($(e.target).closest("[data-fav-menu]").length) return;
+				e.preventDefault();
+				$(this).trigger("click");
+			});
+
+			$container.on("click.dashboardFavPages", "[data-action='edit-fav']", function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				closeMenus();
+				const slot = parseInt($(this).closest(".dashboard-fav-page").attr("data-slot"), 10);
+				openPicker(slot, slots[slot] || null);
+			});
+
+			$container.on("click.dashboardFavPages", "[data-action='delete-fav']", function (e) {
+				e.preventDefault();
+				e.stopPropagation();
+				closeMenus();
+				const slot = parseInt($(this).closest(".dashboard-fav-page").attr("data-slot"), 10);
+				Swal.fire({
+					title: "حذف میانبر",
+					text: "آیا از حذف این صفحه پرکاربرد مطمئن هستید؟",
+					icon: "warning",
+					showCancelButton: true,
+					confirmButtonText: "بله، حذف شود",
+					cancelButtonText: "انصراف"
+				}).then(function (result) {
+					if (!result.isConfirmed) return;
+					if (slot >= 0 && slot < slots.length)
+						slots.splice(slot, 1);
+					persistSlots();
+					renderSlots();
+					toastr.success("میانبر حذف شد");
+				});
+			});
+
+			$(document).off("click.dashboardFavPagesDoc").on("click.dashboardFavPagesDoc", function (e) {
+				if ($(e.target).closest("[data-fav-menu]").length)
+					return;
+				closeMenus();
+			});
+		}
+
+		function init() {
+			if (!$host().length) return;
+			ensureStyles();
+			bindEvents();
+			const selVal = $("#selectDashbords").val();
+			const show = !selVal || selVal === "0";
+			setVisible(show);
+			if (show) loadAndRender();
+		}
+
+		return {
+			init: init,
+			setVisible: setVisible,
+			reload: loadAndRender
+		};
+	})();
+
+	const DashboardRecentPages = (function () {
+		const STORAGE_PREFIX = "havayar.dashboard.recentPages";
+		const TILE_SIZE_PX = 120;
+		const MAX_HISTORY = 24;
+		const GAP_REM = 0.85;
+
+		let homeVisible = true;
+		let historyItems = [];
+		let resizeTimer = null;
+
+		function $host() { return $("#dashboardRecentPagesHost"); }
+		function $slots() { return $("#dashboardRecentPagesSlots"); }
+
+		function storageKey() {
+			let userId = null;
+			try {
+				if (window.AppSdk && typeof window.AppSdk.getUserId === "function")
+					userId = window.AppSdk.getUserId();
+			} catch (e) { /* ignore */ }
+			if (userId != null && userId !== "" && Number(userId) > 0)
+				return STORAGE_PREFIX + "." + userId;
+			return STORAGE_PREFIX;
+		}
+
+		function normalizePath(path) {
+			return String(path || "").trim().toLowerCase();
+		}
+
+		function isDashboardAddress(path) {
+			const key = normalizePath(path).replace(/^\/+/, "");
+			if (!key) return true;
+			if (key === "dashbord" || key === "dashboard") return true;
+			if (key.indexOf("dashbordcontent") >= 0) return true;
+			if (key === "#dashbordcontent" || key.indexOf("#dashbord") === 0) return true;
+			return false;
+		}
+
+		function escapeHtml(s) {
+			return $("<div/>").text(s || "").html();
+		}
+
+		function softAccent(hex) {
+			if (!hex || hex.charAt(0) !== "#" || (hex.length !== 7 && hex.length !== 4))
+				return "#F1F1F4";
+			let r, g, b;
+			if (hex.length === 4) {
+				r = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+				g = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+				b = parseInt(hex.charAt(3) + hex.charAt(3), 16);
+			} else {
+				r = parseInt(hex.slice(1, 3), 16);
+				g = parseInt(hex.slice(3, 5), 16);
+				b = parseInt(hex.slice(5, 7), 16);
+			}
+			if (isNaN(r) || isNaN(g) || isNaN(b)) return "#F1F1F4";
+			return "rgba(" + r + "," + g + "," + b + ",0.14)";
+		}
+
+		function readStored() {
+			try {
+				const raw = localStorage.getItem(storageKey());
+				if (!raw) return [];
+				const parsed = JSON.parse(raw);
+				if (!Array.isArray(parsed)) return [];
+				const out = [];
+				parsed.forEach(function (item) {
+					if (!item || typeof item !== "object") return;
+					const path = item.path;
+					if (!path || typeof path !== "string") return;
+					if (isDashboardAddress(path)) return;
+					out.push({
+						path: path.trim(),
+						title: (item.title && typeof item.title === "string") ? item.title.trim() : ""
+					});
+				});
+				return out.slice(0, MAX_HISTORY);
+			} catch (e) {
+				return [];
+			}
+		}
+
+		function writeStored(items) {
+			try {
+				localStorage.setItem(storageKey(), JSON.stringify((items || []).slice(0, MAX_HISTORY)));
+			} catch (e) { /* ignore quota */ }
+		}
+
+		function collectMenuPages() {
+			const pages = [];
+			const seen = {};
+			$("#kt_app_sidebar_menu a.menu-link").each(function () {
+				const $a = $(this);
+				const path = ($a.attr("href") || "").trim();
+				if (!path || path === "#" || path.toLowerCase().indexOf("javascript:") === 0)
+					return;
+				const key = normalizePath(path);
+				if (seen[key]) return;
+				seen[key] = true;
+
+				const title = ($a.find(".menu-title").first().text() || "").trim();
+				const $icon = $a.find(".menu-icon i").first();
+				let iconClass = ($icon.attr("class") || "").trim();
+				if (!iconClass)
+					iconClass = "fas fa-file-alt";
+
+				let iconColor = "";
+				const styleAttr = ($icon.attr("style") || "");
+				const m = /color\s*:\s*([^;]+)/i.exec(styleAttr);
+				if (m) iconColor = m[1].trim();
+
+				pages.push({
+					path: path,
+					title: title,
+					iconClass: iconClass,
+					iconColor: iconColor
+				});
+			});
+			return pages;
+		}
+
+		function findMenuPage(path, menuPages) {
+			const key = normalizePath(path);
+			for (let i = 0; i < menuPages.length; i++) {
+				if (normalizePath(menuPages[i].path) === key)
+					return menuPages[i];
+			}
+			return null;
+		}
+
+		function measureVisibleCount() {
+			const $favHost = $("#dashboardFavPagesHost");
+			let width = 0;
+			if ($favHost.length)
+				width = $favHost[0].clientWidth;
+			if (width <= 0) {
+				const $h = $host();
+				if ($h.length)
+					width = $h[0].clientWidth;
+			}
+			if (width <= 0) return 0;
+
+			let gapPx = 0;
+			const $gapSrc = $("#dashboardFavPagesSlots").length
+				? $("#dashboardFavPagesSlots")
+				: $slots();
+			try {
+				if ($gapSrc.length) {
+					const style = window.getComputedStyle($gapSrc[0]);
+					gapPx = parseFloat(style.columnGap || style.gap) || 0;
+				}
+			} catch (e) { /* ignore */ }
+			if (!gapPx) {
+				const rootFs = parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
+				gapPx = GAP_REM * rootFs;
+			}
+
+			return Math.max(0, Math.floor((width + gapPx) / (TILE_SIZE_PX + gapPx)));
+		}
+
+		function applyVisibility() {
+			const $h = $host();
+			if (!$h.length) return;
+			// Keep the «آخرین صفحات» heading visible on dashboard home even when
+			// history is empty or tiles have not rendered yet. Only hide when
+			// the user leaves the home dashboard (another dashboard selected).
+			if (!homeVisible) {
+				$h.hide();
+				return;
+			}
+			$h.show();
+		}
+
+		function setVisible(show) {
+			homeVisible = !!show;
+			if (homeVisible)
+				render();
+			else
+				applyVisibility();
+		}
+
+		function resolveTitle(path, title, menuPage) {
+			let t = (title || "").trim();
+			if (t && t !== "بدون عنوان" && t !== "در حال بارگذاری..." && t !== "-")
+				return t;
+			if (menuPage && menuPage.title)
+				return menuPage.title;
+			if (t) return t;
+			return path;
+		}
+
+		function record(path, title) {
+			if (!path || isDashboardAddress(path)) return;
+
+			const key = normalizePath(path);
+			const cleanPath = String(path).trim();
+			const cleanTitle = (title || "").trim();
+
+			if (historyItems.length && normalizePath(historyItems[0].path) === key) {
+				if (cleanTitle
+					&& cleanTitle !== "بدون عنوان"
+					&& cleanTitle !== "در حال بارگذاری..."
+					&& cleanTitle !== "-"
+					&& historyItems[0].title !== cleanTitle) {
+					historyItems[0].title = cleanTitle;
+					writeStored(historyItems);
+					if (homeVisible) render();
+				}
+				return;
+			}
+
+			historyItems = historyItems.filter(function (item) {
+				return normalizePath(item.path) !== key;
+			});
+			historyItems.unshift({
+				path: cleanPath,
+				title: cleanTitle
+			});
+			if (historyItems.length > MAX_HISTORY)
+				historyItems = historyItems.slice(0, MAX_HISTORY);
+
+			writeStored(historyItems);
+			if (homeVisible) render();
+		}
+
+		function recordPage(page) {
+			if (!page || !page.address) return;
+			if (isDashboardAddress(page.address)) return;
+
+			let title = "";
+			if (page.$tabEl && page.$tabEl.length) {
+				const tabText = (page.$tabEl.find("span").first().text() || "").trim();
+				if (tabText && tabText !== "در حال بارگذاری...")
+					title = tabText;
+			}
+			if (!title)
+				title = page.title || "";
+			record(page.address, title);
+		}
+
+		function render() {
+			const $container = $slots();
+			if (!$container.length) return;
+
+			if (!homeVisible) {
+				applyVisibility();
+				return;
+			}
+
+			if (!historyItems.length) {
+				$container.empty();
+				applyVisibility();
+				return;
+			}
+
+			applyVisibility();
+
+			const capacity = measureVisibleCount();
+			if (capacity <= 0) {
+				$container.empty();
+				return;
+			}
+
+			const menuPages = collectMenuPages();
+			const visible = historyItems.slice(0, capacity);
+			$container.empty();
+
+			visible.forEach(function (item) {
+				const menuPage = findMenuPage(item.path, menuPages);
+				const title = resolveTitle(item.path, item.title, menuPage);
+				const titleHtml = escapeHtml(title);
+				const iconClass = escapeHtml((menuPage && menuPage.iconClass) || "fas fa-file-alt");
+				const accent = (menuPage && menuPage.iconColor) || "#5E6278";
+				const soft = softAccent(menuPage && menuPage.iconColor);
+				const $card = $(`
+					<div class="dashboard-fav-page" data-path="${escapeHtml(item.path)}"
+						role="listitem" tabindex="0" aria-label="${titleHtml}">
+						<span class="dashboard-fav-page__icon" aria-hidden="true">
+							<i class="${iconClass}"></i>
+						</span>
+						<div class="dashboard-fav-page__title" title="${titleHtml}">${titleHtml}</div>
+					</div>`);
+				$card.css({
+					"--dfp-accent": accent,
+					"--dfp-accent-soft": soft
+				});
+				if (menuPage && menuPage.iconColor)
+					$card.find(".dashboard-fav-page__icon i").css("color", menuPage.iconColor);
+				$container.append($card);
+			});
+		}
+
+		function bindEvents() {
+			const $container = $slots();
+			if (!$container.length) return;
+
+			$container.off(".dashboardRecentPages");
+
+			$container.on("click.dashboardRecentPages", ".dashboard-fav-page", function () {
+				const path = $(this).attr("data-path");
+				if (!path) return;
+				appController.addPage(path);
+			});
+
+			$container.on("keydown.dashboardRecentPages", ".dashboard-fav-page", function (e) {
+				if (e.key !== "Enter" && e.key !== " ") return;
+				e.preventDefault();
+				$(this).trigger("click");
+			});
+
+			$(window).off("resize.dashboardRecentPages").on("resize.dashboardRecentPages", function () {
+				if (resizeTimer) clearTimeout(resizeTimer);
+				resizeTimer = setTimeout(function () {
+					if (homeVisible) render();
+				}, 120);
+			});
+		}
+
+		function init() {
+			if (!$host().length) return;
+			historyItems = readStored();
+			bindEvents();
+			const selVal = $("#selectDashbords").val();
+			homeVisible = !selVal || selVal === "0";
+			if (window.appController && appController.activePage)
+				recordPage(appController.activePage);
+			else
+				render();
+		}
+
+		const api = {
+			init: init,
+			setVisible: setVisible,
+			reload: render,
+			record: record,
+			recordPage: recordPage
+		};
+		window.DashboardRecentPages = api;
+		return api;
+	})();
+
+	DashboardWorkCards.init();
+	DashboardFavPages.init();
+	DashboardRecentPages.init();
+
 	$("#selectDashbords").on("change", function () {
 		const $opt = $(this).find("option:selected");
 		const value = $opt.val();
 		if (!value || value === "0") {
 			appController.loadDashboardContent(null, null);
+			DashboardWorkCards.setVisible(true);
+			DashboardFavPages.setVisible(true);
+			DashboardFavPages.reload();
+			DashboardRecentPages.setVisible(true);
 			return;
 		}
+		DashboardWorkCards.setVisible(false);
+		DashboardFavPages.setVisible(false);
+		DashboardRecentPages.setVisible(false);
 		const type = $opt.attr("data-type") || "";
 		const url = $opt.attr("data-url") || "";
 		appController.loadDashboardContent(url, type);
@@ -13182,7 +15325,9 @@ $(document).ready(function () {
 		post(path, null, function (r) {
 			if (!r.isSuccess) return error2(r.message);
 			 
-			$("#kt_app_sidebar_menu").html(r.data)
+			$("#kt_app_sidebar_menu").html(r.data);
+			if (typeof DashboardFavPages !== "undefined" && DashboardFavPages.reload)
+				DashboardFavPages.reload();
 		});
 	});
 
