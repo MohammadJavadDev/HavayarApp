@@ -266,8 +266,8 @@
 
 	function applyDlFilter() {
 		const value = $dl.val();
-		const search = value ? '^' + $.fn.dataTable.util.escapeRegex(value) + '$' : '';
-		table.column(dlColumnIndex).search(search, true, false).draw();
+		// مقایسه دقیق با مقدار ردیف؛ جستجوی regex روی متن trim شده با عنوان‌هایی که فاصله ابتدا/انتها دارند جور نمی‌شود
+		table.column(dlColumnIndex).search(value ? (_data, row) => row.dlTitle === value : '').draw();
 	}
 
 	function initTable() {
@@ -284,7 +284,7 @@
 			columns: [
 				{ data: 'purchaseRequestNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'purchaseRequestShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
-				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'partName', render: (d, t) => textCell(d, t) },
 				{ data: 'partUnitTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
 				{ data: 'requiredQty', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },

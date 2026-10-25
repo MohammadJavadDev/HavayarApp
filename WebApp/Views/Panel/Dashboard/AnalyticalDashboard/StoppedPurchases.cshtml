@@ -256,7 +256,7 @@
 			columns: [
 				{ data: 'purchaseRequestNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'purchaseRequestShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
-				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'partName', render: (d, t) => textCell(d, t) },
 				{ data: 'partUnitTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
 				{ data: 'requiredQty', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },

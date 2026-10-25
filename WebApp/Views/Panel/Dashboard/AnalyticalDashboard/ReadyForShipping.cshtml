@@ -267,8 +267,8 @@
 	function applyBranchFilter(branchTitle) {
 		selectedBranch = branchTitle;
 
-		const search = branchTitle ? '^' + $.fn.dataTable.util.escapeRegex(branchTitle) + '$' : '';
-		table.column(branchColumnIndex).search(search, true, false).draw();
+		// مقایسه دقیق با مقدار ردیف؛ جستجوی regex روی متن trim شده با عنوان‌هایی که فاصله ابتدا/انتها دارند جور نمی‌شود
+		table.column(branchColumnIndex).search(branchTitle ? (_data, row) => row.branchTitle === branchTitle : '').draw();
 
 		if (branchTitle) {
 			$$('#rfsBranchFilterText').text('دپارتمان فروش: ' + branchTitle);
@@ -293,7 +293,7 @@
 				{ data: 'branchTitle', render: (d, t) => textCell(d, t) },
 				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'customerName', render: (d, t) => textCell(d, t) },
-				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'partName', render: (d, t) => textCell(d, t) },
 				{ data: 'amount', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },
 				{ data: 'productionStepTitle', className: 'text-center', render: (d, t) => textCell(d, t) },

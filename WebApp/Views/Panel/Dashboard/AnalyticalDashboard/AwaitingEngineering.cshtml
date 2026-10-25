@@ -263,8 +263,8 @@
 
 	function applyBranchFilter() {
 		const value = $branch.val();
-		const search = value ? '^' + $.fn.dataTable.util.escapeRegex(value) + '$' : '';
-		table.column(branchColumnIndex).search(search, true, false).draw();
+		// مقایسه دقیق با مقدار ردیف؛ جستجوی regex روی متن trim شده با عنوان‌هایی که فاصله ابتدا/انتها دارند جور نمی‌شود
+		table.column(branchColumnIndex).search(value ? (_data, row) => row.branchTitle === value : '').draw();
 	}
 
 	function initTable() {
@@ -282,7 +282,7 @@
 				{ data: 'branchTitle', render: (d, t) => textCell(d, t) },
 				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'customerName', render: (d, t) => textCell(d, t) },
-				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'partName', render: (d, t) => textCell(d, t) },
 				{ data: 'amount', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },
 				{ data: 'productionStepTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
