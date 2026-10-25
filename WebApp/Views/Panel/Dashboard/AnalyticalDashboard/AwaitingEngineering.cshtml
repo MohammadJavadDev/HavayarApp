@@ -20,6 +20,8 @@
 
 	#awaitingEngineeringPage .adb-truncate {
 		display: block;
+		/* عرض max-content باعث می‌شود ستون کمتر از متن (حداکثر 260px) جمع نشود و جدول اسکرول افقی بخورد */
+		width: max-content;
 		max-width: 260px;
 		overflow: hidden;
 		text-overflow: ellipsis;
