@@ -20,8 +20,6 @@
 
 	#awaitingEngineeringPage .adb-truncate {
 		display: block;
-		/* عرض max-content باعث می‌شود ستون کمتر از متن (حداکثر 260px) جمع نشود و جدول اسکرول افقی بخورد */
-		width: max-content;
 		max-width: 260px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -276,7 +274,8 @@
 			pageLength: 25,
 			lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'همه']],
 			scrollX: true,
-			autoWidth: false,
+			// عرض ستون‌ها از روی محتوا؛ با autoWidth: false همه ستون‌ها هم‌عرض و فشرده می‌شوند
+			autoWidth: true,
 			order: [[daysColumnIndex, 'desc']],
 			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
 			columns: [
@@ -313,6 +312,7 @@
 			table.clear().rows.add(rows);
 			fillBranchOptions(rows);
 			applyBranchFilter();
+			table.columns.adjust();
 		});
 	}
 
