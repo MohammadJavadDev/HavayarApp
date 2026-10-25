@@ -1,0 +1,353 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "گزارش سفارشات در انتظار مهندسی";
+	var todayShamsi = DateTime.Today.ToShamsiDate();
+}
+
+<style>
+	#awaitingEngineeringPage .adb-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#awaitingEngineeringPage .adb-summary-card {
+		min-height: 92px;
+	}
+
+	#awaitingEngineeringPage svg text {
+		font-family: inherit !important;
+	}
+
+	#awaitingEngineeringPage .adb-truncate {
+		display: block;
+		max-width: 260px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>
+
+<div id="awaitingEngineeringPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">گزارش سفارشات در انتظار مهندسی</h3>
+					<div class="text-muted fs-7">
+						ردیف‌های سفارش ساخت با مرحله ساخت «در انتظار مهندسی»؛ تاخیر در بارگذاری BOM = امروز − تاریخ ارسال به صنایع
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadAwaitingEngineering">
+					<i class="ki-duotone ki-arrows-circle fs-4"></i> به‌روزرسانی
+				</button>
+				<button type="button" class="btn btn-sm btn-light-success" id="btnExportAwaitingEngineering">
+					<i class="fa fa-file-excel"></i> اکسل
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">دپارتمان فروش</label>
+				<select class="form-select" id="awaitingEngineeringBranch">
+					<option value="">همه دپارتمان‌ها</option>
+				</select>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد کل ردیف‌ها</div>
+					<div class="adb-summary-value" id="aenCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">میانگین تاخیر در بارگذاری BOM (روز)</div>
+					<div class="adb-summary-value" id="aenAverageDays">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">بیشترین تاخیر در بارگذاری BOM (روز)</div>
+					<div class="adb-summary-value" id="aenMaxDays">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">توزیع تاخیر در بارگذاری BOM</h3>
+		</div>
+		<div class="card-body">
+			<div id="aenBucketChart" style="min-height:320px"></div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-header">
+			<h3 class="card-title mb-0">سفارشات در انتظار مهندسی</h3>
+		</div>
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table id="aenTable"
+					class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th>دپارتمان فروش</th>
+							<th>شماره سفارش ساخت</th>
+							<th>نام مشتری</th>
+							<th>کد کالا</th>
+							<th>شرح کالا</th>
+							<th>تعداد</th>
+							<th>مرحله ساخت</th>
+							<th>تاریخ ارسال به صنایع</th>
+							<th>تاریخ تحویل توافقی</th>
+							<th>میزان تاخیر در بارگذاری BOM (روز)</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Dashboard/AnalyticalDashboard/GetAwaitingEngineeringData';
+	const todayShamsi = '@todayShamsi';
+	const branchColumnIndex = 0;
+	const daysColumnIndex = 9;
+
+	const $page = $$('#awaitingEngineeringPage');
+	const $branch = $$('#awaitingEngineeringBranch');
+	const $loadButton = $$('#btnLoadAwaitingEngineering');
+	const $exportButton = $$('#btnExportAwaitingEngineering');
+
+	let bucketChart = null;
+	let table = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function textCell(value, type) {
+		if (type !== 'display') return value == null ? '' : value;
+		const text = (value === null || value === undefined || value === '') ? '-' : String(value);
+		return '<span class="adb-truncate" title="' + escapeHtml(text).replace(/"/g, '&quot;') + '">' + escapeHtml(text) + '</span>';
+	}
+
+	function numberCell(value, type, fractionDigits) {
+		if (type === 'sort' || type === 'type') return value == null ? -Infinity : Number(value);
+		if (type !== 'display') return value == null ? '' : value;
+		return formatNumber(value, fractionDigits);
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function filteredRows() {
+		return table ? table.rows({ search: 'applied' }).data().toArray() : [];
+	}
+
+	function renderSummary(visibleRows) {
+		const days = visibleRows.map(r => r.days).filter(d => d !== null && d !== undefined);
+		const average = days.length ? days.reduce((sum, d) => sum + d, 0) / days.length : null;
+
+		$$('#aenCount').text(formatNumber(visibleRows.length));
+		$$('#aenAverageDays').text(formatNumber(average, 1));
+		$$('#aenMaxDays').text(days.length ? formatNumber(Math.max.apply(null, days)) : '-');
+	}
+
+	function renderBucketChart(visibleRows) {
+		const categories = ['۰ تا ۷ روز', '۸ تا ۳۰ روز', 'بیش از ۳۰ روز'];
+		const counts = [0, 0, 0];
+		let unknownCount = 0;
+
+		visibleRows.forEach(function (row) {
+			if (row.days === null || row.days === undefined) unknownCount++;
+			else if (row.days <= 7) counts[0]++;
+			else if (row.days <= 30) counts[1]++;
+			else counts[2]++;
+		});
+
+		if (unknownCount > 0) {
+			categories.push('بدون تاریخ ارسال به صنایع');
+			counts.push(unknownCount);
+		}
+
+		const options = {
+			chart: { type: 'bar', height: 320, fontFamily: 'inherit', toolbar: { show: false } },
+			series: [{ name: 'تعداد ردیف', data: counts }],
+			xaxis: { categories: categories },
+			plotOptions: { bar: { columnWidth: '45%', borderRadius: 4 } },
+			colors: ['#009ef7'],
+			dataLabels: { enabled: true },
+			tooltip: { y: { formatter: function (value) { return formatNumber(value) + ' ردیف'; } } },
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+
+		if (bucketChart) {
+			bucketChart.updateOptions(options);
+			return;
+		}
+
+		bucketChart = new ApexCharts($$('#aenBucketChart')[0], options);
+		bucketChart.render();
+	}
+
+	function renderVisuals() {
+		const visibleRows = filteredRows();
+		renderSummary(visibleRows);
+		whenApexReady(function () { renderBucketChart(visibleRows); });
+	}
+
+	function fillBranchOptions(rows) {
+		const counts = {};
+		rows.forEach(function (row) {
+			counts[row.branchTitle] = (counts[row.branchTitle] || 0) + 1;
+		});
+
+		const current = $branch.val();
+		$branch.find('option:not(:first)').remove();
+		Object.keys(counts).sort().forEach(function (title) {
+			$branch.append($('<option></option>').val(title).text(title + ' (' + formatNumber(counts[title]) + ')'));
+		});
+		$branch.val(counts[current] ? current : '').trigger('change.select2');
+	}
+
+	function applyBranchFilter() {
+		const value = $branch.val();
+		const search = value ? '^' + $.fn.dataTable.util.escapeRegex(value) + '$' : '';
+		table.column(branchColumnIndex).search(search, true, false).draw();
+	}
+
+	function initTable() {
+		table = $$('#aenTable').DataTable({
+			data: [],
+			searching: true,
+			pageLength: 25,
+			lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'همه']],
+			scrollX: true,
+			autoWidth: false,
+			order: [[daysColumnIndex, 'desc']],
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			columns: [
+				{ data: 'branchTitle', render: (d, t) => textCell(d, t) },
+				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'customerName', render: (d, t) => textCell(d, t) },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partName', render: (d, t) => textCell(d, t) },
+				{ data: 'amount', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },
+				{ data: 'productionStepTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'sendToIndustrialShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'agreedDeliverShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'days', className: 'text-center fw-bold', render: (d, t) => numberCell(d, t) }
+			]
+		});
+
+		table.on('draw', renderVisuals);
+	}
+
+	function loadReport() {
+		$loadButton.prop('disabled', true);
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, {}, function (response) {
+			$loadButton.prop('disabled', false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			const rows = (response && response.data !== undefined ? response.data : response) || [];
+			table.clear().rows.add(rows);
+			fillBranchOptions(rows);
+			applyBranchFilter();
+		});
+	}
+
+	function exportExcel() {
+		const output = filteredRows().map(row => ({
+			'دپارتمان فروش': row.branchTitle,
+			'شماره سفارش ساخت': row.productionOrderNumber,
+			'نام مشتری': row.customerName,
+			'کد کالا': row.partCode,
+			'شرح کالا': row.partName,
+			'تعداد': row.amount,
+			'مرحله ساخت': row.productionStepTitle,
+			'تاریخ ارسال به صنایع': row.sendToIndustrialShamsiDate,
+			'تاریخ تحویل توافقی': row.agreedDeliverShamsiDate,
+			'میزان تاخیر در بارگذاری BOM (روز)': row.days
+		}));
+
+		if (!output.length) {
+			toastr.warning('داده‌ای برای خروجی وجود ندارد.', 'هشدار');
+			return;
+		}
+
+		const worksheet = XLSX.utils.json_to_sheet(output);
+		const workbook = XLSX.utils.book_new();
+		workbook.Workbook = { Views: [{ RTL: true }] };
+		XLSX.utils.book_append_sheet(workbook, worksheet, 'AwaitingEngineering');
+		XLSX.writeFile(workbook, 'AwaitingEngineering-' + todayShamsi.replaceAll('/', '') + '.xlsx');
+	}
+
+	if ($.fn.select2) {
+		$branch.select2({ width: '100%', dir: 'rtl' });
+	}
+
+	$loadButton.on('click', loadReport);
+	$exportButton.on('click', exportExcel);
+	$branch.on('change', applyBranchFilter);
+
+	initTable();
+	loadReport();
+</script>

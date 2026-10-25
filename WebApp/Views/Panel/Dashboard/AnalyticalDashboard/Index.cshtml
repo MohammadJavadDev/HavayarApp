@@ -1,0 +1,166 @@
+@{
+	ViewData["Title"] = "داشبوردهای تحلیلی";
+}
+
+<style>
+	#analyticalDashboardPage .adb-hub-card {
+		cursor: pointer;
+		transition: box-shadow .15s ease-in-out;
+	}
+
+	#analyticalDashboardPage .adb-hub-card:hover {
+		box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, .08);
+	}
+
+	#analyticalDashboardPage .adb-hub-count {
+		font-size: 2rem;
+		font-weight: 700;
+		line-height: 1.2;
+	}
+</style>
+
+<div id="analyticalDashboardPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">داشبوردهای تحلیلی</h3>
+					<div class="text-muted fs-7">خلاصه وضعیت گزارش‌ها؛ برای مشاهده جزئیات روی هر کارت کلیک کنید</div>
+				</div>
+			</div>
+			<div class="card-toolbar">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadAnalyticalDashboard">
+					<i class="ki-duotone ki-arrows-circle fs-4"></i> به‌روزرسانی
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-4" id="adbHubCards"></div>
+
+	<div class="card d-none" id="adbHubEmpty">
+		<div class="card-body text-center text-muted py-10">به هیچ‌یک از داشبوردهای تحلیلی دسترسی ندارید.</div>
+	</div>
+
+</div>
+
+<script>
+	const summaryUrl = '/Panel/Dashboard/AnalyticalDashboard/GetSummary';
+	const pagePrefix = '/Panel/Dashboard/AnalyticalDashboard/';
+
+	const reports = {
+		ReadyForShipping: {
+			title: 'گزارش محصولات آماده ارسال',
+			description: 'سفارشاتی که تمام تجهیزات وضعیت 0 آن‌ها آماده ارسال است',
+			icon: 'fa-truck',
+			color: 'success',
+			countLabel: 'قلم آماده ارسال',
+			daysLabel: 'ماندگاری در انبار'
+		},
+		AwaitingEngineering: {
+			title: 'گزارش سفارشات در انتظار مهندسی',
+			description: 'ردیف‌های سفارش ساخت در مرحله «در انتظار مهندسی»',
+			icon: 'fa-drafting-compass',
+			color: 'primary',
+			countLabel: 'ردیف در انتظار مهندسی',
+			daysLabel: 'تاخیر بارگذاری BOM'
+		},
+		UnapprovedPurchases: {
+			title: 'گزارش خریدهای باز بدون تایید مهندسی',
+			description: 'ردیف‌های خرید باز (همه فعال) بدون تایید مهندسی',
+			icon: 'fa-clipboard-question',
+			color: 'warning',
+			countLabel: 'ردیف خرید بدون تایید',
+			daysLabel: 'تاخیر در تایید'
+		},
+		StoppedPurchases: {
+			title: 'گزارش خریدهای متوقف شده',
+			description: 'ردیف‌های خرید باز (همه فعال) متوقف شده',
+			icon: 'fa-circle-pause',
+			color: 'danger',
+			countLabel: 'ردیف خرید متوقف',
+			daysLabel: 'تاخیر در تعیین تکلیف'
+		}
+	};
+
+	const $page = $$('#analyticalDashboardPage');
+	const $cards = $$('#adbHubCards');
+	const $loadButton = $$('#btnLoadAnalyticalDashboard');
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function renderCards(items) {
+		$cards.empty();
+		$$('#adbHubEmpty').toggleClass('d-none', items.length > 0);
+
+		items.forEach(function (item) {
+			const report = reports[item.key];
+			if (!report) return;
+
+			$cards.append(
+				'<div class="col-md-6 col-xl-3">' +
+				'<div class="card h-100 adb-hub-card" data-action="openReport" data-key="' + escapeHtml(item.key) + '">' +
+				'<div class="card-body d-flex flex-column">' +
+				'<div class="d-flex align-items-center mb-4">' +
+				'<span class="symbol symbol-45px me-3"><span class="symbol-label bg-light-' + report.color + '">' +
+				'<i class="fa ' + report.icon + ' fs-3 text-' + report.color + '"></i></span></span>' +
+				'<div class="fw-bold fs-6">' + escapeHtml(report.title) + '</div>' +
+				'</div>' +
+				'<div class="text-muted fs-7 mb-4">' + escapeHtml(report.description) + '</div>' +
+				'<div class="adb-hub-count text-' + report.color + '">' + formatNumber(item.count) + '</div>' +
+				'<div class="text-muted fs-7 mb-4">' + escapeHtml(report.countLabel) + '</div>' +
+				'<div class="d-flex justify-content-between border-top pt-3 mt-auto fs-7">' +
+				'<div><div class="text-muted">میانگین ' + escapeHtml(report.daysLabel) + '</div>' +
+				'<div class="fw-bold">' + formatNumber(item.averageDays, 1) + ' روز</div></div>' +
+				'<div class="text-end"><div class="text-muted">بیشترین</div>' +
+				'<div class="fw-bold">' + formatNumber(item.maxDays) + ' روز</div></div>' +
+				'</div>' +
+				'</div>' +
+				'</div>' +
+				'</div>');
+		});
+	}
+
+	function loadSummary() {
+		$loadButton.prop('disabled', true);
+		$page.block();
+
+		$$.post(summaryUrl, {}, function (response) {
+			$loadButton.prop('disabled', false);
+			$page.block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderCards((response && response.data !== undefined ? response.data : response) || []);
+		});
+	}
+
+	$loadButton.on('click', loadSummary);
+	$page.on('click', '[data-action="openReport"]', function () {
+		appController.addPage(pagePrefix + $(this).data('key'));
+	});
+
+	loadSummary();
+</script>

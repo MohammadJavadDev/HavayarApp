@@ -1,0 +1,362 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "گزارش خریدهای باز بدون تایید مهندسی";
+	var todayShamsi = DateTime.Today.ToShamsiDate();
+}
+
+<style>
+	#unapprovedPurchasesPage .adb-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#unapprovedPurchasesPage .adb-summary-card {
+		min-height: 92px;
+	}
+
+	#unapprovedPurchasesPage svg text {
+		font-family: inherit !important;
+	}
+
+	#unapprovedPurchasesPage .adb-truncate {
+		display: block;
+		max-width: 260px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>
+
+<div id="unapprovedPurchasesPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">گزارش خریدهای باز بدون تایید مهندسی</h3>
+					<div class="text-muted fs-7">
+						ردیف‌های خرید باز (همه فعال) که تایید مهندسی آن‌ها «خیر» است؛ تاخیر در تایید درخواست = امروز − تاریخ درخواست
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadUnapprovedPurchases">
+					<i class="ki-duotone ki-arrows-circle fs-4"></i> به‌روزرسانی
+				</button>
+				<button type="button" class="btn btn-sm btn-light-success" id="btnExportUnapprovedPurchases">
+					<i class="fa fa-file-excel"></i> اکسل
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تفصیل</label>
+				<select class="form-select" id="unapprovedPurchasesDl">
+					<option value="">همه تفصیل‌ها</option>
+				</select>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد کل ردیف‌ها</div>
+					<div class="adb-summary-value" id="uprCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">میانگین تاخیر در تایید درخواست (روز)</div>
+					<div class="adb-summary-value" id="uprAverageDays">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">بیشترین تاخیر در تایید درخواست (روز)</div>
+					<div class="adb-summary-value" id="uprMaxDays">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">توزیع تاخیر در تایید درخواست</h3>
+		</div>
+		<div class="card-body">
+			<div id="uprBucketChart" style="min-height:320px"></div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-header">
+			<h3 class="card-title mb-0">خریدهای باز بدون تایید مهندسی</h3>
+		</div>
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table id="uprTable"
+					class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th>شماره درخواست</th>
+							<th>تاریخ درخواست</th>
+							<th>کد کالا</th>
+							<th>نام کالا</th>
+							<th>واحد کالا</th>
+							<th>تعداد درخواست</th>
+							<th>توضیحات</th>
+							<th>تاریخ نیاز</th>
+							<th>شماره سفارش ساخت</th>
+							<th>دپارتمان فروش</th>
+							<th>کارشناس فروش</th>
+							<th>تفصیل</th>
+							<th>میزان تاخیر در تایید درخواست (روز)</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Dashboard/AnalyticalDashboard/GetUnapprovedPurchasesData';
+	const todayShamsi = '@todayShamsi';
+	const dlColumnIndex = 11;
+	const daysColumnIndex = 12;
+
+	const $page = $$('#unapprovedPurchasesPage');
+	const $dl = $$('#unapprovedPurchasesDl');
+	const $loadButton = $$('#btnLoadUnapprovedPurchases');
+	const $exportButton = $$('#btnExportUnapprovedPurchases');
+
+	let bucketChart = null;
+	let table = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function textCell(value, type) {
+		if (type !== 'display') return value == null ? '' : value;
+		const text = (value === null || value === undefined || value === '') ? '-' : String(value);
+		return '<span class="adb-truncate" title="' + escapeHtml(text).replace(/"/g, '&quot;') + '">' + escapeHtml(text) + '</span>';
+	}
+
+	function numberCell(value, type, fractionDigits) {
+		if (type === 'sort' || type === 'type') return value == null ? -Infinity : Number(value);
+		if (type !== 'display') return value == null ? '' : value;
+		return formatNumber(value, fractionDigits);
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function filteredRows() {
+		return table ? table.rows({ search: 'applied' }).data().toArray() : [];
+	}
+
+	function renderSummary(visibleRows) {
+		const days = visibleRows.map(r => r.days).filter(d => d !== null && d !== undefined);
+		const average = days.length ? days.reduce((sum, d) => sum + d, 0) / days.length : null;
+
+		$$('#uprCount').text(formatNumber(visibleRows.length));
+		$$('#uprAverageDays').text(formatNumber(average, 1));
+		$$('#uprMaxDays').text(days.length ? formatNumber(Math.max.apply(null, days)) : '-');
+	}
+
+	function renderBucketChart(visibleRows) {
+		const categories = ['۰ تا ۷ روز', '۸ تا ۳۰ روز', 'بیش از ۳۰ روز'];
+		const counts = [0, 0, 0];
+		let unknownCount = 0;
+
+		visibleRows.forEach(function (row) {
+			if (row.days === null || row.days === undefined) unknownCount++;
+			else if (row.days <= 7) counts[0]++;
+			else if (row.days <= 30) counts[1]++;
+			else counts[2]++;
+		});
+
+		if (unknownCount > 0) {
+			categories.push('بدون تاریخ درخواست');
+			counts.push(unknownCount);
+		}
+
+		const options = {
+			chart: { type: 'bar', height: 320, fontFamily: 'inherit', toolbar: { show: false } },
+			series: [{ name: 'تعداد ردیف', data: counts }],
+			xaxis: { categories: categories },
+			plotOptions: { bar: { columnWidth: '45%', borderRadius: 4 } },
+			colors: ['#009ef7'],
+			dataLabels: { enabled: true },
+			tooltip: { y: { formatter: function (value) { return formatNumber(value) + ' ردیف'; } } },
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+
+		if (bucketChart) {
+			bucketChart.updateOptions(options);
+			return;
+		}
+
+		bucketChart = new ApexCharts($$('#uprBucketChart')[0], options);
+		bucketChart.render();
+	}
+
+	function renderVisuals() {
+		const visibleRows = filteredRows();
+		renderSummary(visibleRows);
+		whenApexReady(function () { renderBucketChart(visibleRows); });
+	}
+
+	function fillDlOptions(rows) {
+		const counts = {};
+		rows.forEach(function (row) {
+			counts[row.dlTitle] = (counts[row.dlTitle] || 0) + 1;
+		});
+
+		const current = $dl.val();
+		$dl.find('option:not(:first)').remove();
+		Object.keys(counts).sort().forEach(function (title) {
+			$dl.append($('<option></option>').val(title).text(title + ' (' + formatNumber(counts[title]) + ')'));
+		});
+		$dl.val(counts[current] ? current : '').trigger('change.select2');
+	}
+
+	function applyDlFilter() {
+		const value = $dl.val();
+		const search = value ? '^' + $.fn.dataTable.util.escapeRegex(value) + '$' : '';
+		table.column(dlColumnIndex).search(search, true, false).draw();
+	}
+
+	function initTable() {
+		table = $$('#uprTable').DataTable({
+			data: [],
+			searching: true,
+			pageLength: 25,
+			lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'همه']],
+			scrollX: true,
+			autoWidth: false,
+			order: [[daysColumnIndex, 'desc']],
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			columns: [
+				{ data: 'purchaseRequestNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'purchaseRequestShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partName', render: (d, t) => textCell(d, t) },
+				{ data: 'partUnitTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'requiredQty', className: 'text-center', render: (d, t) => numberCell(d, t) },
+				{ data: 'orderItemComment', render: (d, t) => textCell(d, t) },
+				{ data: 'needShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'branchTitle', render: (d, t) => textCell(d, t) },
+				{ data: 'salesExpertName', render: (d, t) => textCell(d, t) },
+				{ data: 'dlTitle', render: (d, t) => textCell(d, t) },
+				{ data: 'days', className: 'text-center fw-bold', render: (d, t) => numberCell(d, t) }
+			]
+		});
+
+		table.on('draw', renderVisuals);
+	}
+
+	function loadReport() {
+		$loadButton.prop('disabled', true);
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, {}, function (response) {
+			$loadButton.prop('disabled', false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			const rows = (response && response.data !== undefined ? response.data : response) || [];
+			table.clear().rows.add(rows);
+			fillDlOptions(rows);
+			applyDlFilter();
+		});
+	}
+
+	function exportExcel() {
+		const output = filteredRows().map(row => ({
+			'شماره درخواست': row.purchaseRequestNumber,
+			'تاریخ درخواست': row.purchaseRequestShamsiDate,
+			'کد کالا': row.partCode,
+			'نام کالا': row.partName,
+			'واحد کالا': row.partUnitTitle,
+			'تعداد درخواست': row.requiredQty,
+			'توضیحات': row.orderItemComment,
+			'تاریخ نیاز': row.needShamsiDate,
+			'شماره سفارش ساخت': row.productionOrderNumber,
+			'دپارتمان فروش': row.branchTitle,
+			'کارشناس فروش': row.salesExpertName,
+			'تفصیل': row.dlTitle,
+			'میزان تاخیر در تایید درخواست (روز)': row.days
+		}));
+
+		if (!output.length) {
+			toastr.warning('داده‌ای برای خروجی وجود ندارد.', 'هشدار');
+			return;
+		}
+
+		const worksheet = XLSX.utils.json_to_sheet(output);
+		const workbook = XLSX.utils.book_new();
+		workbook.Workbook = { Views: [{ RTL: true }] };
+		XLSX.utils.book_append_sheet(workbook, worksheet, 'UnapprovedPurchases');
+		XLSX.writeFile(workbook, 'UnapprovedPurchases-' + todayShamsi.replaceAll('/', '') + '.xlsx');
+	}
+
+	if ($.fn.select2) {
+		$dl.select2({ width: '100%', dir: 'rtl' });
+	}
+
+	$loadButton.on('click', loadReport);
+	$exportButton.on('click', exportExcel);
+	$dl.on('change', applyDlFilter);
+
+	initTable();
+	loadReport();
+</script>

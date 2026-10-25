@@ -1,0 +1,331 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "گزارش خریدهای متوقف شده";
+	var todayShamsi = DateTime.Today.ToShamsiDate();
+}
+
+<style>
+	#stoppedPurchasesPage .adb-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#stoppedPurchasesPage .adb-summary-card {
+		min-height: 92px;
+	}
+
+	#stoppedPurchasesPage svg text {
+		font-family: inherit !important;
+	}
+
+	#stoppedPurchasesPage .adb-truncate {
+		display: block;
+		max-width: 260px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>
+
+<div id="stoppedPurchasesPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">گزارش خریدهای متوقف شده</h3>
+					<div class="text-muted fs-7">
+						ردیف‌های خرید باز (همه فعال) که متوقف شده‌اند؛ تاخیر در تعیین تکلیف توقف = امروز − تاریخ ایجاد توقف
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadStoppedPurchases">
+					<i class="ki-duotone ki-arrows-circle fs-4"></i> به‌روزرسانی
+				</button>
+				<button type="button" class="btn btn-sm btn-light-success" id="btnExportStoppedPurchases">
+					<i class="fa fa-file-excel"></i> اکسل
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد کل ردیف‌ها</div>
+					<div class="adb-summary-value" id="sprCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">میانگین تاخیر در تعیین تکلیف توقف (روز)</div>
+					<div class="adb-summary-value" id="sprAverageDays">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">بیشترین تاخیر در تعیین تکلیف توقف (روز)</div>
+					<div class="adb-summary-value" id="sprMaxDays">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">توزیع تاخیر در تعیین تکلیف توقف</h3>
+		</div>
+		<div class="card-body">
+			<div id="sprBucketChart" style="min-height:320px"></div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-header">
+			<h3 class="card-title mb-0">خریدهای متوقف شده</h3>
+		</div>
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table id="sprTable"
+					class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th>شماره درخواست</th>
+							<th>تاریخ درخواست</th>
+							<th>کد کالا</th>
+							<th>نام کالا</th>
+							<th>واحد کالا</th>
+							<th>تعداد درخواست</th>
+							<th>توضیحات</th>
+							<th>تاریخ نیاز</th>
+							<th>شماره سفارش ساخت</th>
+							<th>دپارتمان فروش</th>
+							<th>کارشناس فروش</th>
+							<th>تاریخ توضیحات تدارکات</th>
+							<th>توضیحات تدارکات</th>
+							<th>وضعیت توقف</th>
+							<th>میزان تاخیر در تعیین تکلیف توقف (روز)</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Dashboard/AnalyticalDashboard/GetStoppedPurchasesData';
+	const todayShamsi = '@todayShamsi';
+	const daysColumnIndex = 14;
+
+	const $page = $$('#stoppedPurchasesPage');
+	const $loadButton = $$('#btnLoadStoppedPurchases');
+	const $exportButton = $$('#btnExportStoppedPurchases');
+
+	let bucketChart = null;
+	let table = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function textCell(value, type) {
+		if (type !== 'display') return value == null ? '' : value;
+		const text = (value === null || value === undefined || value === '') ? '-' : String(value);
+		return '<span class="adb-truncate" title="' + escapeHtml(text).replace(/"/g, '&quot;') + '">' + escapeHtml(text) + '</span>';
+	}
+
+	function numberCell(value, type, fractionDigits) {
+		if (type === 'sort' || type === 'type') return value == null ? -Infinity : Number(value);
+		if (type !== 'display') return value == null ? '' : value;
+		return formatNumber(value, fractionDigits);
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function filteredRows() {
+		return table ? table.rows({ search: 'applied' }).data().toArray() : [];
+	}
+
+	function renderSummary(visibleRows) {
+		const days = visibleRows.map(r => r.days).filter(d => d !== null && d !== undefined);
+		const average = days.length ? days.reduce((sum, d) => sum + d, 0) / days.length : null;
+
+		$$('#sprCount').text(formatNumber(visibleRows.length));
+		$$('#sprAverageDays').text(formatNumber(average, 1));
+		$$('#sprMaxDays').text(days.length ? formatNumber(Math.max.apply(null, days)) : '-');
+	}
+
+	function renderBucketChart(visibleRows) {
+		const categories = ['۰ تا ۷ روز', '۸ تا ۳۰ روز', 'بیش از ۳۰ روز'];
+		const counts = [0, 0, 0];
+		let unknownCount = 0;
+
+		visibleRows.forEach(function (row) {
+			if (row.days === null || row.days === undefined) unknownCount++;
+			else if (row.days <= 7) counts[0]++;
+			else if (row.days <= 30) counts[1]++;
+			else counts[2]++;
+		});
+
+		if (unknownCount > 0) {
+			categories.push('بدون تاریخ توقف');
+			counts.push(unknownCount);
+		}
+
+		const options = {
+			chart: { type: 'bar', height: 320, fontFamily: 'inherit', toolbar: { show: false } },
+			series: [{ name: 'تعداد ردیف', data: counts }],
+			xaxis: { categories: categories },
+			plotOptions: { bar: { columnWidth: '45%', borderRadius: 4 } },
+			colors: ['#009ef7'],
+			dataLabels: { enabled: true },
+			tooltip: { y: { formatter: function (value) { return formatNumber(value) + ' ردیف'; } } },
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+
+		if (bucketChart) {
+			bucketChart.updateOptions(options);
+			return;
+		}
+
+		bucketChart = new ApexCharts($$('#sprBucketChart')[0], options);
+		bucketChart.render();
+	}
+
+	function renderVisuals() {
+		const visibleRows = filteredRows();
+		renderSummary(visibleRows);
+		whenApexReady(function () { renderBucketChart(visibleRows); });
+	}
+
+	function initTable() {
+		table = $$('#sprTable').DataTable({
+			data: [],
+			searching: true,
+			pageLength: 25,
+			lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'همه']],
+			scrollX: true,
+			autoWidth: false,
+			order: [[daysColumnIndex, 'desc']],
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			columns: [
+				{ data: 'purchaseRequestNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'purchaseRequestShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partName', render: (d, t) => textCell(d, t) },
+				{ data: 'partUnitTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'requiredQty', className: 'text-center', render: (d, t) => numberCell(d, t) },
+				{ data: 'orderItemComment', render: (d, t) => textCell(d, t) },
+				{ data: 'needShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'branchTitle', render: (d, t) => textCell(d, t) },
+				{ data: 'salesExpertName', render: (d, t) => textCell(d, t) },
+				{ data: 'supplyCommentShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'supplyComment', render: (d, t) => textCell(d, t) },
+				{ data: 'stopStatusTitle', render: (d, t) => textCell(d, t) },
+				{ data: 'days', className: 'text-center fw-bold', render: (d, t) => numberCell(d, t) }
+			]
+		});
+
+		table.on('draw', renderVisuals);
+	}
+
+	function loadReport() {
+		$loadButton.prop('disabled', true);
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, {}, function (response) {
+			$loadButton.prop('disabled', false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			const rows = (response && response.data !== undefined ? response.data : response) || [];
+			table.clear().rows.add(rows).draw();
+		});
+	}
+
+	function exportExcel() {
+		const output = filteredRows().map(row => ({
+			'شماره درخواست': row.purchaseRequestNumber,
+			'تاریخ درخواست': row.purchaseRequestShamsiDate,
+			'کد کالا': row.partCode,
+			'نام کالا': row.partName,
+			'واحد کالا': row.partUnitTitle,
+			'تعداد درخواست': row.requiredQty,
+			'توضیحات': row.orderItemComment,
+			'تاریخ نیاز': row.needShamsiDate,
+			'شماره سفارش ساخت': row.productionOrderNumber,
+			'دپارتمان فروش': row.branchTitle,
+			'کارشناس فروش': row.salesExpertName,
+			'تاریخ توضیحات تدارکات': row.supplyCommentShamsiDate,
+			'توضیحات تدارکات': row.supplyComment,
+			'وضعیت توقف': row.stopStatusTitle,
+			'میزان تاخیر در تعیین تکلیف توقف (روز)': row.days
+		}));
+
+		if (!output.length) {
+			toastr.warning('داده‌ای برای خروجی وجود ندارد.', 'هشدار');
+			return;
+		}
+
+		const worksheet = XLSX.utils.json_to_sheet(output);
+		const workbook = XLSX.utils.book_new();
+		workbook.Workbook = { Views: [{ RTL: true }] };
+		XLSX.utils.book_append_sheet(workbook, worksheet, 'StoppedPurchases');
+		XLSX.writeFile(workbook, 'StoppedPurchases-' + todayShamsi.replaceAll('/', '') + '.xlsx');
+	}
+
+	$loadButton.on('click', loadReport);
+	$exportButton.on('click', exportExcel);
+
+	initTable();
+	loadReport();
+</script>

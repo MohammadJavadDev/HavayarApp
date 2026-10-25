@@ -1,0 +1,369 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "گزارش محصولات آماده ارسال";
+	var todayShamsi = DateTime.Today.ToShamsiDate();
+}
+
+<style>
+	#readyForShippingPage .adb-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#readyForShippingPage .adb-summary-card {
+		min-height: 92px;
+	}
+
+	#readyForShippingPage svg text {
+		font-family: inherit !important;
+	}
+
+	#readyForShippingPage .adb-truncate {
+		display: block;
+		max-width: 260px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+</style>
+
+<div id="readyForShippingPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">گزارش محصولات آماده ارسال</h3>
+					<div class="text-muted fs-7">
+						سفارشاتی که مرحله ساخت تمام تجهیزات وضعیت 0 آن‌ها آماده ارسال است؛ ماندگاری در انبار = امروز − تاریخ آماده سازی
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadReadyForShipping">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+				<button type="button" class="btn btn-sm btn-light-success" id="btnExportReadyForShipping">
+					<i class="fa fa-file-excel"></i> اکسل
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">از تاریخ آماده سازی</label>
+				<input class="form-control ltr" id="readyForShippingFromDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تا تاریخ آماده سازی</label>
+				<input class="form-control ltr" id="readyForShippingToDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">تعداد کل اقلام</div>
+					<div class="adb-summary-value" id="rfsCount">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">میانگین ماندگاری در انبار (روز)</div>
+					<div class="adb-summary-value" id="rfsAverageDays">-</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card adb-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">بیشترین ماندگاری در انبار (روز)</div>
+					<div class="adb-summary-value" id="rfsMaxDays">-</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">سهم دپارتمان‌های فروش</h3>
+			<div class="card-toolbar text-muted fs-7">برای فیلتر جدول روی سهم هر دپارتمان کلیک کنید</div>
+		</div>
+		<div class="card-body">
+			<div id="rfsBranchChart" style="min-height:380px"></div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-header align-items-center">
+			<h3 class="card-title mb-0">اقلام آماده ارسال</h3>
+			<div class="card-toolbar">
+				<span class="badge badge-light-primary fs-7 d-none" id="rfsBranchFilterBadge">
+					<span id="rfsBranchFilterText"></span>
+					<a href="javascript:void(0)" class="ms-2 text-danger" data-action="clearBranchFilter" title="حذف فیلتر">
+						<i class="fa fa-times"></i>
+					</a>
+				</span>
+			</div>
+		</div>
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table id="rfsTable"
+					class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th>دپارتمان فروش</th>
+							<th>شماره سفارش ساخت</th>
+							<th>نام مشتری</th>
+							<th>کد کالا</th>
+							<th>شرح کالا</th>
+							<th>تعداد</th>
+							<th>مرحله ساخت</th>
+							<th>تاریخ ارسال به صنایع</th>
+							<th>تاریخ آماده سازی</th>
+							<th>ماندگاری در انبار (روز)</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Dashboard/AnalyticalDashboard/GetReadyForShippingData';
+	const todayShamsi = '@todayShamsi';
+	const branchColumnIndex = 0;
+	const daysColumnIndex = 9;
+
+	const $page = $$('#readyForShippingPage');
+	const $fromDate = $$('#readyForShippingFromDate');
+	const $toDate = $$('#readyForShippingToDate');
+	const $loadButton = $$('#btnLoadReadyForShipping');
+	const $exportButton = $$('#btnExportReadyForShipping');
+
+	let rows = [];
+	let selectedBranch = null;
+	let branchChart = null;
+	let table = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function textCell(value, type) {
+		if (type !== 'display') return value == null ? '' : value;
+		const text = (value === null || value === undefined || value === '') ? '-' : String(value);
+		return '<span class="adb-truncate" title="' + escapeHtml(text).replace(/"/g, '&quot;') + '">' + escapeHtml(text) + '</span>';
+	}
+
+	function numberCell(value, type, fractionDigits) {
+		if (type === 'sort' || type === 'type') return value == null ? -Infinity : Number(value);
+		if (type !== 'display') return value == null ? '' : value;
+		return formatNumber(value, fractionDigits);
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function filteredRows() {
+		return table ? table.rows({ search: 'applied' }).data().toArray() : [];
+	}
+
+	function renderSummary() {
+		const visibleRows = filteredRows();
+		const days = visibleRows.map(r => r.days).filter(d => d !== null && d !== undefined);
+		const average = days.length ? days.reduce((sum, d) => sum + d, 0) / days.length : null;
+
+		$$('#rfsCount').text(formatNumber(visibleRows.length));
+		$$('#rfsAverageDays').text(formatNumber(average, 1));
+		$$('#rfsMaxDays').text(days.length ? formatNumber(Math.max.apply(null, days)) : '-');
+	}
+
+	function renderBranchChart() {
+		const counts = {};
+		rows.forEach(function (row) {
+			counts[row.branchTitle] = (counts[row.branchTitle] || 0) + 1;
+		});
+
+		const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+		const options = {
+			chart: {
+				type: 'pie',
+				height: 380,
+				fontFamily: 'inherit',
+				events: {
+					dataPointSelection: function (_event, _context, config) {
+						const label = config.w.globals.labels[config.dataPointIndex];
+						applyBranchFilter(selectedBranch === label ? null : label);
+					}
+				}
+			},
+			labels: labels,
+			series: labels.map(l => counts[l]),
+			legend: { position: 'left', fontSize: '12px' },
+			dataLabels: {
+				formatter: function (value) { return Number(value).toFixed(1) + '%'; }
+			},
+			tooltip: {
+				y: {
+					formatter: function (value) { return formatNumber(value) + ' ردیف'; }
+				}
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+
+		if (branchChart) {
+			branchChart.updateOptions(options);
+			return;
+		}
+
+		branchChart = new ApexCharts($$('#rfsBranchChart')[0], options);
+		branchChart.render();
+	}
+
+	function applyBranchFilter(branchTitle) {
+		selectedBranch = branchTitle;
+
+		const search = branchTitle ? '^' + $.fn.dataTable.util.escapeRegex(branchTitle) + '$' : '';
+		table.column(branchColumnIndex).search(search, true, false).draw();
+
+		if (branchTitle) {
+			$$('#rfsBranchFilterText').text('دپارتمان فروش: ' + branchTitle);
+			$$('#rfsBranchFilterBadge').removeClass('d-none');
+		} else {
+			$$('#rfsBranchFilterBadge').addClass('d-none');
+		}
+	}
+
+	function initTable() {
+		table = $$('#rfsTable').DataTable({
+			data: [],
+			searching: true,
+			pageLength: 25,
+			lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'همه']],
+			scrollX: true,
+			autoWidth: false,
+			order: [[daysColumnIndex, 'desc']],
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			columns: [
+				{ data: 'branchTitle', render: (d, t) => textCell(d, t) },
+				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'customerName', render: (d, t) => textCell(d, t) },
+				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'partName', render: (d, t) => textCell(d, t) },
+				{ data: 'amount', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },
+				{ data: 'productionStepTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
+				{ data: 'sendToIndustrialShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'preparationShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
+				{ data: 'days', className: 'text-center fw-bold', render: (d, t) => numberCell(d, t) }
+			]
+		});
+
+		table.on('draw', renderSummary);
+	}
+
+	function getFilter() {
+		return {
+			fromDateShamsi: $fromDate.val() || null,
+			toDateShamsi: $toDate.val() || null
+		};
+	}
+
+	function loadReport() {
+		$loadButton.prop('disabled', true);
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, getFilter(), function (response) {
+			$loadButton.prop('disabled', false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			rows = (response && response.data !== undefined ? response.data : response) || [];
+			table.clear().rows.add(rows);
+			applyBranchFilter(null);
+			whenApexReady(renderBranchChart);
+		});
+	}
+
+	function exportExcel() {
+		const output = filteredRows().map(row => ({
+			'دپارتمان فروش': row.branchTitle,
+			'شماره سفارش ساخت': row.productionOrderNumber,
+			'نام مشتری': row.customerName,
+			'کد کالا': row.partCode,
+			'شرح کالا': row.partName,
+			'تعداد': row.amount,
+			'مرحله ساخت': row.productionStepTitle,
+			'تاریخ ارسال به صنایع': row.sendToIndustrialShamsiDate,
+			'تاریخ آماده سازی': row.preparationShamsiDate,
+			'ماندگاری در انبار (روز)': row.days
+		}));
+
+		if (!output.length) {
+			toastr.warning('داده‌ای برای خروجی وجود ندارد.', 'هشدار');
+			return;
+		}
+
+		const worksheet = XLSX.utils.json_to_sheet(output);
+		const workbook = XLSX.utils.book_new();
+		workbook.Workbook = { Views: [{ RTL: true }] };
+		XLSX.utils.book_append_sheet(workbook, worksheet, 'ReadyForShipping');
+		XLSX.writeFile(workbook, 'ReadyForShipping-' + todayShamsi.replaceAll('/', '') + '.xlsx');
+	}
+
+	$loadButton.on('click', loadReport);
+	$exportButton.on('click', exportExcel);
+	$page.on('click', '[data-action="clearBranchFilter"]', function () {
+		applyBranchFilter(null);
+	});
+
+	initTable();
+	loadReport();
+</script>
