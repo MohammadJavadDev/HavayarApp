@@ -40,7 +40,7 @@ namespace WebApp.ViewModels.Dashboard
 		public string? PartCode { get; set; }
 		public string? PartName { get; set; }
 		public string? PartUnitTitle { get; set; }
-		public int RequiredQty { get; set; }
+		public decimal RequiredQty { get; set; }
 		public string? OrderItemComment { get; set; }
 		public string? NeedShamsiDate { get; set; }
 		public int? ProductionOrderNumber { get; set; }

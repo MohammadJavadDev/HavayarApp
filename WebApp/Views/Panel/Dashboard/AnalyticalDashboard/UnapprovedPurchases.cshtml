@@ -286,7 +286,7 @@
 				{ data: 'partCode', className: 'text-center', render: (d, t) => textCell(d, t) },
 				{ data: 'partName', render: (d, t) => textCell(d, t) },
 				{ data: 'partUnitTitle', className: 'text-center', render: (d, t) => textCell(d, t) },
-				{ data: 'requiredQty', className: 'text-center', render: (d, t) => numberCell(d, t) },
+				{ data: 'requiredQty', className: 'text-center', render: (d, t) => numberCell(d, t, 2) },
 				{ data: 'orderItemComment', render: (d, t) => textCell(d, t) },
 				{ data: 'needShamsiDate', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
 				{ data: 'productionOrderNumber', className: 'text-center', render: (d, t) => t === 'display' ? escapeHtml(d || '-') : d },
