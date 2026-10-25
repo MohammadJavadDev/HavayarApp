@@ -17,6 +17,7 @@ namespace App.BackgroundJob.Jobs.Sec
 	/// <summary>
 	/// معادل HTS <c>DabirkhanehTask</c> / <c>DabirkhanehEmails.SendBirthEmailNew</c> و <c>SendEmploymentEmailNew</c>.
 	/// زمان‌بندی: هر ۳۰ دقیقه، ساعت ۲ تا ۱۷.
+	/// فرستنده مثل HTS صندوق <c>hr@havayar.com</c> است، نه IT Support. گروه‌های co@ / everyone@ / factory@ نامهٔ IT Support را تحویل نمی‌دهند.
 	/// </summary>
 	public class DabirkhanehEmailJob(
 		IUnitOfWork unitOfWork,
@@ -435,7 +436,9 @@ AND es.EmployeeStatuteID = (
 
 			using var message = new MailMessage
 			{
-				From = new MailAddress(settings.FromAddress, settings.FromDisplayName),
+				From = string.IsNullOrWhiteSpace(settings.FromDisplayName)
+					? new MailAddress(settings.FromAddress)
+					: new MailAddress(settings.FromAddress, settings.FromDisplayName),
 				Subject = subject,
 				IsBodyHtml = true
 			};
@@ -447,7 +450,8 @@ AND es.EmployeeStatuteID = (
 			using var client = new SmtpClient(settings.SmtpHost, settings.SmtpPort)
 			{
 				EnableSsl = settings.EnableSsl,
-				DeliveryMethod = SmtpDeliveryMethod.Network
+				DeliveryMethod = SmtpDeliveryMethod.Network,
+				UseDefaultCredentials = false
 			};
 			if (settings.Username.HasValue())
 				client.Credentials = new NetworkCredential(settings.Username, settings.Password ?? string.Empty);
@@ -455,15 +459,28 @@ AND es.EmployeeStatuteID = (
 			await client.SendMailAsync(message, cn);
 		}
 
+		/// <summary>
+		/// معادل overload دبیرخانه در HTS <c>UtilityHelper.SendEmail</c>:
+		/// احراز هویت و From هر دو hr@havayar.com، هاست mail1، پورت ۵۸۷.
+		/// بخش عمومی Email (IT Support) را نمی‌خواند.
+		/// </summary>
 		private static EmailSettings ReadEmailSettings(IConfiguration configuration) => new()
 		{
-			SmtpHost = configuration["Email:SmtpHost"] ?? "mail2.havayar.com",
-			SmtpPort = int.TryParse(configuration["Email:SmtpPort"], out var port) ? port : 25,
-			EnableSsl = bool.TryParse(configuration["Email:EnableSsl"], out var ssl) && ssl,
-			Username = configuration["Email:Username"],
-			Password = configuration["Email:Password"],
-			FromAddress = configuration["Email:FromAddress"] ?? "noreply@havayar.com",
-			FromDisplayName = configuration["Email:FromDisplayName"] ?? "سامانه هوایار"
+			SmtpHost = configuration["DabirkhanehEmail:SmtpHost"].HasValue()
+				? configuration["DabirkhanehEmail:SmtpHost"]!
+				: "mail1.havayar.com",
+			SmtpPort = int.TryParse(configuration["DabirkhanehEmail:SmtpPort"], out var port) ? port : 587,
+			EnableSsl = bool.TryParse(configuration["DabirkhanehEmail:EnableSsl"], out var ssl) && ssl,
+			Username = configuration["DabirkhanehEmail:Username"].HasValue()
+				? configuration["DabirkhanehEmail:Username"]
+				: "hr@havayar.com",
+			Password = configuration["DabirkhanehEmail:Password"].HasValue()
+				? configuration["DabirkhanehEmail:Password"]
+				: "Hh@09876",
+			FromAddress = configuration["DabirkhanehEmail:FromAddress"].HasValue()
+				? configuration["DabirkhanehEmail:FromAddress"]!
+				: "hr@havayar.com",
+			FromDisplayName = configuration["DabirkhanehEmail:FromDisplayName"] ?? string.Empty
 		};
 
 		private sealed class SecEmailCandidate

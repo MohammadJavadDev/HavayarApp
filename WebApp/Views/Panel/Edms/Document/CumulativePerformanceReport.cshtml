@@ -1,0 +1,93 @@
+@{
+	ViewData["Title"] = "گزارش تجمعی عملکرد/فعالیت";
+}
+
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="card-title mb-0">گزارش تجمعی عملکرد/فعالیت</h3>
+	</div>
+	<div class="card-body row g-3 align-items-end">
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label">از تاریخ</label>
+			<input class="form-control" id="cprFromDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"persianDigit":false}' />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label">تا تاریخ</label>
+			<input class="form-control" id="cprToDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"persianDigit":false}' />
+		</div>
+		<div class="col-md-2">
+			<button type="button" class="btn btn-primary w-100" data-action="cprSearch">
+				<i class="fa fa-search"></i> جستجو
+			</button>
+		</div>
+	</div>
+</div>
+
+<div id="cprSummary" class="px-2 pb-2 fw-semibold"></div>
+
+<datatableprofile unicode="entities.app.edms.cumulativeperformancereport" profile-names="Edms_CumulativePerformanceReport"></datatableprofile>
+
+<script>
+	function minToHourMin(input, hourLength) {
+		const isMinus = input < 0;
+		input = Math.abs(Number(input) || 0);
+		hourLength = hourLength || 5;
+		const hour = Math.floor(input / 60);
+		const min = Math.abs(input) % 60;
+		let result = String('000' + hour).slice(-hourLength) + ':' + String('00' + min).slice(-2);
+		if (isMinus) result = '-' + result;
+		return result;
+	}
+
+	function updateCumulativeSummary() {
+		const $summary = $$('#cprSummary');
+		const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+		if (!table || !table.rows) {
+			$summary.text('');
+			return;
+		}
+
+		const rows = table.rows({ page: 'current' }).data().toArray();
+		if (!rows.length) {
+			$summary.text('');
+			return;
+		}
+
+		const first = rows[0] || {};
+		const performanceSum = Number(first.t1_PerformanceSum || 0);
+		const activitySum = Number(first.t1_ActivitySum || 0);
+		$summary.text('جمع عملکرد: ' + minToHourMin(performanceSum, 5) + '    جمع فعالیت: ' + minToHourMin(activitySum, 5));
+	}
+
+	function normalizeShamsiDate(value) {
+		let text = value == null ? '' : String(value);
+		if (typeof MJUtil !== 'undefined' && MJUtil.toEnglishNumbers)
+			text = MJUtil.toEnglishNumbers(text) || '';
+		text = String(text).trim().replace(/-/g, '/');
+		const match = text.match(/^(\d{4}\/\d{1,2}\/\d{1,2})/);
+		return match ? match[1] : '';
+	}
+
+	page.$pageEl.on('click', '[data-action="cprSearch"]', function () {
+		const fromDate = normalizeShamsiDate($$('#cprFromDate').val());
+		const toDate = normalizeShamsiDate($$('#cprToDate').val());
+		if (!fromDate && !toDate) {
+			toastr.warning('حداقل یکی از تاریخ‌ها را وارد کنید', 'هشدار');
+			return;
+		}
+
+		const $select = $$('[data-action="dataProfile"]');
+		$select.attr('data-query-params', JSON.stringify({ FromDate: fromDate, ToDate: toDate }));
+
+		const table = $select.data('dtProfileTable') || self.table;
+		if (table && table.ajax) {
+			table.ajax.reload(function () { updateCumulativeSummary(); }, false);
+		}
+	});
+
+	page.$pageEl.on('draw.dt', '#itemsTable', function () {
+		updateCumulativeSummary();
+	});
+</script>

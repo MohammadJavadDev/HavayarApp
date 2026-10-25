@@ -1,6 +1,8 @@
 using Common.Attributes;
 using Common.Auth.Enums;
+using Data;
 using Data.Contracts;
+using WebApp.Actions.Sale;
 using Entities.App.Sale;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +16,7 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("اعزام کارشناس", typeof(ServiceRequestExpertMission))]
-	public class ServiceRequestExpertMissionController(IUnitOfWork unitOfWork, IWebHostEnvironment env) : BaseController
+	public class ServiceRequestExpertMissionController(IUnitOfWork unitOfWork, IWebHostEnvironment env, ApplicationDbContext db) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -68,8 +70,10 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("لیست وابسته", ActionAccessType.View, ActionAccessItemType.List)]
-		public IActionResult ListByParentId(long serviceRequestId)
+		public async Task<IActionResult> ListByParentId(long serviceRequestId, CancellationToken cn)
 		{
+			if (await AgencyCannotSeeAsync(serviceRequestId, cn))
+				return View(@"\Views\Panel\Sale\ServiceRequest\AccessDenied.cshtml");
 			ViewBag.ParentId = serviceRequestId;
 			return View(@"\Views\Panel\Sale\ServiceRequestExpertMission\ListByParentId.cshtml");
 		}
@@ -80,6 +84,8 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (serviceRequestId == null || serviceRequestId == 0)
 				return BadRequest("شناسه والد خالی است");
+			if (await AgencyCannotSeeAsync(serviceRequestId.Value, cn))
+				return BadRequest(ServiceRequestAgencyAccess.DeniedMessage);
 			var items = await unitOfWork.Repository<ServiceRequestExpertMission>().TableNoTracking
 				.Where(c => c.ServiceRequestId == serviceRequestId)
 				.Select(c => new
@@ -114,5 +120,11 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("دریافت اطلاعات", ActionAccessType.Api, ActionAccessItemType.FetchData)]
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 			=> Ok(await unitOfWork.Repository<ServiceRequestExpertMission>().FetchDataAsync(request, cn));
+
+		private bool IsAgencyViewer()
+			=> !IsAdministrator && CurrentUserHasAnyRole("نمایندگی ها", "نمایندگان فروش");
+
+		private Task<bool> AgencyCannotSeeAsync(long serviceRequestId, CancellationToken cn)
+			=> ServiceRequestAgencyAccess.IsHiddenFromAgencyAsync(db, IsAgencyViewer(), CurrentUserId, serviceRequestId, cn);
 	}
 }

@@ -1,4 +1,4 @@
-﻿@using Common.Utilities
+@using Common.Utilities
 @using Data.SystemAuth
 @using Entities.App.Inv;
 @using Entities.App.Sale;
@@ -15,7 +15,15 @@
 	// پرچم‌های نمایش دکمه از ProductionOrderItemController.Edit / New (معادل HTS؛ مخفی نه فقط disabled)
 	var canSaveItem = ViewBag.CanSaveItem as bool? ?? false;
 	var canChangeStatus = ViewBag.CanChangeStatus as bool? ?? false;
-	var canAcceptEngineering = ViewBag.CanAcceptEngineering as bool? ?? false;
+	var engineeringPending = !newMode
+		&& Model?.CheckStatus == ProductionOrderItemCheckStatusEnum.MechanicalEngineeringApprovalPending;
+	var isElectricalForEngineering = ProductionOrderItemWorkflowRules.IsElectrical(Model?.DeviceType);
+	var hasEngineeringRole = isAdmin || sdk.HasRole(isElectricalForEngineering
+		? "Sale.ProductionOrderItem.AcceptEngineeringElectrical"
+		: "Sale.ProductionOrderItem.AcceptEngineeringMechanical");
+	var canAcceptEngineering = engineeringPending && (
+		hasEngineeringRole
+		|| ViewData["CanAcceptEngineering"] is bool engineeringConfirmed && engineeringConfirmed);
 	var canAcceptProjectManager = ViewBag.CanAcceptProjectManager as bool? ?? false;
 	var canSendInquiryResult = ViewBag.CanSendInquiryResult as bool? ?? false;
 	var canCommitteeDecide = ViewBag.CanCommitteeDecide as bool? ?? false;
@@ -28,9 +36,13 @@
 
 	//Seed Role => Sale.ProductionOrderItemBom => Bom اقلام سفارش ساخت (صفحه HTS 508)
 	var canManageBom = isAdmin || sdk.HasRole(ProductionOrderItemController.BomManageRoleName);
-	//Seed Role => تکمیل اطلاعات bom اقلام سفارش ساخت صنایع => فقط فیلدهای جدید BOM
+	//Seed Role => تکمیل اطلاعات bom اقلام سفارش ساخت صنایع (Name=Title) => مشاهده BOM + فیلدهای صنایع
 	var canEditBomNewFields = isAdmin || sdk.HasRole(ProductionOrderItemController.BomNewFieldsRoleName);
-	var canOpenBom = canManageBom || canEditBomNewFields;
+	//Seed Role => Sale.ProductionOrderItemBom.View => مشاهده لیست، بدون ویرایش و حذف
+	var canViewBom = isAdmin || sdk.HasRole(ProductionOrderItemController.BomViewRoleName);
+	// ذی‌نفع سفارش (کارشناس فروش، مدیر فروش، کارشناس جایگزین، مدیر پروژه) بر اساس سمت، بدون نیاز به نقش BOM
+	var isBomStakeholder = ViewBag.IsBomStakeholder as bool? ?? false;
+	var canOpenBom = canManageBom || canEditBomNewFields || canViewBom || isBomStakeholder;
 
 	// پیوست‌های سربرگ سفارش ساخت (معادل دکمه «دانلود پیوست سفارش» ریبون اقلام در HTS)
 	var po = Model?.ProductionOrder;
@@ -49,6 +61,13 @@
 						save-btn="@canSaveItem"
 						save-and-close-btn="@canSaveItem"
 						save-and-new-btn="false">
+			@if (canAcceptEngineering)
+			{
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-check"
+				action-name="acceptEngineeringApprove" title="تایید مهندسی"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-times"
+				action-name="acceptEngineeringReject" title="رد مهندسی"></form-action-button>
+			}
 			@if (canChangeStatus)
 			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-exchange"
@@ -67,11 +86,6 @@
 			{
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-sitemap"
 							action-name="viewBom" title="Bom محصول"></form-action-button>
-			}
-			@if (canAcceptEngineering)
-			{
-			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-user-cog"
-				action-name="acceptEngineering" title="تایید/رد مهندسی"></form-action-button>
 			}
 			@if (canAcceptProjectManager)
 			{
@@ -195,6 +209,12 @@
 		 
 					<label class='text-muted d-block  ' style="font-size: 0.9rem;">تاریخ تحویل توافقی</label>
 					<span class='fw-semibold fs-6' data-bind='agreedDeliverDate'>@(Model?.AgreedDeliverDate?.ToString("yyyy/MM/dd") ?? "-")</span>
+				 
+			</div>
+		     	<div class='col-md-3 form-group-inline'>
+		 
+					<label class='text-muted d-block  ' style="font-size: 0.9rem;">تاریخ تحویل توافقی شمسی</label>
+					<span class='fw-semibold fs-6' data-bind='agreedDeliverShamsiDate'>@(string.IsNullOrWhiteSpace(Model?.AgreedDeliverShamsiDate) ? "-" : Model.AgreedDeliverShamsiDate)</span>
 				 
 			</div>
 		     	<div class='col-md-3 form-group-inline'>
@@ -353,7 +373,7 @@
 					<label class=''>سفارش ساخت</label>
 						@(Html.EntitySelector<ProductionOrder>(
 											"ProductionOrderSelector",
-											c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+											c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.HamkaranId == null,
 											c => new
 											{
 												Id = c.Id,
@@ -441,6 +461,7 @@
 					<label class=''>نوع سریال</label>
 					<select class='form-control' data-bind='serialType' asp-for='SerialType'
 						   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Sale.Enums.ProductionOrderItemSerialTypeEnum))">
+						<option value=""></option>
 					</select>
 					<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 				</div>
@@ -639,7 +660,7 @@
 	});
 
 	//#region Accept/Reject Engineering
-	self.FormActionButtons.acceptEngineering && self.FormActionButtons.acceptEngineering.onclick(function () {
+	function openEngineeringDecision(defaultDecision, title) {
 		const id = currentProductionOrderItemId();
 		if (!id || id == '0') {
 			toastr.error('ابتدا اقلام سفارش ساخت را ذخیره کنید');
@@ -652,7 +673,7 @@
 		}
 
 		$.confirm({
-			title: 'تایید/رد مهندسی',
+			title: title,
 			content: `
 				<div class="row">
 					<div class="col-12 mb-3">
@@ -669,6 +690,9 @@
 					</div>
 				</div>`,
 			rtl: true,
+			onContentReady: function () {
+				this.$content.find('#engineeringDecisionSelect').val(String(defaultDecision));
+			},
 			buttons: {
 				submit: {
 					text: 'ثبت',
@@ -692,6 +716,13 @@
 				}
 			}
 		});
+	}
+
+	self.FormActionButtons.acceptEngineeringApprove && self.FormActionButtons.acceptEngineeringApprove.onclick(function () {
+		openEngineeringDecision(1, 'تایید مهندسی');
+	});
+	self.FormActionButtons.acceptEngineeringReject && self.FormActionButtons.acceptEngineeringReject.onclick(function () {
+		openEngineeringDecision(2, 'رد مهندسی');
 	});
 	//#endregion
 
@@ -1106,6 +1137,56 @@
 		});
 	}
 
+	// معادل HTS productionOrderItemOriginal_cmbProductionStatus_onChange و ValidatePropertyGrid.
+	// تاریخ و ساعت جدا نیستند؛ دیتاپیکر هر دو را می‌گیرد.
+	// پایان تولید (1789) و پایان بسته‌بندی (1791) فیلد تاریخ پایان را نشان می‌دهند.
+	// کامنت فقط برای 1795 و 1796 اجباری است. علت خرابی فقط برای 1796 اجباری است (برای 2226 فقط نمایش داده می‌شود).
+	function applyProductionStatusCommentFields($root) {
+		const status = String($root.find('[data-bind="productionStatus"]').val() || '');
+		const showStart = status === '1795' || status === '1790' || status === '2209' || status === '1796' || status === '2226';
+		const showEnd = status === '1843' || status === '1844' || status === '1842' || status === '2210' || status === '2227' || status === '1789' || status === '1791';
+		const showFailure = status === '1796' || status === '2226';
+		const commentRequired = status === '1795' || status === '1796';
+		const failureRequired = status === '1796';
+
+		const $start = $root.find('[data-poi-comment-field="start"]');
+		const $end = $root.find('[data-poi-comment-field="end"]');
+		const $failure = $root.find('[data-poi-comment-field="failure"]');
+		const $comment = $root.find('[data-bind="comment"]');
+		const $failureInput = $failure.find('[data-entity-selector]');
+
+		$start.toggleClass('d-none', !showStart);
+		$end.toggleClass('d-none', !showEnd);
+		$failure.toggleClass('d-none', !showFailure);
+
+		$comment.prop('required', commentRequired);
+		$root.find('[data-poi-comment-label]').toggleClass('required', commentRequired);
+		if (!commentRequired)
+			$comment.removeClass('border-danger border-success');
+
+		if (failureRequired)
+			$failureInput.attr('required', 'required');
+		else
+			$failureInput.removeAttr('required');
+		$root.find('[data-poi-failure-label]').toggleClass('required', failureRequired);
+		if (!failureRequired)
+			$failure.find('.border-danger, .border-success').removeClass('border-danger border-success');
+
+		if (!showStart)
+			$start.find('[data-bind="startShamsiDate"]').val('');
+
+		if (!showEnd)
+			$end.find('[data-bind="endShamsiDate"]').val('');
+
+		if (!showFailure) {
+			const selector = $failure.find('.entity-selector-wrapper').data('entitySelector');
+			if (selector && typeof selector.clearAll === 'function')
+				selector.clearAll();
+			else
+				$failure.find('[data-bind="FailureTypeIds"], [data-bind="FailureTypeNames"]').val('');
+		}
+	}
+
 	// Comment Modal Functions
 	function openCommentModal(commentId = null) {
 		const productionOrderItemId = $$('#changeDataSection [data-bind="id"]').val();
@@ -1167,7 +1248,8 @@
 				onContentReady: function () {
 					var self = this;
 					setTimeout(function () {
-						initPersionDatePicker(self.$body);
+						applyProductionStatusCommentFields(self.$body);
+						initPersionDatePicker(self.$body.find('[data-poi-comment-field]:not(.d-none)'));
 						// Fix select2 dropdowns in modal (EntitySelectors)
 						self.$body.find('select.select2-hidden-accessible').each(function() {
 							const $select = $$(this);
@@ -1182,45 +1264,11 @@
 								$select.val($select.val()).trigger('change');
 							}
 						});
-						 
-						// self.$body.find("[data-bind=productionStatus]").change(function(){
-						// 	var status = $(this).val();
 
-
-
-						// 	var $startShamsiDateEl = self.$body.find("[data-bind=startShamsiDate]").closest(".col-md-6").addClass("d-none");
-						// 	var $endShamsiDateEl = self.$body.find("[data-bind=endShamsiDate]").closest(".col-md-6").addClass("d-none");
-						// 	var $FailureTypeIdsEl= self.$body.find("[data-bind=FailureTypeIds]").closest(".col-md-6").addClass("d-none");
-
-						// 	switch(status){
-						// 		case "1795":
-						// 		case "1790":
-						// 		case "2209":
-						// 		 $startShamsiDateEl.removeClass("d-none");
-
-						// 		break;
-
-						// 		 case "1843":
-						// 		 case "1844":
-						// 		 case "1842":
-						// 		 case "2210":
-						// 		 case "2227":
-						// 		 case "1789":
-						// 		case "1791":
-						// 		 $endShamsiDateEl.removeClass("d-none");
-						// 		 break;
-
-						// 		case "1796":
-						// 		case "2226":
-						// 		$startShamsiDateEl.removeClass("d-none");
-						// 		$FailureTypeIdsEl.removeClass("d-none");
-						// 		break;
-
-						// 		default:
-						// 		break;
-						// 	}
-
-						// })
+						self.$body.find('[data-bind="productionStatus"]').off('change.poiStatus').on('change.poiStatus', function () {
+							applyProductionStatusCommentFields(self.$body);
+							initPersionDatePicker(self.$body.find('[data-poi-comment-field]:not(.d-none)'));
+						});
 
 					}, 100);
 				},

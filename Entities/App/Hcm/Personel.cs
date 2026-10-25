@@ -155,6 +155,13 @@ namespace Entities.App.Hcm
 
 		public long? JobId { get; set; }
 
+		[DisplayName("پست سازمانی")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		[ForeignKey(nameof(OrgPostId))]
+		public virtual OrgPost? OrgPost { get; set; }
+
+		public long? OrgPostId { get; set; }
+
 	}
 
 	public class PersonelConfiguration : IEntityTypeConfiguration<Personel>
@@ -164,6 +171,11 @@ namespace Entities.App.Hcm
 			builder.HasOne(x => x.Job)
 				.WithMany()
 				.HasForeignKey(x => x.JobId)
+				.OnDelete(DeleteBehavior.Restrict);
+
+			builder.HasOne(x => x.OrgPost)
+				.WithMany()
+				.HasForeignKey(x => x.OrgPostId)
 				.OnDelete(DeleteBehavior.Restrict);
 		}
 	}

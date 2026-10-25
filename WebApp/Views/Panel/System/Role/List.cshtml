@@ -1,5 +1,27 @@
 ﻿@using Entities.Auth
 
+<div class="d-flex mb-3">
+	<button type="button" class="btn btn-sm btn-light-primary" data-action="refreshAccessCache">
+		<i class="fa fa-refresh ms-1"></i>
+		بروزرسانی کش دسترسی
+	</button>
+</div>
 
 <datatableprofile entity-type="typeof(Role)"></datatableprofile>
- 
+
+<script>
+	page.$pageEl.on('click', '[data-action="refreshAccessCache"]', function () {
+		const $btn = $(this).block();
+
+		$$.post('/panel/Role/RefreshAccessCache', {}, function (r) {
+			$btn.block(false);
+
+			if (!r || !r.isSuccess) {
+				toastr.error((r && r.message) || 'بروزرسانی کش انجام نشد', 'خطا');
+				return;
+			}
+
+			toastr.success('کش دسترسی بروزرسانی شد');
+		});
+	});
+</script>

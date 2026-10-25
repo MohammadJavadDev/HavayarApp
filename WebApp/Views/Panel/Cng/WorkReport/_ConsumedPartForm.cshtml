@@ -1,16 +1,42 @@
 @using Entities.App.Cng
+@using Entities.App.SLS
+@using Entities.Base
 @model WorkReportConsumedPart
 @{
 	Layout = null;
+	string presetCustomerId = null;
+	object rawCustomerId = ViewBag.CustomerId;
+	if (rawCustomerId != null)
+	{
+		var text = Convert.ToString(rawCustomerId, System.Globalization.CultureInfo.InvariantCulture);
+		if (!string.IsNullOrWhiteSpace(text) && text != "0")
+			presetCustomerId = text;
+	}
 }
 
 <input type="hidden" data-bind="id" value="@Model?.Id" />
 <input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
 
 <div class="row g-3">
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold required">مشتری</label>
+		@(Html.EntitySelector<Customer>(
+			"CngWorkReportConsumedCustomerSelector",
+			c => c.IsActive == IsActiveEnum.Active,
+			c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+			c => new { c.Party.FullName, c.Code },
+			"{Code} {Party.FullName}",
+			"consumedCustomerId",
+			"consumedCustomerTitle",
+			presetCustomerId,
+			true
+		))
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
 	<div class="col-md-6 form-group-inline">
 		<label class="form-label fw-bold">شماره فرم حواله</label>
-		<select class="form-select" data-bind="saleOrderId">
+		<input type="text" class="form-control mb-2" data-role="saleOrderFilter" placeholder="جستجوی شماره یا تاریخ حواله" autocomplete="off" />
+		<select class="form-select" data-bind="saleOrderId" size="8">
 			<option value="">انتخاب کنید</option>
 		</select>
 	</div>

@@ -94,6 +94,20 @@ namespace WebApp.Controllers.Dynamic
 			return View(@"\Views\Panel\Edms\Project\ProjectAttachmentList.cshtml");
 		}
 
+		[HttpGet("[action]")]
+		[ActionDisplayName("آرشیو اسناد ورودی پروژه", ActionAccessType.View, ActionAccessItemType.List)]
+		public IActionResult ProjectAttachmentArchive()
+		{
+			return View(@"\Views\Panel\Edms\Project\ProjectAttachmentArchive.cshtml");
+		}
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("گزارش پیشرفت پروژه", ActionAccessType.View, ActionAccessItemType.List)]
+		public IActionResult ProjectProgressReport()
+		{
+			return View(@"\Views\Panel\Edms\Project\ProjectProgressReport.cshtml");
+		}
+
 		[HttpPost("[action]")]
 		[ActionDisplayName("خروجی اکسل", ActionAccessType.Api)]
 		public async Task<IActionResult> ExportToExcel(DataTableRequest request, CancellationToken cn)

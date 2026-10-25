@@ -18,8 +18,9 @@ namespace Data
  		public DbSet<Hts_Inv_Part_Attachment_Permission> Hts_Inv_Part_Attachment_Permissions { get; set; }
  		public DbSet<Hts_Inv_Part_Company> Hts_Inv_Part_Companies { get; set; }
  		public DbSet<Hts_Inv_PartBookSection> Hts_Inv_PartBookSections { get; set; }
- 		public DbSet<Hts_Gnr_ManCompany> Hts_Gnr_ManCompanies { get; set; }
- 		public DbSet<Hts_Gnr_User> Hts_Gnr_Users { get; set; }
+		public DbSet<Hts_Gnr_ManCompany> Hts_Gnr_ManCompanies { get; set; }
+		public DbSet<Hts_Gnr_User> Hts_Gnr_Users { get; set; }
+		public DbSet<Hts_Gnr_UserGroupMember> Hts_Gnr_UserGroupMembers { get; set; }
  		public DbSet<Hts_HRM_Personel> Hts_HRM_Personels { get; set; }
  		public DbSet<Hts_HRM_OrgUnit> Hts_HRM_OrgUnits { get; set; }
  		public DbSet<Hts_Edms_Project> Hts_Edms_Projects { get; set; }
@@ -32,7 +33,6 @@ namespace Data
  		public DbSet<Hts_Edms_Document_Comment> Hts_Edms_Document_Comments { get; set; }
  		public DbSet<Hts_Pln_ProductionOrder> Hts_Pln_ProductionOrders { get; set; }
  		public DbSet<Hts_Pln_ProductionOrderItem> Hts_Pln_ProductionOrderItems { get; set; }
- 		public DbSet<Hts_Pln_ProductionOrderItemBom> Hts_Pln_ProductionOrderItemBoms { get; set; }
  		public DbSet<Hts_Pln_ProductionOrderComment> Hts_Pln_ProductionOrderComments { get; set; }
  		public DbSet<Hts_Pln_ProductionOrderItemComment> Hts_Pln_ProductionOrderItemComments { get; set; }
  		public DbSet<Hts_Sup_OpenOrderRequest> Hts_Sup_OpenOrderRequests { get; set; }

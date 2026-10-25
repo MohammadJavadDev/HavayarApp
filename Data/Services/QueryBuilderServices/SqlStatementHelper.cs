@@ -78,7 +78,9 @@ namespace Data.Services.QueryBuilderServices
 
 		/// <summary>
 		/// درج TOP n بلافاصله بعد از اولین کلمه SELECT یک دستور (در صورتی که از قبل TOP نداشته باشد
-		/// و دستور EXEC/EXECUTE نباشد). برای محدود کردن تعداد رکوردهای پیش‌نمایش استفاده می‌شود.
+		/// و دستور EXEC/EXECUTE یا آماده‌سازی DECLARE/SET نباشد). برای محدود کردن تعداد رکوردهای پیش‌نمایش استفاده می‌شود.
+		/// DECLARE/SET دست نخورده می‌مانند؛ زیرکوئری‌هایی مثل <c>SELECT TOP (1)</c> داخل مقداردهی متغیر
+		/// نباید به <c>SELECT TOP n TOP (1)</c> تبدیل شوند.
 		/// </summary>
 		public static string InjectTopN(string statement, int n)
 		{
@@ -93,19 +95,56 @@ namespace Data.Services.QueryBuilderServices
 				return statement.Substring(0, mainQueryIndex) + InjectTopN(mainQuery, n);
 			}
 
-			var trimmedUpper = statement.TrimStart().ToUpperInvariant();
-			if (trimmedUpper.StartsWith("EXEC"))
-				return statement;
-
-			if (Regex.IsMatch(statement, @"^\s*SELECT\s+TOP\b", RegexOptions.IgnoreCase))
+			var trimmedUpper = StripLeadingComments(statement).TrimStart().ToUpperInvariant();
+			if (trimmedUpper.StartsWith("EXEC")
+				|| trimmedUpper.StartsWith("DECLARE")
+				|| trimmedUpper.StartsWith("SET"))
 				return statement;
 
 			var match = Regex.Match(statement, @"\bSELECT\b(\s+DISTINCT\b)?", RegexOptions.IgnoreCase);
 			if (!match.Success)
 				return statement;
 
+			var afterSelect = statement.Substring(match.Index + match.Length);
+			if (Regex.IsMatch(afterSelect, @"^\s+TOP\b", RegexOptions.IgnoreCase))
+				return statement;
+
 			var insertAt = match.Index + match.Length;
 			return statement.Substring(0, insertAt) + $" TOP {n} " + statement.Substring(insertAt);
+		}
+
+		/// <summary>
+		/// حذف کامنت‌ها و فضای خالی ابتدای دستور تا کلمه کلیدی واقعی دیده شود.
+		/// </summary>
+		private static string StripLeadingComments(string sql)
+		{
+			var i = 0;
+			while (i < sql.Length)
+			{
+				while (i < sql.Length && char.IsWhiteSpace(sql[i]))
+					i++;
+
+				if (i + 1 < sql.Length && sql[i] == '-' && sql[i + 1] == '-')
+				{
+					i += 2;
+					while (i < sql.Length && sql[i] != '\n' && sql[i] != '\r')
+						i++;
+					continue;
+				}
+
+				if (i + 1 < sql.Length && sql[i] == '/' && sql[i + 1] == '*')
+				{
+					var end = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+					if (end < 0)
+						return string.Empty;
+					i = end + 2;
+					continue;
+				}
+
+				break;
+			}
+
+			return i >= sql.Length ? string.Empty : sql.Substring(i);
 		}
 
 		/// <summary>

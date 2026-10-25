@@ -233,6 +233,21 @@ INNER JOIN Sale.ProductionOrder a
 
 CREATE UNIQUE CLUSTERED INDEX IX_PoMap ON #PoMap (HtsPoId);
 
+/* ProjectManagerId: HTS FK is HRM_Personel (not Gnr_User); match system.User by NameFa = PrsName + PrsFamily. Fills NULL only. */
+UPDATE a
+SET a.ProjectManagerId = u.Id
+FROM #PoMap m
+INNER JOIN [TMS].[TotalSystem].[dbo].[Pln_ProductionOrder] h ON h.Id = m.HtsPoId
+INNER JOIN [TMS].[TotalSystem].[dbo].[HRM_Personel] pr ON pr.Personel_ID = h.ProjectManagerId
+INNER JOIN Sale.ProductionOrder a ON a.Id = m.AppPoId
+CROSS APPLY (
+    SELECT TOP 1 x.Id FROM system.[User] x
+    WHERE REPLACE(REPLACE(x.NameFa, NCHAR(0x064A), NCHAR(0x06CC)), NCHAR(0x0643), NCHAR(0x06A9))
+        = REPLACE(REPLACE(LTRIM(RTRIM(pr.PrsName)) + N' ' + LTRIM(RTRIM(pr.PrsFamily)), NCHAR(0x064A), NCHAR(0x06CC)), NCHAR(0x0643), NCHAR(0x06A9))
+    ORDER BY x.Id
+) u
+WHERE a.ProjectManagerId IS NULL;
+
 /* Collision Numbers: live App order — do not attach null-R history to them */
 IF OBJECT_ID(N'tempdb..#CollisionNumbers') IS NOT NULL DROP TABLE #CollisionNumbers;
 SELECT DISTINCT h.Number
@@ -373,6 +388,7 @@ INSERT INTO Sale.ProductionOrderItem
     Scale,
     HasInspection,
     AgreedDeliverDate,
+    AgreedDeliverShamsiDate,
     SalesConsideration,
     CheckStatus,
     Serial,
@@ -438,6 +454,7 @@ SELECT
     m.Scale,
     m.HasInspection,
     m.AgreedDeliverDate,
+    dbo.ToShamsiDate(CAST(m.AgreedDeliverDate AS date), N'/'),
     m.SalesConsideration,
     CASE WHEN m.BuyStatusId IS NULL THEN NULL ELSE CAST(m.BuyStatusId AS INT) END,
     m.Serial,

@@ -640,6 +640,12 @@ EDIT_JS = """function(ctx) {
     appController.addPage('%s/Edit?id=' + id, true, 'ویرایش');
 }"""
 
+PRINT_MISSION_JS = r"""function(ctx) {
+    var id = ctx && (ctx.primaryKeyValue || (ctx.primaryKeyValues && ctx.primaryKeyValues[0]) || (ctx.selectedRow && (ctx.selectedRow.t1_Id || ctx.selectedRow.id || ctx.selectedRow.Id)));
+    if (!id) { toastr.error('لطفاً یک ردیف را انتخاب کنید'); return; }
+    appController.addPage('/System/ReportBuilder/ViewReportByName/SaleMission?missionId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+}"""
+
 CHILD_JS = """function(ctx) {
     var id = ctx && (ctx.primaryKeyValue || (ctx.primaryKeyValues && ctx.primaryKeyValues[0]) || (ctx.selectedRow && ctx.selectedRow.t1_Id));
     if (!id) { toastr.error('لطفاً یک ردیف را انتخاب کنید'); return; }
@@ -670,6 +676,9 @@ def action_buttons(cls: str, kind: str) -> str:
         ):
             items.append(btn(f"as_sr_{i}", title, i, "btn-color-primary", "ki-exit-right-corner ki-outline",
                              CHILD_JS % (path, title), True))
+    if cls == "Mission" and kind == "List":
+        items.append(btn("as_print_mission", "چاپ ماموریت", "printMission", "btn-color-info",
+                         "ki-printer ki-outline", PRINT_MISSION_JS, True))
     if cls == "RepairRequest":
         for i, title, path, icon, color in (
             ("parts", "قطعات", "/Panel/Rpr/RepairRequestPart/ListByParentId?repairRequestId=",

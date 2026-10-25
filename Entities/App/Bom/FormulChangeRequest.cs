@@ -69,8 +69,9 @@ namespace Entities.App.Bom
 
 
 		[DisplayName("ضریب مصرف")]
-		[DisplayInfo(null, true, type: SystemType.Int)]
-		public int? UsingRate { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Decimal)]
+		[Column(TypeName = "decimal(18,4)")]
+		public decimal? UsingRate { get; set; }
 
 
 
@@ -102,8 +103,9 @@ namespace Entities.App.Bom
 		public string? ChangedFormulIds { get; set; }
 
 		[DisplayName("ضریب مصرف ویرایش شده")]
-		[DisplayInfo(null, true, type: SystemType.Int)]
-		public int? ChangedUsingRate { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Decimal)]
+		[Column(TypeName = "decimal(18,4)")]
+		public decimal? ChangedUsingRate { get; set; }
 
 
 

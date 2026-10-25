@@ -1,0 +1,35 @@
+@model Entities.App.Crm.CustomerComplaintContact
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="complaintId" value="@Model?.ComplaintId" />
+	<div class="col-md-4 form-group-inline">
+		<label>پیش شماره</label>
+		<input class="form-control" data-bind="prePhoneNumber" value="@Model?.PrePhoneNumber" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label>تلفن</label>
+		<input class="form-control" data-bind="phoneNumber" value="@Model?.PhoneNumber" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label>موبایل</label>
+		<input class="form-control" data-bind="mobileNumber" value="@Model?.MobileNumber" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label>پاسخ دهنده</label>
+		<input class="form-control" data-bind="responserFullName" value="@Model?.ResponserFullName" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label>شغل پاسخ دهنده</label>
+		<input class="form-control" data-bind="responserJob" value="@Model?.ResponserJob" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label>کامنت</label>
+		<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

@@ -197,14 +197,36 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		[HttpGet("[action]")]
+		public async Task<IActionResult> GetStationContext(long? stationInfoId, CancellationToken cn)
+		{
+			if (stationInfoId is null or 0)
+				return Ok(new { customerId = (long?)null, representativeName = (string?)null, representativeMobileNumber = (string?)null, representativeEmailAddress = (string?)null });
+			var row = await unitOfWork.Repository<StationInfo>().TableNoTracking
+				.Where(s => s.Id == stationInfoId)
+				.Select(s => new
+				{
+					customerId = s.CustomerId,
+					representativeName = s.RepresentativeName,
+					representativeMobileNumber = s.RepresentativeMobileNumber,
+					representativeEmailAddress = s.RepresentativeEmailAddress
+				})
+				.FirstOrDefaultAsync(cn);
+			if (row == null)
+				return Ok(new { customerId = (long?)null, representativeName = (string?)null, representativeMobileNumber = (string?)null, representativeEmailAddress = (string?)null });
+			return Ok(row);
+		}
+
+		[HttpGet("[action]")]
 		public async Task<IActionResult> GetSaleOrders(long? customerId, CancellationToken cn)
 		{
 			if (customerId is null or 0) return Ok(Array.Empty<object>());
+			// همان HTS GetSaleOrder: همه حواله‌های مشتری انتخاب‌شده، بدون سقف. مرتب‌سازی با تاریخ سند است نه شناسه.
 			var rows = await unitOfWork.Repository<Order>().TableNoTracking
 				.Where(o => o.CustomerId == customerId && o.IsActive == IsActiveEnum.Active)
-				.OrderByDescending(o => o.Id)
+				.OrderByDescending(o => o.VchDateMiladiDate)
+				.ThenByDescending(o => o.Id)
 				.Select(o => new { id = o.Id, htsVchNo = o.HtsVchNo, orderNumber = o.OrderNumber, vchDate = o.VchDateShamsiDate })
-				.Take(500).ToListAsync(cn);
+				.ToListAsync(cn);
 			return Ok(rows.Select(o => new { o.id, text = ((o.htsVchNo ?? o.orderNumber)?.ToString() ?? "") + " | " + (o.vchDate ?? "") }));
 		}
 
@@ -215,7 +237,7 @@ namespace WebApp.Controllers.Dynamic
 			var rows = await unitOfWork.Repository<OrderDetail>().TableNoTracking.Include(d => d.Part)
 				.Where(d => d.SaleOrderId == orderId && d.PartId != null && d.PartId > 0)
 				.Select(d => new { id = d.PartId, text = ((d.Part != null ? d.Part.Code : null) ?? "") + " | " + ((d.Part != null ? d.Part.Name : null) ?? ""), partId = d.PartId })
-				.Take(500).ToListAsync(cn);
+				.ToListAsync(cn);
 			return Ok(rows.GroupBy(x => x.id).Select(g => g.First()));
 		}
 

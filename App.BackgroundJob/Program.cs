@@ -11,9 +11,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using ReportBuilder.Services;
 using Services.Auth;
  using Services.FileServices;
 using Services.Cng;
+using Services.Rpr;
 using Services.Job;
  using System.Text;
 using WebFramework.Services;
@@ -69,6 +71,13 @@ builder.Services.AddHostedService<JobDiscoveryService>();
 builder.Services.AddHostedService<JobWorkerWithLogging>();
 
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<Services.Settings.IGeneralSettingService, Services.Settings.GeneralSettingService>();
+builder.Services.AddScoped<Services.Sms.ISmsService, Services.Sms.SmsService>();
+builder.Services.AddScoped<Services.Sms.ISmsRecipientResolver, Services.Sms.SmsRecipientResolver>();
+builder.Services.AddScoped<Services.Sms.ISmsProvider, Services.Sms.SmsIrProvider>();
+builder.Services.AddScoped<Services.Sms.ISmsDispatchService, Services.Sms.SmsDispatchService>();
+builder.Services.AddScoped<IProductionOrderFormPdfExporter, ProductionOrderFormPdfExporter>();
+builder.Services.AddScoped<Services.ProductionOrderServices.IProductionOrderItemBomService, Services.ProductionOrderServices.ProductionOrderItemBomService>();
  
 	builder.Services.AddScoped<IQueryBuilderService, QueryBuilderService>();
 
@@ -84,7 +93,9 @@ builder.Services.AddScoped<IParameterResolverService, ParameterResolverService>(
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 builder.Services.AddJobServices();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<ICngRepairsUsedPartImporter, CngRepairsUsedPartImporter>();
+builder.Services.AddScoped<IRepairRequestPartImporter, RepairRequestPartImporter>();
 
 // Register JobLogger service
 builder.Services.AddScoped<IJobLogger, JobLogger>();

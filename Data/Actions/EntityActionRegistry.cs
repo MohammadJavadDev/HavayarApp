@@ -29,7 +29,7 @@ namespace Data.Actions
 				var methods = assembly.GetTypes()
 				    .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic))
 				    .Select(m => new { Method = m, Attr = m.GetCustomAttribute<EntityActionAttribute>() })
-				    .Where(x => x.Attr != null);
+				    .Where(x => x.Attr != null && x.Attr.IsActive);
 
 				foreach (var item in methods)
 				{
@@ -48,7 +48,12 @@ namespace Data.Actions
 			// مرتب‌سازی بر اساس اولویت در زمان لود اولیه
 			foreach (var key in _cache.Keys)
 			{
-				_cache[key] = _cache[key].OrderBy(x => x.Metadata.Priority).ToList();
+				// اولویت‌های مساوی با نام کلاس و متد مرتب می‌شوند تا ترتیب اجرا بین بیلدها ثابت بماند
+				_cache[key] = _cache[key]
+					.OrderBy(x => x.Metadata.Priority)
+					.ThenBy(x => x.DeclaringType.FullName, StringComparer.Ordinal)
+					.ThenBy(x => x.Method.Name, StringComparer.Ordinal)
+					.ToList();
 			}
 		}
 

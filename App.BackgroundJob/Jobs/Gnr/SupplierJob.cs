@@ -99,41 +99,13 @@ namespace App.BackgroundJob.Jobs.Gnr
 						// به‌روزرسانی رکورد موجود
 						bool isModified = false;
 
-						if (existSupplier.Prefix != rahkaranData.PreTitle)
-						{
-							existSupplier.Prefix = rahkaranData.PreTitle;
-							isModified = true;
-						}
-
-						if (existSupplier.PostalCode != rahkaranData.PostBox)
-						{
-							existSupplier.PostalCode = rahkaranData.PostBox;
-							isModified = true;
-						}
-
-						if (existSupplier.PhoneNumber != rahkaranData.Phone)
-						{
-							existSupplier.PhoneNumber = rahkaranData.Phone;
-							isModified = true;
-						}
-
-						if (existSupplier.Fax != rahkaranData.Fax)
-						{
-							existSupplier.Fax = rahkaranData.Fax;
-							isModified = true;
-						}
-
-						if (existSupplier.Email != rahkaranData.Email)
-						{
-							existSupplier.Email = rahkaranData.Email;
-							isModified = true;
-						}
-
-						if (existSupplier.DlCode != rahkaranData.DlCode)
-						{
-							existSupplier.DlCode = rahkaranData.DlCode;
-							isModified = true;
-						}
+						// مقدار خالی راهکاران فیلد پر (از جمله ایمیل کپی‌شده از HTS) را پاک نمی‌کند.
+						isModified |= AssignIfIncomingHasValue(rahkaranData.PreTitle, existSupplier.Prefix, v => existSupplier.Prefix = v);
+						isModified |= AssignIfIncomingHasValue(rahkaranData.PostBox, existSupplier.PostalCode, v => existSupplier.PostalCode = v);
+						isModified |= AssignIfIncomingHasValue(rahkaranData.Phone, existSupplier.PhoneNumber, v => existSupplier.PhoneNumber = v);
+						isModified |= AssignIfIncomingHasValue(rahkaranData.Fax, existSupplier.Fax, v => existSupplier.Fax = v);
+						isModified |= AssignIfIncomingHasValue(rahkaranData.Email, existSupplier.Email, v => existSupplier.Email = v);
+						isModified |= AssignIfIncomingHasValue(rahkaranData.DlCode, existSupplier.DlCode, v => existSupplier.DlCode = v);
 
 						if (isModified)
 						{
@@ -166,6 +138,15 @@ namespace App.BackgroundJob.Jobs.Gnr
 				await jobLogger?.LogExceptionAsync(ex, cn);
 				throw;
 			}
+		}
+
+		private static bool AssignIfIncomingHasValue(string? incoming, string? current, Action<string> assign)
+		{
+			if (string.IsNullOrWhiteSpace(incoming) || incoming == current)
+				return false;
+
+			assign(incoming);
+			return true;
 		}
 
 		private class AddSupplierDto

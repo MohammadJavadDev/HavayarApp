@@ -45,7 +45,8 @@ $project = @{
     AppPool        = "Backgroundjob"
 }
 
-# فقط فایل‌هایی که در N روز اخیر در خروجی publish تغییر کرده‌اند مقایسه/کپی می‌شوند
+# فایل‌های قدیمی‌تر از این فقط وقتی حجم‌شان با سرور یکی است از مقایسه MD5 رد می‌شوند.
+# اگر روی سرور نباشند، یا حجم‌شان فرق کند، همیشه کپی می‌شوند (DLLهای Stimulsoft تاریخ ۲۰۲۴ دارند).
 $compareMaxAgeDays = 7
 
 # پوشه‌هایی که روی سرور دست نزن
@@ -254,10 +255,10 @@ function Sync-ChangedFilesByHash {
 
     $cutoff = (Get-Date).AddDays( - [Math]::Abs($MaxAgeDays))
 
-    Write-Step "Comparing recent files with server (last $MaxAgeDays days, MD5)"
+    Write-Step "Comparing publish output with server (MD5)"
     Write-Info "Source : $SourceRoot"
     Write-Info "Dest   : $DestRoot"
-    Write-Info "Cutoff : $cutoff (older files are skipped)"
+    Write-Info "Cutoff : $cutoff (same-size files older than this skip MD5; missing or different-size files are always copied)"
 
     if (-not (Test-Path -LiteralPath $DestRoot)) {
         if ($WhatIf) {
@@ -269,19 +270,18 @@ function Sync-ChangedFilesByHash {
     }
 
     $sourceRootFull = (Resolve-Path -LiteralPath $SourceRoot).Path.TrimEnd("\")
-    $allFiles = Get-ChildItem -LiteralPath $sourceRootFull -Recurse -File -Force
-    $files = $allFiles | Where-Object { $_.LastWriteTime -ge $cutoff }
+    $allFiles = @(Get-ChildItem -LiteralPath $sourceRootFull -Recurse -File -Force)
 
     $added = New-Object System.Collections.Generic.List[string]
     $modified = New-Object System.Collections.Generic.List[string]
     $skipped = 0
     $excluded = 0
-    $ageSkipped = $allFiles.Count - $files.Count
+    $ageSkipped = 0
     $copiedBytes = [int64]0
 
-    Write-Info ("Candidates: {0} of {1} files (age-skipped: {2})" -f $files.Count, $allFiles.Count, $ageSkipped)
+    Write-Info ("Files in publish output: {0}" -f $allFiles.Count)
 
-    foreach ($file in $files) {
+    foreach ($file in $allFiles) {
         $relative = $file.FullName.Substring($sourceRootFull.Length).TrimStart("\")
 
         if (Test-ExcludedPath $relative) {
@@ -301,6 +301,10 @@ function Sync-ChangedFilesByHash {
             $destItem = Get-Item -LiteralPath $destPath -Force
             if ($file.Length -ne $destItem.Length) {
                 $needCopy = $true
+            }
+            elseif ($file.LastWriteTime -lt $cutoff) {
+                $ageSkipped++
+                continue
             }
             else {
                 $srcHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm MD5).Hash

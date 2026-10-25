@@ -72,7 +72,7 @@
      <div class="col-md-12 border border-1 my-5 p-5 row" id="actionOptionsSection">
            <h4 class="text-center mb-4"> فعال یا فعال نبودن عملیات ها </h4>
            <p class="text-muted small text-center mb-3">
-                گزینه «امکان انتخاب چندتایی» آیکن انتخاب چندتایی را روی سر جدول نشان می‌دهد. عملیاتی که تیک نخورده باشند روی سر جدول دیده نمی‌شوند.
+                گزینه «انتخاب چندتایی پیش‌فرض» آیکن انتخاب چندتایی را روی سر جدول نشان می‌دهد و با باز شدن صفحه، جدول از همان ابتدا در حالت انتخاب چندتایی رندر می‌شود. عملیاتی که تیک نخورده باشند روی سر جدول دیده نمی‌شوند.
            </p>
      </div>
 
@@ -122,6 +122,15 @@
                          <i class="bi bi-plus-square text-success"></i>
                          onRowAdded
                          <span id="badge-onRowAdded" class="badge bg-success ms-1 d-none">✓</span>
+                    </button>
+               </li>
+               <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-legend"
+                            data-bs-toggle="tab" data-bs-target="#pane-legend"
+                            type="button" role="tab">
+                         <i class="bi bi-palette text-warning"></i>
+                         legend (راهنمای رنگ‌ها)
+                         <span id="badge-legend" class="badge bg-warning ms-1 d-none">✓</span>
                     </button>
                </li>
           </ul>
@@ -217,6 +226,38 @@
                               <div class="form-text mt-1">
                                    تابع به صورت <code>function(ctx) { ... }</code>
                                    — برای هر ردیف یک‌بار صدا زده می‌شود
+                              </div>
+                         </div>
+                    </div>
+               </div>
+
+               <div class="tab-pane fade" id="pane-legend" role="tabpanel">
+                    <div class="row g-3">
+                         <div class="col-md-4">
+                              <div class="alert alert-warning py-2 small ltr mb-3" style="font-family:monospace">
+                                   <strong class="d-block mb-1">// آرایه JSON از رنگ‌ها:</strong>
+                                   <span class="text-success">color</span>
+                                   <span class="text-muted"> → رنگ پس‌زمینه (همان رنگ onRowAdded)</span><br>
+                                   <span class="text-success">text</span>
+                                   <span class="text-muted"> → رنگ متن (اختیاری)</span><br>
+                                   <span class="text-success">label</span>
+                                   <span class="text-muted"> → معنی رنگ</span>
+                              </div>
+                              <div class="d-flex flex-column gap-2">
+                                   <button type="button" class="btn btn-sm btn-outline-secondary"
+                                           data-event="legend" data-action="insertTemplate">
+                                        <i class="bi bi-file-code"></i> درج قالب
+                                   </button>
+                                   <button type="button" class="btn btn-sm btn-outline-danger"
+                                           data-event="legend" data-action="clearScript">
+                                        <i class="bi bi-trash"></i> پاک کردن
+                                   </button>
+                              </div>
+                         </div>
+                         <div class="col-md-8">
+                              <div id="scriptLegend" data-event="legend" class="h-200px">[]</div>
+                              <div class="form-text mt-1">
+                                   اگر پر شود، دکمه «راهنمای رنگ‌ها» وسط نوار پایین جدول نمایش داده می‌شود
                               </div>
                          </div>
                     </div>

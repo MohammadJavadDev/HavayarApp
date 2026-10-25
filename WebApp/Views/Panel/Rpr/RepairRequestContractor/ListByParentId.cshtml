@@ -5,8 +5,8 @@
 <style>
 	#rrContractorChildCard #rrContractorChildTable,
 	#rrContractorChildCard table.ellipsis-tooltip-table {
-		width: 2100px !important;
-		min-width: 2100px !important;
+		width: 2260px !important;
+		min-width: 2260px !important;
 		table-layout: fixed;
 	}
 </style>
@@ -22,6 +22,7 @@
 					<th style="width:120px;">عملیات</th>
 					<th style="min-width:220px;">پیمانکار</th>
 					<th style="min-width:140px;">مبلغ تعمیر</th>
+					<th style="min-width:160px;">شماره فاکتور</th>
 					<th style="min-width:220px;">عنوان کالا</th>
 					<th style="min-width:150px;">تاریخ ارسال قطعه</th>
 					<th style="min-width:150px;">تاریخ اعلام هزینه</th>
@@ -73,6 +74,7 @@
 			},
 			{ data: 'contractorTitle', defaultContent: '-', width: '220px', render: renderEllipsisCell },
 			{ data: 'cost', width: '140px', render: function (v) { return (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) ? MJUtil.formatMoney(v) : (v ?? '-'); } },
+			{ data: 'invoiceNumber', defaultContent: '-', width: '160px', render: renderEllipsisCell },
 			{ data: 'partTitle', defaultContent: '-', width: '220px', render: renderEllipsisCell },
 			{ data: 'sendPartShamsiDate', defaultContent: '-', width: '150px', render: shamsiDateOnly },
 			{ data: 'costAnnouncementShamsiDate', defaultContent: '-', width: '150px', render: shamsiDateOnly },

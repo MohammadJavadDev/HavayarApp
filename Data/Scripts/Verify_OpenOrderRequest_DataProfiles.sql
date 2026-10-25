@@ -42,7 +42,14 @@ SELECT
          WHEN q.Name = N'vw_openOrderRequestPurchaseCompleted' AND j.CustomQuery LIKE N'%IsDeleted] = 1%' THEN 1
          WHEN q.Name NOT IN (N'vw_openRequestConfig', N'vw_openOrderRequestPurchaseCompleted') THEN NULL
          ELSE 0 END AS FilterMatchesHts,
-    CASE WHEN j.CustomQuery LIKE N'%RequestedPersonelIds%' THEN 1 ELSE 0 END AS HasD8CurrentUserFilter,
+    CASE WHEN q.Name = N'vw_OpenOrderRequestOtherView'
+              AND CHARINDEX(N'[t1].[IsDeleted] = 0', j.CustomQuery) > 0
+              AND CHARINDEX(N'[t1].[EngineeringAccept] = 1', j.CustomQuery) > 0
+              AND CHARINDEX(N'[t1].[RequestedPersonel] IS NOT NULL', j.CustomQuery) > 0
+              AND CHARINDEX(N'TRY_CAST(@CurrentUserId', j.CustomQuery) = 0
+         THEN 1
+         WHEN q.Name = N'vw_OpenOrderRequestOtherView' THEN 0
+         ELSE NULL END AS OtherViewMatchesHtsElse,
     (SELECT COUNT(*) FROM system.RoleAccess ra WHERE ra.ActionAccessType = 3 AND ra.RowId = q.Id) AS RoleAccessRows
 FROM system.SavedQuery q
 OUTER APPLY OPENJSON(q.QueryJson) WITH (CustomQuery NVARCHAR(MAX) '$.CustomQuery') AS j
@@ -122,33 +129,21 @@ SELECT N'درخواست های من', N'vw_OpenOrderRequestMyRequestes', N'IsDel
     (SELECT COUNT(*) FROM Intended WHERE IsDeleted = 0 AND PurchaseResponsibleId IS NOT NULL),
     NULL, NULL
 UNION ALL
-SELECT N'مشاهده عمومی', N'vw_OpenOrderRequestOtherView', N'IsDeleted=0 ∧ EngineeringAccept=1 ∧ حداقل یک Id ذینفع (بدون @CurrentUserId)',
+SELECT N'مشاهده عمومی', N'vw_OpenOrderRequestOtherView', N'IsDeleted=0 ∧ EngineeringAccept=1 ∧ RequestedPersonel IS NOT NULL',
     (SELECT COUNT(*) FROM Intended i
       WHERE i.IsDeleted = 0 AND i.EngineeringAccept = 1
         AND EXISTS (
             SELECT 1 FROM Sup.OpenOrderRequest o
-            WHERE o.Id = i.Id
-              AND (
-                  (ISJSON(o.RequestedPersonelIds) = 1 AND EXISTS (SELECT 1 FROM OPENJSON(o.RequestedPersonelIds) j WHERE TRY_CAST(j.value AS bigint) IS NOT NULL))
-                  OR (ISJSON(o.RequestedEngineeringPersonelIds) = 1 AND EXISTS (SELECT 1 FROM OPENJSON(o.RequestedEngineeringPersonelIds) j WHERE TRY_CAST(j.value AS bigint) IS NOT NULL))
-              )
+            WHERE o.Id = i.Id AND o.RequestedPersonel IS NOT NULL
         )),
     (SELECT COUNT(DISTINCT i.Id) FROM Intended i
       WHERE i.IsDeleted = 0 AND i.EngineeringAccept = 1
         AND EXISTS (
             SELECT 1 FROM Sup.OpenOrderRequest o
-            WHERE o.Id = i.Id
-              AND (
-                  (ISJSON(o.RequestedPersonelIds) = 1 AND EXISTS (SELECT 1 FROM OPENJSON(o.RequestedPersonelIds) j WHERE TRY_CAST(j.value AS bigint) IS NOT NULL))
-                  OR (ISJSON(o.RequestedEngineeringPersonelIds) = 1 AND EXISTS (SELECT 1 FROM OPENJSON(o.RequestedEngineeringPersonelIds) j WHERE TRY_CAST(j.value AS bigint) IS NOT NULL))
-              )
+            WHERE o.Id = i.Id AND o.RequestedPersonel IS NOT NULL
         )),
     (SELECT COUNT(*) FROM Sup.OpenOrderRequest o
-      WHERE o.IsDeleted = 0 AND o.EngineeringAccept = 1
-        AND (
-            (ISJSON(o.RequestedPersonelIds) = 1 AND EXISTS (SELECT 1 FROM OPENJSON(o.RequestedPersonelIds) j WHERE TRY_CAST(j.value AS bigint) IS NOT NULL))
-            OR (ISJSON(o.RequestedEngineeringPersonelIds) = 1 AND EXISTS (SELECT 1 FROM OPENJSON(o.RequestedEngineeringPersonelIds) j WHERE TRY_CAST(j.value AS bigint) IS NOT NULL))
-        )),
+      WHERE o.IsDeleted = 0 AND o.EngineeringAccept = 1 AND o.RequestedPersonel IS NOT NULL),
     NULL, NULL;
 
 -----------------------------------------------------------------------------

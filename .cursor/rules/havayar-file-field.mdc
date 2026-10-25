@@ -1,0 +1,42 @@
+---
+description: File fields — DisplayInfo and entity-prop-name belong on the FileEntity navigation, not on FileId
+alwaysApply: true
+---
+
+# File field — `DisplayInfo` on the `FileEntity`, not on `FileId`
+
+Incident: `ServiceRequestAttachment` upload `POST /File/upload/.../File` threw «فیلد موجودیت یافت نشد» because `[DisplayInfo(SystemType.File)]` sat on `FileId`. Entity metadata only indexes properties that have `[DisplayInfo]`. `FileController.Upload` looks up `entityPropName` in that list.
+
+Form Builder already emits the correct pair (`FormBuilderCodeGenerator`, `SystemType.File`). Copy that. Canonical live shape: `Edms/Document.cs` (`MainFile` / `MainFileId`).
+
+## Must
+
+```csharp
+[DisplayName("فایل")]
+[DisplayInfo(null, true, type: SystemType.File)]
+[ForeignKey(nameof(FileId))]
+public virtual FileEntity? File { get; set; }
+
+public long? FileId { get; set; }
+```
+
+```cshtml
+<fileuploader bind="fileId" file-id="@Model?.FileId" file-entity="@Model?.File"
+              label="فایل" entity-type="@typeof(Entity).FullName" entity-prop-name="File"
+              max-file-size="20" accepted-file-types=".pdf,.zip,.png,.jpg,.jpeg"></fileuploader>
+```
+
+| Piece | Value |
+|---|---|
+| `[DisplayInfo]` + `[DisplayName]` + `fileTypes` / `maxFileSize` | Navigation `File` (`FileEntity`) |
+| Database column | `FileId` (`long?`), no `[DisplayInfo]` |
+| `entity-prop-name` / `data-entity-prop-name` | Navigation name (`File`, `MainFile`, …) |
+| `bind` and `data-bind` | `{Name}Id` (`fileId`, `mainFileId`) |
+
+`fileTypes` and `maxFileSize` on that `[DisplayInfo]` are what `FileController` enforces. The tag helper `accepted-file-types` / `max-file-size` are the same limits on the client.
+
+## Must not
+
+- `[DisplayInfo(SystemType.File)]` on `FileId` or any `long?` foreign key.
+- `entity-prop-name="FileId"` (or `data-entity-prop-name="FileId"`). The upload URL must be the navigation name metadata actually contains.
+- A `FileEntity` navigation with no `[DisplayInfo]` while the uploader sends that name.

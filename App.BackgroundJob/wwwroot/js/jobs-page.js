@@ -135,6 +135,7 @@
 
     $(document).on('click', '.btn-create-schedule', function () {
         $('#newScheduleJobId').val($(this).data('id'));
+        $('#newScheduleContinueOnError').prop('checked', false);
         var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('createScheduleModal'));
         modal.show();
     });
@@ -143,6 +144,7 @@
         var jobId = $('#newScheduleJobId').val();
         var scheduleType = $('#newScheduleType').val();
         var isActive = $('#newScheduleIsActive').is(':checked');
+        var continueOnError = $('#newScheduleContinueOnError').is(':checked');
         var intervalSeconds = 0;
         var dailyIntervalDays = 1;
         var weeklyDays = '';
@@ -176,6 +178,7 @@
         $.post('/Jobs/CreateSchedule', {
             jobId: jobId,
             isActive: isActive,
+            continueOnError: continueOnError,
             interval: intervalSeconds,
             scheduleType: scheduleType,
             dailyIntervalDays: dailyIntervalDays,
@@ -199,6 +202,7 @@
         var id = $btn.data('id');
         var $row = $('#row-' + id);
         var isActive = $row.find('.job-active').is(':checked');
+        var continueOnError = $row.find('.job-continue-on-error').is(':checked');
         var params = collectScheduleParams($row);
 
         if (isActive && params.intervalSeconds <= 0 && params.scheduleType === 'interval') {
@@ -213,6 +217,7 @@
         $.post('/Jobs/UpdateSettings', {
             scheduleId: id,
             isActive: isActive,
+            continueOnError: continueOnError,
             interval: params.intervalSeconds,
             scheduleType: params.scheduleType,
             dailyIntervalDays: params.dailyIntervalDays,

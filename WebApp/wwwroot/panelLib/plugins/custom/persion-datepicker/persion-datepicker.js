@@ -1448,18 +1448,22 @@
                     }
                     $(this).each(function () {
                         // encapsulation Args
-                        var emptyArr = [],
+                        var $input = $(this),
+                            emptyArr = [],
                             tempArg = args.concat(emptyArr),
-                            dp = $(this).data('datepicker'),
+                            dp = $input.data('datepicker'),
                             funcName = null;
                         if (dp && typeof tempArg[0] === 'string') {
                             funcName = tempArg[0];
                             output = dp[funcName](tempArg[0]);
                         } else {
-                            self.pDatePicker = new Model(this, options);
+                            // One instance per input. Storing after the loop put the last
+                            // picker on every element when the plugin was called on a set.
+                            var instanceOptions = (options && typeof options === 'object') ? $.extend(true, {}, options) : options;
+                            self.pDatePicker = new Model(this, instanceOptions);
+                            $input.data('datepicker', self.pDatePicker);
                         }
                     });
-                    $(this).data('datepicker', self.pDatePicker);
                     return self.pDatePicker;
                 };
                 /*eslint-enable no-unused-vars */
@@ -1610,7 +1614,7 @@
                     value: function _attachInputElementEvents() {
                         var that = this;
                         var closePickerHandler = function closePickerHandler(e) {
-                            if (!$(e.target).is(that.elem) && !$(e.target).is(that.model.view.$container) && $(e.target).closest('#' + that.model.view.$container.attr('id')).length == 0 && !$(e.target).is($(that.elem).children())) {
+                            if (!$(e.target).is(that.elem) && !$(e.target).is(that.model.view.$container) && $(e.target).closest(that.model.view.$container).length == 0 && !$(e.target).is($(that.elem).children())) {
                                 that.model.api.hide();
                                 $('body').unbind('click', closePickerHandler);
                             }
@@ -1816,7 +1820,7 @@
                         // Check options
                         if (this.model.options.navigator.scroll.enabled) {
                             var that = this;
-                            var gridPlot = $('#' + that.model.view.id + ' .datepicker-grid-view')[0];
+                            var gridPlot = that.model.view.$container.find('.datepicker-grid-view')[0];
                             Hamster(gridPlot).wheel(function (event, delta) {
                                 if (delta > 0) {
                                     that.model.state.navigate('next');
@@ -1828,7 +1832,7 @@
                             });
 
                             if (this.model.options.timePicker.enabled) {
-                                $('#' + that.model.view.id + ' .time-segment').each(function () {
+                                that.model.view.$container.find('.time-segment').each(function () {
                                     Hamster(this).wheel(function (event, delta) {
                                         var $target = $(event.target);
                                         var key = $target.data('time-key') ? $target.data('time-key') : $target.parents('[data-time-key]').data('time-key');
@@ -1934,7 +1938,7 @@
                             /**
                              * @description navigator click event
                              */
-                            $(document).on('click', '#' + that.model.view.id + ' .pwt-btn', function () {
+                            that.model.view.$container.on('click', '.pwt-btn', function () {
                                 if ($(this).is('.pwt-btn-next')) {
                                     that.model.state.navigate('next');
                                     that.model.view.render();
@@ -1959,7 +1963,7 @@
                             /**
                              * @description time up btn click event
                              */
-                            $(document).on('click', '#' + that.model.view.id + ' .up-btn', function () {
+                            that.model.view.$container.on('click', '.up-btn', function () {
                                 var timekey = $(this).data('time-key');
                                 that.timeUp(timekey);
                                 that.model.options.onSelect(that.model.state.selected.unixDate);
@@ -1968,7 +1972,7 @@
                             /**
                              * @description time down btn click event
                              */
-                            $(document).on('click', '#' + that.model.view.id + ' .down-btn', function () {
+                            that.model.view.$container.on('click', '.down-btn', function () {
                                 var timekey = $(this).data('time-key');
                                 that.timeDown(timekey);
                                 that.model.options.onSelect(that.model.state.selected.unixDate);
@@ -1983,7 +1987,7 @@
                             /**
                              * @description days click event
                              */
-                            $(document).on('click', '#' + that.model.view.id + ' .datepicker-day-view td:not(.disabled)', function () {
+                            that.model.view.$container.on('click', '.datepicker-day-view td:not(.disabled)', function () {
                                 var thisUnix = $(this).data('unix'),
                                     mustRender = void 0;
                                 that.model.state.setSelectedDateTime('unix', thisUnix);
@@ -2015,7 +2019,7 @@
                             /**
                              * @description month click event
                              */
-                            $(document).on('click', '#' + that.model.view.id + ' .datepicker-month-view .month-item:not(.month-item-disable)', function () {
+                            that.model.view.$container.on('click', '.datepicker-month-view .month-item:not(.month-item-disable)', function () {
                                 var month = $(this).data('month');
                                 var year = $(this).data('year');
                                 that.model.state.switchViewModeTo('day');
@@ -2042,7 +2046,7 @@
                             /**
                              * @description year click event
                              */
-                            $(document).on('click', '#' + that.model.view.id + ' .datepicker-year-view .year-item:not(.year-item-disable)', function () {
+                            that.model.view.$container.on('click', '.datepicker-year-view .year-item:not(.year-item-disable)', function () {
                                 var year = $(this).data('year');
                                 that.model.state.switchViewModeTo('month');
                                 if (!that.model.options.onlySelectOnDate) {
@@ -2713,7 +2717,7 @@
                     key: '_attachEvents',
                     value: function _attachEvents() {
                         var that = this;
-                        $(document).on('click', '#' + that.model.view.id + ' .pwt-btn-today', function () {
+                        that.model.view.$container.on('click', '.pwt-btn-today', function () {
                             that.model.state.setSelectedDateTime('unix', new Date().valueOf());
                             that.model.state.setViewDateTime('unix', new Date().valueOf());
                             that.model.view.reRender();
@@ -2725,7 +2729,7 @@
                             that.model.options.toolbox.todayButton.onToday(that.model);
                         });
 
-                        $(document).on('click', '#' + that.model.view.id + ' .pwt-btn-calendar', function () {
+                        that.model.view.$container.on('click', '.pwt-btn-calendar', function () {
                             that._toggleCalendartype();
                             that.model.state.setSelectedDateTime('unix', that.model.state.selected.unixDate);
                             that.model.state.setViewDateTime('unix', that.model.state.view.unixDate);
@@ -2733,7 +2737,7 @@
                             that.model.options.toolbox.calendarSwitch.onSwitch(that.model);
                         });
 
-                        $(document).on('click', '#' + that.model.view.id + ' .pwt-btn-submit', function () {
+                        that.model.view.$container.on('click', '.pwt-btn-submit', function () {
                             that.model.view.hide();
                             that.model.options.toolbox.submitButton.onSubmit(that.model);
                             that.model.options.onHide(this);
@@ -2807,7 +2811,11 @@
                      *
                      * @type {string}
                      */
-                    this.id = 'persianDateInstance-' + parseInt(Math.random(100) * 1000);
+                    // Math.random()*1000 only has 1000 values. Duplicate ids made one day-click
+                    // run every picker that shared the id, so several date fields received the same date.
+                    if (!View._instanceSeq) View._instanceSeq = 0;
+                    View._instanceSeq += 1;
+                    this.id = 'persianDateInstance-' + View._instanceSeq;
                     var that = this;
 
                     if (this.model.state.ui.isInline) {

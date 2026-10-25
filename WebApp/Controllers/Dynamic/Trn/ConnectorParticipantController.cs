@@ -20,13 +20,9 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(ConnectorParticipant connectorParticipant, CancellationToken cn)
 		{
-			// Business rule (§04-Company.md): prevent duplicate (CompanyId, ParticipantId) pairs.
-			var duplicate = await unitOfWork.Repository<ConnectorParticipant>().TableNoTracking
-				.AnyAsync(c => c.CompanyId == connectorParticipant.CompanyId
-					&& c.ParticipantId == connectorParticipant.ParticipantId
-					&& c.Id != connectorParticipant.Id, cn);
-			if (duplicate)
-				return BadRequest("این رابط قبلاً برای این شرکت ثبت شده است.");
+			var error = TrainingContactRules.RequireContact(connectorParticipant.Position, connectorParticipant.DirectPhoneNumber, connectorParticipant.MobileNumber);
+			if (error != null)
+				return BadRequest(error);
 
 			if (connectorParticipant.Id == null || connectorParticipant.Id == 0)
 			{
@@ -73,7 +69,6 @@ namespace WebApp.Controllers.Dynamic
 			if (id != null && id != 0)
 			{
 				var entity = unitOfWork.Repository<ConnectorParticipant>().TableNoTracking
-					.Include(c => c.Participant)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Trn\ConnectorParticipant\Edit.cshtml", entity);
 			}
@@ -122,10 +117,17 @@ namespace WebApp.Controllers.Dynamic
 				{
 					Id = c.Id,
 					CompanyId = c.CompanyId,
-					ParticipantId = c.ParticipantId,
-					ParticipantName = c.Participant != null ? c.Participant.FirstName + " " + c.Participant.LastName : "-",
+					FirstName = c.FirstName,
+					LastName = c.LastName,
 					Position = c.Position,
-					Description = c.Description
+					DirectPhoneNumber = c.DirectPhoneNumber,
+					FaxNumber = c.FaxNumber,
+					ConfirmedFaxNumber = c.ConfirmedFaxNumber,
+					MobileNumber = c.MobileNumber,
+					Email = c.Email,
+					Description = c.Description,
+					CreatedByName = c.CreatedByName,
+					CreatedOnShamsiDateTime = c.CreatedOnShamsiDateTime
 				})
 				.ToListAsync(cn);
 
@@ -150,9 +152,16 @@ namespace WebApp.Controllers.Dynamic
 	{
 		public long? Id { get; set; }
 		public long? CompanyId { get; set; }
-		public long ParticipantId { get; set; }
-		public string? ParticipantName { get; set; }
+		public string? FirstName { get; set; }
+		public string? LastName { get; set; }
 		public string? Position { get; set; }
+		public string? DirectPhoneNumber { get; set; }
+		public string? FaxNumber { get; set; }
+		public string? ConfirmedFaxNumber { get; set; }
+		public string? MobileNumber { get; set; }
+		public string? Email { get; set; }
 		public string? Description { get; set; }
+		public string? CreatedByName { get; set; }
+		public string? CreatedOnShamsiDateTime { get; set; }
 	}
 }

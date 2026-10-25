@@ -1,0 +1,247 @@
+@using Entities.App.Hrm
+@using Entities.App.Law
+@using Entities.App.Law.Enums
+@using Entities.Base
+@model JudicialFile
+@{
+	// HTS: فهرست واحدهای قابل انتخاب برای «واحد ارجاع» (شناسه همکاران؛ شناسه HTS در کد قدیمی هاردکد بود)
+	var referralHamkaranUnitIds = new long[]
+	{
+		121000060, 121000062, 121000085, 121000086, 121000090, 121000091, 121000092, 121000113,
+		121000124, 121000126, 121000128, 121000130, 121000131, 121000133, 300000023, 300000024, 300000025
+	};
+	var currentReferralUnitId = Model?.ReferralUnitId ?? 0;
+	var referralExtraTitle = "هوایار گاز بین الملل";
+}
+
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(JudicialFile)">
+			<form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-paperclip"
+				action-name="openAttachments" title="ضمیمه مدارک"></form-action-button>
+		</form-action-buttons>
+	</div>
+</div>
+
+<input type="hidden" data-bind="id" value="@Model?.Id" />
+<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">پرونده حقوقی</span>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">کد پرونده</label>
+			<input class="form-control text-center" data-bind="judicialFileCode" value="@Model?.JudicialFileCode" readonly />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">ماهیت پرونده</label>
+			<select class="form-control" data-bind="nature" data-required="true" asp-for="Nature" asp-items="Html.GetEnumSelectList(typeof(JudicialFileNatureEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold required">نوع</label>
+			<select class="form-control" data-bind="type" data-required="true" asp-for="Type" asp-items="Html.GetEnumSelectList(typeof(JudicialFileTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">موضوع پرونده</label>
+			<input class="form-control" data-bind="subject" asp-for="Subject" maxlength="50" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">واحد ارجاع</label>
+			@(Html.EntitySelector<OrgUnit>(
+				"JudicialFileReferralUnitSelector",
+				c => c.IsActive == IsActiveEnum.Active
+					&& (referralHamkaranUnitIds.Contains(c.HamkaranUnitId) || c.Title == referralExtraTitle || c.Id == currentReferralUnitId),
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"referralUnitId",
+				"referralUnitTitle",
+				Model?.ReferralUnitId?.ToString()
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ ارجاع</label>
+			<input class="form-control" data-bind="referralDateShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@(Model?.ReferralDateMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره پرونده مرجع قضایی</label>
+			<input class="form-control ltr" data-bind="judicialReferenceFileNumber" data-digits-only="true" asp-for="JudicialReferenceFileNumber" maxlength="18" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">کلاسه بایگانی</label>
+			<input class="form-control" data-bind="fileArchiveClass" asp-for="FileArchiveClass" maxlength="50" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">شماره رهگیری</label>
+			<input class="form-control" data-bind="trackingNumber" asp-for="TrackingNumber" maxlength="50" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">وکیل</label>
+			<input class="form-control" data-bind="lawyer" asp-for="Lawyer" maxlength="256" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ ثبت در مرجع قضایی</label>
+			<input class="form-control" data-bind="registrationDateShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@(Model?.RegistrationDateMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">وضعیت فعلی</label>
+			<select class="form-control" data-bind="currentStatus" asp-for="CurrentStatus" asp-items="Html.GetEnumSelectList(typeof(JudicialFileStatusEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">خواسته</span>
+		<div id="judicialDemandsSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، خواسته‌ها اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">طرفین پرونده</span>
+		<div id="judicialPartiesSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، طرفین اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">نتیجه</span>
+		<div id="judicialResultsSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، نتایج اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">هزینه های پرونده</span>
+		<div id="judicialCostsSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، هزینه‌ها اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">کارهای مرتبط</span>
+		<div id="judicialRelatedWorksSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، کارهای مرتبط اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">مرجع رسیدگی</span>
+		<div id="judicialReviewAuthoritiesSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، مراجع رسیدگی اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">تاریخ های مهم</span>
+		<div id="judicialImportantDatesSection">
+			<div class="text-muted p-3">پس از ذخیره پرونده، تاریخ‌های مهم اینجا نمایش داده می‌شود.</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	$$('[data-digits-only="true"]').on('input', function () {
+		const cleaned = String($(this).val() || '').replace(/[^0-9]/g, '');
+		if (cleaned !== $(this).val()) $(this).val(cleaned);
+	});
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			loadChildSections();
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	if (self.FormActionButtons.openAttachments) {
+		self.FormActionButtons.openAttachments.onclick(function () {
+			const id = page.$pageEl.dataBind().id;
+			if (!id) { toastr.error('ابتدا ذخیره کنید'); return; }
+			appController.addPage('/Panel/Law/JudicialFileAttachment/ListByParentId?judicialFileId=' + id, true, 'ضمیمه مدارک');
+		});
+	}
+
+	function loadEmbeddedPartial(selector, url) {
+		const $box = $$(selector);
+		$box.block();
+		page.getPartialView(url, function (r) {
+			$box.block(false);
+			if (!r) {
+				$box.html('<div class="text-danger p-3">خطا در بارگذاری</div>');
+				return;
+			}
+			const decoded = (window.appController && typeof appController.decodePartialResponse === 'function')
+				? appController.decodePartialResponse(r)
+				: { html: (typeof r === 'string' ? r : ''), scripts: [] };
+			$box.html(decoded.html || '');
+			const scripts = decoded.scripts || [];
+			for (let i = 0; i < scripts.length; i++) {
+				try {
+					new Function('page', '$$', 'self', scripts[i])(page, $$, self);
+				} catch (err) {
+					console.error(err);
+				}
+			}
+		});
+	}
+
+	function loadChildSections() {
+		const id = page.$pageEl.dataBind().id;
+		if (!id) return;
+		const q = '/ListByParentId?judicialFileId=' + id;
+		loadEmbeddedPartial('#judicialDemandsSection', '/Panel/Law/JudicialFileDemand' + q);
+		loadEmbeddedPartial('#judicialPartiesSection', '/Panel/Law/JudicialFileParty' + q);
+		loadEmbeddedPartial('#judicialResultsSection', '/Panel/Law/JudicialFileResult' + q);
+		loadEmbeddedPartial('#judicialCostsSection', '/Panel/Law/JudicialFileCost' + q);
+		loadEmbeddedPartial('#judicialRelatedWorksSection', '/Panel/Law/JudicialFileRelatedWork' + q);
+		loadEmbeddedPartial('#judicialReviewAuthoritiesSection', '/Panel/Law/JudicialReviewAuthority' + q);
+		loadEmbeddedPartial('#judicialImportantDatesSection', '/Panel/Law/JudicialImportantDate' + q);
+	}
+
+	loadChildSections();
+</script>

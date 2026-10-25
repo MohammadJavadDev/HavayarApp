@@ -23,6 +23,9 @@ namespace Services.ProductionOrderServices
 		/// <summary>معادل HTS GetIndustrialStaticReceivers + گیرندگان «isSendToPlanningUnitMode» — گیرندگان اعلان‌های ارجاع به صنایع</summary>
 		public const string GroupIndustrial = "Sale.ProductionOrderItem.Industrial";
 
+		/// <summary>رونوشت اعلان افزودن قلم/اقلام سفارش ساخت هنگام ورود به کارتابل صنایع (معادل بخشی از GetStaticReceivers در HTS)</summary>
+		public const string GroupItemAdded = "Sale.ProductionOrderItem.ItemAdded";
+
 		/// <summary>معادل HTS GetChangeStatusStaticReceivers — CC ثابت اعلان تغییر وضعیت تولید قلم</summary>
 		public const string GroupProductionStatusChange = "Sale.ProductionOrderItem.ProductionStatusChange";
 
@@ -41,12 +44,19 @@ namespace Services.ProductionOrderServices
 		public const string GroupBomIndustrial = "Sale.ProductionOrderItemBom.Industrial";
 		public const string GroupBomEngineering = "Sale.ProductionOrderItemBom.Engineering";
 
+		/// <summary>معادل HTS AddEmailOfRelatedMembers: CC ثابت اعلان BOM برای سفارش‌های شعبهٔ فروش ۱۲، ۱۵، ۳۹، ۴۹، ۵۰، ۵۱ (Branch.HtsId).</summary>
+		public const string GroupBomSalesBranch = "Sale.ProductionOrderItemBom.SalesBranch";
+
+		/// <summary>معادل HTS AddEmailOfRelatedMembers: CC ثابت اعلان BOM برای سفارش‌های شعبهٔ توربو ماشین و کمپرسورهای مهندسی (۴۱ و ۴۲).</summary>
+		public const string GroupBomTurboCompressorBranch = "Sale.ProductionOrderItemBom.TurboCompressorBranch";
+
 		/// <summary>
 		/// فهرست کامل گروه‌ها با عنوان/توضیح برای ایجاد خودکار در صورت نبود (seed SQL هم همین‌ها را می‌سازد).
 		/// </summary>
 		public static readonly (string Code, string DisplayName, string Description)[] KnownGroups =
 		{
 			(GroupIndustrial, "سفارش ساخت - اقلام - واحد صنایع", "گیرندگان اعلان ارجاع قلم به کارتابل صنایع (معادل لیست ثابت صنایع در HTS)"),
+			(GroupItemAdded, "سفارش ساخت - اقلام - افزودن قلم", "رونوشت اعلان افزودن قلم/اقلام سفارش ساخت هنگام ورود به کارتابل صنایع"),
 			(GroupProductionStatusChange, "سفارش ساخت - اقلام - تغییر وضعیت تولید", "CC ثابت اعلان تغییر وضعیت تولید قلم (معادل GetChangeStatusStaticReceivers در HTS)"),
 			(GroupTestStart, "سفارش ساخت - اقلام - شروع تست (IT Support)", "اعلان شروع تست تولید (۲۲۰۹) برای سفارش‌های دارای مدیر پروژه (معادل گروه 540 در HTS)"),
 			(GroupSerialChangeQc, "سفارش ساخت - اقلام - تغییر سریال (کنترل کیفیت)", "اعلان تغییر سریال قلمی که بازرسی حین ساخت دارد (معادل گروه 538 در HTS)"),
@@ -54,6 +64,8 @@ namespace Services.ProductionOrderServices
 			(GroupSupplyCommitteeExperts, "سفارش ساخت - اقلام - کارشناسان کمیته تامین", "گیرندگان اعلان‌های استعلام/کمیته تامین (معادل گروه 380 در HTS)"),
 			(GroupBomIndustrial, "سفارش ساخت - BOM - واحد صنایع", "گیرندگان اصلی اعلان افزودن/ویرایش BOM (معادل لیست صنایع در HTS)"),
 			(GroupBomEngineering, "سفارش ساخت - BOM - واحد مهندسی", "گیرندگان CC اعلان BOM (معادل لیست مهندسی در HTS)"),
+			(GroupBomSalesBranch, "سفارش ساخت - BOM - شعب فروش ویژه", "CC اعلان BOM برای سفارش‌های شعب فروش با شناسهٔ HTS برابر ۱۲، ۱۵، ۳۹، ۴۹، ۵۰، ۵۱ (معادل AddEmailOfRelatedMembers در HTS)"),
+			(GroupBomTurboCompressorBranch, "سفارش ساخت - BOM - شعب توربو و کمپرسور مهندسی", "CC اعلان BOM برای سفارش‌های شعبهٔ توربو ماشین و کمپرسورهای مهندسی (۴۱ و ۴۲) — پرسنل واحد برنامه‌ریزی پروژه در HTS"),
 		};
 
 		#endregion
@@ -161,7 +173,8 @@ namespace Services.ProductionOrderServices
 			long ownerId,
 			string? viewPath,
 			CancellationToken ct,
-			bool saveNow = true)
+			bool saveNow = true,
+			IReadOnlyCollection<long>? attachmentFileIds = null)
 		{
 			var toList = Normalize(to);
 			var ccList = Normalize(cc ?? Array.Empty<string?>())
@@ -177,6 +190,11 @@ namespace Services.ProductionOrderServices
 				ccList = new List<string>();
 			}
 
+			var fileIds = attachmentFileIds?
+				.Where(id => id > 0)
+				.Distinct()
+				.ToList();
+
 			await unitOfWork.Repository<Notification>().AddAsync(new Notification
 			{
 				Type = NotificationType.Email,
@@ -188,7 +206,8 @@ namespace Services.ProductionOrderServices
 				IsRead = false,
 				IsSend = false,
 				ToEmails = toList,
-				CcEmails = ccList
+				CcEmails = ccList,
+				AttachmentFileIds = fileIds is { Count: > 0 } ? fileIds : null
 			}, ct, saveAudit: false, saveNow: saveNow, InvokeAction: false);
 
 			return true;

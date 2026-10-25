@@ -1,8 +1,18 @@
+@using Common.Utilities
 @using Entities.App.Cng
 @using Entities.App.Cng.Enums
 @using Entities.App.SLS
 @using Entities.Base
 @model MaintenanceContract
+@{
+	var startMiladi = Model?.StartDate;
+	if (startMiladi == null && !string.IsNullOrWhiteSpace(Model?.StartDateInText))
+	{
+		try { startMiladi = Model!.StartDateInText!.ToMiladiDate(); }
+		catch (ArgumentOutOfRangeException) { startMiladi = null; }
+		catch (FormatException) { startMiladi = null; }
+	}
+}
 
 <div class="card shadow-sm border-0">
 	<div class="form-action-buttons border-bottom p-3">
@@ -56,15 +66,19 @@
 			</div>
 			<div class="col-md-3 form-group-inline">
 				<label class="form-label fw-bold">تاریخ شروع قرارداد</label>
-				<input class="form-control" data-bind="startDateInText" data-persionDatePicker="true"
+				<input class="form-control" data-bind="startDateShamsiDate" data-persionDatePicker="true"
 					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
-					   value="@Model?.StartDate" />
+					   value="@(startMiladi?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>
 			<div class="col-md-3 form-group-inline">
 				<label class="form-label fw-bold required">مدت قرارداد (ماه)</label>
 				<input type="number" class="form-control" data-bind="contractDurationInMonth" data-required="true" asp-for="ContractDurationInMonth" min="0" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">تاریخ اتمام قرارداد</label>
+				<input class="form-control" data-bind="endDateShamsiDate" value="@Model?.EndDateInText" readonly />
 			</div>
 			<div class="col-md-3 form-group-inline">
 				<label class="form-label fw-bold required">تعداد بازدید در ماه</label>
@@ -75,6 +89,10 @@
 				<label class="form-label fw-bold required">قیمت ماهانه</label>
 				<input type="text" class="form-control" data-bind="monthlyPrice" data-money="true" data-required="true" asp-for="MonthlyPrice" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="form-label fw-bold">مجموع قیمت</label>
+				<input type="text" class="form-control" data-bind="totalPrice" data-money="true" value="@Model?.TotalPrice" readonly />
 			</div>
 			<div class="col-md-3 form-group-inline">
 				<label class="form-label fw-bold required">وضعیت</label>

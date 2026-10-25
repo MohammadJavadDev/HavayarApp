@@ -8,6 +8,8 @@ using Entities.Base;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -49,19 +51,10 @@ namespace ReportBuilder.WebApp.Controllers
 
 
 		/// <summary>
-		/// فقط فایل‌های TTF — برای لیست فونت Designer و رندر Viewer لازم است با StiFontCollection هم ثبت شوند.
-		/// نام واقعی خانواده داخل فایل‌ها: IRANSansWeb(FaNum)
+		/// فونت‌های TTF (نام واقعی خانواده داخل فایل‌ها: IRANSansWeb(FaNum)).
+		/// بایت‌ها از Embedded Resource می‌آید و در <see cref="StimulsoftFontRegistry"/> در StiFontCollection ثبت می‌شود.
 		/// </summary>
-		public static List<ReportBuilderReportFonts> Fonts = new()
-		{
-			new() { Name = "IRANSansWeb.ttf", Type = StiResourceType.FontTtf },
-			new() { Name = "IRANSansWeb_Bold.ttf", Type = StiResourceType.FontTtf },
-			new() { Name = "IRANSansWeb_Medium.ttf", Type = StiResourceType.FontTtf },
-			new() { Name = "IRANSansWeb_Light.ttf", Type = StiResourceType.FontTtf },
-			new() { Name = "IRANSansWeb_UltraLight.ttf", Type = StiResourceType.FontTtf },
-		};
-
-		private static bool _stimulsoftFontsRegistered;
+		public static IReadOnlyList<ReportBuilderReportFonts> Fonts => StimulsoftFontRegistry.Fonts;
 
 		static ReportBuilderController()
 		{
@@ -70,59 +63,7 @@ namespace ReportBuilder.WebApp.Controllers
 			// CommonGetSemanticModel from CodeAnalysis 4.14 (used by FormBuilder). Interpretation
 			// skips that compile path for all viewers/designers in this process.
 			StiOptions.Engine.ForceInterpretationMode = true;
-			RegisterStimulsoftFonts();
-		}
-
-		/// <summary>
-		/// ثبت فونت‌ها در StiFontCollection تا در Font Picker طراح ظاهر شوند و در Viewer/Export قابل استفاده باشند.
-		/// </summary>
-		private static void RegisterStimulsoftFonts()
-		{
-			if (_stimulsoftFontsRegistered) return;
-
-			foreach (var f in Fonts)
-			{
-				if (!f.Name.EndsWith(".ttf", StringComparison.OrdinalIgnoreCase))
-					continue;
-
-				var path = ResolveFontFilePath(f.Name);
-				if (path == null) continue;
-
-				try
-				{
-					// alias کوتاه برای سازگاری با گزارش‌هایی که Font=IRANSansWeb دارند
-					var alias = f.Name.StartsWith("IRANSansWeb_", StringComparison.OrdinalIgnoreCase)
-						? null
-						: "IRANSansWeb";
-					if (alias != null)
-						StiFontCollection.AddFontFile(path, alias);
-					else
-						StiFontCollection.AddFontFile(path);
-				}
-				catch
-				{
-					// اگر قبلاً ثبت شده باشد، نادیده بگیر
-				}
-			}
-
-			_stimulsoftFontsRegistered = true;
-		}
-
-		private static string? ResolveFontFilePath(string fileName)
-		{
-			var candidates = new[]
-			{
-				Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "panelLib", "fonts", fileName),
-				Path.Combine(AppContext.BaseDirectory, "wwwroot", "panelLib", "fonts", fileName),
-			};
-
-			foreach (var path in candidates)
-			{
-				if (System.IO.File.Exists(path))
-					return path;
-			}
-
-			return null;
+			StimulsoftFontRegistry.EnsureRegistered();
 		}
 
 		private string? ResolveUploadsRoot()
@@ -1117,7 +1058,8 @@ namespace ReportBuilder.WebApp.Controllers
 
         private static void AddFontResourcesToReport(StiReport report)
         {
-			RegisterStimulsoftFonts();
+			StimulsoftFontRegistry.EnsureRegistered();
+			RemoveBrokenFontResources(report);
 
             foreach (var f in Fonts)
             {
@@ -1125,22 +1067,9 @@ namespace ReportBuilder.WebApp.Controllers
 				if (f.Type != StiResourceType.FontTtf)
 					continue;
 
-                byte[] fileContent;
                 string resourceName = Path.GetFileNameWithoutExtension(f.Name);
-                if (!f.Loaded)
-                {
-                    var path = ResolveFontFilePath(f.Name);
-                    if (path == null) continue;
-                    fileContent = System.IO.File.ReadAllBytes(path);
-                    f.Loaded = true;
-                    f.Bytes = fileContent;
-                }
-                else
-                {
-                    fileContent = f.Bytes ?? Array.Empty<byte>();
-                }
-
-				if (fileContent.Length == 0)
+				var fileContent = StimulsoftFontRegistry.GetFontBytes(f.Name);
+				if (fileContent == null || fileContent.Length == 0)
 					continue;
 
 				// availableInTheViewer=true ضروری است تا Viewer فونت را به کلاینت بفرستد.
@@ -1163,11 +1092,60 @@ namespace ReportBuilder.WebApp.Controllers
             }
         }
 
+		/// <summary>
+		/// Resource فونتی که بایت آن TTF/OTF معتبر نیست (مثلاً eot/woff که اشتباهاً FontTtf ثبت شده) باعث
+		/// «CMAP table not found» در PDF می‌شود؛ چنین Resource ها از گزارش حذف می‌شوند.
+		/// </summary>
+		private static void RemoveBrokenFontResources(StiReport report)
+		{
+			var broken = new List<StiResource>();
+			foreach (StiResource resource in report.Dictionary.Resources)
+			{
+				if (resource.Type != StiResourceType.FontTtf && resource.Type != StiResourceType.FontOtf)
+					continue;
+
+				if (!IsValidSfnt(resource.Content))
+					broken.Add(resource);
+			}
+
+			foreach (var resource in broken)
+				report.Dictionary.Resources.Remove(resource);
+		}
+
+		private static bool IsValidSfnt(byte[]? b)
+		{
+			if (b == null || b.Length < 12)
+				return false;
+
+			var isTtf = b[0] == 0x00 && b[1] == 0x01 && b[2] == 0x00 && b[3] == 0x00;
+			var isTrue = b[0] == (byte)'t' && b[1] == (byte)'r' && b[2] == (byte)'u' && b[3] == (byte)'e';
+			var isOtto = b[0] == (byte)'O' && b[1] == (byte)'T' && b[2] == (byte)'T' && b[3] == (byte)'O';
+			if (!isTtf && !isTrue && !isOtto)
+				return false;
+
+			var tables = (b[4] << 8) | b[5];
+			for (var i = 0; i < tables && 12 + 16 * i + 4 <= b.Length; i++)
+			{
+				var o = 12 + 16 * i;
+				if (b[o] == (byte)'c' && b[o + 1] == (byte)'m' && b[o + 2] == (byte)'a' && b[o + 3] == (byte)'p')
+					return true;
+			}
+
+			return false;
+		}
         [HttpPost("[action]")]
         public async Task<IActionResult> GetViewReport()
         {
-            var reportId = TempData.ContainsKey("reportId") ? (TempData["reportId"]?.ToString() ?? "0").ToLong() : 0L;
+            var reportId = 0L;
+            if (Request.Query.TryGetValue("reportId", out var reportIdQuery)
+                && long.TryParse(reportIdQuery.ToString(), out var reportIdFromQuery))
+                reportId = reportIdFromQuery;
+            if (reportId == 0 && TempData.ContainsKey("reportId"))
+                reportId = (TempData["reportId"]?.ToString() ?? "0").ToLong();
+            if (reportId > 0)
+                TempData["reportId"] = reportId;
             TempData.Keep("reportId");
+            TempData.Keep("queryString");
             var filters = TempData.ContainsKey("queryString")
                 ? (TempData["queryString"]?.ToString() ?? "{}").JsonDeserialize<Dictionary<string, FilterParamter>>()
                   ?? new Dictionary<string, FilterParamter>(StringComparer.OrdinalIgnoreCase)
@@ -1277,8 +1255,12 @@ namespace ReportBuilder.WebApp.Controllers
                     var multiResult = await _queryService.ExecuteReportMultiAsync(existReport.SavedQueryId.Value, paramValues, userName, userName);
                     return BuildDataSetFromMultiResults(multiResult.ResultSets, multiResult.Selects, maxRowsPerTable: null, filters);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    HttpContext.RequestServices
+                        .GetService<Microsoft.Extensions.Logging.ILoggerFactory>()
+                        ?.CreateLogger(nameof(ReportBuilderController))
+                        .LogError(ex, "Report dataset failed for {ReportName}", existReport.Name);
                     return new DataSet();
                 }
             }
@@ -1360,6 +1342,12 @@ namespace ReportBuilder.WebApp.Controllers
         [HttpPost("[action]")]
 		public IActionResult ViewerEvent()
         {
+            // چاپ/خروجی PDF بایت فونت را از StiFontCollection می‌خواند؛ اگر ثبت نشده باشد CMAP table not found می‌دهد.
+            StimulsoftFontRegistry.EnsureRegistered(HttpContext.RequestServices.GetService<ILoggerFactory>()?.CreateLogger(nameof(StimulsoftFontRegistry)));
+            TempData.Keep("reportId");
+            TempData.Keep("queryString");
+            TempData.Keep("itemId");
+            TempData.Keep("fromSavedQuery");
             return StiNetCoreViewer.ViewerEventResult(this);
         }
         [HttpPost("[action]")]

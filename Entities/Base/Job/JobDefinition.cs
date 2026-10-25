@@ -34,6 +34,12 @@ namespace Entities.Base.Job
 
 		public JobStatus LastStatus { get; set; } // Running, Idle, Error
 
+		/// <summary>
+		/// اگر روشن باشد، وضعیت Error جلوی اجرای زمان‌بندی‌شده بعدی را نمی‌گیرد.
+		/// تا شروع همان اجرا وضعیت خطا می‌ماند؛ با شروع اجرا، تغییر وضعیت مثل قبل انجام می‌شود.
+		/// </summary>
+		public bool ContinueOnError { get; set; }
+
 		// تنظیمات جدید برای زمان‌بندی پیشرفته
 		public ScheduleType ScheduleType { get; set; } = ScheduleType.Interval;
 		public int DailyIntervalDays { get; set; } = 1; // برای زمان‌بندی روزانه با فاصله (مثلا هر 2 روز یکبار)

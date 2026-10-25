@@ -11,18 +11,23 @@ namespace Entities.App.Trn
 	[Table("Company", Schema = "Trn")]
 	public class Company : BaseEntity
 	{
-		[DisplayName("عنوان شرکت")]
-		[DisplayInfo(null, true, type: SystemType.String, required: true)]
+		[DisplayName("عنوان")]
+		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(256)]
 		public string? Title { get; set; }
 
-		[DisplayName("مدیرعامل")]
+		[DisplayName("عنوان (انگلیسی)")]
 		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(128)]
+		public string? TitleInLatin { get; set; }
+
+		[DisplayName("مدیرعامل")]
+		[DisplayInfo(null, false, type: SystemType.String)]
 		[MaxLength(256)]
 		public string? CeoName { get; set; }
 
 		[DisplayName("وب‌سایت")]
-		[DisplayInfo(null, true, type: SystemType.String)]
+		[DisplayInfo(null, false, type: SystemType.String)]
 		[MaxLength(256)]
 		public string? Website { get; set; }
 
@@ -53,9 +58,7 @@ namespace Entities.App.Trn
 		[DisplayInfo(null, false, type: SystemType.String)]
 		public string? Description { get; set; }
 
-		// Optional link to the shared Party master (mirrors legacy optional ManCompanyId → Gnr_ManCompany).
-		// Purely informational — no cascade, no sync, nullable.
-		[DisplayName("طرف حساب مرتبط")]
+		[DisplayName("نام شرکت از سیستم ارتباط با مشتری")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public virtual Party? Party { get; set; }
 		public long? PartyId { get; set; }

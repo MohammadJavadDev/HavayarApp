@@ -3,6 +3,7 @@ using Common.Utilities;
 using Data;
 using Data.Contracts;
 using Entities.App.Gnr;
+using App.BackgroundJob.Jobs.Hrm;
 using Entities.App.Hcm;
 using Entities.App.Hrm;
 using Entities.App.Sec;
@@ -14,13 +15,24 @@ using System.Reflection.Emit;
 
 namespace App.BackgroundJob.Jobs.Hcm
 {
-	public class PersonelJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork , ApplicationDbContext appDb)
+	public class PersonelJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork , ApplicationDbContext appDb, OrgPostJobs orgPostJobs)
 	{
 		[JobHandler("هماهنگ کردن اطلاعات پرسنل از راهکاران")]
 		public async Task SyncPersonelFromRahkaran(IJobLogger jobLogger = null, CancellationToken cn = default)
 		{
 			try
 			{
+				// عین Import_AllPersonel که اول Import_AllPost را اجرا می‌کند
+				try
+				{
+					await orgPostJobs.SyncFromRahkaran(jobLogger, cn);
+				}
+				catch (Exception postEx)
+				{
+					await jobLogger?.LogExceptionAsync(postEx, cn);
+					await jobLogger?.LogWarningAsync("همگام‌سازی پست سازمانی ناموفق بود؛ نگاشت با داده‌های موجود ادامه می‌یابد", 0, cn);
+				}
+
 				// دریافت اطلاعات از راهکاران
 				var rahkaranEmployees = await GetRahkaranEmployee(cn);
 
@@ -39,6 +51,12 @@ namespace App.BackgroundJob.Jobs.Hcm
 				var orgUnitsDict = orgUnits
 					.Where(x => x.HamkaranUnitId > 0)
 					.ToDictionary(x => x.HamkaranUnitId);
+
+				var orgPosts = await unitOfWork.Repository<OrgPost>().Table.ToListAsync(cn);
+				var orgPostsDict = orgPosts
+					.Where(x => x.HamkaranPostId is > 0)
+					.GroupBy(x => x.HamkaranPostId!.Value)
+					.ToDictionary(g => g.Key, g => g.OrderBy(x => x.Id).First());
 
 				// دریافت اشخاص برای mapping
 				var parties = await unitOfWork.Repository<Party>().Table.ToListAsync(cn);
@@ -71,6 +89,8 @@ namespace App.BackgroundJob.Jobs.Hcm
 					{
 						orgUnit = ou;
 					}
+
+					var orgPostId = ResolveOrgPostId(rahkaranEmp.PostID, orgPostsDict);
 
 					// پیدا کردن شخص
 					Party? party = null;
@@ -114,6 +134,7 @@ namespace App.BackgroundJob.Jobs.Hcm
 							FieldOfStudy = rahkaranEmp.FieldOfStudy,
 							DegreeOfEducation = rahkaranEmp.DegreeOfEducation,
 							OrgUnitId = orgUnit?.Id,
+							OrgPostId = orgPostId,
 							PartyId = party?.Id,
 							IsActive = isActive
 						});
@@ -219,6 +240,12 @@ namespace App.BackgroundJob.Jobs.Hcm
 						if (orgUnit != null && existPersonel.OrgUnitId != orgUnit.Id)
 						{
 							existPersonel.OrgUnitId = orgUnit.Id;
+							updated = true;
+						}
+
+						if (existPersonel.OrgPostId != orgPostId)
+						{
+							existPersonel.OrgPostId = orgPostId;
 							updated = true;
 						}
 
@@ -342,6 +369,14 @@ namespace App.BackgroundJob.Jobs.Hcm
 				await jobLogger?.LogInfoAsync($"دبیرخانه: وضعیت فعال {updatedSec} ردیف به‌روز شد (بدون ForceToSend)", cn);
 		}
 
+
+		private static long? ResolveOrgPostId(long? postId, Dictionary<long, OrgPost> orgPostsDict)
+		{
+			if (postId is not > 0)
+				return null;
+
+			return orgPostsDict.TryGetValue(postId.Value, out var post) ? post.Id : null;
+		}
 
 		public async Task<List<RahkaranEmployee>> GetRahkaranEmployee(CancellationToken cn)
 		{

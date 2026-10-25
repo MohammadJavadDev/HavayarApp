@@ -27,20 +27,20 @@ namespace Entities.App.Srv
 		[DisplayInfo(null, true, type: SystemType.Select, required: true)]
 		public AmbassadorRequestJobTypeEnum JobTypeId { get; set; }
 
-		[DisplayName("تاریخ نیاز")]
-		[DisplayInfo(null, true, type: SystemType.Date, required: true)]
+		[DisplayName("تاریخ نیاز میلادی")]
+		[DisplayInfo(null, false, SystemType.Date)]
 		[Column(TypeName = "date")]
-		public DateTime NeedDate { get; set; }
+		public DateTime? NeedDateMiladiDate { get; set; }
+
+		[DisplayName("تاریخ نیاز")]
+		[MaxLength(20)]
+		[DisplayInfo("NeedDateMiladiDate", true, SystemType.DateShamsi, required: true)]
+		public string? NeedDateShamsiDate { get; set; }
 
 		[DisplayName("ساعت نیاز")]
 		[DisplayInfo(null, true, type: SystemType.String, required: true)]
 		[MaxLength(5)]
 		public string? NeedTime { get; set; }
-
-		[DisplayName("تاریخ نیاز")]
-		[DisplayInfo(null, false, type: SystemType.String, required: true)]
-		[MaxLength(20)]
-		public string? NeedDateInText { get; set; }
 
 		[DisplayName("توضیحات")]
 		[DisplayInfo(null, true, type: SystemType.String)]

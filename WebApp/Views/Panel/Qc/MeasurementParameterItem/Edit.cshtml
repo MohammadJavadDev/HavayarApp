@@ -1,0 +1,163 @@
+@using System.Text.Json
+@using Entities.App.Qc
+@model MeasurementParameterItem
+@{
+	var subItemJson = JsonSerializer.Serialize(
+		(Model?.SubItems ?? new List<MeasurementParameterSubItem>())
+			.OrderBy(s => s.Id)
+			.Select(s => new { id = s.Id ?? 0L, title = s.Title ?? "" }))
+		.Replace("<", "\\u003c");
+}
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(MeasurementParameterItem)" new-page-btn="false" save-and-new-btn="false" save-and-close-btn="false" history-btn="false"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row">
+			<div class="col-12 mb-4">
+				<h3 class="fw-bold text-dark">پارامتر اندازه گیری</h3>
+			</div>
+			<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+			<div class="col-md-4 form-group-inline">
+				<label>گروه</label>
+				@(Html.EntitySelector<MeasurementParameter>(
+					"MeasurementParameterSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"measurementParameterId",
+					null,
+					Model?.MeasurementParameterId > 0 ? Model.MeasurementParameterId.ToString() : null,
+					false))
+				<div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="required">اقلام پارامتر اندازه گیری</label>
+				<input class="form-control" data-bind="title" data-required="true" maxlength="2048" asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>نماد رایج</label>
+				<input class="form-control" data-bind="commonSymbol" maxlength="10" asp-for="CommonSymbol" />
+				<div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
+			</div>
+		</div>
+		<div class="row mt-4">
+			<div class="col-12 d-flex align-items-center justify-content-between mb-2">
+				<h4 class="fw-bold text-dark mb-0">ریز اقلام پارامتر اندازه گیری</h4>
+				<button type="button" class="btn btn-sm btn-light-primary" data-action="addSubItem">افزودن</button>
+			</div>
+			<div class="col-12">
+				<table class="table table-row-bordered table-row-gray-300 align-middle gs-0 gy-2">
+					<thead>
+						<tr class="fw-bold text-muted">
+							<th>عنوان</th>
+							<th class="text-center" style="width:90px">حذف</th>
+						</tr>
+					</thead>
+					<tbody data-subitem-body></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="card">
+	<div class="card-body row">
+		<div class="col-md-3">
+			<span>ایجاد کننده :</span>
+			<span data-bind="createdByName">@Model?.CreatedByName</span>
+		</div>
+		<div class="col-md-3">
+			<span>تاریخ ایجاد :</span>
+			<span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
+		</div>
+		<div class="col-md-3">
+			<span>ویرایش کننده :</span>
+			<span data-bind="modifiedByName">@Model?.ModifiedByName</span>
+		</div>
+		<div class="col-md-3">
+			<span>تاریخ ویرایش :</span>
+			<span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
+		</div>
+	</div>
+</div>
+
+<script>
+	let subItems = @Html.Raw(subItemJson);
+
+	function renderSubItems() {
+		const $body = $$('[data-subitem-body]');
+		$body.empty();
+		subItems.forEach(function (row, index) {
+			const $tr = $('<tr></tr>');
+			$tr.append($('<td></td>').text(row.title || ''));
+			const $remove = $('<button type="button" class="btn btn-sm btn-light-danger" data-action="removeSubItem"></button>')
+				.text('حذف')
+				.attr('data-index', index);
+			$tr.append($('<td class="text-center"></td>').append($remove));
+			$body.append($tr);
+		});
+	}
+
+	renderSubItems();
+
+	page.$pageEl.on('click', '[data-action="addSubItem"]', function () {
+		$.confirm({
+			title: 'ریز اقلام پارامتر اندازه گیری',
+			rtl: true,
+			content: '<div class="form-group"><label>ریز اقلام پارامتر اندازه گیری</label><input type="text" class="form-control sub-item-title" maxlength="2048" /></div>',
+			buttons: {
+				add: {
+					text: 'افزودن',
+					action: function () {
+						const title = this.$content.find('.sub-item-title').val();
+						subItems.push({ id: 0, title: title == null ? '' : String(title) });
+						renderSubItems();
+					}
+				},
+				cancel: {
+					text: 'انصراف'
+				}
+			}
+		});
+	});
+
+	page.$pageEl.on('click', '[data-action="removeSubItem"]', function () {
+		const index = Number($(this).attr('data-index'));
+		if (Number.isNaN(index) || index < 0 || index >= subItems.length)
+			return;
+		subItems.splice(index, 1);
+		renderSubItems();
+	});
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+
+		var model = page.$pageEl.dataBind();
+		model.subItems = subItems.map(function (row) {
+			return { id: row.id || 0, title: row.title || '' };
+		});
+		const $btn = $($btnAction.element).block();
+
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			subItems = (r.data && r.data.subItems ? r.data.subItems : []).map(function (row) {
+				return { id: row.id || 0, title: row.title || '' };
+			});
+			renderSubItems();
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+</script>

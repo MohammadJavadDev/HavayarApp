@@ -36,6 +36,7 @@ public sealed class DocumentRevisionSummaryViewModel
     public long? MotherFileId { get; set; }
     public long? SecondaryFileId { get; set; }
     public long? ReplySheetId { get; set; }
+    public long? SecondReplySheetId { get; set; }
 }
 
 /// <summary>
@@ -47,6 +48,6 @@ public sealed class DocumentEditActionFlags
 	public bool CanAddComment { get; set; }
 	public bool CanNewRevision { get; set; }
 	public bool CanAddReplySheet { get; set; }
-	public bool CanEditStatus { get; set; }
+	public bool CanDeleteLastComment { get; set; }
 }
 

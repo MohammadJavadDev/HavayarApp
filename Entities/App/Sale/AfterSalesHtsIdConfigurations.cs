@@ -40,4 +40,15 @@ namespace Entities.App.SLS
 				.HasDatabaseName("IX_SLS_Customer_HtsId");
 		}
 	}
+
+	public class ContractHtsIdConfiguration : IEntityTypeConfiguration<Contract>
+	{
+		public void Configure(EntityTypeBuilder<Contract> builder)
+		{
+			builder.HasIndex(x => x.HtsId)
+				.IsUnique()
+				.HasFilter("[HtsId] IS NOT NULL")
+				.HasDatabaseName("IX_SLS_Contract_HtsId");
+		}
+	}
 }

@@ -28,7 +28,7 @@
 					"CustomerAddressCustomerSelector",
 					c => c.IsActive == IsActiveEnum.Active,
 					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
-					c => new { c.Party, c.Code },
+					c => new { c.Party.FullName, c.Code },
 					"{Party.FullName} {Code}",
 					"customerId",
 					"customerName",

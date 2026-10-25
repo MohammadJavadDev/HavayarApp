@@ -5,8 +5,8 @@ using System.Text;
 
 namespace Entities.App.Sale.Enums
 {
-    public enum ProductionOrderItemSerialTypeEnum
-    {
+	public enum ProductionOrderItemSerialTypeEnum
+	{
 		[Display(Name = "ACP.HYTC")]
 		AcpHytc = 2704,
 
@@ -185,6 +185,14 @@ namespace Entities.App.Sale.Enums
 		Zr = 1360,
 
 		[Display(Name = "ZT")]
-		Zt = 1364
+		Zt = 1364,
+
+		[Display(Name = "COM.HYSM")]
+		COMHYSM = 3185,
+
+		[Display(Name = "COM.HYTG")]
+		COMHYTG = 3186
+
+			
 	}
 }

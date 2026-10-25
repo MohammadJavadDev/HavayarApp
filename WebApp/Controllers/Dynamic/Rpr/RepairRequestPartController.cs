@@ -16,6 +16,10 @@ namespace WebApp.Controllers.Dynamic
 	[ControllerInfo("قطعه درخواست تعمیر", typeof(RepairRequestPart))]
 	public class RepairRequestPartController(IUnitOfWork unitOfWork, IWebHostEnvironment env) : BaseController
 	{
+		private const string RoleRepairs = "Rpr.Repairs";
+		private const string RoleRequestRepairs = "Rpr.RepairRequest.Repairs";
+		private const string RoleShowAllMenus = "ShowAllMenus";
+
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(RepairRequestPart model, CancellationToken cn)
@@ -49,6 +53,23 @@ namespace WebApp.Controllers.Dynamic
 			model.Part = null;
 			model.PartUnit = null;
 			model.Dl = null;
+
+			var existing = await unitOfWork.Repository<RepairRequestPart>().TableNoTracking
+				.FirstOrDefaultAsync(c => c.Id == model.Id, cn);
+			if (existing == null)
+				return BadRequest("رکورد یافت نشد");
+
+			// این فیلدها روی فرم ویرایش نیستند. ذخیرهٔ کامل ردیف مقدار پست‌نشده را خالی می‌نوشت
+			// و شماره درخواست / توضیحات راهکاران بعد از ویرایش از گرید حذف می‌شد.
+			model.HtsId = existing.HtsId;
+			model.HtsPartRequestItemId = existing.HtsPartRequestItemId;
+			model.HtsHamkaranInvVchItemId = existing.HtsHamkaranInvVchItemId;
+			model.RahkaranRequestNo = existing.RahkaranRequestNo;
+			model.RahkaranDescription = existing.RahkaranDescription;
+			model.RahkaranPartRequestItemId = existing.RahkaranPartRequestItemId;
+			if (model.RepairRequestId == null || model.RepairRequestId == 0)
+				model.RepairRequestId = existing.RepairRequestId;
+
 			return Ok(await unitOfWork.Repository<RepairRequestPart>().UpdateAsync(model, cn, true));
 		}
 
@@ -87,62 +108,11 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult ListByParentId(long repairRequestId)
 		{
 			ViewBag.ParentId = repairRequestId;
+			// فقط برای پنهان‌کردن دکمه‌ها؛ مجوز واقعی Save/Delete با RoleAccess اعمال می‌شود.
+			ViewBag.CanNew = IsAdministrator || CurrentUserHasAnyRole(RoleRepairs, RoleRequestRepairs, RoleShowAllMenus);
+			ViewBag.CanEdit = IsAdministrator || CurrentUserHasAnyRole(RoleRepairs, RoleRequestRepairs, RoleShowAllMenus);
+			ViewBag.CanDelete = IsAdministrator || CurrentUserHasAnyRole(RoleRepairs, RoleShowAllMenus);
 			return View(@"\Views\Panel\Rpr\RepairRequestPart\ListByParentId.cshtml");
-		}
-
-		[HttpGet("[action]")]
-		[ActionDisplayName("دریافت لیست وابسته", ActionAccessType.Api, ActionAccessItemType.FetchData)]
-		public async Task<IActionResult> GetListByParentId(long? repairRequestId, CancellationToken cn)
-		{
-			if (repairRequestId == null || repairRequestId == 0)
-				return BadRequest("شناسه والد خالی است");
-			var items = await unitOfWork.Repository<RepairRequestPart>().TableNoTracking
-				.Where(c => c.RepairRequestId == repairRequestId)
-				.Select(c => new
-				{
-					c.Id,
-					IdNumber = c.RepairRequest != null ? c.RepairRequest.IdNumber : null,
-					ProjectCode = c.Dl != null ? c.Dl.Code
-						: (c.RepairRequest != null && c.RepairRequest.Dl != null ? c.RepairRequest.Dl.Code : null),
-					PartCode = c.Part != null ? c.Part.Code : null,
-					PartName = c.Part != null ? c.Part.Name : null,
-					c.StockName,
-					UnitName = c.UnitName ?? (c.PartUnit != null ? c.PartUnit.Title : null),
-					c.DamagedPart,
-					c.ReplacementPartDescription,
-					c.BuyPrice,
-					c.SalePrice,
-					c.UsedMount,
-					c.ReturnMount,
-					ProductName = c.RepairRequest != null && c.RepairRequest.Product != null ? c.RepairRequest.Product.Name : null,
-					c.Description
-				})
-				.ToListAsync(cn);
-			var mapped = items.Select(c =>
-			{
-				var qty = c.UsedMount - c.ReturnMount;
-				return new
-				{
-					c.Id,
-					c.IdNumber,
-					c.ProjectCode,
-					c.PartCode,
-					c.PartName,
-					c.StockName,
-					c.UnitName,
-					c.DamagedPart,
-					c.ReplacementPartDescription,
-					c.BuyPrice,
-					c.SalePrice,
-					c.UsedMount,
-					c.ReturnMount,
-					TotalPrice = c.SalePrice == null ? (decimal?)null : (decimal)c.SalePrice.Value * qty,
-					TotalBuyPrice = c.BuyPrice == null ? (decimal?)null : (decimal)c.BuyPrice.Value * qty,
-					c.ProductName,
-					c.Description
-				};
-			});
-			return Ok(mapped);
 		}
 
 		[HttpPost("[action]")]

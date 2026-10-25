@@ -1,5 +1,6 @@
 ﻿using Data.Contracts.Actions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -13,7 +14,7 @@ namespace Data.Actions
 		void InvokeSync<TEntity>(TEntity entity, TEntity? oldEntity, EntityActionTrigger trigger) where TEntity : class;
 	}
 
-	public class EntityActionInvoker(IServiceProvider serviceProvider, IEntityActionRegistry registry) : IEntityActionInvoker
+	public class EntityActionInvoker(IServiceProvider serviceProvider, IEntityActionRegistry registry, ILogger<EntityActionInvoker> logger) : IEntityActionInvoker
 	{
 		public async Task InvokeAsync<TEntity>(TEntity entity, TEntity? oldEntity, EntityActionTrigger trigger, CancellationToken ct) where TEntity : class
 		{
@@ -41,13 +42,26 @@ namespace Data.Actions
 			{
 				var instance = serviceProvider.GetRequiredService(definition.DeclaringType);
 				var parameters = definition.Method.GetParameters();
-				object[] args = new object[parameters.Length];
+				object?[] args = new object?[parameters.Length];
+
+				// اولین پارامتر هم‌نوع با موجودیت = entity ؛ پارامتر بعدی هم‌نوع = oldEntity (فقط در ویرایش مقدار دارد).
+				// قبلا هر دو پارامتر هم‌نوع مقدار entity می‌گرفتند و oldEntity هرگز bind نمی‌شد.
+				var entityBound = false;
+				var oldEntityBound = false;
 
 				for (int i = 0; i < parameters.Length; i++)
 				{
 					var pType = parameters[i].ParameterType;
-					if (pType.IsAssignableFrom(entity.GetType())) args[i] = entity;
-					else if (oldEntity != null && pType.IsAssignableFrom(oldEntity.GetType())) args[i] = oldEntity;
+					if (!entityBound && pType.IsAssignableFrom(entity.GetType()))
+					{
+						args[i] = entity;
+						entityBound = true;
+					}
+					else if (entityBound && !oldEntityBound && pType.IsAssignableFrom(entity.GetType()))
+					{
+						args[i] = oldEntity;
+						oldEntityBound = true;
+					}
 					else if (pType == typeof(CancellationToken)) args[i] = ct;
 				}
 
@@ -58,8 +72,19 @@ namespace Data.Actions
 			}
 			catch (TargetInvocationException ex)
 			{
+				// خطای اصلی لاگ می‌شود؛ پیام کاربر مثل قبل است. (InnerException عمدا ست نمی‌شود چون
+				// CustomExceptionHandlerMiddleware و چند کنترلر InnerException?.Message را نمایش می‌دهند
+				// و پیشوند «خطا در اکشن» حذف می‌شد.)
+				logger.LogWarning(ex.InnerException ?? ex, "Entity action {ActionName} ({Trigger}) on {EntityType} failed", definition.Metadata.Name, definition.Metadata.Trigger, definition.Metadata.EntityType.Name);
 				// استخراج خطای اصلی از داخل متد invoke شده
 				throw new Exception($"خطا در اکشن [{definition.Metadata.Title}]: {ex.InnerException?.Message ?? ex.Message}");
+			}
+			catch (Exception ex)
+			{
+				// خطای داخل متدهای async (و خطای resolve شدن کلاس Action) با همان نوع و پیام بالا می‌رود؛
+				// فقط نام Action لاگ می‌شود تا عیب‌یابی ممکن باشد.
+				logger.LogWarning(ex, "Entity action {ActionName} ({Trigger}) on {EntityType} failed", definition.Metadata.Name, definition.Metadata.Trigger, definition.Metadata.EntityType.Name);
+				throw;
 			}
 		}
 	}

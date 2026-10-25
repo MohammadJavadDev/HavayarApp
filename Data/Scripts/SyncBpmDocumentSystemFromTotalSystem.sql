@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 SyncBpmDocumentSystemFromTotalSystem.sql
 ================================================================================
@@ -278,7 +278,8 @@ BEGIN TRY
 
     INSERT INTO #FileWork (TargetId, EntityType, PropName, PhysicalPath, OriginalName, Size, ContentType)
     SELECT d.Id, N'OrganizationalDocument', N'File',
-        LTRIM(RTRIM(s.FinalFilePath)),
+        -- آرشیو Catalogs روی سرور Portal: ریشهٔ UNC قدیمی HTS -> مسیر محلی (Patch_OrganizationalDocument_ArchiveRoot.sql)
+        REPLACE(LTRIM(RTRIM(s.FinalFilePath)), N'\\172.20.30.14\COTMS\Hts_Documents\Catalogs\', N'D:\PortalData\Hts_Documents\Catalogs\'),
         COALESCE(NULLIF(LTRIM(RTRIM(s.DocumentFileName)), N''), N'file'),
         ISNULL(s.DocumentFileSize, 0),
         CASE LOWER(RIGHT(COALESCE(s.DocumentFileName, s.FinalFilePath, N''), 5))
@@ -399,19 +400,20 @@ BEGIN TRY
     PRINT N'=== Junctions from CSV ===';
     -----------------------------------------------------------------------------
 
-    DELETE j FROM Bpm.ProcessDocumentEditingOrgUnit j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
+    -- HTS: «تیم بازنگری/تدوین» = شناسهٔ کاربر، «مجری فرآیند» = شناسهٔ واحد سازمانی (جداول قدیمی ProcessDocumentEditingOrgUnit/ProcessDocumentProcessExecuter دیگر پر نمی‌شوند)
+    DELETE j FROM Bpm.ProcessDocumentEditingUser j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
     DELETE j FROM Bpm.ProcessDocumentExecuterOrgUnit j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
-    DELETE j FROM Bpm.ProcessDocumentProcessExecuter j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
+    DELETE j FROM Bpm.ProcessDocumentProcessExecuterOrgUnit j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
     DELETE j FROM Bpm.ProcessDocumentBeneficiaryOrgUnit j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
     DELETE j FROM Bpm.ProcessDocumentNotificationRecipient j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
     DELETE j FROM Bpm.ProcessDocumentRelatedOrgUnit j INNER JOIN Bpm.ProcessDocument d ON d.Id = j.ProcessDocumentId WHERE d.HtsId <> 0;
 
-    INSERT INTO Bpm.ProcessDocumentEditingOrgUnit (ProcessDocumentId, OrgUnitId, CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
-    SELECT DISTINCT pd.Id, om.NewOrgUnitId, 1, @SeedUser, @Now, @NowShamsi, 1, @SeedUser, @Now, @NowShamsi, 1
+    INSERT INTO Bpm.ProcessDocumentEditingUser (ProcessDocumentId, UserId, CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
+    SELECT DISTINCT pd.Id, um.NewUserId, 1, @SeedUser, @Now, @NowShamsi, 1, @SeedUser, @Now, @NowShamsi, 1
     FROM [TMS].[TotalSystem].[dbo].[Bpm_Document] s
     INNER JOIN Bpm.ProcessDocument pd ON pd.HtsId = s.Id
     CROSS APPLY STRING_SPLIT(REPLACE(ISNULL(s.EditingOrganizationUnitIds, N''), N' ', N''), N',') tok
-    INNER JOIN #OrgMap om ON om.OldOrgUnitId = TRY_CAST(tok.value AS BIGINT)
+    INNER JOIN #UserMap um ON um.OldUserId = TRY_CAST(tok.value AS BIGINT)
     WHERE TRY_CAST(tok.value AS BIGINT) > 0;
 
     INSERT INTO Bpm.ProcessDocumentExecuterOrgUnit (ProcessDocumentId, OrgUnitId, CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
@@ -438,12 +440,12 @@ BEGIN TRY
     INNER JOIN #OrgMap om ON om.OldOrgUnitId = TRY_CAST(tok.value AS BIGINT)
     WHERE TRY_CAST(tok.value AS BIGINT) > 0;
 
-    INSERT INTO Bpm.ProcessDocumentProcessExecuter (ProcessDocumentId, UserId, CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
-    SELECT DISTINCT pd.Id, um.NewUserId, 1, @SeedUser, @Now, @NowShamsi, 1, @SeedUser, @Now, @NowShamsi, 1
+    INSERT INTO Bpm.ProcessDocumentProcessExecuterOrgUnit (ProcessDocumentId, OrgUnitId, CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
+    SELECT DISTINCT pd.Id, om.NewOrgUnitId, 1, @SeedUser, @Now, @NowShamsi, 1, @SeedUser, @Now, @NowShamsi, 1
     FROM [TMS].[TotalSystem].[dbo].[Bpm_Document] s
     INNER JOIN Bpm.ProcessDocument pd ON pd.HtsId = s.Id
     CROSS APPLY STRING_SPLIT(REPLACE(ISNULL(s.ProcessExecuterIds, N''), N' ', N''), N',') tok
-    INNER JOIN #UserMap um ON um.OldUserId = TRY_CAST(tok.value AS BIGINT)
+    INNER JOIN #OrgMap om ON om.OldOrgUnitId = TRY_CAST(tok.value AS BIGINT)
     WHERE TRY_CAST(tok.value AS BIGINT) > 0;
 
     INSERT INTO Bpm.ProcessDocumentNotificationRecipient (ProcessDocumentId, UserId, CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)

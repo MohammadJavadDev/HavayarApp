@@ -98,3 +98,12 @@ Row highlight: HTS sets first-cell `steelblue` when `IsRevisedAndHasSupervisorAp
 7. The inverted `any() !== userId` download check is **absent**.
 8. Main/Temp/Comment are not downloadable from this page.
 9. No Kendo, no EDMS types, no service class.
+
+
+## 8. HTS parity pass (2026-10-11) — overrides earlier column suggestions
+
+Source: `_BpmDocumentReport.cshtml` (the HTS grid is typed on `BpmDocumentModel`, so captions come from that model). Profile `Bpm_ProcessDocument_Published`, patch `Patch_ProcessDocument_Published_HtsColumns.sql` (apply with `sqlcmd -x`).
+
+- **Columns, in order:** شماره درخواست, شماره بازنگری, نوع سند, عنوان سند, کد سند, مجموعه فرآیندی, مالک فرآیند, مجری فرآیند (org-unit titles from `ProcessExecuterOrgUnits`), واحد های مرتبط, مستندات مرتبط, تیم بازنگری/تدوین (user names from `EditingUsers`), زمان ابلاغ, سطح محرمانگی. Default sort: Id descending (HTS `GetOrderedRequest`; the Id column is visible in this grid).
+- **Row color:** `steelblue` on the ردیف cell when `IsRevisedAndHasSupervisorApprove` (request type Review and (a BpmUpdated(20) log exists or there are no logs)); legend entry added.
+- **Buttons:** دانلود فایل نهایی, دانلود فایل نهایی (PDF); the enable/permission rules and the ACL filter are unchanged.

@@ -3,7 +3,7 @@ Sync_ProjectUtilizedMaterial_FromTotalSystem.sql
 کات‌اور قابل‌اجرای مجدد Sale.ProjectUtilizedMaterial + Sale.ProjectUtilizedMaterialChange از [TMS].[TotalSystem].
 نگاشت کالا: Inv.Part.HtsId = HTS.PartId
 نگاشت تفصیل: TRY_CONVERT(INT, FIN.DL.Code) = Acc_DL.Hamkaran_Acc_DL_FK  (کد راهکاران، نه DLID)
-نوع رسید همان VchTypeId عدد HTS است؛ جدول Inv.VchType ساخته نمی‌شود.
+نوع رسید همان VchTypeId عدد HTS است و به Inv.VchType.Id (همان شناسه) وصل است.
 
 Encoding: UTF-8 with BOM
 Apply:

@@ -1,0 +1,44 @@
+@using Entities.App.Hrm
+@model StudyCourse
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(StudyCourse)" new-page-btn="false" save-and-new-btn="false"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">رشته تحصیلی</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" data-bind="hamkaranStudyCourseId" value="@Model?.HamkaranStudyCourseId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">عنوان</label>
+				<input class="form-control" data-bind="title" data-required="true" asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.title) {
+			toastr.error('عنوان نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post('update', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

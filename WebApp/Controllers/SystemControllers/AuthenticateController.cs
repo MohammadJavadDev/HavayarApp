@@ -5,6 +5,7 @@ using Entities.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Services.Auth;
+using WebApp.Framework.ViewAs;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -42,6 +43,10 @@ namespace WebApp.Controllers.SystemControllers
             {
                 return BadRequest(new { message = "اطلاعات وارد شده اشتباه میباشد." });
             }
+
+            if (IsViewAsRequest())
+                return BadRequest("در پنجره بررسی دسترسی نمی‌توان وارد حساب شد. این کار نشست شما را عوض می‌کند.");
+
             var response = await _userService.Authenticate(model , ct);
 
             if (response == null)
@@ -92,10 +97,28 @@ namespace WebApp.Controllers.SystemControllers
 
         [HttpGet("[action]")]
         [AllowAnonymous]
-        public async Task<IActionResult> Logout()
+        public IActionResult Logout()
         {
+            if (HttpContext.Items[ViewAsSessionStore.ItemKey] is ViewAsSession session)
+                return Redirect("/?viewAs=" + session.Id);
+
             Response.Cookies.Delete("JwtToken");
 			return Redirect("/");
+        }
+
+        private bool IsViewAsRequest()
+        {
+            if (HttpContext.Items.ContainsKey(ViewAsSessionStore.ItemKey))
+                return true;
+
+            if (Request.Query.ContainsKey(ViewAsSessionStore.QueryName))
+                return true;
+
+            if (Request.Headers.ContainsKey(ViewAsSessionStore.HeaderName))
+                return true;
+
+            var referer = Request.Headers.Referer.ToString();
+            return referer.Contains(ViewAsSessionStore.QueryName + "=", StringComparison.OrdinalIgnoreCase);
         }
 		[HttpPost("[action]")]
 		[Authorize("AuthenticatedUser")]

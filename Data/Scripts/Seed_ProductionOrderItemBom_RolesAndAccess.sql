@@ -9,8 +9,8 @@ Seed_ProductionOrderItemBom_RolesAndAccess.sql
      — باز/ذخیره/حذف/اکسل BOM (فقط این نقش یا ادمین)
      — اعضا: گروه HTS 451 + کاربران مستقیم New/Edit/Delete صفحه 508
 
-  2) تکمیل اطلاعات bom اقلام سفارش ساخت صنایع (Name=Title)
-     — فقط فیلدهای جدید BOM: ProductionStep, NumberSupplied, Status
+  2) تکمیل اطلاعات bom اقلام سفارش ساخت صنایع (Name=Title؛ هرگز Name=bom)
+     — مشاهده لیست BOM + فقط فیلدهای صنایع: ProductionStep, NumberSupplied, Status
      — اعضا: سپیده آزاد بخش، علی اکبر خلیلی، رسول کیان
 
 حذف مسیرهای BOM از Industries / AcceptIndustrial تا فقط نقش جدید (و ادمین) بتواند BOM کند.
@@ -69,8 +69,20 @@ BEGIN TRY
         PRINT N'  Reused role: ' + @BomRoleName + N' id=' + CAST(@BomRoleId AS NVARCHAR(20));
     END
 
-    IF NOT EXISTS (SELECT 1 FROM system.Role WHERE Name = @NewFieldsRoleName)
+    -- Name باید عین عنوان بماند. اگر نقش با Name = N'bom' روی همین Id مانده، اصلاح می‌شود و نقش دوم ساخته نمی‌شود.
+    SET @NewFieldsRoleId = NULL;
+    SELECT TOP 1 @NewFieldsRoleId = Id
+    FROM system.Role
+    WHERE Name = @NewFieldsRoleName OR Name = N'bom' OR Id = 200067
+    ORDER BY CASE
+        WHEN Name = @NewFieldsRoleName THEN 0
+        WHEN Id = 200067 THEN 1
+        ELSE 2
+    END, Id;
+
+    IF @NewFieldsRoleId IS NULL
     BEGIN
+        SET @NewFieldsRoleId = 200067;
         IF EXISTS (SELECT 1 FROM system.Role WHERE Id = @NewFieldsRoleId)
             SELECT @NewFieldsRoleId = ISNULL(MAX(Id), 200000) + 1 FROM system.Role WHERE Id BETWEEN 200000 AND 299999;
 
@@ -88,14 +100,39 @@ BEGIN TRY
     END
     ELSE
     BEGIN
-        SELECT @NewFieldsRoleId = Id FROM system.Role WHERE Name = @NewFieldsRoleName;
         UPDATE system.Role
-        SET Title = @NewFieldsRoleTitle, IsActive = 1,
+        SET Name = @NewFieldsRoleName, Title = @NewFieldsRoleTitle, IsActive = 1,
             ModifiedById = 1, ModifiedByName = @SeedUser,
             ModifiedDateMiladiDateTime = @Now, ModifiedDateShamsiDateTime = @NowShamsi
         WHERE Id = @NewFieldsRoleId;
         PRINT N'  Reused role: ' + @NewFieldsRoleName + N' id=' + CAST(@NewFieldsRoleId AS NVARCHAR(20));
     END
+
+    -- توکن قدیمی bom داخل Roles را به Name واقعی نقش برمی‌گرداند (فقط اعضای همین نقش)
+    UPDATE u
+    SET Roles = rebuilt.NewRoles,
+        ModifiedById = 1,
+        ModifiedByName = @SeedUser,
+        ModifiedDateMiladiDateTime = @Now,
+        ModifiedDateShamsiDateTime = @NowShamsi
+    FROM system.[User] u
+    CROSS APPLY (
+        SELECT N'[' + STRING_AGG(N'"' + STRING_ESCAPE(token, 'json') + N'"', N',')
+            WITHIN GROUP (ORDER BY ord) + N']' AS NewRoles
+        FROM (
+            SELECT MIN(TRY_CAST(j.[key] AS INT)) AS ord,
+                   CASE WHEN j.value = N'bom' THEN @NewFieldsRoleName ELSE j.value END AS token
+            FROM OPENJSON(u.Roles) j
+            GROUP BY CASE WHEN j.value = N'bom' THEN @NewFieldsRoleName ELSE j.value END
+        ) d
+    ) rebuilt
+    WHERE ISJSON(u.Roles) = 1
+      AND ISJSON(u.RoleIds) = 1
+      AND EXISTS (
+            SELECT 1 FROM OPENJSON(u.RoleIds) i
+            WHERE TRY_CAST(i.value AS BIGINT) = @NewFieldsRoleId)
+      AND EXISTS (SELECT 1 FROM OPENJSON(u.Roles) x WHERE x.value = N'bom');
+    PRINT N'  Repaired bom role tokens: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
 
     -----------------------------------------------------------------------------
     -- 2) Remove BOM paths from Industries / AcceptIndustrial
@@ -141,6 +178,22 @@ BEGIN TRY
         SELECT 1 FROM system.RoleAccess ra
         WHERE ra.RoleId = x.RoleId AND ra.Path = x.Path AND ra.ActionAccessType = x.AccessType);
     PRINT N'  Inserted BOM RoleAccess rows: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
+
+    UPDATE ra
+    SET IsActive = 1,
+        DisplayName = CASE ra.Path
+            WHEN N'/panel/productionorderitem/bomlistby' THEN N'لیست BOM قلم سفارش ساخت'
+            WHEN N'/panel/productionorderitem/getbomlistbyparentid' THEN N'دریافت لیست BOM'
+            WHEN N'/panel/productionorderitem/savebom' THEN N'ذخیره BOM'
+            ELSE ra.DisplayName
+        END
+    FROM system.RoleAccess ra
+    WHERE ra.RoleId = @NewFieldsRoleId
+      AND ra.Path IN (
+            N'/panel/productionorderitem/bomlistby',
+            N'/panel/productionorderitem/getbomlistbyparentid',
+            N'/panel/productionorderitem/savebom');
+    PRINT N'  Activated industrial BOM RoleAccess: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
 
     -----------------------------------------------------------------------------
     -- 4) Assign BOM role to matched HTS group-451 / New-Edit-Delete users

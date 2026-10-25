@@ -20,7 +20,9 @@ namespace Data.Actions
 			foreach (Assembly assembly in assemblies) {
 
 				var actionClasses = assembly.GetTypes()
-				    .Where(t => t.GetMethods().Any(m => m.GetCustomAttribute<EntityActionAttribute>() != null));
+				    // همان BindingFlags رجیستری، تا متد غیر public هم کلاسش در DI ثبت شود
+				    .Where(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic)
+					    .Any(m => m.GetCustomAttribute<EntityActionAttribute>() != null));
 
 				foreach (var type in actionClasses)
 				{

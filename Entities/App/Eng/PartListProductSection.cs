@@ -32,7 +32,7 @@ namespace Entities.App.Eng
 		public byte Order { get; set; }
 
 		[DisplayName("تصویر")]
-		[DisplayInfo(null, true, type: SystemType.File, fileTypes: ".jpg,.jpeg,.png")]
+		[DisplayInfo(null, true, type: SystemType.File, fileTypes: ".jpg,.jpeg,.png", maxFileSize: 100)]
 		public FileEntity? Picture { get; set; }
 		public long? PictureId { get; set; }
 

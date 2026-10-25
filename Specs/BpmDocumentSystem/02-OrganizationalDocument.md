@@ -193,3 +193,15 @@ Standard save wiring. After save: `page.$pageEl.dataBind(r.data)` — do not `lo
 7. Duplicate destination file name is skipped with a partial-success message; other files still save.
 8. Catalog path does not include level-2/3 folder titles (HTS live behaviour).
 9. No replace-as-new, no CSV, no EDMS types, no service class.
+
+## 8. HTS parity pass (2026-10-10) — overrides earlier sections where they conflict
+
+The page must match HTS (`_Document.cshtml`, `DocumentController`, `GnrDocumentModel`, `CaptionsLibrary.fa-IR`) exactly. Nothing is added or removed beyond this list.
+
+- **Grid (Data Profile `Gnr_OrganizationalDocument_List`)**, in order: واحد مرتبط, گروه اسناد (folder `Title`), زیرمجموعه (folder `FolderTitle`), عنوان / مدل, عنوان / مدل (En), برند, سال, نسخه, نام فایل, سایز فایل (formatted), کاربر ایجادکننده, تاریخ ایجاد (default sort, descending), کامنت. Seed: `Patch_OrganizationalDocument_HtsColumns.sql` / `Seed_BpmDocumentSystem_DataProfiles.sql`.
+- **List toolbar:** new, edit, delete, Excel export (kept by decision) and «مشاهده» (custom button, downloads the selected row's file via `Download`).
+- **Edit form:** سطح اول, عنوان / مدل, عنوان / مدل (En), برند, سال, رویژن, فایل(ها) (add: up to 20 files; edit: one replacement file, old `FileEntity` kept), کامنت. Level 2 / level 3 pickers are not shown (commented out in HTS). The created/modified footer box is kept by decision.
+- **Edit procedure:** in-place on the same `Id`; a new file may be uploaded on edit (`FileId` is repointed, the old `FileEntity` is not deleted; HTS-migrated files already live in Havayar, nothing is read from HTS at runtime); folder level 2/3 are not touched.
+- **Delete:** DB row only (the physical file is left alone — decision; HTS also deletes the file).
+- **Messages:** HTS `MessagesLibrary.fa-IR` wording (`({0}) نمیتواند خالی باشد`, `مقدار فیلد ({0}) نامعتبر است.`, `فایلی انتخاب نشده است`, `حداکثر تعداد فایل قابل آپلود 20 فایل می باشد`, `حجم فایل ارسالی از حداکثر حجم مجاز بیشتر است`, `عملیات مورد نظر با موفقیت انجام شد`, partial-success summary with duplicates).
+- **No address / file path:** HTS's آدرس form field (ComputeAddress) and the مسیر فایل grid column are intentionally **not** ported — Havayar files are addressed automatically by FileEntity, so the user never sees or edits a path (decision 2026-10-10).

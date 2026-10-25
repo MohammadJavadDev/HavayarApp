@@ -90,7 +90,8 @@
 
 		<div class='col-md-6'>
 			<label class=''>تعداد کسری</label>
-			<input class='form-control'  data-bind='deficitCount'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DeficitCount' />
+			<input type="text" class='form-control' data-bind='deficitCount'
+				value="@(Model?.DeficitCount?.ToString("0.#############################", System.Globalization.CultureInfo.InvariantCulture))" />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -120,7 +121,8 @@
 
 		<div class='col-md-6'>
 			<label class=''>اولویت دستگاه</label>
-			<input class='form-control'  data-bind='devicePriority'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DevicePriority' />
+			<input class='form-control'  data-bind='devicePriority'  data-invalidMessage='فقط عداد' 
+			data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='DevicePriority' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 		<div class='col-md-6'>
@@ -130,7 +132,8 @@
 		</div>
 		<div class='col-md-6'>
 			<label class=''>تعداد خرید در راه</label>
-			<input class='form-control' data-bind='onWayPurchasedCount' data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='OnWayPurchasedCount' />
+			<input type="text" class='form-control' data-bind='onWayPurchasedCount'
+				value="@(Model?.OnWayPurchasedCount?.ToString("0.#############################", System.Globalization.CultureInfo.InvariantCulture))" />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -161,7 +164,9 @@
 
 		<div class='col-md-4'>
 			<label class=''>تاریخ   تحویل استاندارد</label>
-			<input class='form-control ltr' data-bind='standardDeliveryMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.StandardDeliveryMiladiDate' />
+			<input class='form-control ltr' data-bind='StandardDeliveryShamsiDateTime' data-persionDatePicker="true"
+			persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}'
+			value='@(Model?.StandardDeliveryMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
  
@@ -170,7 +175,9 @@
 
 		<div class='col-md-4'>
 			<label class=''>تاریخ   صدور درخواست خرید</label>
-			<input class='form-control ltr' data-bind='purchaseRequestIssuanceMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PurchaseRequestIssuanceMiladiDate' />
+			<input class='form-control ltr' data-bind='PurchaseRequestIssuanceShamsiDateTime' data-persionDatePicker="true"
+			persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}'
+			value='@(Model?.PurchaseRequestIssuanceMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -178,15 +185,19 @@
 
 		<div class='col-md-4'>
 			<label class=''>تاریخ   تایید درخواست خرید</label>
-			<input class='form-control ltr' data-bind='purchaseRequestConfirmationMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PurchaseRequestConfirmationMiladiDate' />
+			<input class='form-control ltr' data-bind='PurchaseRequestConfirmationShamsiDateTime'
+			data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}'
+			value='@(Model?.PurchaseRequestConfirmationMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
  
 
 		<div class='col-md-4'>
-			<label class=''>تاریخ   تایید درخواست خرید</label>
-			<input class='form-control ltr' data-bind='purchaseRequestNeedMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PurchaseRequestNeedMiladiDate' />
+			<label class=''>تاریخ نیاز درخواست خرید</label>
+			<input class='form-control ltr' data-bind='PurchaseRequestNeedShamsiDateTime'
+			data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}'
+			value='@(Model?.PurchaseRequestNeedMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
  
@@ -195,22 +206,28 @@
 
 		<div class='col-md-4'>
 			<label class=''>تاریخ   پیش بینی تامین واحد تامین کننده-گزارش قبل</label>
-			<input class='form-control ltr' data-bind='preReportSupplierUnitForecastMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.PreReportSupplierUnitForecastMiladiDate' />
+			<input class='form-control ltr' data-bind='PreReportSupplierUnitForecastShamsiDateTime'
+			data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}'
+				  value='@(Model?.PreReportSupplierUnitForecastMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 	 
 
 		<div class='col-md-4'>
-			<label class=''>تاریخ    پیش بینی تامین واحد تامین کننده-گزارش دو هفته قبل</label>
-			<input class='form-control ltr' data-bind='lastTwoWeeksForecastSupplierUnitMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.LastTwoWeeksForecastSupplierUnitMiladiDate' />
+			<label class=''>تاریخ  پیش بینی تامین واحد تامین کننده-گزارش دو هفته قبل</label>
+			<input class='form-control ltr' data-bind='LastTwoWeeksForecastSupplierShamsiDateTime'
+			data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' 
+				  value='@(Model?.LastTwoWeeksForecastSupplierMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
  
 
 			<div class='col-md-4'>
 				<label class=''>تاریخ پیش بینی تامین واحد تامین کننده</label>
-				<input class='form-control ltr' data-bind='supplierUnitForecastDateUnitMiladiDate' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}' value='@Model?.SupplierUnitForecastDateUnitMiladiDate' />
+			<input class='form-control ltr' data-bind='SupplierUnitForecastDateShamsiDateTime'
+				data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false,"timePicker":{"enabled": false}}'
+				  value='@(Model?.SupplierUnitForecastDateMiladiDateTime?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
@@ -252,8 +269,11 @@
 	}
 	else if(AppSdk.hasRole("Pln.ProductionOrerItemDeficit.SupplierEdit"))
 	{
-		$$('[data-bind]:not([data-bind="supplierUnitForecastDateUnitMiladiDate"])').disabled(true);
-	}
+		$$('[data-bind]').disabled(true);
+		$$('[data-bind="SupplierUnitForecastDateShamsiDateTime"]').disabled(false);
+		$$('[data-bind="supplierDescription"]').disabled(false);
+		$$('[data-bind="purchaseExpert"]').disabled(false);
+	} 
 	else
 	{
 	    $$('[data-bind]').disabled(true);

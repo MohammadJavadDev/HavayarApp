@@ -1,2 +1,46 @@
 @using Entities.App.Sale
+@using Entities.App.FIN
+@using Entities.Base
+<div class="card mb-4">
+	<div class="card-body row g-3 align-items-end">
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label">انتخاب تفصیل</label>
+			@(Html.EntitySelector<DL>(
+				"ProjectUtilizedMaterialDlSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Title = c.Title, Code = c.Code },
+				c => new { c.Title, c.Code },
+				"{Code} {Title}",
+				"dlId",
+				"dlTitle",
+				null
+			))
+		</div>
+		<div class="col-md-2">
+			<button type="button" class="btn btn-primary w-100" data-action="pumSearch">
+				<i class="fa fa-search"></i> جستجو
+			</button>
+		</div>
+	</div>
+</div>
+
 <datatableprofile entity-Type="typeof(ProjectUtilizedMaterial)"></datatableprofile>
+
+<script>
+	page.$pageEl.on('click', '[data-action="pumSearch"]', function () {
+		const model = page.$pageEl.dataBind();
+		const dlId = parseInt(model.dlId, 10) || 0;
+		if (!dlId) {
+			toastr.warning('ابتدا تفصیل را انتخاب کنید', 'هشدار');
+			return;
+		}
+
+		const $select = $$('[data-action="dataProfile"]');
+		$select.attr('data-query-params', JSON.stringify({ DLId: String(dlId) }));
+
+		const table = $select.data('dtProfileTable') || self.table;
+		if (table && table.ajax) {
+			table.ajax.reload(null, false);
+		}
+	});
+</script>

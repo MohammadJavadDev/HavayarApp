@@ -19,5 +19,10 @@ namespace Entities.App.Epms
 		[DisplayInfo(null, true, type: SystemType.String, required: true, showInRelationData: true)]
 		[MaxLength(500)]
 		public string Title { get; set; }
+
+		/// <summary>
+		/// شناسه نوع مدرک در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 }

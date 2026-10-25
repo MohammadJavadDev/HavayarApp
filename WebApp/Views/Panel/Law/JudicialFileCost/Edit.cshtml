@@ -1,0 +1,24 @@
+@using Entities.App.Law
+@using Entities.App.Law.Enums
+@model JudicialFileCost
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="judicialFileId" value="@Model?.JudicialFileId" />
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold required">نوع هزینه</label>
+		<select class="form-control" data-bind="type" data-required="true" asp-for="Type" asp-items="Html.GetEnumSelectList(typeof(JudicialCostTypeEnum))">
+			<option value="">انتخاب کنید</option>
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold required">مبلغ (ریال)</label>
+		<input class="form-control" type="text" data-bind="value" data-required="true" data-money="true" asp-for="Value" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold">توضیحات</label>
+		<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3" maxlength="1024"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

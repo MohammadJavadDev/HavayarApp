@@ -14,6 +14,72 @@
         overflow: auto;
     }
 
+    #partCodingCategoryPage #treePane,
+    #partCodingCategoryPage #gridPane {
+        min-width: 0;
+    }
+
+    #partCodingCategoryPage #treePane {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #partCodingCategoryPage .tree-pane-shell {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    #partCodingCategoryPage .tree-pane-rail {
+        display: none;
+    }
+
+    #partCodingCategoryPage.tree-collapsed #treePane {
+        flex: 0 0 48px;
+        width: 48px;
+        max-width: 48px;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    #partCodingCategoryPage.tree-collapsed #gridPane {
+        flex: 1 1 auto;
+        width: calc(100% - 48px);
+        max-width: calc(100% - 48px);
+    }
+
+    #partCodingCategoryPage.tree-collapsed .tree-pane-shell {
+        min-height: 420px;
+    }
+
+    #partCodingCategoryPage.tree-collapsed .tree-pane-label,
+    #partCodingCategoryPage.tree-collapsed .tree-pane-body {
+        display: none !important;
+    }
+
+    #partCodingCategoryPage.tree-collapsed .tree-pane-toolbar {
+        justify-content: center;
+        padding: 0.75rem 0.15rem 0.25rem;
+    }
+
+    #partCodingCategoryPage.tree-collapsed .tree-pane-rail {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        flex: 1 1 auto;
+        padding-top: 10px;
+        cursor: pointer;
+    }
+
+    #partCodingCategoryPage.tree-collapsed .tree-pane-rail span {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1.15;
+        color: #5e6278;
+        user-select: none;
+    }
+
     #requestNewPartModal .attribute-row td:first-child {
         width: 35%;
     }
@@ -32,6 +98,10 @@
                     <i class="ki-duotone ki-filter fs-4"></i>
                     فیلتر پیشرفته
                 </button>
+                <button type="button" class="btn btn-light-success btn-sm" id="btnExportExcel">
+                    <i class="ki-duotone ki-file-down fs-4"></i>
+                    خروجی اکسل
+                </button>
                 @if (hasAddPermission)
                 {
                     <button type="button" class="btn btn-success btn-sm" id="btnRequestNewCode" disabled>
@@ -45,10 +115,23 @@
     <div class="card-body">
         <div class="row g-4">
             <div class="col-lg-4" id="treePane">
-                <div class="border rounded p-3 h-100">
-                    <label class="form-label">جستجو در درخت</label>
-                    <input type="text" class="form-control form-control-sm mb-3 tree-search-input" id="treeSearchInput" placeholder="جستجو..." />
-                    <div id="categoryTree"></div>
+                <div class="border rounded h-100 d-flex flex-column tree-pane-shell">
+                    <div class="d-flex align-items-center justify-content-between gap-2 px-3 pt-3 tree-pane-toolbar">
+                        <label class="form-label mb-0 tree-pane-label" for="treeSearchInput">جستجو در درخت</label>
+                        <button type="button" class="btn btn-sm btn-icon btn-light-primary flex-shrink-0" id="btnToggleTree" title="مخفی کردن درختواره" aria-pressed="false" aria-label="مخفی کردن درختواره">
+                            <i class="ki-duotone ki-double-right fs-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                        </button>
+                    </div>
+                    <div class="tree-pane-body px-3 pb-3 pt-2">
+                        <input type="text" class="form-control form-control-sm mb-3 tree-search-input" id="treeSearchInput" placeholder="جستجو..." />
+                        <div id="categoryTree"></div>
+                    </div>
+                    <div class="tree-pane-rail" role="button" tabindex="0" title="نمایش درختواره" aria-label="نمایش درختواره">
+                        <span>د</span><span>ر</span><span>خ</span><span>ت</span><span>و</span><span>ا</span><span>ر</span><span>ه</span>
+                    </div>
                 </div>
             </div>
 
@@ -173,8 +256,11 @@
         const $attributesBody = $$('#attributesBody');
         const $tblFilters = $$('.tblFilters');
 
+        const treeCollapsedStorageKey = 'partCodingCategory.treeCollapsed';
+        const $btnToggleTree = $$('#btnToggleTree');
         const $btnSearchParts = $$('#btnSearchParts');
         const $btnAdvancedFilter = $$('#btnAdvancedFilter');
+        const $btnExportExcel = $$('#btnExportExcel');
         const $btnRequestNewCode = $$('#btnRequestNewCode');
         const $btnSaveRequest = $$('#btnSaveRequest');
         const $btnRemoveFilters = $$('#btnRemoveFilters');
@@ -347,6 +433,44 @@
             partsGrid.columns.adjust();
         }
 
+        function exportExcel() {
+            if (!partsGrid) return;
+            if (!partCodePrefix && !searchContent) {
+                return toastr.warning('ابتدا یک دسته بندی را انتخاب کنید یا فیلتر اعمال کنید.', 'هشدار');
+            }
+
+            const payload = {
+                partCodePrefix: partCodePrefix,
+                searchContent: searchContent,
+                columns: partsGrid.settings()[0].aoColumns.map(function (c) { return { data: c.data }; }),
+                order: partsGrid.order().map(function (o) { return { column: String(o[0]), dir: o[1] }; })
+            };
+
+            const $btn = $btnExportExcel.prop('disabled', true);
+            fetch('/Panel/Inv/PartCodingCategory/ExportPartsToExcel', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (!res.ok) throw new Error('export failed');
+                return res.blob();
+            }).then(function (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'PartCoding.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            }).catch(function () {
+                toastr.error('خطا در دریافت خروجی اکسل', 'خطا');
+            }).finally(function () {
+                $btn.prop('disabled', false);
+            });
+        }
+
         function searchParts() {
             if (!selectedNode) {
                 return toastr.warning('حداقل یک دسته بندی را انتخاب کنید.', 'هشدار');
@@ -513,6 +637,35 @@
             });
         }
 
+        function adjustPartsGrid() {
+            if (!partsGrid) return;
+            partsGrid.columns.adjust();
+        }
+
+        function setTreeCollapsed(collapsed) {
+            $page.toggleClass('tree-collapsed', collapsed);
+
+            const $icon = $btnToggleTree.find('i');
+            $icon.toggleClass('ki-double-right', !collapsed);
+            $icon.toggleClass('ki-double-left', collapsed);
+
+            const label = collapsed ? 'نمایش درختواره' : 'مخفی کردن درختواره';
+            $btnToggleTree.attr('title', label);
+            $btnToggleTree.attr('aria-label', label);
+            $btnToggleTree.attr('aria-pressed', collapsed ? 'true' : 'false');
+
+            try {
+                localStorage.setItem(treeCollapsedStorageKey, collapsed ? '1' : '0');
+            } catch (e) { }
+
+            if (!collapsed && treeInstance) {
+                window.setTimeout(function () { treeInstance.redraw(true); }, 0);
+            }
+
+            window.setTimeout(adjustPartsGrid, 0);
+            window.setTimeout(adjustPartsGrid, 200);
+        }
+
         function bindTreeSearch() {
             $treeSearch.off('keyup').on('keyup', function () {
                 if (!treeInstance) return;
@@ -521,7 +674,20 @@
         }
 
         function bindEvents() {
+            $btnToggleTree.on('click', function () {
+                setTreeCollapsed(!$page.hasClass('tree-collapsed'));
+            });
+            $page.on('click', '.tree-pane-rail', function () {
+                setTreeCollapsed(false);
+            });
+            $page.on('keydown', '.tree-pane-rail', function (e) {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                setTreeCollapsed(false);
+            });
+
             $btnSearchParts.on('click', searchParts);
+            $btnExportExcel.on('click', exportExcel);
             $btnAdvancedFilter.on('click', function () {
                 bootstrap.Modal.getOrCreateInstance(document.getElementById('advancedFilterModal')).show();
             });
@@ -536,6 +702,12 @@
             bindFilterEvents();
             bindTreeSearch();
         }
+
+        try {
+            if (localStorage.getItem(treeCollapsedStorageKey) === '1') {
+                setTreeCollapsed(true);
+            }
+        } catch (e) { }
 
         initPartsGrid();
         initTree();

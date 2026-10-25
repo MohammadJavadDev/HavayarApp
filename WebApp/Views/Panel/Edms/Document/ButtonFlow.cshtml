@@ -112,6 +112,7 @@
 			</div>
 			<div class="df-toc">
 				<a class="btn btn-sm btn-light" href="#sec-actors">نقش‌ها</a>
+				<a class="btn btn-sm btn-light" href="#sec-vp">مسیر وندور</a>
 				<a class="btn btn-sm btn-light" href="#sec-sim">آزمایش</a>
 				<a class="btn btn-sm btn-light" href="#sec-flow">نقشه گردش</a>
 				<a class="btn btn-sm btn-light" href="#sec-matrix">جدول</a>
@@ -138,13 +139,13 @@
 				<div class="col-md-3">
 					<div class="border border-primary rounded p-4 bg-light-primary h-100">
 						<div class="fw-bold">بررسی‌کنندگان VPIS</div>
-						<div class="text-muted fs-7">ReviewersId — وضعیت Issue</div>
+						<div class="text-muted fs-7">ReviewersId — Issue (و در پروژه وندور: IssueForClient)</div>
 					</div>
 				</div>
 				<div class="col-md-3">
 					<div class="border border-primary rounded p-4 bg-light-primary h-100">
 						<div class="fw-bold">تاییدکننده VPIS</div>
-						<div class="text-muted fs-7">ApproverId — وضعیت ApproveByReviewer</div>
+						<div class="text-muted fs-7">غیروندور: ApproveByReviewer — وندور: مشاهده Issue/CommentedByReviewer/IssueForClient و اقدام روی ApproveByClient</div>
 					</div>
 				</div>
 				<div class="col-md-3">
@@ -252,14 +253,43 @@
 		</div>
 	</div>
 
+	<div class="card mb-5" id="sec-vp">
+		<div class="card-header"><h3 class="card-title">مسیر پروژه وندور (VP)</h3></div>
+		<div class="card-body">
+			<div class="alert alert-info">
+				وقتی <span class="df-mono">ProjectIsVendoriType</span> روشن است، بررسی‌کننده از Issue
+				<span class="df-mono">CommentedByReviewer</span>، <span class="df-mono">IssueForClient</span>،
+				<span class="df-mono">RejectByClient</span> و <span class="df-mono">ApproveByClient</span> را می‌بیند.
+				<span class="df-mono">ApproveByReviewer</span> در این مسیر نیست.
+				تاییدکننده روی همان Issue فقط <span class="df-mono">Archived</span> را می‌بیند.
+			</div>
+			<ul class="mb-4">
+				<li><strong>CommentedByReviewer / CommentedByApprover:</strong> خروج از کارتابل بررسی، بازگشت به تهیه‌کننده روی همان ریویژن. از IssueForClient بررسی‌کننده اولی را می‌بیند و تاییدکننده دومی را.</li>
+				<li><strong>IssueForClient:</strong> ماندن برای کسی که آخرین کامنت را گذاشته. از آن: ApproveByClient، CommentedByClient، RejectByClient و کامنت داخلی.</li>
+				<li><strong>RejectByClient:</strong> کارتابل تهیه‌کننده، ریویژن جدید، ReplySheet و Hold.</li>
+				<li><strong>CommentedByClient:</strong> کارتابل تهیه‌کننده، ریویژن جدید، و Hold توسط تهیه‌کننده.</li>
+				<li><strong>ApproveByClient:</strong> ماندن برای تاییدکننده تا مهر بزند. قبل از مهر، تاییدکننده می‌تواند CommentedByApprover، IssueForClient، RejectByClient یا Archived هم بزند. کامنت ApproveByApprover تاریخ تایید را می‌زند ولی وضعیت روی ApproveByClient می‌ماند و وارد کارتابل DCC (وضعیت ۷) نمی‌شود.</li>
+				<li><strong>Archived:</strong> تاریخ تایید ثبت می‌شود و مدرک از کارتابل بررسی، تهیه‌کننده و DCC خارج می‌شود. فقط در فهرست مدارک می‌ماند.</li>
+				<li>مدارک VP که از قبل در ApproveByReviewer یا ApproveByApprover هستند همان مسیر غیروندور را تمام می‌کنند.</li>
+			</ul>
+			<p class="text-muted mb-0">پروژه‌های غیروندور بدون تغییر: Issue → ApproveByReviewer / CommentedByReviewer → تاییدکننده → DCC → NotReview.</p>
+		</div>
+	</div>
+
 	<div class="card mb-5" id="sec-hours">
 		<div class="card-header"><h3 class="card-title">نفرساعت، هنگام ذخیره توسط تهیه‌کننده</h3></div>
 		<div class="card-body">
 			<div class="alert alert-success mb-0">
 				در وضعیت‌های NotIssue و CommentedByReviewer و CommentedByApprover و CommentedByDcc،
-				و همچنین بعد از ایجاد ریویژن جدید، فقط «ذخیره و بستن» برای تهیه‌کننده VPIS فعال است.
+				و در RejectByDcc پروژه غیروندور،
+				و در UnHold وقتی نظر کارفرما روی همین ریویژن نیست،
+				و همچنین بعد از ایجاد ریویژن جدید، «ذخیره و بستن» برای تهیه‌کننده VPIS فعال است.
 				نفرساعت واردشده جایگزین نفرساعت قبلی همان مدرک می‌شود.
 				با ذخیره، مدرک به Issue می‌رود و یک کامنت Issue ثبت می‌شود.
+				در RejectByDcc تهیه‌کننده با افزودن کامنت می‌تواند Hold یا UnHold بگذارد. در پروژه وندور ذخیره همان ریویژن بسته است و ریویژن جدید باز است.
+				تهیه‌کننده در هر وضعیتی به‌جز خود Hold می‌تواند با افزودن کامنت، مدرک را Hold کند؛ از جمله Issue، CommentedByClient، RejectByClient، ApprovedAsNoteByClient، ReIssued، UnHold، NotReview و ApprovedByDcc.
+				در وضعیت Hold تهیه‌کننده می‌تواند فایل را جایگزین کند؛ وضعیت Hold می‌ماند و کامنت Issue ساخته نمی‌شود. UnHold از افزودن کامنت است.
+				بعد از UnHold، ReplySheet برای تهیه‌کننده باز است. اگر روی همین ریویژن نظر کارفرما نباشد، ریویژن جدید ساخته نمی‌شود و ذخیره همان ریویژن وضعیت را Issue می‌کند و کامنت Issue می‌سازد تا مدرک به روال بررسی برگردد. اگر نظر کارفرما (رد، تایید، تایید با یادداشت یا Commented) روی همین ریویژن باشد، ویرایش بسته است و ریویژن جدید باز می‌شود.
 			</div>
 		</div>
 	</div>
@@ -274,7 +304,7 @@
 							<h4 class="mb-0">قبل از زدن دکمه</h4>
 							<span class="df-pill revision">ایجاد ریویژن جدید</span>
 						</div>
-						<p class="mb-0">در RejectByClient، ApprovedAsNoteByClient، CommentedByClient و ReIssued این دکمه فقط برای تهیه‌کننده سند VPIS دیده می‌شود. در سه وضعیت اول به‌علاوه UnHold، افزودن ReplySheet هم فقط برای همان تهیه‌کننده است. در ReIssued دکمه ReplySheet نیست.</p>
+						<p class="mb-0">در RejectByClient، ApprovedAsNoteByClient، CommentedByClient و ReIssued این دکمه فقط برای تهیه‌کننده سند VPIS دیده می‌شود. در سه وضعیت اول افزودن ReplySheet هم فقط برای همان تهیه‌کننده است. در ReIssued دکمه ReplySheet نیست. در همین وضعیت‌ها تهیه‌کننده می‌تواند با افزودن کامنت مدرک را Hold کند. در UnHold ریویژن جدید فقط وقتی باز است که نظر کارفرما روی همین ریویژن باشد؛ در غیر این صورت ذخیره همان ریویژن وضعیت را Issue می‌کند. از UnHold هم تهیه‌کننده می‌تواند دوباره Hold کند.</p>
 					</div>
 				</div>
 				<div class="col-md-6">
@@ -299,13 +329,13 @@
 			</div>
 			<ul class="mb-4">
 				<li>فایل ReplySheet الزامی است و فقط تهیه‌کننده VPIS می‌تواند آن را ثبت کند.</li>
-				<li>بار اول فایل روی ReplySheet می‌نشیند. اگر کامنت ReplaySheet از قبل باشد، فایل جایگزین SecondReplySheet می‌شود.</li>
+				<li>فایل روی SecondReplySheet می‌نشیند و ReplySheet قبلی عوض نمی‌شود. اگر SecondReplySheet از قبل فایل داشته باشد، فقط همان فایل ثانوی جایگزین می‌شود.</li>
 				<li>یک کامنت با وضعیت ReplaySheet و متن ReplySheet ساخته می‌شود.</li>
 				<li>اگر کاربر جاری بررسی‌کننده همان مدرک باشد، کامنت ApproveByReviewer هم اضافه می‌شود. اگر تاییدکننده همان مدرک باشد، کامنت ApproveByApprover آخرین کامنت است. وضعیت نهایی مدرک از آخرین کامنت می‌آید.</li>
 				<li>تاریخ کامنت همان زمان ذخیره است.</li>
 				<li>ترانسمیتال ReplySheet شماره واردشده کاربر را می‌گیرد و شمارنده خودکار پروژه را مصرف نمی‌کند.</li>
 			</ul>
-			<p class="text-muted mb-0">نمایش دکمه: RejectByClient، ApprovedAsNoteByClient، CommentedByClient و UnHold، فقط برای تهیه‌کننده. خود وضعیت ReplaySheet در نوار فقط تاریخچه دارد، مگر کامنت تایید اضافه وضعیت را جلو ببرد.</p>
+			<p class="text-muted mb-0">نمایش دکمه افزودن ReplySheet: RejectByClient، ApprovedAsNoteByClient، CommentedByClient و UnHold، فقط برای تهیه‌کننده. بعد از ثبت، وضعیت ReplaySheet در کارتابل بررسی و تایید برای بررسی‌کننده یا تاییدکننده می‌ماند تا تایید یا کامنت بزنند. آخرین کامنت نباید مال خودشان باشد. تاییدکننده اگر تاریخ بررسی خالی باشد و خودش بررسی‌کننده نباشد دکمه کامنت ندارد.</p>
 		</div>
 	</div>
 
@@ -313,14 +343,16 @@
 		<div class="card-header"><h3 class="card-title">ترانسمیتال و نظر کارفرما</h3></div>
 		<div class="card-body">
 			<div class="alert alert-primary">
-				بعد از ApprovedByDcc فقط کاربر DCC مدرک را ترانسمیتال می‌کند. با ایجاد ترانسمیتال وضعیت Not Review اضافه می‌شود.
-				نظر کارفرما بعد از Not Review، از نمایه داده «بررسی دریافت و ارسال اسناد» روی لیست مدارک بارگذاری می‌شود.
+				بعد از ApprovedByDcc کاربر DCC هم می‌تواند ترانسمیتال کند و هم با افزودن کامنت وضعیت کارفرما بگذارد: رد، تایید، تایید با یادداشت، نظر، یا صادر مجدد.
+				با ایجاد ترانسمیتال وضعیت Not Review اضافه می‌شود.
+				نظر کارفرما بعد از Not Review، از نمایه داده «بررسی دریافت و ارسال اسناد» روی لیست مدارک هم بارگذاری می‌شود.
 			</div>
 			<ul class="mb-0">
-				<li>فرم ترانسمیتال فقط مدرک تاییدشده DCC، یا مدرکی که ReplySheet دارد، را نشان می‌دهد.</li>
+				<li>فرم ترانسمیتال مدرک تاییدشده DCC را برای رویژن جدید نشان می‌دهد. مدرکی که فایل ریپلای شیت ندارد و فقط فایل ریپلای شیت دوم دارد، در نمایه «ریپلای شیت» است و ترانسمیتالش ریپلای شیت می‌شود.</li>
 				<li>ترانسمیتال معمولی اگر مدرک ApprovedByDcc نباشد، یا کاربر DCC نباشد، ذخیره نمی‌شود.</li>
 				<li>اگر مدرک از قبل Not Review باشد، کامنت Not Review دوباره ساخته نمی‌شود.</li>
 				<li>نمایه داده روی همان لیست مدارک است و ردیف‌های Not Review را نشان می‌دهد. دکمه آن «نظر کارفرما» است.</li>
+				<li>در فرم نظر کارفرما فیلد «تاریخ دریافت نظر» انتخاب می‌شود. همان تاریخ، تاریخ ثبت کامنت (CreatedOn) است؛ چون نظر ممکن است روز دیگری به دست ما رسیده باشد.</li>
 			</ul>
 		</div>
 	</div>
@@ -332,19 +364,19 @@
 				<div class="col-md-4">
 					<div class="alert alert-success h-100 mb-0">
 						<strong>نوبت تاییدکننده</strong>
-						<div>بعد از ApproveByReviewer فقط تاییدکننده VPIS کامنت می‌زند.</div>
+						<div>غیروندور: بعد از ApproveByReviewer. وندور: بعد از ApproveByClient (مهر تاریخ، بدون ورود به DCC).</div>
 					</div>
 				</div>
 				<div class="col-md-4">
 					<div class="alert alert-success h-100 mb-0">
 						<strong>ریویژن و ReplySheet</strong>
-						<div>هر دو فقط برای تهیه‌کننده سند VPIS هستند.</div>
+						<div>هر دو فقط برای تهیه‌کننده سند VPIS هستند. در وندور بعد از مهر ApproveByClient هم ریویژن جدید فعال است.</div>
 					</div>
 				</div>
 				<div class="col-md-4">
 					<div class="alert alert-warning h-100 mb-0">
 						<strong>هنوز نامشخص</strong>
-						<div>وقتی خود وضعیت مدرک RejectByDcc یا ApproveByClient است، دکمه عملیاتی تعریف نشده. اولویت وقتی یک نفر چند نقش دارد هم مشخص نیست.</div>
+						<div>اولویت وقتی یک نفر چند نقش دارد مشخص نیست.</div>
 					</div>
 				</div>
 			</div>
@@ -365,7 +397,7 @@
 		{ id: "transmittal", title: "ایجاد ترانسمیتال", cls: "dcc" },
 		{ id: "save", title: "ذخیره", cls: "ghost" },
 		{ id: "reload", title: "به‌روزرسانی لیست ریویژن‌ها", cls: "ghost" },
-		{ id: "editStatus", title: "اصلاح وضعیت", cls: "ghost" }
+		{ id: "deleteLastComment", title: "حذف آخرین کامنت", cls: "ghost" }
 	];
 
 	const STATUSES = {
@@ -385,6 +417,8 @@
 		ReIssued: "صادر مجدد",
 		CommentedByClient: "نظر داده‌شده توسط کارفرما",
 		UnHold: "خروج از Hold",
+		Hold: "معلق (Hold)",
+		IssueForClient: "صادر برای مشتری",
 		ReplaySheet: "برگه پاسخ (ReplaySheet)"
 	};
 
@@ -402,17 +436,78 @@
 			loop: "CommentedByReviewer و CommentedByApprover و CommentedByDcc مدرک را به همین مرحله برمی‌گردانند."
 		},
 		{
+			id: "rule-hold",
+			tone: "producer",
+			title: "Hold — جایگزینی فایل و UnHold",
+			statuses: ["Hold"],
+			actor: "producer",
+			actorLabel: "فقط تهیه‌کننده سند VPIS",
+			buttons: ["saveClose", "addComment"],
+			comments: [
+				{ code: "UnHold", name: "خروج از Hold", next: "ذخیره همان ریویژن به Issue می‌رود؛ ریویژن جدید فقط با نظر کارفرما" }
+			],
+			note: "ذخیره در Hold وضعیت را عوض نمی‌کند و کامنت Issue نمی‌سازد. فایل اصلی / مادر / ثانویه قابل جایگزینی است."
+		},
+		{
 			id: "rule-issue",
 			tone: "review",
-			title: "صادر شده — نوبت بررسی",
+			title: "صادر شده — نوبت بررسی (غیروندور)",
 			statuses: ["Issue"],
 			actor: "reviewers",
-			actorLabel: "فقط بررسی‌کنندگان سند VPIS",
+			actorLabel: "فقط بررسی‌کنندگان سند VPIS — پروژه غیروندور",
 			buttons: ["addComment"],
 			comments: [
 				{ code: "ApproveByReviewer", name: "تایید شده بررسی‌کننده", next: "نوبت تاییدکننده" },
 				{ code: "CommentedByReviewer", name: "نظر داده‌شده بررسی‌کننده", next: "بازگشت به تهیه‌کننده" }
-			]
+			],
+			note: "در پروژه وندور به‌جای ApproveByReviewer، بررسی‌کننده CommentedByReviewer، IssueForClient، RejectByClient و ApproveByClient را می‌بیند. تاییدکننده روی همین Issue فقط Archived را می‌بیند."
+		},
+		{
+			id: "rule-vp-issue-for-client",
+			tone: "review",
+			title: "وندور — صادر برای مشتری",
+			statuses: ["IssueForClient"],
+			actor: "reviewers",
+			actorLabel: "فقط بررسی‌کنندگان سند VPIS — پروژه وندور",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApproveByClient", name: "تایید توسط کارفرما", next: "نوبت تاییدکننده برای مهر تاریخ" },
+				{ code: "CommentedByClient", name: "نظر داده‌شده توسط کارفرما", next: "کارتابل تهیه‌کننده و ریویژن جدید" },
+				{ code: "RejectByClient", name: "رد توسط کارفرما", next: "ریویژن جدید و ReplySheet برای تهیه‌کننده" },
+				{ code: "CommentedByReviewer", name: "نظر داده‌شده بررسی‌کننده", next: "بازگشت به تهیه‌کننده روی همان ریویژن" }
+			],
+			note: "تاییدکننده‌ای که آخرین کامنت را گذاشته به‌جای CommentedByReviewer گزینه CommentedByApprover را می‌بیند."
+		},
+		{
+			id: "rule-vp-approve-by-client",
+			tone: "review",
+			title: "وندور — تایید کارفرما، مهر تاییدکننده",
+			statuses: ["ApproveByClient"],
+			actor: "approver",
+			actorLabel: "فقط تاییدکننده سند VPIS — وقتی تاریخ تایید خالی است",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApproveByApprover", name: "تایید شده تاییدکننده", next: "وضعیت روی ApproveByClient می‌ماند؛ تهیه‌کننده ریویژن جدید" },
+				{ code: "CommentedByApprover", name: "نظر داده‌شده تاییدکننده", next: "بازگشت به تهیه‌کننده روی همان ریویژن" },
+				{ code: "IssueForClient", name: "صادر برای مشتری", next: "ماندن برای نویسنده آخرین کامنت" },
+				{ code: "RejectByClient", name: "رد توسط کارفرما", next: "ریویژن جدید و ReplySheet برای تهیه‌کننده" },
+				{ code: "Archived", name: "بایگانی شده", next: "خروج از کارتابل‌های کاری" }
+			],
+			note: "وارد کارتابل DCC نمی‌شود. بعد از مهر تاریخ، تهیه‌کننده ریویژن جدید دارد. Archived تاریخ تایید را می‌زند و مدرک را از کارتابل‌ها خارج می‌کند."
+		},
+		{
+			id: "rule-replysheet",
+			tone: "review",
+			title: "برگه پاسخ — تایید در کارتابل بررسی و تایید",
+			statuses: ["ReplaySheet"],
+			actor: "reviewers",
+			actorLabel: "بررسی‌کننده VPIS، یا تاییدکننده اگر تاریخ بررسی دارد یا خودش بررسی‌کننده است",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ApproveByReviewer", name: "تایید شده بررسی‌کننده", next: "همان کارتابل، نوبت تاییدکننده" },
+				{ code: "CommentedByReviewer", name: "نظر داده‌شده بررسی‌کننده", next: "بازگشت به تهیه‌کننده" }
+			],
+			note: "آخرین کامنت نباید مال کاربر جاری باشد. تاییدکننده گزینه‌های ApproveByApprover و CommentedByApprover را می‌بیند. اگر خودش بررسی‌کننده هم باشد، تایید او وضعیت را ApproveByApprover می‌کند و هر دو تاریخ را می‌زند. پروژه وندور به‌جای این دو، کامنت، IssueForClient، رد کارفرما و تایید کارفرما دارد. تهیه‌کننده همچنان فقط می‌تواند Hold کند."
 		},
 		{
 			id: "rule-approver",
@@ -420,7 +515,7 @@
 			title: "تایید بررسی‌کننده — نوبت تاییدکننده",
 			statuses: ["ApproveByReviewer"],
 			actor: "approver",
-			actorLabel: "فقط تاییدکننده سند VPIS",
+			actorLabel: "فقط تاییدکننده سند VPIS (غیروندور یا مدارک در جریان قدیمی VP)",
 			buttons: ["addComment"],
 			comments: [
 				{ code: "ApproveByApprover", name: "تایید شده تاییدکننده", next: "نوبت DCC" },
@@ -437,20 +532,26 @@
 			buttons: ["addComment"],
 			comments: [
 				{ code: "ApprovedByDcc", name: "تایید DCC", next: "ترانسمیتال توسط DCC" },
-				{ code: "RejectByDcc", name: "رد شده DCC", next: "قانون دکمه تعریف نشده" },
+				{ code: "RejectByDcc", name: "رد شده DCC", next: "بازگشت به تهیه‌کننده؛ تاریخ بررسی و تایید پاک می‌شود" },
 				{ code: "CommentedByDcc", name: "نظر داده‌شده DCC", next: "بازگشت به تهیه‌کننده" }
 			]
 		},
 		{
 			id: "rule-dcc-send",
 			tone: "dcc",
-			title: "تایید DCC — ترانسمیتال",
+			title: "تایید DCC — ترانسمیتال و نظر کارفرما",
 			statuses: ["ApprovedByDcc"],
 			actor: "dcc",
 			actorLabel: "فقط اعضای گروه DCC، شناسه 200000",
-			buttons: ["transmittal"],
-			comments: [],
-			note: "فقط مدرک تاییدشده DCC در فرم ترانسمیتال قابل انتخاب است. با ایجاد ترانسمیتال یک کامنت Not Review ثبت می‌شود و وضعیت مدرک Not Review می‌شود. اگر از قبل Not Review باشد، دوباره ساخته نمی‌شود."
+			buttons: ["addComment", "transmittal"],
+			comments: [
+				{ code: "RejectByClient", name: "رد توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
+				{ code: "ApproveByClient", name: "تایید توسط کارفرما", next: "DCC می‌تواند ReIssued بزند" },
+				{ code: "ApprovedAsNoteByClient", name: "تایید با یادداشت توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
+				{ code: "CommentedByClient", name: "نظر داده‌شده توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
+				{ code: "ReIssued", name: "صادر مجدد", next: "ریویژن جدید برای تهیه‌کننده" }
+			],
+			note: "این پنج وضعیت همان فهرست مرکز کنترل نهایی سیستم قدیم است. ترانسمیتال همچنان فقط برای مدرک تاییدشده DCC است. با ایجاد ترانسمیتال یک کامنت Not Review ثبت می‌شود. اگر از قبل Not Review باشد، دوباره ساخته نمی‌شود."
 		},
 		{
 			id: "rule-not-review",
@@ -461,13 +562,25 @@
 			actorLabel: "فقط اعضای گروه DCC، نمایه داده بررسی دریافت و ارسال اسناد",
 			buttons: ["addComment"],
 			comments: [
-				{ code: "ApproveByClient", name: "تایید توسط کارفرما", next: "بدون دکمه عملیاتی بعدی" },
+				{ code: "ApproveByClient", name: "تایید توسط کارفرما", next: "DCC می‌تواند ReIssued بزند" },
 				{ code: "RejectByClient", name: "رد توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
 				{ code: "ApprovedAsNoteByClient", name: "تایید با یادداشت توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" },
 				{ code: "ReIssued", name: "صادر مجدد", next: "ریویژن جدید برای تهیه‌کننده" },
 				{ code: "CommentedByClient", name: "نظر داده‌شده توسط کارفرما", next: "ریویژن / ReplySheet برای تهیه‌کننده" }
 			],
-			note: "بارگذاری نظر کارفرما از نمایه داده «بررسی دریافت و ارسال اسناد» روی لیست مدارک است، نه از صفحه جدا."
+			note: "بارگذاری نظر کارفرما از نمایه داده «بررسی دریافت و ارسال اسناد» روی لیست مدارک است، نه از صفحه جدا. تاریخ دریافت نظر در همان فرم انتخاب می‌شود و CreatedOn کامنت می‌شود."
+		},
+		{
+			id: "rule-approve-by-client-reissue",
+			tone: "dcc",
+			title: "تایید کارفرما — صادر مجدد توسط DCC",
+			statuses: ["ApproveByClient"],
+			actor: "dcc",
+			actorLabel: "فقط اعضای گروه DCC (غیروندور؛ در وندور فقط بعد از مهر تاییدکننده)",
+			buttons: ["addComment"],
+			comments: [
+				{ code: "ReIssued", name: "صادر مجدد", next: "ریویژن جدید برای تهیه‌کننده" }
+			]
 		},
 		{
 			id: "rule-revision",
@@ -478,23 +591,43 @@
 			actorLabel: "فقط تهیه‌کننده سند VPIS",
 			buttons: ["newRevision"],
 			comments: [],
-			note: "روی سه وضعیت اول، ReplySheet هم فقط برای تهیه‌کننده است. ReIssued فقط ریویژن جدید دارد."
+			note: "روی سه وضعیت اول، ReplySheet هم فقط برای تهیه‌کننده است. ReIssued فقط ریویژن جدید دارد. در هر چهار وضعیت تهیه‌کننده با افزودن کامنت می‌تواند Hold بگذارد."
 		},
 		{
 			id: "rule-unhold",
 			tone: "reply",
-			title: "خروج از Hold — ReplySheet",
+			title: "خروج از Hold — ReplySheet یا ویرایش همان ریویژن",
 			statuses: ["UnHold"],
 			actor: "producer",
 			actorLabel: "فقط تهیه‌کننده سند VPIS",
-			buttons: ["reply"],
+			buttons: ["reply", "saveClose"],
 			comments: [],
-			note: "در UnHold فقط افزودن ReplySheet برای تهیه‌کننده دیده می‌شود."
+			note: "ReplySheet همیشه برای تهیه‌کننده باز است. بدون نظر کارفرما روی همین ریویژن (رد، تایید، تایید با یادداشت یا Commented) ریویژن جدید ساخته نمی‌شود و ذخیره همان ریویژن وضعیت را Issue می‌کند و کامنت Issue می‌سازد. با نظر کارفرما، ذخیره بسته و ریویژن جدید باز می‌شود."
+		},
+		{
+			id: "rule-reject-dcc",
+			tone: "producer",
+			title: "رد DCC — بازگشت به تهیه‌کننده",
+			statuses: ["RejectByDcc"],
+			actor: "producer",
+			actorLabel: "فقط تهیه‌کننده سند VPIS",
+			buttons: ["saveClose", "addComment"],
+			comments: [
+				{ code: "Hold", name: "معلق", next: "وضعیت Hold" },
+				{ code: "UnHold", name: "خروج از Hold", next: "وضعیت UnHold؛ ذخیره بعدی همان ریویژن به Issue می‌رود" }
+			],
+			note: "تاریخ بررسی و تایید هنگام رد پاک می‌شود. پروژه غیروندور: ذخیره همان ریویژن، وضعیت Issue و کامنت Issue. پروژه وندور: ویرایش همان ریویژن بسته است و ریویژن جدید باز است. ReplySheet و ترانسمیتال در این وضعیت نیست."
 		}
 	];
 
 	const REPLY_STATUSES = new Set(["RejectByClient", "ApprovedAsNoteByClient", "CommentedByClient", "UnHold"]);
-	const GAPS = ["RejectByDcc", "ApproveByClient", "ReplaySheet"];
+	const NO_PRODUCER_HOLD = new Set(["Hold"]);
+	const HOLD_COMMENT = { code: "Hold", name: "معلق", next: "وضعیت Hold" };
+
+	function producerCanHold(status) {
+		return !NO_PRODUCER_HOLD.has(status);
+	}
+	const GAPS = [];
 	const statusPick = q("statusPick");
 	const actorPick = q("actorPick");
 	const modePick = q("modePick");
@@ -505,14 +638,14 @@
 
 	function statusOptions() {
 		const groups = [
-			["ویرایش تهیه‌کننده", RULES[0].statuses],
-			["بررسی", RULES[1].statuses],
-			["تاییدکننده", RULES[2].statuses],
-			["DCC", RULES[3].statuses.concat(RULES[4].statuses)],
-			["Not Review", RULES[5].statuses],
-			["برگشت کارفرما / ریویژن", RULES[6].statuses],
-			["Hold", RULES[7].statuses],
-			["فقط تاریخچه", GAPS]
+			["ویرایش تهیه‌کننده", ["NotIssue", "CommentedByReviewer", "CommentedByApprover", "CommentedByDcc"]],
+			["Hold", ["Hold", "UnHold"]],
+			["بررسی غیروندور", ["Issue", "ApproveByReviewer"]],
+			["مسیر وندور", ["IssueForClient", "ApproveByClient"]],
+			["DCC", ["ApproveByApprover", "ApprovedByDcc", "RejectByDcc"]],
+			["Not Review", ["NotReview"]],
+			["برگشت کارفرما / ریویژن", ["RejectByClient", "ApprovedAsNoteByClient", "CommentedByClient", "ReIssued"]],
+			["بررسی برگه پاسخ", ["ReplaySheet"]]
 		];
 		statusPick.innerHTML = groups.map(function (group) {
 			const opts = group[1].map(function (code) {
@@ -531,6 +664,8 @@
 		if (!rule) return [];
 		const list = rule.buttons.slice();
 		if (REPLY_STATUSES.has(status) && list.indexOf("reply") < 0) list.push("reply");
+		if (rule.actor === "producer" && producerCanHold(status) && list.indexOf("addComment") < 0)
+			list.push("addComment");
 		return list;
 	}
 
@@ -541,10 +676,28 @@
 			return shown;
 		}
 		const rule = ruleFor(status);
-		if (!rule) return shown;
-		if (rule.actor !== actor) return shown;
-		buttonsForStatus(status).forEach(function (id) { shown.add(id); });
+		if (rule && rule.actor === actor)
+			buttonsForStatus(status).forEach(function (id) { shown.add(id); });
+		if (status === "ReplaySheet" && actor === "approver")
+			shown.add("addComment");
+		if (actor === "producer" && producerCanHold(status))
+			shown.add("addComment");
 		return shown;
+	}
+
+	function commentsForActor(status, actor, rule) {
+		if (status === "ReplaySheet" && actor === "approver") {
+			return [
+				{ code: "ApproveByApprover", name: "تایید شده تاییدکننده", next: "نوبت DCC" },
+				{ code: "CommentedByApprover", name: "نظر داده‌شده تاییدکننده", next: "بازگشت به تهیه‌کننده" }
+			];
+		}
+		const comments = [];
+		if (rule && rule.actor === actor)
+			rule.comments.forEach(function (item) { comments.push(item); });
+		if (actor === "producer" && producerCanHold(status) && !comments.some(function (item) { return item.code === "Hold"; }))
+			comments.push(HOLD_COMMENT);
+		return comments;
 	}
 
 	function paintButtons(container, shown) {
@@ -576,9 +729,10 @@
 			? STATUSES[status] + " — " + rule.actorLabel
 			: STATUSES[status] + " — برای این وضعیت دکمه عملیاتی تعریف نشده است";
 
-		if (rule && shown.has("addComment")) {
+		const actorComments = commentsForActor(status, actor, rule);
+		if (shown.has("addComment") && actorComments.length) {
 			comments.innerHTML = '<strong>وضعیت‌هایی که در افزودن کامنت می‌توان انتخاب کرد</strong><ul class="df-comment-list">' +
-				rule.comments.map(function (item) {
+				actorComments.map(function (item) {
 					return '<li><span>' + item.name + '</span><span><span class="df-mono">' + item.code + '</span> · ' + item.next + '</span></li>';
 				}).join("") + '</ul>';
 		} else if (rule && rule.comments.length && !shown.has("addComment")) {
@@ -591,7 +745,10 @@
 		if (rule && rule.note) bits.push('<div class="alert alert-warning">' + rule.note + '</div>');
 		if (shown.has("reply")) bits.push('<div class="alert alert-primary mb-0">افزودن ReplySheet فقط به تهیه‌کننده سند VPIS نشان داده می‌شود.</div>');
 		if (!rule) bits.push('<div class="alert alert-secondary mb-0">در این وضعیت فقط تاریخچه دیده می‌شود.</div>');
-		if (rule && rule.actor !== actor) bits.push('<div class="alert alert-secondary mb-0">این کاربر نقش لازم را ندارد. فقط تاریخچه فعال است.</div>');
+		if (rule && rule.actor !== actor && !(actor === "producer" && producerCanHold(status)))
+			bits.push('<div class="alert alert-secondary mb-0">این کاربر نقش لازم را ندارد. فقط تاریخچه فعال است.</div>');
+		if (actor === "producer" && producerCanHold(status) && rule && rule.actor !== "producer")
+			bits.push('<div class="alert alert-warning mb-0">تهیه‌کننده جدا از نقش اصلی این وضعیت می‌تواند مدرک را Hold کند.</div>');
 		notes.innerHTML = bits.join("");
 	}
 
@@ -606,7 +763,7 @@
 				'<div class="df-rail"><div class="df-dot"></div>' + (last ? "" : '<div class="df-stem"></div>') + '</div>' +
 				'<div class="card border mb-3"><div class="card-body py-4"><strong>' + rule.title + '</strong>' +
 				'<div class="d-flex flex-wrap gap-2 mt-2">' + codes + '<span class="df-tag">' + rule.actorLabel + '</span><span class="df-tag">' + btnLabels + '</span></div></div></div></div>' + loop;
-		}).join("") + '<div class="df-loop">بدون دکمه عملیاتی: RejectByDcc، ApproveByClient، و خود وضعیت ReplaySheet.</div>';
+		}).join("") + '<div class="df-loop">بدون دکمه عملیاتی: ReIssued.</div>';
 
 		flow.querySelectorAll(".df-step").forEach(function (el) {
 			el.addEventListener("click", function () {
@@ -623,9 +780,13 @@
 	function showSide(ruleId) {
 		const rule = RULES.find(function (item) { return item.id === ruleId; });
 		q("sideTitle").textContent = rule.title;
-		const commentHtml = rule.comments.length
-			? '<ul class="df-comment-list">' + rule.comments.map(function (item) {
-				return '<li><span>' + item.name + '<br><span class="df-mono">' + item.code + '</span></span><span class="df-tag">' + item.next + '</span></li>';
+		const sideComments = rule.comments.slice();
+		if (producerCanHold(rule.statuses[0]) && !sideComments.some(function (item) { return item.code === "Hold"; }))
+			sideComments.push(HOLD_COMMENT);
+		const commentHtml = sideComments.length
+			? '<ul class="df-comment-list">' + sideComments.map(function (item) {
+				const who = item.code === "Hold" && rule.actor !== "producer" ? " — فقط تهیه‌کننده" : "";
+				return '<li><span>' + item.name + who + '<br><span class="df-mono">' + item.code + '</span></span><span class="df-tag">' + item.next + '</span></li>';
 			}).join("") + '</ul>'
 			: '<p class="text-muted">در این مرحله افزودن کامنت فعال نیست.</p>';
 		q("sideBody").innerHTML =
@@ -640,11 +801,20 @@
 		const rows = [];
 		RULES.forEach(function (rule) {
 			rule.statuses.forEach(function (code) {
-				const comment = rule.comments.length
-					? rule.comments.map(function (item) { return '<span class="df-mono">' + item.code + '</span>'; }).join(" ، ")
+				const commentItems = rule.comments.slice();
+				if (producerCanHold(code) && !commentItems.some(function (item) { return item.code === "Hold"; }))
+					commentItems.push(HOLD_COMMENT);
+				const comment = commentItems.length
+					? commentItems.map(function (item) {
+						const label = item.code === "Hold" && rule.actor !== "producer" ? item.code + " (تهیه‌کننده)" : item.code;
+						return '<span class="df-mono">' + label + '</span>';
+					}).join(" ، ")
 					: "—";
+				const producerHoldBtn = producerCanHold(code) && rule.actor !== "producer"
+					? '<br><span class="text-muted fs-7">تهیه‌کننده: افزودن کامنت برای Hold</span>'
+					: "";
 				rows.push('<tr class="df-clickable" data-status="' + code + '"><td><b>' + STATUSES[code] + '</b><br><span class="df-mono">' + code + '</span></td><td>' +
-					buttonsForStatus(code).map(buttonTitle).join(" · ") + '<br><span class="text-muted fs-7">به‌علاوه تاریخچه</span></td><td>' +
+					buttonsForStatus(code).map(buttonTitle).join(" · ") + producerHoldBtn + '<br><span class="text-muted fs-7">به‌علاوه تاریخچه</span></td><td>' +
 					rule.actorLabel + '</td><td>' + comment + '</td></tr>');
 			});
 		});

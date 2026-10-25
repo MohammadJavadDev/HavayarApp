@@ -6,6 +6,7 @@
 	var hasId = Model?.Id != null && Model.Id != 0;
 	var dlText = (Model?.DL != null) ? $"{Model.DL.Code} | {Model.DL.Title}" : "";
 	var partText = (Model?.Part != null) ? $"{Model.Part.Code} {Model.Part.Name}" : "";
+	var vchTypeText = Model?.VchType?.Title ?? "";
 }
 
 <div class="card shadow-sm border-0">
@@ -38,7 +39,8 @@
 			</div>
 			<div class="col-md-3 form-group-inline">
 				<label class="form-label fw-bold">نوع رسید</label>
-				<input class="form-control" data-bind="vchTypeId" value="@Model?.VchTypeId" readonly />
+				<input class="form-control" value="@vchTypeText" readonly />
+				<input type="hidden" data-bind="vchTypeId" value="@Model?.VchTypeId" />
 			</div>
 			<div class="col-md-3 form-group-inline">
 				<label class="form-label fw-bold">سال</label>

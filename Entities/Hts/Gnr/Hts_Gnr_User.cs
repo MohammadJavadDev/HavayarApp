@@ -11,6 +11,8 @@ namespace Entities.Hts.Gnr
 
 		public short? Personel_FK { get; set; }
 
+		public int? Company_FK { get; set; }
+
 		[StringLength(160)]
 		public string? Username { get; set; }
 

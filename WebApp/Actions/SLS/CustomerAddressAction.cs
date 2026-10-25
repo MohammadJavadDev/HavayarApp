@@ -13,20 +13,59 @@ namespace WebApp.Actions.SLS
 	/// تفصیل نمایندگی الزامی است؛ شرکت نمایندگی از
 	/// Acc_DL.Hamkaran_Acc_DL_FK (پد ۵رقمی) → Gnr_ManCompany.DlRef گرفته می‌شود.
 	/// AgencyDlId روی ذخیره نوشته می‌شود (باگ HTS که FK تفصیل را در Update جا می‌انداخت کپی نمی‌شود).
+	/// ثبت جدید: تفصیل الزامی است و خطا می‌دهد. ویرایش: اگر تفصیل هست و قابل تبدیل است AgencyPartyId به‌روز می‌شود،
+	/// وگرنه خطا نمی‌دهد و مقدار قبلی می‌ماند (حدود ۳۰٪ سایت‌های قدیمی تفصیل ندارند).
 	/// </summary>
 	public class CustomerAddressAction(IUnitOfWork unitOfWork, ApplicationDbContext db)
 	{
+		private const string AgencyDlError = "خطا در تفصیل نمایندگی انتخاب شده ";
+
 		[EntityAction(typeof(CustomerAddress), EntityActionTrigger.BeforeSave,
 			"ResolveAgencyFromDl", "استخراج نمایندگی از تفصیل (HTS)", Priority = 1)]
-		public async Task ResolveAgencyFromDl(CustomerAddress entity, CancellationToken ct)
+		public async Task ResolveAgencyFromDl(CustomerAddress entity, CustomerAddress? oldEntity, CancellationToken ct)
 		{
-			if (entity.AgencyDlId == null || entity.AgencyDlId == 0)
-				throw new InvalidOperationException("خطا در تفصیل نمایندگی انتخاب شده ");
+			var isNew = oldEntity == null;
 
+			long? partyId = null;
+			if (entity.AgencyDlId is > 0)
+			{
+				if (isNew)
+				{
+					partyId = await FindAgencyPartyIdAsync(entity.AgencyDlId.Value, ct);
+				}
+				else
+				{
+					try
+					{
+						partyId = await FindAgencyPartyIdAsync(entity.AgencyDlId.Value, ct);
+					}
+					catch
+					{
+						// ویرایش نباید به‌خاطر در دسترس نبودن linked server [TMS] متوقف شود؛ مقدار قبلی می‌ماند.
+						partyId = null;
+					}
+				}
+			}
+
+			if (partyId == null)
+			{
+				if (isNew)
+					throw new InvalidOperationException(AgencyDlError);
+
+				ClearNavigations(entity);
+				return;
+			}
+
+			entity.AgencyPartyId = partyId;
+			ClearNavigations(entity);
+		}
+
+		private async Task<long?> FindAgencyPartyIdAsync(long agencyDlId, CancellationToken ct)
+		{
 			var dl = await unitOfWork.Repository<DL>().TableNoTracking
-				.FirstOrDefaultAsync(d => d.Id == entity.AgencyDlId, ct);
+				.FirstOrDefaultAsync(d => d.Id == agencyDlId, ct);
 			if (dl?.HamkaranId == null || dl.HamkaranId == 0)
-				throw new InvalidOperationException("خطا در تفصیل نمایندگی انتخاب شده ");
+				return null;
 
 			var hamkaran = dl.HamkaranId.Value;
 			var padded = hamkaran.ToString();
@@ -53,10 +92,11 @@ namespace WebApp.Actions.SLS
 					partyId = null;
 			}
 
-			if (partyId == null)
-				throw new InvalidOperationException("خطا در تفصیل نمایندگی انتخاب شده ");
+			return partyId;
+		}
 
-			entity.AgencyPartyId = partyId;
+		private static void ClearNavigations(CustomerAddress entity)
+		{
 			entity.AgencyParty = null;
 			entity.AgencyDl = null;
 			entity.Customer = null;

@@ -1,0 +1,87 @@
+@using Entities.App.Hrm
+@model StaffRequest
+<div class="card shadow-sm border-0">
+    <div class="form-action-buttons border-bottom p-3">
+        <form-action-buttons entity-type="typeof(StaffRequest)"></form-action-buttons>
+    </div>
+    <div class="card-body">
+        <input type="hidden" data-bind="id" value="@Model?.Id" />
+        <input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+        <div class="row g-3">
+            <div class="col-md-4 form-group-inline"><label>واحد</label><select class="form-control" data-bind="requestOrgUnitId" id="srOrg" data-required="true"></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-4 form-group-inline"><label>پرسنل درخواست‌کننده</label><select class="form-control" data-bind="requestPersonelId" id="srPerson" data-required="true"></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-4 form-group-inline"><label>تاییدکننده</label><select class="form-control" data-bind="approverPersonelId" id="srApprover" data-required="true"></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-4 form-group-inline"><label>شغل</label><select class="form-control" data-bind="jobId" id="srJob" data-required="true"></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>تعداد</label><input class="form-control" data-bind="requiredNumber" data-required="true" value="@Model?.RequiredNumber" /><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>نوع همکاری</label><select class="form-control" data-bind="cooperationType" data-required="true"><option value="">انتخاب کنید</option><option value="40">تمام وقت</option><option value="41">پاره وقت</option><option value="42">نیمه وقت</option></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>وضعیت جایگزینی</label><select class="form-control" data-bind="employmentKind" data-required="true"><option value="">انتخاب کنید</option><option value="50">نیروی جدید</option><option value="51">نیروی جایگزین</option></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>محل کار</label><select class="form-control" data-bind="workplace" data-required="true"><option value="">انتخاب کنید</option><option value="43">دفتر مرکزی</option><option value="44">کارخانه</option></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>وضعیت</label><select class="form-control" data-bind="status"><option value="">انتخاب کنید</option><option value="76">در جریان</option><option value="1773">در حال بررسی توسط منابع انسانی</option><option value="77">انجام شده</option><option value="78">آرشیو</option><option value="80">کنسل</option><option value="2539">هولد شده</option></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>جنسیت</label><select class="form-control" data-bind="sex"><option value="">انتخاب کنید</option><option value="1">تعیین نشده</option><option value="2">مرد</option><option value="3">زن</option></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>تاهل</label><select class="form-control" data-bind="maritalStatus"><option value="">انتخاب کنید</option><option value="1">مجرد</option><option value="2">متاهل</option><option value="3">تعیین نشده</option></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>از سن</label><input class="form-control" data-bind="fromAge" value="@Model?.FromAge" /><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>تا سن</label><input class="form-control" data-bind="toAge" value="@Model?.ToAge" /><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>سابقه</label><input class="form-control" data-bind="experienceRequired" value="@Model?.ExperienceRequired" /><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-4 form-group-inline"><label>نیروی جایگزین</label><select class="form-control" data-bind="replacePersonelId" id="srReplace"></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-4 form-group-inline"><label>رشته</label><select class="form-control" data-bind="studyCourseOneId" id="srCourse"></select><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-12 form-group-inline">
+                <label class="me-3"><input type="checkbox" data-bind="educationDiploma" @(Model?.EducationDiploma == true ? "checked" : "") /> دیپلم</label>
+                <label class="me-3"><input type="checkbox" data-bind="educationAssociate" @(Model?.EducationAssociate == true ? "checked" : "") /> فوق دیپلم</label>
+                <label class="me-3"><input type="checkbox" data-bind="educationBachelor" @(Model?.EducationBachelor == true ? "checked" : "") /> لیسانس</label>
+                <label class="me-3"><input type="checkbox" data-bind="educationMaster" @(Model?.EducationMaster == true ? "checked" : "") /> فوق لیسانس</label>
+                <label><input type="checkbox" data-bind="hiddenFromSupervisor" @(Model?.HiddenFromSupervisor == true ? "checked" : "") /> مخفی از سرپرست</label>
+            </div>
+            <div class="col-md-12 form-group-inline"><label>شرح وظایف</label><textarea class="form-control" data-bind="tasksExpected" data-required="true" rows="3">@Model?.TasksExpected</textarea><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-12 form-group-inline"><label>ویژگی شخصیتی</label><textarea class="form-control" data-bind="personalityFeature" rows="2">@Model?.PersonalityFeature</textarea><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-12 form-group-inline"><label>توضیحات</label><textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea><div data-invalidmessagespan class="my-1"><span class="text-danger"></span></div></div>
+        </div>
+    </div>
+</div>
+<script>
+    const srModel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+        requestOrgUnitId = Model?.RequestOrgUnitId,
+        requestPersonelId = Model?.RequestPersonelId,
+        approverPersonelId = Model?.ApproverPersonelId,
+        jobId = Model?.JobId,
+        cooperationType = Model?.CooperationType.HasValue == true ? (int)Model.CooperationType : (int?)null,
+        employmentKind = Model?.EmploymentKind.HasValue == true ? (int)Model.EmploymentKind : (int?)null,
+        workplace = Model?.Workplace.HasValue == true ? (int)Model.Workplace : (int?)null,
+        status = Model?.Status.HasValue == true ? (int)Model.Status : (int?)null,
+        sex = Model?.Sex.HasValue == true ? (int)Model.Sex : (int?)null,
+        maritalStatus = Model?.MaritalStatus.HasValue == true ? (int)Model.MaritalStatus : (int?)null,
+        replacePersonelId = Model?.ReplacePersonelId,
+        studyCourseOneId = Model?.StudyCourseOneId
+    }));
+    function srFill($el, items, selected) {
+        $el.empty().append('<option value="">انتخاب کنید</option>');
+        (items || []).forEach(function (item) { $el.append($('<option></option>').val(item.id).text(item.title)); });
+        if (selected) $el.val(String(selected));
+    }
+    $$.get('Lookups', function (r) {
+        if (!r.isSuccess) return;
+        srFill($$('#srOrg'), r.data.orgs, srModel.requestOrgUnitId);
+        srFill($$('#srPerson'), r.data.people, srModel.requestPersonelId);
+        srFill($$('#srApprover'), r.data.people, srModel.approverPersonelId);
+        srFill($$('#srJob'), r.data.jobs, srModel.jobId);
+        srFill($$('#srReplace'), r.data.people, srModel.replacePersonelId);
+        srFill($$('#srCourse'), r.data.courses, srModel.studyCourseOneId);
+        ['cooperationType', 'employmentKind', 'workplace', 'status', 'sex', 'maritalStatus'].forEach(function (key) {
+            if (srModel[key]) $$('[data-bind="' + key + '"]').val(String(srModel[key]));
+        });
+    });
+    function savefn($btnAction) {
+        if (validateError(page.$pageEl)) return;
+        const model = page.$pageEl.dataBind();
+        const $btn = $($btnAction.element).block();
+        $$.post(model.id ? 'update' : 'add', model, function (r) {
+            $btn.block(false);
+            if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+            toastr.success('ذخیره سازی با موفقیت انجام شد');
+            if (r.data) page.$pageEl.dataBind(r.data);
+            $btnAction.baseaction();
+        });
+    }
+    self.FormActionButtons.save.onclick(function () { savefn(this); });
+    self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+    self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

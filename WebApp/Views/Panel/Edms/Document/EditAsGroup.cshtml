@@ -15,6 +15,11 @@
 
 	var initialActionFlags = ViewData["ActionFlags"] as WebApp.ViewModels.Edms.DocumentEditActionFlags
 		?? new WebApp.ViewModels.Edms.DocumentEditActionFlags();
+	var currentDocument = Model?.Current;
+	var isEmptyReplySheet = currentDocument?.IsLatest == true
+		&& currentDocument.ReplySheetId == null
+		&& currentDocument.SecondReplySheetId != null
+		&& currentDocument.Status is DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApprovedByDcc;
 }
 <div class="card my-1">
 	<div class="form-action-buttons">
@@ -28,32 +33,87 @@
 			<form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="ki-abstract-27 ki-outline"
 							action-name="addReplySheet" title="افزودن ReplySheet"></form-action-button>
 
-			<form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="ki-arrow-mix ki-outline"
-							action-name="editStatus" title="اصلاح وضعیت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-danger" icon-class="fa fa-rotate-left"
+							action-name="deleteLastComment" title="حذف آخرین کامنت"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success d-none" icon-class="ki-file-down ki-outline"
+							action-name="downloadTransmittal" title="دانلود فایل ترانسمیتال"></form-action-button>
+			<form-action-button color-class="btn-active-icon-dark btn-color-success d-none" icon-class="ki-file-down ki-outline"
+							action-name="downloadReplyTransmittal" title="دانلود فایل ترانسمیتال ReplySheet"></form-action-button>
 		</form-action-buttons>
 	</div>
 </div>
 
-<div class="card my-1">
+<div class="card my-1" id="documentGroupHeader">
 	<div class="card-body border-0 pt-6 pb-4">
-		<div class="d-flex flex-row justify-content-around">
-		
-			<span class="me-3">پروژه: <span class="fw-bold fs-4" data-header-project-title>@(Model?.Project?.Name ?? "-")</span></span>
-				<span class="me-3">سند: <span class="fw-bold fs-4" data-header-document-title>@(Model?.DocumentVpis?.Title ?? "-")</span></span>
-				<span class="me-3" data-header-document-code-wrapper style="@(string.IsNullOrWhiteSpace(Model?.DocumentVpis?.Code) ? "display:none;" : "")">
-					کد: <span class="fw-bold fs-4" data-header-document-code>@(Model?.DocumentVpis?.Code ?? "")</span>
-				</span>
-			<div class="d-flex flex-wrap align-items-center gap-2">
-
-				@if (Model?.Current != null)
-				{
-					<span class="badge badge-light-primary fs-4" id="currentRevisionHeader">ریویژن @Model.Current.Revision</span>
-				}
-			</div>
-		 
+		<div class="d-flex flex-row flex-wrap align-items-center gap-3" dir="ltr">
+			<span class="doc-header-copy" data-copy-header title="برای کپی کلیک کنید">
+				<span class="doc-header-copy-label">پروژه:</span>
+				<span class="fw-bold fs-4" dir="ltr" data-copy-value data-header-project-title>@(Model?.Project?.Name ?? "-")</span>
+				<i class="fa fa-copy doc-header-copy-icon" aria-hidden="true"></i>
+			</span>
+			<span class="doc-header-copy" data-copy-header title="برای کپی کلیک کنید">
+				<span class="doc-header-copy-label">سند:</span>
+				<span class="fw-bold fs-4" dir="ltr" data-copy-value data-header-document-title>@(Model?.DocumentVpis?.Title ?? "-")</span>
+				<i class="fa fa-copy doc-header-copy-icon" aria-hidden="true"></i>
+			</span>
+			<span class="doc-header-copy" data-copy-header data-header-document-code-wrapper title="برای کپی کلیک کنید" style="@(string.IsNullOrWhiteSpace(Model?.DocumentVpis?.Code) ? "display:none;" : "")">
+				<span class="doc-header-copy-label">کد:</span>
+				<span class="fw-bold fs-4" dir="ltr" data-copy-value data-header-document-code>@(Model?.DocumentVpis?.Code ?? "")</span>
+				<i class="fa fa-copy doc-header-copy-icon" aria-hidden="true"></i>
+			</span>
 		</div>
 	</div>
 </div>
+<style>
+	#documentGroupHeader .doc-header-copy {
+		direction: ltr;
+		unicode-bidi: isolate;
+		cursor: pointer;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+		max-width: 100%;
+		padding: 0.35rem 0.75rem;
+		border-radius: 0.5rem;
+		border: 1px solid transparent;
+		background-color: transparent;
+		transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+	}
+	#documentGroupHeader .doc-header-copy:hover {
+		background-color: #f1faff;
+		border-color: #b6e3ff;
+		box-shadow: 0 2px 8px rgba(0, 158, 247, 0.14);
+		transform: translateY(-1px);
+	}
+	#documentGroupHeader .doc-header-copy:active {
+		transform: translateY(0);
+		background-color: #e8f6ff;
+	}
+	#documentGroupHeader .doc-header-copy.is-copied {
+		background-color: #e8fff3;
+		border-color: #a3f0c8;
+	}
+	#documentGroupHeader .doc-header-copy-label {
+		color: #7e8299;
+		white-space: nowrap;
+	}
+	#documentGroupHeader [data-copy-value] {
+		direction: ltr;
+		unicode-bidi: isolate;
+		text-align: left;
+	}
+	#documentGroupHeader .doc-header-copy-icon {
+		opacity: 0;
+		color: #009ef7;
+		font-size: 0.9rem;
+		transition: opacity .18s ease;
+	}
+	#documentGroupHeader .doc-header-copy:hover .doc-header-copy-icon,
+	#documentGroupHeader .doc-header-copy.is-copied .doc-header-copy-icon {
+		opacity: 1;
+	}
+</style>
+ 
 <div class=" ">
 	 
 
@@ -171,7 +231,7 @@
 		setFormButtonVisible(self.FormActionButtons.save, false);
 		setFormButtonVisible(self.FormActionButtons.saveandnew, false);
 		setFormButtonVisible(self.FormActionButtons.reloadRevisions, false);
-		setFormButtonVisible(self.FormActionButtons.editStatus, !!flags.canEditStatus);
+		setFormButtonVisible(self.FormActionButtons.deleteLastComment, !!flags.canDeleteLastComment);
 
 		// History always visible
 		setFormButtonVisible(self.FormActionButtons.history, true);
@@ -180,6 +240,14 @@
 		setFormButtonVisible(self.FormActionButtons.addComment, !!flags.canAddComment);
 		setFormButtonVisible(self.FormActionButtons.newRevision, !!flags.canNewRevision);
 		setFormButtonVisible(self.FormActionButtons.addReplySheet, !!flags.canAddReplySheet);
+		syncTransmittalDownload();
+	}
+
+	function syncTransmittalDownload() {
+		const attachmentId = Number($$('#DocumentRevisionEditor').attr('data-transmittal-attachment-id') || 0);
+		const replyAttachmentId = Number($$('#DocumentRevisionEditor').attr('data-reply-transmittal-attachment-id') || 0);
+		setFormButtonVisible(self.FormActionButtons.downloadTransmittal, attachmentId > 0);
+		setFormButtonVisible(self.FormActionButtons.downloadReplyTransmittal, replyAttachmentId > 0);
 	}
 
 	function readActionFlagsFromEditor() {
@@ -269,7 +337,6 @@
 				self.TabItemManagers = window.appController.initTabItemManager(page.$pageEl, page);
 			}
 
-			syncHoldFields($container);
 			refreshActionButtons();
 			reloadRevisionsList(getCurrentRevisionId());
 
@@ -286,6 +353,16 @@
 		if (validateError($editor)) { return; }
 
 		const model = $editor.dataBind();
+		const hour = Number(model?.hourPrePerson);
+		if (!hour || hour <= 0) {
+			toastr.error('نفر ساعت الزامی است.', 'خطا');
+			return;
+		}
+		const publication = (model?.publicationShamsiDate || '').toString().trim();
+		if (!publication) {
+			toastr.error('تاریخ انتشار/ارسال الزامی است.', 'خطا');
+			return;
+		}
 		const pid = parseInt((model?.projectId || '0'), 10) || 0;
 		const vid = parseInt((model?.documentVpisId || '0'), 10) || 0;
 		if (!pid || !vid) return toastr.error('برای ذخیره، پروژه و سند (Vpis) باید مشخص باشد.', 'خطا');
@@ -396,13 +473,11 @@
 				self.TabItemManagers = window.appController.initTabItemManager(page.$pageEl, page);
 			}
 
-			syncHoldFields($container);
 			refreshActionButtons();
 
 			// Mark active in list
-			$$('.js-revision-item').removeClass('border-primary').addClass('border-gray-200');
-			$$(`.js-revision-item[data-revision-id="${revisionId}"]`).removeClass('border-gray-200').addClass('border-primary');
-			$$("#currentRevisionHeader").text(`ریویژن ${revisionNum}`)
+			$$('.js-revision-item').removeClass('border-primary revision-selected').addClass('border-gray-200');
+			$$(`.js-revision-item[data-revision-id="${revisionId}"]`).removeClass('border-gray-200').addClass('border-primary revision-selected');
 				$$(`[data-watch]`).each((c,i)=>{
 				    if($(i).data("watch") == revisionId){
 					  $(i) .find("span").removeClass("d-none")
@@ -433,31 +508,7 @@
 				self.TabItemManagers = window.appController.initTabItemManager(page.$pageEl, page);
 			}
 
-			syncHoldFields($container);
 			refreshActionButtons();
-		});
-	}
-
-	function isHoldStatus(statusVal) {
-		const n = parseInt(statusVal, 10);
-		// DocumentStatusEnums: Hold = 16, HoldByProject = 32
-		return n === 16 || n === 32;
-	}
-
-	function syncHoldFields($scope) {
-		if (!$scope || $scope.length === 0) return;
-
-		$scope.find('[data-document-comment-item="true"]').each(function () {
-			const $item = $(this);
-			const statusVal = $item.find('[data-comment-status="true"]').val();
-			const enable = isHoldStatus(statusVal);
-
-			$item.find('[data-hold-field]').prop('disabled', !enable);
-
-			// Disable entity selector input for Hold owner as well
-			const $holdOwnerHidden = $item.find('[data-bind="comments.holdOwnerId"], [data-bind="comments.HOLDOwnerId"]');
-			const $holdOwnerWrapper = $holdOwnerHidden.closest('.entity-selector-wrapper');
-			$holdOwnerWrapper.find('.entity-selector-input, .entity-selector-multi-input').prop('disabled', !enable);
 		});
 	}
 
@@ -468,8 +519,61 @@
 	self.FormActionButtons.addReplySheet.onclick(function () { openReplySheetModal(); });
 
 	// Custom actions
+	self.FormActionButtons.downloadTransmittal.onclick(function () {
+		const attachmentId = $$('#DocumentRevisionEditor').attr('data-transmittal-attachment-id');
+		if (!attachmentId || attachmentId === '0') return;
+		window.open('/File/download/' + attachmentId, '_blank', 'noopener');
+	});
+	if (self.FormActionButtons.downloadReplyTransmittal) {
+		self.FormActionButtons.downloadReplyTransmittal.onclick(function () {
+			const attachmentId = $$('#DocumentRevisionEditor').attr('data-reply-transmittal-attachment-id');
+			if (!attachmentId || attachmentId === '0') return;
+			window.open('/File/download/' + attachmentId, '_blank', 'noopener');
+		});
+	}
+
 	self.FormActionButtons.newRevision.onclick(function () { newRevision(); });
 	self.FormActionButtons.reloadRevisions.onclick(function () { reloadRevisionsList(getCurrentRevisionId()); });
+
+	function copyDocumentHeaderText(text) {
+		text = (text || '').trim();
+		if (!text) {
+			toastr.warning('متنی برای کپی وجود ندارد');
+			return;
+		}
+
+		const done = function () { toastr.success('متن کپی شد'); };
+		if (navigator.clipboard && window.isSecureContext) {
+			navigator.clipboard.writeText(text).then(done).catch(function () {
+				copyDocumentHeaderTextFallback(text, done);
+			});
+			return;
+		}
+		copyDocumentHeaderTextFallback(text, done);
+	}
+
+	function copyDocumentHeaderTextFallback(text, done) {
+		const area = document.createElement('textarea');
+		area.value = text;
+		area.setAttribute('readonly', 'readonly');
+		area.style.position = 'fixed';
+		area.style.left = '-9999px';
+		document.body.appendChild(area);
+		area.select();
+		const copied = document.execCommand('copy');
+		document.body.removeChild(area);
+		if (copied) done();
+		else toastr.error('کپی متن انجام نشد', 'خطا');
+	}
+
+	$$('#documentGroupHeader').on('click', '[data-copy-header]', function () {
+		const $item = $(this);
+		const text = $item.find('[data-copy-value]').first().text();
+		copyDocumentHeaderText(text);
+		$$('#documentGroupHeader [data-copy-header]').removeClass('is-copied');
+		$item.addClass('is-copied');
+		window.setTimeout(function () { $item.removeClass('is-copied'); }, 1200);
+	});
 
 	// Revision list click
 	$$('#RevisionsListContainer').on('click', '.js-open-revision', function () {
@@ -478,14 +582,7 @@
 		loadRevisionEditor(id,num);
 	});
 
-	// Hold fields toggling (state-machine related)
-	page.$pageEl.on('change', '#RevisionEditorContainer [data-comment-status="true"]', function () {
-		syncHoldFields($(this).closest('[data-document-comment-item="true"]'));
-	});
-	
-
-	// Initial sync + button visibility
-	syncHoldFields($$('#RevisionEditorContainer'));
+	// Initial button visibility
 	applyDocumentActionButtons(@Html.Raw(Json.Serialize(initialActionFlags)));
 
 	// New-document actions
@@ -515,8 +612,10 @@
 
 			var currentStatus =$$("#docStatus").val() ;
 			var projectId = $$("#projectId").val() ;
+			var allowCommentDate = String(currentStatus) === "NotReview" || String(currentStatus) === "18";
+			var dateQuery = allowCommentDate ? "&allowCommentDate=true" : "";
 
-		page.getPartialView(`DocumentCommentPartialEdit?documentId=${id}&projectId=${projectId}&currentStatus=${currentStatus}&canEdit=true`, function (v) {
+		page.getPartialView(`DocumentCommentPartialEdit?documentId=${id}&projectId=${projectId}&currentStatus=${currentStatus}&canEdit=true${dateQuery}`, function (v) {
 
 			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
 		let $conf =	$.confirm({
@@ -555,66 +654,69 @@
 				}
 			});
 
+			const holdStatus = "16";
+			const toggleHoldFields = function () {
+				const isHold = String($content.find('[data-comment-status]').val()) === holdStatus;
+				const $hold = $content.find('[data-hold-fields]');
+				$hold.toggleClass('d-none', !isHold);
+				if (!isHold) {
+					$hold.find('.entity-clear').trigger('click');
+					$hold.find('[data-bind="comments.holdOwnerId"]').val('');
+					$hold.find('[data-bind="comments.legalHolder"]').val('');
+				}
+			};
+			$content.find('[data-comment-status]').on('change', toggleHoldFields);
+			toggleHoldFields();
+
 			initFileUploaders($content)
+			if (allowCommentDate && typeof initPersionDatePicker === "function")
+				initPersionDatePicker($content);
 		});
 
 
 	})
 
-	self.FormActionButtons.editStatus.onclick(function () {
+	self.FormActionButtons.deleteLastComment.onclick(function () {
 		const id = $$("#DocumentRevisionEditor").find("[data-bind=id]").val();
 
-			if(!id){
-				error2("شناسه مدرک جهت افزودن کامنت یافت نشد.");
-				return;
-			}
+		if (!id) {
+			error2("شناسه مدرک جهت حذف آخرین کامنت یافت نشد.");
+			return;
+		}
 
-			var currentStatus =$$("#docStatus").val() ;
-			var projectId = $$("#projectId").val() ;
+		const $btn = $(this.element);
 
-		page.getPartialView(`DocumentCommentPartialEdit?documentId=${id}&projectId=${projectId}&currentStatus=${currentStatus}&canEdit=true&editStatus=true`, function (v) {
+		Swal.fire({
+			title: 'حذف آخرین کامنت',
+			text: 'آخرین کامنت این ریویژن حذف و اثر آن وضعیت (مثل ترانسمیتال یا تاریخ‌های بررسی/تایید) برگردانده می‌شود. اگر این کامنت Issue و تنها کامنت ریویژن باشد، خود ریویژن حذف و مدرک صادرنشده می‌شود. ادامه می‌دهید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله، حذف شود',
+			cancelButtonText: 'انصراف'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
 
-			let $content = $(`${v}`).addClass("col-md-12 align-items-center")
-		let $conf =	$.confirm({
-				title: 'افزودن کامنت',
-				content: $content,
-				rtl: true,
-				type: 'green',
-				columnClass: "col-md-12",
-				typeAnimated: true,
-				buttons: {
-					acc: {
-						text: 'افزودن کامنت',
-						btnClass: 'btn  btn-success',
-						action: async function () {
+			$btn.block();
+			$$.post(`DeleteLastComment?documentId=${id}`, {}, function (r) {
+				$btn.block(false);
 
-						 let model =this.$content.dataBind().comments[0];
-						var r =  await  $$.post("AddEditComment",model);
-						if(!r.isSuccess)
-						{
-							error2(r.message);
-							return  false
-						}
-
-						reloadRevisionsList(getCurrentRevisionId());
-						toastr.success("کامنت جدید به مدرک اضافه شد")
-						$conf.close();
-						appController.closeCurrentPage();
-
-						 return false;
-						}
-					},
-					close:
-					{
-						text: 'بستن',
-						btnClass: 'btn  btn-danger',
-						action: function () {
-						}
-					}
+				if (!r.isSuccess) {
+					toastr.error(r.message, 'خطا');
+					return;
 				}
-			});
 
-			initFileUploaders($content)
+				toastr.success('آخرین کامنت حذف شد');
+
+				if (r.data && r.data.revisionDeleted) {
+					appController.closeCurrentPage();
+					appController.addPage(`/Panel/Edms/Document/EditAsGroup?projectId=${r.data.projectId}&documentVpisId=${r.data.documentVpisId}`);
+					return;
+				}
+
+				appController.refreshCurrentPage();
+			});
 		});
 	});
+
+
 </script>

@@ -19,7 +19,7 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("سفارش ساخت", typeof(ProductionOrder))]
-	public class ProductionOrderController(IUnitOfWork unitOfWork, IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController
+	public partial class ProductionOrderController(IUnitOfWork unitOfWork, IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment, Data.ApplicationDbContext dbContext, global::Services.ProductionOrderServices.IProductionOrderItemBomService bomService) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -41,7 +41,20 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(ProductionOrder productionOrder, CancellationToken cn)
 		{
+			if (!CanEditProductionOrder(null, isNew: true))
+				return Unauthorized("شما دسترسی ایجاد سفارش ساخت را ندارید");
+
+			var reasonError = NormalizeProjectReason(productionOrder);
+			if (reasonError != null)
+				return reasonError;
+
+			productionOrder.Items = new List<ProductionOrderItem>();
+			productionOrder.State = ProductionOrderStateEnum.Submit;
+			if (!productionOrder.CreatedOrganizationUnitId.HasValue)
+				productionOrder.CreatedOrganizationUnitId = CurrentOrganizationUnitId;
+
 			var entity = await unitOfWork.Repository<ProductionOrder>().SaveAsync(productionOrder, cn, true);
+			entity.Items = new List<ProductionOrderItem>();
 			return Ok(entity);
 		}
 
@@ -55,6 +68,13 @@ namespace WebApp.Controllers.Dynamic
 
 			if (oldEntity == null)
 				return BadRequest("سفارش ساخت یافت نشد");
+
+			if (!CanEditProductionOrder(oldEntity, isNew: false))
+				return Unauthorized("شما دسترسی ویرایش این سفارش ساخت را ندارید");
+
+			var reasonError = NormalizeProjectReason(productionOrder);
+			if (reasonError != null)
+				return reasonError;
 
 			// جلوگیری از تغییر مستقیم گردش‌کار (State) و فیلدهای ردیابی تایید مالی/منسوخ‌سازی از طریق فرم عمومی ویرایش؛
 			// این فیلدها فقط باید از طریق Job همگام‌سازی راهکاران (تایید مالی) و اکشن DoObsolete تغییر کنند (مطابق الگوی
@@ -100,6 +120,7 @@ namespace WebApp.Controllers.Dynamic
 			oldEntity.EdmsProject = productionOrder.EdmsProject;
 			oldEntity.IntroducerExpertId = productionOrder.IntroducerExpertId;
 			oldEntity.DelayNotCalculated = productionOrder.DelayNotCalculated;
+			oldEntity.DelayNotCalculatedComment = productionOrder.DelayNotCalculatedComment;
 			// فیلدهای فرم زنده HTS (صفحه ۴۶۳) که روی Edit نبودند: شعبه فروش، محل تحویل، پیوست مهندسی/متره
 			oldEntity.BranchId = productionOrder.BranchId;
 			oldEntity.DeliveryLocation = productionOrder.DeliveryLocation;
@@ -111,6 +132,7 @@ namespace WebApp.Controllers.Dynamic
 			// و همگام‌سازی راهکاران تغییر کنند
 
 			var entity = await unitOfWork.Repository<ProductionOrder>().UpdateAsync(oldEntity, cn, true);
+			entity.Items = new List<ProductionOrderItem>();
 			return Ok(entity);
 		}
 
@@ -160,9 +182,11 @@ namespace WebApp.Controllers.Dynamic
 					.OrderByDescending(c => c.CreatedOnMiladiDateTime)
 					.ToList();
 
+				SetSalesOrderView(entity, isNew: false);
 				return View(@"\Views\Panel\Sale\ProductionOrder\Edit.cshtml", entity);
 			}
 			var newEntity = new ProductionOrder();
+			SetSalesOrderView(newEntity, isNew: true);
 			return View(@"\Views\Panel\Sale\ProductionOrder\Edit.cshtml", newEntity);
 		}
 
@@ -171,6 +195,7 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult New()
 		{
 			var newEntity = new ProductionOrder();
+			SetSalesOrderView(newEntity, isNew: true);
 			return View(@"\Views\Panel\Sale\ProductionOrder\Edit.cshtml", newEntity);
 		}
 
@@ -381,6 +406,21 @@ namespace WebApp.Controllers.Dynamic
 				po.SalesManagerId == currentUserId ||
 				po.AlternativeExpertId == currentUserId ||
 				po.ProjectManagerId == currentUserId;
+		}
+
+		private IActionResult? NormalizeProjectReason(ProductionOrder productionOrder)
+		{
+			productionOrder.DelayNotCalculatedComment = string.IsNullOrWhiteSpace(productionOrder.DelayNotCalculatedComment)
+				? null
+				: productionOrder.DelayNotCalculatedComment.Trim();
+
+			if (productionOrder.DelayNotCalculated && productionOrder.DelayNotCalculatedComment == null)
+				return BadRequest("علت پروژه‌ای شدن را وارد کنید.");
+
+			if (productionOrder.DelayNotCalculatedComment?.Length > 1024)
+				return BadRequest("علت پروژه‌ای شدن حداکثر ۱۰۲۴ نویسه است.");
+
+			return null;
 		}
 
 		#endregion

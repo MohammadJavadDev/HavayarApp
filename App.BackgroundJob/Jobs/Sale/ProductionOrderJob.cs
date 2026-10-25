@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
 using Common.Attributes;
 using Common.Utilities;
@@ -7,6 +7,7 @@ using Data.Contracts;
 using Entities.App.FIN;
 using Entities.App.Gnr;
 using Entities.App.Hcm;
+using Entities.App.Hrm;
 using Entities.App.Inv;
 using Entities.App.Pln;
 using Entities.App.Sale;
@@ -18,45 +19,71 @@ using Entities.Base.Enums;
 using Entities.Base.Notification;
 using Entities.Hts.Pln;
 using Entities.Rahkaran.USR3;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using App.BackgroundJob.Jobs;
+using ReportBuilder.Services;
+using Services.FileServices;
 using Services.Job;
 using Services.ProductionOrderServices;
 
 
 namespace App.BackgroundJob.Jobs.Sale
 {
-	public class ProductionOrderJob(RahkaranDbContext Rdb, HtsDbContext Hdb, IUnitOfWork unitOfWork, ApplicationDbContext appContext)
+	public class ProductionOrderJob(
+		RahkaranDbContext Rdb,
+		HtsDbContext Hdb,
+		IUnitOfWork unitOfWork,
+		ApplicationDbContext appContext,
+		IFileService fileService,
+		IProductionOrderFormPdfExporter productionOrderFormPdf,
+		IProductionOrderItemBomService bomService)
 	{
-		/// <summary>
-		/// مثل چاپ قدیمی: زیرصنعت از IndustryItm شرکت مشتری قرارداد، نه از متن خالی راهکاران.
-		/// </summary>
-		private const string SyncCustomerIndustryFromHtsSql = """
-			UPDATE po
-			SET po.CustomerIndustry = itm.Title
-			FROM Sale.ProductionOrder po
-			INNER JOIN SLS.Contract ct ON ct.Id = po.ContractId
-			INNER JOIN SLS.Customer c ON c.Id = ct.CustomerId
-			INNER JOIN Gnr.Party p ON p.Id = c.PartyId
-			OUTER APPLY (
-				SELECT TOP (1) mc.IndustryItm_FK
-				FROM [TMS].[TotalSystem].[dbo].[Gnr_ManCompany] mc
-				WHERE p.HamkaranId IS NOT NULL
-				  AND mc.Hamkaran_ManCompany_FK IS NOT NULL
-				  AND mc.Hamkaran_ManCompany_FK <> 0
-				  AND CAST(mc.Hamkaran_ManCompany_FK AS BIGINT) = p.HamkaranId
-				  AND mc.IndustryItm_FK IS NOT NULL
-				ORDER BY mc.ManCompany_ID
-			) mc
-			INNER JOIN Gnr.PartyIndustryItem itm ON itm.Code = CAST(mc.IndustryItm_FK AS BIGINT)
-			WHERE ISNULL(po.CustomerIndustry, N'') <> itm.Title;
-			""";
+		private const string ReadFromRahkaranComment = "خوانده شده از راهکاران";
+		private const string ObsoleteFromRahkaranComment = "منسوخ شده در راهکاران";
+		/// <summary>معادل پیش‌فرض SP: IIF(HtsPerson.Personel_ID IS NULL, 253, HtsPerson.OrgUnit_FK)</summary>
+		private const long DefaultCreatedOrganizationUnitId = 253;
 
 		[JobHandler("افزودن سفارش ساخت از راهکاران")]
 		public async Task AddProductionOrderFromRahkaran(IJobLogger? jobLogger = null, CancellationToken cn = default)
 		{
+			const int maxQueuePasses = 20;
+			for (var pass = 1; pass <= maxQueuePasses; pass++)
+			{
+				var runAgain = await SyncProductionOrdersFromRahkaranPass(jobLogger, cn);
+				if (!runAgain)
+					return;
+
+				if (pass < maxQueuePasses)
+				{
+					await jobLogger?.LogInfoAsync(
+						$"در صف همگام سفارش ساخت شناسه جدید مانده است؛ دور {pass + 1} از {maxQueuePasses}",
+						cn);
+				}
+			}
+
+			await jobLogger?.LogWarningAsync(
+				"صف همگام سفارش ساخت بعد از ۲۰ دور هنوز خالی نشد؛ دور بعدی را زمان‌بندی جاب برمی‌دارد",
+				0,
+				cn);
+		}
+
+		/// <summary>
+		/// یک دور همگام. شناسه‌های صف را قبل از خواندن راهکاران برمی‌دارد و فقط بعد از موفقیت همان‌ها را پاک می‌کند.
+		/// اگر وسط کار شناسه جدید در dbo.Sale_ProductionOrderSyncQueue آمده باشد true برمی‌گرداند.
+		/// </summary>
+		private async Task<bool> SyncProductionOrdersFromRahkaranPass(IJobLogger? jobLogger, CancellationToken cn)
+		{
 			try
 			{
+				var capturedQueueIds = await LoadSyncQueueIdsAsync(cn);
+				if (capturedQueueIds.Count > 0)
+				{
+					await jobLogger?.LogInfoAsync(
+						$"صف همگام سفارش ساخت: {capturedQueueIds.Count} شناسه قبل از این دور",
+						cn);
+				}
+
 				await jobLogger?.LogInfoAsync("شروع همگام‌سازی سفارش ساخت از راهکاران", cn);
 
 				// همگام‌سازی ProductionOrder (جدول والد)
@@ -125,21 +152,21 @@ namespace App.BackgroundJob.Jobs.Sale
 					x => x.Id,
 					x => x.IsActive == IsActiveEnum.Active);
 
-				// بارگذاری Personel ها برای نگاشت Employee → User
+				// بارگذاری Personel ها برای نگاشت Employee → User و OrgUnit ایجادکننده
 				var appPersonels = await unitOfWork.Repository<Personel>()
 					.TableNoTracking
-					.Where(x => x.HamkaranId.HasValue && x.PartyId.HasValue)
+					.Where(x => x.PartyId.HasValue)
 					.ToListAsync(cn);
 
 				// بارگذاری User ها با PartyId و Id
 				var appUsers = await appContext.Users
 					.AsNoTracking()
-					.Where(x => x.PartyId.HasValue && x.Id.HasValue)
+					.Where(x => x.Id.HasValue)
 					.ToListAsync(cn);
 
-				// ایجاد نگاشت از PartyId به UserId
+				// ایجاد نگاشت از PartyId به UserId (کارشناسان فروش / مدیران)
 				var partyToUserMap = await JobLookup.ToUniqueValueMapAsync(
-					appUsers,
+					appUsers.Where(x => x.PartyId.HasValue).ToList(),
 					x => x.PartyId!.Value,
 					x => x.Id!.Value,
 					jobLogger,
@@ -150,7 +177,7 @@ namespace App.BackgroundJob.Jobs.Sale
 
 				// ایجاد نگاشت نهایی از HamkaranId (EmployeeId) به UserId
 				var employeeToUserMap = new Dictionary<long, long>();
-				foreach (var personel in appPersonels)
+				foreach (var personel in appPersonels.Where(x => x.HamkaranId.HasValue))
 				{
 					if (personel.HamkaranId.HasValue && personel.PartyId.HasValue &&
 						partyToUserMap.TryGetValue(personel.PartyId.Value, out var userId))
@@ -159,7 +186,68 @@ namespace App.BackgroundJob.Jobs.Sale
 					}
 				}
 
-				await jobLogger?.LogInfoAsync($"Entity های مرتبط بارگذاری شدند: {contractMap.Count} قرارداد، {dlMap.Count} حساب تفصیلی، {customerMap.Count} مشتری، {regionMap.Count} منطقه، {employeeToUserMap.Count} نگاشت کارمند به کاربر", cn);
+				// Creator راهکاران (SYS3.User.UserID) → User.HamkaranId — مثل ContractJob
+				var creatorUserMap = await JobLookup.ToUniqueValueMapAsync(
+					appUsers.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					x => x.Id!.Value,
+					jobLogger,
+					"system.User.HamkaranId",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
+
+				// نام ایجادکننده مثل ContractJob: NameFa و در نبود آن Name. کلید تکراری همان انتخاب creatorUserMap است.
+				var creatorNameMap = await JobLookup.ToUniqueValueMapAsync(
+					appUsers.Where(x => x.HamkaranId.HasValue).ToList(),
+					x => x.HamkaranId!.Value,
+					x =>
+					{
+						var name = !string.IsNullOrWhiteSpace(x.NameFa) ? x.NameFa!.Trim() : x.Name?.Trim();
+						if (string.IsNullOrWhiteSpace(name))
+							return string.Empty;
+						return name.Length <= 150 ? name : name[..150];
+					},
+					null,
+					"system.User.HamkaranId (name)",
+					cn,
+					x => x.Id,
+					x => x.IsActive == IsActiveEnum.Active);
+
+				var creatorPartyByHamkaranId = appUsers
+					.Where(x => x.HamkaranId.HasValue && x.PartyId.HasValue)
+					.GroupBy(x => x.HamkaranId!.Value)
+					.ToDictionary(g => g.Key, g => g.First().PartyId!.Value);
+
+				var personelOrgUnitByPartyId = appPersonels
+					.Where(x => x.PartyId.HasValue && x.OrgUnitId.HasValue)
+					.GroupBy(x => x.PartyId!.Value)
+					.ToDictionary(g => g.Key, g => g.First().OrgUnitId!.Value);
+
+				// معادل پیش‌فرض SP = 253؛ فقط اگر ردیف Hrm.OrgUnit واقعاً وجود داشته باشد ست می‌شود
+				var defaultCreatedOrgUnitExists = await unitOfWork.Repository<OrgUnit>()
+					.TableNoTracking
+					.AnyAsync(x => x.Id == DefaultCreatedOrganizationUnitId, cn);
+
+				// فیلتر درج مثل SP: INNER JOIN Sale_RequirmentAdvertise ON Sale_RequirmentAdvertiseID = RequirementAdvertiseIdRef
+				var requirementAdvertiseIds = (await Rdb.Sale_RequirmentAdvertise
+					.AsNoTracking()
+					.Select(x => x.Sale_RequirmentAdvertiseID)
+					.ToListAsync(cn))
+					.ToHashSet();
+
+				await jobLogger?.LogInfoAsync(
+					$"Entity های مرتبط بارگذاری شدند: {contractMap.Count} قرارداد، {dlMap.Count} حساب تفصیلی، {customerMap.Count} مشتری، {regionMap.Count} منطقه، {employeeToUserMap.Count} نگاشت کارمند به کاربر، {creatorUserMap.Count} کاربر با HamkaranId، {requirementAdvertiseIds.Count} اعلام نیازمندی",
+					cn);
+
+				// اعلام نیازمندی راهکاران (HamkaranId) → شناسه اپ؛ برای ستون ProductionOrder.RequirmentAdvertiseId (شماره نماینده در پیامک‌ها)
+				var requirmentAdvertiseMap = (await unitOfWork.Repository<RequirmentAdvertise>()
+					.TableNoTracking
+					.Where(x => x.HamkaranId != null && x.Id != null)
+					.Select(x => new { HamkaranId = x.HamkaranId!.Value, Id = x.Id!.Value })
+					.ToListAsync(cn))
+					.GroupBy(x => x.HamkaranId)
+					.ToDictionary(g => g.Key, g => g.First().Id);
 
 				// بارگذاری ProductionOrder های موجود
 				var appProductionOrders = await unitOfWork.Repository<ProductionOrder>()
@@ -178,12 +266,79 @@ namespace App.BackgroundJob.Jobs.Sale
 					x => x.IsActive == IsActiveEnum.Active);
 
 				var newProductionOrders = new List<ProductionOrder>();
+				var obsoleteHeaderComments = new List<ProductionOrderComment>();
+				var intendedStatesForNewOrders = new List<(ProductionOrder Order, ProductionOrderStateEnum IntendedState)>();
 				int updatedProductionOrdersCount = 0;
+				int skippedNoAdvertiseCount = 0;
+				int skippedSameVersionCount = 0;
+				int creationAuditFixedCount = 0;
+				var commentNow = DateTime.Now;
+
+				// تاریخ ایجاد را از CreationDate راهکاران می‌نویسد. اگر خالی بماند Repository ساعت اجرای جاب را می‌گذارد.
+				bool ApplyRahkaranCreationAudit(ProductionOrder po, RahkaranSale_ProductionOrder rahkaran)
+				{
+					if (rahkaran.CreationDate.Year < 2000)
+						return false;
+
+					var changed = false;
+					var creation = rahkaran.CreationDate;
+					var shamsi = creation.ToShamsiDateTime();
+					if (!po.CreatedOnMiladiDateTime.HasValue
+						|| Math.Abs((po.CreatedOnMiladiDateTime.Value - creation).TotalSeconds) > 1
+						|| !string.Equals(po.CreatedOnShamsiDateTime, shamsi, StringComparison.Ordinal))
+					{
+						po.CreatedOnMiladiDateTime = creation;
+						po.CreatedOnShamsiDateTime = shamsi;
+						changed = true;
+					}
+
+					if (creatorUserMap.TryGetValue(rahkaran.Creator, out var auditCreatorId)
+						&& po.CreatedById != auditCreatorId)
+					{
+						po.CreatedById = auditCreatorId;
+						changed = true;
+					}
+
+					if (creatorNameMap.TryGetValue(rahkaran.Creator, out var auditCreatorName)
+						&& !string.IsNullOrWhiteSpace(auditCreatorName)
+						&& !string.Equals(po.CreatedByName, auditCreatorName, StringComparison.Ordinal))
+					{
+						po.CreatedByName = auditCreatorName;
+						changed = true;
+					}
+
+					return changed;
+				}
 
 				foreach (var rahkaranPO in rahkaranProductionOrders)
 				{
+					var rahkaranVersion = ToRahkaranVersionLong(rahkaranPO.Version);
+					long createdById = 1;
+					if (creatorUserMap.TryGetValue(rahkaranPO.Creator, out var mappedCreatorId))
+						createdById = mappedCreatorId;
+
+					long? createdOrganizationUnitId = null;
+					if (creatorPartyByHamkaranId.TryGetValue(rahkaranPO.Creator, out var creatorPartyId)
+						&& personelOrgUnitByPartyId.TryGetValue(creatorPartyId, out var creatorOrgUnitId))
+					{
+						createdOrganizationUnitId = creatorOrgUnitId;
+					}
+					else if (defaultCreatedOrgUnitExists)
+					{
+						// IIF(HtsPerson.Personel_ID IS NULL, 253, ...)
+						createdOrganizationUnitId = DefaultCreatedOrganizationUnitId;
+					}
+
 					if (!appProductionOrdersDict.TryGetValue(rahkaranPO.Sale_ProductionOrderID, out var existPO))
 					{
+						// فیلتر درج SP: JOIN Sale_RequirmentAdvertise (بدون شرط نگاشت کارشناس فروش)
+						if (!rahkaranPO.RequirementAdvertiseIdRef.HasValue
+							|| !requirementAdvertiseIds.Contains(rahkaranPO.RequirementAdvertiseIdRef.Value))
+						{
+							skippedNoAdvertiseCount++;
+							continue;
+						}
+
 						// Number در HTS قدیمی = ProductionOrderNumber (نه فیلد Number راهکاران که شماره داخلی دیگری است)
 						var productionOrderNumber = rahkaranPO.ProductionOrderNumber.HasValue
 							? (long)rahkaranPO.ProductionOrderNumber.Value
@@ -192,10 +347,15 @@ namespace App.BackgroundJob.Jobs.Sale
 
 						// ایجاد رکورد جدید
 						// پیوست‌ها: مثل SP قدیمی NULL می‌مانند — شناسه پیوست راهکاران معادل FileEntity اپ نیست
+						// وضعیت ۲ و ۳ را جاب SQL راهکاران (کامنت + ایمیل) روی هدر می‌نویسد؛ اینجا Submit می‌ماند تا آن جاب اختلاف State را ببیند.
+						var rahkaranState = (ProductionOrderStateEnum)rahkaranPO.State;
+						var headerState = IsFinancialStateOwnedByRahkaranEmailJob(rahkaranState)
+							? ProductionOrderStateEnum.Submit
+							: rahkaranState;
 						var newPO = new ProductionOrder
 						{
 							HamkaranId = rahkaranPO.Sale_ProductionOrderID,
-							State = (ProductionOrderStateEnum)rahkaranPO.State,
+							State = headerState,
 							EndUser = rahkaranPO.EndUser,
 							ProjectStartDate = rahkaranPO.ProjectStartDate,
 							MetreDate = rahkaranPO.MetreDate,
@@ -219,10 +379,14 @@ namespace App.BackgroundJob.Jobs.Sale
 							CentrifugeSetupType = rahkaranPO.CentrifugeSetupTypeId,
 							IsNeedProjectManager = rahkaranPO.IsNeedProjectManager ?? false,
 							ProductionOrderNumber = productionOrderNumber,
+							RequirmentAdvertiseId = requirmentAdvertiseMap.TryGetValue(rahkaranPO.RequirementAdvertiseIdRef!.Value, out var newRaId) ? newRaId : null,
 							Revision = rahkaranPO.Revision.HasValue ? (int)rahkaranPO.Revision.Value : null,
 							CustomerIndustry = rahkaranPO.CustomerIndustry,
 							ProjectDlCode = rahkaranPO.ProjectDlCode,
 							EdmsProject = rahkaranPO.EdmsProjectId,
+							RahkaranVersion = rahkaranVersion,
+							CreatedById = createdById,
+							CreatedOrganizationUnitId = createdOrganizationUnitId,
 							// مثل InsertOrUpdateProductionOrders: اگر مدیر پروژه داشته باشد برای گزارش تحویل به‌موقع غیرفعال می‌شود
 							IsDisableForTimelyDeliveryReport = rahkaranPO.ProjectManagerIdRef.HasValue,
 							DisableForTimelyDeliveryReportComment = rahkaranPO.ProjectManagerIdRef.HasValue ? "پروژه" : null
@@ -287,22 +451,61 @@ namespace App.BackgroundJob.Jobs.Sale
 							newPO.IntroducerExpertId = introducerExpertId;
 						}
 
+						// کامنت StatusId=2436 → Submit. وضعیت ۲/۳ عمداً Submit می‌ماند تا جاب ایمیل راهکاران آن را عوض کند.
+						newPO.Comments.Add(new ProductionOrderComment
+						{
+							NewState = ProductionOrderStateEnum.Submit,
+							PreviousState = null,
+							Comment = ReadFromRahkaranComment,
+							CreatedById = 1,
+							CreatedOnMiladiDateTime = commentNow,
+							CreatedOnShamsiDateTime = commentNow.ToShamsiDateTime(),
+							IsActive = IsActiveEnum.Active
+						});
+
+						if (headerState == ProductionOrderStateEnum.Obsolete)
+						{
+							newPO.Comments.Add(new ProductionOrderComment
+							{
+								NewState = ProductionOrderStateEnum.Obsolete,
+								PreviousState = ProductionOrderStateEnum.Submit,
+								Comment = ObsoleteFromRahkaranComment,
+								CreatedById = 1,
+								CreatedOnMiladiDateTime = commentNow,
+								CreatedOnShamsiDateTime = commentNow.ToShamsiDateTime(),
+								IsActive = IsActiveEnum.Active
+							});
+						}
+
+						ApplyRahkaranCreationAudit(newPO, rahkaranPO);
 						newProductionOrders.Add(newPO);
+						intendedStatesForNewOrders.Add((newPO, newPO.State));
 					}
 					else
 					{
+						if (ApplyRahkaranCreationAudit(existPO, rahkaranPO))
+							creationAuditFixedCount++;
+
+						// گیت آپدیت مثل SP: WHERE RahkaranVersion <> CAST(Version AS BIGINT)
+						if (existPO.RahkaranVersion.HasValue && existPO.RahkaranVersion == rahkaranVersion)
+						{
+							skippedSameVersionCount++;
+							continue;
+						}
+
 						// به‌روزرسانی رکورد موجود
 						bool isModified = false;
 						var previousState = existPO.State;
-
-						if (existPO.State != (ProductionOrderStateEnum)rahkaranPO.State)
+						var rahkaranState = (ProductionOrderStateEnum)rahkaranPO.State;
+						// وضعیت ۲ و ۳ را این جاب روی هدر نمی‌نویسد؛ جاب SQL با شرط نابرابری State کامنت و ایمیل را یک‌بار می‌فرستد.
+						if (!IsFinancialStateOwnedByRahkaranEmailJob(rahkaranState) && existPO.State != rahkaranState)
 						{
-							existPO.State = (ProductionOrderStateEnum)rahkaranPO.State;
+							existPO.State = rahkaranState;
 							isModified = true;
 						}
 
 						// منسوخ‌سازی از راهکاران (State=4) — معادل LastStatusId=2207 در SP قدیمی
-						if (existPO.State == ProductionOrderStateEnum.Obsolete
+						if (rahkaranState == ProductionOrderStateEnum.Obsolete
 							&& previousState != ProductionOrderStateEnum.Obsolete
 							&& !existPO.ObsoletedOnMiladiDate.HasValue)
 						{
@@ -310,13 +513,38 @@ namespace App.BackgroundJob.Jobs.Sale
 							existPO.ObsoletedOnMiladiDate = nowObsolete;
 							existPO.ObsoletedOnShamsiDate = nowObsolete.ToShamsiDateTime();
 							isModified = true;
+
+							if (existPO.Id.HasValue)
+							{
+								obsoleteHeaderComments.Add(new ProductionOrderComment
+								{
+									ProductionOrderId = existPO.Id.Value,
+									NewState = ProductionOrderStateEnum.Obsolete,
+									PreviousState = previousState,
+									Comment = ObsoleteFromRahkaranComment,
+									CreatedById = 1,
+									CreatedOnMiladiDateTime = commentNow,
+									CreatedOnShamsiDateTime = commentNow.ToShamsiDateTime(),
+									IsActive = IsActiveEnum.Active
+								});
+							}
 						}
-						else if (existPO.State != ProductionOrderStateEnum.Obsolete
+						else if (rahkaranState != ProductionOrderStateEnum.Obsolete
 							&& previousState == ProductionOrderStateEnum.Obsolete)
 						{
 							existPO.ObsoletedOnMiladiDate = null;
 							existPO.ObsoletedOnShamsiDate = null;
 							existPO.ObsoletedById = null;
+							isModified = true;
+						}
+
+						long? mappedRequirmentAdvertiseId = rahkaranPO.RequirementAdvertiseIdRef.HasValue
+							&& requirmentAdvertiseMap.TryGetValue(rahkaranPO.RequirementAdvertiseIdRef.Value, out var existRaId)
+							? existRaId
+							: null;
+						if (existPO.RequirmentAdvertiseId != mappedRequirmentAdvertiseId)
+						{
+							existPO.RequirmentAdvertiseId = mappedRequirmentAdvertiseId;
 							isModified = true;
 						}
 
@@ -469,14 +697,13 @@ namespace App.BackgroundJob.Jobs.Sale
 							isModified = true;
 						}
 
-						var revision = rahkaranPO.Revision.HasValue ? (int)rahkaranPO.Revision.Value : (int?)null;
-						if (existPO.Revision != revision)
-						{
-							existPO.Revision = revision;
-							isModified = true;
-						}
+						// مثل SP: Revision = Revision + 1 (نه کپی از راهکاران)
+						existPO.Revision = (existPO.Revision ?? 0) + 1;
+						isModified = true;
 
-						if (existPO.CustomerIndustry != rahkaranPO.CustomerIndustry)
+						// صنعت مشتری روی Havayar می‌ماند. راهکاران این متن را خالی دارد و HTS دیگر منبع به‌روزرسانی نیست.
+						if (!string.IsNullOrWhiteSpace(rahkaranPO.CustomerIndustry)
+							&& existPO.CustomerIndustry != rahkaranPO.CustomerIndustry)
 						{
 							existPO.CustomerIndustry = rahkaranPO.CustomerIndustry;
 							isModified = true;
@@ -593,11 +820,50 @@ namespace App.BackgroundJob.Jobs.Sale
 							isModified = true;
 						}
 
+						if (existPO.CreatedById != createdById)
+						{
+							existPO.CreatedById = createdById;
+							isModified = true;
+						}
+
+						if (existPO.CreatedOrganizationUnitId != createdOrganizationUnitId)
+						{
+							existPO.CreatedOrganizationUnitId = createdOrganizationUnitId;
+							isModified = true;
+						}
+
+						if (existPO.RahkaranVersion != rahkaranVersion)
+						{
+							existPO.RahkaranVersion = rahkaranVersion;
+							isModified = true;
+						}
+
 						if (isModified)
 						{
 							updatedProductionOrdersCount++;
 						}
 					}
+				}
+
+				if (skippedNoAdvertiseCount > 0)
+				{
+					await jobLogger?.LogInfoAsync(
+						$"رد {skippedNoAdvertiseCount} سفارش ساخت جدید بدون اعلام نیازمندی (فیلتر JOIN Sale_RequirmentAdvertise)",
+						cn);
+				}
+
+				if (skippedSameVersionCount > 0)
+				{
+					await jobLogger?.LogInfoAsync(
+						$"رد به‌روزرسانی {skippedSameVersionCount} سفارش ساخت با RahkaranVersion یکسان",
+						cn);
+				}
+
+				if (creationAuditFixedCount > 0)
+				{
+					await jobLogger?.LogInfoAsync(
+						$"اصلاح تاریخ ایجاد یا ایجادکننده {creationAuditFixedCount} سفارش ساخت از راهکاران",
+						cn);
 				}
 
 				if (newProductionOrders.Any())
@@ -611,10 +877,30 @@ namespace App.BackgroundJob.Jobs.Sale
 					await jobLogger?.LogInfoAsync($"به‌روزرسانی {updatedProductionOrdersCount} سفارش ساخت موجود", cn);
 				}
 
+				if (obsoleteHeaderComments.Any())
+				{
+					await unitOfWork.Repository<ProductionOrderComment>().AddRangeAsync(obsoleteHeaderComments, cn, false);
+				}
+
 				await unitOfWork.SaveChangesAsync(cn);
 
-				var industryRows = await appContext.Database.ExecuteSqlRawAsync(SyncCustomerIndustryFromHtsSql, cn);
-				await jobLogger?.LogInfoAsync($"زیرصنعت سفارش ساخت از شرکت HTS به‌روز شد: {industryRows}", cn);
+				// ProductionOrderCommentAction ممکن است State را از کامنت 2436/Submit بازنویسی کند — State intentional از راهکاران را برگردان
+				foreach (var (po, intendedState) in intendedStatesForNewOrders)
+				{
+					if (!po.Id.HasValue)
+						continue;
+					if (intendedState == ProductionOrderStateEnum.Submit
+						|| intendedState == ProductionOrderStateEnum.Obsolete)
+						continue;
+
+					await unitOfWork.Repository<ProductionOrder>().UpdateFieldsAsync(
+						po.Id.Value,
+						c => c.State,
+						intendedState,
+						cn);
+					po.State = intendedState;
+				}
+
 				await jobLogger?.LogInfoAsync("همگام‌سازی سفارش ساخت با موفقیت انجام شد", cn);
 
 				// همگام‌سازی ProductionOrderItem — معادل InsertOrUpdateProductionOrderItems
@@ -638,6 +924,9 @@ namespace App.BackgroundJob.Jobs.Sale
 				var productionOrderMap = allAppProductionOrders
 					.Where(x => x.HamkaranId.HasValue)
 					.ToDictionary(x => x.HamkaranId!.Value, x => x.Id);
+				var rahkaranHeaderIds = rahkaranProductionOrders
+					.Select(x => x.Sale_ProductionOrderID)
+					.ToHashSet();
 
 				// Part: Status=0 در SP با Hamkaran_Part_FK؛ Status=1 با Part_Code
 				var appParts = await unitOfWork.Repository<Part>()
@@ -689,6 +978,8 @@ namespace App.BackgroundJob.Jobs.Sale
 				int insertedRevisionCount = 0;
 				int bridgedCount = 0;
 				int skippedItemsCount = 0;
+				int skippedMissingSourceParentNewCount = 0;
+				int skippedMissingSourceParentEditCount = 0;
 				int skippedNoPartCount = 0;
 				int deletedItemsCount = 0;
 				int syncedLatestCount = 0;
@@ -770,7 +1061,7 @@ namespace App.BackgroundJob.Jobs.Sale
 					Part part,
 					DateTime now)
 				{
-					var isRoutine = part.EngineeringRoutine || (part.DesignTypeIsRoutine ?? false);
+					var isRoutine = part.DesignTypeIsRoutine ?? false;
 					string? partCode = part.Code;
 					if (string.IsNullOrWhiteSpace(partCode)
 						&& liveItemsById.TryGetValue(saleProductionOrderItemId, out var live)
@@ -790,6 +1081,7 @@ namespace App.BackgroundJob.Jobs.Sale
 						PartId = part.Id,
 						Amount = history.Amount,
 						AgreedDeliverDate = history.AgreedDeliverDate,
+						AgreedDeliverShamsiDate = history.AgreedDeliverDate?.ToShamsiDate(),
 						PartModel = history.PartModel,
 						AirendOrCategory = history.AirendOrCategory,
 						InputPressureBar = history.InputPressureBar,
@@ -840,11 +1132,21 @@ namespace App.BackgroundJob.Jobs.Sale
 					if (appItemsByHistoryId.ContainsKey(history.Id))
 						continue;
 
-					if (!history.ProductionOrderId.HasValue
-						|| !history.Sale_ProductionOrderItemID.HasValue
-						|| !productionOrderMap.TryGetValue(history.ProductionOrderId.Value, out var productionOrderId)
-						|| !productionOrderId.HasValue)
+					long? productionOrderId = null;
+					var parentResolved = history.ProductionOrderId.HasValue
+						&& productionOrderMap.TryGetValue(history.ProductionOrderId.Value, out productionOrderId)
+						&& productionOrderId.HasValue;
+					if (!parentResolved || !history.Sale_ProductionOrderItemID.HasValue)
 					{
+						// والد در جدول سربرگ راهکاران نیست؛ شکاف منبع است و هر دور خط جدا نمی‌خواهد.
+						if (!parentResolved
+							&& (!history.ProductionOrderId.HasValue
+								|| !rahkaranHeaderIds.Contains(history.ProductionOrderId.Value)))
+						{
+							skippedMissingSourceParentNewCount++;
+							continue;
+						}
+
 						await jobLogger?.LogWarningAsync(
 							$"سفارش ساخت والد با HamkaranId {history.ProductionOrderId} برای History.Id={history.Id} یافت نشد", 0, cn);
 						skippedItemsCount++;
@@ -894,11 +1196,20 @@ namespace App.BackgroundJob.Jobs.Sale
 					if (appItemsByHistoryId.ContainsKey(history.Id))
 						continue;
 
-					if (!history.ProductionOrderId.HasValue
-						|| !history.Sale_ProductionOrderItemID.HasValue
-						|| !productionOrderMap.TryGetValue(history.ProductionOrderId.Value, out var productionOrderId)
-						|| !productionOrderId.HasValue)
+					long? productionOrderId = null;
+					var parentResolved = history.ProductionOrderId.HasValue
+						&& productionOrderMap.TryGetValue(history.ProductionOrderId.Value, out productionOrderId)
+						&& productionOrderId.HasValue;
+					if (!parentResolved || !history.Sale_ProductionOrderItemID.HasValue)
 					{
+						if (!parentResolved
+							&& (!history.ProductionOrderId.HasValue
+								|| !rahkaranHeaderIds.Contains(history.ProductionOrderId.Value)))
+						{
+							skippedMissingSourceParentEditCount++;
+							continue;
+						}
+
 						await jobLogger?.LogWarningAsync(
 							$"سفارش ساخت والد با HamkaranId {history.ProductionOrderId} برای ویرایش History.Id={history.Id} یافت نشد", 0, cn);
 						skippedItemsCount++;
@@ -1020,6 +1331,10 @@ namespace App.BackgroundJob.Jobs.Sale
 					await jobLogger?.LogInfoAsync($"تعداد {deprecatedItemsCount} قلم به‌خاطر منسوخ شدن سفارش ساخت، Deprecated شدند", cn);
 				if (restoredFromDeprecatedCount > 0)
 					await jobLogger?.LogInfoAsync($"تعداد {restoredFromDeprecatedCount} قلم از منسوخی خارج و به ثبت اولیه برگشتند", cn);
+				if (skippedMissingSourceParentNewCount > 0 || skippedMissingSourceParentEditCount > 0)
+					await jobLogger?.LogInfoAsync(
+						$"رد {skippedMissingSourceParentNewCount} قلم جدید و {skippedMissingSourceParentEditCount} ویرایش؛ سفارش والد در USR3.Sale_ProductionOrder نیست",
+						cn);
 				if (skippedItemsCount > 0)
 					await jobLogger?.LogWarningAsync($"تعداد {skippedItemsCount} قلم به دلیل والد/تاریخ نامعتبر رد شد", 0, cn);
 				if (skippedNoPartCount > 0)
@@ -1034,237 +1349,17 @@ namespace App.BackgroundJob.Jobs.Sale
 				await unitOfWork.SaveChangesAsync(cn);
 				await jobLogger?.LogInfoAsync("همگام‌سازی اقلام سفارش ساخت با موفقیت انجام شد", cn);
 				await jobLogger?.LogInfoAsync("همگام‌سازی کامل سفارش ساخت و اقلام با موفقیت به پایان رسید", cn);
-			}
-			catch (Exception ex)
-			{
-				await jobLogger?.LogExceptionAsync(ex, cn);
-				throw;
-			}
-		}
 
-		/// <summary>
-		/// همگام‌سازی BOM از HTS برای همه نسخه‌های قلم (نه فقط آخرین).
-		/// کلید تطبیق قلم: App.RahkaranHistoryId = HTS.Pln_ProductionOrderItem.RahkaranId
-		/// کلید upsert: ProductionOrderItemId + Revision + PartId
-		/// </summary>
-		[JobHandler("افزودن Bom سفارش ساخت از Hts")]
-		public async Task AddProductionOrderItemBomFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
-		{
-			try
-			{
-				await jobLogger?.LogInfoAsync("شروع همگام‌سازی Bom اقلام سفارش ساخت از HTS (همه نسخه‌ها)", cn);
-
-				await jobLogger?.LogInfoAsync("در حال بارگذاری داده‌های پایه از پایگاه داده برنامه...", cn);
-
-				var appPOItems = await unitOfWork.Repository<ProductionOrderItem>()
-					.Table
-					.Where(i => i.RahkaranHistoryId.HasValue)
-					.ToListAsync(cn);
-
-				var appPOItemsBom = await unitOfWork
-					.Repository<ProductionOrderItemBom>()
-					.Table
-					.ToListAsync(cn);
-
-				var parts = await unitOfWork.Repository<Part>()
-					.TableNoTracking
-					.ToListAsync(cn);
-
-				await jobLogger?.LogInfoAsync(
-					$"بارگذاری داده‌های پایه انجام شد: {appPOItems.Count} قلم با RahkaranHistoryId، {appPOItemsBom.Count} BOM موجود، {parts.Count} کالا",
-					cn);
-
-				var partMapByHtsId = parts
-					.Where(p => p.HtsId != 0)
-					.GroupBy(p => p.HtsId)
-					.ToDictionary(g => g.Key, g => g.First().Id);
-
-				var partMapByCode = parts
-					.Where(p => !string.IsNullOrWhiteSpace(p.Code))
-					.GroupBy(p => p.Code!.Trim(), StringComparer.OrdinalIgnoreCase)
-					.ToDictionary(
-						g => g.Key,
-						g => g.OrderByDescending(p => p.IsActive == IsActiveEnum.Active).ThenBy(p => p.Id).First().Id,
-						StringComparer.OrdinalIgnoreCase);
-
-				var itemsByHistoryId = appPOItems
-					.Where(i => i.RahkaranHistoryId.HasValue && i.Id.HasValue)
-					.GroupBy(i => i.RahkaranHistoryId!.Value)
-					.ToDictionary(g => g.Key, g => g.First());
-
-				var existingBomMap = appPOItemsBom
-					.Where(b => b.Revision.HasValue)
-					.GroupBy(b => new { b.ProductionOrderItemId, Revision = b.Revision!.Value, b.PartId })
-					.ToDictionary(
-						g => $"{g.Key.ProductionOrderItemId}_{g.Key.Revision}_{g.Key.PartId}",
-						g => g.First());
-
-				var historyIds = itemsByHistoryId.Keys.OrderBy(x => x).ToList();
-				const int batchSize = 500;
-				int totalNewBoms = 0;
-				int totalUpdatedBoms = 0;
-				int totalSkipped = 0;
-				int totalOrphanItem = 0;
-				int totalOrphanPart = 0;
-
-				for (int skip = 0; skip < historyIds.Count; skip += batchSize)
+				if (capturedQueueIds.Count > 0)
 				{
-					var batchHistoryIds = historyIds.Skip(skip).Take(batchSize).ToList();
-					if (!batchHistoryIds.Any())
-						break;
-
+					await DeleteSyncQueueIdsAsync(capturedQueueIds, cn);
 					await jobLogger?.LogInfoAsync(
-						$"پردازش batch {skip / batchSize + 1}: {batchHistoryIds.Count} قلم (RahkaranHistoryId)",
+						$"از صف همگام سفارش ساخت {capturedQueueIds.Count} شناسه پاک شد",
 						cn);
-
-					var idParams = string.Join(",", batchHistoryIds.Select((_, i) => $"@p{i}"));
-					var sqlQuery = $@"
-						SELECT poib.*,
-							poi.Revision AS ProductionOrderItemRevision,
-							p.Part_Code AS ProductionOrderItemPartCode,
-							po.Number AS ProductionOrderNumber,
-							po.Revision AS ProductionOrderRevision,
-							pp.Part_Code AS ProductionOrderItemBomPartCode,
-							CAST(poi.RahkaranId AS BIGINT) AS ItemRahkaranHistoryId
-						FROM Pln_ProductionOrderItemBom poib (NOLOCK)
-							INNER JOIN Pln_ProductionOrderItem poi (NOLOCK) ON poib.ProductionOrderItemId = poi.Id
-							LEFT JOIN Inv_Part pp ON poib.PartId = pp.Part_ID
-							LEFT JOIN Inv_Part p (NOLOCK) ON poi.PartId = p.Part_ID
-							LEFT JOIN Pln_ProductionOrder po (NOLOCK) ON poi.ProductionOrderId = po.Id
-						WHERE poi.RahkaranId IS NOT NULL
-							AND poi.RahkaranId IN ({idParams})";
-
-					var parameters = batchHistoryIds
-						.Select((id, i) => new Microsoft.Data.SqlClient.SqlParameter($"@p{i}", id))
-						.ToArray();
-
-					var htsBoms = await Hdb.Hts_Pln_ProductionOrderItemBoms
-						.FromSqlRaw(sqlQuery, parameters)
-						.AsNoTracking()
-						.ToListAsync(cn);
-
-					if (!htsBoms.Any())
-					{
-						await jobLogger?.LogInfoAsync("هیچ BOM برای این batch یافت نشد", cn);
-						continue;
-					}
-
-					await jobLogger?.LogInfoAsync($"تعداد {htsBoms.Count} BOM از HTS دریافت شد", cn);
-
-					var newBomList = new List<ProductionOrderItemBom>();
-					int batchUpdatedCount = 0;
-					int batchSkippedCount = 0;
-
-					foreach (var htsBom in htsBoms)
-					{
-						if (!htsBom.ItemRahkaranHistoryId.HasValue
-							|| !itemsByHistoryId.TryGetValue(htsBom.ItemRahkaranHistoryId.Value, out var productionOrderItem)
-							|| !productionOrderItem.Id.HasValue)
-						{
-							totalOrphanItem++;
-							batchSkippedCount++;
-							continue;
-						}
-
-						if (!htsBom.Revision.HasValue)
-						{
-							batchSkippedCount++;
-							continue;
-						}
-
-						long? partId = null;
-						if (htsBom.PartId.HasValue && partMapByHtsId.TryGetValue(htsBom.PartId.Value, out var byHts))
-							partId = byHts;
-						else if (!string.IsNullOrWhiteSpace(htsBom.ProductionOrderItemBomPartCode)
-							&& partMapByCode.TryGetValue(htsBom.ProductionOrderItemBomPartCode.Trim(), out var byCode))
-							partId = byCode;
-
-						if (!partId.HasValue)
-						{
-							totalOrphanPart++;
-							batchSkippedCount++;
-							continue;
-						}
-
-						var bomKey = $"{productionOrderItem.Id.Value}_{htsBom.Revision.Value}_{partId.Value}";
-						if (!existingBomMap.TryGetValue(bomKey, out var existingBom))
-						{
-							var newBom = new ProductionOrderItemBom
-							{
-								ProductionOrderItemId = productionOrderItem.Id.Value,
-								Revision = htsBom.Revision.Value,
-								PartId = partId.Value,
-								Amount = htsBom.Amount ?? 0m,
-								IsLatest = htsBom.IsLatest ?? false,
-								Description = htsBom.Comment,
-								SaleUnitDetails = htsBom.SalesUnitComment,
-								NeedsAVL = htsBom.HasNeedToAvl ?? false
-							};
-							newBomList.Add(newBom);
-							existingBomMap[bomKey] = newBom;
-						}
-						else
-						{
-							bool modified = false;
-							var amount = htsBom.Amount ?? 0m;
-							var isLatest = htsBom.IsLatest ?? false;
-							var needsAvl = htsBom.HasNeedToAvl ?? false;
-
-							if (existingBom.Amount != amount)
-							{
-								existingBom.Amount = amount;
-								modified = true;
-							}
-							if (existingBom.IsLatest != isLatest)
-							{
-								existingBom.IsLatest = isLatest;
-								modified = true;
-							}
-							if (existingBom.Description != htsBom.Comment)
-							{
-								existingBom.Description = htsBom.Comment;
-								modified = true;
-							}
-							if (existingBom.SaleUnitDetails != htsBom.SalesUnitComment)
-							{
-								existingBom.SaleUnitDetails = htsBom.SalesUnitComment;
-								modified = true;
-							}
-							if (existingBom.NeedsAVL != needsAvl)
-							{
-								existingBom.NeedsAVL = needsAvl;
-								modified = true;
-							}
-
-							if (modified)
-								batchUpdatedCount++;
-						}
-					}
-
-					if (newBomList.Any())
-					{
-						await unitOfWork.Repository<ProductionOrderItemBom>().AddRangeAsync(newBomList, cn, false);
-						await jobLogger?.LogInfoAsync($"افزودن {newBomList.Count} BOM جدید از این batch", cn);
-						totalNewBoms += newBomList.Count;
-					}
-
-					if (batchUpdatedCount > 0)
-					{
-						await jobLogger?.LogInfoAsync($"به‌روزرسانی {batchUpdatedCount} BOM موجود از این batch", cn);
-						totalUpdatedBoms += batchUpdatedCount;
-					}
-
-					if (batchSkippedCount > 0)
-					{
-						await jobLogger?.LogWarningAsync($"تعداد {batchSkippedCount} BOM از این batch رد شد", 0, cn);
-						totalSkipped += batchSkippedCount;
-					}
 				}
 
-				await unitOfWork.SaveChangesAsync(cn);
-				await jobLogger?.LogInfoAsync(
-					$"همگام‌سازی Bom با موفقیت انجام شد. جدید={totalNewBoms}، به‌روزرسانی={totalUpdatedBoms}، رد={totalSkipped} (بدون‌قلم={totalOrphanItem}، بدون‌کالا={totalOrphanPart})",
-					cn);
+				var pendingQueueCount = await CountSyncQueueAsync(cn);
+				return pendingQueueCount > 0;
 			}
 			catch (Exception ex)
 			{
@@ -1273,6 +1368,39 @@ namespace App.BackgroundJob.Jobs.Sale
 			}
 		}
 
+		private async Task<List<int>> LoadSyncQueueIdsAsync(CancellationToken cn)
+		{
+			return await Rdb.Database
+				.SqlQueryRaw<int>("SELECT Id AS Value FROM dbo.Sale_ProductionOrderSyncQueue")
+				.ToListAsync(cn);
+		}
+
+		private async Task<int> CountSyncQueueAsync(CancellationToken cn)
+		{
+			var counts = await Rdb.Database
+				.SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM dbo.Sale_ProductionOrderSyncQueue")
+				.ToListAsync(cn);
+			return counts.Count == 0 ? 0 : counts[0];
+		}
+
+		private async Task DeleteSyncQueueIdsAsync(IReadOnlyList<int> ids, CancellationToken cn)
+		{
+			const int batchSize = 400;
+			for (var offset = 0; offset < ids.Count; offset += batchSize)
+			{
+				var batch = ids.Skip(offset).Take(batchSize).ToArray();
+				var parameters = new object[batch.Length];
+				var names = new string[batch.Length];
+				for (var i = 0; i < batch.Length; i++)
+				{
+					names[i] = $"@p{i}";
+					parameters[i] = new SqlParameter(names[i], batch[i]);
+				}
+
+				var sql = "DELETE FROM dbo.Sale_ProductionOrderSyncQueue WHERE Id IN (" + string.Join(", ", names) + ")";
+				await Rdb.Database.ExecuteSqlRawAsync(sql, parameters, cn);
+			}
+		}
 
 		private const string AutoStartProcessComment = "ایجاد شده بصورت خودکار توسط سیستم";
 
@@ -1335,6 +1463,12 @@ namespace App.BackgroundJob.Jobs.Sale
 					.ToList();
 				if (pmItems.Any())
 					await SendProjectManagerNotificationAsync(pmItems, "ورود اقلام جدید به کارتابل مدیر پروژه", jobLogger, cn);
+
+				var industrialItems = productionOrderItems
+					.Where(p => p.CheckStatus == ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal)
+					.ToList();
+				if (industrialItems.Any())
+					await SendIndustrialCartableNotificationAsync(industrialItems, jobLogger, cn);
 			}
 			catch (Exception exception)
 			{
@@ -1463,7 +1597,7 @@ namespace App.BackgroundJob.Jobs.Sale
 
 					var partCode = part.Code;
 					var partName = (part.Name ?? string.Empty).ToLowerInvariant();
-					var partIsRoutine = part.DesignTypeIsRoutine ?? (part.EngineeringRoutine || item.IsRoutine);
+					var partIsRoutine = part.DesignTypeIsRoutine ?? false;
 					var receivedDate = item.SendToIndustrialMiladiDate!.Value;
 					var calculatedStandardDate = default(DateTime);
 					var shouldBeCalculatedByLeadTime = false;
@@ -1615,108 +1749,77 @@ namespace App.BackgroundJob.Jobs.Sale
 				await jobLogger?.LogInfoAsync("شروع بررسی اقلام متوقف در کارتابل مدیر پروژه", cn);
 
 			var deadLineInDay = 2;
-			var stepId = ProductionOrderItemProductionStepEnum.AwaitingProjectManager;
+			var awaitingPmStep = ProductionOrderItemProductionStepEnum.AwaitingProjectManager;
 
+			// معادل HTS SendHoldedItemsToIndustrialUnitThatWasInProjectManagerCartable:
+			// فقط مرحله ساخت ۱۳۸۰. وضعیت بررسی ۲۲۵۸ در این جاب نیست (در HTS هم از مهلت یک‌روزه کامنت شده).
 			var items = await unitOfWork.Repository<ProductionOrderItem>()
 				.Table
 				.Include(p => p.ProductionOrder)
+				.Include(p => p.Part)
 				.Where(p => p.IsLatestVersion &&
+							!p.IsDeleted &&
 							p.IsActive != IsActiveEnum.Deleted &&
-							p.ProductionStep == stepId)
+							p.ProductionStep == awaitingPmStep)
 				.ToListAsync(cn);
 
-				var nowDate = DateTime.Now;
-				var finalItems = new List<ProductionOrderItem>();
-				var newComments = new List<ProductionOrderItemComment>();
+			var nowDate = DateTime.Now;
+			var finalItems = new List<ProductionOrderItem>();
+			var newComments = new List<ProductionOrderItemComment>();
 
-				// معادل HTS: مبنای مهلت، تاریخ آخرین کامنت «مرحله ساخت = ۱۳۸۰» است (Pln_ProductionOrder_Itm_New_Comment
-				// با StatusId=1380). قلم می‌تواند از دو مسیر به ۱۳۸۰ رسیده باشد: ارجاع اولیه به مدیر پروژه (CheckStatus=2258)
-				// یا «تعیین تکلیف BOM» (CheckStatus دست‌نخورده) — در حالت دوم CheckStatusChangedOnMiladiDate مبنای درستی نیست.
-				var itemIds = items.Select(i => i.Id!.Value).ToList();
-				var lastStepCommentDates = itemIds.Count == 0
-					? new Dictionary<long, DateTime?>()
-					: (await unitOfWork.Repository<ProductionOrderItemComment>()
-						.TableNoTracking
-						.Where(c => itemIds.Contains(c.ProductionOrderItemId)
-							&& c.IsForProductionStepStatus
-							&& c.ProductionStep == stepId
-							&& c.IsActive == IsActiveEnum.Active)
-						.GroupBy(c => c.ProductionOrderItemId)
-						.Select(g => new { g.Key, Date = g.Max(c => c.CreatedOnMiladiDateTime) })
-						.ToListAsync(cn))
-						.ToDictionary(x => x.Key, x => x.Date);
+			// معادل HTS: مبنای مهلت، تاریخ آخرین کامنت StatusId=1380 است. بدون این کامنت قلم رد می‌شود.
+			var itemIds = items.Select(i => i.Id!.Value).ToList();
+			var lastStepCommentDates = itemIds.Count == 0
+				? new Dictionary<long, DateTime?>()
+				: (await unitOfWork.Repository<ProductionOrderItemComment>()
+					.TableNoTracking
+					.Where(c => itemIds.Contains(c.ProductionOrderItemId)
+						&& c.IsForProductionStepStatus
+						&& c.ProductionStep == awaitingPmStep
+						&& c.IsActive == IsActiveEnum.Active)
+					.GroupBy(c => c.ProductionOrderItemId)
+					.Select(g => new { g.Key, Date = g.Max(c => c.CreatedOnMiladiDateTime) })
+					.ToListAsync(cn))
+					.ToDictionary(x => x.Key, x => x.Date);
 
-				foreach (var item in items)
+			foreach (var item in items)
+			{
+				if (!lastStepCommentDates.TryGetValue(item.Id!.Value, out var stepDate) || stepDate == null)
+					continue;
+				if (nowDate <= stepDate.Value.AddDays(deadLineInDay))
+					continue;
+
+				// معادل HTS: فقط ProductionStepId → 2744. BuyStatus/CheckStatus عوض نمی‌شود.
+				item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry;
+				finalItems.Add(item);
+
+				var statusForHistory = item.CheckStatus.HasValue
+					? (ProductionOrderItemProductionStatusEnum)item.CheckStatus.Value
+					: ProductionOrderItemProductionStatusEnum.NotDetermined;
+
+				newComments.Add(new ProductionOrderItemComment
 				{
-					lastStepCommentDates.TryGetValue(item.Id!.Value, out var stepDate);
-					var deadlineBase = stepDate ?? item.CheckStatusChangedOnMiladiDate ?? item.ModifiedDateMiladiDateTime;
-					if (deadlineBase == null || nowDate <= deadlineBase.Value.AddDays(deadLineInDay))
-						continue;
-
-					// معادل HTS: ProductionStepId → 2744 (در انتظار صنایع).
-					// فقط اگر قلم هنوز در «انتظار تایید مدیر پروژه» (۲۲۵۸ — ارجاع اولیه) است، وضعیت بررسی هم به صنایع داخلی
-					// می‌رود تا در کارتابل صنایع دیده شود (HTS فقط مرحله را عوض می‌کرد و قلم در ۲۲۵۸ معلق می‌ماند).
-					// قلمی که از مسیر BOM به ۱۳۸۰ رسیده، CheckStatus خودش (مثلاً ۱۹۰۴/۲۱۹۷) را نگه می‌دارد.
-					var wasAwaitingProjectManagerApproval = item.CheckStatus == ProductionOrderItemCheckStatusEnum.AwaitingProjectManagerApproval;
-
-					item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry;
-					if (wasAwaitingProjectManagerApproval)
-					{
-						item.CheckStatus = ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
-						item.CheckStatusChangedOnMiladiDate = nowDate;
-						item.CheckStatusChangedOnShamsiDate = nowDate.ToShamsiDateTime();
-						TrySetSendToIndustrial(item, ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal, nowDate);
-					}
-
-					finalItems.Add(item);
-
-					var statusForHistory = item.CheckStatus.HasValue
-						? (ProductionOrderItemProductionStatusEnum)item.CheckStatus.Value
-						: ProductionOrderItemProductionStatusEnum.NotDetermined;
-
-					if (wasAwaitingProjectManagerApproval)
-					{
-						// تب «وضعیت سفارش ساخت»: ورود به کارتابل صنایع
-						newComments.Add(new ProductionOrderItemComment
-						{
-							ProductionOrderItemId = (long)item.Id!,
-							ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
-							Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه",
-							CreatedById = 1,
-							CreatedOnMiladiDateTime = nowDate,
-							CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
-							StartMiladiDateTime = nowDate,
-							StartShamsiDate = nowDate.ToShamsiDateTime(),
-							IsForProductionMode = false,
-							IsForProductionStepStatus = false,
-							IsActive = IsActiveEnum.Active
-						});
-					}
-
-					// تب «مرحله ساخت»: ۲۷۴۴ در انتظار صنایع (معادل کامنت IsForProductionStepStatus HTS)
-					newComments.Add(new ProductionOrderItemComment
-					{
-						ProductionOrderItemId = (long)item.Id!,
-						ProductionStatus = statusForHistory,
-						ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry,
-						Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه",
-						CreatedById = 1,
-						CreatedOnMiladiDateTime = nowDate,
-						CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
-						StartMiladiDateTime = nowDate,
-						StartShamsiDate = nowDate.ToShamsiDateTime(),
-						IsForProductionMode = false,
-						IsForProductionStepStatus = true,
-						IsActive = IsActiveEnum.Active
-					});
-				}
+					ProductionOrderItemId = (long)item.Id!,
+					ProductionStatus = statusForHistory,
+					ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingIndustry,
+					Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی توسط مدیر پروژه",
+					CreatedById = 1,
+					CreatedOnMiladiDateTime = nowDate,
+					CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
+					StartMiladiDateTime = nowDate,
+					StartShamsiDate = nowDate.ToShamsiDateTime(),
+					IsForProductionMode = false,
+					IsForProductionStepStatus = true,
+					IsActive = IsActiveEnum.Active
+				});
+			}
 
 				if (finalItems.Any())
 				{
 					await unitOfWork.Repository<ProductionOrderItemComment>().AddRangeAsync(newComments, cn, false);
 					await unitOfWork.SaveChangesAsync(cn);
 
-					await SendProjectManagerNotificationAsync(finalItems, "انتقال خودکار اقلام معطل‌مانده در کارتابل مدیر پروژه به صنایع", jobLogger, cn);
+					await SendHoldedItemsIndustrialNotificationAsync(finalItems, jobLogger, cn);
 
 					await jobLogger?.LogInfoAsync($"تعداد {finalItems.Count} قلم کالا به دلیل انقضای زمان به واحد صنعتی منتقل شدند", cn);
 				}
@@ -1770,7 +1873,7 @@ namespace App.BackgroundJob.Jobs.Sale
 					item.CheckStatusChangedOnShamsiDate = nowDate.ToShamsiDateTime();
 					if (goesToIndustrial)
 					{
-						item.ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingProduction;
+						// معادل HTS: فقط BuyStatus عوض می‌شود. مرحله ساخت را صنایع خودش ثبت می‌کند.
 						TrySetSendToIndustrial(item, next, nowDate);
 						industrialItems.Add(item);
 					}
@@ -1797,25 +1900,6 @@ namespace App.BackgroundJob.Jobs.Sale
 						IsActive = IsActiveEnum.Active
 					});
 
-					if (goesToIndustrial)
-					{
-						// تب «مرحله ساخت»
-						newComments.Add(new ProductionOrderItemComment
-						{
-							ProductionOrderItemId = (long)item.Id!,
-							ProductionStatus = ProductionOrderItemProductionStatusEnum.InIndustriesInternalInbox,
-							ProductionStep = ProductionOrderItemProductionStepEnum.AwaitingProduction,
-							Comment = "بصورت اتوماتیک و بعلت منقضی شدن زمان بررسی مهندسی",
-							CreatedById = 1,
-							CreatedOnMiladiDateTime = nowDate,
-							CreatedOnShamsiDateTime = nowDate.ToShamsiDateTime(),
-							StartMiladiDateTime = nowDate,
-							StartShamsiDate = nowDate.ToShamsiDateTime(),
-							IsForProductionMode = false,
-							IsForProductionStepStatus = true,
-							IsActive = IsActiveEnum.Active
-						});
-					}
 				}
 
 				if (finalItems.Any())
@@ -1949,9 +2033,7 @@ namespace App.BackgroundJob.Jobs.Sale
 					.Where(i => latestInquiryIds.Contains(i.Id)
 						&& inquiryStatuses.Contains(i.Status)
 						&& i.LeadTimeMiladiDate != null
-						&& i.LeadTimeMiladiDate < now
-						&& i.ProductionOrderItem.CheckStatus != null
-						&& inquiryStatuses.Contains(i.ProductionOrderItem.CheckStatus.Value))
+						&& i.LeadTimeMiladiDate < now)
 					.ToListAsync(cn);
 
 				if (!expired.Any())
@@ -2003,8 +2085,9 @@ namespace App.BackgroundJob.Jobs.Sale
 		}
 
 		/// <summary>
-		/// معادل HTS ProductionOrderItemBomService.AddRoutineBomListTask (داخل ModuleTask): برای اقلام روتین در کارتابل صنایع
-		/// (۱۹۰۴/۱۹۰۵) با وضعیت «۰» (۵۷۹) که BOM فعال ندارند، BOM الگوی محصول از Bom.vw_ProductItems درج می‌شود.
+		/// معادل HtsTaskService.AddRoutineBomListTask: قلم آخرین نسخه در کارتابل صنایع (۱۹۰۴/۱۹۰۵)
+		/// با وضعیت ۵۷۹، کالای روتین (Part.DesignTypeIsRoutine مثل HTS) و بدون هیچ ردیف BOM.
+		/// درج از طریق ProductionOrderItemBomService: ردیف اصلی (نسخهٔ ۰) + رخداد «ایجاد» در تاریخچه.
 		/// </summary>
 		[JobHandler("درج خودکار BOM روتین برای اقلام سفارش ساخت بدون BOM")]
 		public async Task AddRoutineBomListTask(IJobLogger? jobLogger = null, CancellationToken cn = default)
@@ -2024,8 +2107,9 @@ namespace App.BackgroundJob.Jobs.Sale
 						&& p.CheckStatus != null
 						&& industrialStatuses.Contains(p.CheckStatus.Value)
 						&& p.Status == ProductionOrderItemStatusEnum.NotCompleted
-						&& (p.IsRoutine || (p.Part != null && p.Part.EngineeringRoutine))
-						&& !p.ProductionOrderItemBom.Any(b => b.IsLatest && b.IsActive == IsActiveEnum.Active))
+						&& p.Part != null
+						&& p.Part.DesignTypeIsRoutine == true
+						&& !p.ProductionOrderItemBom.Any())
 					.Select(p => new { Id = p.Id!.Value, PartId = p.PartId!.Value })
 					.ToListAsync(cn);
 
@@ -2047,7 +2131,7 @@ namespace App.BackgroundJob.Jobs.Sale
 						.Select(x => new { PartItemId = x.Key, Amount = x.Sum(y => y.UsingRate) })
 						.ToList());
 
-				var newBoms = new List<ProductionOrderItemBom>();
+				var newBoms = new List<NewBomLine>();
 				var itemsWithBom = 0;
 				foreach (var candidate in candidates)
 				{
@@ -2055,20 +2139,30 @@ namespace App.BackgroundJob.Jobs.Sale
 						continue;
 
 					itemsWithBom++;
-					newBoms.AddRange(rows.Select(r => new ProductionOrderItemBom
+					newBoms.AddRange(rows.Select(r => new NewBomLine
 					{
 						ProductionOrderItemId = candidate.Id,
 						PartId = r.PartItemId,
 						Amount = r.Amount,
-						IsLatest = true,
 						Description = "افزوده شده از BOM روتین محصول (خودکار)",
 						CreatedById = 1,
-						IsActive = IsActiveEnum.Active
+						CreatedByName = "سیستم (درج خودکار BOM روتین)"
 					}));
 				}
 
 				if (newBoms.Any())
-					await unitOfWork.Repository<ProductionOrderItemBom>().AddRangeAsync(newBoms, cn, true);
+				{
+					try
+					{
+						await bomService.CreateLinesAsync(newBoms, cn);
+					}
+					catch (Exception ex) when (ProductionOrderItemBomService.IsDuplicateKeyException(ex))
+					{
+						// کاربر هم‌زمان BOM قلم را ساخته است؛ اجرای بعدی جاب این قلم را دیگر کاندید نمی‌کند
+						await jobLogger?.LogInfoAsync("درج BOM روتین به‌خاطر ردیف تکراری (ثبت هم‌زمان کاربر) رد شد", cn);
+						return;
+					}
+				}
 
 				await jobLogger?.LogInfoAsync($"برای {itemsWithBom} قلم روتین، {newBoms.Count} ردیف BOM از الگوی محصول درج شد ({candidates.Count - itemsWithBom} قلم الگو نداشتند)", cn);
 			}
@@ -2645,6 +2739,26 @@ namespace App.BackgroundJob.Jobs.Sale
 			return 1;
 		}
 
+		/// <summary>
+		/// وضعیت بررسی مالی (۲) و تایید مالی (۳) را جاب SQL روی Erps با کامنت و ایمیل روی هدر می‌نویسد.
+		/// اگر این جاب همان مقدار را زودتر بنویسد، شرط نابرابری State ایمیل را حذف می‌کند.
+		/// </summary>
+		private static bool IsFinancialStateOwnedByRahkaranEmailJob(ProductionOrderStateEnum state)
+			=> state is ProductionOrderStateEnum.FinancialUnitReview or ProductionOrderStateEnum.FinancialApproval;
+
+		/// <summary>معادل SQL: CAST(Version AS BIGINT) برای timestamp/rowversion راهکاران.</summary>
+		private static long? ToRahkaranVersionLong(byte[]? version)
+		{
+			if (version == null || version.Length == 0)
+				return null;
+
+			ulong value = 0;
+			foreach (var b in version)
+				value = (value << 8) | b;
+
+			return unchecked((long)value);
+		}
+
 		private static ProductionOrderStateEnum? MapProductionOrderStateFromHts(short statusId)
 		{
 			return statusId switch
@@ -3200,30 +3314,22 @@ namespace App.BackgroundJob.Jobs.Sale
 
 			foreach (var p in productionOrderItems)
 			{
-				bool isRoutine = p.Part?.EngineeringRoutine ?? false;
-				p.IsRoutine = isRoutine;
+				// مثل HTS: IsRoutine همان فلگ قلم است که موقع درج از DesignTypeIsRoutine کالا آمده.
+				var isRoutine = p.IsRoutine;
 
 				ProductionOrderItemCheckStatusEnum newStatus;
-				ProductionOrderItemProductionStepEnum newStep;
 
 				if (isRoutine || (p.DeviceType.HasValue && specialStatusIds.Contains(p.DeviceType)))
 				{
+					// معادل HTS: فقط BuyStatus = صنایع داخلی. مرحله ساخت ست نمی‌شود.
 					newStatus = ProductionOrderItemCheckStatusEnum.IndustrialDashboardInternal;
-					newStep = ProductionOrderItemProductionStepEnum.AwaitingProduction;
 				}
 				else if (p.ProductionOrder?.ProjectManagerId.HasValue == true)
-				{
 					newStatus = ProductionOrderItemCheckStatusEnum.AwaitingProjectManagerApproval;
-					newStep = ProductionOrderItemProductionStepEnum.AwaitingProjectManager;
-				}
 				else
-				{
 					newStatus = ProductionOrderItemCheckStatusEnum.MechanicalEngineeringApprovalPending;
-					newStep = ProductionOrderItemProductionStepEnum.AwaitingEngineering;
-				}
 
 				p.CheckStatus = newStatus;
-				p.ProductionStep = newStep;
 				p.CheckStatusChangedOnMiladiDate = nowDate;
 				p.CheckStatusChangedOnShamsiDate = nowDate.ToShamsiDateTime();
 				TrySetSendToIndustrial(p, newStatus, nowDate);
@@ -3466,6 +3572,196 @@ namespace App.BackgroundJob.Jobs.Sale
 			sb.AppendLine("</ul>");
 			sb.AppendLine("</div></td></tr></table></div>");
 			return sb.ToString();
+		}
+
+		/// <summary>
+		/// معادل HTS SendInitilizeEmailNotification بعد از انتقال قلم معطل مدیر پروژه.
+		/// گیرنده گروه صنایع است؛ مدیر پروژه، فروش و مهندسی در رونوشت‌اند.
+		/// </summary>
+		private async Task SendHoldedItemsIndustrialNotificationAsync(List<ProductionOrderItem> items, IJobLogger? jobLogger, CancellationToken cn)
+		{
+			try
+			{
+				var industrialEmails = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(
+					unitOfWork,
+					ProductionOrderItemNotificationHelper.GroupIndustrial,
+					cn);
+				var engineeringEmails = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(
+					unitOfWork,
+					ProductionOrderItemNotificationHelper.GroupBomEngineering,
+					cn);
+
+				var sent = 0;
+				foreach (var item in items)
+				{
+					var order = item.ProductionOrder;
+					var ccIds = new List<long>();
+					if (item.CreatedById is > 0)
+						ccIds.Add(item.CreatedById.Value);
+					if (order?.SalesExpertId is > 0)
+						ccIds.Add(order.SalesExpertId.Value);
+					if (order?.AlternativeExpertId is > 0)
+						ccIds.Add(order.AlternativeExpertId.Value);
+					if (order?.SalesManagerId is > 0)
+						ccIds.Add(order.SalesManagerId.Value);
+					if (order?.ProjectManagerId is > 0)
+						ccIds.Add(order.ProjectManagerId.Value);
+
+					var cc = await ProductionOrderItemNotificationHelper.GetUserEmailsAsync(appContext, ccIds, cn);
+					cc.AddRange(engineeringEmails);
+
+					var orderNumber = order?.ProductionOrderNumber?.ToString() ?? order?.Number ?? "-";
+					var body = new StringBuilder();
+					body.Append("بدینوسیله اعلام میگردد قلم ");
+					body.Append($"سفارش ساخت شماره {orderNumber} و کد محصول {item.Part?.Code} بعلت عدم رسیدگی در زمان مقرر (توسط مدیر پروژه) ، بصورت خودکار <span style='color:red'>تعیین تکلیف</span> گردید.");
+					body.Append("<br />لذا خواهشمند است نسبت به بررسی و انجام اقدامات لازم مساعدت فرمایید.<br /><br /><ul>");
+					body.Append(ProductionOrderItemNotificationHelper.Li("شماره سفارش ساخت", orderNumber));
+					body.Append(ProductionOrderItemNotificationHelper.Li("کد کالا", item.Part?.Code));
+					body.Append(ProductionOrderItemNotificationHelper.Li("عنوان کالا", item.Part?.Name));
+					body.Append(ProductionOrderItemNotificationHelper.Li("سریال", item.Serial));
+					body.Append(ProductionOrderItemNotificationHelper.Li("تعداد/مقدار", item.Amount));
+					body.Append("</ul>");
+
+					var queued = await ProductionOrderItemNotificationHelper.QueueEmailAsync(
+						unitOfWork,
+						$"اعلان [تغییر وضعیت اتوماتیک] در قلم سفارش ساخت {orderNumber}",
+						ProductionOrderItemNotificationHelper.BuildEmailShell(body.ToString()),
+						industrialEmails,
+						cc,
+						item.Id,
+						1,
+						$"Panel/ProductionOrderItem/Edit/{item.Id}",
+						cn,
+						saveNow: false);
+					if (queued)
+						sent++;
+				}
+
+				if (sent > 0)
+					await unitOfWork.SaveChangesAsync(cn);
+
+				await jobLogger?.LogInfoAsync($"اعلان صنایع برای {sent} قلم معطل‌مانده در کارتابل مدیر پروژه صف شد", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		/// <summary>
+		/// معادل HTS EditItemStatusAndSendNotification برای مسیر صنایع داخلی (۱۹۰۴).
+		/// گیرنده اصلی گروه صنایع است؛ گروه افزودن قلم، ایجادکننده، فروش و مدیر پروژه در رونوشت‌اند.
+		/// پیوست، PDF همان قالب چاپی ProductionOrderForm است.
+		/// </summary>
+		private async Task SendIndustrialCartableNotificationAsync(List<ProductionOrderItem> items, IJobLogger? jobLogger, CancellationToken cn)
+		{
+			try
+			{
+				var industrialEmails = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(
+					unitOfWork,
+					ProductionOrderItemNotificationHelper.GroupIndustrial,
+					cn);
+				var itemAddedEmails = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(
+					unitOfWork,
+					ProductionOrderItemNotificationHelper.GroupItemAdded,
+					cn);
+
+				var sent = 0;
+				foreach (var group in items.Where(p => p.ProductionOrderId.HasValue).GroupBy(p => p.ProductionOrderId!.Value))
+				{
+					var order = group.First().ProductionOrder;
+					var ccIds = new List<long>();
+					if (order?.CreatedById is > 0)
+						ccIds.Add(order.CreatedById.Value);
+					if (order?.SalesExpertId is > 0)
+						ccIds.Add(order.SalesExpertId.Value);
+					if (order?.AlternativeExpertId is > 0)
+						ccIds.Add(order.AlternativeExpertId.Value);
+					if (order?.SalesManagerId is > 0)
+						ccIds.Add(order.SalesManagerId.Value);
+					if (order?.ProjectManagerId is > 0)
+						ccIds.Add(order.ProjectManagerId.Value);
+
+					var cc = await ProductionOrderItemNotificationHelper.GetUserEmailsAsync(appContext, ccIds, cn);
+					cc.AddRange(itemAddedEmails);
+					var body = new StringBuilder();
+					body.Append("بدینوسیله اعلام میگردد سفارش ساختی با مشخصات و اقلام ذیل جهت بهره برداری در سامانه بروزرسانی گردید<br /><br /><ul>");
+					body.Append(ProductionOrderItemNotificationHelper.Li("شماره سفارش ساخت", order?.ProductionOrderNumber ?? (object?)order?.Number));
+					body.Append(ProductionOrderItemNotificationHelper.Li("نسخه", order?.Revision));
+					body.Append("<li style='margin-top:15px'>اقلام</li>");
+					foreach (var item in group)
+					{
+						body.Append(ProductionOrderItemNotificationHelper.Li("کد کالا", item.Part?.Code));
+						body.Append(ProductionOrderItemNotificationHelper.Li("عنوان کالا", item.Part?.Name));
+						body.Append(ProductionOrderItemNotificationHelper.Li("تعداد/مقدار", item.Amount));
+					}
+					body.Append("</ul>");
+
+					var attachmentIds = await TryCreateProductionOrderFormAttachmentAsync(order, jobLogger, cn);
+					var queued = await ProductionOrderItemNotificationHelper.QueueEmailAsync(
+						unitOfWork,
+						"اعلان افزودن قلم/اقلام سفارش ساخت",
+						ProductionOrderItemNotificationHelper.BuildEmailShell(body.ToString()),
+						industrialEmails,
+						cc,
+						group.First().Id,
+						1,
+						$"Panel/ProductionOrderItem/Edit/{group.First().Id}",
+						cn,
+						saveNow: false,
+						attachmentIds);
+					if (queued)
+						sent++;
+				}
+
+				if (sent > 0)
+					await unitOfWork.SaveChangesAsync(cn);
+
+				await jobLogger?.LogInfoAsync($"اعلان صنایع داخلی برای {sent} سفارش ({items.Count} قلم) صف شد", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+			}
+		}
+
+		/// <summary>
+		/// PDF فرم چاپی سفارش ساخت را مثل پیوست HTS می‌سازد. شکست ساخت فایل، ارسال ایمیل را متوقف نمی‌کند.
+		/// </summary>
+		private async Task<List<long>?> TryCreateProductionOrderFormAttachmentAsync(ProductionOrder? order, IJobLogger? jobLogger, CancellationToken cn)
+		{
+			if (order?.Id is not > 0)
+				return null;
+
+			try
+			{
+				var pdf = await productionOrderFormPdf.TryExportAsync(order.Id.Value, cn);
+				if (pdf is not { Length: > 0 })
+				{
+					await jobLogger?.LogWarningAsync($"قالب چاپی سفارش ساخت {order.Id} برای پیوست ایمیل در دسترس نبود", 0, cn);
+					return null;
+				}
+
+				var orderNumber = order.ProductionOrderNumber?.ToString();
+				if (string.IsNullOrWhiteSpace(orderNumber))
+					orderNumber = string.IsNullOrWhiteSpace(order.Number) ? order.Id.ToString() : order.Number;
+
+				var file = await fileService.UploadAsync(
+					pdf,
+					$"سفارش ساخت_{orderNumber}.pdf",
+					"application/pdf",
+					typeof(ProductionOrder).FullName,
+					"ProductionOrderForm",
+					order.Id,
+					cn);
+
+				return file.Id is > 0 ? [file.Id.Value] : null;
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogWarningAsync($"پیوست چاپ سفارش ساخت {order.Id} ساخته نشد: {ex.Message}", 0, cn);
+				return null;
+			}
 		}
 
 		/// <summary>

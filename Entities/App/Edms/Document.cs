@@ -81,6 +81,16 @@ namespace Entities.App.Edms
 		public long? ApproverId { get; set; }
 
 
+		[DisplayName("تهیه کننده")]
+		[DisplayInfo(null, false, type: SystemType.Entity)]
+		public User? PreparedUser { get; set; }
+
+		/// <summary>
+		/// تهیه‌کننده مدرک؛ هنگام ایجاد از تهیه‌کننده VPIS کپی و ثابت می‌شود (گزارش‌های عملکرد پرسنل)
+		/// </summary>
+		public long? PreparedUserId { get; set; }
+
+
 		[DisplayName("توضیحات")]
 		[DisplayInfo(null, false, type: SystemType.String)]
 		[MaxLength(2000)]
@@ -88,35 +98,35 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("فایل اصلی")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx", maxFileSize: 100)]
 		public FileEntity? MainFile { get; set; }
 
 		public long? MainFileId { get; set; }
 
 
 		[DisplayName("فایل مادر")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx", maxFileSize: 100)]
 		public FileEntity? MotherFile { get; set; }
 
 		public long? MotherFileId { get; set; }
 
 
 		[DisplayName("فایل ثانوی")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx", maxFileSize: 100)]
 		public FileEntity? SecondaryFile { get; set; }
 
 		public long? SecondaryFileId { get; set; }
 
 
 		[DisplayName("فایل ReplySheet")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx", maxFileSize: 100)]
 		public FileEntity? ReplySheet { get; set; }
 
 		public long? ReplySheetId { get; set; }
 
 
 		[DisplayName("فایل ReplySheet دوم")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx", maxFileSize: 100)]
 		public FileEntity? SecondReplySheet { get; set; }
 
 		public long? SecondReplySheetId { get; set; }
@@ -154,7 +164,7 @@ namespace Entities.App.Edms
 		public long DocumentId { get; set; }
 
 		[DisplayName("پیوست")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.xls,.xlsx",maxFileSize:100)]
 		public FileEntity? Attachment { get; set; }
 
 		public long? AttachmentId { get; set; }
@@ -163,6 +173,11 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, false, type: SystemType.String)]
 		[MaxLength(2000)]
 		public string? Comment { get; set; }
+
+		[DisplayName("شماره کامنت شیت دریافتی")]
+		[DisplayInfo(null, false, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? ReceivedTransmittalNumber { get; set; }
 
 		[DisplayName("وضعیت مدرک")]
 		[DisplayInfo(null, false, type: SystemType.Select)]

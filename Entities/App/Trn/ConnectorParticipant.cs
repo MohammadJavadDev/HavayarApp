@@ -6,26 +6,56 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Entities.App.Trn
 {
-	[Display(Name = "رابط شرکت")]
+	[Display(Name = "رابطین")]
 	[Table("ConnectorParticipant", Schema = "Trn")]
 	public class ConnectorParticipant : BaseEntity
 	{
 		public long CompanyId { get; set; }
 		public virtual Company? Company { get; set; }
 
-		// FK to the Trn.Participant master (step 05). The legacy junction is (CompanyId + ParticipantId).
-		[DisplayName("شرکت‌کننده (رابط)")]
-		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
-		public long ParticipantId { get; set; }
-		public virtual Participant? Participant { get; set; }
-
-		[DisplayName("سمت در شرکت")]
+		[DisplayName("نام")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(256)]
+		[MaxLength(50)]
+		public string? FirstName { get; set; }
+
+		[DisplayName("نام خانوادگی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? LastName { get; set; }
+
+		[DisplayName("سمت")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(128)]
 		public string? Position { get; set; }
 
+		[DisplayName("تلفن مستقیم")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? DirectPhoneNumber { get; set; }
+
+		[DisplayName("فکس")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? FaxNumber { get; set; }
+
+		[DisplayName("تاییدیه فکس")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? ConfirmedFaxNumber { get; set; }
+
+		[DisplayName("شماره موبایل")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? MobileNumber { get; set; }
+
+		[DisplayName("ایمیل")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? Email { get; set; }
+
 		[DisplayName("توضیحات")]
-		[DisplayInfo(null, false, type: SystemType.String)]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(4000)]
 		public string? Description { get; set; }
 	}
 }

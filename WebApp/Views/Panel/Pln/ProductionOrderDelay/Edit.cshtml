@@ -51,7 +51,8 @@
 			<label class=''>سفارش ساخت</label>
 			@(Html.EntitySelector<ProductionOrder>(
 				"ProductionOrderSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active &&
+				c => c.Id != ProductionOrder.PlanningEquipmentOrderId &&
+					c.IsActive == Entities.Base.IsActiveEnum.Active &&
 					(c.Id == selectedProductionOrderId ||
 					 (!c.DelayNotCalculated &&
 					  c.ProjectManagerId == null &&
@@ -261,13 +262,15 @@
 		<span class="section-box-title">اطلاعات تکمیلی</span>
 		<div class='col-md-6 form-group-inline'>
 			<label class=''> تاریخ شروع </label>
-			<input class='form-control ltr' id="delayStartDate" data-bind='delayStartShamsiDate' value='@Model?.DelayStartMiladiDate' />
+			<input class='form-control ltr' id="delayStartDate" data-bind='delayStartShamsiDate'
+				value='@(Model?.DelayStartMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		<div class='col-md-6 form-group-inline'>
 			<label class=''> تاریخ پایان </label>
-			<input class='form-control ltr' id="delayEndDate" data-bind='delayEndShamsiDate' value='@Model?.DelayEndMiladiDate' />
+			<input class='form-control ltr' id="delayEndDate" data-bind='delayEndShamsiDate'
+				value='@(Model?.DelayEndMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -295,6 +298,25 @@
 			<textarea class='form-control' data-bind='description' rows="3">@Model?.Description</textarea>
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
+
+		@if (!string.IsNullOrWhiteSpace(Model?.JustificationComment) || !string.IsNullOrWhiteSpace(Model?.TrusteeName))
+		{
+			<div class='col-md-12 form-group-inline'>
+				<label>توضیحات توجیه</label>
+				<textarea class='form-control' rows="3" readonly>@Model?.JustificationComment</textarea>
+				<div class='my-1 mx-1'></div>
+			</div>
+			<div class='col-md-6 form-group-inline'>
+				<label>متولی توجیه</label>
+				<input class='form-control' readonly value='@Model?.TrusteeName' />
+				<div class='my-1 mx-1'></div>
+			</div>
+			<div class='col-md-6 form-group-inline'>
+				<label>تاریخ توجیه</label>
+				<input class='form-control ltr' readonly value='@Model?.JustificationShamsiDateTime' />
+				<div class='my-1 mx-1'></div>
+			</div>
+		}
 
 	</div>
 </div>
@@ -501,7 +523,7 @@
 			var $el = $$(selector);
 			if (!$el.length) return;
 
-			var currentVal = $el.val();
+			var miladiVal = $el.val();
 			var existingApi = $el.data('datepicker');
 			if (existingApi && typeof existingApi.destroy === 'function') {
 				existingApi.destroy();
@@ -510,10 +532,16 @@
 			$el.removeData('delayPickerBound');
 			$el.attr('data-persionDatePicker', 'false');
 
+			var date = miladiVal ? toDateOnly(miladiVal) : null;
+			if (date) {
+				var shamsi = formatUnixAsShamsi(date.getTime());
+				if (shamsi) $el.val(shamsi);
+			}
+
 			var pickerApi = $el.persianDatepicker({
 				format: 'YYYY/MM/DD',
 				autoClose: true,
-				initialValue: !!(currentVal && String(currentVal).length),
+				initialValue: false,
 				timePicker: { enabled: false },
 				observer: true,
 				onSelect: function (unix) {
@@ -524,8 +552,8 @@
 			$el.data('datepicker', pickerApi);
 			$el.data('delayPickerBound', true);
 
-			if (currentVal) {
-				setInputSelectedDate($el, toDateOnly(currentVal));
+			if (date) {
+				setInputSelectedDate($el, date);
 			}
 		});
 

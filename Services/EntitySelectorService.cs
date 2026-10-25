@@ -32,7 +32,7 @@ namespace Services
 				return new EntitySelectorResult();
 
 			var definition = _sqlStore.Get(queryId);
-			if (definition == null) throw new Exception("Query expired or invalid.");
+			if (definition == null) throw new Exception("خطا در دریافت اطلاعات. صفحه را بسته و مجدد باز کنید.");
 
 			string cachedSql = definition.Sql;
 			string displayTemplate = definition.DisplayTemplate;
@@ -48,10 +48,11 @@ namespace Services
 				catch { }
 			}
 
-			string searchTerm = string.IsNullOrWhiteSpace(request.Q) ? "%" : $"%{request.Q.Trim()}%";
+			// چند کلمه (مثلاً «حمیدرضا امامی») باید همه با هم روی همان ردیف match شوند،
+			// حتی اگر هر کدام در ستون جدا باشد (نام و نام‌خانوادگی).
+			var searchTokens = SplitSearchTokens(request.Q);
 
-			// ← searchColumnInfos به BuildFinalSql پاس می‌شود
-			string finalSql = BuildFinalSql(cachedSql, extraFilters, request.LastId, request.PageSize, searchColumnInfos);
+			string finalSql = BuildFinalSql(cachedSql, extraFilters, request.LastId, request.PageSize, searchColumnInfos, searchTokens);
 
 			var resultItems = new List<EntitySelectorItem>();
 			int totalCount = 0;
@@ -62,14 +63,17 @@ namespace Services
 			using (var command = connection.CreateCommand())
 			{
 				command.CommandText = finalSql;
-				AddParameter(command, "@searchTerm", searchTerm);
+				AddSearchParameters(command, finalSql, request.Q, searchTokens);
 				if (request.LastId.HasValue) AddParameter(command, "@lastId", request.LastId.Value);
 
 				if (request.Extra.TryGetValue("defaultParams", out string encryptedParams))
 					AddDefaultParams(command, encryptedParams);
 
 				foreach (var filter in extraFilters)
-					AddParameter(command, $"@extra_{filter.Key}", filter.Value);
+				{
+					if (SplitFilterColumns(filter.Key) == null) continue;
+					AddParameter(command, "@extra_" + ExtraParamName(filter.Key), filter.Value);
+				}
 
 				using (var reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess))
 				{
@@ -91,12 +95,27 @@ namespace Services
 			return new EntitySelectorResult { Page = request.Page, PageSize = request.PageSize, Total = totalCount, Items = resultItems };
 		}
 
+		/// <summary>کلید فیلتر می‌تواند چند ستون با جداکننده | باشد (OR). ستون نامعتبر → null.</summary>
+		private static List<string> SplitFilterColumns(string key)
+		{
+			if (string.IsNullOrWhiteSpace(key)) return null;
+			var cols = key.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+			if (cols.Count == 0) return null;
+			foreach (var c in cols)
+				if (!System.Text.RegularExpressions.Regex.IsMatch(c, "^[A-Za-z0-9_]+$")) return null;
+			return cols;
+		}
+
+		private static string ExtraParamName(string key)
+			=> System.Text.RegularExpressions.Regex.Replace(key, "[^A-Za-z0-9_]", "_");
+
 		private string BuildFinalSql(
 	    string baseSql,
 	    Dictionary<string, string> extraFilters,
 	    long? lastId,
 	    int pageSize,
-	    List<SearchColumnInfo> searchColumnInfos = null)
+	    List<SearchColumnInfo> searchColumnInfos = null,
+	    IReadOnlyList<string> searchTokens = null)
 		{
 			string runnableSql = baseSql
 			    .Replace(TOKEN_LITERAL_SQL, "@searchTerm")
@@ -106,17 +125,27 @@ namespace Services
 
 			if (searchColumnInfos != null && searchColumnInfos.Any())
 			{
-				var searchClauses = searchColumnInfos.Select(col =>
-				    col.IsString
-					   // ← SqlAlias به جای ColumnName
-					   ? $"([{col.SqlAlias}] IS NOT NULL AND [{col.SqlAlias}] LIKE @searchTerm)"
-					   : $"CAST([{col.SqlAlias}] AS NVARCHAR(100)) LIKE @searchTerm"
-				);
-				whereConditions.Add("(" + string.Join(" OR ", searchClauses) + ")");
+				if (searchTokens == null || searchTokens.Count == 0)
+				{
+					whereConditions.Add("(" + BuildTokenMatch(searchColumnInfos, "@searchTerm") + ")");
+				}
+				else
+				{
+					var tokenGroups = new List<string>(searchTokens.Count);
+					for (int i = 0; i < searchTokens.Count; i++)
+						tokenGroups.Add("(" + BuildTokenMatch(searchColumnInfos, $"@searchTerm{i}") + ")");
+					whereConditions.Add(string.Join(" AND ", tokenGroups));
+				}
 			}
 
 			foreach (var filter in extraFilters)
-				whereConditions.Add($"[{filter.Key}] = @extra_{filter.Key}");
+			{
+				var columns = SplitFilterColumns(filter.Key);
+				if (columns == null) continue;
+				var param = "@extra_" + ExtraParamName(filter.Key);
+				var parts = columns.Select(col => $"[{col}] = {param}");
+				whereConditions.Add(columns.Count == 1 ? parts.First() : "(" + string.Join(" OR ", parts) + ")");
+			}
 
 			string seekCondition = (lastId.HasValue && lastId.Value > 0) ? "AND [Id] > @lastId" : "";
 			string additionalWhere = whereConditions.Any()
@@ -132,6 +161,47 @@ namespace Services
         WHERE 1=1 {seekCondition} {additionalWhere}
         ORDER BY [Id] ASC";
 		}
+		/// <summary>
+		/// عبارت جستجو را به کلمه‌ها می‌شکند. هر کلمه باید در حداقل یکی از ستون‌های جستجو باشد.
+		/// </summary>
+		private static List<string> SplitSearchTokens(string q)
+		{
+			if (string.IsNullOrWhiteSpace(q))
+				return new List<string>();
+
+			return q.Trim()
+				.Split((char[])null, StringSplitOptions.RemoveEmptyEntries)
+				.Distinct(StringComparer.Ordinal)
+				.Take(8)
+				.ToList();
+		}
+
+		private static string BuildTokenMatch(List<SearchColumnInfo> searchColumnInfos, string parameterName)
+		{
+			var searchClauses = searchColumnInfos.Select(col =>
+				col.IsString
+					? $"([{col.SqlAlias}] IS NOT NULL AND [{col.SqlAlias}] LIKE {parameterName})"
+					: $"CAST([{col.SqlAlias}] AS NVARCHAR(100)) LIKE {parameterName}"
+			);
+			return string.Join(" OR ", searchClauses);
+		}
+
+		private void AddSearchParameters(IDbCommand command, string finalSql, string q, List<string> searchTokens)
+		{
+			if (searchTokens == null || searchTokens.Count == 0)
+			{
+				AddParameter(command, "@searchTerm", "%");
+				return;
+			}
+
+			for (int i = 0; i < searchTokens.Count; i++)
+				AddParameter(command, $"@searchTerm{i}", "%" + searchTokens[i] + "%");
+
+			// کوئری‌های قدیمی هنوز کل عبارت را با @searchTerm داخل SQL کش‌شده دارند.
+			if (Regex.IsMatch(finalSql, @"(?<![\w@])@searchTerm(?!\d)"))
+				AddParameter(command, "@searchTerm", "%" + (q ?? "").Trim() + "%");
+		}
+
 		/// <summary>
 		/// اضافه کردن CAST برای ستون‌های غیر string در SQL
 		/// </summary>
@@ -241,7 +311,7 @@ ORDER BY Id ASC";
 
 			var definition = _sqlStore.Get(queryId);
 			if (definition == null)
-				throw new Exception("Query expired or invalid.");
+				throw new Exception("خطا در دریافت اطلاعات. صفحه را بسته و مجدد باز کنید.");
 
 			string cachedSql = definition.Sql;
 			string template = string.IsNullOrEmpty(displayTemplate) ? definition.DisplayTemplate : displayTemplate;

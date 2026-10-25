@@ -3,7 +3,7 @@ chcp 65001 >nul
 cd /d "%~dp0"
 
 echo ========================================
-echo  Havayar WebApp Deploy
+echo  Havayar Deploy: App.Real then WebApp
 echo ========================================
 echo.
 

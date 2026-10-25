@@ -302,14 +302,11 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 	public virtual async Task<TEntity> SaveAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true, bool InvokeAction = true)
 	{
 		var isNew = entity.Id == 0 || entity.Id == null || !await TableNoTracking.AnyAsync(c => c.Id == entity.Id, cancellationToken);
-		if (InvokeAction)
-			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeSave, cancellationToken);
-
+		// BeforeSave / AfterSave are fired inside AddAsync / UpdateAsync (not here), so they run for both
+		// operations no matter which entry point the caller uses. SaveAsync only decides Add or Update.
 		entity = isNew
 			? await AddAsync(entity, cancellationToken, saveAudit, saveNow, InvokeAction)
-			: await UpdateAsync(entity, cancellationToken, saveAudit, saveNow, InvokeAction);
-		if (InvokeAction)
-			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterSave, cancellationToken); 
+			: await UpdateAsync(entity, cancellationToken, saveAudit, saveNow, InvokeAction); 
 		
 		return entity;
 	}
@@ -317,6 +314,9 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 	public virtual async Task<TEntity> AddAsync(TEntity entity, CancellationToken cancellationToken, bool saveAudit = true, bool saveNow = true , bool InvokeAction = true)
 	{
 		Assert.NotNull(entity, nameof(entity));
+
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeSave, cancellationToken);
 
 		SetEntityDates(entity, isNew: true);
 		SetEntityUser(entity, isNew: true);
@@ -338,6 +338,9 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		}
 		if (InvokeAction)
 			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterAdd, cancellationToken);
+
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterSave, cancellationToken);
 
 		return entity;
 	}
@@ -367,12 +370,15 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			throw new InvalidOperationException($"Entity with Id {entity.Id} not found.");
 		}
 
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, oldEntity, EntityActionTrigger.BeforeSave, cancellationToken);
+
 		SetEntityDates(entity, isNew: false);
 		SetEntityUser(entity, isNew: false);
 		PreserveCreationInfo(entity, oldEntity);
 
 		if (InvokeAction)
-			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.BeforeUpdate, cancellationToken);
+			await _invoker.InvokeAsync(entity, oldEntity, EntityActionTrigger.BeforeUpdate, cancellationToken);
 		Entities.Update(entity);
 
 		if (saveNow)
@@ -385,7 +391,10 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			}
 		}
 		if (InvokeAction)
-			await _invoker.InvokeAsync(entity, null, EntityActionTrigger.AfterUpdate, cancellationToken);
+			await _invoker.InvokeAsync(entity, oldEntity, EntityActionTrigger.AfterUpdate, cancellationToken);
+
+		if (InvokeAction)
+			await _invoker.InvokeAsync(entity, oldEntity, EntityActionTrigger.AfterSave, cancellationToken);
 
 		return entity;
 	}
@@ -601,6 +610,9 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 	{
 		Assert.NotNull(entity, nameof(entity));
 
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeSave);
+
 		SetEntityDates(entity, isNew: true);
 		SetEntityUser(entity, isNew: true);
 		entity.IsActive = IsActiveEnum.Active;
@@ -620,6 +632,9 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 		}
 		if (InvokeAction)
 			_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterAdd);
+
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterSave);
 
 		return entity;
 	}
@@ -649,11 +664,14 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			throw new InvalidOperationException($"Entity with Id {entity.Id} not found.");
 		}
 
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, oldEntity, EntityActionTrigger.BeforeSave);
+
 		SetEntityDates(entity, isNew: false);
 		SetEntityUser(entity, isNew: false);
 		PreserveCreationInfo(entity, oldEntity);
 		if (InvokeAction)
-			_invoker.InvokeSync(entity, null, EntityActionTrigger.BeforeUpdate);
+			_invoker.InvokeSync(entity, oldEntity, EntityActionTrigger.BeforeUpdate);
 
 		Entities.Update(entity);
 
@@ -667,7 +685,10 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			}
 		}
 		if (InvokeAction)
-			_invoker.InvokeSync(entity, null, EntityActionTrigger.AfterUpdate);
+			_invoker.InvokeSync(entity, oldEntity, EntityActionTrigger.AfterUpdate);
+
+		if (InvokeAction)
+			_invoker.InvokeSync(entity, oldEntity, EntityActionTrigger.AfterSave);
 
 		return entity;
 	}
@@ -694,7 +715,7 @@ public class Repository<TEntity> : IRepository<TEntity>, IScopedDependency
 			}
 		}
 
-		 Entities.BulkUpdateAsync(entities);
+		Entities.BulkUpdate(entities);
 		return entities;
 	}
 

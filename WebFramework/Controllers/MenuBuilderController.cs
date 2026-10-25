@@ -66,6 +66,23 @@ namespace WebFramework.Controllers.SystemControllers
             return Ok(entity);
         }
 
+        [HttpGet("{action}")]
+        [ActionDisplayName("حذف", ActionAccessType.Api, ActionAccessItemType.Delete)]
+        public IActionResult Delete(long id)
+        {
+            if (id <= 0)
+                return BadRequest("شناسه منو نامعتبر است");
+
+            var repo = unitOfWork.Repository<SystemMenu>();
+            var entity = repo.TableNoTracking.FirstOrDefault(c => c.Id == id);
+            if (entity == null)
+                return Ok();
+
+            repo.Delete(entity);
+            menuBuilderService.RemoveSystemMenu(id);
+            return Ok();
+        }
+
 		[HttpPost("{action}")]
 		[ActionDisplayName("دریافت منو با شناسه", ActionAccessType.Api)]
           [AllowAnonymous]
@@ -73,9 +90,9 @@ namespace WebFramework.Controllers.SystemControllers
 		{
 		 
 			var menus = menuBuilderService.GetMenuItems(Id, sdk);
-               var menuHtml = menuBuilderService.GetHtmlItems(menus,null,sdk);
+			var nodes = menuBuilderService.GetSidebarNodes(menus, null, sdk);
 
-			return Ok(menuHtml);
+			return Ok(nodes);
 		}
 
 

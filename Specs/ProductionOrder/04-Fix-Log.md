@@ -129,3 +129,49 @@ BOM روی مرحله ۲۱۳ + مدیر پروژه ──► مرحله ۱۳۸۰
 - SMS تغییر وضعیت تولید (`SendSmsNotification` با شماره‌های ثابت).
 - ~~افزودن خودکار مسئول استعلام به گروه‌های کاربری ۳۸۱/۳۸۲ (`CheckAndUpdatePermissions`)~~ → **منتقل شد** (2026-09-17 21:3x): `CommitteeDecide` پس از انتخاب مقصد استعلام/وزارت، نقش `Inquirer` / `MinistryOfIndustryInquirer` را خودکار به مسئول انتخاب‌شده می‌دهد (`EnsureInquiryResponsibleRoleAsync`) تا مثل HTS بتواند نتیجه را ثبت کند.
 - صفحات legacy (`Itm`/`Itm_New`، اقساط ۲۲۷، پیوست ۲۱۶، متره قیمت).
+
+---
+
+## 7. بازطراحی BOM اقلام سفارش ساخت: جدول تاریخچه، تعیین تکلیف (2026-10-14)
+
+مقایسهٔ کامل BOM با HTS (دسترسی، عملیات، داده) انجام شد و مغایرت‌ها اصلاح شد.
+
+**طراحی جدید**
+- `Sale.ProductionOrderItemBom` فقط **آخرین نسخهٔ هر (قلم، کالا)** را نگه می‌دارد (ایندکس یکتا + فیلد `NeedsInspection`). `IsLatest` همیشه `true` است (نمایهٔ `POI_BomReport` روی آن فیلتر می‌کند).
+- `Sale.ProductionOrderItemBomHistory` همهٔ رخدادها را دارد: ایجاد، ویرایش، ملاحظات. حذف یک ردیف: `IsDeleted = true` روی همهٔ رخدادهای آن (قلم، کالا) و حذف کامل ردیف اصلی.
+- تنها نقطهٔ نوشتن: `Services/ProductionOrderServices/ProductionOrderItemBomService.cs` (WebApp و BackgroundJob). اکشن قدیمی نسخه‌بندی (`ProductionOrderItemBomAction`) حذف شد؛ آن محاسبه بر اساس Id در ۳٬۰۸۵ گروه آخرین نسخهٔ HTS را اشتباه می‌کرد.
+
+**اصلاحات رفتاری**
+- H1/H6: «تعیین تکلیف» اکشن جدا (`SaveBomConsideration`)؛ فقط مدیر سیستم یا کارشناس فروش/جایگزین/مدیر فروش/مدیر پروژهٔ همان سفارش. `BomListBy` / `SaveBomConsideration` (و تا 2026-10-16 `GetBomListByParentId`؛ بخش ۸) عمداً بدون `[ActionDisplayName]`‌اند و مجوز بر اساس سمت در سفارش داخل کد کنترل می‌شود.
+- H2: تغییر مرحلهٔ ساخت ردیف BOM یا فیلدهای صنایع دیگر ایمیل «تعیین تکلیف» نمی‌سازد و قلم را جابه‌جا نمی‌کند.
+- H3: «اعمال روی اقلام مشابه» فقط کالا، مقدار و توضیحات را منتقل می‌کند.
+- H4: نوشتن روی BOM فقط برای قلم حذف‌نشده، آخرین نسخه و کارتابل صنایع (۱۹۰۴/۱۹۰۵)؛ مدیر سیستم معاف.
+- H5: فیلد «نیاز به بازرسی/مدارک بازرسی» (`HasNeedToBuyOrBuild` در HTS)؛ `NeedsAVL` از آخرین رخداد ملاحظات HTS بازسازی شد (در HTS `HasNeedToAvl` با فیلد بازرسی یکی می‌شد).
+- M2: دکمهٔ فرمول و جاب درج روتین با `Part.DesignTypeIsRoutine` (مثل HTS)؛ ردیف RoleAccess دکمه روی نقش `Sale.ProductionOrderItemBom`.
+- M5: پیوست اکسل در ایمیل، خط «از قبل موجود بوده است»، دو گروه اعلان شعبه‌ای (`Sale.ProductionOrderItemBom.SalesBranch` و `...TurboCompressorBranch`).
+- M6: حذف BOM: پرچم حذف در تاریخچه + حذف کامل از جدول اصلی.
+- M7: جاب «افزودن Bom سفارش ساخت از Hts» و `Hts_Pln_ProductionOrderItemBom` حذف شد (تعریف جاب را `JobDiscoveryService` خودکار پاک می‌کند).
+- تغییر کالا روی ردیف موجود مجاز نیست؛ برای تعویض، حذف و افزودن دوباره.
+
+**دیتابیس**
+1. EF Migration `AddProductionOrderItemBomHistory` (جدول تاریخچه + `NeedsInspection`).
+2. `Data/Scripts/Migrate_ProductionOrderItemBom_ToHistory.sql` (با `-v DryRun=1` ابتدا): ۴۹۶٬۲۲۸ ردیف → تاریخچه؛ ۲۴٬۶۴۹ ردیف اضافی حذف؛ ۴۷۱٬۵۷۹ ردیف اصلی؛ ۱٬۹۱۸ رخداد ملاحظات HTS؛ ایجادکنندهٔ واقعی از HTS بازپرکردن شد. پشتیبان جدول: `Sale.ProductionOrderItemBom_Bak_20261014` (بعد از تأیید حذف شود).
+3. EF Migration `AddProductionOrderItemBomUniqueItemPart` (ایندکس یکتای `(ProductionOrderItemId, PartId)`).
+4. `Data/Scripts/Seed_ProductionOrderItemBom_Phase2.sql`: RoleAccess فرمول، نقش View برای گروه‌های ۴۵۲ و ۳۵۰ HTS، گروه‌های اعلان شعبه‌ای، رفع ایمیل خالی.
+
+**عمداً انجام نشد**: ستون‌های قیمت (`ShowPrice`)؛ اصلاح ۱۷۵ ویرایش قبلی خارج از کارتابل صنایع.
+
+---
+
+## 8. جدول صفحهٔ BOM قلم به‌صورت نمایه داده (2026-10-16)
+
+جدول `BomListBy` (`ListByParentId.cshtml`) از DataTable دستی به نمایه داده `POI_BomByItem` منتقل شد تا فیلتر هر ستون، SearchBuilder، مدیریت/ذخیرهٔ عرض ستون و خروجی اکسل سمت سرور را بگیرد.
+
+- **نمایه**: `Data/Scripts/Seed_ProductionOrderItemBomByItem_DataProfile.sql` (تولیدشده با `_tools/DataProfile/gen_poi_bombyitem_seed.py`)، موجودیت `ProductionOrderItemBom`، پارامتر زمان‌اجرا `@ProductionOrderItemId` از `data-query-params` صفحه. مرتب‌سازی پیش‌فرض «زمان ایجاد» نزولی (قاعدهٔ نمایه‌ها)؛ قبلاً جدول بر اساس زمان ویرایش مرتب می‌شد، با کلیک روی «زمان ویرایش» همان نتیجه را می‌دهد.
+- **مجوز داخل SQL نمایه**: admin، نقش‌های BOM، یا ذی‌نفع همان سفارش (فروش/مدیر فروش/جایگزین/مدیر پروژه). `/System/FetchDataProfile` و `/System/ExportToExcelProfile` برای هر کاربر وارد شده باز است و پارامتر از کلاینت می‌آید؛ بدون این شرط هر کاربری می‌توانست BOM هر قلم را بخواند. بدون پارامتر یا بدون مجوز، نمایه صفر ردیف برمی‌گرداند.
+- **RoleAccess نمایه**: نقش‌های BOM + هر نقشی که `/panel/productionorderitem/edit` را دارد (ذی‌نفع بدون نقش BOM فقط از این نقش‌ها به صفحهٔ قلم می‌رسد). نقش جدیدی که بعداً آن مسیر را بگیرد باید دوباره seed شود یا دستی تیک بخورد.
+- **دکمه‌ها** (`CustomActionButtonsJson`): ثبت ملاحظات، افزودن، ویرایش، حذف، فرمول، اکسل، تاریخچه. هر دکمه فقط رویداد `bomAction` را به اسکریپت صفحه می‌فرستد؛ مودال‌ها در اسکریپت صفحه‌اند. دکمه‌ها با `data-can-*` روی ریشهٔ صفحه و CSS برای کاربر بدون دسترسی پنهان می‌شوند؛ مجوز واقعی همچنان در کنترلر (`CanManageBom`/`CanConsider`/`WriteBlockReason`) است.
+- انتخاب چندتایی عمداً **خاموش** است (`defaultMultiSelect` = false، به درخواست کاربر). همهٔ دکمه‌ها (ویرایش، حذف، تاریخچه، ثبت ملاحظات) روی یک ردیفِ کلیک‌شده کار می‌کنند؛ اسکریپت صفحه `ctx.selectedRow` را می‌خواند و اگر روزی روشن شد `ctx.selectedRows` هم کار می‌کند. «ثبت ملاحظات» دیگر یک‌جا برای چند ردیف نیست و باید برای هر ردیف جدا ثبت شود.
+- **تاریخچه**: به‌جای باز شدن زیرردیف، دکمهٔ «تاریخچه» پنجرهٔ `GetBomHistory` را نشان می‌دهد.
+- **حذف شد**: اکشن `GetBomListByParentId` و `HasHistory` (دیگر مصرف‌کننده‌ای ندارند)، اکسل کلاینتی XLSX.
+- بعد از اجرای seed، WebApp باید ری‌استارت شود (کش Redis نمایه‌ها).

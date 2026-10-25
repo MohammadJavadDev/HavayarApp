@@ -14,7 +14,7 @@ namespace WebApp.Controllers.Dynamic
 	[Route("Panel/Qc/[controller]")]
 	[ApiController]
 	[ApiResultFilter]
-	[ControllerInfo("نوع خرابی", typeof(FailureType))]
+	[ControllerInfo("انواع خرابی", typeof(FailureType))]
 	public class FailureTypeController(IUnitOfWork unitOfWork, IPropertyIdentityService identityService, IWebHostEnvironment _webHostEnvironment) : BaseController
 	{
 		[HttpPost("[action]")]

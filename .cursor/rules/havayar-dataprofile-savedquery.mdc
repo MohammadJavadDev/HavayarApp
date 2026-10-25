@@ -1,6 +1,6 @@
 ---
-description: HavayarApp Data Profiles (نمایه داده) / SavedQuery / Query Designer — schema, onRowAdded row styling, and helper tools
-globs: Data/Scripts/**/*.sql,Entities/Base/QueryDesigner.cs,Data/Services/QueryBuilderServices/**/*.cs,WebApp/Views/Panel/**/*.cshtml
+description: HavayarApp Data Profiles (نمایه داده) / SavedQuery / Query Designer — schema, default sort on تاریخ ایجاد, runtime parameters (data-query-params), onRowAdded color on the row-number column, and helper tools
+globs: Data/Scripts/**/*.sql,Entities/Base/QueryDesigner.cs,Entities/Base/DataTable/DataTableRequest.cs,Data/Services/QueryBuilderServices/**/*.cs,WebApp/Views/Panel/**/*.cshtml,WebApp/wwwroot/js/site.js
 alwaysApply: false
 ---
 # HavayarApp Data Profiles (نمایه داده) / SavedQuery
@@ -62,8 +62,8 @@ always emit the full shape, using `null`/`false`/`[]` defaults, not missing keys
 | `SystemTypeName` / `SystemType` | string / int | See enum table in §4 — keep both fields consistent with each other. |
 | `Visible` | bool | Whether the column shows in the grid (id column is usually `false`). |
 | `PrimaryKey` | bool | Exactly one column (the row identity, usually the first) should be `true`. |
-| `SortDirection` | `1`\|`0`\|`null` | `SortDirection` enum: `Ascending = 0`, `Descending = 1`. The PK column conventionally gets `1` as the default sort. |
-| `SortOrder`, `SelectIndex`, `GroupBy` | int/int/bool | Multi-column sort order, which `SELECT` in a multi-select query, and GROUP BY flag — `0`/`null`/`false` unless you need them. |
+| `SortDirection` | `1`\|`0`\|`null` | `SortDirection` enum: `Ascending = 0`, `Descending = 1`. When the profile needs a default sort, see §3.3 — it goes on **تاریخ ایجاد**, descending. The PK column stays `null`. |
+| `SortOrder`, `SelectIndex`, `GroupBy` | int/int/bool | Multi-column sort priority (`0` = first), which `SELECT` in a multi-select query, and GROUP BY flag. The تاریخ ایجاد sort column uses `SortOrder` `0`; every other column stays `null`. |
 | `Options`, `OptionSetting` | array / object | Only for `SystemType = Select` (enum-backed) columns — `OptionSetting.TypeOption` (`TypeOptionEnum`: `Defination=1, Exist=2, System=3`) plus `SystemTypeName` pointing at the C# enum's full name, e.g. `"Entities.App.Sale.Enums.SaleOrderPayMethodEnum"`. |
 | `Aggregate` | string\|null | `null`, `"Count"`, `"Max"`, `"Min"`, `"Avg"`, `"Sum"`, `"CountDistinct"`, `"AvgDistinct"`, `"SumDistinct"`. |
 | `Render` | string\|null | A JS `function(data, type, row) {...}` **string** (not a real function) — the standard money-formatting one used across every existing profile is: `"function(data, type, row) { if (data == null || data === '') return ''; if (typeof MJUtil !== 'undefined' && MJUtil.formatMoney) return MJUtil.formatMoney(data); return data; }"`. |
@@ -106,6 +106,63 @@ WHERE @HasShowAll = 1 OR …
 ```
 
 **Must not:** put DECLARE inside the main SELECT / CTE only to avoid the marker; omit the marker when DECLARE precedes SELECT (pagination will break); invent alternate spellings (`-- mainsection`, `--!mainsection`).
+
+### 3.3 Default sort — تاریخ ایجاد, newest first (when the profile needs a sort)
+
+If the grid should open sorted, put that sort on the **تاریخ ایجاد** column and nowhere else. Do not leave the conventional descending sort on the hidden PK / `t1_Id`.
+
+| Piece | Value |
+|---|---|
+| Column | The profile column whose `DisplayName` is تاریخ ایجاد (`CreatedDateInText`, `CreatedOnShamsiDateTime`, or the same Shamsi created-date field). It must be in the SELECT and in `ColumnsJson`. |
+| `SortDirection` | `1` (Descending — زیاد به کم, newest first) |
+| `SortOrder` | `0` |
+| Every other column, including the PK | `SortDirection` `null` and `SortOrder` `null` |
+
+Why only one column: `QueryService` uses the **first** `ColumnsJson` entry whose `SortDirection` is not null when the request has no order. If `t1_Id` still has `SortDirection: 1`, تاریخ ایجاد is ignored. The grid (`site.js`) also sends an order for every column that has `sortDirection` set.
+
+Do not add `ORDER BY` inside `CustomQuery` for this. Pagination applies the profile sort outside the main SELECT (`ORDER BY [alliance] DESC`).
+
+`QueryService.AppendPrimaryKeyTiebreaker` then appends the profile primary key (`PrimaryKey: true`) as `ASC` when that column is not already in the order. Tied values of the visible sort column would otherwise repeat or disappear between pages (`OFFSET`/`FETCH` on a non-unique `ORDER BY`). Leave `SortDirection` on the PK null; the tiebreaker is applied at execution, not stored on the column.
+
+### 3.4 Runtime parameters — `data-query-params` (page filters that must change the SQL)
+
+Use this when a filter has to run **inside** `CustomQuery` (date range that the aggregation depends on, ShowAll already uses `@CurrentUserId`). Column filters and SearchBuilder run **after** the main SELECT, on the already aggregated rows, so they cannot replace this.
+
+| Piece | Where |
+|---|---|
+| Declaration | `QueryJson.Parameters`: `{ "Id", "Name", "DisplayName", "DefaultValue", "DataType" }`. `Name` is without `@` (`FromDate`). |
+| SQL | Use `@FromDate` in the setup **before** `--!--mainsection`. Do **not** `DECLARE @FromDate` — `ParameterResolver` skips declared names and the page value never binds. |
+| Request | `DataTableRequest.parameters` (`Dictionary<string, string>`). `ExtractParameterValuesFromRequest` copies SearchBuilder `criteria[].data` first, then **overwrites** with `parameters`. |
+| Page | On the profile `<select data-action="dataProfile">`, set `data-query-params` to a JSON object. `InitDataTabelProfile` (`site.js`) puts it on every fetch. Excel export clones that same request, so the filter is included. |
+
+```javascript
+$$('[data-action="dataProfile"]').attr('data-query-params', JSON.stringify({
+    FromDate: $$('#fromDate').val() || '',
+    ToDate: $$('#toDate').val() || ''
+}));
+const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+if (table && table.ajax) table.ajax.reload(null, false);
+```
+
+Empty string is sent as SQL `NULL` (`ParameterResolver` maps `""` to `DBNull`). Give each parameter a `DefaultValue` of `""` so the first load, before the page sets the attribute, is deterministic. Canonical: `Edms_CumulativePerformanceReport` (`FromDate` / `ToDate` on `/panel/edms/document/cumulativeperformancereport`).
+
+**Must not:** push these filters into SearchBuilder `criteria`. `BuildCriteriaQueryProfile` looks the name up in `ColumnsJson` and throws when it is not a grid column. **Must not:** reuse a parameter name that is also a column `Alliance`.
+
+### 3.5 Profile bound to a parent row (BOM of an item, child grid with modals)
+
+Canonical: `Seed_ProductionOrderItemBomByItem_DataProfile.sql` (generator `gen_poi_bombyitem_seed.py`) + `Sale/ProductionOrderItem/ListByParentId.cshtml`. Use it when a page shows one parent's child rows and still wants Data Profile features (column filters, server Excel, column widths).
+
+| Piece | Rule |
+|---|---|
+| Parent id | `QueryJson.Parameters` + `@ParentId` in the SQL; the page sets `data-query-params` **synchronously at the top of its inline script**. `appController` runs `execScripts()` right after it starts the profile load, before the first data request, so no extra reload is needed. |
+| Authorization | **In the SQL**, not only in the controller. `/System/FetchDataProfile` and `/System/ExportToExcelProfile` accept any authenticated user and any `parameters` value from the client. Gate the main SELECT with `WHERE @CanRead = 1`, where `@CanRead` is built before `--!--mainsection` from `system.[User].Roles` (role **Names**) and a position check on the parent. No parameter or no access means zero rows. |
+| Who sees the profile | `RoleAccess` (type 3) per role. Position-based users (sales, project manager) have no BOM role, so grant the profile to the roles that already open the parent page; the SQL gate does the real restriction. |
+| Toolbar buttons | `CustomActionButtonsJson` `actionScript` runs through `new Function('ctx', ...)` in global scope: **no** `page`, `$$`, `self`. Make each script a one-liner `function(ctx){ ctx.$btn.trigger('myAction', ['add', ctx]); }` and handle it in the page script with `page.$pageEl.on('myAction', function (e, action, ctx) {...})`. `ctx.selectedRows` holds the raw rows keyed by `Alliance` (`t1_Id`). |
+| Selection | With `defaultMultiSelect` **disabled**, a click selects one row and only `ctx.selectedRow` is filled (`ctx.selectedRows` stays empty). With it **enabled**, `ctx.selectedRows` is filled and `requiresSelection: true` enables the button for one or more rows. Read `selectedRows` first and fall back to `[selectedRow]` so the handler works in both modes; check `length === 1` for single-row actions. |
+| Hiding buttons per user | Put `data-can-*` attributes on the page root and hide `[data-action="<dataActionName>"]` with CSS. The toolbar is built asynchronously, so do not toggle buttons from the script. The controller still enforces the real permission. |
+| Reload | `($$('[data-action="dataProfile"]').data('dtProfileTable') \|\| self.table).ajax.reload(null, false)` after save/delete. |
+
+**Must not:** rely on the page controller alone to protect the profile data; add a second hand-written DataTable for the same child rows; open child add/edit as a tab (modal rule in `havayar-js-jquery-conventions.mdc` §5 still applies).
 
 ## 4. `SystemType` enum (Common/Attributes/DisplayInfoAttribute.cs) — keep `SystemType` (int) and `SystemTypeName` (string) in sync
 
@@ -201,21 +258,30 @@ Put it on the Data Profile:
 
 `onRowAdded` `ctx`: `rowData` (query aliases, e.g. `t1_HasSecondaryConfirm`), `$row` (`<tr>`), `rowIndex`, `table`, `draw()`, `primaryKeyName`, `primaryKeyValue`.
 
-The grid always has a **row-select checkbox as `td` index 0**. HTS `td:first` (first data cell) is Havayar `$row.find('td').eq(1)`.
+When a row needs a status color, paint the **ردیف** column (`_rowNumber`, the `#` cell), not the first data column. `InitDataTabelProfile` inserts a hidden checkbox at DataTables index 0 and then `_rowNumber`. The checkbox is `visible: false`, so it is not a `<td>`. The first visible cell is ردیف; the second visible cell is the first data column (وضعیت, and so on). `td.eq(1)` and a lookup of the status column both color that second column.
 
 ```js
 function(ctx) {
     var data = ctx.rowData || {};
-    var $cell = ctx.$row.find('td').eq(1);
-    var secondary = data.t1_HasSecondaryConfirm === true || data.t1_HasSecondaryConfirm === 1 || data.t1_HasSecondaryConfirm === 'true';
-    var primitive = data.t1_HasPrimitiveConfirm === true || data.t1_HasPrimitiveConfirm === 1 || data.t1_HasPrimitiveConfirm === 'true';
-    if (secondary) $cell.css('background-color', 'green');
-    else if (primitive) $cell.css('background-color', 'yellow');
-    else $cell.css('background-color', 'red');
+    var color = null;
+    var status = data.t1_StatusId;
+    if (status == 1032 || status === '1032') color = 'yellow';
+    else if (status == 1033 || status === '1033') color = 'lightgreen';
+    else if (status == 1034 || status === '1034') color = 'red';
+    else if (status == 1047 || status === '1047') color = 'green';
+    if (!color || !ctx.table) return;
+    var colIdx = -1;
+    ctx.table.columns().every(function (i) {
+        if (this.dataSrc() === '_rowNumber') colIdx = i;
+    });
+    var node = colIdx >= 0 ? ctx.table.cell(ctx.$row, colIdx).node() : ctx.$row.find('td').get(0);
+    if (node) $(node).css('background-color', color);
 }
 ```
 
-Seed with `FOR JSON PATH, WITHOUT_ARRAY_WRAPPER` (see `Seed_BpmDocumentSystem_DataProfiles.sql` / TenderManagement block in `Seed_AfterSalesServiceSystem_DataProfilesAndAccess.sql`). Read flags via the **Alliance** names from `ColumnsJson` (`t1_HasSecondaryConfirm`, not `HasSecondaryConfirm`). Use `$row.addClass('table-danger')` only when the whole row should change (panel.js template); match HTS when it colored a cell.
+Read the value that decides the color from its **Alliance** (`t1_StatusId`), including a hidden numeric column when the visible column is `Select` (the grid replaces that cell with the enum label before `onRowAdded` runs). Canonical: `Seed_SrvPmRequest_DataProfiles.sql`.
+
+Seed with `FOR JSON PATH, WITHOUT_ARRAY_WRAPPER` (see `Seed_BpmDocumentSystem_DataProfiles.sql` / TenderManagement block in `Seed_AfterSalesServiceSystem_DataProfilesAndAccess.sql`). Use `$row.addClass('table-danger')` only when the whole row should change (panel.js template).
 
 ## 9. Must / must-not
 
@@ -228,6 +294,9 @@ Seed with `FOR JSON PATH, WITHOUT_ARRAY_WRAPPER` (see `Seed_BpmDocumentSystem_Da
 | Translate `DisplayName` to Persian | Leave `DisplayName` as the raw English `ColumnName` |
 | Keep every `Alliance` identical to the SELECT `AS` alias (§3.1) | Save Alliance ≠ query alias (empty preview / wrong cells) |
 | Split DECLARE/setup with `--!--mainsection` before the grid SELECT (§3.2) | Omit the marker when DECLARE precedes SELECT, or invent another spelling |
+| Page filters that change the aggregation via `data-query-params` / `DataTableRequest.parameters` (§3.4) | `DECLARE` the same `@Name`, or send the filter as a SearchBuilder criterion |
 | Use the standard `MJUtil.formatMoney` render string for money columns (copy it verbatim) | Write a new ad-hoc render function per column |
 | Restart the app / clear `DataTableProfileCacheDb` after seeding via SQL | Assume the new profile appears immediately without a cache refresh |
 | Per-row grid coloring/styling in `EventScriptsJson.onRowAdded` | `draw.dt` / `createdRow` / `rowCallback` in a List `.cshtml` |
+| Default sort on تاریخ ایجاد, `SortDirection` `1`, `SortOrder` `0`; every other column `null` (§3.3) | Leave `SortDirection: 1` on the PK / `t1_Id`, or put `ORDER BY` inside `CustomQuery` |
+| Status color on the ردیف column (`dataSrc() === '_rowNumber'`) (§8) | Color `td.eq(1)` or the first data column (وضعیت) — that is the second visible column |

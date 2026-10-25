@@ -16,7 +16,7 @@ namespace Entities.App.Gnr
 		[DisplayInfo(null, false, type: SystemType.Long)]
 		public long HtsId { get; set; }
 
-		[DisplayName("پوشه")]
+		[DisplayName("سطح اول")]
 		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
 		public long FolderId { get; set; }
 		public virtual DocumentFolder? Folder { get; set; }
@@ -31,12 +31,12 @@ namespace Entities.App.Gnr
 		public long? ThirdLevelFolderId { get; set; }
 		public virtual DocumentFolder? ThirdLevelFolder { get; set; }
 
-		[DisplayName("عنوان")]
+		[DisplayName("عنوان / مدل")]
 		[DisplayInfo(null, true, type: SystemType.String, required: true)]
 		[MaxLength(2048)]
 		public string? Title { get; set; }
 
-		[DisplayName("عنوان لاتین")]
+		[DisplayName("عنوان / مدل (En)")]
 		[DisplayInfo(null, true, type: SystemType.String, required: true)]
 		[MaxLength(512)]
 		public string? TitleInLatin { get; set; }
@@ -46,7 +46,7 @@ namespace Entities.App.Gnr
 		[MaxLength(100)]
 		public string? Brand { get; set; }
 
-		[DisplayName("بازنگری")]
+		[DisplayName("نسخه")]
 		[DisplayInfo(null, true, type: SystemType.Int, required: true)]
 		public short Revision { get; set; }
 
@@ -54,12 +54,12 @@ namespace Entities.App.Gnr
 		[DisplayInfo(null, true, type: SystemType.Int)]
 		public short? Year { get; set; }
 
-		[DisplayName("فایل")]
+		[DisplayName("فایل(ها)")]
 		[DisplayInfo(null, true, type: SystemType.File, required: true, fileTypes: ".pdf,.zip,.rar,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png", maxFileSize: 50)]
 		public long? FileId { get; set; }
 		public virtual FileEntity? File { get; set; }
 
-		[DisplayName("توضیحات")]
+		[DisplayName("کامنت")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(4000)]
 		public string? Comment { get; set; }

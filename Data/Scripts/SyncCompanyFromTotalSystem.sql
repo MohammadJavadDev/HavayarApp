@@ -16,7 +16,8 @@
 --   PartyId               <- Gnr_ManCompany.Hamkaran_ManCompany_FK -> Gnr.Party.HamkaranId
 --                           (در صورت نبود، Party.Id = ManCompanyId)
 --   CeoName / Website     <- NULL (در سیستم قدیم ستون ندارند)
---   Description           <- TitleInLatin (برای از دست نرفتن عنوان لاتین)
+--   TitleInLatin          <- TitleInLatin
+--   Description           <- NULL
 --   CreatedBy / ModifiedBy <- Gnr_User.Username -> system.[User].Username
 --                            + alias allahverdi.s -> allahvirdi.s
 --   IsActive              = 1
@@ -71,6 +72,7 @@ BEGIN TRY
         Fax,
         Address,
         ActivityKind,
+        TitleInLatin,
         Description,
         PartyId,
         CreatedById,
@@ -93,7 +95,8 @@ BEGIN TRY
         NULLIF(LTRIM(RTRIM(c.FaxNumber)), N'')                     AS Fax,
         NULLIF(LTRIM(RTRIM(c.Address)), N'')                       AS Address,
         lk.Lookup_Title_Fa                                         AS ActivityKind,
-        NULLIF(LTRIM(RTRIM(c.TitleInLatin)), N'')                  AS Description,
+        NULLIF(LTRIM(RTRIM(c.TitleInLatin)), N'')                  AS TitleInLatin,
+        NULL                                                       AS Description,
         COALESCE(pyHam.Id, pyId.Id)                                AS PartyId,
         umc.NewUserId                                              AS CreatedById,
         umu.NewUserId                                              AS ModifiedById,

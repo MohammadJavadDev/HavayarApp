@@ -1,4 +1,4 @@
-/*
+﻿/*
   Update_OpenOrderRequest_DataProfiles_HtsParity.sql
   WP2 — هم‌ترازی نمایه‌های داده (Data Profile) لیست «درخواست های باز» با HTS (صفحات 74 / 76 / 77)
 
@@ -18,7 +18,7 @@
     e. EventScriptsJson.onRowAdded با قواعد رنگ HTS (تایید فروش، پنجره تامین، Changed، Stop) — قاعده «ایمیل پیمانکار» با TODO WP1 کامنت است
     f. RoleAccess نمایه‌ها بر اساس ماتریس دید HTS (GetOpenOrderRequestGridData + گرنت‌های گروه‌ها روی صفحات 74/76/77)
     g. Hygiene: نمایه‌های ناشناخته/جایگزین‌شده روی همین موجودیت فقط گزارش می‌شوند (و با @DeactivateUnknownProfiles=1 غیرفعال — هرگز DELETE)
-    h. D8: «مشاهده عمومی» به کاربر جاری محدود است (OPENJSON روی RequestedPersonelIds / RequestedEngineeringPersonelIds = @CurrentUserId)
+    h. «مشاهده عمومی» = شاخه else صفحه 74: IsDeleted=0 و EngineeringAccept=1 و RequestedPersonel خالی نباشد (تطبیق با کاربر جاری نیست)
 
   اجرا:
     - ابتدا با @DryRun = 1 (پیش‌فرض): همه تغییرات داخل تراکنش اعمال، گزارش «چه چیزی تغییر می‌کند» چاپ و در پایان ROLLBACK می‌شود.
@@ -85,6 +85,7 @@ DECLARE @TodayDate DATE = CAST(GETDATE() AS DATE);
     [t12].[FullName] AS [t12_FullName],
     [t2].[Code] AS [t2_Code],
     [t2].[Name] AS [t2_Name],
+    [t2].[CodingTitle] AS [t2_CodingTitle],
     [t6].[Title] AS [t6_Title],
     [t1].[RequiredQty] AS [t1_RequiredQty],
     [t1].[OrderQty] AS [t1_OrderQty],
@@ -136,7 +137,8 @@ DECLARE @TodayDate DATE = CAST(GETDATE() AS DATE);
     [t1].[IsDeletedShamsiDate] AS [t1_IsDeletedShamsiDate],
     [t1].[IsForceDeletedByUser] AS [t1_IsForceDeletedByUser],
     CAST(CASE WHEN [t1].[SupplyMiladiDate] IS NOT NULL
-               AND @TodayDate BETWEEN DATEADD(DAY, -3, CAST([t1].[SupplyMiladiDate] AS date)) AND CAST([t1].[SupplyMiladiDate] AS date)
+               AND CAST([t1].[SupplyMiladiDate] AS date) > @TodayDate
+               AND CAST([t1].[SupplyMiladiDate] AS date) <= DATEADD(DAY, 3, @TodayDate)
               THEN 1 ELSE 0 END AS bit) AS [tClr_InSupplyWindow]
 FROM [Sup].[OpenOrderRequest] AS [t1]
 LEFT JOIN [Inv].[Part] AS [t2]
@@ -178,6 +180,7 @@ LEFT JOIN [Sale].[Branch] AS [t15]
 CROSS APPLY (
     SELECT CAST(CASE WHEN EXISTS (SELECT 1 FROM [Sup].[OpenOrderRequestAttachment] AS [a] WHERE [a].[OpenOrderRequestId] = [t1].[Id])
                        OR EXISTS (SELECT 1 FROM [Sup].[OpenOrderRequestVpis] AS [v] WHERE [v].[OpenOrderRequestId] = [t1].[Id])
+                       OR EXISTS (SELECT 1 FROM [Inv].[PartDocument] AS [pd] WHERE [pd].[PartId] = [t1].[PartId] AND [pd].[Main] = 1 AND [pd].[Type] IN (264, 265, 271))
                   THEN 1 ELSE 0 END AS bit) AS [HaveAttachment]
 ) AS [tAtt]
 OUTER APPLY (
@@ -272,11 +275,12 @@ CROSS APPLY (
     (11, N't12_FullName',                           N'Gnr.Party',                       N'FullName',                            N'[t12].[FullName]',                           N'تامین کننده منتخب',            0, N'String',        160, NULL, NULL, 0),
     (12, N't2_Code',                                N'Inv.Part',                        N'Code',                                N'[t2].[Code]',                                N'کد کالا',                      0, N'String',        100, NULL, NULL, 0),
     (13, N't2_Name',                                N'Inv.Part',                        N'Name',                                N'[t2].[Name]',                                N'نام کالا',                     0, N'String',        300, NULL, NULL, 0),
+    (65, N't2_CodingTitle',                         N'Inv.Part',                        N'CodingTitle',                         N'[t2].[CodingTitle]',                         N'عنوان کدینگ',                  0, N'String',        220, NULL, NULL, 0),
     (14, N't6_Title',                               N'Inv.PartUnit',                    N'Title',                               N'[t6].[Title]',                               N'واحد کالا',                    0, N'String',         90, NULL, NULL, 0),
-    (15, N't1_RequiredQty',                         N'Sup.OpenOrderRequest',            N'RequiredQty',                         N'[t1].[RequiredQty]',                         N'تعداد درخواست',                7, N'Int',           100, NULL, NULL, 0),
-    (16, N't1_OrderQty',                            N'Sup.OpenOrderRequest',            N'OrderQty',                            N'[t1].[OrderQty]',                            N'تعداد سفارش',                  7, N'Int',            90, NULL, NULL, 0),
-    (17, N't1_SumSendQty',                          N'Sup.OpenOrderRequest',            N'SumSendQty',                          N'[t1].[SumSendQty]',                          N'تعداد برگ ارسال',              6, N'Long',          100, NULL, NULL, 0),
-    (18, N't1_FactoredCount',                       N'Sup.OpenOrderRequest',            N'FactoredCount',                       N'[t1].[FactoredCount]',                       N'تعداد خرید',                   7, N'Int',            90, NULL, NULL, 0),
+    (15, N't1_RequiredQty',                         N'Sup.OpenOrderRequest',            N'RequiredQty',                         N'[t1].[RequiredQty]',                         N'تعداد درخواست',                14, N'Decimal',           100, NULL, NULL, 0),
+    (16, N't1_OrderQty',                            N'Sup.OpenOrderRequest',            N'OrderQty',                            N'[t1].[OrderQty]',                            N'تعداد سفارش',                  14, N'Decimal',            90, NULL, NULL, 0),
+    (17, N't1_SumSendQty',                          N'Sup.OpenOrderRequest',            N'SumSendQty',                          N'[t1].[SumSendQty]',                          N'تعداد برگ ارسال',              14, N'Decimal',          100, NULL, NULL, 0),
+    (18, N't1_FactoredCount',                       N'Sup.OpenOrderRequest',            N'FactoredCount',                       N'[t1].[FactoredCount]',                       N'تعداد خرید',                   14, N'Decimal',            90, NULL, NULL, 0),
     (19, N't1_OrderItemComment',                    N'Sup.OpenOrderRequest',            N'OrderItemComment',                    N'[t1].[OrderItemComment]',                    N'توضیحات',                      0, N'String',        300, NULL, NULL, 0),
     (20, N't1_OrderShamsiDate',                     N'Sup.OpenOrderRequest',            N'OrderShamsiDate',                     N'[t1].[OrderShamsiDate]',                     N'تاریخ سفارش',                  5, N'DateShamsi',    100, NULL, NULL, 0),
     (21, N't1_NeedDateShamsiDate',                  N'Sup.OpenOrderRequest',            N'NeedDateShamsiDate',                  N'[t1].[NeedDateShamsiDate]',                  N'تاریخ نیاز',                   5, N'DateShamsi',    100, NULL, NULL, 0),
@@ -345,6 +349,7 @@ CROSS APPLY (
     (N'MAIN', 11, N't12_FullName', 1),        -- HTS: فقط isSupply — با ManCompanyVisible هر نمایه override می‌شود
     (N'MAIN', 12, N't2_Code', 1),
     (N'MAIN', 13, N't2_Name', 1),
+    (N'MAIN', 65, N't2_CodingTitle', 1),
     (N'MAIN', 14, N't6_Title', 1),
     (N'MAIN', 15, N't1_RequiredQty', 1),
     (N'MAIN', 16, N't1_OrderQty', 1),
@@ -451,6 +456,7 @@ CROSS APPLY (
     (N'HISTORY',  9, N't1_OrderNo', 1),
     (N'HISTORY', 10, N't2_Code', 1),
     (N'HISTORY', 11, N't2_Name', 1),
+    (N'HISTORY', 65, N't2_CodingTitle', 1),
     (N'HISTORY', 12, N't6_Title', 1),
     (N'HISTORY', 13, N't1_RequiredQty', 1),
     (N'HISTORY', 14, N't1_OrderQty', 1),
@@ -521,7 +527,7 @@ CROSS APPLY (
     });
 }';
 
-    -- «افزودن درخواست کنندگان و ذینفعان» (صفحه 76) — openOrderRequestId=1 هاردکد و debugger حذف شد (D49)؛ رفرش گرید بعد از ذخیره
+    -- «ویرایش درخواست کنندگان و ذینفعان» (صفحه 76) — اسامی ذخیره‌شده دوباره در مودال بارگذاری می‌شوند
     DECLARE @ScriptMultiAddPersonel NVARCHAR(MAX) = N'function(ctx) {
     var ids = ctx.multiSelectMode ? (ctx.primaryKeyValues || []) : (ctx.primaryKeyValue ? [ctx.primaryKeyValue] : []);
     if (!ids.length) {
@@ -536,10 +542,10 @@ CROSS APPLY (
         var arr = Array.isArray(v) ? v : String(v || "").split(",");
         return arr.map(function (c) { return parseInt(c, 10); }).filter(function (n) { return !isNaN(n); });
     };
-    get("/Panel/Sup/OpenOrderRequest/AddRequestedPersonelPartial?openOrderRequestId=" + ids[0], function (result) {
+    get("/Panel/Sup/OpenOrderRequest/AddRequestedPersonelPartial?openOrderRequestIds=" + ids.join(",") + "&loadExisting=true", function (result) {
         var bodyCn = "<div style=\"overflow-x: hidden; overflow-y: hidden; max-height: 70vh;\">" + result + "</div>";
         $.confirm({
-            title: "افزودن درخواست کنندگان و ذینفعان",
+            title: "ویرایش درخواست کنندگان و ذینفعان",
             columnClass: "col-md-10",
             content: bodyCn,
             rtl: true,
@@ -554,6 +560,7 @@ CROSS APPLY (
                         model.OpenOrderRequestIds = ids;
                         model.requestedPersonelIds = toIds(model.requestedPersonelIds);
                         model.requestedEngineeringPersonelIds = toIds(model.requestedEngineeringPersonelIds);
+                        model.replaceExisting = true;
                         var self = this;
                         var $btn = this.$$save.block();
                         post("/Panel/Sup/OpenOrderRequest/AddRequestedPersonelToOpenRequest", model, function (r) {
@@ -583,7 +590,7 @@ CROSS APPLY (
         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
 
     DECLARE @BtnMultiAddPersonel NVARCHAR(MAX) = (
-        SELECT N'id_dx3c3wury' AS id, N'افزودن درخواست کنندگان و ذینفعان' AS title, N'multyAddRequestedPersonel' AS dataActionName,
+        SELECT N'id_dx3c3wury' AS id, N'ویرایش درخواست کنندگان و ذینفعان' AS title, N'multyAddRequestedPersonel' AS dataActionName,
                N'btn-color-primary' AS colorClass, N'fa fa-user-plus' AS iconClass,
                CAST(0 AS bit) AS requiresSelection, CAST(1 AS bit) AS requiresMultiSelection,
                CAST(0 AS bit) AS useHtml, N'' AS html, @ScriptMultiAddPersonel AS actionScript
@@ -640,48 +647,112 @@ CROSS APPLY (
         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
        ----------------------------------------------------------------------- */
 
+    -- نمایه «منتظر تایید مهندسی»: انتخاب چندتایی پیش‌فرض + تایید همزمان چند ردیف
+    DECLARE @ScriptEngineeringAcceptBulk NVARCHAR(MAX) = N'function(ctx) {
+    var ids = ctx.multiSelectMode ? (ctx.primaryKeyValues || []) : (ctx.primaryKeyValue ? [ctx.primaryKeyValue] : []);
+    ids = ids.map(function (v) { return parseInt(v, 10); }).filter(function (n) { return !isNaN(n) && n > 0; });
+    if (!ids.length) {
+        toastr.warning("لطفاً حداقل یک ردیف انتخاب کنید");
+        return;
+    }
+    if (typeof AppSdk !== "undefined" && !AppSdk.hasRole("Sup.OpenOrderRequest.EngineeringAccept")) {
+        toastr.error("شما دسترسی تایید مهندسی را ندارید");
+        return;
+    }
+    $.confirm({
+        title: "تایید مهندسی",
+        content: "آیا از تایید مهندسی " + ids.length + " درخواست انتخاب‌شده اطمینان دارید؟",
+        rtl: true,
+        buttons: {
+            confirm: {
+                text: "بله",
+                btnClass: "btn-success",
+                action: function () {
+                    var box = this;
+                    var $btn = this.$$confirm.block();
+                    post("/Panel/Sup/OpenOrderRequest/EngineeringAcceptBulk", { ids: ids }, function (r) {
+                        $btn.block(false);
+                        if (!r || !r.isSuccess) {
+                            toastr.error((r && r.message) || "خطا در تایید مهندسی", "خطا");
+                            return false;
+                        }
+                        var data = r.data || {};
+                        var failed = data.failed || [];
+                        var accepted = data.acceptedCount || 0;
+                        if (failed.length) {
+                            var detail = failed.map(function (f) { return (f.id || "") + (f.message ? ": " + f.message : ""); }).join(" | ");
+                            if (accepted > 0) toastr.warning(accepted + " مورد تایید شد. ناموفق: " + detail);
+                            else toastr.error(detail || "هیچ درخواستی تایید نشد", "خطا");
+                        } else {
+                            toastr.success("تایید مهندسی " + accepted + " درخواست با موفقیت انجام شد");
+                        }
+                        box.close();
+                        ctx.draw();
+                    });
+                    return false;
+                }
+            },
+            cancel: { text: "انصراف", btnClass: "btn-secondary" }
+        }
+    });
+}';
+
+    DECLARE @BtnEngineeringAcceptBulk NVARCHAR(MAX) = (
+        SELECT N'id_oor_engineeringAcceptBulk' AS id, N'تایید مهندسی' AS title, N'engineeringAcceptBulk' AS dataActionName,
+               N'btn-color-success' AS colorClass, N'fa fa-check' AS iconClass,
+               CAST(1 AS bit) AS requiresSelection, CAST(0 AS bit) AS requiresMultiSelection,
+               CAST(0 AS bit) AS useHtml, N'' AS html, @ScriptEngineeringAcceptBulk AS actionScript
+        FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+
     DECLARE @ButtonsMain   NVARCHAR(MAX) = N'[' + @BtnListComments + N']';
+    DECLARE @ButtonsEngineering NVARCHAR(MAX) = N'[' + @BtnListComments + N',' + @BtnEngineeringAcceptBulk + N']';
     DECLARE @ButtonsConfig NVARCHAR(MAX) = N'[' + @BtnListComments + N',' + @BtnMultiAddPersonel + N']';
     DECLARE @ButtonsHistory NVARCHAR(MAX) = N'[' + @BtnListComments + N']';   -- فقط مشاهده (پیوست‌ها از صفحه Edit)
 
-    -- رنگ ردیف صفحه 74 HTS (changeRowColor در _OpenOrderRequestManagement.cshtml L192–224) — ترتیب if ها عین HTS
-    -- (هر قاعده همان سلول را بازنویسی می‌کند؛ نتیجه موثر: پنجره تامین > توقف > تغییر یافته > ایمیل پیمانکار؛ تایید فروش روی سلول دوم).
-    -- HTS td:first  → Havayar  $row td eq(1)  (eq(0) = چک‌باکس انتخاب ردیف)
-    -- HTS td:nth-child(2) → Havayar $row td eq(2)
-    -- شرط پنجره تامین در SQL محاسبه شده: امروز BETWEEN (تاریخ تامین − ۳ روز) AND تاریخ تامین  → tClr_InSupplyWindow
+    -- رنگ ردیف صفحه 74: ستون # (ردیف). چک‌باکس مخفی در DOM نیست؛ اگر باشد نارنجی تأیید فروش روی همان ستون چک‌باکس است (HTS td:nth-child(2)).
+    -- ترتیب: سبز ایمیل، بنفش تغییر، نارنجی‌قرمز توقف، آبی پنجره تأمین (هر کدام قبلی را روی ستون ردیف پاک می‌کند).
+    -- پنجره تأمین: تاریخ تأمین فردا تا ۳ روز بعد (مقایسه قدیم با نیمه‌شب UTC همان روز؛ خودِ روز تأمین آبی نمی‌شود).
     DECLARE @OnRowAddedFull NVARCHAR(MAX) = N'function(ctx) {
     var d = ctx.rowData || {};
     var yes = function (v) { return v === true || v === 1 || v === "true" || v === "بله"; };
     var $cells = ctx.$row.children("td");
-    var $c1 = $cells.eq(1);
-    var $c2 = $cells.eq(2);
-    $c1.css("background-color", "");
-    $c2.css("background-color", "");
-    // TODO WP1: ایمیل به پیمانکار (Sup.OpenOrderRequestEmailToSupplier) — بعد از WP1 خط بعدی را فعال کنید
-    // if (yes(d.tEml_EmailSendToSupplier)) { $c1.css("background-color", "lightgreen"); }
-    if (yes(d.t1_Changed)) { $c1.css("background-color", "violet"); }
-    if (yes(d.t1_IsStop)) { $c1.css("background-color", "orangered"); }
-    if (yes(d.t1_HasSalesUnitConfirmation)) { $c2.css("background-color", "orange"); }
-    if (yes(d.tClr_InSupplyWindow)) { $c1.css("background-color", "deepskyblue"); }
+    var $select = $cells.filter(".dt-row-select-col");
+    var $rowNo = $select.length ? $select.next("td") : $cells.eq(0);
+    $rowNo.css("background-color", "");
+    $select.css("background-color", "");
+    if (yes(d.t1_HasSalesUnitConfirmation)) {
+        if ($select.length) $select.css("background-color", "orange");
+        else $rowNo.css("background-color", "orange");
+    }
+    if (yes(d.tEml_EmailSendToSupplier)) { $rowNo.css("background-color", "lightgreen"); }
+    if (yes(d.t1_Changed)) { $rowNo.css("background-color", "violet"); }
+    if (yes(d.t1_IsStop)) { $rowNo.css("background-color", "orangered"); }
+    if (yes(d.tClr_InSupplyWindow)) { $rowNo.css("background-color", "deepskyblue"); }
 }';
 
     -- رنگ ردیف صفحات 76 / 77 HTS (فقط سبز/بنفش/قرمز — _OpenOrderRequestConfigManagement L115–125، _OpenOrderRequestHistoryManagement L132–142)
     DECLARE @OnRowAddedBasic NVARCHAR(MAX) = N'function(ctx) {
     var d = ctx.rowData || {};
     var yes = function (v) { return v === true || v === 1 || v === "true" || v === "بله"; };
-    var $c1 = ctx.$row.children("td").eq(1);
-    $c1.css("background-color", "");
-    // TODO WP1: ایمیل به پیمانکار (Sup.OpenOrderRequestEmailToSupplier) — بعد از WP1 خط بعدی را فعال کنید
-    // if (yes(d.tEml_EmailSendToSupplier)) { $c1.css("background-color", "lightgreen"); }
-    if (yes(d.t1_Changed)) { $c1.css("background-color", "violet"); }
-    if (yes(d.t1_IsStop)) { $c1.css("background-color", "orangered"); }
+    var $cells = ctx.$row.children("td");
+    var $select = $cells.filter(".dt-row-select-col");
+    var $rowNo = $select.length ? $select.next("td") : $cells.eq(0);
+    $rowNo.css("background-color", "");
+    if (yes(d.tEml_EmailSendToSupplier)) { $rowNo.css("background-color", "lightgreen"); }
+    if (yes(d.t1_Changed)) { $rowNo.css("background-color", "violet"); }
+    if (yes(d.t1_IsStop)) { $rowNo.css("background-color", "orangered"); }
 }';
+
+    -- منتظر تایید مهندسی همان رنگ صفحه 74 است؛ فقط سلول ردیف با کلاس پیدا می‌شود تا چک‌باکس چندانتخابی جابه‌جا نکند.
+    DECLARE @OnRowAddedEngineering NVARCHAR(MAX) = @OnRowAddedFull;
 
     DECLARE @EventsFull  NVARCHAR(MAX) = (SELECT N'' AS onSelectedRow, @OnRowAddedFull  AS onRowAdded FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
     DECLARE @EventsBasic NVARCHAR(MAX) = (SELECT N'' AS onSelectedRow, @OnRowAddedBasic AS onRowAdded FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    DECLARE @EventsEngineering NVARCHAR(MAX) = (SELECT N'' AS onSelectedRow, @OnRowAddedEngineering AS onRowAdded FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
 
     -- ActionOptions (D35/D45: new و delete در همه نمایه‌ها غیرفعال؛ HTS نه Delete داشت نه New)
     DECLARE @ActionsView NVARCHAR(MAX) = N'[{"dataActionName":"new","enable":false,"title":"جدید"},{"dataActionName":"edit","enable":true,"title":"ویرایش"},{"dataActionName":"delete","enable":false,"title":"حذف"},{"dataActionName":"exportExcell","enable":true,"title":"خروجی اکسل"},{"dataActionName":"defaultMultiSelect","enable":false,"title":"انتخاب چندتایی پیش‌فرض"}]';
+    DECLARE @ActionsEngineering NVARCHAR(MAX) = N'[{"dataActionName":"new","enable":false,"title":"جدید"},{"dataActionName":"edit","enable":true,"title":"ویرایش"},{"dataActionName":"delete","enable":false,"title":"حذف"},{"dataActionName":"exportExcell","enable":true,"title":"خروجی اکسل"},{"dataActionName":"defaultMultiSelect","enable":true,"title":"انتخاب چندتایی پیش‌فرض"}]';
     DECLARE @ActionsConfig NVARCHAR(MAX) = N'[{"dataActionName":"new","enable":false,"title":"جدید"},{"dataActionName":"edit","enable":false,"title":"ویرایش"},{"dataActionName":"delete","enable":false,"title":"حذف"},{"dataActionName":"exportExcell","enable":true,"title":"خروجی اکسل"},{"dataActionName":"defaultMultiSelect","enable":true,"title":"انتخاب چندتایی پیش‌فرض"}]';
 
     ---------------------------------------------------------------------------
@@ -713,7 +784,7 @@ WHERE
     (3, N'openorderrequest_listinfonew',            N'منتظر تایید مهندسی',      N'74 — کارتابل Accept_Engineering',                            N'MAIN',    0, N'
 WHERE
     [t1].[EngineeringAccept] = 0
-    AND [t1].[IsDeleted] = 0',                                                                                                                   @ActionsView,   @ButtonsMain,    @EventsFull),
+    AND [t1].[IsDeleted] = 0',                                                                                                                   @ActionsEngineering, @ButtonsEngineering, @EventsEngineering),
     (4, N'vw_OpenOrderRequestEngineeringAccepted',  N'تأیید مهندسی شده',        N'74 — فروش/پروژه و تدارکات (!IsDeleted && Engineering_Accept)', N'MAIN',    1, N'
 WHERE
     [t1].[IsDeleted] = 0
@@ -722,22 +793,11 @@ WHERE
 WHERE
     [t1].[IsDeleted] = 0
     AND [t3].[PurchaseResponsibleId] = @CurrentUserId',                                                                                          @ActionsView,   @ButtonsMain,    @EventsFull),
-    (6, N'vw_OpenOrderRequestOtherView',            N'مشاهده عمومی',            N'74 — شاخه else (IsDeleted=0 ∧ EngineeringAccept ∧ ذینفع/درخواست‌کننده = کاربر جاری — D8)', N'MAIN', 0, N'
+    (6, N'vw_OpenOrderRequestOtherView',            N'مشاهده عمومی',            N'74 — شاخه else (!IsDeleted && Engineering_Accept && Requested_Personel != null)', N'MAIN', 0, N'
 WHERE
     [t1].[IsDeleted] = 0
     AND [t1].[EngineeringAccept] = 1
-    AND (
-        EXISTS (
-            SELECT 1
-            FROM OPENJSON(CASE WHEN ISJSON([t1].[RequestedPersonelIds]) = 1 THEN [t1].[RequestedPersonelIds] ELSE N''[]'' END) AS [rp]
-            WHERE TRY_CAST([rp].[value] AS bigint) = TRY_CAST(@CurrentUserId AS bigint)
-        )
-        OR EXISTS (
-            SELECT 1
-            FROM OPENJSON(CASE WHEN ISJSON([t1].[RequestedEngineeringPersonelIds]) = 1 THEN [t1].[RequestedEngineeringPersonelIds] ELSE N''[]'' END) AS [re]
-            WHERE TRY_CAST([re].[value] AS bigint) = TRY_CAST(@CurrentUserId AS bigint)
-        )
-    )',                                                                                                                                          @ActionsView,   @ButtonsMain,    @EventsFull),
+    AND [t1].[RequestedPersonel] IS NOT NULL',                                                                                                   @ActionsView,   @ButtonsMain,    @EventsFull),
     (7, N'vw_openRequestConfig',                    N'تنظیمات درخواست های باز', N'76 — همه فعال بدون فیلتر کارتابل',                           N'CONFIG',  1, N'
 WHERE
     [t1].[IsDeleted] = 0',                                                                                                                       @ActionsConfig, @ButtonsConfig,  @EventsBasic),

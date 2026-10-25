@@ -93,6 +93,7 @@ namespace WebApp.Controllers.Dynamic
 					c.Id,
 					ContractorTitle = c.Contractor.Title ?? c.ContractorTitle,
 					c.Cost,
+					c.InvoiceNumber,
 					PartTitle = c.Part.Name ?? c.PartTitle,
 					c.SendPartShamsiDate,
 					c.CostAnnouncementShamsiDate,

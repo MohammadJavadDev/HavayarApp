@@ -27,6 +27,7 @@ var hasSendingPermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequ
 var hasQueryPermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Query");               // 25
 var hasTerminatePermission = isSupplyAndPurchase || sdk.HasRole("Sup.OpenOrderRequest.Terminate");       // 101
 var hasConfigManagePermission = isSupplyAndPurchase || isIndustrial || sdk.HasRole("Sup.OpenOrderRequest.ConfigManage"); // صفحه 76
+var canSetSelectedSupplier = hasConfigManagePermission || isSupply;                                       // تامین‌کننده منتخب: تنظیمات + واحد تدارکات
 var canComment = isSupplyAndPurchase || isSupply || isEngineering || isIndustrial;                        // 74·Edit(5) → ثبت کامنت
 var canManageAttachments = isSupplyAndPurchase || isSupply || isEngineering;                              // صفحه 71 FullAccess
 
@@ -36,12 +37,14 @@ var isSalesOrProjectOwner = isAdmin || (currentUserId != null && (
 	Model?.SalesUnitSalesManagerId == currentUserId ||
 	Model?.SalesUnitProjectManagerId == currentUserId));
 
-// توقف — HTS: ثبت اولیه (0/2815) با مجوز Stop؛ 2807/2813/2816 فقط عامل توقف؛ 2808/2810/2811/2812/2821 فقط ثبت‌کننده آخرین کامنت توقف
+// توقف — HTS صفحه 74: اگر متوقف نباشد دکمه روشن است، حتی با StopStatus باقی‌مانده بعد از راه‌اندازی.
+// وگرنه ثبت اولیه (0/2815) با مجوز Stop؛ 2807/2813/2816 فقط عامل توقف؛ 2808/2810/2811/2812/2821 فقط ثبت‌کننده آخرین کامنت توقف
 var stopStatusCode = (int?)Model?.StopStatus ?? 0;
 var lastStopComment = Model?.Comments?.Where(c => c.IsStop).OrderByDescending(c => c.Id).FirstOrDefault();
 var isStopOperator = lastStopComment?.StopOperatorId != null && lastStopComment.StopOperatorId == currentUserId;
 var isStopCreator = lastStopComment?.CreatedById != null && lastStopComment.CreatedById == currentUserId;
-var canOperateStop = isAdmin || stopStatusCode switch
+var isNotStopped = Model?.IsStop != true;
+var canOperateStop = isAdmin || isNotStopped || stopStatusCode switch
 {
 	0 or 2815 => hasStopPermission,
 	2807 or 2813 or 2816 => isStopOperator,
@@ -580,6 +583,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 				   hasQueryPermission,
 				   hasTerminatePermission,
 				   hasConfigManagePermission,
+				   canSetSelectedSupplier,
 				   canComment,
 				   canManageAttachments
 			    }));
@@ -598,8 +602,8 @@ var attachmentDisplayCount = attachmentListItems.Count;
 		// ویرایش (Edit 5) → ثبت کامنت
 		self.FormActionButtons.addComment.element.disabled = !permissions.canComment;
 
-		// تامین‌کننده منتخب — صفحه تنظیمات HTS (76) → SetSelectedSupplier
-		self.FormActionButtons.addSupplier.element.disabled = !permissions.hasConfigManagePermission;
+		// تامین‌کننده منتخب — تنظیمات (76) و واحد تدارکات (Supply)
+		self.FormActionButtons.addSupplier.element.disabled = !permissions.canSetSelectedSupplier;
 
 		// اتصال مدارک پروژه — HasEngineeringPermission (82)
 		self.FormActionButtons.linkVpis.element.disabled = !permissions.hasEngineeringPermission;
@@ -615,7 +619,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 			&& !openOrderRequest.hasSalesUnitConfirmation)
 			self.FormActionButtons.salesOrProjectAccept.element.disabled = false;
 
-		// توقف — Stop (22) برای ثبت اولیه؛ عامل توقف / ثبت‌کننده برای مراحل بعدی
+		// توقف — اگر متوقف نباشد روشن است؛ وگرنه عامل توقف / ثبت‌کننده / مجوز Stop بر اساس وضعیت
 		self.FormActionButtons.stopRequest.element.disabled = !permissions.canOperateStop;
 
 		// راه‌اندازی (23) / در راه (24) / درحال استعلام (25) / خاتمه (101) — هر یک با مجوز مستقل
@@ -637,7 +641,7 @@ var attachmentDisplayCount = attachmentListItems.Count;
 			return;
 		}
 
-		if (!permissions.hasConfigManagePermission) {
+		if (!permissions.canSetSelectedSupplier) {
 			toastr.error('شما دسترسی تعیین تامین‌کننده منتخب را ندارید');
 			return;
 		}
@@ -1374,13 +1378,13 @@ var attachmentDisplayCount = attachmentListItems.Count;
 			return;
 		}
 
-			const url = `/Panel/Sup/OpenOrderRequest/AddRequestedPersonelPartial?openOrderRequestId=${openOrderRequestId}`;
+			const url = `/Panel/Sup/OpenOrderRequest/AddRequestedPersonelPartial?openOrderRequestId=${openOrderRequestId}&loadExisting=true`;
 
 				$$.get(url, function(result) {
 				let bodyCn = `<div style="overflow-x: hidden; overflow-y: hidden; max-height: 70vh;">${result}</div>`;
 				
 				$.confirm({
-				title: 'افزودن درخواست کنندگان و ذینفعان',
+				title: 'ویرایش درخواست کنندگان و ذینفعان',
 				columnClass: 'col-md-10',
 				content: bodyCn,
 				rtl: true,
@@ -1396,11 +1400,17 @@ var attachmentDisplayCount = attachmentListItems.Count;
 								return false;
 							}
 
+							const toPersonIds = function (v) {
+								if (v == null || v === '') return [];
+								const arr = Array.isArray(v) ? v : String(v).split(',');
+								return arr.map(function (c) { return parseInt(c, 10); }).filter(function (n) { return !isNaN(n); });
+							};
+
 							const model = $content.dataBind();
 							model.OpenOrderRequestIds = [openOrderRequestId];
-
-							model.requestedPersonelIds = model.requestedPersonelIds.split(',').map(c=>parseInt(c))
-							model.requestedEngineeringPersonelIds = model.requestedEngineeringPersonelIds.split(',').map(c=>parseInt(c));
+							model.requestedPersonelIds = toPersonIds(model.requestedPersonelIds);
+							model.requestedEngineeringPersonelIds = toPersonIds(model.requestedEngineeringPersonelIds);
+							model.replaceExisting = true;
 	
 
 							const self = this;

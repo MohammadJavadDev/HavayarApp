@@ -115,6 +115,14 @@ else
                                     <span>فعال/غیرفعال</span>
                                 </div>
 
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input job-continue-on-error" type="checkbox"
+                                           id="continue-on-error-@job.ScheduleId"
+                                           @(job.ContinueOnError ? "checked" : "")>
+                                    <label class="form-check-label" for="continue-on-error-@job.ScheduleId">اجرا حتی با وجود خطا</label>
+                                    <div class="text-muted" style="font-size:12px;line-height:1.5;">وضعیت خطا می‌ماند؛ اجرای بعدی طبق زمان‌بندی انجام می‌شود و با شروع آن، وضعیت مثل قبل عوض می‌شود.</div>
+                                </div>
+
                                 <div class="schedule-type-selector mb-2">
                                     <select class="form-select form-select-sm schedule-type" data-id="@job.ScheduleId">
                                         <option value="interval" selected="@(job.ScheduleType == ScheduleType.Interval)">فاصله زمانی</option>
@@ -264,6 +272,10 @@ else
                 <div class="mb-3 form-check form-switch">
                     <input class="form-check-input" type="checkbox" id="newScheduleIsActive" checked>
                     <label class="form-check-label">فعال کردن زمان‌بندی</label>
+                </div>
+                <div class="mb-3 form-check">
+                    <input class="form-check-input" type="checkbox" id="newScheduleContinueOnError">
+                    <label class="form-check-label" for="newScheduleContinueOnError">اجرا حتی با وجود خطا</label>
                 </div>
             </div>
             <div class="modal-footer">

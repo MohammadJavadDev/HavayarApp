@@ -8,6 +8,7 @@ using Entities.Base.DataTable;
 using WebFramework.Filtters;
 using WebFramework.Page;
 using Entities.App.Bom;
+using Entities.App.Inv;
 
 namespace WebApp.Controllers.Dynamic
 {
@@ -21,6 +22,7 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(ProductFormul productFormul, CancellationToken cn)
 		{
+			productFormul.Items = new List<ProductFormulItem>();
 			if (productFormul.Id == null || productFormul.Id == 0)
 			{
 				return await Add(productFormul, cn);
@@ -37,6 +39,7 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(ProductFormul productFormul, CancellationToken cn)
 		{
+			productFormul.Items = new List<ProductFormulItem>();
 			var entity = await unitOfWork.Repository<ProductFormul>().SaveAsync(productFormul, cn, true);
 			return Ok(entity);
 		}
@@ -45,6 +48,7 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(ProductFormul productFormul, CancellationToken cn)
 		{
+			productFormul.Items = new List<ProductFormulItem>();
 			var entity = await unitOfWork.Repository<ProductFormul>().UpdateAsync(productFormul, cn, true);
 			return Ok(entity);
 		}
@@ -68,8 +72,6 @@ namespace WebApp.Controllers.Dynamic
 				var entity = unitOfWork.Repository<ProductFormul>().TableNoTracking
 					.Include(c => c.Product)
 					.Include(c => c.ProductNameGroup)
-					.Include(c => c.Items)
-						.ThenInclude(i => i.Part)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Bom\ProductFormul\Edit.cshtml", entity);
 			}
@@ -118,9 +120,115 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		[HttpGet("[action]")]
-		public IActionResult ProductFormulItemPartial()
+		public async Task<IActionResult> GetItems(long? productFormulId, CancellationToken cn)
 		{
-			return PartialView(@"\Views\Panel\Bom\ProductFormul\_ProductFormulItemPartial.cshtml");
+			if (productFormulId == null || productFormulId == 0)
+				return Ok(Array.Empty<object>());
+
+			var items = await unitOfWork.Repository<ProductFormulItem>().TableNoTracking
+				.Where(i => i.ProductFormulId == productFormulId)
+				.OrderBy(i => i.Part.Code)
+				.Select(i => new
+				{
+					i.Id,
+					i.PartId,
+					PartCode = i.Part.Code,
+					PartName = i.Part.Name,
+					i.UsingRate
+				})
+				.ToListAsync(cn);
+
+			return Ok(items);
+		}
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> ProductFormulItemPartial(long? id, long? productFormulId, CancellationToken cn)
+		{
+			ProductFormulItem model;
+			if (id != null && id != 0)
+			{
+				model = await unitOfWork.Repository<ProductFormulItem>().TableNoTracking
+					.FirstOrDefaultAsync(i => i.Id == id, cn)
+					?? new ProductFormulItem { ProductFormulId = productFormulId ?? 0 };
+			}
+			else
+			{
+				model = new ProductFormulItem { ProductFormulId = productFormulId ?? 0 };
+			}
+
+			return View(@"\Views\Panel\Bom\ProductFormul\_ProductFormulItemPartial.cshtml", model);
+		}
+
+		[HttpPost("[action]")]
+		public async Task<IActionResult> SaveItem(ProductFormulItem item, CancellationToken cn)
+		{
+			if (item.ProductFormulId == 0)
+				return BadRequest("ابتدا فرمول را ذخیره کنید");
+			if (item.PartId == 0)
+				return BadRequest("قطعه را انتخاب کنید");
+			if (item.UsingRate == null)
+				return BadRequest("ضریب مصرف را وارد کنید");
+			if (item.UsingRate < 0)
+				return BadRequest("ضریب مصرف نمی‌تواند منفی باشد");
+
+			item.UsingRate = Math.Round(item.UsingRate.Value, 2, MidpointRounding.AwayFromZero);
+			item.Part = null!;
+			item.ProductFormul = null!;
+
+			var formulExists = await unitOfWork.Repository<ProductFormul>().TableNoTracking
+				.AnyAsync(f => f.Id == item.ProductFormulId, cn);
+			if (!formulExists)
+				return BadRequest("فرمول محصول پیدا نشد");
+
+			var partExists = await unitOfWork.Repository<Part>().TableNoTracking
+				.AnyAsync(p => p.Id == item.PartId, cn);
+			if (!partExists)
+				return BadRequest("قطعه پیدا نشد");
+
+			var itemRepo = unitOfWork.Repository<ProductFormulItem>();
+			if (item.Id != null && item.Id != 0)
+			{
+				var existing = await itemRepo.TableNoTracking.FirstOrDefaultAsync(x => x.Id == item.Id, cn);
+				if (existing == null)
+					return NotFound("قلم پیدا نشد");
+				if (existing.ProductFormulId != item.ProductFormulId)
+					return BadRequest("این قلم متعلق به این فرمول نیست");
+			}
+
+			var duplicate = await itemRepo.TableNoTracking.AnyAsync(x =>
+				x.ProductFormulId == item.ProductFormulId
+				&& x.PartId == item.PartId
+				&& x.Id != item.Id, cn);
+			if (duplicate)
+				return BadRequest("این قطعه قبلاً در اقلام ثبت شده است");
+
+			if (item.Id == null || item.Id == 0)
+			{
+				item.Id = null;
+				await itemRepo.AddAsync(item, cn, true);
+			}
+			else
+				await itemRepo.UpdateAsync(item, cn, true);
+
+			return Ok(new
+			{
+				item.Id,
+				item.ProductFormulId,
+				item.PartId,
+				item.UsingRate
+			});
+		}
+
+		[HttpGet("[action]")]
+		public async Task<IActionResult> DeleteItem(long id, CancellationToken cn)
+		{
+			var itemRepo = unitOfWork.Repository<ProductFormulItem>();
+			var model = await itemRepo.TableNoTracking.FirstOrDefaultAsync(c => c.Id == id, cn);
+			if (model == null)
+				return NotFound("قلم پیدا نشد");
+
+			await itemRepo.DeleteAsync(model, cn, true);
+			return Ok();
 		}
 	}
 }

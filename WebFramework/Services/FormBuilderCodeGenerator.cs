@@ -277,6 +277,9 @@ namespace WebFramework.Services
 
 		private string GeneratePropertyCode(FormProperty prop, string parentEntityName)
 		{
+			if (prop.SystemType is SystemType.DateShamsi or SystemType.DateTimeShamsi)
+				return GenerateShamsiDatePair(prop);
+
 			var sb = new StringBuilder();
 
 			// DisplayName attribute
@@ -294,7 +297,7 @@ namespace WebFramework.Services
 			if (prop.Required) displayInfoParams.Add("required: true");
 			if (prop.ShowInRelationData) displayInfoParams.Add("showInRelationData: true");
 			if (!string.IsNullOrEmpty(prop.FileTypes)) displayInfoParams.Add($"fileTypes: \"{prop.FileTypes}\"");
-			if (prop.MaxFileSize != 10) displayInfoParams.Add($"maxFileSize: {prop.MaxFileSize}");
+			if (prop.MaxFileSize != 50) displayInfoParams.Add($"maxFileSize: {prop.MaxFileSize}");
 			if (!string.IsNullOrEmpty(prop.Regex)) displayInfoParams.Add($"regex: @\"{prop.Regex}\"");
 			if (!string.IsNullOrEmpty(prop.RegexInvalidError)) displayInfoParams.Add($"regexInvalidError: \"{prop.RegexInvalidError}\"");
 			if (prop.SystemType == SystemType.AutoNumber)
@@ -351,6 +354,59 @@ namespace WebFramework.Services
 
 			sb.AppendLine();
 
+			return sb.ToString();
+		}
+
+		private static (string ShamsiName, string MiladiName) ShamsiMiladiPropertyNames(FormProperty prop)
+		{
+			var name = string.IsNullOrWhiteSpace(prop.PropertyName) ? "Date" : prop.PropertyName;
+			var dateTime = prop.SystemType is SystemType.DateTime or SystemType.DateTimeShamsi;
+			if (name.Contains("Shamsi", StringComparison.Ordinal))
+				return (name, name.Replace("Shamsi", "Miladi"));
+			if (name.Contains("Miladi", StringComparison.Ordinal))
+				return (name.Replace("Miladi", "Shamsi"), name);
+			return dateTime
+				? (name + "ShamsiDateTime", name + "MiladiDateTime")
+				: (name + "ShamsiDate", name + "MiladiDate");
+		}
+
+		private string GenerateShamsiDatePair(FormProperty prop)
+		{
+			var (shamsiName, miladiName) = ShamsiMiladiPropertyNames(prop);
+			var dateTime = prop.SystemType is SystemType.DateTime or SystemType.DateTimeShamsi;
+			var miladiType = dateTime ? "DateTime" : "Date";
+			var shamsiType = dateTime ? "DateTimeShamsi" : "DateShamsi";
+			var columnType = dateTime ? "datetime2" : "date";
+			var required = prop.Required ? ", required: true" : "";
+			var sb = new StringBuilder();
+
+			sb.AppendLine($"\t\t[DisplayName(\"{prop.DisplayName} میلادی\")]");
+			sb.AppendLine($"\t\t[DisplayInfo(null, false, type: SystemType.{miladiType})]");
+			sb.AppendLine($"\t\t[Column(TypeName = \"{columnType}\")]");
+			sb.AppendLine($"\t\tpublic DateTime? {miladiName} {{ get; set; }}");
+			sb.AppendLine();
+			sb.AppendLine($"\t\t[DisplayName(\"{prop.DisplayName}\")]");
+			sb.AppendLine($"\t\t[DisplayInfo(\"{miladiName}\", true, type: SystemType.{shamsiType}{required})]");
+			sb.AppendLine("\t\t[MaxLength(30)]");
+			sb.AppendLine($"\t\tpublic string? {shamsiName} {{ get; set; }}");
+			sb.AppendLine();
+			return sb.ToString();
+		}
+
+		private string ShamsiDateInput(FormProperty prop, string colSize, string requiredClass, string requiredAttr, bool withTime)
+		{
+			var (shamsiName, miladiName) = ShamsiMiladiPropertyNames(prop);
+			var bindName = shamsiName.ToCamelCase();
+			var format = withTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd";
+			var picker = withTime
+				? "{\"format\": \"YYYY/MM/DD HH:mm:ss\",\"autoClose\": true,\"initialValue\": false,\"timePicker\":{\"enabled\": true}}"
+				: "{\"format\": \"YYYY/MM/DD\",\"autoClose\": true,\"initialValue\": false}";
+			var sb = new StringBuilder();
+			sb.AppendLine($"\t\t<div class='{colSize} form-group-inline'>");
+			sb.AppendLine($"\t\t\t<label class='{requiredClass}'>{prop.DisplayName}</label>");
+			sb.AppendLine($"\t\t\t<input class='form-control' {requiredAttr} data-bind='{bindName}' data-persionDatePicker=\"true\" persion-datetimepicker='{picker}' value='@(Model?.{miladiName}?.ToString(\"{format}\", System.Globalization.CultureInfo.InvariantCulture))' />");
+			sb.AppendLine("\t\t\t<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>");
+			sb.AppendLine("\t\t</div>");
 			return sb.ToString();
 		}
 
@@ -1025,21 +1081,27 @@ namespace WebFramework.Services
 					break;
 
 				case SystemType.Date:
-				case SystemType.DateShamsi:
-					sb.AppendLine($"\t\t<div class='{colSize}'>");
+					sb.AppendLine($"\t\t<div class='{colSize} form-group-inline'>");
 					sb.AppendLine($"\t\t\t<label class='{requiredClass}'>{prop.DisplayName}</label>");
-					sb.AppendLine($"\t\t\t<input class='form-control' {requiredAttr} data-bind='{bindName}' data-persionDatePicker=\"true\" persion-datetimepicker='{{\"format\": \"YYYY/MM/DD\",\"autoClose\": true,\"initialValue\": true}}' value='@Model?.{prop.PropertyName}' />");
+					sb.AppendLine($"\t\t\t<input class='form-control' {requiredAttr} data-bind='{bindName}' data-persionDatePicker=\"true\" persion-datetimepicker='{{\"format\": \"YYYY/MM/DD\",\"autoClose\": true,\"initialValue\": false}}' value='@Model?.{prop.PropertyName}' />");
 					sb.AppendLine($"\t\t\t<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>");
 					sb.AppendLine($"\t\t</div>");
 					break;
 
+				case SystemType.DateShamsi:
+					sb.AppendLine(ShamsiDateInput(prop, colSize, requiredClass, requiredAttr, withTime: false));
+					break;
+
 				case SystemType.DateTime:
-				case SystemType.DateTimeShamsi:
-					sb.AppendLine($"\t\t<div class='{colSize}'>");
+					sb.AppendLine($"\t\t<div class='{colSize} form-group-inline'>");
 					sb.AppendLine($"\t\t\t<label class='{requiredClass}'>{prop.DisplayName}</label>");
-					sb.AppendLine($"\t\t\t<input class='form-control' {requiredAttr} data-bind='{bindName}' data-persionDatePicker=\"true\" persion-datetimepicker='{{\"format\": \"YYYY/MM/DD HH:mm:ss\",\"autoClose\": true,\"initialValue\": true,\"timePicker\":{{\"enabled\": true}}}}' value='@Model?.{prop.PropertyName}' />");
+					sb.AppendLine($"\t\t\t<input class='form-control' {requiredAttr} data-bind='{bindName}' data-persionDatePicker=\"true\" persion-datetimepicker='{{\"format\": \"YYYY/MM/DD HH:mm:ss\",\"autoClose\": true,\"initialValue\": false,\"timePicker\":{{\"enabled\": true}}}}' value='@Model?.{prop.PropertyName}' />");
 					sb.AppendLine($"\t\t\t<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>");
 					sb.AppendLine($"\t\t</div>");
+					break;
+
+				case SystemType.DateTimeShamsi:
+					sb.AppendLine(ShamsiDateInput(prop, colSize, requiredClass, requiredAttr, withTime: true));
 					break;
 
 				case SystemType.ListString:

@@ -1,0 +1,21 @@
+---
+description: Write Persian as Unicode in all source files; never commit UTF-8-as-Windows-1252 mojibake
+alwaysApply: true
+---
+
+# Persian Unicode in source files
+
+Applies to **`.cs`**, **`.cshtml`**, **`.js`**, **`.json`**, **`.sql`**, and **markdown**. Complements `havayar-sql-persian-encoding.mdc` (SQL seed apply / BOM); do not weaken that rule.
+
+## Must
+
+- Write Persian as real Unicode characters in source. Example: `انتخاب کنید`.
+- If a string that should be Persian contains `Ø`, `Ù`, `Ã`, or `Ú` (mojibake), rewrite it as correct Persian before saving.
+
+## Must not
+
+- Never write mojibake such as `Ø§Ù†ØªØ®Ø§Ø¨ Ú©Ù†ÛŒØ` (UTF-8 Persian misread as Windows-1252). That form is not Persian text.
+
+## SQL seeds (pointer only)
+
+Persian in SQL seeds stays **UTF-8 with BOM** and is applied with `sqlcmd -f 65001` (or `Invoke-Sqlcmd -Encoding UTF8`). Full apply/verify steps: `havayar-sql-persian-encoding.mdc`.

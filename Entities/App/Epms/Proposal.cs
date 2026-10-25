@@ -53,7 +53,7 @@ namespace Entities.App.Epms
 
 		[DisplayName("نوع پروپوزال درخواستی")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
-		public ProposalRequestEnum ProposalRequest { get; set; }
+		public ProposalRequestEnum? ProposalRequest { get; set; }
 
 		[DisplayName("وضعیت")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
@@ -61,7 +61,7 @@ namespace Entities.App.Epms
 
 		[DisplayName("کامنت")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(500)]
+		[MaxLength(1000)]
 		public string? Comment { get; set; }
 
 
@@ -141,6 +141,11 @@ namespace Entities.App.Epms
 		[DisplayName("مدارک")]
 		[DisplayInfo(null, true, type: SystemType.ListEntity)]
 		public List<ProposalDocument> ProposalDocuments { get; set; } = new();
+
+		/// <summary>
+		/// شناسه پروپوزال در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 
 	}
 	[Display(Name = "تجهیزات پروپوزال")]

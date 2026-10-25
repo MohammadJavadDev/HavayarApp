@@ -21,6 +21,14 @@ namespace WebApp.Controllers.Dynamic
 		private const int MaxFilesPerAdd = 20;
 		private const long MaxFileSizeBytes = 51200L * 1024L;
 
+		// متن پیام‌ها عیناً از MessagesLibrary.fa-IR (HTS)
+		private const string MsgNoFileSelected = "فایلی انتخاب نشده است";
+		private const string MsgMaxFileCount = "حداکثر تعداد فایل قابل آپلود 20 فایل می باشد";
+		private const string MsgFileTooLarge = "حجم فایل ارسالی از حداکثر حجم مجاز بیشتر است";
+		private const string MsgOperationSucceeded = "عملیات مورد نظر با موفقیت انجام شد";
+		private static string MsgEmpty(string caption) => $"({caption}) نمیتواند خالی باشد";
+		private static string MsgInvalid(string caption) => $"مقدار فیلد ({caption}) نامعتبر است.";
+
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(OrganizationalDocument organizationalDocument, CancellationToken cn)
@@ -49,21 +57,21 @@ namespace WebApp.Controllers.Dynamic
 				fileIds.Insert(0, organizationalDocument.FileId.Value);
 
 			if (fileIds.Count == 0)
-				return BadRequest("انتخاب فایل الزامی است");
+				return BadRequest(MsgNoFileSelected);
 			if (fileIds.Count > MaxFilesPerAdd)
-				return BadRequest($"حداکثر {MaxFilesPerAdd} فایل در هر ثبت مجاز است");
+				return BadRequest(MsgMaxFileCount);
 
 			var files = await unitOfWork.Repository<FileEntity>().TableNoTracking
 				.Where(f => fileIds.Contains(f.Id!.Value))
 				.ToListAsync(cn);
 
 			if (files.Count == 0)
-				return BadRequest("فایل انتخاب‌شده یافت نشد");
+				return BadRequest(MsgNoFileSelected);
 
 			foreach (var file in files)
 			{
 				if (file.Size > MaxFileSizeBytes)
-					return BadRequest($"حجم فایل «{file.OriginalName}» بیشتر از ۵۰ مگابایت است");
+					return BadRequest(MsgFileTooLarge);
 			}
 
 			var skipped = new List<string>();
@@ -89,7 +97,7 @@ namespace WebApp.Controllers.Dynamic
 			if (saved.Count == 0)
 			{
 				if (skipped.Count > 0)
-					return BadRequest("فایل تکراری ذخیره نشد: " + string.Join("، ", skipped));
+					return BadRequest("فایل های تکراری: " + string.Join("، ", skipped));
 				return BadRequest("هیچ سندی ذخیره نشد");
 			}
 
@@ -116,29 +124,30 @@ namespace WebApp.Controllers.Dynamic
 			if (!CanViewDocument(existing.Folder))
 				return BadRequest("دسترسی به این سند را ندارید");
 
+			// فایل‌ها داخل همین سیستم نگهداری می‌شوند؛ در ویرایش می‌توان فایل جدید بارگذاری کرد
+			// (ردیف و Id ثابت می‌ماند، FileEntity قبلی حذف نمی‌شود). پوشه سطح ۲/۳ در رابط کاربری وجود ندارد.
 			var newFileId = organizationalDocument.FileId;
-			if (newFileId is > 0 && newFileId != existing.FileId)
+			var replaceFile = newFileId is > 0 && newFileId != existing.FileId;
+			if (replaceFile)
 			{
 				var newFile = await unitOfWork.Repository<FileEntity>().TableNoTracking
 					.FirstOrDefaultAsync(f => f.Id == newFileId, cn);
 				if (newFile == null)
-					return BadRequest("فایل انتخاب‌شده یافت نشد");
+					return BadRequest(MsgNoFileSelected);
 				if (newFile.Size > MaxFileSizeBytes)
-					return BadRequest($"حجم فایل «{newFile.OriginalName}» بیشتر از ۵۰ مگابایت است");
+					return BadRequest(MsgFileTooLarge);
 				if (await IsDuplicateFileName(organizationalDocument, newFile.OriginalName, existing.Id, cn))
-					return BadRequest("فایل با این نام در همین مسیر قبلاً ذخیره شده است");
+					return BadRequest("فایل های تکراری: " + System.Net.WebUtility.HtmlEncode(newFile.OriginalName));
 			}
 
 			existing.FolderId = organizationalDocument.FolderId;
-			existing.SecondLevelFolderId = organizationalDocument.SecondLevelFolderId;
-			existing.ThirdLevelFolderId = organizationalDocument.ThirdLevelFolderId;
 			existing.Title = organizationalDocument.Title?.Trim();
 			existing.TitleInLatin = organizationalDocument.TitleInLatin?.Trim();
 			existing.Brand = string.IsNullOrWhiteSpace(organizationalDocument.Brand) ? null : organizationalDocument.Brand.Trim();
 			existing.Revision = organizationalDocument.Revision;
 			existing.Year = NormalizeYear(organizationalDocument.Year);
 			existing.Comment = organizationalDocument.Comment;
-			if (newFileId is > 0)
+			if (replaceFile)
 				existing.FileId = newFileId;
 
 			existing.Folder = null;
@@ -307,24 +316,24 @@ namespace WebApp.Controllers.Dynamic
 		private static string? ValidateDocument(OrganizationalDocument document, bool isAdd)
 		{
 			if (document.FolderId == 0)
-				return "پوشه الزامی است";
+				return MsgEmpty("سطح اول");
 			if (string.IsNullOrWhiteSpace(document.Title))
-				return "عنوان الزامی است";
+				return MsgEmpty("عنوان");
 			if (string.IsNullOrWhiteSpace(document.TitleInLatin))
-				return "عنوان لاتین الزامی است";
+				return MsgEmpty("عنوان / مدل (En)");
 			if (!IsEnglishText(document.TitleInLatin))
-				return "عنوان لاتین باید فقط با حروف انگلیسی باشد";
+				return MsgInvalid("عنوان / مدل (En)");
 			if (document.Year == 0)
-				return "سال نامعتبر است";
+				return MsgInvalid("سال");
 			if (isAdd)
 			{
 				var fileIds = ParseIds(document.FileIds);
 				if (document.FileId is > 0 && !fileIds.Contains(document.FileId.Value))
 					fileIds.Add(document.FileId.Value);
 				if (fileIds.Count == 0)
-					return "انتخاب فایل الزامی است";
+					return MsgNoFileSelected;
 				if (fileIds.Count > MaxFilesPerAdd)
-					return $"حداکثر {MaxFilesPerAdd} فایل در هر ثبت مجاز است";
+					return MsgMaxFileCount;
 			}
 
 			return null;
@@ -335,8 +344,6 @@ namespace WebApp.Controllers.Dynamic
 			return new OrganizationalDocument
 			{
 				FolderId = source.FolderId,
-				SecondLevelFolderId = source.SecondLevelFolderId,
-				ThirdLevelFolderId = source.ThirdLevelFolderId,
 				Title = source.Title?.Trim(),
 				TitleInLatin = source.TitleInLatin?.Trim(),
 				Brand = string.IsNullOrWhiteSpace(source.Brand) ? null : source.Brand.Trim(),
@@ -382,12 +389,15 @@ namespace WebApp.Controllers.Dynamic
 
 		private static string? BuildSaveWarning(int savedCount, List<string> skipped)
 		{
-			var parts = new List<string>();
-			if (savedCount > 1)
-				parts.Add($"{savedCount} سند ذخیره شد");
-			if (skipped.Count > 0)
-				parts.Add("فایل‌های تکراری ذخیره نشدند: " + string.Join("، ", skipped));
-			return parts.Count == 0 ? null : string.Join(" — ", parts);
+			// مطابق HTS: فقط وقتی فایل تکراری وجود دارد خلاصه نمایش داده می‌شود.
+			if (skipped.Count == 0)
+				return null;
+
+			var names = string.Join("<br/>", skipped.Select(System.Net.WebUtility.HtmlEncode));
+			return MsgOperationSucceeded + "<br/>"
+				+ "تعداد ذخیره موفق " + savedCount + "<br/>"
+				+ "تعداد ذخیره ناموفق " + skipped.Count + "<br/>"
+				+ "فایل های تکراری " + names;
 		}
 
 		private static short? NormalizeYear(short? year) => year is null or 0 ? null : year;

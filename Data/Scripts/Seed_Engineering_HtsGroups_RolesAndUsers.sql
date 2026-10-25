@@ -274,12 +274,12 @@ BEGIN TRY
         (235, N'/panel/edms/document/getmdrreport', 2, 2, N'Entities.App.Edms.Document', N'read'),
         (235, N'/panel/edms/document/getmdrreportpost', 2, 2, N'Entities.App.Edms.Document', N'read'),
         (235, N'/panel/edms/document/exportmdrtoexcel', 2, 0, N'Entities.App.Edms.Document', N'export'),
-        (238, N'/panel/edms/document/list', 1, 1, N'Entities.App.Edms.Document', N'read'),
-        (238, N'/panel/edms/document/edit', 1, 5, N'Entities.App.Edms.Document', N'read'),
-        (238, N'/panel/edms/document/fetchdata', 2, 2, N'Entities.App.Edms.Document', N'read'),
+        (238, N'/panel/edms/document/documentdelayreport', 1, 1, N'Entities.App.Edms.Document', N'read'),
         (248, N'/panel/edms/document/list', 1, 1, N'Entities.App.Edms.Document', N'read'),
         (248, N'/panel/edms/document/edit', 1, 5, N'Entities.App.Edms.Document', N'read'),
         (248, N'/panel/edms/document/fetchdata', 2, 2, N'Entities.App.Edms.Document', N'read'),
+        (248, N'/panel/edms/document/documentholdreport', 1, 1, N'Entities.App.Edms.Document', N'read'),
+        (248, N'/panel/edms/document/documentholdreport', 1, 1, N'Entities.App.Edms.Document', N'pm'),
         (252, N'/panel/epms/proposal/list', 1, 1, N'Entities.App.Epms.Proposal', N'read'),
         (252, N'/panel/epms/proposal/edit', 1, 5, N'Entities.App.Epms.Proposal', N'read'),
         (252, N'/panel/epms/proposal/fetchdata', 2, 2, N'Entities.App.Epms.Proposal', N'read'),
@@ -354,9 +354,7 @@ BEGIN TRY
         (275, N'/panel/edms/document/list', 1, 1, N'Entities.App.Edms.Document', N'read'),
         (275, N'/panel/edms/document/edit', 1, 5, N'Entities.App.Edms.Document', N'read'),
         (275, N'/panel/edms/document/fetchdata', 2, 2, N'Entities.App.Edms.Document', N'read'),
-        (279, N'/panel/edms/project/projectattachmentlist', 1, 1, N'Entities.App.Edms.Project', N'read'),
-        (279, N'/panel/edms/project/edit', 1, 5, N'Entities.App.Edms.Project', N'read'),
-        (279, N'/panel/edms/project/fetchdata', 2, 2, N'Entities.App.Edms.Project', N'read'),
+        (279, N'/panel/edms/project/projectattachmentarchive', 1, 1, N'Entities.App.Edms.Project', N'read'),
         (288, N'/panel/edms/projectactivity/list', 1, 1, N'Entities.App.Edms.ProjectActivity', N'read'),
         (288, N'/panel/edms/projectactivity/edit', 1, 5, N'Entities.App.Edms.ProjectActivity', N'read'),
         (288, N'/panel/edms/projectactivity/fetchdata', 2, 2, N'Entities.App.Edms.ProjectActivity', N'read'),
@@ -417,6 +415,7 @@ BEGIN TRY
         (377, N'/panel/inv/partextrainfo/save', 2, 3, N'Entities.App.Inv.PartExtraInfo', N'write'),
         (377, N'/panel/inv/partextrainfo/update', 2, 5, N'Entities.App.Inv.PartExtraInfo', N'write'),
         (377, N'/panel/inv/partextrainfo/delete', 2, 6, N'Entities.App.Inv.PartExtraInfo', N'delete'),
+        (380, N'/panel/edms/document/indexevaluationreport', 1, 1, N'Entities.App.Edms.Document', N'read'),
         (449, N'/panel/eng/compressorsizing/calculator', 1, 0, NULL, N'read'),
         (449, N'/panel/eng/compressorsizing/reportviewer', 1, 0, NULL, N'read'),
         (449, N'/panel/eng/compressorsizing/getviewreport', 2, 2, NULL, N'read'),
@@ -430,6 +429,8 @@ BEGIN TRY
         (430, N'/panel/eng/filterwatertrap/filterselectioncalculation', 2, 1000, NULL, N'read'),
         (430, N'/panel/eng/filterwatertrap/hdtselectioncalculation', 2, 1000, NULL, N'read'),
         (430, N'/panel/eng/filterwatertrap/hdttoexcelfile', 2, 1000, NULL, N'read'),
+        (465, N'/panel/eng/n2generatorsizing/calculator', 1, 0, NULL, N'read'),
+        (465, N'/panel/eng/n2generatorsizing/calculate', 2, 1000, NULL, N'read'),
         -- 495: مدیریت دسته داخل پارت لیست محصول (منوی جدا حذف شد)
         (495, N'/panel/eng/partlistproduct/list', 1, 1, N'Entities.App.Eng.PartListProductSection', N'read'),
         (495, N'/panel/eng/partlistproduct/edit', 1, 5, N'Entities.App.Eng.PartListProductSection', N'read'),
@@ -533,8 +534,10 @@ BEGIN TRY
         (223, N'vw_DocumentMyActions', N'read'),
         (232, N'vw_DocumentAllProjectInfo', N'read'),
         (233, N'vw_DocumentMyArchive', N'read'),
-        (238, N'vw_DocumentAllProjectInfo', N'read'),
+        (238, N'Edms_DocumentDelayReport', N'read'),
         (248, N'vw_DocumentAllProjectInfo', N'read'),
+        (248, N'Edms_DocumentHoldReport', N'read'),
+        (248, N'Edms_DocumentHoldReport', N'pm'),
         (252, N'proposal_listinfo', N'read'),
         (255, N'vw_DocumentMyCartabl', N'read'),
         (255, N'vw_DocumentAllProjectInfo', N'read'),
@@ -543,7 +546,7 @@ BEGIN TRY
         (260, N'vw_DocumentAllProjectInfo', N'read'),
         (264, N'vw_DocumentAllProjectInfo', N'read'),
         (275, N'vw_DocumentMyCartabl', N'read'),
-        (279, N'projectattachment_listinfo', N'read'),
+        (279, N'Edms_Project_Attachment_Archive', N'read'),
         (288, N'projectactivity_listinfo', N'read'),
         (289, N'vw_DocumentMyArchive', N'read'),
         (293, N'partextrainfo_listinfo', N'read'),
@@ -553,6 +556,7 @@ BEGIN TRY
         (350, N'vw_DocumentMyCartabl', N'read'),
         (377, N'partextrainfo_listinfo', N'read'),
         (377, N'vw_PartextrainfoPsa', N'read'),
+        (380, N'Edms_IndexEvaluationReport', N'read'),
         (526, N'vw_productformulwithBomWithPrice', N'price'),
         (532, N'vw_DocumentAllProjectInfo', N'read'),
         (541, N'partextrainfo_listinfo', N'read'),
@@ -593,13 +597,11 @@ BEGIN TRY
         (320, N'گزارش تجهیزات خاص — صفحه نیست'),
         (325, N'آرشیو اسناد مناقصه EPMS — منوی مرده'),
         (351, N'گزارش عملکرد پرسنل EPMS — صفحه نیست'),
-        (380, N'گزارش شاخص ارزیابی — صفحه هاویار نیست'),
         (405, N'تحقیق و توسعه — صفحه هاویار نیست'),
         (406, N'درخواست تغییر طراحی — صفحه هاویار نیست'),
         (407, N'نرخ ارز مهندسی — به Acc داده نمی‌شود'),
         (411, N'وزن مخازن — کنترلر نیست'),
         (429, N'فیلتر سایزینگ — کنترلر نیست'),
-        (465, N'سایزینگ نیتروژن‌ساز — کنترلر نیست'),
         (558, N'اقلام پروژه 558 — کنترلر جدا نیست'),
         (566, N'استعلام فنی پیمانکاران — صفحه نیست');
 
@@ -732,7 +734,8 @@ BEGIN TRY
      OR (p.Flag = N'export'   AND g.PermissionId IN (2, 3, 7, 10, 62))
      OR (p.Flag = N'write'    AND g.PermissionId IN (2, 4, 5))
      OR (p.Flag = N'delete'   AND g.PermissionId IN (2, 6))
-     OR (p.Flag = N'fullonly' AND g.PermissionId = 2);
+     OR (p.Flag = N'fullonly' AND g.PermissionId = 2)
+     OR (p.Flag = N'pm'       AND g.PermissionId = 68);
 
     INSERT INTO system.RoleAccess
         (Path, ActionAccessType, ActionAccessItemType, EntityName, DisplayName, EntityId, RowId, RoleId,
@@ -768,6 +771,7 @@ BEGIN TRY
             (pp.Flag = N'read'  AND g.PermissionId IN (2, 3, 7, 4, 5))
          OR (pp.Flag = N'write' AND g.PermissionId IN (2, 5))
          OR (pp.Flag = N'price' AND g.PermissionId = 8)
+         OR (pp.Flag = N'pm'    AND g.PermissionId = 68)
       )
       AND NOT EXISTS (
           SELECT 1 FROM system.RoleAccess ra
@@ -915,6 +919,60 @@ BEGIN TRY
     ELSE
         PRINT N'  Zare.mo already has 260089/260350/260488 (or user/role missing) — skipped.';
 
+    -----------------------------------------------------------------------------
+    PRINT N'=== [6c] Direct FullAccess on N2 sizing page 465 (not in group 384) ===';
+    -----------------------------------------------------------------------------
+    DECLARE @N2RoleId BIGINT = 260384;
+    DECLARE @N2RoleName NVARCHAR(200) = N'کارشناسان سایزینگ نیتروژن ساز';
+    DECLARE @N2UserId BIGINT, @N2Assigned INT = 0;
+
+    DECLARE n2_cur CURSOR LOCAL FAST_FORWARD FOR
+        SELECT u.Id
+        FROM system.[User] u
+        WHERE u.IsActive = 1
+          AND (
+                (u.Id = 216 AND LOWER(u.Username) = N'kashani.sh')
+             OR (u.Id = 797 AND LOWER(u.Username) = N'hashemi.mo')
+             OR (u.Id = 220 AND LOWER(u.Username) = N'rajabi.m')
+             OR (u.Id = 240 AND LOWER(u.Username) = N'zare.mo')
+             OR (u.Id = 294 AND LOWER(u.Username) = N'moradi.m')
+             OR (u.Id = 40 AND LOWER(u.Username) = N'dr.h-ghoroori')
+          )
+          AND NOT EXISTS (
+                SELECT 1
+                FROM OPENJSON(ISNULL(u.RoleIds, N'[]')) j
+                WHERE TRY_CAST(j.value AS bigint) = @N2RoleId
+          );
+    OPEN n2_cur;
+    FETCH NEXT FROM n2_cur INTO @N2UserId;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        UPDATE system.[User]
+        SET
+            RoleIds = CASE
+                WHEN RoleIds IS NULL OR LTRIM(RTRIM(RoleIds)) = N'' OR RoleIds = N'[]'
+                    THEN N'[' + CAST(@N2RoleId AS nvarchar(20)) + N']'
+                ELSE STUFF(RoleIds, LEN(RoleIds), 1, N',' + CAST(@N2RoleId AS nvarchar(20)) + N']')
+            END,
+            Roles = CASE
+                WHEN ISJSON(ISNULL(Roles, N'[]')) = 1
+                     AND EXISTS (SELECT 1 FROM OPENJSON(Roles) j WHERE j.value = @N2RoleName) THEN Roles
+                WHEN Roles IS NULL OR LTRIM(RTRIM(Roles)) = N'' OR Roles = N'[]' OR ISJSON(ISNULL(Roles, N'[]')) <> 1
+                    THEN N'["' + @N2RoleName + N'"]'
+                ELSE STUFF(Roles, LEN(Roles), 1, N',"' + @N2RoleName + N'"]')
+            END,
+            ModifiedById = 1,
+            ModifiedByName = @SeedUser,
+            ModifiedDateMiladiDateTime = @Now,
+            ModifiedDateShamsiDateTime = @NowShamsi
+        WHERE Id = @N2UserId;
+        SET @N2Assigned += 1;
+        FETCH NEXT FROM n2_cur INTO @N2UserId;
+    END
+    CLOSE n2_cur;
+    DEALLOCATE n2_cur;
+    PRINT N'  Direct N2 sizing users assigned role 260384: ' + CAST(@N2Assigned AS nvarchar(20));
+
     COMMIT TRANSACTION;
     PRINT N'=== DONE: Seed_Engineering_HtsGroups_RolesAndUsers committed ===';
 END TRY
@@ -959,6 +1017,10 @@ WHERE Path LIKE N'/panel/eng/compressorsizing/%';
 SELECT N'FilterWaterTrap RoleAccess' AS CheckName, COUNT(*) AS Cnt
 FROM system.RoleAccess
 WHERE Path LIKE N'/panel/eng/filterwatertrap/%';
+
+SELECT N'N2GeneratorSizing RoleAccess' AS CheckName, COUNT(*) AS Cnt
+FROM system.RoleAccess
+WHERE Path LIKE N'/panel/eng/n2generatorsizing/%';
 
 SELECT N'Eng HTS roles 260000+' AS CheckName, COUNT(*) AS Cnt
 FROM system.Role

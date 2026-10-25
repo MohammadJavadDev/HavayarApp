@@ -93,6 +93,11 @@ namespace Entities.App.Rpr
 		[DisplayInfo(null, true, type: SystemType.Long)]
 		public long? Cost { get; set; }
 
+		[DisplayName("شماره فاکتور")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
+		public string? InvoiceNumber { get; set; }
+
 		[DisplayName("کالا")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public virtual Part? Part { get; set; }

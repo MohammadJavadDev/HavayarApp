@@ -309,7 +309,7 @@ namespace App.BackgroundJob.Jobs.Edms
 
 			foreach (var user in appUsers)
 			{
-				var info = new AppUserInfo(user.Id!.Value, user.NameFa ?? user.Name ?? user.Username);
+				var info = new AppUserInfo(user.Id!.Value, FirstNonEmpty(user.Name, user.NameFa, user.Username));
 				usersById[info.Id] = info;
 				if (!string.IsNullOrWhiteSpace(user.Username))
 					usersByUsername[user.Username.Trim()] = info;
@@ -393,6 +393,17 @@ namespace App.BackgroundJob.Jobs.Edms
 
 		private static string ProjectCodeKey(long projectId, string code) =>
 			$"{projectId}|{code.Trim()}";
+
+		private static string? FirstNonEmpty(params string?[] values)
+		{
+			foreach (var value in values)
+			{
+				if (!string.IsNullOrWhiteSpace(value))
+					return value.Trim();
+			}
+
+			return null;
+		}
 
 		private static string? Truncate(string? value, int maxLength)
 		{

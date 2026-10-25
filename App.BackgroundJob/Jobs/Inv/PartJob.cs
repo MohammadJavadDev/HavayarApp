@@ -58,7 +58,10 @@ WHERE NOT EXISTS (SELECT 1 FROM Inv.Part p WHERE p.HamkaranId = r.PartID)
         SELECT 1 FROM Inv.Part p 
         WHERE p.HamkaranId = r.PartID 
         AND (
-            ISNULL(p.Code,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.Code,'''')
+            ISNULL(LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(p.Code, NCHAR(160), N' '), NCHAR(9), N' '), NCHAR(10), N' '), NCHAR(13), N' '), NCHAR(11), N' '))), N'') COLLATE SQL_Latin1_General_CP1_CI_AS
+                <> ISNULL(LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(r.Code, NCHAR(160), N' '), NCHAR(9), N' '), NCHAR(10), N' '), NCHAR(13), N' '), NCHAR(11), N' '))), N'')
+            OR UNICODE(LEFT(p.Code, 1)) IN (9, 10, 11, 13, 32, 160)
+            OR UNICODE(RIGHT(p.Code, 1)) IN (9, 10, 11, 13, 32, 160)
             OR ISNULL(p.Name,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.Name,'''')
             OR ISNULL(p.LatinTitle,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.LatinName,'''')
             OR ISNULL(p.Description,'''') COLLATE SQL_Latin1_General_CP1_CI_AS <> ISNULL(r.PropertiesComment,'''')
@@ -80,34 +83,54 @@ OPTION (RECOMPILE);
 				.Where(c => c.HamkaranId != null)
 				.ToDictionary(x => x.HamkaranId!.Value, x => x );
 
+			var partsByCode = new Dictionary<string, Part>(StringComparer.Ordinal);
+			foreach (var part in existParts)
+			{
+				var key = NormalizePartCode(part.Code);
+				if (key != null)
+					partsByCode.TryAdd(key, part);
+			}
+
 			var newParts = new List<Part>();
 			foreach (var r in rahkaranPartsData)
 			{
+				var code = NormalizePartCode(r.Code);
 				if (!appPartsDict.TryGetValue(r.PartID, out var existPart))
 				{
-					var existByCode = existParts.FirstOrDefault(c => c.Code == r.Code);
-					if (existByCode is null)
+					if (code == null || !partsByCode.TryGetValue(code, out var existByCode))
 					{
-						newParts.Add(new Part
+						var created = new Part
 						{
 							HamkaranId = r.PartID,
-							Code = r.Code,
+							Code = code,
 							Name = r.Name ?? "",
 							LatinTitle = r.LatinName,
 							Type = r.PartType.HasValue ? (PartTypeEnum)r.PartType.Value : null,
 							Description = r.PropertiesComment,
 							Number = r.TechnicalSpecification,
 							UnitId = existUnitDict.TryGetValue(r.MajorUnitRef ?? 0, out var u) ? u.Id : (long?)null
-						});
+						};
+						newParts.Add(created);
+						if (code != null)
+							partsByCode[code] = created;
 					}
 					else
 					{
 						existByCode.HamkaranId = r.PartID;
+						existByCode.Code = code;
 					}
 				}
 				else
 				{
-					existPart.Code = r.Code;
+					if (code == null || !partsByCode.TryGetValue(code, out var codeOwner) || ReferenceEquals(codeOwner, existPart))
+					{
+						var previousCode = NormalizePartCode(existPart.Code);
+						existPart.Code = code;
+						if (previousCode != null && previousCode != code && partsByCode.TryGetValue(previousCode, out var previousOwner) && ReferenceEquals(previousOwner, existPart))
+							partsByCode.Remove(previousCode);
+						if (code != null)
+							partsByCode[code] = existPart;
+					}
 					existPart.Name = r.Name ?? existPart.Name;
 					existPart.LatinTitle = r.LatinName;
 					existPart.Type = r.PartType.HasValue ? (PartTypeEnum)r.PartType.Value : existPart.Type;
@@ -153,6 +176,9 @@ OPTION (RECOMPILE);
 			}
 			await unitOfWork.SaveChangesAsync(cn);
 		}
+
+		private static string? NormalizePartCode(string? code)
+			=> string.IsNullOrWhiteSpace(code) ? null : code.Trim();
 
 		private sealed class RahkaranPartDto
 		{

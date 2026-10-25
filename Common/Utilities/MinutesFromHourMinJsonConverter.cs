@@ -41,6 +41,25 @@ namespace Common.Utilities
 			return (short)(hour * 60 + min);
 		}
 
+		/// <summary>
+		/// int? overload (e.g. Edms.Document.HourPrePerson). Same "HH:MM" text; hours can exceed 99
+		/// (hourLength is only the minimum width): 2400 min with hourLength 2 -> "40:00", 60039 -> "1000:39".
+		/// </summary>
+		public static string MinToHourMin(int? input, bool zeroPadding = true, int hourLength = 3)
+		{
+			if (input == null)
+				return "";
+			var value = input.Value;
+			var isMinus = value < 0;
+			value = Math.Abs(value);
+			var hour = value / 60;
+			var min = value % 60;
+			var result = zeroPadding
+				? hour.ToString().PadLeft(hourLength, '0') + ":" + min.ToString().PadLeft(2, '0')
+				: hour + ":" + min.ToString().PadLeft(2, '0');
+			return isMinus ? "-" + result : result;
+		}
+
 		public static string MinToHourMin(short? input, bool zeroPadding = true, int hourLength = 3)
 		{
 			if (input == null)

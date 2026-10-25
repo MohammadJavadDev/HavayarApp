@@ -1,0 +1,137 @@
+@{
+	var parentId = (long)ViewBag.ParentId;
+}
+<div class="card" id="complaintAttachmentCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">پیوست</h5>
+		<button type="button" class="btn btn-sm btn-primary" data-action="newComplaintAttachment">جدید</button>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="complaintAttachmentTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>فایل</th>
+					<th>توضیحات</th>
+					<th>تاریخ</th>
+					<th style="width:140px;">عملیات</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const complaintAttachmentParentId = @parentId;
+	const complaintAttachmentTable = $$('#complaintAttachmentTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Crm/CustomerComplaintAttachment/GetListByParentId?complaintId=' + complaintAttachmentParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'fileName', defaultContent: '-' },
+			{ data: 'comment', defaultContent: '-' },
+			{ data: 'createdOnShamsiDateTime', defaultContent: '-' },
+			{
+				data: null,
+				orderable: false,
+				className: 'text-center dt-ellipsis-skip',
+				render: function (row) {
+					const view = row.fileId
+						? '<a class="btn btn-sm btn-icon btn-light-primary" href="/File/download/' + row.fileId + '" target="_blank"><i class="fa fa-eye"></i></a> '
+						: '';
+					return view
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteComplaintAttachment" data-id="' + row.id + '"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+
+	function openComplaintAttachmentModal() {
+		const url = '/Panel/Crm/CustomerComplaintAttachment/New?complaintId=' + complaintAttachmentParentId;
+		const $trigger = $$('#complaintAttachmentCard').find('[data-action="newComplaintAttachment"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = (window.appController && appController.decodePartialResponse)
+				? appController.decodePartialResponse(r)
+				: { html: (typeof r === 'string' ? r : '') };
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: 'پیوست',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				onContentReady: function () {
+					if (typeof initFileUploaders === 'function')
+						initFileUploaders(this.$content);
+				},
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Crm/CustomerComplaintAttachment/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								complaintAttachmentTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				}
+			});
+		});
+	}
+
+	$$('#complaintAttachmentCard').on('click', '[data-action="newComplaintAttachment"]', function () {
+		openComplaintAttachmentModal();
+	});
+	$$('#complaintAttachmentCard').on('click', '[data-action="deleteComplaintAttachment"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({
+			title: 'حذف پیوست',
+			text: 'آیا از حذف مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'حذف',
+			cancelButtonText: 'انصراف'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.get('/Panel/Crm/CustomerComplaintAttachment/Delete?id=' + id, function (resp) {
+				if (!resp.isSuccess) {
+					toastr.error(resp.message || 'خطا در حذف', 'خطا');
+					return;
+				}
+				toastr.success('حذف شد');
+				complaintAttachmentTable.ajax.reload(null, false);
+			});
+		});
+	});
+</script>

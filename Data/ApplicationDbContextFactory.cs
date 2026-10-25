@@ -34,6 +34,7 @@ public class ApplicationDbContextFactory() : IDesignTimeDbContextFactory<Applica
 
         optionsBuilder.UseSqlServer(connectionString, sqlOptions =>
         {
+            sqlOptions.CommandTimeout(0);
             sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null);
         });
 

@@ -1,6 +1,20 @@
+@using System.Linq
 @using Entities.App.Edms;
 @using Entities.App.Edms.Enums
 @model Transmital
+@{
+	var selectedDocumentIds = Model?.DocumentIds
+		?? ViewData["DocumentIds"] as string
+		?? (Model?.DocumentId > 0 ? Model.DocumentId.ToString() : null);
+	var lockedDocumentIds = string.IsNullOrWhiteSpace(selectedDocumentIds)
+		? new List<long>()
+		: selectedDocumentIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.Select(s => long.TryParse(s, out var id) ? id : 0L)
+			.Where(id => id > 0)
+			.Distinct()
+			.ToList();
+	var reserveNumberOnly = Model?.Id is > 0 && Model.DocumentId is not > 0;
+}
 <div class="card">
 	<div class="form-action-buttons"><form-action-buttons entity-type="typeof(Transmital)"></form-action-buttons></div>
 	<div class="card-body row">
@@ -14,11 +28,11 @@
 						c => new
 						{
 							Id = c.Id,
-							Title = c.Title,
-
+							Code = c.Code,
+							Name = c.Name,
 						},
-						c => new { c.Title },
-						"{Title}",
+						c => new { c.Code, c.Name },
+						"{Code} | {Name}",
 						"ProjectId",
 						null,
 						Model?.ProjectId.ToString(),
@@ -31,9 +45,17 @@
 			@(Html.EntitySelector<Document>
 						(
 						"DocumentIdSelector",
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.IsLatest == true
-							&& (c.Status == DocumentStatusEnums.ApprovedByDcc
-								|| c.Comments.Any(x => x.Status == DocumentStatusEnums.ReplaySheet)),
+						c => c.IsActive == Entities.Base.IsActiveEnum.Active
+							&& (
+								(
+									c.IsLatest == true
+									&& (
+										c.Status == DocumentStatusEnums.ApprovedByDcc
+										|| c.Comments.Any(x => x.Status == DocumentStatusEnums.ReplaySheet)
+									)
+								)
+								|| (lockedDocumentIds.Count > 0 && c.Id != null && lockedDocumentIds.Contains(c.Id.Value))
+							),
 						c => new
 						{
 							Id = c.Id,
@@ -42,21 +64,21 @@
 							FileName = c.MainFile.OriginalName,
 							c.Revision,
 							ProjectId = c.ProjectId,
-							HasReplySheet = c.Comments.Any(c => c.Status == DocumentStatusEnums.ReplaySheet )
+							HasReplySheet = c.Comments.Any(x => x.Status == DocumentStatusEnums.ReplaySheet)
 
 						},
-						c => new { c.DocumentVpis.Title },
-						"Document Number: {Title}",
-						"DocumentId",
+						c => new { c.DocumentVpis.Code, c.DocumentVpis.Title },
+						"{Code} | {Title}",
+						"documentIds",
 						null,
-						Model?.DocumentId.ToString(),
+						selectedDocumentIds,
+						false,
 						true,
 						false,
 						false,
-						false,
-						@"<div style='text-align: left;'><span>Document Number: {Title}</span>
+						@"<div style='text-align: left;'><span>شماره مدرک: {Code}</span>
 						 </br>
-						 <span>Document FileName: {Code}</span>
+						 <span>عنوان: {Title}</span>
 						</br>
 						<span>Document Rev: {revision}</span>
 						</br>
@@ -66,7 +88,19 @@
 			 
 		</div>
 
-	 
+		<div class="col-md-12">
+			<div class="form-check">
+				<input id="reserveNumberOnly" data-bind="reserveNumberOnly" class="form-check-input" type="checkbox" @(reserveNumberOnly ? "checked" : "") />
+				<label class="form-check-label" for="reserveNumberOnly">افزایش شماره بدون مدرک</label>
+			</div>
+			<div class="text-muted small mt-1">با زدن این گزینه و انتخاب پروژه و تاریخ ارسال، بدون مدرک شماره ترانسمیتال یک واحد افزایش می‌یابد.</div>
+		</div>
+
+		<div class='col-md-6'>
+			<label class=''>شماره ترانسمیتال</label>
+			<input class='form-control' data-bind='number' asp-for='Number' readonly />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
 
 		<div class='col-md-6'>
 			<label class=''>شماره تعریف شده توسط کاربر</label>
@@ -91,7 +125,7 @@
 
 		<div class='col-md-6'>
 			<label class=''>تاریخ ارسال به کارفرما</label>
-			<input class='form-control'  data-bind='deliveryDateToEmployer' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.DeliveryDateToEmployer' />
+			<input class='form-control'  data-bind='deliveryDateToEmployer' data-persionDatePicker="true" persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": true}' value='@Model?.DeliveryDateToEmployer.ToMiladiDateTimeWithSplitData()' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -103,7 +137,7 @@
 				file-entity="@Model?.Attachment"
 				entity-prop-name="Attachment"
 					    entity-type="@typeof(Transmital).FullName"
-				max-file-size="10"
+				max-file-size="100"
 				label="پیوست"></fileuploader>
 		</div>
 
@@ -130,20 +164,91 @@
 
 <script>
 
-	 
-	function savefn($btnAction) {
-		if (validateError($$('.card'))) { return; }
-		var model = $$('.card').dataBind();
-		const $btn = $(this.element).block();
+	function isNewTransmittal() {
+		const id = parseInt($$('[data-bind="id"]').val() || '0', 10) || 0;
+		return id <= 0;
+	}
 
-		model.isForReplySheet = false;
-		
-		if($$('#DocumentIdSelector').data("entitySelector").selectedItems.length > 0)
-		{
-			model.isForReplySheet = $$('#DocumentIdSelector').data("entitySelector").selectedItems[0].row.hasReplySheet
+	let nextNumberRequest = 0;
+
+	function selectedDocumentItems() {
+		const selector = $$('#DocumentIdSelector').data('entitySelector');
+		return selector?.selectedItems || [];
+	}
+
+	function loadNextTransmittalNumber() {
+		if (!isNewTransmittal()) return;
+
+		const items = selectedDocumentItems();
+		const allReply = items.length > 0 && items.every(function (item) {
+			const row = item && item.row;
+			return !!(row && (row.hasReplySheet || row.HasReplySheet));
+		});
+		if (allReply) {
+			$$('[data-bind="number"]').val('');
+			return;
 		}
-		 
-	 
+
+		const projectId = $$('#ProjectIdSelector').find('.entity-selector-value').val();
+		const requestId = ++nextNumberRequest;
+		if (!projectId) {
+			$$('[data-bind="number"]').val('');
+			return;
+		}
+
+		$$.get('GetNextNumber?projectId=' + encodeURIComponent(projectId), function (r) {
+			if (requestId !== nextNumberRequest || !isNewTransmittal()) return;
+			if (!r || !r.isSuccess) return;
+			const number = r.data && (r.data.number || r.data.Number);
+			if (number)
+				$$('[data-bind="number"]').val(number);
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) return;
+
+		var model = $$('.card').dataBind();
+		const $btn = $($btnAction.element).block();
+		const items = selectedDocumentItems();
+		const reserveOnly = $$('#reserveNumberOnly').is(':checked');
+		const projectId = $$('#ProjectIdSelector').find('.entity-selector-value').val();
+		const deliveryDate = ($$('[data-bind="deliveryDateToEmployer"]').val() || '').toString().trim();
+
+		if (!projectId) {
+			$btn.block(false);
+			return toastr.error('انتخاب پروژه الزامی است.', 'خطا');
+		}
+
+		model.reserveNumberOnly = reserveOnly;
+
+		if (items.length === 0) {
+			if (!reserveOnly) {
+				$btn.block(false);
+				return toastr.error('انتخاب حداقل یک مدرک الزامی است.', 'خطا');
+			}
+			if (!deliveryDate) {
+				$btn.block(false);
+				return toastr.error('برای افزایش شماره بدون مدرک، تاریخ ارسال به کارفرما را وارد کنید.', 'خطا');
+			}
+			model.documentIds = '';
+			model.isForReplySheet = false;
+		} else {
+			model.documentIds = items.map(function (item) { return item.id; }).join(',');
+
+			const replyFlags = items.map(function (item) {
+				var row = item && item.row;
+				return !!(row && (row.hasReplySheet || row.HasReplySheet));
+			});
+			const allReply = replyFlags.every(Boolean);
+			const anyReply = replyFlags.some(Boolean);
+			if (anyReply && !allReply) {
+				$btn.block(false);
+				return toastr.error('امکان انتخاب همزمان مدرک عادی و ReplySheet وجود ندارد.', 'خطا');
+			}
+			model.isForReplySheet = allReply;
+		}
+
 		$$.post('save',
 			model,
 			function (r) {
@@ -151,16 +256,29 @@
 				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
 				toastr.success('ذخیره سازی با موفقیت انجام شد .');
 				$$('.card').dataBind(r.data);
+				const savedNumber = r.data && (r.data.number || r.data.Number);
+				if (savedNumber)
+					$$('[data-bind="number"]').val(savedNumber);
+				const savedUserNumber = r.data ? (r.data.definedByUserNumber || r.data.DefinedByUserNumber || '') : '';
+				$$('[data-bind="definedByUserNumber"]').val(savedUserNumber);
+				$$('#reserveNumberOnly').prop('checked', !!(r.data && (r.data.reserveNumberOnly || r.data.ReserveNumberOnly)));
 				$btnAction.baseaction();
 			})
 	}
 
-	 $('#DocumentIdSelector').entitySelector({
+	 $$('#DocumentIdSelector').entitySelector({
 	    filters: function() {
-		   let projectId = $('#ProjectIdSelector').find('.entity-selector-value').val();
+		   let projectId = $$('#ProjectIdSelector').find('.entity-selector-value').val();
 		   return { ProjectId: projectId };
 	    },
 	    watchDependencies: ['#ProjectIdSelector']
+	});
+
+	page.$pageEl.on('change', '#ProjectIdSelector .entity-selector-value', function () {
+		loadNextTransmittalNumber();
+	});
+	page.$pageEl.on('change', '#DocumentIdSelector .entity-selector-value', function () {
+		loadNextTransmittalNumber();
 	});
 
 	self.FormActionButtons.save.onclick(function () { savefn(this) })

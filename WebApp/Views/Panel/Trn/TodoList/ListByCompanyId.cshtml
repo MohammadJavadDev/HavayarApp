@@ -24,9 +24,11 @@
                <thead>
                     <tr class="fw-bold fs-6 text-muted">
                          <th>عنوان</th>
-                         <th>تاریخ پیگیری</th>
-                         <th>ثبت کننده</th>
-                         <th style="width:120px;">عملیات</th>
+                         <th>توضیحات</th>
+                         <th>ایجاد کننده</th>
+                         <th>تاریخ ایجاد</th>
+                         <th>ساعت</th>
+                         <th>انجام شد</th>
                     </tr>
                </thead>
                <tbody></tbody>
@@ -45,35 +47,6 @@
                .replace(/</g, '&lt;')
                .replace(/>/g, '&gt;')
                .replace(/"/g, '&quot;');
-     }
-
-     function deleteTodoList(id) {
-          Swal.fire({
-               title: 'حذف ردیف',
-               text: 'آیا از حذف این ردیف مطمئن هستید؟',
-               icon: 'warning',
-               showCancelButton: true,
-               confirmButtonText: 'بله',
-               cancelButtonText: 'خیر'
-          }).then(function (result) {
-               if (!result.isConfirmed) return;
-
-               $$.get('/Panel/Trn/TodoList/Delete?id=' + id, function (response) {
-                    if (response && response.isSuccess === false) {
-                         toastr.error(response.message || 'خطا در حذف رکورد');
-                         return;
-                    }
-                    toastr.success('رکورد با موفقیت حذف شد');
-                    reloadTodoList();
-               });
-          });
-     }
-
-     function reloadTodoList() {
-          const dt = window['@tableId'];
-          if (dt && dt.ajax) {
-               dt.ajax.reload(null, false);
-          }
      }
 
      const table = $$(tableSelector).DataTable({
@@ -97,16 +70,23 @@
           },
           columns: [
                { data: 'title', render: function (d) { return escapeHtml(d); } },
-               { data: 'todoShamsiDate', render: function (d) { return escapeHtml(d); } },
+               { data: 'description', render: function (d) { return escapeHtml(d); } },
                { data: 'createdByName', render: function (d) { return escapeHtml(d); } },
+               { data: 'createdOnShamsiDateTime', render: function (d) { return escapeHtml(d ? String(d).split(' ')[0] : ''); } },
                {
-                    data: null,
-                    orderable: false,
-                    className: 'text-center',
-                    render: function (d, t, row) {
-                         return '<button type="button" class="btn btn-sm btn-icon btn-light-warning btn-edit-row" data-id="' + row.id + '" title="ویرایش"><i class="fa fa-edit"></i></button> '
-                              + '<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete-row" data-id="' + row.id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+                    data: 'createdOnMiladiDateTime',
+                    render: function (d) {
+                         if (!d) return '';
+                         const date = new Date(d);
+                         if (isNaN(date.getTime())) return '';
+                         const pad = function (n) { return String(n).padStart(2, '0'); };
+                         return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
                     }
+               },
+               {
+                    data: 'isDone',
+                    className: 'text-center',
+                    render: function (d) { return d ? '<i class="fa fa-check text-success"></i>' : ''; }
                }
           ]
      });
@@ -115,15 +95,5 @@
 
      $$('#btnNewTodoList').on('click', function () {
           appController.addPage('/Panel/Trn/TodoList/New?companyId=' + companyId);
-     });
-
-     $$(tableSelector).on('click', '.btn-edit-row', function () {
-          const id = $(this).data('id');
-          appController.addPage('/Panel/Trn/TodoList/Edit?id=' + id);
-     });
-
-     $$(tableSelector).on('click', '.btn-delete-row', function () {
-          const id = $(this).data('id');
-          deleteTodoList(id);
      });
 </script>

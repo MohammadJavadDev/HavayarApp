@@ -20,13 +20,13 @@ namespace Entities.App.Epms
 	public class ProposalActivity:BaseEntity
 	{
 		[DisplayName("پروپوزال")]
-		[DisplayInfo(null, true, type: SystemType.Entity, required: true )]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
  
-		public Proposal Proposal { get; set; }
+		public Proposal? Proposal { get; set; }
 		 
 		[DisplayName("شناسه پروپوزال")]
-		[DisplayInfo(null, true, type: SystemType.Long, required: true)]
-		public long ProposalId { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Long)]
+		public long? ProposalId { get; set; }
 
 		[DisplayName("نام پروژه")]
 		[DisplayInfo(null, true, type: SystemType.String, showInRelationData:true)]
@@ -42,8 +42,8 @@ namespace Entities.App.Epms
 		public long? BeneficiaryUnitId { get; set; }
 
 		[DisplayName("نوع فعالیت")]
-		[DisplayInfo(null, true, type: SystemType.Select , required:true)]
-		public ProposalActivityActivityTypeEnum Type { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public ProposalActivityActivityTypeEnum? Type { get; set; }
 
 		[DisplayName("کامنت")]
 		[DisplayInfo(null, true, type: SystemType.String)]
@@ -68,6 +68,11 @@ namespace Entities.App.Epms
 		[DisplayInfo(null, true, type: SystemType.ListEntity )]
 		public List<ProposalActivityComment> ProposalActivityComments { get; set; } = new();
 
+		/// <summary>
+		/// شناسه فعالیت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
+
 	}
 	[Display(Name = "کامنت فعالیت های پروپوزال")]
 	[Table("ProposalActivityComment", Schema = "Epms")]
@@ -89,6 +94,11 @@ namespace Entities.App.Epms
 		[DisplayName("کامنت")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string Comment { get; set; }
+
+		/// <summary>
+		/// شناسه کامنت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 
 }

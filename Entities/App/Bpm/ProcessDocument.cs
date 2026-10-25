@@ -172,6 +172,14 @@ namespace Entities.App.Bpm
 		[DisplayInfo(null, false, type: SystemType.ListEntity)]
 		public virtual ICollection<ProcessDocumentEditingOrgUnit> EditingOrgUnits { get; set; } = new List<ProcessDocumentEditingOrgUnit>();
 
+		[DisplayName("تیم بازنگری/تدوین")]
+		[DisplayInfo(null, false, type: SystemType.ListEntity)]
+		public virtual ICollection<ProcessDocumentEditingUser> EditingUsers { get; set; } = new List<ProcessDocumentEditingUser>();
+
+		[DisplayName("مجری فرآیند")]
+		[DisplayInfo(null, false, type: SystemType.ListEntity)]
+		public virtual ICollection<ProcessDocumentProcessExecuterOrgUnit> ProcessExecuterOrgUnits { get; set; } = new List<ProcessDocumentProcessExecuterOrgUnit>();
+
 		[DisplayName("واحدهای مجری")]
 		[DisplayInfo(null, false, type: SystemType.ListEntity)]
 		public virtual ICollection<ProcessDocumentExecuterOrgUnit> ExecuterOrgUnits { get; set; } = new List<ProcessDocumentExecuterOrgUnit>();
@@ -195,6 +203,18 @@ namespace Entities.App.Bpm
 		/// <summary>
 		/// فقط برای بایند فرم (EntitySelector چندانتخابی). ستون CSV در دیتابیس نیست.
 		/// </summary>
+		[NotMapped]
+		public string? EditingUserIds { get; set; }
+
+		[NotMapped]
+		public string? EditingUserNames { get; set; }
+
+		[NotMapped]
+		public string? ProcessExecuterOrgUnitIds { get; set; }
+
+		[NotMapped]
+		public string? ProcessExecuterOrgUnitNames { get; set; }
+
 		[NotMapped]
 		public string? EditingOrgUnitIds { get; set; }
 
@@ -323,6 +343,16 @@ namespace Entities.App.Bpm
 				.OnDelete(DeleteBehavior.Cascade);
 
 			builder.HasMany(x => x.EditingOrgUnits)
+				.WithOne(x => x.ProcessDocument)
+				.HasForeignKey(x => x.ProcessDocumentId)
+				.OnDelete(DeleteBehavior.Cascade);
+
+			builder.HasMany(x => x.EditingUsers)
+				.WithOne(x => x.ProcessDocument)
+				.HasForeignKey(x => x.ProcessDocumentId)
+				.OnDelete(DeleteBehavior.Cascade);
+
+			builder.HasMany(x => x.ProcessExecuterOrgUnits)
 				.WithOne(x => x.ProcessDocument)
 				.HasForeignKey(x => x.ProcessDocumentId)
 				.OnDelete(DeleteBehavior.Cascade);

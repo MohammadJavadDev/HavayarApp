@@ -8,8 +8,16 @@ namespace WebApp.Actions.Sale
 	{
 		[EntityAction(typeof(ServiceRequestPart), EntityActionTrigger.BeforeSave,
 			"ServiceRequestPartValidate", "اعتبارسنجی درخواست کالا مطابق HTS", Priority = 1)]
-		public Task BeforeSave(ServiceRequestPart entity, CancellationToken ct)
+		public Task BeforeSave(ServiceRequestPart entity, ServiceRequestPart? oldEntity, CancellationToken ct)
 		{
+			// فیلد محاسبه‌ای: قیمت واحد گارانتی روی ثبت و ویرایش هر دو پر می‌شود.
+			if (entity.ServiceType == AfterSalesServiceTypeEnum.Warranty && entity.UnitPrice == null)
+				entity.UnitPrice = 0;
+
+			// اعتبارسنجی (خطا) فقط برای ردیف جدید است؛ oldEntity فقط در ویرایش مقدار دارد.
+			if (oldEntity != null)
+				return Task.CompletedTask;
+
 			if (entity.ServiceRequestDetailId is null or 0)
 				throw new InvalidOperationException("محصول مرتبط را از محصولات همین درخواست پشتیبانی انتخاب کنید");
 			if (entity.ServiceType == 0)
@@ -25,8 +33,6 @@ namespace WebApp.Actions.Sale
 				if (string.IsNullOrWhiteSpace(entity.FailureDescription))
 					throw new InvalidOperationException("توضیحات قطعه معیوب اجباری می‌باشد");
 			}
-			if (entity.ServiceType == AfterSalesServiceTypeEnum.Warranty && entity.UnitPrice == null)
-				entity.UnitPrice = 0;
 			return Task.CompletedTask;
 		}
 	}

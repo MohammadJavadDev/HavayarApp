@@ -44,6 +44,7 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(Participant participant, CancellationToken cn)
 		{
+			await PreserveHiddenFields(participant, cn);
 			var entity = await unitOfWork.Repository<Participant>().UpdateAsync(participant, cn, true);
 			return Ok(entity);
 		}
@@ -58,29 +59,46 @@ namespace WebApp.Controllers.Dynamic
 			return Ok();
 		}
 
-		// Duplicate-name warning (legacy behavior — client-side warning only, non-blocking).
-		// The Edit page calls this before saving a new row; the save always proceeds.
+		// Similar-name confirm (legacy CheckSellerExist): Contains on first and last name.
+		// The page asks before insert; cancel does not save.
 		[HttpGet("[action]")]
 		[ActionDisplayName("بررسی تکراری بودن نام", ActionAccessType.Api, ActionAccessItemType.FetchData)]
-		public async Task<IActionResult> CheckDuplicateName(string? firstName, string? lastName, long? excludeId, CancellationToken cn)
+		public async Task<IActionResult> CheckDuplicateName(string? firstName, string? lastName, CancellationToken cn)
 		{
-			if (string.IsNullOrEmpty(firstName) && string.IsNullOrEmpty(lastName))
-				return Ok(new { isDuplicate = false });
+			firstName = firstName?.Trim();
+			lastName = lastName?.Trim();
+			if (string.IsNullOrEmpty(firstName) || string.IsNullOrEmpty(lastName))
+				return Ok(new { matches = Array.Empty<object>(), hasMore = false });
 
-			var duplicate = await unitOfWork.Repository<Participant>().TableNoTracking
-				.AnyAsync(p => p.FirstName == firstName && p.LastName == lastName
-					&& (excludeId == null || p.Id != excludeId), cn);
-			return Ok(new { isDuplicate = duplicate });
+			var rows = await unitOfWork.Repository<Participant>().TableNoTracking
+				.Where(p => p.FirstName != null && p.LastName != null
+					&& p.FirstName.Contains(firstName) && p.LastName.Contains(lastName))
+				.OrderBy(p => p.FirstName)
+				.ThenBy(p => p.LastName)
+				.Select(p => new
+				{
+					fullName = p.FirstName + " " + p.LastName,
+					company = p.Company != null ? p.Company.Title : null
+				})
+				.Take(101)
+				.ToListAsync(cn);
+
+			return Ok(new
+			{
+				matches = rows.Take(100).ToList(),
+				hasMore = rows.Count > 100
+			});
 		}
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
 		public IActionResult Edit(long? id)
 		{
+			FillCompanies();
 			if (id != null && id != 0)
 			{
 				var entity = unitOfWork.Repository<Participant>().TableNoTracking
-					.Include(p => p.Company)
+					.Include(p => p.PhotoFile)
 					.FirstOrDefault(c => c.Id == id);
 				return View(@"\Views\Panel\Trn\Participant\Edit.cshtml", entity);
 			}
@@ -92,6 +110,7 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج اطلاعات", ActionAccessType.View, ActionAccessItemType.Create)]
 		public IActionResult New()
 		{
+			FillCompanies();
 			var newEntity = new Participant();
 			return View(@"\Views\Panel\Trn\Participant\Edit.cshtml", newEntity);
 		}
@@ -126,6 +145,30 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 		{
 			return Ok(await unitOfWork.Repository<Participant>().FetchDataAsync(request, cn));
+		}
+
+		private void FillCompanies()
+		{
+			ViewBag.Companies = unitOfWork.Repository<Company>().TableNoTracking
+				.OrderBy(c => c.Title)
+				.Select(c => new Company { Id = c.Id, Title = c.Title })
+				.ToList();
+		}
+
+		private async Task PreserveHiddenFields(Participant participant, CancellationToken cn)
+		{
+			if (participant.Id == null || participant.Id == 0)
+				return;
+
+			var old = await unitOfWork.Repository<Participant>().TableNoTracking
+				.FirstOrDefaultAsync(c => c.Id == participant.Id, cn);
+			if (old == null)
+				return;
+
+			participant.JobPosition = old.JobPosition;
+			participant.FieldOfStudy = old.FieldOfStudy;
+			participant.Description = old.Description;
+			participant.PartyId = old.PartyId;
 		}
 	}
 }

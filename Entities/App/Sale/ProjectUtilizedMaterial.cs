@@ -62,8 +62,10 @@ namespace Entities.App.Sale
         public int? VchHdrId { get; set; }
 
         [DisplayName("نوع رسید")]
-        [DisplayInfo(null, false, type: SystemType.Int)]
-        public byte? VchTypeId { get; set; }
+        [DisplayInfo(null, true, type: SystemType.Entity)]
+        [ForeignKey(nameof(VchTypeId))]
+        public virtual VchType? VchType { get; set; }
+        public long? VchTypeId { get; set; }
 
         [DisplayName("کالای جایگزین")]
         [DisplayInfo(null, true, type: SystemType.Entity)]
@@ -109,6 +111,11 @@ namespace Entities.App.Sale
                 .IsUnique()
                 .HasFilter("[HtsId] <> CAST(0 AS bigint)")
                 .HasDatabaseName("IX_Sale_ProjectUtilizedMaterial_HtsId");
+
+            builder.HasOne(x => x.VchType)
+                .WithMany()
+                .HasForeignKey(x => x.VchTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 

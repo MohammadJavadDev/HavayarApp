@@ -1295,7 +1295,7 @@ AND (
           <tr>
             <td>تایید کمیته</td>
             <td>SupplyCommitteeBoss</td>
-            <td>۱۹۰۹ یا ۲۲۰۲ → ۱۹۰۴ + ProductionStep منتظر تولید</td>
+            <td>۱۹۰۹ یا ۲۲۰۲ → ۱۹۰۴ (مرحله ساخت عوض نمی‌شود)</td>
             <td>P8</td>
           </tr>
           <tr>
@@ -1322,7 +1322,7 @@ AND (
       <div class="card">
         <h3>مسیریابی خودکار Job (پس از تایید مالی)</h3>
         <ol>
-          <li>اگر <code>IsRoutine</code> یا DeviceType ∈ {CNG=2232, SparePart=2235} → کارتابل صنایع (۱۹۰۴) / مرحله منتظر تولید</li>
+          <li>اگر <code>IsRoutine</code> یا DeviceType ∈ {CNG=2232, SparePart=2235} → کارتابل صنایع (۱۹۰۴). مرحله ساخت عوض نمی‌شود.</li>
           <li>وگرنه اگر سرفصل <code>ProjectManagerId</code> دارد → کارتابل PM (۲۲۵۸)</li>
           <li>وگرنه → کارتابل مهندسی (۲۱۹۵)</li>
         </ol>

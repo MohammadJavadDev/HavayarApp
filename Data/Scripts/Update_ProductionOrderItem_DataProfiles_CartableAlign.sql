@@ -79,7 +79,11 @@ WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
     (N'POI_Cartable_Industrial', N'کارتابل صنایع — اقلام سفارش ساخت',
      N'
 WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
-  AND [t1].[CheckStatus] IN (1904, 1905)',
+  AND (
+        [t1].[CheckStatus] IN (1904, 1905)
+     OR [t1].[CreatedById] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t1].[ModifiedById] = TRY_CAST(@CurrentUserId AS BIGINT)
+  )',
      @ActIndustrial, @SwapBtn, 1),
     (N'POI_Cartable_ProjectManager', N'منتظر تایید مدیر پروژه',
      N'

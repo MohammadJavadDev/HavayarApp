@@ -53,9 +53,42 @@ internal static class EdmsMdrReportLogic
 
 	public static string GetUserEnglishName(string? name, string? fullNameEn, string? firstEn, string? lastEn)
 	{
-		if (!string.IsNullOrWhiteSpace(fullNameEn)) return fullNameEn;
+		if (IsLatinName(fullNameEn))
+			return fullNameEn!.Trim();
+
 		var combined = $"{firstEn} {lastEn}".Trim();
-		return string.IsNullOrWhiteSpace(combined) ? name ?? string.Empty : combined;
+		if (IsLatinName(combined))
+			return combined;
+
+		if (!string.IsNullOrWhiteSpace(name))
+			return name.Trim();
+
+		if (!string.IsNullOrWhiteSpace(fullNameEn))
+			return fullNameEn.Trim();
+
+		return combined;
+	}
+
+	/// <summary>
+	/// نام انگلیسی طرف‌حساب گاهی فارسی و مال شخص دیگری است (مثلاً «مینو کتابی» روی محمد دهقان).
+	/// فقط نام لاتین قابل‌اعتماد است؛ در غیر این صورت نام خود کاربر استفاده می‌شود.
+	/// </summary>
+	private static bool IsLatinName(string? value)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+			return false;
+
+		foreach (var ch in value)
+		{
+			if (ch is >= '\u0600' and <= '\u06FF'
+				or >= '\u0750' and <= '\u077F'
+				or >= '\u08A0' and <= '\u08FF'
+				or >= '\uFB50' and <= '\uFDFF'
+				or >= '\uFE70' and <= '\uFEFF')
+				return false;
+		}
+
+		return true;
 	}
 
 	public static string GetDocClassTitle(ProjectVpisClassDocumentEnum? value) => value switch
@@ -295,11 +328,11 @@ internal static class EdmsMdrReportLogic
 
 			case DocumentStatusEnums.ReIssued:
 				if (allDocumentComment.Count <= 2)
-					return "Re Issued";
+					return "ReIssued";
 				return allDocumentComment.Where(p => p.Status.HasValue && ValidStatusClient.Contains(p.Status.Value))
 					.LastOrDefault()?.Status is { } reIssuedStatus
 					? GetStatusTitle(reIssuedStatus)
-					: "Re Issued";
+					: "ReIssued";
 
 			default:
 				return "Not Issued";

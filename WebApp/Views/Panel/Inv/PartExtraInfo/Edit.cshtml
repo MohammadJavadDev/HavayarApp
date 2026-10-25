@@ -431,6 +431,12 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
+		<div class='col-md-3' data-info="2">
+			<label class=''>Oil Capacity (Liter)</label>
+			<input class='form-control' data-bind='oilCapacityLiter' asp-for='OilCapacityLiter' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+		</div>
+
 		<div class='col-md-3' data-info="1,2">
 			<label class=''>AirOilFilterSepratorBrand</label>
 			<input class='form-control' data-bind='airOilFilterSeparatorBrand'  asp-for='AirOilFilterSeparatorBrand' />
@@ -601,27 +607,27 @@
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
 
 
-	$$("[name=InfoType]").change(function(){
-		var val =$(this).val();
-		//ثابت و Psa یکی هستن
-		if(val == "5")
-		{
-			val = "4"
-		}
-	  
-		 $$("[data-info]").each((c,x)=>{
-	    let infoTypes = $(x).data("info").toString();
-	    if(infoTypes.includes(val))
-	    {
-		   $(x).show()
-	    }
-	    else
-	    {
-		    $(x).hide()
-	    }
+	function syncInfoTypeUi() {
+		var val = $$("[name=InfoType]:checked").val();
+		if (!val) return;
+		// ثابت و PSA یک فرم هستند
+		var fieldVal = val === "5" ? "4" : String(val);
 
-	})
-	});
+		$$("[data-info]").each(function () {
+			var parts = String($(this).data("info")).split(",");
+			$(this).toggle(parts.indexOf(fieldVal) >= 0);
+		});
+
+		var allowed = fieldVal === "3" ? ["708", "709", "3056"] : ["654", "655"];
+		$$('[data-bind="designType"] option').each(function () {
+			var optionValue = $(this).val();
+			if (!optionValue) return;
+			$(this).prop("hidden", allowed.indexOf(String(optionValue)) < 0);
+		});
+	}
+
+	$$("[name=InfoType]").on("change", syncInfoTypeUi);
+	syncInfoTypeUi();
 
 	self.FormActionButtons.showDataSheet.onclick(function(){
 		var id = $$("[data-bind=id]").val()

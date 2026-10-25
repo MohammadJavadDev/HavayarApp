@@ -1,6 +1,12 @@
 @using Common.Utilities
 @using Entities.App.Edms.Enums
 @model List<WebApp.ViewModels.Edms.DocumentRevisionSummaryViewModel>
+<style>
+	.js-revision-item.revision-selected {
+		background-image: repeating-linear-gradient(-45deg, rgba(13, 110, 253, 0.08), rgba(13, 110, 253, 0.08) 8px, rgba(13, 110, 253, 0.2) 8px, rgba(13, 110, 253, 0.2) 16px);
+		border-color: #0d6efd !important;
+	}
+</style>
 
 @{
 	long currentId = 0;
@@ -22,22 +28,15 @@ else
 			{
 					var isActive = rev.Id == currentId;
 					var statusText = rev.Status.HasValue ? rev.Status.Value.ToDisplay() : "-";
-						var statusClass = rev?.Status switch
-						{
-							DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
-							DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
-							DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-							DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
-							DocumentStatusEnums.Archived => "badge-light-dark",
-							_ => "badge-light"
-						};
+					var statusClass = DocumentStatusPalette.BadgeClass(rev?.Status);
+					var statusStyle = DocumentStatusPalette.BadgeStyle(rev?.Status);
 
-					<div class="p-3 border rounded @((isActive ? "border-primary" : "border-gray-200")) js-revision-item" data-revision-id="@rev.Id">
+					<div class="p-3 border rounded @((isActive ? "border-primary revision-selected" : "border-gray-200")) js-revision-item" data-revision-id="@rev.Id">
 						<div class="d-flex align-items-start justify-content-between">
 							<div class="d-flex flex-column">
 								<div class="d-flex flex-wrap align-items-center gap-2">
 							<span class="badge badge-light-primary">R 0@(rev.Revision)</span>
-							<span class="badge @statusClass" style="max-width:125px;overflow:hidden">@statusText</span>
+							<span class="@statusClass" style="max-width:125px;overflow:hidden;@statusStyle">@statusText</span>
 									@if (rev.CommentCount > 0)
 									{
 											<span class="badge badge-light">@rev.CommentCount کامنت</span>
@@ -69,6 +68,10 @@ else
 									@if (rev.ReplySheetId.HasValue && rev.ReplySheetId.Value > 0)
 									{
 										<span class="badge badge-light">Reply</span>
+									}
+									@if (rev.SecondReplySheetId.HasValue && rev.SecondReplySheetId.Value > 0)
+									{
+										<span class="badge badge-light">Reply 2</span>
 									}
 								</div>
 							</div>

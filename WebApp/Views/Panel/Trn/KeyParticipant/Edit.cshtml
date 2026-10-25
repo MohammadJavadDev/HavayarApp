@@ -12,9 +12,7 @@
 
           <div class="row mb-4">
                <div class="col-12">
-                    <h4 class="fw-bold text-dark mb-0">
-                         فرد کلیدی شرکت
-                    </h4>
+                    <h4 class="fw-bold text-dark mb-0">مدیران و افراد کلیدی</h4>
                </div>
           </div>
 
@@ -24,44 +22,56 @@
           <div class="row g-3">
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold required'>نام</label>
-                    <input class='form-control' data-bind='firstName' data-required="true"
-                           asp-for='FirstName' />
+                    <label class='form-label fw-bold'>نام</label>
+                    <input class='form-control' data-bind='firstName' asp-for='FirstName' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold required'>نام خانوادگی</label>
-                    <input class='form-control' data-bind='lastName' data-required="true"
-                           asp-for='LastName' />
+                    <label class='form-label fw-bold'>نام خانوادگی</label>
+                    <input class='form-control' data-bind='lastName' asp-for='LastName' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
                     <label class='form-label fw-bold'>سمت</label>
-                    <input class='form-control' data-bind='position'
-                           asp-for='Position' />
+                    <input class='form-control' data-bind='position' data-required="true" asp-for='Position' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>تلفن همراه</label>
-                    <input class='form-control' dir="ltr" data-bind='mobile'
-                           asp-for='Mobile' />
+                    <label class='form-label fw-bold'>تلفن مستقیم</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='directPhoneNumber' data-required="true" asp-for='DirectPhoneNumber' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>ایمیل</label>
-                    <input class='form-control' dir="ltr" data-bind='email'
-                           asp-for='Email' />
+                    <label class='form-label fw-bold'>فکس</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='faxNumber' asp-for='FaxNumber' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
-               <div class='col-md-12 form-group-inline'>
-                    <label class='form-label fw-bold'>توضیحات</label>
-                    <textarea class='form-control' data-bind='description'
-                              asp-for='Description'>@Model?.Description</textarea>
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تایید فکس</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='confirmedFaxNumber' asp-for='ConfirmedFaxNumber' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>شماره موبایل</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='mobileNumber' data-required="true" asp-for='MobileNumber' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>ایمیل 1</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='email' asp-for='Email' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>ایمیل 2</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='phoneNumber' asp-for='PhoneNumber' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
@@ -73,27 +83,22 @@
 <div class="card mt-4 border-0 shadow-sm">
      <div class="card-body">
           <div class="row text-muted">
-
                <div class="col-md-3">
                     <span class="fw-bold">ایجاد کننده :</span>
                     <span data-bind="createdByName">@Model?.CreatedByName</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">تاریخ ایجاد :</span>
                     <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">ویرایش کننده :</span>
                     <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">تاریخ ویرایش :</span>
                     <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
                </div>
-
           </div>
      </div>
 </div>

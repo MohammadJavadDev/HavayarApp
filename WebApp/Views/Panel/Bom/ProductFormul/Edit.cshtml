@@ -56,30 +56,31 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-12'>
-			<div data-tab-item-manager="productFormulItems" data-item-selector=".entity-item">
-				<ul class="nav nav-tabs nav-line-tabs nav-line-tabs-2x border-transparent fs-4 fw-bold mb-5" role="tablist">
-					<li class="nav-item" role="presentation">
-						<a class="nav-link active" data-bs-toggle="tab" href="#moviesTab" role="tab" aria-selected="true">
-							<span class="svg-icon svg-icon-2 me-2"></span>
-							افلام
-						</a>
-					</li>
-				</ul>
-				<div class="tab-content">
-					<div class="tab-pane fade show active" id="ItemsTab" role="tabpanel" data-add-url="/Panel/Bom/ProductFormul/ProductFormulItemPartial">
-						<div id='ItemsContainer' class="entity-item-container">
-							@if (Model?.Items != null)
-							{
-								@foreach (var item in Model.Items)
-								{
-									<div data-item-id="@(item.Id ?? 0)">
-										@await Html.PartialAsync("_ProductFormulItemPartial.cshtml", item)
-									</div>
-								}
-							}
-						</div>
+		<div class="col-12 mt-2" id="productFormulItemsCard">
+			<div class="border rounded">
+				<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 px-3 py-3 border-bottom">
+					<div>
+						<div class="fw-bold fs-5">اقلام <span class="badge badge-light-primary ms-1" id="formulItemCount">0</span></div>
+						<div class="text-muted fs-7">ضریب مصرف عدد اعشاری است و 1 به‌صورت 1.00 نشان داده می‌شود. با خروج از فیلد ذخیره می‌شود.</div>
 					</div>
+					<div class="d-flex flex-wrap align-items-center gap-2" id="formulItemsTools">
+						<input type="text" class="form-control form-control-sm" data-action="searchFormulItems" placeholder="جستجوی کد یا نام" style="width:220px" />
+						<button type="button" class="btn btn-sm btn-primary" data-action="addFormulItem">افزودن</button>
+					</div>
+				</div>
+				<div class="px-3 py-2 text-warning" id="formulItemsNeedSave" style="display:none">برای مدیریت اقلام، ابتدا فرمول را ذخیره کنید.</div>
+				<div class="p-3">
+					<table class="table table-striped table-row-bordered gy-2 w-100" id="productFormulItemsTable">
+						<thead>
+							<tr class="fw-bold fs-6 text-muted">
+								<th>کد قطعه</th>
+								<th>نام قطعه</th>
+								<th style="width:150px">ضریب مصرف</th>
+								<th style="width:110px">عملیات</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
 				</div>
 			</div>
 		</div>
@@ -105,59 +106,296 @@
 </div>
 
 <script>
-	function savefn($btnAction) {
-		if (validateError($$('.card'))) { return; }
-		var model = $$('.card').dataBind();
-		const $btn = $(this.element).block();
-		$$.post('save',
-			model,
-			function (r) {
-				$btn.block(false);
-				if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
-				toastr.success('ذخیره سازی با موفقیت انجام شد .');
-				$$('.card').dataBind(r.data);
-				$btnAction.baseaction();
-			})
+	function currentFormulId() {
+		const id = Number($$('[data-bind="id"]').val());
+		return id > 0 ? id : 0;
 	}
 
-	self.FormActionButtons.save.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandnew.onclick(function () { savefn(this) })
-	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
+	function formatUsingRate(value) {
+		if (value == null || value === '') return '';
+		const n = Number(value);
+		if (!isFinite(n)) return '';
+		return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false });
+	}
 
+	function parseUsingRate(value) {
+		if (value == null) return null;
+		let s = String(value).trim();
+		if (!s) return null;
+		const persian = '۰۱۲۳۴۵۶۷۸۹';
+		const arabic = '٠١٢٣٤٥٦٧٨٩';
+		s = s.replace(/[۰-۹]/g, function (ch) { return String(persian.indexOf(ch)); });
+		s = s.replace(/[٠-٩]/g, function (ch) { return String(arabic.indexOf(ch)); });
+		s = s.replace(/[,\s٬]/g, '');
+		s = s.replace(/[/٫]/g, '.');
+		if (!/^\d+(\.\d+)?$/.test(s)) return NaN;
+		return Number(s);
+	}
 
-	 self.FormActionButtons.exportExcel.onclick(function () {
-		  
-            var items = [];
+	function syncFormulItemsState() {
+		const hasId = currentFormulId() > 0;
+		$$('#formulItemsNeedSave').toggle(!hasId);
+		$$('#formulItemsTools').toggle(hasId);
+	}
 
-            $$(".entity-item-row").each(function () {
+	const itemsTable = $$('#productFormulItemsTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 25,
+		order: [[0, 'asc']],
+		dom: 'rt<"d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3"ip>',
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Bom/ProductFormul/GetItems',
+			type: 'GET',
+			data: function (d) {
+				d.productFormulId = currentFormulId();
+			},
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اقلام');
+					$$('#formulItemCount').text('0');
+					return [];
+				}
+				const rows = (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+				$$('#formulItemCount').text(rows.length);
+				return rows;
+			}
+		},
+		columns: [
+			{ data: 'partCode', defaultContent: '-', render: renderEllipsisCell },
+			{ data: 'partName', defaultContent: '-', render: renderEllipsisCell },
+			{
+				data: 'usingRate',
+				className: 'dt-ellipsis-skip',
+				render: function (data, type) {
+					if (type === 'sort' || type === 'type') return Number(data);
+					if (type !== 'display') return formatUsingRate(data);
+					return '<input type="text" class="form-control form-control-sm ltr text-center formul-rate-input" inputmode="decimal" autocomplete="off" value="' + formatUsingRate(data) + '" />';
+				}
+			},
+			{
+				data: 'id',
+				orderable: false,
+				searchable: false,
+				className: 'text-center',
+				render: function (id) {
+					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning me-1" data-action="editFormulItem" data-id="' + id + '" title="ویرایش"><i class="fa fa-edit"></i></button>'
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteFormulItem" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+				}
+			}
+		]
+	});
+	bindEmbeddedTableCellTooltips(itemsTable);
+	syncFormulItemsState();
 
- 
-                let partName = $(this).find("[autocomplete=off]").val() || "";
-			
-			 if(partName)
-			 {
-			 let usingRate = $(this).find("[data-bind='items.usingRate']").val() || "";
+	let formulItemSearchTimer = null;
+	page.$pageEl.on('input', '[data-action="searchFormulItems"]', function () {
+		const value = $(this).val();
+		clearTimeout(formulItemSearchTimer);
+		formulItemSearchTimer = setTimeout(function () {
+			itemsTable.search(value).draw();
+		}, 200);
+	});
 
-			 let partCodeName = partName.split("||")
+	page.$pageEl.on('keydown', '.formul-rate-input', function (e) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			$(this).blur();
+		}
+	});
 
-                items.push({
-				 "Part Code": partCodeName[0],
-                    "Part Name": partCodeName[1],
-                    "Using Rate": usingRate
-                });
-			 }
- 
-              
-            });
+	page.$pageEl.on('change', '.formul-rate-input', function () {
+		const $input = $(this);
+		const row = itemsTable.row($input.closest('tr'));
+		const data = row.data();
+		if (!data) return;
+		const parsed = parseUsingRate($input.val());
+		if (parsed == null || Number.isNaN(parsed) || parsed < 0) {
+			toastr.error('ضریب مصرف باید عدد معتبر باشد. مثال: 1.00');
+			$input.val(formatUsingRate(data.usingRate));
+			return;
+		}
+		if (formatUsingRate(data.usingRate) === formatUsingRate(parsed)) {
+			$input.val(formatUsingRate(parsed));
+			return;
+		}
+		$input.prop('disabled', true);
+		$$.post('/Panel/Bom/ProductFormul/SaveItem', {
+			id: data.id,
+			productFormulId: currentFormulId(),
+			partId: data.partId,
+			usingRate: parsed
+		}, function (resp) {
+			$input.prop('disabled', false);
+			if (!resp || !resp.isSuccess) {
+				toastr.error((resp && resp.message) || 'خطا در ذخیره ضریب مصرف', 'خطا');
+				$input.val(formatUsingRate(data.usingRate));
+				return;
+			}
+			data.usingRate = parsed;
+			row.data(data);
+			toastr.success('ضریب مصرف ذخیره شد');
+		});
+	});
 
-            if (items.length === 0) {
-                return toastr.warning("هیچ قلمی برای خروجی اکسل یافت نشد");
-            }
- 
-            var worksheet = XLSX.utils.json_to_sheet(items);
-            var workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "ProductFormulBom");
- 
-            XLSX.writeFile(workbook, "ProductFormulBom.xlsx");
-        });
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function') {
+			const decoded = appController.decodePartialResponse(r);
+			if (decoded && decoded.html) return decoded;
+		}
+		if (typeof r === 'string') return { html: r, scripts: [] };
+		return { html: '', scripts: [] };
+	}
+
+	function openFormulItemModal(id) {
+		const formulId = currentFormulId();
+		if (!formulId) {
+			toastr.warning('ابتدا فرمول را ذخیره کنید');
+			return;
+		}
+		const url = id
+			? '/Panel/Bom/ProductFormul/ProductFormulItemPartial?id=' + id + '&productFormulId=' + formulId
+			: '/Panel/Bom/ProductFormul/ProductFormulItemPartial?productFormulId=' + formulId;
+		const $trigger = id
+			? $$('#productFormulItemsCard').find('[data-action="editFormulItem"][data-id="' + id + '"]')
+			: $$('#productFormulItemsCard').find('[data-action="addFormulItem"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			if (!decoded.html) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html);
+			$.confirm({
+				title: id ? 'ویرایش قلم' : 'افزودن قلم',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const rate = parseUsingRate(model.usingRate);
+							if (rate == null || Number.isNaN(rate) || rate < 0) {
+								toastr.error('ضریب مصرف باید عدد معتبر باشد. مثال: 1.00');
+								return false;
+							}
+							model.usingRate = rate;
+							model.partId = Number(model.partId) || 0;
+							model.productFormulId = Number(model.productFormulId) || formulId;
+							model.id = Number(model.id) || 0;
+							if (!model.partId) {
+								toastr.error('قطعه را انتخاب کنید');
+								return false;
+							}
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Bom/ProductFormul/SaveItem', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp || !resp.isSuccess) {
+									toastr.error((resp && resp.message) || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								itemsTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
+							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+								$(this).entitySelector();
+						});
+					}, 100);
+				}
+			});
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="addFormulItem"]', function () {
+		openFormulItemModal(null);
+	});
+	page.$pageEl.on('click', '[data-action="editFormulItem"]', function () {
+		openFormulItemModal($(this).data('id'));
+	});
+	page.$pageEl.on('click', '[data-action="deleteFormulItem"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({
+			title: 'حذف',
+			text: 'آیا از حذف این قلم مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله',
+			cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.get('/Panel/Bom/ProductFormul/DeleteItem?id=' + id, function (r) {
+				if (r && r.isSuccess === false) {
+					toastr.error(r.message || 'خطا در حذف');
+					return;
+				}
+				toastr.success('قلم حذف شد');
+				itemsTable.ajax.reload(null, false);
+			});
+		});
+	});
+
+	function savefn($btnAction) {
+		if (validateError($$('.card'))) return;
+		const $focusedRate = $$('#productFormulItemsTable .formul-rate-input:focus');
+		if ($focusedRate.length) $focusedRate.trigger('change');
+		const model = $$('.card').dataBind();
+		delete model.usingRate;
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) return toastr.error(`${r.message}`, 'خطا');
+			toastr.success('ذخیره سازی با موفقیت انجام شد .');
+			$$('.card').dataBind(r.data);
+			syncFormulItemsState();
+			itemsTable.ajax.reload(null, false);
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+
+	self.FormActionButtons.exportExcel.onclick(function () {
+		const items = [];
+		itemsTable.rows({ search: 'applied' }).every(function () {
+			const d = this.data();
+			items.push({
+				'کد قطعه': d.partCode || '',
+				'نام قطعه': d.partName || '',
+				'ضریب مصرف': formatUsingRate(d.usingRate)
+			});
+		});
+		if (items.length === 0) {
+			toastr.warning('هیچ قلمی برای خروجی اکسل یافت نشد');
+			return;
+		}
+		const worksheet = XLSX.utils.json_to_sheet(items);
+		const workbook = XLSX.utils.book_new();
+		XLSX.utils.book_append_sheet(workbook, worksheet, 'ProductFormulBom');
+		XLSX.writeFile(workbook, 'ProductFormulBom.xlsx');
+	});
 </script>

@@ -139,7 +139,7 @@ namespace Entities.Base.FormBuilder
 
 		[DisplayName("حداکثر حجم فایل (MB)")]
 		[DisplayInfo(null, false, SystemType.Int)]
-		public int MaxFileSize { get; set; } = 10;
+		public int MaxFileSize { get; set; } = 50;
 
 		[DisplayName("الگوی Regex")]
 		[DisplayInfo(null, false, SystemType.String)]

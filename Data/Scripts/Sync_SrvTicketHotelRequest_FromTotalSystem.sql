@@ -17,7 +17,8 @@ Mappings:
   DepartmentId: HRM_OrgUnit.Hamkaran_Unit_FK -> Hrm.OrgUnit.HamkaranUnitId, else OrgUnit_Title = Title
   ManCompanyId: Gnr_ManCompany.Hamkaran_ManCompany_FK -> Gnr.Party.HamkaranId
   CostCenterId: Acc_CostCenter.Hamkaran_CostCenter_FK -> Gnr.CostCenter.HamkaranId, else Title
-  ProjectDlId: Acc_DL.Hamkaran_Acc_DL_FK -> FIN.DL.HamkaranId
+  ProjectDlId: Acc_DL.Hamkaran_Acc_DL_FK is the Rahkaran DL Code (not DLID).
+    Match FIN.DL.Code numerically (TypeId=5 پروژه) so leading zeros still match.
   ProjectId: Edms.Project.HtsId (nullable historical)
   ApplicantIds: HTS comma-separated HRM Personel_ID (Sec_Personnel.Personel_FK)
     -> Sec.Personnel.Id via Sec_Personnel.Personel_ID = Sec.Personnel.HtsId
@@ -160,8 +161,10 @@ BEGIN TRY
             ROW_NUMBER() OVER (PARTITION BY dl.Acc_DL_ID ORDER BY fdl.Id) AS rn
         FROM [TMS].[TotalSystem].[dbo].[Acc_DL] dl
         INNER JOIN FIN.DL fdl
-            ON fdl.HamkaranId = CAST(dl.Hamkaran_Acc_DL_FK AS BIGINT)
+            ON fdl.TypeId = 5
+           AND dl.AccDLType_FK = 16
            AND ISNULL(dl.Hamkaran_Acc_DL_FK, 0) <> 0
+           AND TRY_CAST(fdl.Code AS BIGINT) = CAST(dl.Hamkaran_Acc_DL_FK AS BIGINT)
     ) x
     WHERE rn = 1;
     CREATE UNIQUE CLUSTERED INDEX IX_ProjectDlMap ON #ProjectDlMap (OldDlId);

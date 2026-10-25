@@ -1,0 +1,226 @@
+@using Entities.App.Hrm
+<div id="resumeListRoot"
+     data-admin="@(ViewBag.IsAdmin == true ? "1" : "0")"
+     data-expert="@(ViewBag.IsExpert == true ? "1" : "0")"
+     data-manager="@(ViewBag.IsUnitManager == true ? "1" : "0")"
+     data-hrm="@(ViewBag.IsHrmManager == true ? "1" : "0")"
+     data-board="@(ViewBag.IsBoard == true ? "1" : "0")"
+     data-office="@(ViewBag.IsOffice == true ? "1" : "0")">
+    <datatableprofile entity-type="typeof(Resume)"></datatableprofile>
+</div>
+<style>
+    #resumeListRoot[data-manager="1"][data-admin="0"] [data-action="new"],
+    #resumeListRoot[data-hrm="1"][data-admin="0"] [data-action="new"],
+    #resumeListRoot[data-manager="1"][data-admin="0"] [data-action="copyNew"],
+    #resumeListRoot[data-hrm="1"][data-admin="0"] [data-action="copyNew"] { display: none !important; }
+</style>
+<script>
+    const resumeFlags = {
+        admin: $$('#resumeListRoot').attr('data-admin') === '1',
+        expert: $$('#resumeListRoot').attr('data-expert') === '1',
+        manager: $$('#resumeListRoot').attr('data-manager') === '1',
+        hrm: $$('#resumeListRoot').attr('data-hrm') === '1',
+        board: $$('#resumeListRoot').attr('data-board') === '1',
+        office: $$('#resumeListRoot').attr('data-office') === '1'
+    };
+
+    function resumeRow(ctx) {
+        const rows = (ctx && ctx.selectedRows && ctx.selectedRows.length) ? ctx.selectedRows : (ctx && ctx.selectedRow ? [ctx.selectedRow] : []);
+        return rows;
+    }
+
+    function resumeId(row) {
+        return row && (row.t1_Id || row.id || row.Id);
+    }
+
+    function resumeReload() {
+        const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+        if (table && table.ajax) table.ajax.reload(null, false);
+    }
+
+    function resumePost(url, data) {
+        $$.post(url, data, function (r) {
+            if (!r.isSuccess) {
+                toastr.error(r.message || 'خطا', 'خطا');
+                return;
+            }
+            toastr.success('انجام شد');
+            resumeReload();
+        });
+    }
+
+    page.$pageEl.on('resumeAction', function (e, action, ctx) {
+        const rows = resumeRow(ctx);
+        const row = rows[0];
+        const id = resumeId(row);
+        if (action === 'copy') {
+            if (!id) { toastr.error('یک ردیف را انتخاب کنید'); return; }
+            appController.addPage('/Panel/Hrm/Resume/Edit?copyFrom=' + id);
+            return;
+        }
+        if (!id && action !== 'accept') { toastr.error('یک ردیف را انتخاب کنید'); return; }
+        if (action === 'review' && !(resumeFlags.manager || resumeFlags.admin)) return;
+        if (action === 'specialized' && !(resumeFlags.manager || resumeFlags.admin)) return;
+        if (action === 'approve' && !(resumeFlags.manager || resumeFlags.admin)) return;
+        if (action === 'interview' && !(resumeFlags.expert || resumeFlags.admin)) return;
+        if (action === 'hr' && !(resumeFlags.hrm || resumeFlags.admin)) return;
+        if (action === 'board' && !(resumeFlags.board || resumeFlags.admin)) return;
+        if (action === 'office' && !(resumeFlags.office || resumeFlags.admin)) return;
+        if (action === 'auth' && !(resumeFlags.admin || (resumeFlags.expert && row.t1_HrInterviewerId > 0 && !row.t1_PreviousCompanyName))) return;
+
+        if (action === 'accept') {
+            const ids = rows.map(resumeId).filter(Boolean);
+            resumePost('AcceptAndContinue', { resumeIds: ids, managerComment: null });
+            return;
+        }
+        if (action === 'comment') {
+            $.confirm({
+                title: 'توضیحات', rtl: true,
+                content: '<textarea class="form-control" id="resumeCommentText" rows="4"></textarea>',
+                buttons: {
+                    save: { text: 'ذخیره', action: function () { resumePost('AddCommentAction', { resumeId: id, title: 'توضیحات', comment: this.$content.find('#resumeCommentText').val() }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'result') { resumePost('SendInterviewResult', { resumeId: id }); return; }
+        if (action === 'reject') { resumePost('SendRejection', { resumeId: id }); return; }
+        if (action === 'survey') { resumePost('SendSurvey', { resumeId: id }); return; }
+        if (action === 'print') {
+            $$.get('Print?id=' + id, function (r) {
+                if (!r.isSuccess) { toastr.error(r.message || 'خطا', 'خطا'); return; }
+                appController.addPage(r.data.url);
+            });
+            return;
+        }
+        if (action === 'download') {
+            window.open('/Panel/Hrm/Resume/DownloadResume?id=' + id, '_blank');
+            return;
+        }
+        if (action === 'approve') {
+            $.confirm({
+                title: 'تایید مدیر واحد', rtl: true,
+                content: '<textarea class="form-control" id="mgrComment" rows="4"></textarea>',
+                buttons: {
+                    save: { text: 'تایید و ادامه', action: function () { resumePost('AcceptAndContinue', { resumeIds: [id], managerComment: this.$content.find('#mgrComment').val() }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'review') {
+            $.confirm({
+                title: 'وضعیت بررسی رزومه', rtl: true,
+                content: '<div class="mb-2"><label>وضعیت</label><select id="rvStatus" class="form-control"><option value="2240">دعوت به مصاحبه</option><option value="2241">عدم تایید</option><option value="2242">در دست بررسی</option><option value="2243">رزرو</option></select></div><div class="mb-2"><label>تاریخ پیشنهادی</label><input id="rvDate" class="form-control" /></div><div class="mb-2"><label>ساعت</label><input id="rvTime" class="form-control" data-time="true" /></div><div class="mb-2"><label>توضیح</label><textarea id="rvDesc" class="form-control" rows="3"></textarea></div>',
+                buttons: {
+                    save: {
+                        text: 'ذخیره',
+                        action: function () {
+                            const $c = this.$content;
+                            resumePost('ResumeReviewStatus', {
+                                resumeId: id,
+                                statusId: Number($c.find('#rvStatus').val()),
+                                status: $c.find('#rvStatus option:selected').text(),
+                                recommendedDateInText: $c.find('#rvDate').val(),
+                                recommendedTimeInText: $c.find('#rvTime').val(),
+                                managerDescription: $c.find('#rvDesc').val()
+                            });
+                        }
+                    },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'interview') {
+            $.confirm({
+                title: 'وضعیت مصاحبه', rtl: true,
+                content: '<div class="mb-2"><label><input type="checkbox" id="ivCancel" /> انصراف کارجو</label></div><div class="mb-2"><label>علت انصراف</label><input id="ivReason" class="form-control" /></div><div class="mb-2"><label>تاریخ جلسه</label><input id="ivDate" class="form-control" /></div><div class="mb-2"><label>ساعت</label><input id="ivTime" class="form-control" /></div><div class="mb-2"><label>محل</label><input id="ivPlace" class="form-control" /></div><div class="mb-2"><label>مصاحبه‌کنندگان</label><input id="ivNames" class="form-control" /></div><div class="mb-2"><label>ایمیل گیرندگان</label><input id="ivMails" class="form-control" /></div><div class="mb-2"><label>توضیح کارشناس</label><textarea id="ivDesc" class="form-control" rows="3"></textarea></div>',
+                buttons: {
+                    save: {
+                        text: 'ذخیره',
+                        action: function () {
+                            const $c = this.$content;
+                            resumePost('InterviewStatus', {
+                                resumeId: id,
+                                cancelByJobApplicant: $c.find('#ivCancel').is(':checked'),
+                                jobApplicantCancelReason: $c.find('#ivReason').val(),
+                                sessionDate: $c.find('#ivDate').val(),
+                                sessionTime: $c.find('#ivTime').val(),
+                                sessionPlace: $c.find('#ivPlace').val(),
+                                beneficiaryNames: $c.find('#ivNames').val(),
+                                emailRecipientEmails: $c.find('#ivMails').val(),
+                                expertDescription: $c.find('#ivDesc').val()
+                            });
+                        }
+                    },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'specialized') {
+            $.confirm({
+                title: 'وضعیت مصاحبه تخصصی', rtl: true,
+                content: '<div class="mb-2"><label>شناسه مصاحبه‌کننده</label><input id="spPerson" class="form-control" /></div><div class="mb-2"><label>وضعیت</label><select id="spStatus" class="form-control"><option value="2245">تایید</option><option value="2246">عدم تایید</option><option value="2247">در دست بررسی</option><option value="2248">رزرو</option><option value="2244">عدم حضور</option></select></div><div class="mb-2"><label>توضیح</label><textarea id="spDesc" class="form-control" rows="3"></textarea></div>',
+                buttons: {
+                    save: { text: 'ذخیره', action: function () { const $c = this.$content; resumePost('SpecializedInterviewStatus', { resumeId: id, specializedInterviewerId: Number($c.find('#spPerson').val()), specializedInterviewStatusId: Number($c.find('#spStatus').val()), specializedInterviewStatus: $c.find('#spStatus option:selected').text(), specializedInterviewDescription: $c.find('#spDesc').val() }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'hr') {
+            $.confirm({
+                title: 'وضعیت مصاحبه منابع انسانی', rtl: true,
+                content: '<div class="mb-2"><label>شناسه مصاحبه‌کننده</label><input id="hrPerson" class="form-control" /></div><div class="mb-2"><label>وضعیت</label><select id="hrStatus" class="form-control"><option value="2250">تایید</option><option value="2251">عدم تایید</option><option value="2252">مبلغ پذیرفته نشد</option><option value="2249">عدم حضور</option></select></div><div class="mb-2"><label>مبلغ قرارداد</label><input id="hrAmount" class="form-control" data-money="true" /></div><div class="mb-2"><label>توضیح</label><textarea id="hrDesc" class="form-control" rows="3"></textarea></div>',
+                buttons: {
+                    save: { text: 'ذخیره', action: function () { const $c = this.$content; resumePost('HrInterviewStatus', { resumeId: id, hrInterviewerId: Number($c.find('#hrPerson').val()), hrInterviewerStatusId: Number($c.find('#hrStatus').val()), hrInterviewerStatus: $c.find('#hrStatus option:selected').text(), contractAmount: MJUtil.unformatMoney($c.find('#hrAmount').val()), hrInterviewerDescription: $c.find('#hrDesc').val() }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'board') {
+            $.confirm({
+                title: 'بررسی توسط هیئت مدیره', rtl: true,
+                content: '<div class="mb-2"><label>بررسی‌کننده</label><input id="bdName" class="form-control" /></div><div class="mb-2"><label>وضعیت</label><select id="bdStatus" class="form-control"><option value="1694">تایید شده</option><option value="1695">ریجکت شده</option></select></div>',
+                buttons: {
+                    save: { text: 'ذخیره', action: function () { const $c = this.$content; resumePost('CheckByManager', { resumeId: id, checker: $c.find('#bdName').val(), statusId: Number($c.find('#bdStatus').val()), status: $c.find('#bdStatus option:selected').text() }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'auth') {
+            $.confirm({
+                title: 'اعتبارسنجی', rtl: true,
+                content: '<div class="mb-2"><label>شرکت قبلی</label><input id="auCompany" class="form-control" /></div><div class="mb-2"><label>تلفن مدیر</label><input id="auMgr" class="form-control" /></div><div class="mb-2"><label>تلفن شرکت</label><input id="auTel" class="form-control" /></div><div class="mb-2"><label>موبایل شرکت</label><input id="auMob" class="form-control" /></div><div class="mb-2"><label>توضیح</label><textarea id="auDesc" class="form-control" rows="3"></textarea></div><div class="mb-2"><label><input type="checkbox" id="auOk" /> تایید استعلام</label></div>',
+                buttons: {
+                    save: { text: 'ذخیره', action: function () { const $c = this.$content; resumePost('Authorization', { resumeId: id, previousCompanyName: $c.find('#auCompany').val(), previousManagerPhoneNumber: $c.find('#auMgr').val(), previousCompanyPhoneNumber: $c.find('#auTel').val(), previousCompanyMobileNumber: $c.find('#auMob').val(), previousCompanyDescription: $c.find('#auDesc').val(), referenceCheckIsApproved: $c.find('#auOk').is(':checked') }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'office') {
+            $.confirm({
+                title: 'اطلاعات تکمیلی', rtl: true,
+                content: '<div class="mb-2"><label>نام</label><input id="fiName" class="form-control" /></div><div class="mb-2"><label>موبایل</label><input id="fiMob" class="form-control" /></div><div class="mb-2"><label>تاریخ شروع</label><input id="fiDate" class="form-control" /></div><div class="mb-2"><label>محل کار</label><input id="fiPlace" class="form-control" /></div><div class="mb-2"><label>مبلغ قرارداد</label><input id="fiAmount" class="form-control" /></div>',
+                buttons: {
+                    save: { text: 'ذخیره', action: function () { const $c = this.$content; resumePost('FinalInformation', { entity: { resumeId: id, fullName: $c.find('#fiName').val(), mobileNumber: $c.find('#fiMob').val(), startDateOfAgreement: $c.find('#fiDate').val(), workplace: $c.find('#fiPlace').val(), contractAmount: MJUtil.unformatMoney($c.find('#fiAmount').val()) } }); } },
+                    cancel: { text: 'انصراف' }
+                }
+            });
+            return;
+        }
+        if (action === 'attach') {
+            $$.get('Attachments?resumeId=' + id, function (r) {
+                if (!r.isSuccess) { toastr.error(r.message || 'خطا', 'خطا'); return; }
+                const lines = (r.data || []).map(function (x) { return (x.fileName || '') + ' — ' + (x.comment || ''); }).join('<br/>') || 'پیوستی نیست';
+                $.confirm({ title: 'پیوست مدارک', rtl: true, content: lines, buttons: { cancel: { text: 'بستن' } } });
+            });
+        }
+    });
+</script>

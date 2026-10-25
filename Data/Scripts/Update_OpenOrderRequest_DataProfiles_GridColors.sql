@@ -27,25 +27,30 @@ DECLARE @OnRowAddedFull NVARCHAR(MAX) = N'function(ctx) {
     var d = ctx.rowData || {};
     var yes = function (v) { return v === true || v === 1 || v === "true" || v === "بله"; };
     var $cells = ctx.$row.children("td");
-    var $c1 = $cells.eq(1);
-    var $c2 = $cells.eq(2);
-    $c1.css("background-color", "");
-    $c2.css("background-color", "");
-    if (yes(d.tEml_EmailSendToSupplier)) { $c1.css("background-color", "lightgreen"); }
-    if (yes(d.t1_Changed)) { $c1.css("background-color", "violet"); }
-    if (yes(d.t1_IsStop)) { $c1.css("background-color", "orangered"); }
-    if (yes(d.t1_HasSalesUnitConfirmation)) { $c2.css("background-color", "orange"); }
-    if (yes(d.tClr_InSupplyWindow)) { $c1.css("background-color", "deepskyblue"); }
+    var $select = $cells.filter(".dt-row-select-col");
+    var $rowNo = $select.length ? $select.next("td") : $cells.eq(0);
+    $rowNo.css("background-color", "");
+    $select.css("background-color", "");
+    if (yes(d.t1_HasSalesUnitConfirmation)) {
+        if ($select.length) $select.css("background-color", "orange");
+        else $rowNo.css("background-color", "orange");
+    }
+    if (yes(d.tEml_EmailSendToSupplier)) { $rowNo.css("background-color", "lightgreen"); }
+    if (yes(d.t1_Changed)) { $rowNo.css("background-color", "violet"); }
+    if (yes(d.t1_IsStop)) { $rowNo.css("background-color", "orangered"); }
+    if (yes(d.tClr_InSupplyWindow)) { $rowNo.css("background-color", "deepskyblue"); }
 }';
 
 DECLARE @OnRowAddedBasic NVARCHAR(MAX) = N'function(ctx) {
     var d = ctx.rowData || {};
     var yes = function (v) { return v === true || v === 1 || v === "true" || v === "بله"; };
-    var $c1 = ctx.$row.children("td").eq(1);
-    $c1.css("background-color", "");
-    if (yes(d.tEml_EmailSendToSupplier)) { $c1.css("background-color", "lightgreen"); }
-    if (yes(d.t1_Changed)) { $c1.css("background-color", "violet"); }
-    if (yes(d.t1_IsStop)) { $c1.css("background-color", "orangered"); }
+    var $cells = ctx.$row.children("td");
+    var $select = $cells.filter(".dt-row-select-col");
+    var $rowNo = $select.length ? $select.next("td") : $cells.eq(0);
+    $rowNo.css("background-color", "");
+    if (yes(d.tEml_EmailSendToSupplier)) { $rowNo.css("background-color", "lightgreen"); }
+    if (yes(d.t1_Changed)) { $rowNo.css("background-color", "violet"); }
+    if (yes(d.t1_IsStop)) { $rowNo.css("background-color", "orangered"); }
 }';
 
 BEGIN TRY

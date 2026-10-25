@@ -99,6 +99,13 @@ namespace WebApp.Controllers.Dynamic
 		{
 			return View(@"\Views\Panel\Epms\Proposal\List.cshtml");
 		}
+
+		[HttpGet("[action]")]
+		[ActionDisplayName("گزارش عملکرد پرسنل", ActionAccessType.View, ActionAccessItemType.List)]
+		public IActionResult PersonnelPerformanceReport()
+		{
+			return View(@"\Views\Panel\Epms\Proposal\PersonnelPerformanceReport.cshtml");
+		}
 		[HttpPost("[action]")]
 		[ActionDisplayName("خروجی اکسل", ActionAccessType.Api)]
 		public async Task<IActionResult> ExportToExcel(DataTableRequest request, CancellationToken cn)

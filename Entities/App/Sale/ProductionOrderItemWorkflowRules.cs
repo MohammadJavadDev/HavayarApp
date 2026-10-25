@@ -114,6 +114,103 @@ namespace Entities.App.Sale
 			status.HasValue && InquiryStatuses.Contains(status.Value);
 
 		/// <summary>
+		/// مرحله‌هایی که در HTS دکمهٔ تغییر وضعیت تولید را باز می‌کنند (۲۱۵ در حال تولید، ۲۱۶ تست، ۲۲۰ بسته‌بندی).
+		/// </summary>
+		public static readonly ProductionOrderItemProductionStepEnum[] ChangeStatusProductionSteps =
+		[
+			ProductionOrderItemProductionStepEnum.InProduction,
+			ProductionOrderItemProductionStepEnum.Testing,
+			ProductionOrderItemProductionStepEnum.Packaging
+		];
+
+		/// <summary>
+		/// وضعیت‌های نقش تولید در کمبوی HTS (<c>productionOrderItemOriginal_filterStatus</c>).
+		/// شروع تولید (۱۷۹۲) در FillData از دیتاسورس حذف شده و اینجا هم نیست.
+		/// </summary>
+		public static readonly ProductionOrderItemProductionStatusEnum[] ProductionDepartmentStatuses =
+		[
+			ProductionOrderItemProductionStatusEnum.ProductionCompleted,            // 1789 پایان تولید
+			ProductionOrderItemProductionStatusEnum.PackagingCompleted,             // 1791 پایان بسته بندی
+			ProductionOrderItemProductionStatusEnum.ProductionStageStopStarted,     // 1795 شروع توقف در مرحله تولید
+			ProductionOrderItemProductionStatusEnum.ProductionStageStopEnded,       // 1844 پایان توقف در مرحله تولید
+			ProductionOrderItemProductionStatusEnum.ProductionTestStarted,          // 2209 شروع تست تولید
+			ProductionOrderItemProductionStatusEnum.ProductionTestCompleted,        // 2210 پایان تست تولید
+			ProductionOrderItemProductionStatusEnum.ProductionTestStageStopStarted, // 2226 شروع توقف در مرحله تست تولید
+			ProductionOrderItemProductionStatusEnum.ProductionTestStageStopEnded    // 2227 پایان توقف در مرحله تست تولید
+		];
+
+		/// <summary>
+		/// وضعیت‌های نقش کنترل کیفیت در همان فیلتر HTS.
+		/// </summary>
+		public static readonly ProductionOrderItemProductionStatusEnum[] QualityControlStatuses =
+		[
+			ProductionOrderItemProductionStatusEnum.FinalInspectionStarted,          // 1790 شروع بازرسی نهایی
+			ProductionOrderItemProductionStatusEnum.FinalInspectionCompleted,        // 1843 پایان بازرسی نهایی
+			ProductionOrderItemProductionStatusEnum.FinalInspectionStageStopStarted, // 1796 شروع توقف در مرحله بازرسی نهایی
+			ProductionOrderItemProductionStatusEnum.FinalInspectionStageStopEnded    // 1842 پایان توقف در مرحله بازرسی نهایی
+		];
+
+		/// <summary>
+		/// تنها وضعیت قابل انتخاب کارشناس فروش وقتی وضعیت فعلی «شروع توقف بازدید کارفرما» (۳۱۶۷) است.
+		/// </summary>
+		public static readonly ProductionOrderItemProductionStatusEnum[] ClientVisitStopEndStatuses =
+		[
+			ProductionOrderItemProductionStatusEnum.ClientVisitStopEnded // 3166
+		];
+
+		/// <summary>
+		/// کمبوی «وضعیت تولید» در تغییر وضعیت. معادل فیلتر HTS، محدود به حالتی که برای این قلم برقرار است:
+		/// تولید فقط وقتی مرحله ۲۱۵/۲۱۶/۲۲۰ است و تاریخ شروع تولید دارد؛
+		/// کنترل کیفیت فقط وقتی همان مرحله است و تاریخ پایان تولید دارد؛
+		/// کارشناس فروش فقط وقتی وضعیت فعلی ۳۱۶۷ است.
+		/// وضعیت فعلی قلم از لیست حذف می‌شود چون ذخیرهٔ همان وضعیت در HTS رد می‌شود.
+		/// وضعیت‌های بررسی/کمیته/مهندسی (LookupType 254) اینجا نیستند؛ دکمه‌های جدا همان کار را می‌کنند.
+		/// </summary>
+		public static IReadOnlyList<ProductionOrderItemProductionStatusEnum> GetVisibleChangeStatuses(
+			ProductionOrderItemProductionStepEnum productionStep,
+			bool hasProductionStart,
+			bool hasProductionEnd,
+			ProductionOrderItemProductionStatusEnum currentStatus,
+			bool unrestricted,
+			bool hasProduction,
+			bool hasQc,
+			bool hasSellTeam)
+		{
+			var list = new List<ProductionOrderItemProductionStatusEnum>();
+			var stepOk = ChangeStatusProductionSteps.Contains(productionStep);
+
+			if ((unrestricted || hasProduction) && stepOk && hasProductionStart)
+				list.AddRange(ProductionDepartmentStatuses);
+
+			if ((unrestricted || hasQc) && stepOk && hasProductionEnd)
+				list.AddRange(QualityControlStatuses);
+
+			if ((unrestricted || hasSellTeam)
+				&& currentStatus == ProductionOrderItemProductionStatusEnum.ClientVisitStopStarted)
+				list.AddRange(ClientVisitStopEndStatuses);
+
+			return list
+				.Where(status => status != currentStatus)
+				.Distinct()
+				.ToList();
+		}
+
+		/// <summary>
+		/// کامنت در HTS فقط برای شروع توقف تولید (۱۷۹۵) و شروع توقف بازرسی نهایی (۱۷۹۶) اجباری است
+		/// (<c>productionOrderItemOriginal_ValidatePropertyGrid</c>). بقیه وضعیت‌های تولید، از جمله ۲۲۲۶، کامنت اختیاری دارند.
+		/// </summary>
+		public static bool RequiresComment(ProductionOrderItemProductionStatusEnum status) =>
+			status is ProductionOrderItemProductionStatusEnum.ProductionStageStopStarted
+				or ProductionOrderItemProductionStatusEnum.FinalInspectionStageStopStarted;
+
+		/// <summary>
+		/// علت خرابی در HTS فقط وقتی وضعیت «شروع توقف در مرحله بازرسی نهایی» (۱۷۹۶) است اجباری است و فقط برای نقش کنترل کیفیت،
+		/// که تنها نقشی است که ۱۷۹۶ را در کمبو می‌بیند. فیلد علت برای ۲۲۲۶ هم نمایش داده می‌شود ولی اجباری نیست.
+		/// </summary>
+		public static bool RequiresFailureType(ProductionOrderItemProductionStatusEnum status) =>
+			status == ProductionOrderItemProductionStatusEnum.FinalInspectionStageStopStarted;
+
+		/// <summary>
 		/// وضعیت‌های تولید (LookupType 238 در HTS) که در DoChangeProductionStatusOperationOriginal تاریخ‌های قلم را پر می‌کنند.
 		/// ۱۷۸۹ پایان تولید → ProductionEndDate؛ ۱۸۴۳ پایان بازرسی نهایی → TestingEndDate؛ ۱۷۹۱ پایان بسته‌بندی → PreparationDate.
 		/// </summary>

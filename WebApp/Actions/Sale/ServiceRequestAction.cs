@@ -8,6 +8,8 @@ using Entities.Base.Enums;
 using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
 using Services.Auth;
+using Services.ProductionOrderServices;
+using System.Text;
 
 namespace WebApp.Actions.Sale
 {
@@ -80,20 +82,9 @@ namespace WebApp.Actions.Sale
 			if (entity.Id == null || entity.Id == 0)
 				return;
 
-			var productNames = await unitOfWork.Repository<ServiceRequestDetail>().TableNoTracking
-				.Where(d => d.ServiceRequestId == entity.Id)
-				.Select(d =>
-					d.OtherPart != null ? d.OtherPart.Name
-					: d.OrderDetail != null && d.OrderDetail.Part != null ? d.OrderDetail.Part.Name
-					: d.OtherPartSerial)
-				.Where(n => n != null && n != "")
-				.Distinct()
-				.ToListAsync(ct);
-			if (productNames.Count > 0)
-			{
-				var joined = string.Join(" ، ", productNames);
-				entity.AllProductName = joined.Length > 4000 ? joined[..4000] : joined;
-			}
+			var productName = await ServiceRequestProductNames.BuildAsync(unitOfWork, entity.Id.Value, ct);
+			if (productName != null)
+				entity.AllProductName = productName;
 		}
 
 		[EntityAction(typeof(ServiceRequest), EntityActionTrigger.AfterSave,
@@ -106,7 +97,10 @@ namespace WebApp.Actions.Sale
 			if (entity.ExpertPersonelIds != null)
 				await SyncExpertMissions(entity.Id.Value, entity.ExpertPersonelIds, ct);
 
-			if (entity.LegacyRepairRequestIds != null)
+			// ExpertPersonelIds ([NotMapped]) فقط از فرم ذخیره می‌آید. AfterSave حالا روی هر UpdateAsync هم اجرا می‌شود
+			// (مثلا SendDispatch با موجودیت خوانده‌شده از دیتابیس)؛ در آن حالت LegacyRepairRequestIds مقدار کهنه است
+			// و همگام‌سازی، تعمیرهای لینک‌شده از سمت درخواست تعمیر را unlink می‌کرد.
+			if (entity.LegacyRepairRequestIds != null && entity.ExpertPersonelIds != null)
 				await SyncRepairRequests(entity.Id.Value, entity.LegacyRepairRequestIds, ct);
 		}
 
@@ -228,25 +222,45 @@ namespace WebApp.Actions.Sale
 		[EntityAction(typeof(ServiceRequestDetail), EntityActionTrigger.AfterSave,
 			"ServiceRequestDetailRefreshProducts", "به‌روزرسانی نام محصولات درخواست", Priority = 1)]
 		public async Task AfterSave(ServiceRequestDetail entity, CancellationToken ct)
+			=> await ServiceRequestProductNames.ApplyAsync(unitOfWork, entity.ServiceRequestId, ct);
+
+		[EntityAction(typeof(ServiceRequestDetail), EntityActionTrigger.AfterDelete,
+			"ServiceRequestDetailRefreshProductsOnDelete", "به‌روزرسانی نام محصولات پس از حذف", Priority = 1)]
+		public async Task AfterDelete(ServiceRequestDetail entity, CancellationToken ct)
+			=> await ServiceRequestProductNames.ApplyAsync(unitOfWork, entity.ServiceRequestId, ct);
+	}
+
+	internal static class ServiceRequestProductNames
+	{
+		public static async Task ApplyAsync(IUnitOfWork unitOfWork, long? serviceRequestId, CancellationToken ct)
 		{
-			if (entity.ServiceRequestId == null || entity.ServiceRequestId == 0)
+			if (serviceRequestId == null || serviceRequestId == 0)
 				return;
 			var request = await unitOfWork.Repository<ServiceRequest>().TableNoTracking
-				.FirstOrDefaultAsync(c => c.Id == entity.ServiceRequestId, ct);
+				.FirstOrDefaultAsync(c => c.Id == serviceRequestId, ct);
 			if (request == null)
 				return;
+			request.AllProductName = await BuildAsync(unitOfWork, serviceRequestId.Value, ct);
+			await unitOfWork.Repository<ServiceRequest>().UpdateAsync(request, ct, true, true, false);
+		}
+
+		public static async Task<string?> BuildAsync(IUnitOfWork unitOfWork, long serviceRequestId, CancellationToken ct)
+		{
 			var names = await unitOfWork.Repository<ServiceRequestDetail>().TableNoTracking
-				.Where(d => d.ServiceRequestId == entity.ServiceRequestId)
+				.Where(d => d.ServiceRequestId == serviceRequestId)
 				.Select(d =>
 					d.OtherPart != null ? d.OtherPart.Name
 					: d.OrderDetail != null && d.OrderDetail.Part != null ? d.OrderDetail.Part.Name
+					: d.OrderDetailSerial != null && d.OrderDetailSerial.OrderDetail != null && d.OrderDetailSerial.OrderDetail.Part != null
+						? d.OrderDetailSerial.OrderDetail.Part.Name
 					: d.OtherPartSerial)
 				.Where(n => n != null && n != "")
 				.Distinct()
 				.ToListAsync(ct);
+			if (names.Count == 0)
+				return null;
 			var joined = string.Join(" ، ", names);
-			request.AllProductName = joined.Length > 4000 ? joined[..4000] : joined;
-			await unitOfWork.Repository<ServiceRequest>().UpdateAsync(request, ct, true, true, false);
+			return joined.Length > 4000 ? joined[..4000] : joined;
 		}
 	}
 
@@ -306,11 +320,7 @@ namespace WebApp.Actions.Sale
 				unitOfWork,
 				userService,
 				request,
-				"<div style='direction:rtl;text-align:right'>درخواست اعزام کارشناس ثبت شد."
-					+ "<br/>شماره: " + request.Id
-					+ "<br/>کارشناس: " + expertName
-					+ "<br/>تاریخ اعزام: " + request.DispatchShamsiDate
-					+ "<br/>علت: " + request.Comment + "</div>",
+				expertName,
 				ct);
 		}
 	}
@@ -321,7 +331,7 @@ namespace WebApp.Actions.Sale
 			IUnitOfWork unitOfWork,
 			IUserService userService,
 			ServiceRequest request,
-			string bodyHtml,
+			string? expertName,
 			CancellationToken ct)
 		{
 			if (request.ResponsiblePersonelId is not > 0)
@@ -348,6 +358,8 @@ namespace WebApp.Actions.Sale
 			if (userId is not > 0 && string.IsNullOrWhiteSpace(email))
 				return;
 
+			var bodyHtml = await BuildDispatchEmailAsync(unitOfWork, request, expertName, ct);
+
 			await unitOfWork.Repository<Notification>().AddAsync(new Notification
 			{
 				Type = NotificationType.Email,
@@ -360,6 +372,103 @@ namespace WebApp.Actions.Sale
 				IsSend = false,
 				ToEmails = string.IsNullOrWhiteSpace(email) ? null : new List<string> { email }
 			}, ct);
+		}
+
+		private static async Task<string> BuildDispatchEmailAsync(
+			IUnitOfWork unitOfWork,
+			ServiceRequest request,
+			string? expertName,
+			CancellationToken ct)
+		{
+			var info = request.Id is not > 0
+				? null
+				: await unitOfWork.Repository<ServiceRequest>().TableNoTracking
+					.Where(c => c.Id == request.Id)
+					.Select(c => new
+					{
+						c.Id,
+						CustomerCode = c.Customer != null ? c.Customer.Code : null,
+						CustomerName = c.Customer != null && c.Customer.Party != null ? c.Customer.Party.FullName : null,
+						SiteTitle = c.CustomerAddress != null ? c.CustomerAddress.Title : null,
+						SiteAddress = c.CustomerAddress != null ? c.CustomerAddress.Address : null,
+						ZoneTitle = c.DispatchZone != null ? c.DispatchZone.Title : null,
+						c.DispatchShamsiDate,
+						c.Comment,
+						c.AllProductName,
+						c.CustomerAgentName,
+						c.CustomerAgentJobPosition,
+						c.CustomerAgentTell,
+						c.ExpertMission
+					})
+					.FirstOrDefaultAsync(ct);
+
+			var customer = JoinParts(info?.CustomerCode?.ToString(), info?.CustomerName);
+			var agent = JoinParts(info?.CustomerAgentName, info?.CustomerAgentJobPosition);
+			var experts = info?.ExpertMission;
+			if (string.IsNullOrWhiteSpace(experts))
+				experts = expertName;
+			else if (!string.IsNullOrWhiteSpace(expertName)
+				&& experts.IndexOf(expertName, StringComparison.Ordinal) < 0)
+				experts = experts + " ، " + expertName;
+
+			if (string.IsNullOrWhiteSpace(experts) && request.Id is > 0)
+			{
+				var rows = await unitOfWork.Repository<ServiceRequestExpertMission>().TableNoTracking
+					.Where(m => m.ServiceRequestId == request.Id)
+					.Select(m => new
+					{
+						Name = m.Personel != null ? m.Personel.Name : null,
+						Family = m.Personel != null ? m.Personel.Family : null,
+						UserName = m.Expert != null ? m.Expert.Name : null
+					})
+					.ToListAsync(ct);
+				experts = string.Join(" ، ", rows
+					.Select(r =>
+					{
+						var full = ((r.Name ?? "") + " " + (r.Family ?? "")).Trim();
+						return full.Length > 0 ? full : r.UserName;
+					})
+					.Where(n => !string.IsNullOrWhiteSpace(n))
+					.Distinct());
+			}
+
+			var dispatchDate = !string.IsNullOrWhiteSpace(info?.DispatchShamsiDate)
+				? info!.DispatchShamsiDate
+				: request.DispatchShamsiDate;
+
+			var items = new StringBuilder();
+			items.Append(ProductionOrderItemNotificationHelper.Li("شماره اندیکاتور", info?.Id ?? request.Id));
+			items.Append(ProductionOrderItemNotificationHelper.Li("مشتری", customer));
+			AppendIf(items, "سایت مشتری", info?.SiteTitle);
+			AppendIf(items, "آدرس سایت", info?.SiteAddress);
+			AppendIf(items, "منطقه", info?.ZoneTitle);
+			items.Append(ProductionOrderItemNotificationHelper.Li("کارشناس", experts));
+			items.Append(ProductionOrderItemNotificationHelper.Li("تاریخ اعزام کارشناس", dispatchDate));
+			items.Append(ProductionOrderItemNotificationHelper.Li("علت اعزام کارشناس", info?.Comment ?? request.Comment));
+			AppendIf(items, "محصولات", info?.AllProductName);
+			AppendIf(items, "نماینده مشتری", agent);
+			AppendIf(items, "تلفن نماینده", info?.CustomerAgentTell);
+
+			return ProductionOrderItemNotificationHelper.BuildEmailShell(
+				"درخواست اعزام کارشناس با مشخصات ذیل در سیستم ثبت شد:<br /><br /><ul>"
+				+ items
+				+ "</ul>");
+		}
+
+		private static void AppendIf(StringBuilder sb, string label, string? value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return;
+			sb.Append(ProductionOrderItemNotificationHelper.Li(label, value));
+		}
+
+		private static string? JoinParts(string? left, string? right)
+		{
+			var parts = new[] { left, right }
+				.Where(s => !string.IsNullOrWhiteSpace(s))
+				.Select(s => s!.Trim())
+				.ToArray();
+			return parts.Length == 0 ? null : string.Join(" | ", parts);
 		}
 	}
 }

@@ -23,6 +23,7 @@ namespace Data
 		public DbSet<RahkaranUnit> RahkaranUnits { get; set; }
 		public DbSet<RahkaranParty> RahkaranParties { get; set; }
 		public DbSet<RahkaranDepartment> RahkaranDepartments { get; set; }
+		public DbSet<RahkaranPost> RahkaranPosts { get; set; }
 		public DbSet<RahkaranGnr_PartyIndustry> RahkaranGnr_PartyIndustries { get; set; }
 		public DbSet<RahkaranGnr_PartyIndustryItem> RahkaranGnr_PartyIndustryItems { get; set; }
 		public DbSet<RahkaranRegionalDivision> RahkaranRegionalDivision { get; set; }

@@ -20,6 +20,8 @@
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.9" />
     <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.StackExchangeRedis" Version="10.0.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
@@ -82,8 +84,7 @@
 
   <ItemGroup>
     <Reference Include="Aspose.Cells">
-      <HintPath>ExteraAssembiles\Aspose.Cells.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>..\ExteraAssembiles\Aspose.Cells.dll</HintPath>
     </Reference>
     <Reference Include="QuestPDF">
       <HintPath>ExteraAssembiles\QuestPDF.dll</HintPath>

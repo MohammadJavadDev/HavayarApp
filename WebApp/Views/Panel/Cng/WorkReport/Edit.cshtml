@@ -156,7 +156,7 @@
 		<div class="row g-3 mb-3">
 			<div class="col-md-12 form-group-inline">
 				<label class="form-label fw-bold">خطاها</label>
-				<select class="form-select" id="workReportErrorFailures" multiple size="6">
+				<select class="form-select" id="workReportErrorFailures" multiple data-placeholder="انتخاب کنید">
 					@foreach (var f in errorFailures)
 					{
 						var fid = (long)f.Id;
@@ -309,22 +309,98 @@
 		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
 	}
 
-	function currentCustomerId() {
+	function stationSelector() {
+		const $wrap = $$('#CngWorkReportStationSelector');
+		return $wrap.data('entitySelectorInstance') || $wrap.data('entitySelector');
+	}
+
+	function rowValue(row, key) {
+		if (!row) return null;
+		const found = Object.keys(row).find(function (k) { return k.toLowerCase() === key.toLowerCase(); });
+		if (!found || row[found] == null || row[found] === '') return null;
+		return row[found];
+	}
+
+	function selectedStationRow() {
+		const inst = stationSelector();
+		const item = inst && inst.selectedItems && inst.selectedItems[0];
+		if (!item) return null;
+		return item.row || item;
+	}
+
+	function stationInfoId() {
+		return $$('#CngWorkReportStationSelector .entity-selector-value').val()
+			|| $$('[data-bind="stationInfoId"]').val()
+			|| '';
+	}
+
+	function applyStationSelection() {
+		const stationId = stationInfoId();
+		if (!stationId) {
+			$$('#workReportCustomerId').val('');
+			return;
+		}
+		const row = selectedStationRow();
+		const customerId = rowValue(row, 'CustomerId');
+		if (customerId) $$('#workReportCustomerId').val(customerId);
+		const repName = rowValue(row, 'RepresentativeName');
+		if (repName != null) $$('[data-bind="representativeName"]').val(repName);
+		const repMobile = rowValue(row, 'RepresentativeMobileNumber');
+		if (repMobile != null) $$('[data-bind="representativeMobileNumber"]').val(repMobile);
+		const repEmail = rowValue(row, 'RepresentativeEmailAddress');
+		if (repEmail != null) $$('[data-bind="representativeEmailAddress"]').val(repEmail);
+	}
+
+	function resolveCustomerId(done) {
+		const fromRow = rowValue(selectedStationRow(), 'CustomerId');
+		if (fromRow) {
+			$$('#workReportCustomerId').val(fromRow);
+			done(String(fromRow));
+			return;
+		}
 		const fromHidden = $$('#workReportCustomerId').val();
-		if (fromHidden) return fromHidden;
-		const $wrap = $$('[data-bind="stationInfoId"]').closest('.entity-selector-wrapper');
-		const data = $wrap.data('selectedItem') || $wrap.data('selected');
-		if (data && data.CustomerId) return data.CustomerId;
-		return null;
+		if (fromHidden) {
+			done(fromHidden);
+			return;
+		}
+		const stationId = stationInfoId();
+		if (!stationId) {
+			done(null);
+			return;
+		}
+		$$.get('/Panel/Cng/WorkReport/GetStationContext?stationInfoId=' + encodeURIComponent(stationId), function (r) {
+			const data = (r && r.isSuccess && r.data) ? r.data : (r && r.data ? r.data : r);
+			const customerId = data && (data.customerId || data.CustomerId);
+			if (customerId) $$('#workReportCustomerId').val(customerId);
+			const repName = data && (data.representativeName || data.RepresentativeName);
+			const repMobile = data && (data.representativeMobileNumber || data.RepresentativeMobileNumber);
+			const repEmail = data && (data.representativeEmailAddress || data.RepresentativeEmailAddress);
+			if (repName) $$('[data-bind="representativeName"]').val(repName);
+			if (repMobile) $$('[data-bind="representativeMobileNumber"]').val(repMobile);
+			if (repEmail) $$('[data-bind="representativeEmailAddress"]').val(repEmail);
+			done(customerId ? String(customerId) : null);
+		});
 	}
 
 	function openConsumedPartModal() {
 		editingConsumedIndex = null;
-		const customerId = currentCustomerId();
-		if (!customerId) { toastr.error('ابتدا جایگاه را انتخاب کنید'); return; }
+		const stationId = stationInfoId();
+		if (!stationId) { toastr.error('ابتدا جایگاه را انتخاب کنید'); return; }
 		const $trigger = $$('[data-action="addConsumedPart"]');
 		$trigger.block();
-		page.getPartialView('/Panel/Cng/WorkReport/ConsumedPartForm?customerId=' + encodeURIComponent(customerId), function (r) {
+		resolveCustomerId(function (customerId) {
+			$trigger.block(false);
+			showConsumedPartModal(customerId);
+		});
+	}
+
+	function showConsumedPartModal(customerId) {
+		const $trigger = $$('[data-action="addConsumedPart"]');
+		$trigger.block();
+		let formUrl = '/Panel/Cng/WorkReport/ConsumedPartForm';
+		if (customerId && customerId !== '0')
+			formUrl += '?customerId=' + encodeURIComponent(customerId);
+		page.getPartialView(formUrl, function (r) {
 			$trigger.block(false);
 			if (!r) { toastr.error('خطا در دریافت فرم'); return; }
 			const decoded = decodeChildPartial(r);
@@ -364,34 +440,90 @@
 				onContentReady: function () {
 					const selfConfirm = this;
 					setTimeout(function () {
-						initConsumedPartLookups(selfConfirm.$body, customerId);
+						initConsumedPartLookups(selfConfirm.$body);
 					}, 50);
 				}
 			});
 		});
 	}
 
-	function initConsumedPartLookups($root, customerId) {
+	function unwrapLookupRows(r) {
+		return (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+	}
+
+	function initConsumedPartLookups($root) {
+		$root.find('.entity-selector-wrapper').each(function () {
+			if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
+				$(this).entitySelector();
+		});
+
 		const $order = $root.find('[data-bind="saleOrderId"]');
 		const $part = $root.find('[data-bind="partId"]');
-		$$.get('/Panel/Cng/WorkReport/GetSaleOrders?customerId=' + encodeURIComponent(customerId), function (r) {
-			const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
+		const $filter = $root.find('[data-role="saleOrderFilter"]');
+		let saleOrderRows = [];
+		let loadToken = 0;
+		let filterTimer = null;
+
+		function fillSaleOrders() {
+			const selected = $order.val();
 			$order.empty().append('<option value="">انتخاب کنید</option>');
-			(rows || []).forEach(function (x) {
-				$order.append('<option value="' + x.id + '">' + esc(x.text) + '</option>');
+			saleOrderRows.forEach(function (x) {
+				$order.append('<option value="' + x.id + '">' + esc(x.text || '') + '</option>');
 			});
-		});
-		$order.off('change.wr').on('change.wr', function () {
-			const oid = $(this).val();
+			if (selected && $order.find('option[value="' + selected + '"]').length)
+				$order.val(String(selected));
+			applySaleOrderFilter($filter.val());
+		}
+
+		function applySaleOrderFilter(query) {
+			const q = (query || '').trim();
+			$order.find('option').each(function () {
+				const $opt = $(this);
+				if (!$opt.val()) {
+					$opt.prop('hidden', false);
+					return;
+				}
+				$opt.prop('hidden', !!(q && $opt.text().indexOf(q) < 0));
+			});
+		}
+
+		function loadSaleOrders(customerId) {
+			const token = ++loadToken;
+			saleOrderRows = [];
+			$filter.val('');
+			$order.empty().append('<option value="">انتخاب کنید</option>');
 			$part.empty().append('<option value="">انتخاب کنید</option>');
-			if (!oid) return;
-			$$.get('/Panel/Cng/WorkReport/GetPartsByOrder?orderId=' + encodeURIComponent(oid), function (r) {
-				const rows = (r && r.isSuccess && r.data) ? r.data : (Array.isArray(r) ? r : (r && r.data) || []);
-				(rows || []).forEach(function (x) {
+			if (!customerId || customerId === '0') return;
+			$$.get('/Panel/Cng/WorkReport/GetSaleOrders?customerId=' + encodeURIComponent(customerId), function (r) {
+				if (token !== loadToken) return;
+				saleOrderRows = unwrapLookupRows(r);
+				fillSaleOrders();
+			});
+		}
+
+		function loadParts(orderId) {
+			$part.empty().append('<option value="">انتخاب کنید</option>');
+			if (!orderId) return;
+			$$.get('/Panel/Cng/WorkReport/GetPartsByOrder?orderId=' + encodeURIComponent(orderId), function (r) {
+				unwrapLookupRows(r).forEach(function (x) {
 					$part.append('<option value="' + x.id + '">' + esc(x.text) + '</option>');
 				});
 			});
+		}
+
+		$root.off('change.wrCustomer').on('change.wrCustomer', '#CngWorkReportConsumedCustomerSelector .entity-selector-value', function () {
+			loadSaleOrders($(this).val());
 		});
+		$filter.off('input.wr').on('input.wr', function () {
+			const q = $(this).val();
+			clearTimeout(filterTimer);
+			filterTimer = setTimeout(function () { applySaleOrderFilter(q); }, 150);
+		});
+		$order.off('change.wr').on('change.wr', function () {
+			loadParts($(this).val());
+		});
+
+		loadSaleOrders($root.find('#CngWorkReportConsumedCustomerSelector .entity-selector-value').val());
 	}
 
 	function openFailureModal() {
@@ -542,14 +674,21 @@
 	});
 
 	page.$pageEl.on('change', '[data-bind="stationInfoId"]', function () {
-		const $wrap = $(this).closest('.entity-selector-wrapper');
-		const data = $wrap.data('selectedItem') || $wrap.data('selected') || $wrap.data('entity');
-		if (!data) return;
-		if (data.CustomerId) $$('#workReportCustomerId').val(data.CustomerId);
-		if (data.RepresentativeName != null) $$('[data-bind="representativeName"]').val(data.RepresentativeName);
-		if (data.RepresentativeMobileNumber != null) $$('[data-bind="representativeMobileNumber"]').val(data.RepresentativeMobileNumber);
-		if (data.RepresentativeEmailAddress != null) $$('[data-bind="representativeEmailAddress"]').val(data.RepresentativeEmailAddress);
+		applyStationSelection();
+		if (stationInfoId() && !$$('#workReportCustomerId').val())
+			resolveCustomerId(function () { });
 	});
+
+	const $errorSelect = $$('#workReportErrorFailures');
+	if ($errorSelect.length && !$errorSelect.hasClass('select2-hidden-accessible')) {
+		$errorSelect.select2({
+			placeholder: 'انتخاب کنید',
+			allowClear: true,
+			width: '100%',
+			dir: document.body.getAttribute('direction') || 'rtl',
+			closeOnSelect: false
+		});
+	}
 
 	seedChildrenFromModel();
 	refreshDownloadBtn();

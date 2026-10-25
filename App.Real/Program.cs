@@ -137,6 +137,8 @@ builder.Services.AddSingleton<IRoleMemoryStorage, RedisRoleMemoryStorage>();
 builder.Services.AddSingleton<IAccessMemoryStorage, AccessMemoryStorage>();
 builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
 builder.Services.AddSingleton<EntityMetadataCache>();
+builder.Services.AddSingleton<Entities.Services.IDynamicTypeRegistry, Services.DynamicCompilation.DynamicTypeRegistry>();
+builder.Services.AddSingleton<Microsoft.EntityFrameworkCore.Infrastructure.IModelCacheKeyFactory, DynamicModelCacheKeyFactory>();
 builder.Services.AddSingleton<IMenuBuilderService, MenuBuilderService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 builder.Services.AddScoped<IQueryService, QueryService>();

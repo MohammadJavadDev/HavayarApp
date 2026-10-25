@@ -10,7 +10,9 @@ using Entities.Base;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Entities.Base.Sms;
 using Services.Auth;
+using Services.Sms;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -23,7 +25,9 @@ namespace WebApp.Controllers.Dynamic
 	public class SrvCarRequestController(
 		IUnitOfWork unitOfWork,
 		IWebHostEnvironment env,
-		IUserService userService) : BaseController
+		IUserService userService,
+		ISmsService sms,
+		ISmsRecipientResolver smsRecipients) : BaseController
 	{
 		private const string RoleSupport = "Srv.CarRequest.Support";
 		private const string RoleRequesterConfirm = "Srv.CarRequest.RequesterConfirm";
@@ -65,6 +69,7 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (!CanCrud) return BadRequest("دسترسی ذخیره وجود ندارد");
 			ClearNav(model);
+			EnsureNeedDatePair(model);
 			var err = ValidateHeader(model);
 			if (err != null) return BadRequest(err);
 
@@ -81,12 +86,9 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (!CanCrud) return BadRequest("دسترسی ذخیره وجود ندارد");
 			ClearNav(model);
+			EnsureNeedDatePair(model);
 			var err = ValidateHeader(model);
 			if (err != null) return BadRequest(err);
-			err = ValidateOutOfTownNeedDate(model);
-			if (err != null) return BadRequest(err);
-
-			ApplyNeedDateFromText(model);
 			err = ValidateOutOfTownNeedDate(model);
 			if (err != null) return BadRequest(err);
 
@@ -115,9 +117,9 @@ namespace WebApp.Controllers.Dynamic
 			if (old == null) return BadRequest("رکورد یافت نشد");
 			if (!await CanAccessRowAsync(old, cn)) return BadRequest("دسترسی به این رکورد وجود ندارد");
 
+			EnsureNeedDatePair(model);
 			var err = ValidateHeader(model);
 			if (err != null) return BadRequest(err);
-			ApplyNeedDateFromText(model);
 			err = ValidateOutOfTownNeedDate(model);
 			if (err != null) return BadRequest(err);
 
@@ -280,15 +282,38 @@ namespace WebApp.Controllers.Dynamic
 			await unitOfWork.Repository<CarRequest>().UpdateAsync(entity, cn, true);
 
 			if (hasDriver && entity.StatusId == StatusApproved)
-			{
-				// TODO: later SMS to the driver's mobile with the old message body.
-				// Do not call any SMS API and do not write a sender.
-			}
+				await SendDriverSmsAsync(entity, model.Comment!.Trim(), cn);
 
 			return Ok();
 		}
 
 		#endregion
+
+		/// <summary>معادل HTS CarRequestController: جزئیات درخواست به موبایل راننده. خطای پیامک نباید تایید را خراب کند.</summary>
+		private async Task SendDriverSmsAsync(CarRequest entity, string supportComment, CancellationToken cn)
+		{
+			try
+			{
+				var mobile = await smsRecipients.GetPersonelMobileAsync(entity.DriverId, cn);
+				if (string.IsNullOrWhiteSpace(mobile))
+					return;
+
+				var passenger = await unitOfWork.Repository<Personel>().TableNoTracking
+					.Where(p => p.Id == entity.PassengerId)
+					.Select(p => ((p.Name ?? "") + " " + (p.Family ?? "")).Trim())
+					.FirstOrDefaultAsync(cn);
+
+				var body = SmsTemplates.CarRequest(
+					entity.Id ?? 0, entity.TypeId.ToDisplay(), passenger, entity.CountPeople, entity.Destination,
+					entity.NeedDateShamsiDate, entity.NeedTime, entity.Description, supportComment);
+
+				await sms.TryEnqueueAsync(SmsEventKeys.SrvCarRequestDriver, mobile, body, nameof(CarRequest), entity.Id, ct: cn);
+			}
+			catch
+			{
+				// شکست پیامک نباید تایید درخواست را متوقف کند
+			}
+		}
 
 		#region Attachments
 
@@ -540,7 +565,7 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (model.BranchId == null || (int)model.BranchId == 0) return "محل خدمت اجباری است";
 			if ((int)model.TypeId == 0) return "نوع اجباری است";
-			if (!model.NeedDateInText.HasValue() && model.NeedDate == default)
+			if (!model.NeedDateShamsiDate.HasValue() || model.NeedDateMiladiDate is null || model.NeedDateMiladiDate.Value.Year < 1900)
 				return "تاریخ نیاز اجباری است";
 			if (!model.NeedTime.HasValue()) return "ساعت نیاز اجباری است";
 			if (!model.Destination.HasValue()) return "مقصد اجباری است";
@@ -549,31 +574,55 @@ namespace WebApp.Controllers.Dynamic
 			return null;
 		}
 
-		private static void ApplyNeedDateFromText(CarRequest model)
+		private static void EnsureNeedDatePair(CarRequest model)
 		{
-			if (!model.NeedDateInText.HasValue()) return;
+			var shamsi = model.NeedDateShamsiDate?.Trim();
+			if (!shamsi.HasValue())
+			{
+				if (model.NeedDateMiladiDate is { Year: >= 1900 })
+					model.NeedDateShamsiDate = model.NeedDateMiladiDate.Value.ToShamsiDate();
+				return;
+			}
+
+			shamsi = shamsi!.Fa2En().Replace('-', '/').Trim();
+			var space = shamsi.IndexOf(' ');
+			if (space > 0) shamsi = shamsi[..space];
+			model.NeedDateShamsiDate = shamsi;
+
+			if (model.NeedDateMiladiDate is { Year: >= 1900 }) return;
+			if (TryShamsiToMiladi(shamsi, out var miladi))
+				model.NeedDateMiladiDate = miladi.Date;
+		}
+
+		private static bool TryShamsiToMiladi(string shamsi, out DateTime miladi)
+		{
+			miladi = default;
+			var parts = shamsi.Split('/');
+			if (parts.Length < 3) return false;
+			if (!int.TryParse(parts[0], out var year)) return false;
+			if (!int.TryParse(parts[1], out var month)) return false;
+			var dayText = parts[2].Length > 2 ? parts[2][..2] : parts[2];
+			if (!int.TryParse(dayText, out var day)) return false;
+			if (year is < 1200 or > 1500 || month is < 1 or > 12 || day is < 1 or > 31) return false;
 			try
 			{
-				model.NeedDate = model.NeedDateInText!.ToMiladiDate().Date;
+				miladi = new System.Globalization.PersianCalendar().ToDateTime(year, month, day, 0, 0, 0, 0);
+				return miladi.Year >= 1900;
 			}
 			catch
 			{
-				// leave NeedDate as posted; validation may catch
+				return false;
 			}
 		}
 
 		private static string? ValidateOutOfTownNeedDate(CarRequest model)
 		{
 			if (model.TypeId != CarRequestTypeEnum.OutOfTown) return null;
-			var need = model.NeedDate;
-			if (need == default && model.NeedDateInText.HasValue())
-			{
-				try { need = model.NeedDateInText!.ToMiladiDate().Date; }
-				catch { return null; }
-			}
+			var need = model.NeedDateMiladiDate ?? default;
 			if (need == default) return null;
-			if (need.Date < DateTime.Today.AddDays(1))
-				return "تاریخ نیاز می بایست 1 روز قبل از تاریخ ثبت درخواست باشد!";
+
+			//if (need.Date < DateTime.Today.AddDays(1))
+			//	return "تاریخ نیاز می بایست 1 روز قبل از تاریخ ثبت درخواست باشد!";
 			return null;
 		}
 

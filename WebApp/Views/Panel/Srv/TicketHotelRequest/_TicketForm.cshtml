@@ -6,7 +6,7 @@
 	string MiladiAttr(string? shamsi)
 	{
 		if (string.IsNullOrWhiteSpace(shamsi)) return "";
-		try { return shamsi.ToMiladiDateTimeWithSplitData().ToString("yyyy-MM-dd"); }
+		try { return shamsi.ToMiladiDateTimeWithSplitData()?.ToString("yyyy-MM-dd"); }
 		catch { return ""; }
 	}
 }

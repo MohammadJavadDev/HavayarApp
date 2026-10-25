@@ -120,7 +120,7 @@ namespace Entities.App.Trn
 
 		[DisplayName("ظرفیت باقی‌مانده")]
 		[DisplayInfo(null, true, type: SystemType.Int)]
-		public short? RemainingCapacity { get; set; }  // maintained by participant add/remove (rule R4 in step 07)
+		public short? RemainingCapacity { get; set; }  // Capacity minus enrolled; updated on course save and on participant add/remove
 
 		// ---- Status / workflow ----
 		[DisplayName("وضعیت دوره")]

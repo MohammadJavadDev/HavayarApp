@@ -1,4 +1,5 @@
-﻿using Common.Attributes;
+﻿using App.BackgroundJob.Jobs.Hcm;
+using Common.Attributes;
 using Data;
 using Data.Contracts;
 using Entities.App.Gnr;
@@ -13,7 +14,7 @@ using Services.Job;
 
 namespace App.BackgroundJob.Jobs.System
 {
-	public class UserJob(RahkaranDbContext Rdb, HtsDbContext htsDb, IUnitOfWork unitOfWork, ApplicationDbContext appContext)
+	public class UserJob(RahkaranDbContext Rdb, HtsDbContext htsDb, IUnitOfWork unitOfWork, ApplicationDbContext appContext, AgencyPersonelJob agencyPersonelJob)
 	{
 		[JobHandler("افزودن کاربران از HTS")]
 		public async Task AddContractFromRahkaran(IJobLogger? jobLogger = null, CancellationToken cn = default)
@@ -264,6 +265,7 @@ namespace App.BackgroundJob.Jobs.System
 				await jobLogger?.LogInfoAsync($"منطبق با راهکاران: {withRahkaranCount}", cn);
 				await jobLogger?.LogInfoAsync($"بدون Party: {missingPartyCount} — بدون پرسنل: {missingPersonelCount}", cn);
 				await jobLogger?.LogInfoAsync("عملیات همگام‌سازی کاربران با موفقیت انجام شد", cn);
+				await agencyPersonelJob.SyncAgencyPersonnel(jobLogger, cn);
 			}
 			catch (Exception ex)
 			{

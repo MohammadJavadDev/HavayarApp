@@ -131,6 +131,30 @@ namespace Entities.App.Sale
 		[DisplayName("حمل رانندگی")]
 		[DisplayInfo(null, true, type: SystemType.Long)]
 		public long? TransportationDriving { get; set; }
+
+		[DisplayName("سایر هزینه")]
+		[DisplayInfo(null, true, type: SystemType.Long)]
+		public long? OtherCost { get; set; }
+
+		[DisplayName("فاکتور صبحانه")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool HasFactorBreakfast { get; set; }
+
+		[DisplayName("فاکتور ناهار")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool HasFactorLunch { get; set; }
+
+		[DisplayName("فاکتور شام")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool HasFactorDinner { get; set; }
+
+		[DisplayName("فاکتور هتل")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool HasFactorHotel { get; set; }
+
+		[DisplayName("هزینه هتل")]
+		[DisplayInfo(null, true, type: SystemType.Long)]
+		public long? HotelCost { get; set; }
 	}
 
 	public class MissionConfiguration : IEntityTypeConfiguration<Mission>
@@ -325,16 +349,16 @@ namespace Entities.App.Sale
 		public int? OldRunTime { get; set; }
 
 		[DisplayName("تاریخ گارانتی کارشناس میلادی")]
-		[DisplayInfo(null, true, type: SystemType.Date)]
+		[DisplayInfo(null, false, type: SystemType.Date)]
 		public DateTime? ExpertGuaranteeMiladiDate { get; set; }
 
 		[DisplayName("تاریخ گارانتی کارشناس شمسی")]
-		[DisplayInfo(null, true, type: SystemType.DateShamsi)]
+		[DisplayInfo(null, false, type: SystemType.DateShamsi)]
 		[MaxLength(10)]
 		public string? ExpertGuaranteeShamsiDate { get; set; }
 
 		[DisplayName("توضیح گارانتی کارشناس")]
-		[DisplayInfo(null, true, type: SystemType.String)]
+		[DisplayInfo(null, false, type: SystemType.String)]
 		[MaxLength(4000)]
 		public string? ExpertGuaranteeComment { get; set; }
 

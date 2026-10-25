@@ -152,6 +152,7 @@ namespace App.BackgroundJob.Jobs.Edms
 		private const int SaveBatchSize = 500;
 		private const int HoldCauseLookupOffset = 409;
 		private const int CommentMaxLength = 2000;
+		private const string VpisOnlyDocumentMarker = "sync-vpis-without-document";
 
 		[JobHandler("هماهنگ کردن مدارک مهندسی از HTS")]
 		public async Task SyncDocumentsFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
@@ -283,6 +284,8 @@ namespace App.BackgroundJob.Jobs.Edms
 						0,
 						cn);
 				}
+
+				await EnsureNotIssuedDocumentsForVpisWithoutHtsDocumentAsync(jobLogger, cn);
 
 				await jobLogger?.LogInfoAsync("همگام‌سازی مدارک مهندسی با موفقیت انجام شد", cn);
 			}
@@ -596,7 +599,7 @@ namespace App.BackgroundJob.Jobs.Edms
 								hts.Document_SecondReplySheetFilePath,
 								hts.Document_SecondReplySheetFileName,
 								typeof(Document).FullName!,
-								nameof(Document.SecondReplySheet),
+								nameof(Document.	SecondReplySheet),
 								document.Id,
 								jobLogger,
 								hts.Document_ID,
@@ -706,6 +709,143 @@ namespace App.BackgroundJob.Jobs.Edms
 				cn);
 		}
 
+		/// <summary>
+		/// VPISهایی که در HTS مدرک ندارند، اگر در App همگام شده باشند یک مدرک صادرنشده می‌گیرند
+		/// تا در فهرست و کارتابل تهیه‌کننده دیده شوند. اگر بعداً مدرک واقعی HTS برسد، پوسته حذف می‌شود.
+		/// </summary>
+		private async Task EnsureNotIssuedDocumentsForVpisWithoutHtsDocumentAsync(
+			IJobLogger? jobLogger,
+			CancellationToken cn)
+		{
+			await jobLogger?.LogInfoAsync(
+				"بررسی VPISهای بدون مدرک در HTS برای ساخت مدرک صادرنشده",
+				cn);
+
+			var removed = await RemoveObsoleteVpisOnlyDocumentsAsync(cn);
+			if (removed > 0)
+			{
+				await jobLogger?.LogInfoAsync(
+					$"پوسته صادرنشده حذف شد چون مدرک HTS رسیده است: {removed}",
+					cn);
+			}
+
+			var vpisIdsWithDocument = (await htsDb.Hts_Edms_Documents.AsNoTracking()
+					.Select(d => d.Project_Vpis_FK)
+					.Distinct()
+					.ToListAsync(cn))
+				.ToHashSet();
+
+			var htsVpisWithoutDocument = (await htsDb.Hts_Edms_Project_Vpis.AsNoTracking()
+					.Select(v => v.Project_Vpis_ID)
+					.ToListAsync(cn))
+				.Where(id => !vpisIdsWithDocument.Contains(id))
+				.Select(id => (long)id)
+				.ToList();
+
+			var created = 0;
+			var now = DateTime.Now;
+			var shamsi = now.ToShamsiDateTime();
+
+			for (var offset = 0; offset < htsVpisWithoutDocument.Count; offset += SaveBatchSize)
+			{
+				var ids = htsVpisWithoutDocument.Skip(offset).Take(SaveBatchSize).ToList();
+				var vpisRows = await unitOfWork.Repository<ProjectVpis>().TableNoTracking
+					.Where(v => ids.Contains(v.HtsId) && v.Id.HasValue)
+					.Select(v => new { Id = v.Id!.Value, v.ProjectNameId })
+					.ToListAsync(cn);
+
+				if (vpisRows.Count == 0)
+					continue;
+
+				var vpisIds = vpisRows.Select(v => v.Id).ToList();
+				var existing = (await unitOfWork.Repository<Document>().TableNoTracking
+						.Where(d => d.DocumentVpisId.HasValue
+							&& vpisIds.Contains(d.DocumentVpisId.Value)
+							&& d.IsActive != IsActiveEnum.Deleted)
+						.Select(d => d.DocumentVpisId!.Value)
+						.Distinct()
+						.ToListAsync(cn))
+					.ToHashSet();
+
+				var pending = 0;
+				foreach (var vpis in vpisRows)
+				{
+					if (existing.Contains(vpis.Id))
+						continue;
+
+					await unitOfWork.Repository<Document>().AddAsync(
+						new Document
+						{
+							HtsId = 0,
+							ProjectId = vpis.ProjectNameId,
+							DocumentVpisId = vpis.Id,
+							Status = DocumentStatusEnums.NotIssue,
+							Revision = 0,
+							IsLatest = true,
+							IsActive = IsActiveEnum.Active,
+							CreatedByName = VpisOnlyDocumentMarker,
+							CreatedOnMiladiDateTime = now,
+							CreatedOnShamsiDateTime = shamsi
+						},
+						cn,
+						saveAudit: false,
+						saveNow: false,
+						InvokeAction: false);
+					created++;
+					pending++;
+				}
+
+				if (pending > 0)
+					await unitOfWork.SaveChangesAsync(cn);
+			}
+
+			await jobLogger?.LogInfoAsync(
+				$"مدرک صادرنشده برای VPIS بدون رکورد مدرک HTS ساخته شد: {created}",
+				cn);
+		}
+
+		private async Task<int> RemoveObsoleteVpisOnlyDocumentsAsync(CancellationToken cn)
+		{
+			var placeholders = await unitOfWork.Repository<Document>().Table
+				.Where(d => d.HtsId == 0
+					&& d.Status == DocumentStatusEnums.NotIssue
+					&& d.Revision == 0
+					&& d.CreatedByName == VpisOnlyDocumentMarker
+					&& d.DocumentVpisId.HasValue
+					&& d.MainFileId == null
+					&& d.IsActive != IsActiveEnum.Deleted)
+				.ToListAsync(cn);
+
+			if (placeholders.Count == 0)
+				return 0;
+
+			var vpisIds = placeholders.Select(d => d.DocumentVpisId!.Value).Distinct().ToList();
+			var vpisWithRealDocument = (await unitOfWork.Repository<Document>().TableNoTracking
+					.Where(d => d.DocumentVpisId.HasValue
+						&& vpisIds.Contains(d.DocumentVpisId.Value)
+						&& d.HtsId != 0
+						&& d.IsActive != IsActiveEnum.Deleted)
+					.Select(d => d.DocumentVpisId!.Value)
+					.Distinct()
+					.ToListAsync(cn))
+				.ToHashSet();
+
+			var removed = 0;
+			foreach (var document in placeholders)
+			{
+				if (!vpisWithRealDocument.Contains(document.DocumentVpisId!.Value))
+					continue;
+
+				await unitOfWork.Repository<Document>().DeleteAsync(document, cn, saveNow: false, InvokeAction: false);
+				removed++;
+			}
+
+			if (removed > 0)
+				await unitOfWork.SaveChangesAsync(cn);
+
+			return removed;
+		}
+
 		private static Document MapDocument(
 			Hts_Edms_Document hts,
 			long documentVpisId,
@@ -727,6 +867,7 @@ namespace App.BackgroundJob.Jobs.Edms
 				HourPrePerson = hts.ConsumedManHours,
 				PublicationMiladiDate = publication,
 				PublicationShamsiDate = Truncate(hts.Due_Date_Shamsi, 30),
+				PreparedUserId = ResolveHtsUser(hts.PreparedUser_FK, users, unmatchedUsers),
 				ReviewerId = ResolveHtsUser(hts.CheckedUser_FK, users, unmatchedUsers),
 				RevieweMiladiDateTime = reviewedOn,
 				RevieweShamsiDateTime = FormatShamsiDateTime(reviewedOn, hts.CheckedDate_Shamsi),
@@ -757,6 +898,7 @@ namespace App.BackgroundJob.Jobs.Edms
 			target.HourPrePerson = source.HourPrePerson;
 			target.PublicationMiladiDate = source.PublicationMiladiDate;
 			target.PublicationShamsiDate = source.PublicationShamsiDate;
+			target.PreparedUserId = source.PreparedUserId;
 			target.ReviewerId = source.ReviewerId;
 			target.RevieweMiladiDateTime = source.RevieweMiladiDateTime;
 			target.RevieweShamsiDateTime = source.RevieweShamsiDateTime;
@@ -800,6 +942,7 @@ namespace App.BackgroundJob.Jobs.Edms
 				HoldDetails = status is DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject
 					? comment
 					: null,
+				ReceivedTransmittalNumber = Truncate(hts.ReceivedTransmittalNumber, 1024),
 				CreatedById = ResolveHtsUser(hts.CreatedUser_FK, users, unmatchedUsers),
 				CreatedByName = Truncate(ResolveCreatedByName(hts.CreatedUser_FK, users), 150),
 				CreatedOnMiladiDateTime = createdOn,
@@ -818,6 +961,7 @@ namespace App.BackgroundJob.Jobs.Edms
 			target.LegalHolder = source.LegalHolder;
 			target.HOLDOwnerId = source.HOLDOwnerId;
 			target.HoldDetails = source.HoldDetails;
+			target.ReceivedTransmittalNumber = source.ReceivedTransmittalNumber;
 			target.CreatedById = source.CreatedById;
 			target.CreatedByName = source.CreatedByName;
 			target.CreatedOnMiladiDateTime = source.CreatedOnMiladiDateTime;

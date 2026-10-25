@@ -244,7 +244,9 @@ namespace Entities.App.Sale
 
 		[DisplayName("فایل")]
 		[DisplayInfo(null, true, type: SystemType.File)]
-		public long? FileId { get; set; }
+		[ForeignKey(nameof(FileId))]
 		public virtual FileEntity? File { get; set; }
+
+		public long? FileId { get; set; }
 	}
 }

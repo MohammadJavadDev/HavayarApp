@@ -5,6 +5,8 @@
      <div class="form-action-buttons"><form-action-buttons entity-type="typeof(OrgUnit)"></form-action-buttons></div>
     <div class="card-body row">
        <input class='form-control' data-bind='id'  value='@Model?.Id' type='hidden'/>
+       <input type='hidden' data-bind='hamkaranUnitId' value='@Model?.HamkaranUnitId' />
+       <input type='hidden' data-bind='branchId' value='@Model?.BranchId' />
 
           <div class='col-md-6'>
                <label class='required'>عنوان</label>

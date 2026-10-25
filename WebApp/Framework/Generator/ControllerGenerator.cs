@@ -465,7 +465,7 @@ namespace WebApp.Framework.Generator
                 var systemAttr = displayNameAttr?.SystemProprty ?? false;
                 var nameproperty = prop.Name.ToCamelCase();
                 var customFileTypeFormat = displayNameAttr != null ? displayNameAttr.FileTypes : "";
-                var maxFileSize = displayNameAttr != null ? displayNameAttr.MaxFileSize : 10;
+                var maxFileSize = displayNameAttr != null ? displayNameAttr.MaxFileSize : 50;
                 var required = displayNameAttr != null ? displayNameAttr.Required : false;
                 var regex = displayNameAttr != null ? displayNameAttr?.Regex : null;
 
@@ -721,7 +721,7 @@ namespace WebApp.Framework.Generator
                 // Build data-bind path: if arrayPropertyName exists, use "arrayName.propertyName", otherwise just "propertyName"
                 var bindPath = string.IsNullOrEmpty(arrayPropertyName) ? nameproperty : $"{arrayPropertyName}.{nameproperty}";
                 var customFileTypeFormat = displayNameAttr != null ? displayNameAttr.FileTypes : "";
-                var maxFileSize = displayNameAttr != null ? displayNameAttr.MaxFileSize : 10;
+                var maxFileSize = displayNameAttr != null ? displayNameAttr.MaxFileSize : 50;
                 var required = displayNameAttr != null ? displayNameAttr.Required : false;
                 var regex = displayNameAttr != null ? displayNameAttr?.Regex : null;
 

@@ -2,6 +2,7 @@
 @using Data.SystemAuth
 @inject ISdk sdk;
 @{
+	var viewAs = Context.Items["ViewAs"] as WebApp.Framework.ViewAs.ViewAsSession;
 	sdk.RefreshUserRole();
 	var userProfileImage = "";
 	if (sdk?.CurrentUser?.ProfileImage != null)
@@ -109,6 +110,39 @@
 
 	#kt_app_header a.d-lg-none img.h-30px {
 		height: 26px !important;
+	}
+
+	#havayar-view-as-bar {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		z-index: 10050;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		min-height: 44px;
+		padding: 8px 16px;
+		background: #7a4b00;
+		color: #fff;
+		font-size: 13px;
+		line-height: 1.6;
+		box-shadow: 0 -2px 8px rgba(0, 0, 0, .15);
+	}
+
+	#havayar-view-as-bar button {
+		background: #fff;
+		color: #7a4b00;
+		border: 0;
+		border-radius: 6px;
+		padding: 4px 12px;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+
+	body.havayar-view-as {
+		padding-bottom: 52px;
 	}
 </style>
 
@@ -237,6 +271,13 @@
     </div>
 		 	 
 </div>
+@if (viewAs != null)
+{
+	<div id="havayar-view-as-bar">
+		<span>در حال بررسی پنل با دسترسی @viewAs.TargetName. نشست شما در پنجره قبلی باز می‌ماند. کاری که اینجا انجام شود با همین کاربر ثبت می‌شود.</span>
+		<button type="button" id="havayarViewAsClose">بستن این پنجره</button>
+	</div>
+}
 
 <!-- پنل Offcanvas -->
 <div id="styleSettingsPanel" class="offcanvas offcanvas-end"
@@ -272,6 +313,24 @@
 					<i class="fa-light fa-filter fs-3 text-primary"></i>
 				</div>
 				<small class="text-muted d-block">پاپ‌اور</small>
+			</div>
+		</div>
+	</div>
+	<hr class="my-3">
+	<div class="mb-4 px-3">
+		<label class="form-label fw-bold">پاپ‌آپ اعلانات خوانده‌نشده</label>
+		<div class="d-flex flex-column gap-2" id="notificationPopupModeOptions">
+			<div class="border rounded p-2 notification-popup-mode-opt" data-mode="always"
+				 style="cursor:pointer; transition:border-color 0.15s;">
+				<small class="text-muted d-block">نمایش هنگام باز کردن سایت</small>
+			</div>
+			<div class="border rounded p-2 notification-popup-mode-opt" data-mode="today"
+				 style="cursor:pointer; transition:border-color 0.15s;">
+				<small class="text-muted d-block">برای امروز نمایش داده نشود</small>
+			</div>
+			<div class="border rounded p-2 notification-popup-mode-opt" data-mode="forever"
+				 style="cursor:pointer; transition:border-color 0.15s;">
+				<small class="text-muted d-block">دیگر نمایش داده نشود</small>
 			</div>
 		</div>
 	</div>

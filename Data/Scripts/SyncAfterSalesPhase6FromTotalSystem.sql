@@ -57,10 +57,33 @@ WHERE ou.Personel_FK IS NOT NULL
 GROUP BY CAST(ou.Personel_FK AS BIGINT);
 
 PRINT N'=== Sale.Mission ===';
+IF OBJECT_ID('tempdb..#MissionCostCenterMap') IS NOT NULL DROP TABLE #MissionCostCenterMap;
+SELECT
+    cc.CostCenter_ID AS OldCostCenterId,
+    COALESCE(byHam.Id, byTitle.Id) AS NewCostCenterId
+INTO #MissionCostCenterMap
+FROM [TMS].[TotalSystem].[dbo].[Acc_CostCenter] cc
+OUTER APPLY (
+    SELECT TOP (1) c.Id
+    FROM Gnr.CostCenter c
+    WHERE ISNULL(cc.Hamkaran_CostCenter_FK, 0) <> 0
+      AND c.HamkaranId = CAST(cc.Hamkaran_CostCenter_FK AS BIGINT)
+    ORDER BY c.Id
+) byHam
+OUTER APPLY (
+    SELECT TOP (1) c.Id
+    FROM Gnr.CostCenter c
+    WHERE byHam.Id IS NULL
+      AND NULLIF(LTRIM(RTRIM(cc.CostCenter_Title)), N'') IS NOT NULL
+      AND LTRIM(RTRIM(c.Title)) = LTRIM(RTRIM(cc.CostCenter_Title))
+    ORDER BY c.Id
+) byTitle;
+CREATE UNIQUE CLUSTERED INDEX IX_MissionCostCenterMap ON #MissionCostCenterMap (OldCostCenterId);
+
 MERGE Sale.Mission AS t
 USING (
     SELECT CAST(s.Mission_Id AS BIGINT) AS HtsId, sr.Id AS ServiceRequestId, pum.NewUserId AS ExpertId,
-           CAST(s.Personel_FK AS BIGINT) AS HtsPersonelId,
+           hp.PersonelId, CAST(s.Personel_FK AS BIGINT) AS HtsPersonelId,
            s.Have_Gurantee AS HaveGuarantee, s.Hokm_Number AS HokmNumber,
            s.Dispatch_Date AS DispatchMiladiDate, s.Dispatch_Date_Sahmsi AS DispatchShamsiDate,
            LEFT(s.Dispatch_Time, 5) AS DispatchTime,
@@ -71,12 +94,23 @@ USING (
            s.Work_Overtime_Fee AS WorkOvertimeFee, s.Work_Overtime_Hour AS WorkOvertimeHour,
            s.Mission_Right AS MissionRight, s.Mission_Right_Factor AS MissionRightFactor,
            s.Mission_HolidayRight AS MissionHolidayRight, s.Mission_HolidayRight_Factor AS MissionHolidayRightFactor,
-           s.Transportation_Personal AS TransportationPersonal, s.Transportation_Driving AS TransportationDriving
+           s.Transportation_Personal AS TransportationPersonal, s.Transportation_Driving AS TransportationDriving,
+           s.Other_Cost AS OtherCost,
+           ISNULL(s.HasFactorBreakfast, 0) AS HasFactorBreakfast, ISNULL(s.HasFactorLunch, 0) AS HasFactorLunch,
+           ISNULL(s.HasFactorDinner, 0) AS HasFactorDinner, ISNULL(s.HasFactorHotel, 0) AS HasFactorHotel,
+           s.HotelCost AS HotelCost, ccm.NewCostCenterId AS CostCenterId
     FROM [TMS].[TotalSystem].[dbo].[Sale_Mission] s
     LEFT JOIN Sale.ServiceRequest sr ON sr.HtsId = s.ServiceRequest_FK AND sr.HtsId <> 0
     LEFT JOIN #PersonelUserMap pum ON pum.OldPersonelId = s.Personel_FK
+    LEFT JOIN (
+        SELECT hrm.Personel_ID, MIN(p.Id) AS PersonelId
+        FROM [TMS].[TotalSystem].[dbo].[HRM_Personel] hrm
+        INNER JOIN Hcm.Personel p ON TRY_CONVERT(int, p.Code) = hrm.Hamkaran_Personel_FK
+        GROUP BY hrm.Personel_ID
+    ) hp ON hp.Personel_ID = s.Personel_FK
+    LEFT JOIN #MissionCostCenterMap ccm ON ccm.OldCostCenterId = s.CostCenter_FK
 ) AS s ON t.HtsId = s.HtsId
-WHEN MATCHED THEN UPDATE SET t.ServiceRequestId=s.ServiceRequestId, t.ExpertId=s.ExpertId, t.HtsPersonelId=s.HtsPersonelId,
+WHEN MATCHED THEN UPDATE SET t.ServiceRequestId=s.ServiceRequestId, t.ExpertId=s.ExpertId, t.PersonelId=s.PersonelId, t.HtsPersonelId=s.HtsPersonelId,
     t.HaveGuarantee=s.HaveGuarantee, t.HokmNumber=s.HokmNumber, t.DispatchMiladiDate=s.DispatchMiladiDate,
     t.DispatchShamsiDate=s.DispatchShamsiDate, t.DispatchTime=s.DispatchTime, t.ReturnMiladiDate=s.ReturnMiladiDate,
     t.ReturnShamsiDate=s.ReturnShamsiDate, t.ReturnTime=s.ReturnTime, t.BreakfastFee=s.BreakfastFee, t.Breakfast=s.Breakfast,
@@ -84,20 +118,25 @@ WHEN MATCHED THEN UPDATE SET t.ServiceRequestId=s.ServiceRequestId, t.ExpertId=s
     t.NightRightFactor=s.NightRightFactor, t.WorkOvertimeFee=s.WorkOvertimeFee, t.WorkOvertimeHour=s.WorkOvertimeHour,
     t.MissionRight=s.MissionRight, t.MissionRightFactor=s.MissionRightFactor, t.MissionHolidayRight=s.MissionHolidayRight,
     t.MissionHolidayRightFactor=s.MissionHolidayRightFactor, t.TransportationPersonal=s.TransportationPersonal,
-    t.TransportationDriving=s.TransportationDriving, t.ModifiedById=1, t.ModifiedByName=@SeedUser,
+    t.TransportationDriving=s.TransportationDriving, t.OtherCost=s.OtherCost,
+    t.HasFactorBreakfast=s.HasFactorBreakfast, t.HasFactorLunch=s.HasFactorLunch, t.HasFactorDinner=s.HasFactorDinner,
+    t.HasFactorHotel=s.HasFactorHotel, t.HotelCost=s.HotelCost, t.CostCenterId=s.CostCenterId,
+    t.ModifiedById=1, t.ModifiedByName=@SeedUser,
     t.ModifiedDateMiladiDateTime=@Now, t.ModifiedDateShamsiDateTime=@NowShamsi
-WHEN NOT MATCHED THEN INSERT (HtsId, ServiceRequestId, ExpertId, HtsPersonelId, HaveGuarantee, HokmNumber,
+WHEN NOT MATCHED THEN INSERT (HtsId, ServiceRequestId, ExpertId, PersonelId, HtsPersonelId, HaveGuarantee, HokmNumber,
     DispatchMiladiDate, DispatchShamsiDate, DispatchTime, ReturnMiladiDate, ReturnShamsiDate, ReturnTime,
     BreakfastFee, Breakfast, LunchFee, Lunch, DinnerFee, Dinner, NightRight, NightRightFactor, WorkOvertimeFee,
     WorkOvertimeHour, MissionRight, MissionRightFactor, MissionHolidayRight, MissionHolidayRightFactor,
-    TransportationPersonal, TransportationDriving,
+    TransportationPersonal, TransportationDriving, OtherCost, HasFactorBreakfast, HasFactorLunch,
+    HasFactorDinner, HasFactorHotel, HotelCost, CostCenterId,
     CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime, ModifiedById, ModifiedByName,
     ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
-VALUES (s.HtsId, s.ServiceRequestId, s.ExpertId, s.HtsPersonelId, s.HaveGuarantee, s.HokmNumber,
+VALUES (s.HtsId, s.ServiceRequestId, s.ExpertId, s.PersonelId, s.HtsPersonelId, s.HaveGuarantee, s.HokmNumber,
     s.DispatchMiladiDate, s.DispatchShamsiDate, s.DispatchTime, s.ReturnMiladiDate, s.ReturnShamsiDate, s.ReturnTime,
     s.BreakfastFee, s.Breakfast, s.LunchFee, s.Lunch, s.DinnerFee, s.Dinner, s.NightRight, s.NightRightFactor,
     s.WorkOvertimeFee, s.WorkOvertimeHour, s.MissionRight, s.MissionRightFactor, s.MissionHolidayRight,
-    s.MissionHolidayRightFactor, s.TransportationPersonal, s.TransportationDriving,
+    s.MissionHolidayRightFactor, s.TransportationPersonal, s.TransportationDriving, s.OtherCost,
+    s.HasFactorBreakfast, s.HasFactorLunch, s.HasFactorDinner, s.HasFactorHotel, s.HotelCost, s.CostCenterId,
     1, @SeedUser, @Now, @NowShamsi, 1, @SeedUser, @Now, @NowShamsi, 1);
 SET @Rc = @@ROWCOUNT;
 PRINT N'Mission MERGE touched: ' + CAST(@Rc AS NVARCHAR(20));
@@ -211,7 +250,9 @@ FROM OPENQUERY([TMS], N'
         LEFT(FailureTypeInText, 4000) AS FailureTypeInText,
         LEFT(RepairsTypeIds, 512) AS RepairsTypeIds,
         LEFT(RepairsTypeInText, 4000) AS RepairsTypeInText,
-        IsSurveyLinkSended
+        IsSurveyLinkSended,
+        LEFT(CreatedDate, 10) AS CreatedShamsiDate,
+        LEFT(CreatedTime, 5) AS CreatedTime
     FROM dbo.Sale_Report
 ');
 
@@ -228,7 +269,12 @@ USING (
            s.FlowIntensityUnderload, s.FlowIntensityWithoutLoad, s.MaximumWorkingPressure, s.MinimumWorkingPressure,
            s.EnvironmentTemperature, s.DeviceTemperature, s.VoltagePowerGrid, s.AmountDryerDewpoint, s.OldRunTime,
            s.ExpertGuaranteeMiladiDate, s.ExpertGuaranteeShamsiDate, s.ExpertGuaranteeComment,
-           s.FailureTypeIds, s.FailureTypeInText, s.RepairsTypeIds, s.RepairsTypeInText, s.IsSurveyLinkSended
+           s.FailureTypeIds, s.FailureTypeInText, s.RepairsTypeIds, s.RepairsTypeInText, s.IsSurveyLinkSended,
+           CASE WHEN NULLIF(LTRIM(RTRIM(s.CreatedShamsiDate)), N'') IS NULL THEN NULL
+                ELSE LTRIM(RTRIM(s.CreatedShamsiDate))
+                     + CASE WHEN NULLIF(LTRIM(RTRIM(s.CreatedTime)), N'') IS NULL THEN N''
+                            ELSE N' ' + LEFT(LTRIM(RTRIM(s.CreatedTime)), 5) END
+           END AS CreatedOnShamsiDateTime
     FROM #TmsWorkReport s
     LEFT JOIN Sale.Mission m ON m.HtsId = s.MissionHtsId AND m.HtsId <> 0
     LEFT JOIN Sale.ServiceRequestDetail d ON d.HtsId = s.DetailHtsId AND d.HtsId <> 0
@@ -248,7 +294,9 @@ WHEN MATCHED THEN UPDATE SET t.MissionId=s.MissionId, t.ServiceRequestDetailId=s
     t.ExpertGuaranteeMiladiDate=s.ExpertGuaranteeMiladiDate, t.ExpertGuaranteeShamsiDate=s.ExpertGuaranteeShamsiDate,
     t.ExpertGuaranteeComment=s.ExpertGuaranteeComment, t.FailureTypeIds=s.FailureTypeIds,
     t.FailureTypeInText=s.FailureTypeInText, t.RepairsTypeIds=s.RepairsTypeIds, t.RepairsTypeInText=s.RepairsTypeInText,
-    t.IsSurveyLinkSended=s.IsSurveyLinkSended, t.ModifiedById=1, t.ModifiedByName=@SeedUser,
+    t.IsSurveyLinkSended=s.IsSurveyLinkSended,
+    t.CreatedOnShamsiDateTime=ISNULL(s.CreatedOnShamsiDateTime, t.CreatedOnShamsiDateTime),
+    t.ModifiedById=1, t.ModifiedByName=@SeedUser,
     t.ModifiedDateMiladiDateTime=@Now, t.ModifiedDateShamsiDateTime=@NowShamsi
 WHEN NOT MATCHED THEN INSERT (HtsId, MissionId, ServiceRequestDetailId, ReportNumber, ServiceStartMiladiDate,
     ServiceStartShamsiDate, ServiceStartTime, ServiceEndMiladiDate, ServiceEndShamsiDate, ServiceEndTime,
@@ -267,7 +315,7 @@ VALUES (s.HtsId, s.MissionId, s.ServiceRequestDetailId, s.ReportNumber, s.Servic
     s.DeviceTemperature, s.VoltagePowerGrid, s.AmountDryerDewpoint, s.OldRunTime, s.ExpertGuaranteeMiladiDate,
     s.ExpertGuaranteeShamsiDate, s.ExpertGuaranteeComment, s.FailureTypeIds, s.FailureTypeInText, s.RepairsTypeIds,
     s.RepairsTypeInText, s.IsSurveyLinkSended,
-    1, @SeedUser, @Now, @NowShamsi, 1, @SeedUser, @Now, @NowShamsi, 1);
+    1, @SeedUser, @Now, ISNULL(s.CreatedOnShamsiDateTime, @NowShamsi), 1, @SeedUser, @Now, @NowShamsi, 1);
 SET @Rc = @@ROWCOUNT;
 PRINT N'WorkReport MERGE touched: ' + CAST(@Rc AS NVARCHAR(20));
 

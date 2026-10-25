@@ -235,9 +235,6 @@ namespace WebApp.Controllers.Dynamic
 				or StopRequstModuleStatusEnum.RegisteredInProductTest))
 				return BadRequest("وضعیت فعلی مجاز برای تایید کارشناس نیست");
 
-			if (string.IsNullOrWhiteSpace(request.ResponsibleUnitIds) || string.IsNullOrWhiteSpace(request.ResponsibleUserIds))
-				return BadRequest("واحد و مسئول عامل توقف الزامی است");
-
 			entity.ResponsibleUnitIds = request.ResponsibleUnitIds;
 			entity.ResponsibleUnitTitles = request.ResponsibleUnitTitles;
 			entity.ResponsibleUserIds = request.ResponsibleUserIds;

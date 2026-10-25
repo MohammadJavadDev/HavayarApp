@@ -1,0 +1,90 @@
+@using WebApp.Controllers.SystemControllers
+@model SmsMessageDetailViewModel
+@{
+	var m = Model.Message;
+	string Dash(string? v) => string.IsNullOrWhiteSpace(v) ? "—" : v;
+}
+<div class="card shadow-sm border-0 mb-5">
+	<div class="card-header">
+		<h3 class="card-title fw-bold">جزئیات پیامک @(m.Id)</h3>
+	</div>
+	<div class="card-body row">
+		<div class="col-md-4 mb-4"><span class="text-muted">رویداد:</span> <span class="fw-bold">@Model.EventTitle</span> <span class="text-muted ltr d-inline-block">(@m.EventKey)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">دسته:</span> <span class="fw-bold">@Model.CategoryTitle</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">وضعیت:</span> <span class="fw-bold">@Model.StatusTitle</span></div>
+
+		<div class="col-md-4 mb-4"><span class="text-muted">گیرنده:</span> <span class="fw-bold ltr d-inline-block">@m.MobileNumber</span> @(string.IsNullOrWhiteSpace(m.RecipientName) ? "" : "(" + m.RecipientName + ")")</div>
+		<div class="col-md-4 mb-4"><span class="text-muted">تعداد بخش پیامک:</span> <span class="fw-bold">@m.SegmentCount</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">تعداد تلاش:</span> <span class="fw-bold">@m.AttemptCount</span></div>
+
+		<div class="col-md-4 mb-4"><span class="text-muted">تاریخ ایجاد:</span> <span>@Dash(m.CreatedOnShamsiDateTime)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">زمان ارسال مجاز:</span> <span>@Dash(m.ScheduledOnShamsiDateTime)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">ایجادکننده:</span> <span>@Dash(m.CreatedByName)</span></div>
+
+		<div class="col-md-4 mb-4"><span class="text-muted">زمان ارسال:</span> <span>@Dash(m.SentOnShamsiDateTime)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">زمان تحویل:</span> <span>@Dash(m.DeliveredOnShamsiDateTime)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">وضعیت دلیوری پنل:</span> <span>@Dash(Model.DeliveryStateTitle)</span> @(m.DeliveryCheckCount > 0 ? "(" + m.DeliveryCheckCount + " استعلام)" : "")</div>
+
+		<div class="col-md-4 mb-4"><span class="text-muted">پنل:</span> <span class="ltr d-inline-block">@Dash(m.ProviderName)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">شماره خط:</span> <span class="ltr d-inline-block">@Dash(m.LineNumber)</span></div>
+		<div class="col-md-4 mb-4"><span class="text-muted">شناسه پیام در پنل:</span> <span class="ltr d-inline-block">@Dash(m.ProviderMessageId)</span></div>
+
+		<div class="col-md-8 mb-4"><span class="text-muted">منبع:</span> <span class="ltr d-inline-block">@Dash(m.SourceEntityType)</span> @(m.SourceEntityId.HasValue ? "#" + m.SourceEntityId : "")</div>
+
+		@if (!string.IsNullOrWhiteSpace(m.ErrorMessage))
+		{
+			<div class="col-12 mb-4">
+				<div class="alert alert-danger mb-0"><b>پیام خطا:</b> @m.ErrorMessage</div>
+			</div>
+		}
+
+		<div class="col-12">
+			<div class="text-muted mb-2">متن پیامک@(m.IsSensitive ? " (حساس؛ بعد از ارسال حذف می‌شود)" : "")</div>
+			<pre class="border rounded p-4 mb-0" style="white-space:pre-wrap;direction:rtl;text-align:right">@(m.IsSensitive ? "[متن حساس نمایش داده نمی‌شود]" : m.Body)</pre>
+		</div>
+	</div>
+</div>
+
+<div class="card shadow-sm border-0">
+	<div class="card-header">
+		<h3 class="card-title fw-bold">سابقه تلاش‌های ارسال</h3>
+	</div>
+	<div class="card-body">
+		@if (Model.Attempts.Count == 0)
+		{
+			<div class="text-muted">هنوز تلاشی برای ارسال این پیامک انجام نشده است.</div>
+		}
+		else
+		{
+			<div class="table-responsive">
+				<table class="table table-row-bordered align-middle gs-0 gy-3">
+					<thead>
+						<tr class="fw-bold text-muted">
+							<th>تلاش</th>
+							<th>زمان</th>
+							<th>نتیجه</th>
+							<th>کد پاسخ پنل</th>
+							<th>شناسه پیام پنل</th>
+							<th>مدت (میلی‌ثانیه)</th>
+							<th>خطا</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var a in Model.Attempts)
+						{
+							<tr>
+								<td>@a.AttemptNumber</td>
+								<td>@Dash(a.CreatedOnShamsiDateTime)</td>
+								<td>@a.ResultTitle</td>
+								<td class="ltr">@Dash(a.ProviderStatusCode)</td>
+								<td class="ltr">@Dash(a.ProviderMessageId)</td>
+								<td>@(a.DurationMs?.ToString() ?? "—")</td>
+								<td>@Dash(a.ErrorMessage)</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+</div>

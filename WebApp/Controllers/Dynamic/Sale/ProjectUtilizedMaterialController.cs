@@ -57,6 +57,7 @@ namespace WebApp.Controllers.Dynamic
 			existing.Part = null;
 			existing.DL = null;
 			existing.DLType = null;
+			existing.VchType = null;
 
 			return Ok(await repo.UpdateAsync(existing, cn, true));
 		}
@@ -111,6 +112,7 @@ namespace WebApp.Controllers.Dynamic
 				.Include(c => c.DL)
 				.Include(c => c.Part)
 				.Include(c => c.ReplacedPart)
+				.Include(c => c.VchType)
 				.FirstOrDefault(c => c.Id == id);
 		}
 	}

@@ -57,7 +57,7 @@ BEGIN TRY
     [t1].[HtsId] AS [t1_HtsId],
     [t1].[ReplacedPartId] AS [t1_ReplacedPartId],
     CONCAT(ISNULL([t2].[Code], N''''), N'' | '', ISNULL([t2].[Title], N'''')) AS [t2_Dl],
-    [t1].[VchTypeId] AS [t1_VchTypeId],
+    [tVt].[Title] AS [tVt_Title],
     [t3].[Code] AS [t3_Code],
     [t3].[Name] AS [t3_Name],
     [t1].[Qty] AS [t1_Qty],
@@ -73,19 +73,21 @@ FROM [Sale].[ProjectUtilizedMaterial] AS [t1]
 LEFT JOIN [FIN].[DL] AS [t2] ON [t1].[DLId] = [t2].[Id]
 LEFT JOIN [Inv].[Part] AS [t3] ON [t1].[PartId] = [t3].[Id]
 LEFT JOIN [Inv].[Part] AS [t4] ON [t1].[ReplacedPartId] = [t4].[Id]
+LEFT JOIN [Inv].[VchType] AS [tVt] ON [tVt].[Id] = [t1].[VchTypeId]
 OUTER APPLY (
     SELECT STRING_AGG(CAST([sp].[Name] AS nvarchar(max)), N''، '') AS [SparePartsNames]
     FROM [Inv].[PartSparePart] AS [psp]
     INNER JOIN [Inv].[Part] AS [sp] ON [sp].[Id] = [psp].[SparePartId]
     WHERE [psp].[PartId] = [t1].[PartId]
-) AS [t5]';
+) AS [t5]
+WHERE [t1].[DLId] = TRY_CAST(@DLId AS bigint)';
 
     DECLARE @PCols NVARCHAR(MAX) = N'[
 {"TableName":"Sale.ProjectUtilizedMaterial","ColumnName":"Id","DisplayName":"شناسه","Alliance":"t1_Id","Address":"[t1].[Id]","SystemTypeName":"Long","SelectIndex":0,"Visible":false,"PrimaryKey":true,"SystemType":6,"SortDirection":1,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":80,"Filterable":true,"Sortable":true,"ClassName":""},
 {"TableName":"Sale.ProjectUtilizedMaterial","ColumnName":"HtsId","DisplayName":"شناسه HTS","Alliance":"t1_HtsId","Address":"[t1].[HtsId]","SystemTypeName":"Long","SelectIndex":0,"Visible":false,"PrimaryKey":false,"SystemType":6,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":80,"Filterable":true,"Sortable":true,"ClassName":""},
 {"TableName":"Sale.ProjectUtilizedMaterial","ColumnName":"ReplacedPartId","DisplayName":"شناسه کالای جایگزین","Alliance":"t1_ReplacedPartId","Address":"[t1].[ReplacedPartId]","SystemTypeName":"Long","SelectIndex":0,"Visible":false,"PrimaryKey":false,"SystemType":6,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":80,"Filterable":true,"Sortable":true,"ClassName":""},
 {"TableName":"FIN.DL","ColumnName":"Title","DisplayName":"تفصیل","Alliance":"t2_Dl","Address":"CONCAT(ISNULL([t2].[Code], N''''), N'' | '', ISNULL([t2].[Title], N''''))","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":250,"Filterable":true,"Sortable":true,"ClassName":""},
-{"TableName":"Sale.ProjectUtilizedMaterial","ColumnName":"VchTypeId","DisplayName":"نوع رسید","Alliance":"t1_VchTypeId","Address":"[t1].[VchTypeId]","SystemTypeName":"Int","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":7,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":140,"Filterable":true,"Sortable":true,"ClassName":""},
+{"TableName":"Inv.VchType","ColumnName":"Title","DisplayName":"نوع رسید","Alliance":"tVt_Title","Address":"[tVt].[Title]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":180,"Filterable":true,"Sortable":true,"ClassName":""},
 {"TableName":"Inv.Part","ColumnName":"Code","DisplayName":"کد کالا","Alliance":"t3_Code","Address":"[t3].[Code]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":110,"Filterable":true,"Sortable":true,"ClassName":""},
 {"TableName":"Inv.Part","ColumnName":"Name","DisplayName":"نام کالا","Alliance":"t3_Name","Address":"[t3].[Name]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":300,"Filterable":true,"Sortable":true,"ClassName":""},
 {"TableName":"Sale.ProjectUtilizedMaterial","ColumnName":"Qty","DisplayName":"مقدار","Alliance":"t1_Qty","Address":"[t1].[Qty]","SystemTypeName":"Decimal","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":14,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":100,"Filterable":true,"Sortable":true,"ClassName":""},
@@ -116,6 +118,7 @@ OUTER APPLY (
         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
     );
     DECLARE @PQueryJson NVARCHAR(MAX) = JSON_MODIFY(@QueryJsonSkeleton, '$.CustomQuery', @PSelect);
+    SET @PQueryJson = JSON_MODIFY(@PQueryJson, '$.Parameters', JSON_QUERY(N'[{"Id":"dlId","Name":"DLId","DisplayName":"تفصیل","DefaultValue":"","DataType":"string"}]'));
     DECLARE @PId BIGINT;
 
     IF EXISTS (SELECT 1 FROM system.SavedQuery WHERE Name = @PName)

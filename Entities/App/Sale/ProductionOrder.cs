@@ -1,6 +1,7 @@
 using Common.Attributes;
 using Entities.App.FIN;
 using Entities.App.Gnr;
+using Entities.App.Hrm;
 using Entities.App.Sale.Enums;
 using Entities.App.SLS;
 using Entities.Auth;
@@ -249,6 +250,17 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.Long)]
 		public long? ProductionOrderNumber { get; set; }
 
+		/// <summary>
+		/// اعلام نیازمندی مرتبط (راهکاران: Sale_ProductionOrder.RequirementAdvertiseIdRef؛ در HTS: SaleProjectReportManagementId).
+		/// شماره‌ی نماینده مشتری برای پیامک‌ها از همین رکورد خوانده می‌شود.
+		/// </summary>
+		[DisplayName("اعلام نیازمندی")]
+		[DisplayInfo(null, false, type: SystemType.Entity)]
+		[ForeignKey(nameof(RequirmentAdvertiseId))]
+		public virtual RequirmentAdvertise? RequirmentAdvertise { get; set; }
+
+		public long? RequirmentAdvertiseId { get; set; }
+
 
 		[DisplayName("نسخه")]
 		[DisplayInfo(null, true, type: SystemType.Int)]
@@ -284,6 +296,16 @@ namespace Entities.App.Sale
 
 		public long? IntroducerExpertId { get; set; }
 		public long? HamkaranId { get; set; }
+
+		[DisplayName("نسخه راهکاران")]
+		[DisplayInfo(null, true, type: SystemType.Long)]
+		public long? RahkaranVersion { get; set; }
+
+		[DisplayName("واحد سازمانی ایجادکننده")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		public OrgUnit? CreatedOrganizationUnit { get; set; }
+
+		public long? CreatedOrganizationUnitId { get; set; }
 
 
 		[DisplayName("تایید کننده مالی")]
@@ -330,9 +352,19 @@ namespace Entities.App.Sale
 		[MaxLength(1024)]
 		public string? DisableForTimelyDeliveryReportComment { get; set; }
 
+		/// <summary>
+		/// سفارش سطل تجهیزات برنامه‌ریزی (شماره سفارش ۰). اقلام این سفارش در سیکل تأخیرات نمی‌آیند.
+		/// </summary>
+		public const long PlanningEquipmentOrderId = 1004;
+
 		[DisplayName("پروژه‌ای (عدم محاسبه تاخیر)")]
 		[DisplayInfo(null, true, type: SystemType.Boolean)]
 		public bool DelayNotCalculated { get; set; } = false;
+
+		[DisplayName("علت پروژه‌ای شدن")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? DelayNotCalculatedComment { get; set; }
 
 		public List<ProductionOrderItem> Items { get; set; } = new();
 

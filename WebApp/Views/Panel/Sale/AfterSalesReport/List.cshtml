@@ -1,0 +1,122 @@
+@*
+  کاتالوگ گزارش‌های HTS سیستم خدمات پس از فروش.
+  SavedQuery.EntityFullName باید AfterSalesReports باشد (همان unicode این تگ).
+*@
+<div id="customerDebitFilters" class="card mb-4 d-none">
+    <div class="card-body row g-3 align-items-end">
+        <div class="col-md-3 form-group-inline">
+            <label class="form-label">از تاریخ</label>
+            <input class="form-control" id="debitFromDate" data-persionDatePicker="true" placeholder="1395/01/01"
+                   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"persianDigit":false}' />
+        </div>
+        <div class="col-md-3 form-group-inline">
+            <label class="form-label">تا تاریخ</label>
+            <input class="form-control" id="debitToDate" data-persionDatePicker="true"
+                   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"persianDigit":false}' />
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-primary w-100" data-action="customerDebitSearch">جستجو</button>
+        </div>
+        <div class="col-md-4">
+            <div id="debitDlHint" class="text-muted d-none">برای دیدن ریز حساب، از نمایه مانده یک ردیف را انتخاب کنید و دکمه ریز حساب را بزنید.</div>
+            <div id="debitDlLabel" class="fw-semibold d-none"></div>
+        </div>
+    </div>
+    <input type="hidden" id="debitDlCode" />
+</div>
+
+<datatableprofile unicode="AfterSalesReports"></datatableprofile>
+
+<script>
+    const customerDebitSummaryTitle = 'گزارش مانده حساب مشتری';
+    const customerDebitDetailTitle = 'گزارش ریز مانده حساب مشتری';
+    const customerDebitDefaultFrom = '1395/01/01';
+
+    function normalizeShamsiDate(value) {
+        let text = value == null ? '' : String(value);
+        if (typeof MJUtil !== 'undefined' && MJUtil.toEnglishNumbers)
+            text = MJUtil.toEnglishNumbers(text) || '';
+        text = String(text).trim().replace(/-/g, '/');
+        const match = text.match(/^(\d{4}\/\d{1,2}\/\d{1,2})/);
+        return match ? match[1] : '';
+    }
+
+    function customerDebitKind() {
+        const text = $$('[data-action="dataProfile"] option:selected').text();
+        if (text === customerDebitDetailTitle) return 'detail';
+        if (text === customerDebitSummaryTitle) return 'summary';
+        return '';
+    }
+
+    function syncCustomerDebitFilter() {
+        const kind = customerDebitKind();
+        const $select = $$('[data-action="dataProfile"]');
+        const $bar = $$('#customerDebitFilters');
+        if (!kind) {
+            $bar.addClass('d-none');
+            $select.removeAttr('data-query-params');
+            return;
+        }
+
+        $bar.removeClass('d-none');
+        const fromDate = normalizeShamsiDate($$('#debitFromDate').val()) || customerDebitDefaultFrom;
+        const toDate = normalizeShamsiDate($$('#debitToDate').val());
+        const params = { FromDate: fromDate, ToDate: toDate };
+        const dlCode = String($$('#debitDlCode').val() || '').trim();
+        const showDetailHint = kind === 'detail';
+        $$('#debitDlHint').toggleClass('d-none', !showDetailHint || !!dlCode);
+        const $label = $$('#debitDlLabel');
+        if (showDetailHint && dlCode) {
+            $label.removeClass('d-none').text('کد تفصیل: ' + dlCode);
+            params.DlCode = dlCode;
+        } else {
+            $label.addClass('d-none').text('');
+        }
+        $select.attr('data-query-params', JSON.stringify(params));
+    }
+
+    function reloadCustomerDebitTable() {
+        syncCustomerDebitFilter();
+        const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+        if (table && table.ajax)
+            table.ajax.reload(null, false);
+    }
+
+    syncCustomerDebitFilter();
+    setTimeout(function () {
+        const $from = $$('#debitFromDate');
+        if (!$from.val())
+            $from.val(customerDebitDefaultFrom);
+    }, 0);
+
+    $$('[data-action="dataProfile"]').on('change.customerDebit', function () {
+        syncCustomerDebitFilter();
+    });
+
+    page.$pageEl.on('click', '[data-action="customerDebitSearch"]', function () {
+        reloadCustomerDebitTable();
+    });
+
+    page.$pageEl.on('customerDebitDetail', function (e, ctx) {
+        const row = (ctx && ctx.selectedRow) || {};
+        const dlCode = row.tDl_Code;
+        if (!dlCode) {
+            toastr.warning('یک ردیف را انتخاب کنید', 'هشدار');
+            return;
+        }
+
+        const $select = $$('[data-action="dataProfile"]');
+        const $opt = $select.find('option').filter(function () {
+            return $(this).text() === customerDebitDetailTitle;
+        });
+        if (!$opt.length) {
+            toastr.error('نمایه ریز حساب پیدا نشد', 'خطا');
+            return;
+        }
+
+        $$('#debitDlCode').val(dlCode);
+        $select.val(String($opt.val()));
+        syncCustomerDebitFilter();
+        $select.trigger('change');
+    });
+</script>

@@ -14,5 +14,19 @@ namespace Entities.Hts.Sup
 		public long? OrderRowId { get; set; }
 
 		public bool IsDeleted { get; set; }
+
+		public bool? Engineering_Accept { get; set; }
+
+		public short? Engineering_Accept_User_FK { get; set; }
+
+		[StringLength(10)]
+		public string? Engineering_Accept_Date { get; set; }
+
+		[StringLength(5)]
+		public string? Engineering_Accept_Time { get; set; }
+
+		public DateTime? EngineeringAcceptDateInEurope { get; set; }
+
+		public bool IsAcceptedAutomaticallyByEngineering { get; set; }
 	}
 }

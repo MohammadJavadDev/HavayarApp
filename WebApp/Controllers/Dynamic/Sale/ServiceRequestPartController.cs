@@ -1,10 +1,12 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
+using Data;
 using Data.Contracts;
 using Entities.App.Inv;
 using Entities.App.Sale;
 using Entities.App.Sale.DTO;
+using Entities.App.Sup;
 using Entities.App.Sale.Enums;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +25,8 @@ namespace WebApp.Controllers.Dynamic
 	public class ServiceRequestPartController(
 		IUnitOfWork unitOfWork,
 		IWebHostEnvironment env,
-		IConfiguration configuration) : BaseController
+		IConfiguration configuration,
+		ApplicationDbContext db) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -124,6 +127,8 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("لیست وابسته", ActionAccessType.View, ActionAccessItemType.List)]
 		public async Task<IActionResult> ListByParentId(long serviceRequestId, string? manual = null, CancellationToken cn = default)
 		{
+			if (await AgencyCannotSeeAsync(serviceRequestId, cn))
+				return View(@"\Views\Panel\Sale\ServiceRequest\AccessDenied.cshtml");
 			ViewBag.ParentId = serviceRequestId;
 			ViewBag.IsManual = IsManualFlag(manual);
 			ViewBag.ShowPrice = CanShowPrice();
@@ -138,6 +143,8 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (serviceRequestId == null || serviceRequestId == 0)
 				return BadRequest("شناسه والد خالی است");
+			if (await AgencyCannotSeeAsync(serviceRequestId.Value, cn))
+				return BadRequest(ServiceRequestAgencyAccess.DeniedMessage);
 			var isManual = IsManualFlag(manual);
 			var showPrice = CanShowPrice();
 			var items = await unitOfWork.Repository<ServiceRequestPart>().TableNoTracking
@@ -209,10 +216,16 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("واکشی اقلام سند", ActionAccessType.Api, ActionAccessItemType.Custom)]
-		public async Task<IActionResult> FetchPieces(int vchNo, string year, long? saleCenterId, CancellationToken cn)
+		public async Task<IActionResult> FetchPieces([FromBody] ServiceRequestPartFetchPiecesRequest request, CancellationToken cn)
 		{
+			if (request == null)
+				return BadRequest("شماره سند و سال مالی را وارد کنید");
 			var result = await AfterSalesInventoryAdapter.FetchPiecesAsync(
-				configuration.GetConnectionString("Hts"), vchNo, year, ResolveSaleCenterHtsId(saleCenterId), cn);
+				configuration.GetConnectionString("Rahkaran"),
+				request.VchNo,
+				request.Year,
+				await ResolveSaleOfficeCodeAsync(request.SaleCenterId, cn),
+				cn);
 			if (!result.Success)
 				return BadRequest(result.Message);
 			await MapPieceParts(result.Items, cn);
@@ -240,20 +253,20 @@ namespace WebApp.Controllers.Dynamic
 			}
 
 			var result = await AfterSalesInventoryAdapter.FetchPiecesAsync(
-				configuration.GetConnectionString("Hts"), vchNo, year, ResolveSaleCenterHtsId(saleCenterId), cn);
+				configuration.GetConnectionString("Rahkaran"), vchNo, year, await ResolveSaleOfficeCodeAsync(saleCenterId, cn), cn);
 			if (!result.Success)
 				return Ok(new { saleCenterId, year, selectedId = item.HtsProjectVchItemId ?? item.OrderDetailId, dataSource = Array.Empty<object>() });
 
 			await MapPieceParts(result.Items, cn);
-			long? orderDetailHtsId = null;
+			long? selectedId = item.HtsProjectVchItemId;
 			if (item.OrderDetailId is > 0)
 			{
-				orderDetailHtsId = await unitOfWork.Repository<OrderDetail>().TableNoTracking
+				var orderKey = await unitOfWork.Repository<OrderDetail>().TableNoTracking
 					.Where(c => c.Id == item.OrderDetailId)
-					.Select(c => (long?)c.HtsId)
+					.Select(c => new { c.HamkaranId, c.HtsId })
 					.FirstOrDefaultAsync(cn);
+				selectedId = orderKey?.HamkaranId ?? item.HtsProjectVchItemId ?? (orderKey?.HtsId > 0 ? orderKey.HtsId : item.OrderDetailId);
 			}
-			var selectedId = item.HtsProjectVchItemId ?? orderDetailHtsId ?? item.OrderDetailId;
 			return Ok(new
 			{
 				saleCenterId,
@@ -367,43 +380,67 @@ namespace WebApp.Controllers.Dynamic
 				c.Path != null && c.Path.Equals("/panel/sale/servicerequestpart/showprice", StringComparison.OrdinalIgnoreCase)) == true;
 		}
 
-		private long? ResolveSaleCenterHtsId(long? saleCenterId)
+		private async Task<long?> ResolveSaleOfficeCodeAsync(long? saleCenterId, CancellationToken cn)
 		{
 			if (saleCenterId is null or 0)
 				return null;
-			var hts = unitOfWork.Repository<Branch>().TableNoTracking
+			var hts = await unitOfWork.Repository<Branch>().TableNoTracking
 				.Where(c => c.Id == saleCenterId)
 				.Select(c => c.HtsId)
-				.FirstOrDefault();
-			return hts > 0 ? hts : saleCenterId;
+				.FirstOrDefaultAsync(cn);
+			return hts > 0 ? hts : null;
 		}
 
 		private async Task MapPieceParts(List<InventoryPieceRow> items, CancellationToken cn)
 		{
 			var partRefs = items.Where(c => c.Partref != null).Select(c => c.Partref!.Value).Distinct().ToList();
-			if (partRefs.Count == 0)
-				return;
-			var parts = await unitOfWork.Repository<Part>().TableNoTracking
-				.Where(c => partRefs.Contains(c.HtsId) || (c.HamkaranId != null && partRefs.Contains(c.HamkaranId.Value)))
-				.Select(c => new { c.Id, c.HtsId, c.HamkaranId })
-				.ToListAsync(cn);
+			var parts = partRefs.Count == 0
+				? new List<PieceKey>()
+				: await unitOfWork.Repository<Part>().TableNoTracking
+					.Where(c => c.HamkaranId != null && partRefs.Contains(c.HamkaranId.Value))
+					.Select(c => new PieceKey(c.Id, c.HamkaranId))
+					.ToListAsync(cn);
+
+			var unitRefs = items.Where(c => c.MunitRef != null).Select(c => c.MunitRef!.Value).Distinct().ToList();
+			var units = unitRefs.Count == 0
+				? new List<PieceKey>()
+				: await unitOfWork.Repository<PartUnit>().TableNoTracking
+					.Where(c => c.HamkaranId != null && unitRefs.Contains(c.HamkaranId.Value))
+					.Select(c => new PieceKey(c.Id, c.HamkaranId))
+					.ToListAsync(cn);
+
 			var orderIds = items.Where(c => c.FromSaleOrder).Select(c => c.Id).Distinct().ToList();
 			var orders = orderIds.Count == 0
-				? []
+				? new List<PieceKey>()
 				: await unitOfWork.Repository<OrderDetail>().TableNoTracking
-					.Where(c => orderIds.Contains(c.HtsId) || orderIds.Contains(c.Id ?? 0))
-					.Select(c => new { c.Id, c.HtsId })
+					.Where(c => c.HamkaranId != null && orderIds.Contains(c.HamkaranId.Value))
+					.Select(c => new PieceKey(c.Id, c.HamkaranId))
 					.ToListAsync(cn);
 
 			foreach (var item in items)
 			{
 				if (item.Partref != null)
-				{
-					item.HavayarPartId = parts.FirstOrDefault(p => p.HtsId == item.Partref)?.Id
-						?? parts.FirstOrDefault(p => p.HamkaranId == item.Partref)?.Id;
-				}
+					item.HavayarPartId = parts.FirstOrDefault(p => p.HamkaranId == item.Partref)?.Id;
+				if (item.MunitRef != null)
+					item.HavayarPartUnitId = units.FirstOrDefault(u => u.HamkaranId == item.MunitRef)?.Id;
 				if (item.FromSaleOrder)
-					item.HavayarOrderDetailId = orders.FirstOrDefault(o => o.HtsId == item.Id || o.Id == item.Id)?.Id;
+					item.HavayarOrderDetailId = orders.FirstOrDefault(o => o.HamkaranId == item.Id)?.Id;
+			}
+
+			var havayarPartIds = items.Where(c => c.HavayarPartId is > 0).Select(c => c.HavayarPartId!.Value).Distinct().ToList();
+			if (havayarPartIds.Count == 0)
+				return;
+			var prices = await unitOfWork.Repository<InquiryPartPrice>().TableNoTracking
+				.Where(c => havayarPartIds.Contains(c.PartId))
+				.Select(c => new { c.PartId, c.Id, c.UnitPrice })
+				.ToListAsync(cn);
+			var latestPrice = prices
+				.GroupBy(c => c.PartId)
+				.ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First().UnitPrice);
+			foreach (var item in items)
+			{
+				if (item.HavayarPartId is > 0 && latestPrice.TryGetValue(item.HavayarPartId.Value, out var price))
+					item.LastBuyPrice = price;
 			}
 		}
 
@@ -418,6 +455,7 @@ namespace WebApp.Controllers.Dynamic
 			LastBuyPrice = row.LastBuyPrice,
 			HavayarPartId = row.HavayarPartId,
 			HavayarOrderDetailId = row.HavayarOrderDetailId,
+			HavayarPartUnitId = row.HavayarPartUnitId,
 			FromSaleOrder = row.FromSaleOrder
 		};
 
@@ -469,18 +507,23 @@ namespace WebApp.Controllers.Dynamic
 
 			if (piece.HavayarPartId is > 0 && entity.ReplacePartId is null or 0)
 				entity.ReplacePartId = piece.HavayarPartId;
+			if (piece.HavayarPartUnitId is > 0 && entity.PartUnitId is null or 0)
+				entity.PartUnitId = piece.HavayarPartUnitId;
 			if (piece.Partref is > 0 && entity.HtsProjectVchPartId is null)
 				entity.HtsProjectVchPartId = piece.Partref;
 
 			if (piece.FromSaleOrder)
 			{
-				entity.OrderDetailId = piece.HavayarOrderDetailId ?? piece.Id;
+				if (piece.HavayarOrderDetailId is > 0)
+					entity.OrderDetailId = piece.HavayarOrderDetailId;
 			}
 			else if (piece.Id > 0 && piece.Id <= int.MaxValue)
 			{
 				entity.HtsProjectVchItemId = (int)piece.Id;
 			}
 		}
+
+		private sealed record PieceKey(long? Id, long? HamkaranId);
 
 		private static string EnumDisplay(int serviceType)
 		{
@@ -493,5 +536,11 @@ namespace WebApp.Controllers.Dynamic
 				.FirstOrDefault();
 			return attr?.Name ?? value.ToString();
 		}
+
+		private bool IsAgencyViewer()
+			=> !IsAdministrator && CurrentUserHasAnyRole("نمایندگی ها", "نمایندگان فروش");
+
+		private Task<bool> AgencyCannotSeeAsync(long serviceRequestId, CancellationToken cn)
+			=> ServiceRequestAgencyAccess.IsHiddenFromAgencyAsync(db, IsAgencyViewer(), CurrentUserId, serviceRequestId, cn);
 	}
 }

@@ -5,7 +5,10 @@
 @model Mission
 @{
 	var isFullPage = ViewData["RenderLayout"] as bool? != false;
-	var personelId = ViewBag.PersonelIds as List<long?> ?? new List<long?>();
+	var personelId = (ViewBag.PersonelIds as List<long?> ?? new List<long?>())
+		.Where(id => id is > 0)
+		.Distinct()
+		.ToList();
 	var overtimeDisplay = Model?.WorkOvertimeHour == null
 		? ""
 		: Common.Utilities.MinutesFromHourMinJsonConverter.MinToHourMin(Model.WorkOvertimeHour, hourLength: 2);
@@ -35,16 +38,33 @@
 			<label class="form-label fw-bold required">کارشناس</label>
 			<div class="d-flex gap-2 align-items-center">
 				<div class="flex-grow-1">
-					@(Html.EntitySelector<Personel>(
-						"MissionPersonelSelector",
-					 c => c.IsActive == IsActiveEnum.Active && (personelId.Count == 0 || personelId.Contains(c.Id)),
-						c => new { Id = c.Id, Name = c.Name, Family = c.Family },
-						c => new { c.Name, c.Family },
-						"{Name} {Family}",
-						"personelId",
-						"personelName",
-						Model?.PersonelId?.ToString()
-					))
+					@if (personelId.Count > 0)
+					{
+						@* HTS FillMissionManagementData: experts assigned on this request, including inactive personnel. *@
+						@(Html.EntitySelector<Personel>(
+							"MissionPersonelSelector",
+							c => personelId.Contains(c.Id) && c.IsActive != IsActiveEnum.Deleted,
+							c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+							c => new { c.Name, c.Family },
+							"{Name} {Family}",
+							"personelId",
+							"personelName",
+							Model?.PersonelId?.ToString()
+						))
+					}
+					else
+					{
+						@(Html.EntitySelector<Personel>(
+							"MissionPersonelSelector",
+							c => c.IsActive == IsActiveEnum.Active,
+							c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+							c => new { c.Name, c.Family },
+							"{Name} {Family}",
+							"personelId",
+							"personelName",
+							Model?.PersonelId?.ToString()
+						))
+					}
 				</div>
 				<button type="button" class="btn btn-sm btn-light-primary text-nowrap" data-action="loadMissionSalary">دریافت حق ماموریت</button>
 			</div>
@@ -126,6 +146,11 @@
 			<input class="form-control" type="text" data-bind="breakfast" asp-for="Breakfast" />
 			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">فاکتور صبحانه</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="hasFactorBreakfast" asp-for="HasFactorBreakfast" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
 		<div class="col-md-4 form-group-inline">
 			<label class="form-label fw-bold">هزینه ناهار</label>
 			<input class="form-control" type="text" data-bind="lunchFee" data-money="true" asp-for="LunchFee" />
@@ -136,6 +161,11 @@
 			<input class="form-control" type="text" data-bind="lunch" asp-for="Lunch" />
 			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">فاکتور ناهار</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="hasFactorLunch" asp-for="HasFactorLunch" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
 		<div class="col-md-4 form-group-inline">
 			<label class="form-label fw-bold">هزینه شام</label>
 			<input class="form-control" type="text" data-bind="dinnerFee" data-money="true" asp-for="DinnerFee" />
@@ -144,6 +174,21 @@
 		<div class="col-md-2 form-group-inline">
 			<label class="form-label fw-bold">تعداد شام</label>
 			<input class="form-control" type="text" data-bind="dinner" asp-for="Dinner" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">فاکتور شام</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="hasFactorDinner" asp-for="HasFactorDinner" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">هزینه هتل</label>
+			<input class="form-control" type="text" data-bind="hotelCost" data-money="true" asp-for="HotelCost" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-2 form-group-inline">
+			<label class="form-label fw-bold">فاکتور هتل</label>
+			<input class="form-check-input mt-2" type="checkbox" data-bind="hasFactorHotel" asp-for="HasFactorHotel" />
 			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
 		<div class="col-md-4 form-group-inline">
@@ -191,6 +236,11 @@
 		<div class="col-md-6 form-group-inline">
 			<label class="form-label fw-bold">حمل رانندگی</label>
 			<input class="form-control" type="text" data-bind="transportationDriving" data-money="true" asp-for="TransportationDriving" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">سایر هزینه</label>
+			<input class="form-control" type="text" data-bind="otherCost" data-money="true" asp-for="OtherCost" />
 			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
 		<div class="col-md-4 form-group-inline">
@@ -284,6 +334,29 @@
 		$el.trigger('input').trigger('change');
 	}
 
+	const missionFactorPairs = [
+		{ flag: 'hasFactorBreakfast', count: 'breakfast', fee: 'breakfastFee' },
+		{ flag: 'hasFactorLunch', count: 'lunch', fee: 'lunchFee' },
+		{ flag: 'hasFactorDinner', count: 'dinner', fee: 'dinnerFee' }
+	];
+
+	function missionFactorChecked($root, flag) {
+		return $root.find('[data-bind="' + flag + '"]').prop('checked') === true;
+	}
+
+	function bindMissionFactorLocks($root) {
+		missionFactorPairs.forEach(function (pair) {
+			const $flag = $root.find('[data-bind="' + pair.flag + '"]');
+			const apply = function (clearCount) {
+				const checked = $flag.prop('checked') === true;
+				$root.find('[data-bind="' + pair.count + '"]').prop('disabled', checked);
+				if (checked && clearCount) setMissionField($root, pair.count, '');
+			};
+			apply(false);
+			$flag.off('change.factorLock').on('change.factorLock', function () { apply(true); });
+		});
+	}
+
 	function fillMissionSalaryFees($root, $btn) {
 		const personelId = $root.find('[data-bind="personelId"]').val();
 		const expertId = $root.find('[data-bind="expertId"]').val();
@@ -307,6 +380,8 @@
 				return;
 			}
 			['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+				const locked = missionFactorPairs.some(function (pair) { return pair.fee === key && missionFactorChecked($root, pair.flag); });
+				if (locked) return;
 				setMissionField($root, key, data[key]);
 			});
 			toastr.success('مبالغ حق ماموریت دریافت شد');
@@ -325,12 +400,14 @@
 		const missionRightFactor = missionVal(data, 'missionRightFactor');
 		if (breakfast == null && lunch == null && dinner == null)
 			return false;
-		setMissionField($root, 'breakfast', breakfast);
-		setMissionField($root, 'lunch', lunch);
-		setMissionField($root, 'dinner', dinner);
+		if (!missionFactorChecked($root, 'hasFactorBreakfast')) setMissionField($root, 'breakfast', breakfast);
+		if (!missionFactorChecked($root, 'hasFactorLunch')) setMissionField($root, 'lunch', lunch);
+		if (!missionFactorChecked($root, 'hasFactorDinner')) setMissionField($root, 'dinner', dinner);
 		setMissionField($root, 'nightRightFactor', nightRightFactor);
 		setMissionField($root, 'missionRightFactor', missionRightFactor);
 		['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+			const locked = missionFactorPairs.some(function (pair) { return pair.fee === key && missionFactorChecked($root, pair.flag); });
+			if (locked) return;
 			const fee = missionVal(data, key);
 			if (fee == null) return;
 			setMissionField($root, key, fee);
@@ -389,10 +466,14 @@
 				model[key] = null;
 		});
 		model.workOvertimeHour = missionHourMinToMin(model.workOvertimeHour);
+		missionFactorPairs.forEach(function (pair) {
+			if (missionFactorChecked(page.$pageEl, pair.flag)) model[pair.count] = null;
+		});
 		return model;
 	}
 
 	initMissionDurationFields(page.$pageEl);
+	bindMissionFactorLocks(page.$pageEl);
 	page.$pageEl.on('click', '[data-action="loadMissionSalary"]', function () {
 		fillMissionSalaryFees(page.$pageEl, $(this));
 	});

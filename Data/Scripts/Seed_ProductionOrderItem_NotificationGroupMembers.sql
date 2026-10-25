@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Seed_ProductionOrderItem_NotificationGroupMembers.sql
 ================================================================================
@@ -10,9 +10,11 @@ Seed_ProductionOrderItem_NotificationGroupMembers.sql
   Sale.ProductionOrderItem.SupplyCommitteeExperts   Gnr_UserGroup 380 «کارشناسان رئیس کمیته تامین (سفارش ساخت)»
   Sale.ProductionOrderItem.TestStart                Gnr_UserGroup 540 «دریافت‌کنندگان ایمیل شروع تست سفارش ساخت غیرروتین»
   Sale.ProductionOrderItem.NearDeliveryDate         Gnr_UserGroup 567 «دریافت‌کنندگان ایمیل هشدار کالاهای نزدیک به موعد تحویل»
-  Sale.ProductionOrderItem.SerialChangeQc           گیرندگان واقعی SendChengedSerialNotificationEmail (maroufkhani.m، badrkhani.s)
-                                                    (گروه 538 در آن کد خوانده می‌شد ولی استفاده نمی‌شد — گروه انبار/بازرسی ورودی است)
+  Sale.ProductionOrderItem.SerialChangeQc           پرسنل فعال واحد سازمانی «کنترل کیفیت» (۱۴۰۵/۰۸/۰۲).
+                                                    معروف‌خانی در منابع انسانی هنوز فعال است ولی از شرکت رفته و عضو این گروه نیست.
+                                                    بدرخانی و معروف‌خانی گیرندگان ثابت قدیمی HTS بودند.
   Sale.ProductionOrderItem.Industrial               GetIndustrialStaticReceivers ∪ گیرندگان isSendToPlanningUnitMode (InquiryService)
+  Sale.ProductionOrderItem.ItemAdded                رونوشت اعلان افزودن قلم (salim.sh)
   Sale.ProductionOrderItem.ProductionStatusChange   GetChangeStatusStaticReceivers ∪ Gnr_UserGroup 591 «دریافت‌کنندگان اعلانات
                                                     تغییرات در قلم سفارش ساخت» (CC پیش‌فرض فرم تغییر وضعیت HTS)
 
@@ -42,9 +44,16 @@ INSERT INTO @Map (GroupCode, Username, Source) VALUES
  (N'Sale.ProductionOrderItem.TestStart', N'moeini.r',     N'HTS group 540'),
  -- 567 نزدیک به موعد تحویل
  (N'Sale.ProductionOrderItem.NearDeliveryDate', N'sohrabi.z', N'HTS group 567'),
- -- تغییر سریال (گیرندگان واقعی کد HTS)
- (N'Sale.ProductionOrderItem.SerialChangeQc', N'maroufkhani.m', N'HTS SendChengedSerialNotificationEmail To'),
- (N'Sale.ProductionOrderItem.SerialChangeQc', N'badrkhani.s',   N'HTS SendChengedSerialNotificationEmail CC'),
+ -- تغییر سریال: پرسنل فعال واحد کنترل کیفیت
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'salim.sh',    N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'Aminian.i',   N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'Sepahyar.b',  N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'KHodaei.r',   N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'Azami.sa',    N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'Mozafari.s',  N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'gavan.a',     N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'bahmandar.mo', N'واحد کنترل کیفیت'),
+ (N'Sale.ProductionOrderItem.SerialChangeQc', N'sazvar.m',    N'واحد کنترل کیفیت'),
  -- صنایع: GetIndustrialStaticReceivers ∪ isSendToPlanningUnitMode
  (N'Sale.ProductionOrderItem.Industrial', N'Khalili.aa',    N'HTS static industrial'),
  (N'Sale.ProductionOrderItem.Industrial', N'Mehrabi.s',     N'HTS static industrial'),
@@ -60,6 +69,7 @@ INSERT INTO @Map (GroupCode, Username, Source) VALUES
  (N'Sale.ProductionOrderItem.Industrial', N'Mohammadi.ma',  N'HTS InquiryService planning-unit'),
  (N'Sale.ProductionOrderItem.Industrial', N'kaboli.f',      N'HTS InquiryService planning-unit'),
  (N'Sale.ProductionOrderItem.Industrial', N'Asgari.sh',     N'HTS InquiryService planning-unit'),
+ (N'Sale.ProductionOrderItem.ItemAdded',  N'salim.sh',      N'HTS GetStaticReceivers'),
  -- تغییر وضعیت تولید: GetChangeStatusStaticReceivers
  (N'Sale.ProductionOrderItem.ProductionStatusChange', N'Ahmadi.sh',        N'HTS static change-status'),
  (N'Sale.ProductionOrderItem.ProductionStatusChange', N'Asadi.re',         N'HTS static change-status'),
@@ -122,6 +132,23 @@ BEGIN TRY
         SELECT 1 FROM system.NotificationGroupMember x
         WHERE x.NotificationGroupId = r.GroupId AND x.UserId = r.UserId);
     PRINT N'  Inserted NotificationGroupMember rows: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
+
+    -- تغییر سریال: فقط پرسنل فعلی واحد کنترل کیفیت فعال بمانند
+    UPDATE x
+    SET x.IsActive = 0,
+        x.ModifiedById = 1,
+        x.ModifiedByName = @SeedUser,
+        x.ModifiedDateMiladiDateTime = @Now,
+        x.ModifiedDateShamsiDateTime = @NowShamsi
+    FROM system.NotificationGroupMember x
+    INNER JOIN system.NotificationGroup g ON g.Id = x.NotificationGroupId
+    INNER JOIN system.[User] u ON u.Id = x.UserId
+    WHERE g.Code = N'Sale.ProductionOrderItem.SerialChangeQc'
+      AND x.IsActive = 1
+      AND NOT EXISTS (
+          SELECT 1 FROM @Map m
+          WHERE m.GroupCode = g.Code AND LOWER(m.Username) = LOWER(u.Username));
+    PRINT N'  Deactivated stale SerialChangeQc members: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
 
     COMMIT TRANSACTION;
     PRINT N'=== DONE Seed_ProductionOrderItem_NotificationGroupMembers ===';

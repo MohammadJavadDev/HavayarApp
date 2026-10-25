@@ -1,10 +1,13 @@
 ﻿using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
+using Data.SystemAuth;
 using Entities.App.Pln;
 using Entities.App.Pln.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Services.Auth;
+using WebApp.Actions.Pln;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -14,12 +17,16 @@ namespace WebApp.Controllers.Dynamic.Pln
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("کاربران تاخیرات سفارش ساخت", typeof(ProductionOrderDelayResponsibleUser))]
-	public class ProductionOrderDelayResponsibleUserController(IUnitOfWork unitOfWork) : BaseController
+	public class ProductionOrderDelayResponsibleUserController(
+		IUnitOfWork unitOfWork,
+		IUserService userService,
+		IOnlineUserService onlineUserService) : BaseController
 	{
 		[HttpGet("[action]")]
 		[ActionDisplayName("صفحه تنظیم کاربران", ActionAccessType.View, ActionAccessItemType.Custom)]
-		public IActionResult Index()
+		public async Task<IActionResult> Index(CancellationToken cn)
 		{
+			await ProductionOrderDelayJustifyRoleSync.SyncAsync(unitOfWork, userService, onlineUserService, cn);
 			return View(@"\Views\Panel\Pln\ProductionOrderDelayResponsibleUser\Index.cshtml");
 		}
 
@@ -53,6 +60,7 @@ namespace WebApp.Controllers.Dynamic.Pln
 			{
 				model.Id = null;
 				var entity = await repo.SaveAsync(model, cn, true);
+				await ProductionOrderDelayJustifyRoleSync.SyncAsync(unitOfWork, userService, onlineUserService, cn);
 				return Ok(entity);
 			}
 
@@ -60,6 +68,7 @@ namespace WebApp.Controllers.Dynamic.Pln
 			existing.UserNames = model.UserNames;
 			existing.UsersEmail = model.UsersEmail;
 			var updated = await repo.UpdateAsync(existing, cn, true);
+			await ProductionOrderDelayJustifyRoleSync.SyncAsync(unitOfWork, userService, onlineUserService, cn);
 			return Ok(updated);
 		}
 	}

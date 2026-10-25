@@ -1,5 +1,6 @@
 @using Entities.App.FIN;
 @using Entities.App.Gnr;
+@using Entities.App.Inv;
 @using Entities.App.Sale;
 @using Entities.App.SLS;
 @using Entities.App.Sale.Enums
@@ -16,6 +17,9 @@
 
 	//Seed Role => Sale.ProductionOrder.Obsolete => سفارش ساخت - منسوخ‌سازی
 	var canObsolete = isAdmin || sdk.HasRole("Sale.ProductionOrder.Obsolete");
+	var canEditOrder = ViewBag.CanEditOrder as bool? ?? false;
+	var editLockMessage = ViewBag.EditLockMessage as string;
+	var salesItems = ViewBag.SalesItems as List<ProductionOrderItem> ?? new List<ProductionOrderItem>();
 
 	var delays = ViewBag.ProductionOrderDelayViewData as List<ProductionOrderDelay> ?? new List<ProductionOrderDelay>();
 	var showObsolete = canObsolete && Model?.State == ProductionOrderStateEnum.FinancialApproval;
@@ -80,7 +84,11 @@
 
 			<!-- Tab 1: اطلاعات کلی -->
 			<div class="tab-pane fade show active" id="tab_general_@Model.Id" role="tabpanel">
-				<div class="card">
+				@if (!canEditOrder && !string.IsNullOrWhiteSpace(editLockMessage))
+				{
+					<div class="alert alert-warning">@editLockMessage</div>
+				}
+				<div class="card" id="productionOrderHeaderFields">
 					<div class="card-body row">
 						<div class="col-12 mb-4">
 							<h3 class="fw-bold text-dark">اطلاعات اصلی</h3>
@@ -369,6 +377,12 @@
 							</div>
 						</div>
 
+						<div class='col-md-6 form-group-inline'>
+							<label class=''>علت پروژه‌ای شدن</label>
+							<textarea class='form-control' data-bind='delayNotCalculatedComment' rows="2" maxlength="1024">@Model?.DelayNotCalculatedComment</textarea>
+							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+						</div>
+
 
 						<div class='col-md-3'>
 							<label class=''>نوع بسته بندی</label>
@@ -486,6 +500,37 @@
 							<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 						</div>
 
+					</div>
+				</div>
+
+				<div class="card my-2" id="productionOrderItemsCard">
+					<div class="card-body">
+						<div class="d-flex justify-content-between align-items-center mb-3">
+							<h3 class="fw-bold text-dark mb-0">اقلام سفارش ساخت</h3>
+							@if (canEditOrder)
+							{
+								<button type="button" class="btn btn-sm btn-primary" data-action="addProductionOrderItem">افزودن قلم</button>
+							}
+						</div>
+						<div class="table-responsive">
+							<table class="table table-row-bordered align-middle" id="productionOrderItemsTable">
+								<thead>
+									<tr>
+										<th>کالا</th>
+										<th>نوع دستگاه</th>
+										<th>نوع تجهیز</th>
+										<th>تعداد</th>
+										<th>تاریخ تحویل توافقی</th>
+										<th>ساخت داخل</th>
+										@if (canEditOrder)
+										{
+											<th></th>
+										}
+									</tr>
+								</thead>
+								<tbody></tbody>
+							</table>
+						</div>
 					</div>
 				</div>
 
@@ -658,11 +703,151 @@
 	</div>
 </div>
 
+<template id="productionOrderItemFormTemplate">
+	<div class="row">
+		<div class="col-md-4 form-group-inline">
+			<label>ساخت داخل</label>
+			<div class="form-check mt-2">
+				<input class="form-check-input" type="checkbox" data-bind="isBuildInside" />
+			</div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="required">نوع دستگاه</label>
+			<select class="form-control" data-bind="deviceType" required
+				asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemDeviceTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="required">نوع تجهیز</label>
+			<select class="form-control" data-bind="equipmentType" required
+				asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemEquipmentTypeEnum))">
+				<option value="">انتخاب کنید</option>
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label class="required">کالا</label>
+			@(Html.EntitySelector<Part>(
+				"SalesOrderItemPartSelector",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, Code = c.Code },
+				c => new { c.Name, c.Code },
+				"{Code} {Name}",
+				"partId",
+				"partName",
+				null,
+				true))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="required">تعداد / مقدار</label>
+			<input class="form-control" data-bind="amount" required />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label class="required">تاریخ تحویل توافقی</label>
+			<input class="form-control" data-bind="agreedDeliverShamsiDate" required data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}' />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>مدل</label>
+			<input class="form-control" data-bind="partModel" maxlength="128" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ایرند / طبقه</label>
+			<input class="form-control" data-bind="airendOrCategory" maxlength="128" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>فشار ورودی</label>
+			<input class="form-control" data-bind="inputPressureBar" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>فشار خروجی</label>
+			<input class="form-control" data-bind="outputPressureBar" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>ظرفیت</label>
+			<input class="form-control" data-bind="capacity" maxlength="50" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>نوع گاز</label>
+			<input class="form-control" data-bind="gasType" maxlength="50" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>مقیاس</label>
+			<input class="form-control" data-bind="scale" maxlength="50" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>درصد خلوص</label>
+			<input class="form-control" data-bind="purityPercentage" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>دمای بیشینه</label>
+			<input class="form-control" data-bind="maximumTemperature" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>رطوبت نسبی</label>
+			<input class="form-control" data-bind="relativeHumidity" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>فشار بارومتریک</label>
+			<input class="form-control" data-bind="barometricPressure" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>نوع محرک</label>
+			<input class="form-control" data-bind="movingType" maxlength="128" />
+		</div>
+		<div class="col-md-4 form-group-inline">
+			<label>بازرسی حین ساخت</label>
+			<div class="form-check mt-2">
+				<input class="form-check-input" type="checkbox" data-bind="hasInspection" />
+			</div>
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<label>ملاحظات فروش</label>
+			<textarea class="form-control" data-bind="salesConsideration" maxlength="2048" rows="3"></textarea>
+		</div>
+	</div>
+</template>
+
 <script>
 	var permissions = @Html.Raw(Json.Serialize(new {
-		   canObsolete
+		   canObsolete,
+		   canEditOrder
 	   }));
 	var productionOrder = @Html.Raw(Json.Serialize(Model));
+	const deviceTypeLabels = @Html.Raw(Json.Serialize(Enum.GetValues<ProductionOrderItemDeviceTypeEnum>().ToDictionary(e => ((int)e).ToString(), e => e.ToDisplay())));
+	const equipmentTypeLabels = @Html.Raw(Json.Serialize(Enum.GetValues<ProductionOrderItemEquipmentTypeEnum>().ToDictionary(e => ((int)e).ToString(), e => e.ToDisplay())));
+	let orderItems = @Html.Raw(Json.Serialize(salesItems.Select(i => new {
+		id = i.Id,
+		isBuildInside = i.IsBuildInside,
+		deviceType = i.DeviceType.HasValue ? (int)i.DeviceType.Value : (int?)null,
+		equipmentType = i.EquipmentType.HasValue ? (int)i.EquipmentType.Value : (int?)null,
+		partId = i.PartId,
+		partCode = i.Part?.Code ?? i.PartCode,
+		partName = i.Part?.Name,
+		partLabel = ((i.Part?.Code ?? i.PartCode) + " " + (i.Part?.Name ?? "")).Trim(),
+		amount = i.Amount,
+		agreedDeliverShamsiDate = i.AgreedDeliverShamsiDate,
+		agreedDeliverDate = i.AgreedDeliverDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+		partModel = i.PartModel,
+		airendOrCategory = i.AirendOrCategory,
+		inputPressureBar = i.InputPressureBar,
+		outputPressureBar = i.OutputPressureBar,
+		capacity = i.Capacity,
+		gasType = i.GasType,
+		scale = i.Scale,
+		purityPercentage = i.PurityPercentage,
+		maximumTemperature = i.MaximumTemperature,
+		relativeHumidity = i.RelativeHumidity,
+		barometricPressure = i.BarometricPressure,
+		movingType = i.MovingType,
+		hasInspection = i.HasInspection,
+		salesConsideration = i.SalesConsideration
+	})));
 
 	function initializePage(){
 		for(let btn in self.FormActionButtons)
@@ -670,9 +855,18 @@
 			self.FormActionButtons[btn].element.disabled = true;
 		}
 
-		self.FormActionButtons.save.element.disabled = false;
-		self.FormActionButtons.saveandclose.element.disabled = false;
-		self.FormActionButtons.history.element.disabled = false;
+		if (permissions.canEditOrder) {
+			if (self.FormActionButtons.save)
+				self.FormActionButtons.save.element.disabled = false;
+			if (self.FormActionButtons.saveandclose)
+				self.FormActionButtons.saveandclose.element.disabled = false;
+			if (self.FormActionButtons.saveandnew)
+				self.FormActionButtons.saveandnew.element.disabled = false;
+		} else {
+			$$('#productionOrderHeaderFields').find('input, select, textarea, button').prop('disabled', true);
+		}
+		if (self.FormActionButtons.history)
+			self.FormActionButtons.history.element.disabled = false;
 		if (self.FormActionButtons.printProductionOrder) {
 			const existingId = page.$pageEl.find('[data-bind="id"]').val();
 			self.FormActionButtons.printProductionOrder.element.disabled = !(existingId && existingId !== '0');
@@ -722,10 +916,220 @@
 	});
 	//#endregion
 
+	function nullableNumber(value) {
+		if (value === '' || value === null || value === undefined) return null;
+		const number = Number(value);
+		return Number.isFinite(number) ? number : null;
+	}
+
+	function labelOf(map, value) {
+		if (value === null || value === undefined || value === '') return '';
+		return map[String(value)] || '';
+	}
+
+	function renderOrderItems() {
+		const $body = $$('#productionOrderItemsTable tbody');
+		$body.empty();
+		if (!orderItems.length) {
+			const cols = permissions.canEditOrder ? 7 : 6;
+			$body.append(`<tr><td colspan="${cols}" class="text-muted">قلمی ثبت نشده است</td></tr>`);
+			return;
+		}
+		orderItems.forEach((item, index) => {
+			const actions = permissions.canEditOrder
+				? `<td class="text-center"><button type="button" class="btn btn-sm btn-light-primary me-1" data-action="editProductionOrderItem" data-index="${index}">ویرایش</button><button type="button" class="btn btn-sm btn-light-danger" data-action="deleteProductionOrderItem" data-index="${index}">حذف</button></td>`
+				: '';
+			$body.append(`<tr>
+				<td>${item.partLabel || ''}</td>
+				<td>${labelOf(deviceTypeLabels, item.deviceType)}</td>
+				<td>${labelOf(equipmentTypeLabels, item.equipmentType)}</td>
+				<td>${item.amount ?? ''}</td>
+				<td>${item.agreedDeliverShamsiDate || ''}</td>
+				<td>${item.isBuildInside ? 'بله' : 'خیر'}</td>
+				${actions}
+			</tr>`);
+		});
+	}
+
+	function salesItemPayload(row) {
+		return {
+			id: row.id || 0,
+			productionOrderId: page.$pageEl.find('[data-bind="id"]').val() || null,
+			isBuildInside: !!row.isBuildInside,
+			deviceType: row.deviceType === '' || row.deviceType === null || row.deviceType === undefined ? null : Number(row.deviceType),
+			equipmentType: row.equipmentType === '' || row.equipmentType === null || row.equipmentType === undefined ? null : Number(row.equipmentType),
+			partId: row.partId || null,
+			amount: nullableNumber(row.amount),
+			agreedDeliverShamsiDate: row.agreedDeliverShamsiDate || null,
+			agreedDeliverDate: row.agreedDeliverDate || null,
+			partModel: row.partModel || null,
+			airendOrCategory: row.airendOrCategory || null,
+			inputPressureBar: nullableNumber(row.inputPressureBar),
+			outputPressureBar: nullableNumber(row.outputPressureBar),
+			capacity: row.capacity || null,
+			gasType: row.gasType || null,
+			scale: row.scale || null,
+			purityPercentage: nullableNumber(row.purityPercentage),
+			maximumTemperature: nullableNumber(row.maximumTemperature),
+			relativeHumidity: nullableNumber(row.relativeHumidity),
+			barometricPressure: nullableNumber(row.barometricPressure),
+			movingType: row.movingType || null,
+			hasInspection: !!row.hasInspection,
+			salesConsideration: row.salesConsideration || null
+		};
+	}
+
+	function rowFromServerItem(item, partLabel) {
+		return {
+			id: item.id,
+			isBuildInside: item.isBuildInside,
+			deviceType: item.deviceType,
+			equipmentType: item.equipmentType,
+			partId: item.partId,
+			partCode: item.partCode,
+			partLabel: partLabel || item.partCode || '',
+			amount: item.amount,
+			agreedDeliverShamsiDate: item.agreedDeliverShamsiDate,
+			agreedDeliverDate: item.agreedDeliverDate ? String(item.agreedDeliverDate).substring(0, 10) : null,
+			partModel: item.partModel,
+			airendOrCategory: item.airendOrCategory,
+			inputPressureBar: item.inputPressureBar,
+			outputPressureBar: item.outputPressureBar,
+			capacity: item.capacity,
+			gasType: item.gasType,
+			scale: item.scale,
+			purityPercentage: item.purityPercentage,
+			maximumTemperature: item.maximumTemperature,
+			relativeHumidity: item.relativeHumidity,
+			barometricPressure: item.barometricPressure,
+			movingType: item.movingType,
+			hasInspection: item.hasInspection,
+			salesConsideration: item.salesConsideration
+		};
+	}
+
+	function openProductionOrderItemModal(index) {
+		const orderId = page.$pageEl.find('[data-bind="id"]').val();
+		if (!orderId || orderId === '0') {
+			toastr.error('ابتدا سفارش ساخت را ذخیره کنید');
+			return;
+		}
+		const existing = index === null ? null : orderItems[index];
+		const html = document.getElementById('productionOrderItemFormTemplate').innerHTML;
+		$.confirm({
+			title: existing ? 'ویرایش قلم' : 'افزودن قلم',
+			content: `<div class="production-order-item-modal">${html}</div>`,
+			columnClass: 'col-md-10',
+			rtl: true,
+			onContentReady: function () {
+				const $content = this.$content;
+				$content.find('.entity-selector-wrapper').each(function () {
+					if (!$(this).data('entitySelectorInstance'))
+						$(this).entitySelector();
+				});
+				initPersionDatePicker($content);
+				if (existing) {
+					$content.dataBind(existing);
+					const partWrap = $content.find('.entity-selector-wrapper')[0];
+					if (existing.partId && partWrap && partWrap._entitySelector)
+						partWrap._entitySelector.addByIds([existing.partId]);
+					const dateValue = existing.agreedDeliverDate || '';
+					if (dateValue)
+						$content.find('[data-bind="agreedDeliverShamsiDate"]').val(dateValue);
+					initPersionDatePicker($content);
+				}
+			},
+			buttons: {
+				save: {
+					text: 'ذخیره',
+					btnClass: 'btn-primary',
+					action: function () {
+						const $content = this.$content;
+						if (validateError($content)) return false;
+						const model = $content.dataBind();
+						const partId = $content.find('.entity-selector-value').val() || model.partId || model.PartId || null;
+						const partText = $content.find('.entity-selector-input').val() || '';
+						if (!partId) {
+							toastr.error('کالا در اقلام سفارش ساخت الزامی است');
+							return false;
+						}
+						const row = {
+							id: existing ? existing.id : 0,
+							isBuildInside: !!model.isBuildInside,
+							deviceType: model.deviceType === '' ? null : Number(model.deviceType),
+							equipmentType: model.equipmentType === '' ? null : Number(model.equipmentType),
+							partId: partId,
+							partLabel: partText || (existing ? existing.partLabel : ''),
+							amount: model.amount,
+							agreedDeliverShamsiDate: model.agreedDeliverShamsiDate || null,
+							agreedDeliverDate: model.agreedDeliverDate || null,
+							partModel: model.partModel || null,
+							airendOrCategory: model.airendOrCategory || null,
+							inputPressureBar: model.inputPressureBar,
+							outputPressureBar: model.outputPressureBar,
+							capacity: model.capacity || null,
+							gasType: model.gasType || null,
+							scale: model.scale || null,
+							purityPercentage: model.purityPercentage,
+							maximumTemperature: model.maximumTemperature,
+							relativeHumidity: model.relativeHumidity,
+							barometricPressure: model.barometricPressure,
+							movingType: model.movingType || null,
+							hasInspection: !!model.hasInspection,
+							salesConsideration: model.salesConsideration || null
+						};
+						const dialog = this;
+						$content.block();
+						$$.post(existing && existing.id ? 'updatesalesitem' : 'addsalesitem', salesItemPayload(row), function (r) {
+							$content.block(false);
+							if (!r.isSuccess) {
+								toastr.error(r.message || 'خطا در ذخیره قلم', 'خطا');
+								return;
+							}
+							const saved = rowFromServerItem(r.data, row.partLabel);
+							if (existing)
+								orderItems[index] = saved;
+							else
+								orderItems.push(saved);
+							renderOrderItems();
+							toastr.success('قلم ذخیره شد');
+							dialog.close();
+						});
+						return false;
+					}
+				},
+				cancel: { text: 'انصراف' }
+			}
+		});
+	}
+
 	function savefn($btnAction) {
+		if (!permissions.canEditOrder) {
+			toastr.error('شما دسترسی ویرایش این سفارش ساخت را ندارید');
+			return;
+		}
 		if (validateError(page.$pageEl)) { return; }
+		const isProjectOrder = $$('[data-bind="delayNotCalculated"]').is(':checked');
+		const projectReason = ($$('[data-bind="delayNotCalculatedComment"]').val() || '').toString().trim();
+		if (isProjectOrder && !projectReason) {
+			toastr.error('علت پروژه‌ای شدن را وارد کنید.');
+			return;
+		}
 		var model = page.$pageEl.dataBind();
-		const $btn = $(this.element).block();
+		delete model.items;
+		// این فیلدها DateTime ساده هستند؛ تقویم شمسی متن شمسی (مثل 1402/06/31) برمی‌گرداند و باید قبل از ارسال میلادی شود
+		['projectStartDate', 'metreDate', 'agreedDeliveryDate'].forEach(function (key) {
+			const val = model[key];
+			if (typeof val !== 'string' || !val.trim()) return;
+			const normalized = MJUtil.toEnglishNumbers(val.trim());
+			const year = parseInt(normalized.split('/')[0], 10);
+			if (/^\d{4}\/\d{1,2}\/\d{1,2}/.test(normalized) && year < 1700) {
+				const parts = normalized.split(' ');
+				const d = parts[0].split('/').map(function (x) { return x.padStart(2, '0'); }).join('/');
+				model[key] = (MJUtil.shamsiToMiladi(d + (parts[1] ? ' ' + parts[1] : '')) || '').replace(/\//g, '-');
+			}
+		});
+		const $btn = $($btnAction.element).block();
 		$$.post('save',
 			model,
 			function (r) {
@@ -736,6 +1140,47 @@
 				$btnAction.baseaction();
 			})
 	}
+
+	page.$pageEl.on('click', '[data-action="addProductionOrderItem"]', function () {
+		openProductionOrderItemModal(null);
+	});
+	page.$pageEl.on('click', '[data-action="editProductionOrderItem"]', function () {
+		openProductionOrderItemModal(Number($(this).data('index')));
+	});
+	page.$pageEl.on('click', '[data-action="deleteProductionOrderItem"]', function () {
+		const index = Number($(this).data('index'));
+		const item = orderItems[index];
+		if (!item) return;
+		$.confirm({
+			title: 'حذف قلم',
+			content: 'این قلم حذف شود؟',
+			rtl: true,
+			buttons: {
+				confirm: {
+					text: 'حذف',
+					btnClass: 'btn-danger',
+					action: function () {
+						if (!item.id) {
+							orderItems.splice(index, 1);
+							renderOrderItems();
+							return;
+						}
+						$$.post('deletesalesitem?id=' + item.id, null, function (r) {
+							if (!r.isSuccess) {
+								toastr.error(r.message || 'خطا در حذف قلم', 'خطا');
+								return;
+							}
+							orderItems.splice(index, 1);
+							renderOrderItems();
+							toastr.success('قلم حذف شد');
+						});
+					}
+				},
+				cancel: { text: 'انصراف' }
+			}
+		});
+	});
+	renderOrderItems();
 
 	if (self.FormActionButtons.printProductionOrder) {
 		self.FormActionButtons.printProductionOrder.onclick(function () {

@@ -6,50 +6,26 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Entities.App.Trn
 {
-	[Display(Name = "دفتر تلفن شرکت")]
+	[Display(Name = "دفترچه تلفن")]
 	[Table("PhoneBook", Schema = "Trn")]
 	public class PhoneBook : BaseEntity
 	{
 		public long CompanyId { get; set; }
 		public virtual Company? Company { get; set; }
 
-		[DisplayName("نام")]
-		[DisplayInfo(null, true, type: SystemType.String, required: true)]
-		[MaxLength(100)]
-		public string? FirstName { get; set; }
-
-		[DisplayName("نام خانوادگی")]
-		[DisplayInfo(null, true, type: SystemType.String, required: true)]
-		[MaxLength(100)]
-		public string? LastName { get; set; }
-
-		[DisplayName("سمت")]
+		[DisplayName("واحد سازمانی")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(256)]
-		public string? Position { get; set; }
+		public string? DepartmentTitle { get; set; }
 
-		[DisplayName("تلفن داخلی")]
+		[DisplayName("شماره تماس")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(20)]
-		public string? InnerPhone { get; set; }
+		[MaxLength(50)]
+		public string? PhoneNumber { get; set; }
 
-		[DisplayName("تلفن مستقیم")]
+		[DisplayName("فکس")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(20)]
-		public string? DirectPhone { get; set; }
-
-		[DisplayName("تلفن همراه")]
-		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(20)]
-		public string? Mobile { get; set; }
-
-		[DisplayName("ایمیل")]
-		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(256)]
-		public string? Email { get; set; }
-
-		[DisplayName("توضیحات")]
-		[DisplayInfo(null, false, type: SystemType.String)]
-		public string? Description { get; set; }
+		[MaxLength(50)]
+		public string? FaxNumber { get; set; }
 	}
 }

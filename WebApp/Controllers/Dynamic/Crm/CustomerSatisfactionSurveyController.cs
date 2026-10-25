@@ -7,7 +7,9 @@ using Entities.Base.DataTable;
 using Entities.Base.Enums;
 using Entities.Base.Notification;
 using Microsoft.AspNetCore.Mvc;
+using Entities.Base.Sms;
 using Microsoft.EntityFrameworkCore;
+using Services.Sms;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -17,7 +19,7 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("رضایت‌سنجی بعد از فروش", typeof(CustomerSatisfactionSurvey))]
-	public class CustomerSatisfactionSurveyController(IUnitOfWork unitOfWork, IWebHostEnvironment env) : BaseController
+	public class CustomerSatisfactionSurveyController(IUnitOfWork unitOfWork, IWebHostEnvironment env, ISmsService sms) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -98,19 +100,10 @@ namespace WebApp.Controllers.Dynamic
 				.FirstOrDefaultAsync(c => c.Id == id, cn);
 			if (survey == null) return BadRequest("فرم رضایت‌سنجی یافت نشد");
 
-			var surveyUrl = "/Panel/Crm/CustomerSatisfactionSurvey/Edit?id=" + survey.Id;
-			var smsBody =
-				"\"گروه صنعتی هوایار\"" + "\nرضایت سنجی از خدمات ارائه شده"
-				+ "\nمشتری گرامی"
-				+ "\nبا سلام و احترام"
-				+ "\nبا توجه به دریافت خدمات از \"گروه صنعتی هوایار\"، خواهشمند است با ثبت نظر خود ما را در بهبود ارائه خدمات یاری فرمایید."
-				+ "\nبرای ثبت نظر، خواهشمند است بر روی لینک ذیل کلیک نمایید:"
-				+ "\n" + surveyUrl
-				+ "\nواحد ارتباط با مشتریان"
-				+ "\nتلفن: 41976-021"
-				+ "\n09129590195"
-				+ "\n09128077599"
-				+ "\nCRM@havayar.com";
+			// مسیر نسبی برای ViewPath اعلان؛ لینک مطلق برای پیامک/ایمیل (لینک نسبی بیرون از سامانه کار نمی‌کند).
+			var surveyPath = "/Panel/Crm/CustomerSatisfactionSurvey/Edit?id=" + survey.Id;
+			var surveyUrl = $"{Request.Scheme}://{Request.Host}{surveyPath}";
+			var smsBody = SmsTemplates.SurveyLink(surveyUrl);
 
 			var emailHtml =
 				"<div style='direction:rtl;text-align:right'>مشتری گرامی<br/>با سلام و احترام<br/>"
@@ -134,13 +127,25 @@ namespace WebApp.Controllers.Dynamic
 				Body = emailHtml + "<pre style='direction:rtl;white-space:pre-wrap'>" + smsBody + "</pre>",
 				EntityId = survey.Id,
 				OwnerId = CurrentUserId ?? 0,
-				ViewPath = surveyUrl,
+				ViewPath = surveyPath,
 				IsRead = false,
 				IsSend = false,
 				ToEmails = string.IsNullOrWhiteSpace(toEmail) ? null : new List<string> { toEmail }
 			}, cn);
 
-			return Ok(new { smsBody, surveyUrl });
+			// پیامک لینک رضایت‌سنجی (معادل HTS). موبایل: خود فرم، وگرنه موبایل مشتری. خطا نباید ارسال ایمیل را خراب کند.
+			var smsMobile = survey.CustomerMobile;
+			if (string.IsNullOrWhiteSpace(smsMobile) && survey.CustomerId != null)
+			{
+				smsMobile = await unitOfWork.Repository<Customer>().TableNoTracking
+					.Where(c => c.Id == survey.CustomerId)
+					.Select(c => c.Party != null ? c.Party.Mobile : null)
+					.FirstOrDefaultAsync(cn);
+			}
+			var smsQueued = await sms.TryEnqueueAsync(SmsEventKeys.CrmSurveyLink, smsMobile, smsBody,
+				nameof(CustomerSatisfactionSurvey), survey.Id, ct: cn);
+
+			return Ok(new { smsBody, surveyUrl, smsQueued });
 		}
 
 		[HttpGet("[action]")]

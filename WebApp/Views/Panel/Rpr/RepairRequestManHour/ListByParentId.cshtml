@@ -1,61 +1,56 @@
 @using Entities.App.Rpr
 @{
 	var parentId = (long)ViewBag.ParentId;
+	var canNew = ViewBag.CanNew == true;
+	var canEdit = ViewBag.CanEdit == true;
+	var canDelete = ViewBag.CanDelete == true;
 }
-<div class="card" id="rrManHourChildCard">
-	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-		<h5 class="mb-0 fw-bold">نفرساعت درخواست تعمیر</h5>
-		<button type="button" class="btn btn-sm btn-primary" data-action="newChild">افزودن</button>
-	</div>
-	<div class="card-body">
-		<table class="table table-striped table-row-bordered gy-2 w-100" id="rrManHourChildTable">
-			<thead>
-				<tr class="fw-bold fs-6 text-muted">
-					<th>کارشناس</th>
-					<th>تاریخ</th>
-					<th>شروع</th>
-					<th>پایان</th>
-					<th style="width:120px;">عملیات</th>
-				</tr>
-			</thead>
-			<tbody></tbody>
-		</table>
-	</div>
+@* جدول نفرساعت یک نمایه داده است (AfterSales_RepairRequestManHour_ByRequest،
+   Data/Scripts/Seed_RepairRequestManHour_ByRequest_DataProfile.sql).
+   دکمه‌های نوار ابزار نمایه فقط رویداد rrManHourAction را می‌فرستند و منطق مودال‌ها در اسکریپت همین صفحه است.
+   دکمه‌ها با data-can-* و CSS پایین پنهان می‌شوند؛ مجوز واقعی در کنترلر و SQL نمایه است. *@
+<div class="rr-manhour-page" id="rrManHourChildCard"
+	 data-can-new="@(canNew ? "true" : "false")"
+	 data-can-edit="@(canEdit ? "true" : "false")"
+	 data-can-delete="@(canDelete ? "true" : "false")">
+	<datatableprofile entity-Type="typeof(RepairRequestManHour)" profile-names="AfterSales_RepairRequestManHour_ByRequest"></datatableprofile>
 </div>
+<style>
+	.rr-manhour-page[data-can-new="false"] [data-action="rrManHourAdd"],
+	.rr-manhour-page[data-can-edit="false"] [data-action="rrManHourEdit"],
+	.rr-manhour-page[data-can-delete="false"] [data-action="rrManHourDelete"] {
+		display: none !important;
+	}
+</style>
 <script>
 	const rrManHourParentId = @parentId;
-	const rrManHourTable = $$('#rrManHourChildTable').DataTable({
-		serverSide: false,
-		autoWidth: false,
-		pageLength: 10,
-		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
-		ajax: {
-			url: '/Panel/Rpr/RepairRequestManHour/GetListByParentId?repairRequestId=' + rrManHourParentId,
-			type: 'GET',
-			dataSrc: function (json) {
-				if (json && json.isSuccess === false) {
-					toastr.error(json.message || 'خطا در دریافت اطلاعات');
-					return [];
-				}
-				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
-			}
-		},
-		columns: [
-			{ data: 'expertName', defaultContent: '-' },
-			{ data: 'workShamsiDate', defaultContent: '-' },
-			{ data: 'startTime', defaultContent: '-' },
-			{ data: 'endTime', defaultContent: '-' },
-			{
-				data: 'id',
-				orderable: false,
-				className: 'text-center',
-				render: function (id) {
-					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
-						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
-				}
-			}
-		]
-	});
+	const rrManHourCanNew = @(canNew ? "true" : "false");
+	const rrManHourCanEdit = @(canEdit ? "true" : "false");
+	const rrManHourCanDelete = @(canDelete ? "true" : "false");
+
+	// شناسهٔ درخواست تعمیر قبل از اولین درخواست داده به نمایه می‌رسد (execScripts پیش از initPage اجرا می‌شود).
+	// بدون آن SQL نمایه ردیفی برنمی‌گرداند.
+	$$('[data-action="dataProfile"]').attr('data-query-params', JSON.stringify({ RepairRequestId: String(rrManHourParentId) }));
+
+	function reloadRrManHourGrid() {
+		const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+		if (table && table.ajax) table.ajax.reload(null, false);
+	}
+
+	function denyRrManHourAction() {
+		toastr.error('شما مجوز انجام این عملیات را ندارید', 'عدم دسترسی');
+	}
+
+	function singleRrManHourRow(ctx) {
+		const rows = (ctx && ctx.selectedRows && ctx.selectedRows.length)
+			? ctx.selectedRows
+			: (ctx && ctx.selectedRow ? [ctx.selectedRow] : []);
+		if (rows.length !== 1) {
+			toastr.warning('فقط یک ردیف را انتخاب کنید');
+			return null;
+		}
+		return rows[0];
+	}
 
 	function decodeChildPartial(r) {
 		if (window.appController && typeof appController.decodePartialResponse === 'function')
@@ -82,13 +77,10 @@
 			Inputmask(timeInputmaskOptions).mask($root.find('[data-time="true"]'));
 	}
 
-	function openRrManHourModal(id) {
+	function openRrManHourModal(id, $trigger) {
 		const url = id
 			? '/Panel/Rpr/RepairRequestManHour/Edit?id=' + id + '&repairRequestId=' + rrManHourParentId
 			: '/Panel/Rpr/RepairRequestManHour/New?repairRequestId=' + rrManHourParentId;
-		const $trigger = id
-			? $$('#rrManHourChildCard').find('[data-action="editChild"][data-id="' + id + '"]')
-			: $$('#rrManHourChildCard').find('[data-action="newChild"]');
 		$trigger.block();
 		page.getPartialView(url, function (r) {
 			$trigger.block(false);
@@ -122,7 +114,7 @@
 								}
 								toastr.success('ذخیره سازی با موفقیت انجام شد');
 								selfConfirm.close();
-								rrManHourTable.ajax.reload(null, false);
+								reloadRrManHourGrid();
 							});
 							return false;
 						}
@@ -137,22 +129,38 @@
 		});
 	}
 
-	$$('#rrManHourChildCard').on('click', '[data-action="newChild"]', function () {
-		openRrManHourModal(null);
-	});
-	$$('#rrManHourChildCard').on('click', '[data-action="editChild"]', function () {
-		openRrManHourModal($(this).data('id'));
-	});
-	$$('#rrManHourChildCard').on('click', '[data-action="deleteChild"]', function () {
-		const id = $(this).data('id');
+	function deleteRrManHour(id) {
 		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })
 			.then(function (result) {
 				if (!result.isConfirmed) return;
 				$$.get('/Panel/Rpr/RepairRequestManHour/Delete?id=' + id, function (r) {
 					if (r && r.isSuccess === false) { toastr.error(r.message || 'خطا در حذف'); return; }
 					toastr.success('رکورد با موفقیت حذف شد');
-					rrManHourTable.ajax.reload(null, false);
+					reloadRrManHourGrid();
 				});
 			});
+	}
+
+	// دکمه‌های نوار ابزار نمایه فقط رویداد rrManHourAction می‌فرستند.
+	page.$pageEl.on('rrManHourAction', function (e, action, ctx) {
+		const $btn = $(e.target);
+		switch (action) {
+			case 'add':
+				if (!rrManHourCanNew) return denyRrManHourAction();
+				openRrManHourModal(null, $btn);
+				break;
+			case 'edit': {
+				if (!rrManHourCanEdit) return denyRrManHourAction();
+				const row = singleRrManHourRow(ctx);
+				if (row) openRrManHourModal(Number(row.t1_Id), $btn);
+				break;
+			}
+			case 'delete': {
+				if (!rrManHourCanDelete) return denyRrManHourAction();
+				const row = singleRrManHourRow(ctx);
+				if (row) deleteRrManHour(Number(row.t1_Id));
+				break;
+			}
+		}
 	});
 </script>

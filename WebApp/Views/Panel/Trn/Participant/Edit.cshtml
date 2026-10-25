@@ -24,6 +24,44 @@
           <div class="row g-3">
 
                <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>شرکت</label>
+                    <select id="participantCompany" class="form-control" data-bind="companyId">
+                         <option value=""></option>
+                         @foreach (Company company in (IEnumerable<Company>)(ViewBag.Companies ?? Array.Empty<Company>()))
+                         {
+                              if (Model?.CompanyId != null && Model.CompanyId == company.Id)
+                              {
+                                   <option value="@company.Id" selected>@company.Title</option>
+                              }
+                              else
+                              {
+                                   <option value="@company.Id">@company.Title</option>
+                              }
+                         }
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>جنسیت</label>
+                    <select class='form-control' data-bind='gender' asp-for='Gender'>
+                         <option value="">انتخاب نمایید</option>
+                         @foreach (var gender in Html.GetEnumSelectList(typeof(GenderEnum)))
+                         {
+                              if (Model?.Gender != null && gender.Value == ((int)Model.Gender).ToString())
+                              {
+                                   <option value="@gender.Value" selected>@gender.Text</option>
+                              }
+                              else
+                              {
+                                   <option value="@gender.Value">@gender.Text</option>
+                              }
+                         }
+                    </select>
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
                     <label class='form-label fw-bold required'>نام</label>
                     <input class='form-control' data-bind='firstName' data-required="true"
                            asp-for='FirstName' />
@@ -38,23 +76,16 @@
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>نام لاتین</label>
+                    <label class='form-label fw-bold'>نام(انگلیسی)</label>
                     <input class='form-control' dir="ltr" data-bind='firstNameInLatin'
                            asp-for='FirstNameInLatin' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>نام خانوادگی لاتین</label>
+                    <label class='form-label fw-bold'>نام خانوادگی(انگلیسی)</label>
                     <input class='form-control' dir="ltr" data-bind='lastNameInLatin'
                            asp-for='LastNameInLatin' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>نام پدر</label>
-                    <input class='form-control' data-bind='fatherName'
-                           asp-for='FatherName' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
@@ -66,16 +97,23 @@
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>شماره شناسنامه</label>
-                    <input class='form-control' dir="ltr" data-bind='birthCertificateNo'
-                           asp-for='BirthCertificateNo' />
+                    <label class='form-label fw-bold'>سمت</label>
+                    <input class='form-control' data-bind='workplace'
+                           asp-for='Workplace' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
                     <label class='form-label fw-bold'>سال تولد</label>
-                    <input class='form-control' dir="ltr" data-bind='birthdayYear'
-                           asp-for='BirthdayYear' />
+                    <input class='form-control' dir="ltr" maxlength="4" inputmode="numeric" data-bind='birthdayYear'
+                           data-digits="4" value="@Model?.BirthdayYear" />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نام پدر</label>
+                    <input class='form-control' data-bind='fatherName'
+                           asp-for='FatherName' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
@@ -87,41 +125,49 @@
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>جنسیت</label>
-                    <select class='form-control' data-bind='gender'
-                            asp-for='Gender'
-                            asp-items="Html.GetEnumSelectList(typeof(GenderEnum))">
-                    </select>
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
                     <label class='form-label fw-bold'>تحصیلات</label>
-                    <select class='form-control' data-bind='education'
-                            asp-for='Education'
-                            asp-items="Html.GetEnumSelectList(typeof(EducationEnum))">
+                    <select class='form-control' data-bind='education' asp-for='Education'>
+                         <option value="">انتخاب نمایید</option>
+                         @foreach (var education in Html.GetEnumSelectList(typeof(EducationEnum)))
+                         {
+                              if (Model?.Education != null && education.Value == ((int)Model.Education).ToString())
+                              {
+                                   <option value="@education.Value" selected>@education.Text</option>
+                              }
+                              else
+                              {
+                                   <option value="@education.Value">@education.Text</option>
+                              }
+                         }
                     </select>
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>رشته تحصیلی</label>
-                    <input class='form-control' data-bind='fieldOfStudy'
-                           asp-for='FieldOfStudy' />
+                    <label class='form-label fw-bold'>ش ش/ش ملی</label>
+                    <input class='form-control' dir="ltr" maxlength="10" inputmode="numeric" data-bind='birthCertificateNo'
+                           data-digits="10" value="@Model?.BirthCertificateNo" />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>تلفن همراه</label>
-                    <input class='form-control' dir="ltr" data-bind='mobile'
-                           asp-for='Mobile' />
+                    <label class='form-label fw-bold'>تلفن مستقیم</label>
+                    <input class='form-control' dir="ltr" maxlength="50" data-bind='directPhoneNumber'
+                           asp-for='DirectPhoneNumber' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>تلفن</label>
-                    <input class='form-control' dir="ltr" data-bind='phone'
+                    <label class='form-label fw-bold'>شماره داخلی</label>
+                    <input class='form-control' dir="ltr" maxlength="50" data-bind='phone'
                            asp-for='Phone' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>شماره موبایل</label>
+                    <input class='form-control' dir="ltr" maxlength="50" data-bind='mobile'
+                           asp-for='Mobile' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
@@ -133,63 +179,28 @@
                </div>
 
                <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>محل کار</label>
-                    <input class='form-control' data-bind='workplace'
-                           asp-for='Workplace' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>سمت شغلی</label>
-                    <input class='form-control' data-bind='jobPosition'
-                           asp-for='JobPosition' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class="form-label fw-bold">شرکت (محل اشتغال)</label>
-                    @(Html.EntitySelector<Company>(
-                                        "CompanySelector",
-                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        c => new
-                                        {
-                                             Id = c.Id,
-                                             Title = c.Title
-                                        },
-                                        c => new { c.Title },
-                                        "{Title}",
-                                        "CompanyId",
-                                        Model?.Company?.Title,
-                                        Model?.CompanyId?.ToString()
-                                        ))
-                    <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <fileuploader bind="PhotoFileId" file-id="@Model?.PhotoFileId" file-entity="@Model?.PhotoFile"
-                                  Label="عکس" entity-type="@typeof(Participant).FullName" entity-prop-name="PhotoFile" max-file-size="10"
-                                  accepted-file-types=".jpg,.jpeg,.png,.pdf"></fileuploader>
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
                     <label class='form-label fw-bold'>کد پستی</label>
                     <input class='form-control' dir="ltr" maxlength="10" data-bind='postalCode'
                            asp-for='PostalCode' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
-               <div class='col-md-6 form-group-inline'>
+               <div class='col-md-12 form-group-inline'>
                     <label class='form-label fw-bold'>آدرس</label>
                     <textarea class='form-control' data-bind='address'
                               asp-for='Address'>@Model?.Address</textarea>
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
-               <div class='col-md-6 form-group-inline'>
-                    <label class='form-label fw-bold'>توضیحات</label>
-                    <textarea class='form-control' data-bind='description'
-                              asp-for='Description'>@Model?.Description</textarea>
+               <div class='col-md-12 form-group-inline'>
+                    <label class='form-label fw-bold'>الصاق فایل(ها)</label>
+                    <div class="mb-2 text-center">
+                         <img id="displayPhoto" class="img-thumbnail @(Model?.PhotoFileId == null ? "d-none" : "")" style="max-height:180px"
+                              alt="" src="@(Model?.PhotoFileId != null ? $"/File/download/{Model.PhotoFileId}" : "")" />
+                    </div>
+                    <fileuploader bind="photoFileId" file-id="@Model?.PhotoFileId" file-entity="@Model?.PhotoFile"
+                                  entity-type="@typeof(Participant).FullName" entity-prop-name="PhotoFile" max-file-size="1"
+                                  accepted-file-types=".jpg,.jpeg,.png,.bmp,.gif"></fileuploader>
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
@@ -226,6 +237,93 @@
      </div>
 </div>
 <script>
+     const maxPhotoBytes = 500000;
+
+     if ($.fn.select2) {
+          $$('#participantCompany').select2({
+               width: '100%',
+               placeholder: 'انتخاب نمایید',
+               allowClear: true,
+               dir: 'rtl',
+               dropdownParent: page.$pageEl
+          });
+     }
+
+     page.$pageEl.on('input', '[data-digits]', function () {
+          const limit = parseInt($(this).attr('data-digits'), 10) || 10;
+          const cleaned = String($(this).val() || '').replace(/\D/g, '').slice(0, limit);
+          if ($(this).val() !== cleaned) $(this).val(cleaned);
+     });
+
+     function showParticipantPhoto(src) {
+          const $img = $$('#displayPhoto');
+          if (!src) {
+               $img.attr('src', '').addClass('d-none');
+               return;
+          }
+          $img.attr('src', src).removeClass('d-none');
+     }
+
+     function currentPhotoId() {
+          return $$('[data-bind="photoFileId"]').val();
+     }
+
+     function bindParticipantPhoto() {
+          const dzElement = page.$pageEl.find('[data-file-uploader="true"]').get(0);
+          const dz = dzElement && dzElement.dropzone;
+          if (!dz || dzElement.dataset.photoBound === '1') return;
+          dzElement.dataset.photoBound = '1';
+          dz.options.maxFilesize = maxPhotoBytes / (1024 * 1024);
+          dz.options.dictFileTooBig = 'فایل خیلی بزرگ است. حداکثر ۵۰۰ کیلوبایت';
+          page.$pageEl.find('.file-uploader-container .text-muted.small').text('حداکثر ۵۰۰ کیلوبایت');
+
+          dz.on('addedfile', function (file) {
+               if (!file || file.size > maxPhotoBytes) return;
+               const reader = new FileReader();
+               reader.onloadend = function () {
+                    showParticipantPhoto(reader.result);
+               };
+               reader.readAsDataURL(file);
+          });
+
+          dz.on('removedfile', function () {
+               const id = currentPhotoId();
+               showParticipantPhoto(id ? '/File/download/' + id : '');
+          });
+
+          dz.on('error', function (file) {
+               if (file && file.size > maxPhotoBytes) {
+                    const id = currentPhotoId();
+                    showParticipantPhoto(id ? '/File/download/' + id : '');
+               }
+          });
+     }
+
+     setTimeout(bindParticipantPhoto, 0);
+
+     const photoContainer = page.$pageEl.find('.file-uploader-container').get(0);
+     if (photoContainer && window.MutationObserver) {
+          const observer = new MutationObserver(function () {
+               const id = currentPhotoId();
+               if (id) return;
+               const dzElement = page.$pageEl.find('[data-file-uploader="true"]').get(0);
+               const dz = dzElement && dzElement.dropzone;
+               const pending = dz && dz.files && dz.files.some(function (file) {
+                    return file.status !== 'error' && file.accepted !== false && file.size <= maxPhotoBytes;
+               });
+               if (!pending) showParticipantPhoto('');
+          });
+          observer.observe(photoContainer, { childList: true, subtree: true });
+     }
+
+     function escapeHtml(value) {
+          return String(value == null ? '' : value)
+               .replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;');
+     }
+
      function savefn($btnAction) {
           if (validateError(page.$pageEl)) return;
 
@@ -245,22 +343,59 @@
 
                     toastr.success('ذخیره سازی با موفقیت انجام شد');
                     page.$pageEl.dataBind(r.data);
+                    const savedPhotoId = r.data && (r.data.photoFileId || r.data.PhotoFileId);
+                    if (savedPhotoId) showParticipantPhoto('/File/download/' + savedPhotoId);
+                    if ($.fn.select2) $$('#participantCompany').trigger('change.select2');
                     $btnAction.baseaction();
                });
           };
 
-          // Duplicate-name warning (legacy behavior): warning only, never blocks the save.
           if (!isNew) {
                doSave();
                return;
           }
 
-          $$.get('checkDuplicateName?firstName=' + encodeURIComponent(model.firstName || '') + '&lastName=' + encodeURIComponent(model.lastName || ''), function (r) {
-               const dup = r && r.data && (r.data.isDuplicate === true || r.data.IsDuplicate === true);
-               if (dup) {
-                    toastr.warning('شرکت‌کننده‌ای با همین نام وجود دارد', 'هشدار');
+          const url = 'checkDuplicateName?firstName=' + encodeURIComponent(model.firstName || '')
+               + '&lastName=' + encodeURIComponent(model.lastName || '');
+
+          $$.get(url, function (r) {
+               if (!r || r.isSuccess === false) {
+                    toastr.error((r && r.message) || 'خطا در بررسی نام تکراری', 'خطا');
+                    return;
                }
-               doSave();
+
+               const payload = r.data || {};
+               const matches = payload.matches || payload.Matches || [];
+               const hasMore = payload.hasMore === true || payload.HasMore === true;
+               if (!matches.length) {
+                    doSave();
+                    return;
+               }
+
+               const items = matches.map(function (item) {
+                    const name = item.fullName || item.FullName || '';
+                    const company = item.company || item.Company;
+                    let text = escapeHtml(name);
+                    if (company) text += ' (' + escapeHtml(company) + ')';
+                    return '<li>' + text + '</li>';
+               }).join('');
+
+               let html = 'مشابه مشتری وارد شده یافت شد، لطفا نسبت به ثبت داده تکراری دقت نمایید'
+                    + '<br/><br/><ol style="max-height:300px;overflow:auto;text-align:right;padding-right:1.25rem">'
+                    + items
+                    + '</ol><br/>آیا مایل به ادامه ثبت اطلاعات هستید';
+               if (hasMore) html += '<br/>فقط ۱۰۰ مورد اول نمایش داده شد.';
+
+               Swal.fire({
+                    html: html,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'بله',
+                    cancelButtonText: 'خیر'
+               }).then(function (result) {
+                    if (!result.isConfirmed) return;
+                    doSave();
+               });
           });
      }
 

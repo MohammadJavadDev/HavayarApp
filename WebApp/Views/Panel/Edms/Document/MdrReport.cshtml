@@ -1,4 +1,5 @@
 @using Entities.App.Edms
+@using Entities.App.Edms.Enums
 @{
 	ViewData["Title"] = "گزارش MDR";
 }
@@ -12,10 +13,11 @@
 			<label class="form-label">پروژه</label>
 			@(Html.EntitySelector<Project>(
 				"MdrProjectSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new { Id = c.Id, Title = c.Title, Code = c.Code },
-				c => new { c.Id, c.Title, c.Code },
-				"{Code} - {Title}",
+				c => c.IsActive == Entities.Base.IsActiveEnum.Active
+					&& c.Status != ProjectStatusEnum.Stopped,
+				c => new { Id = c.Id, Title = c.Title, Code = c.Code , c.Name },
+				c => new { c.Id, c.Title, c.Code , c.Name },
+			     "{Name}",
 				"projectId",
 				null,
 				null,
@@ -40,188 +42,399 @@
 	</div>
 </div>
 
+<style>
+	#mdrReportWrap .mdr-group {
+		height: 40px;
+		text-align: center;
+		vertical-align: middle;
+		font-weight: 600;
+		color: #fff;
+		white-space: nowrap;
+	}
+
+	#mdrReportWrap .mdr-h-fixed,
+	#mdrReportWrap .mdr-h-general {
+		background: #ce7044 !important;
+		color: #fff !important;
+	}
+
+	#mdrReportWrap .mdr-h-schedule {
+		background: #50a2c1 !important;
+		color: #fff !important;
+	}
+
+	#mdrReportWrap .mdr-h-final {
+		background: #71af39 !important;
+		color: #000 !important;
+	}
+
+	#mdrReportWrap .mdr-h-revision {
+		background: #9aa8b5 !important;
+		color: #fff !important;
+	}
+
+	#mdrReportWrap .mdr-ltr {
+		direction: ltr;
+		text-align: left;
+	}
+
+	#mdrReportWrap table.dataTable {
+		table-layout: fixed;
+	}
+
+	#mdrReportWrap table.dataTable th,
+	#mdrReportWrap table.dataTable td {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		vertical-align: middle;
+		box-sizing: border-box;
+	}
+</style>
+
 <div class="card">
 	<div class="card-body p-2">
-		<div class="table-responsive">
-			<table id="mdrReportTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" style="width:100%; direction:rtl;">
-				<thead>
-					<tr>
-						<th></th>
-						<th>کد پروژه</th>
-						<th>نام پروژه</th>
-						<th>شماره مدرک</th>
-						<th>عنوان مدرک</th>
-						<th>دیسپلین</th>
-						<th>کلاس</th>
-						<th>نوع</th>
-						<th>وزن</th>
-						<th>پیشرفت</th>
-						<th>پیشرفت کل</th>
-						<th>وضعیت نهایی</th>
-						<th>وضعیت داخلی</th>
-						<th>آخرین Rev</th>
-						<th>POI</th>
-						<th>تاریخ ارسال هوایار</th>
-						<th>تاریخ ارسال کارفرما</th>
-						<th>Hold</th>
-					</tr>
-				</thead>
-				<tbody></tbody>
-			</table>
+		<div id="mdrReportWrap" dir="rtl">
+			<table id="mdrReportTable" class="table table-rounded table-striped border table-bordered nowrap table-hover" dir="rtl" style="width:100%"></table>
 		</div>
 	</div>
 </div>
 
 <script>
-	(function () {
-		const fetchUrl = '/Panel/Edms/Document/GetMdrReportPost';
-		const exportUrl = '/Panel/Edms/Document/ExportMdrToExcel';
-		let mdrTable = null;
-		let lastItems = [];
+	const fetchUrl = '/Panel/Edms/Document/GetMdrReportPost';
+	const exportUrl = '/Panel/Edms/Document/ExportMdrToExcel';
+	const mdrRevisionCount = 31;
+	let mdrTable = null;
 
-		function getFilter() {
-			const projectId = $$('#MdrProjectSelector .entity-selector-value').val();
-			return {
-				projectId: projectId ? parseInt(projectId, 10) : null,
-				projectCode: $$('#filterProjectCode').val()?.trim() || null,
-				documentNumber: $$('#filterDocumentNumber').val()?.trim() || null
-			};
-		}
+	const mdrRevisionFields = [
+		{ key: 'revNo', title: 'Rev No.', width: '100px' },
+		{ key: 'havayarSendingDate', title: 'Havayar Sending Date', width: '220px' },
+		{ key: 'havayarSendingTransmittal', title: 'Havayar Sending Transmittal', width: '276px' },
+		{ key: 'havayarRdsDate', title: 'Havayar RDS Date', width: '190px' },
+		{ key: 'havayarRdsNo', title: 'Havayar RDS No.', width: '180px' },
+		{ key: 'poi', title: 'POI', width: '120px' },
+		{ key: 'clientTime', title: 'Client Time', width: '134px' },
+		{ key: 'clientReplyDate', title: 'Client Reply Date', width: '182px' },
+		{ key: 'clientReplyTransmittal', title: 'Client Reply Transmittal', width: '237px' },
+		{ key: 'clientRdsDate', title: 'Client RDS Date', width: '171px' },
+		{ key: 'clientRdsNo', title: 'Client RDS No.', width: '160px' },
+		{ key: 'havayarDelay', title: 'Havayar Delay', width: '159px' },
+		{ key: 'clientDelay', title: 'Client Delay', width: '140px' },
+		{ key: 'status', title: 'Status', width: '150px' }
+	];
 
-		function formatRevisionTable(revisions) {
-			if (!revisions || !revisions.length) {
-				return '<div class="p-3 text-muted">ریویژنی ثبت نشده است.</div>';
-			}
-			let html = '<div class="p-3"><table class="table table-sm table-bordered mb-0"><thead><tr>' +
-				'<th>Rev</th><th>POI</th><th>Status</th><th>Havayar Send</th><th>Transmittal</th>' +
-				'<th>Client Reply</th><th>Client Time</th><th>Havayar Delay</th><th>Client Delay</th>' +
-				'</tr></thead><tbody>';
-			revisions.forEach(function (r) {
-				html += '<tr>' +
-					'<td>' + (r.revNo ?? '') + '</td>' +
-					'<td>' + (r.poi ?? '') + '</td>' +
-					'<td>' + (r.status ?? '') + '</td>' +
-					'<td>' + (r.havayarSendingDate ?? '') + '</td>' +
-					'<td>' + (r.havayarSendingTransmittal ?? '') + '</td>' +
-					'<td>' + (r.clientReplyDate ?? '') + '</td>' +
-					'<td>' + (r.clientTime ?? '') + '</td>' +
-					'<td>' + (r.havayarDelay ?? '') + '</td>' +
-					'<td>' + (r.clientDelay ?? '') + '</td>' +
-					'</tr>';
-			});
-			html += '</tbody></table></div>';
-			return html;
-		}
-
-		function renderTable(items) {
-			lastItems = items || [];
-			if (mdrTable) {
-				mdrTable.destroy();
-				$$('#mdrReportTable tbody').empty();
-			}
-
-			mdrTable = $$('#mdrReportTable').DataTable({
-				language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
-				data: lastItems,
-				columns: [
-					{
-						className: 'dt-control text-center',
-						orderable: false,
-						data: null,
-						defaultContent: '<i class="fa fa-plus-circle text-primary"></i>'
-					},
-					{ data: 'projectCode', defaultContent: '' },
-					{ data: 'projectName', defaultContent: '' },
-					{ data: 'documentNumber', defaultContent: '' },
-					{ data: 'documentTitle', defaultContent: '' },
-					{ data: 'disipline', defaultContent: '' },
-					{ data: 'docClass', defaultContent: '' },
-					{ data: 'docType', defaultContent: '' },
-					{ data: 'weightFactor', defaultContent: '' },
-					{ data: 'progress', defaultContent: '' },
-					{ data: 'overallProgress', defaultContent: '' },
-					{ data: 'finalStatus', defaultContent: '' },
-					{ data: 'internalStatus', defaultContent: '' },
-					{ data: 'lastRev', defaultContent: '' },
-					{ data: 'lastPoi', defaultContent: '' },
-					{ data: 'havayarLastSendDate', defaultContent: '' },
-					{ data: 'clientLastSentDate', defaultContent: '' },
-					{
-						data: 'holdDocuments',
-						render: function (data) { return data ? 'بله' : 'خیر'; }
+	const mdrGroups = [
+		{
+			title: 'General Data',
+			cssClass: 'mdr-h-fixed',
+			columns: [
+				{ data: 'projectCode', title: 'Project Code', width: '160px', className: 'mdr-ltr' },
+				{ data: 'projectName', title: 'Project Name', width: '150px' },
+				{ data: 'documentNumber', title: 'Document No.', width: '180px', className: 'mdr-ltr' },
+				{ data: 'documentTitle', title: 'Document Title', width: '420px' }
+			]
+		},
+		{
+			title: 'General Data',
+			cssClass: 'mdr-h-general',
+			columns: [
+				{ data: 'beneficiaryUnit', title: 'Department', width: '260px' },
+				{ data: 'disipline', title: 'Discipline', width: '110px' },
+				{ data: 'responsible', title: 'Responsible', width: '300px' },
+				{ data: 'checker', title: 'Checker', width: '180px' },
+				{ data: 'approver', title: 'Approver', width: '180px' },
+				{ data: 'overallProgress', title: 'Overall Progress', width: '175px' },
+				{ data: 'weightFactor', title: 'Weight Factor', width: '156px' },
+				{ data: 'progress', title: 'Progress', width: '110px' },
+				{ data: 'docClass', title: 'Class', width: '110px' },
+				{ data: 'docType', title: 'Type', width: '110px' },
+				{ data: 'consumedManHoursInText', title: 'ConsumedManHours', width: '210px' }
+			]
+		},
+		{
+			title: 'Schedule Data',
+			cssClass: 'mdr-h-schedule',
+			columns: [
+				{ data: 'firstIssueDate', title: 'First Issue Date', width: '170px' },
+				{ data: 'rePlanDate', title: 'Re-Plan Date', width: '150px' },
+				{
+					data: 'holdDocuments',
+					title: 'Hold Documents',
+					width: '175px',
+					className: 'text-center',
+					render: function (data) {
+						return data === true || data === 'true'
+							? '<i class="fa fa-check"></i>'
+							: '';
 					}
-				],
-				pageLength: 25,
-				lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, 'همه']],
-				scrollX: true,
-				order: [[1, 'asc'], [3, 'asc']]
-			});
-
-			$$('#mdrReportTable tbody').off('click', 'td.dt-control').on('click', 'td.dt-control', function () {
-				const tr = $(this).closest('tr');
-				const row = mdrTable.row(tr);
-				if (row.child.isShown()) {
-					row.child.hide();
-					tr.removeClass('shown');
-					$(this).html('<i class="fa fa-plus-circle text-primary"></i>');
-				} else {
-					row.child(formatRevisionTable(row.data().revisions)).show();
-					tr.addClass('shown');
-					$(this).html('<i class="fa fa-minus-circle text-danger"></i>');
-				}
-			});
+				},
+				{ data: 'holdResponsible', title: 'Responsible Of Hold', width: '205px' },
+				{ data: 'descriptionForHoldDocuments', title: 'Description For Hold Documents', width: '350px' }
+			]
+		},
+		{
+			title: 'Final Status',
+			cssClass: 'mdr-h-final',
+			columns: [
+				{ data: 'lastRev', title: 'Last Rev', width: '100px' },
+				{ data: 'finalStatus', title: 'Final Status', width: '130px' },
+				{ data: 'internalStatus', title: 'Internal Status', width: '165px' },
+				{ data: 'havayarRepliedTime', title: 'Havayar Replied Time', width: '220px' },
+				{ data: 'clientRepliedTime', title: 'Client Replied Time', width: '200px' },
+				{ data: 'havayarLastSendDate', title: 'Havayar Last Send Date', width: '235px' },
+				{ data: 'havayarLastSendTransmittal', title: 'Havayar Last Send Transmittal', width: '290px' },
+				{ data: 'havayarRdsDate', title: 'Havayar RDS Date', width: '190px' },
+				{ data: 'havayarRdsNo', title: 'Havayar Rds No.', width: '176px' },
+				{ data: 'lastPoi', title: 'Last POI', width: '110px' },
+				{ data: 'clientLastSentDate', title: 'Client Last Sent Date', width: '212px' },
+				{ data: 'clientLastRepliedTransmittal', title: 'Client Last Replied Transmittal', width: '290px' },
+				{ data: 'clientLastRepliedRdsDate', title: 'Client Last Replied RDS Date', width: '275px' },
+				{ data: 'clientLastRepliedRdsNo', title: 'Client Last Replied RDS No.', width: '265px' }
+			]
 		}
+	];
 
-		function loadReport() {
-			const $btn = $$('#btnSearchMdr').prop('disabled', true);
-			$$.post(fetchUrl, getFilter()).then(function (r) {
-				$btn.prop('disabled', false);
-				if (!r.isSuccess) {
-					toastr.error(r.message || 'خطا در دریافت گزارش');
-					return;
-				}
-				renderTable((r.data && r.data.items) ? r.data.items : []);
-				toastr.success('گزارش با موفقیت بارگذاری شد');
-			});
-		}
+	for (let revisionIndex = 0; revisionIndex < mdrRevisionCount; revisionIndex++) {
+		mdrGroups.push({
+			title: 'Revision ' + revisionIndex,
+			cssClass: 'mdr-h-revision',
+			columns: mdrRevisionFields.map(function (field) {
+				return {
+					data: 'r' + revisionIndex + '_' + field.key,
+					title: field.title,
+					width: field.width,
+					defaultContent: ''
+				};
+			})
+		});
+	}
 
-		async function exportExcel() {
-			const filter = getFilter();
-			const $btn = $$('#btnExportMdr').prop('disabled', true);
-			try {
-				const response = await fetch(exportUrl, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(filter)
-				});
-				if (!response.ok) {
-					const text = await response.text();
-					toastr.error(text || 'خطا در ایجاد فایل Excel');
-					return;
-				}
-				const blob = await response.blob();
-				const url = window.URL.createObjectURL(blob);
-				const link = document.createElement('a');
-				link.href = url;
-				link.download = 'Edms_Mdr_Report_' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.xlsx';
-				document.body.appendChild(link);
-				link.click();
-				link.remove();
-				window.URL.revokeObjectURL(url);
-				toastr.success('فایل Excel دانلود شد');
-			} catch (e) {
-				toastr.error('خطا در دانلود Excel');
-			} finally {
-				$btn.prop('disabled', false);
-			}
-		}
+	function getFilter() {
+		const projectId = $$('#MdrProjectSelector .entity-selector-value').val();
+		return {
+			projectId: projectId ? parseInt(projectId, 10) : null,
+			projectCode: $$('#filterProjectCode').val()?.trim() || null,
+			documentNumber: $$('#filterDocumentNumber').val()?.trim() || null
+		};
+	}
 
-		$$('#btnSearchMdr').on('click', loadReport);
-		$$('#btnExportMdr').on('click', exportExcel);
-		$$('#filterProjectCode, #filterDocumentNumber').on('keypress', function (e) {
-			if (e.which === 13) loadReport();
+	function revisionValue(revision, key) {
+		if (!revision) return '';
+		const value = revision[key];
+		return value == null ? '' : value;
+	}
+
+	function flattenItem(item) {
+		const row = Object.assign({}, item);
+		const revisions = item.revisions || item.Revisions || [];
+		const byIndex = {};
+		revisions.forEach(function (revision) {
+			const index = revision.index != null ? revision.index : revision.Index;
+			if (index != null) byIndex[index] = revision;
 		});
 
-		renderTable([]);
-	})();
+		for (let revisionIndex = 0; revisionIndex < mdrRevisionCount; revisionIndex++) {
+			const revision = byIndex[revisionIndex];
+			mdrRevisionFields.forEach(function (field) {
+				row['r' + revisionIndex + '_' + field.key] = revisionValue(revision, field.key);
+			});
+		}
+
+		return row;
+	}
+
+	function buildColumns() {
+		const columns = [{
+			data: null,
+			defaultContent: '',
+			orderable: false,
+			searchable: false,
+			className: 'text-center',
+			width: '35px'
+		}];
+
+		mdrGroups.forEach(function (group) {
+			group.columns.forEach(function (column) {
+				columns.push(Object.assign({ defaultContent: '' }, column));
+			});
+		});
+
+		return columns;
+	}
+
+	function buildHeader() {
+		const $head = $('<thead></thead>');
+		const $groupRow = $('<tr></tr>');
+		const $titleRow = $('<tr></tr>');
+
+		$groupRow.append($('<th rowspan="2"></th>').text('#'));
+
+		mdrGroups.forEach(function (group) {
+			$groupRow.append(
+				$('<th></th>')
+					.attr('colspan', group.columns.length)
+					.addClass('mdr-group ' + group.cssClass)
+					.text(group.title)
+			);
+
+			group.columns.forEach(function (column) {
+				$titleRow.append($('<th></th>').text(column.title));
+			});
+		});
+
+		$head.append($groupRow).append($titleRow);
+		return $head;
+	}
+
+	let queuedItems = [];
+
+	function numberRows() {
+		const api = new $.fn.dataTable.Api(this);
+		if (!api.page) return;
+		const start = api.page.info().start;
+		api.column(0, { page: 'current' }).nodes().each(function (cell, index) {
+			cell.textContent = start + index + 1;
+		});
+	}
+
+	function columnWidths(api) {
+		return api.settings()[0].aoColumns.map(function (col) {
+			const raw = col.sWidthOrig || '120px';
+			const size = parseFloat(raw);
+			return (Number.isFinite(size) && size > 0 ? size : 120) + 'px';
+		});
+	}
+
+	function applyFixedWidths(api) {
+		const settings = api.settings()[0];
+		if (!settings || !settings.nScrollBody) return;
+
+		const widths = columnWidths(api);
+		let total = 0;
+		widths.forEach(function (width) { total += parseFloat(width); });
+
+		[settings.nScrollHead, settings.nScrollBody].forEach(function (node) {
+			if (!node) return;
+			const $grid = $(node).find('table').first();
+			let $cols = $grid.children('colgroup');
+			if (!$cols.length) {
+				$cols = $('<colgroup></colgroup>');
+				$grid.prepend($cols);
+			}
+			$cols.empty();
+			widths.forEach(function (width) {
+				$cols.append($('<col>').css('width', width));
+			});
+			$grid.css({
+				width: total + 'px',
+				minWidth: total + 'px',
+				tableLayout: 'fixed'
+			});
+		});
+
+		$$('#mdrReportTable tbody td').each(function () {
+			const text = (this.textContent || '').trim();
+			if (text && this.scrollWidth > this.clientWidth + 1) {
+				this.title = text;
+			} else {
+				this.removeAttribute('title');
+			}
+		});
+	}
+
+	function paintRows(table, items) {
+		table.clear();
+		table.rows.add((items || []).map(flattenItem));
+		table.draw(false);
+	}
+
+	function ensureTable() {
+		if (mdrTable) return mdrTable;
+
+		const $table = $$('#mdrReportTable');
+		$table.empty().append(buildHeader()).append($('<tbody></tbody>'));
+		$table.on('draw.dt', function () {
+			if (mdrTable) applyFixedWidths(mdrTable);
+		});
+
+		mdrTable = $table.DataTable({
+			language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+			data: [],
+			columns: buildColumns(),
+			autoWidth: false,
+			deferRender: true,
+			pageLength: 30,
+			lengthMenu: [[30, 100, 500], [30, 100, 500]],
+			scrollX: true,
+			scrollY: '62vh',
+			scrollCollapse: true,
+			order: [],
+			drawCallback: numberRows
+		});
+
+		$table.on('init.dt', function () {
+			paintRows(mdrTable, queuedItems);
+		});
+
+		return mdrTable;
+	}
+
+	function renderTable(items) {
+		queuedItems = items || [];
+		const table = ensureTable();
+		if (!table.settings()[0]._bInitComplete) return;
+		paintRows(table, queuedItems);
+	}
+
+	function loadReport() {
+		const $btn = $$('#btnSearchMdr').prop('disabled', true);
+		$$.post(fetchUrl, getFilter()).then(function (r) {
+			$btn.prop('disabled', false);
+			if (!r.isSuccess) {
+				toastr.error(r.message || 'خطا در دریافت گزارش');
+				return;
+			}
+			renderTable((r.data && r.data.items) ? r.data.items : []);
+			toastr.success('گزارش با موفقیت بارگذاری شد');
+		});
+	}
+
+	async function exportExcel() {
+		const filter = getFilter();
+		const $btn = $$('#btnExportMdr').prop('disabled', true);
+		try {
+			const response = await fetch(exportUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(filter)
+			});
+			if (!response.ok) {
+				const text = await response.text();
+				toastr.error(text || 'خطا در ایجاد فایل Excel');
+				return;
+			}
+			const blob = await response.blob();
+			const url = window.URL.createObjectURL(blob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = 'Edms_Mdr_Report_' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '.xlsx';
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			window.URL.revokeObjectURL(url);
+			toastr.success('فایل Excel دانلود شد');
+		} catch (e) {
+			toastr.error('خطا در دانلود Excel');
+		} finally {
+			$btn.prop('disabled', false);
+		}
+	}
+
+	$$('#btnSearchMdr').on('click', loadReport);
+	$$('#btnExportMdr').on('click', exportExcel);
+	$$('#filterProjectCode, #filterDocumentNumber').on('keypress', function (e) {
+		if (e.which === 13) loadReport();
+	});
+
+	renderTable([]);
 </script>

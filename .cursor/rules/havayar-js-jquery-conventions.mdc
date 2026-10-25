@@ -153,13 +153,16 @@ Canonical: `Sale/TenderPart/ListByParentId.cshtml`, `Sale/TenderAttachment/ListB
 - **List pages** need only: `<datatableprofile entity-Type="typeof(EntityName)"></datatableprofile>`. DataTable initialization is automatic via `appController.initPage`.
 - **Custom / embedded DataTables** (not Data Profile): for one-line cells + hover full text, use `renderEllipsisCell` on text columns and `bindEmbeddedTableCellTooltips(table)` after init. Do **not** call `bindDataTableCellTooltips` — that is Data Profile only. Skip action columns with `className: 'text-center'` or `dt-ellipsis-skip`. Canonical: `Sale/ServiceRequest/Edit.cshtml`.
 - **Form fields** use `data-bind="propertyName"` (camelCase-friendly binding key) alongside `asp-for="PropertyName"`. Read/write the whole form via `.dataBind()` rather than field-by-field `.val()` calls.
-- **Persian (Shamsi) dates:**
+- **Persian (Shamsi) dates** are always a pair of properties with the same stem. Only `Shamsi` and `Miladi` differ: `{Stem}ShamsiDate` (`string`) and `{Stem}MiladiDate` (`DateTime?`). Example: `NeedDateShamsiDate` / `NeedDateMiladiDate`. `data-bind` is the Shamsi name (it must contain `shamsi` — `dataBind` derives the Miladi key with `replace("shamsi","miladi")`). `value` is the Miladi property, rendered as invariant `yyyy-MM-dd` so the picker receives a Gregorian date.
+
   ```html
-  <input data-bind="startShamsiDate"
+  <input class="form-control" data-bind="needDateShamsiDate" data-required="true"
          data-persionDatePicker="true"
-         persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}' />
+         persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+         value="@(Model?.NeedDateMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
   ```
-  `dataBind` auto-converts Shamsi ↔ Miladi (`MJUtil.shamsiToMiladi`/`miladiToShamsi`). If you inject HTML dynamically (e.g. into a `$.confirm` modal), call `initPersionDatePicker($container)` on it afterward.
+
+  `dataBind` auto-converts Shamsi ↔ Miladi (`MJUtil.shamsiToMiladi`/`miladiToShamsi`) and posts both properties. If you inject HTML dynamically (e.g. into a `$.confirm` modal), call `initPersionDatePicker($container)` on it afterward.
 - **Money / price inputs (thousand separators):** every مبلغ / قیمت field must show `16,000,000` while typing and **save a raw number**. Canonical (see `Sale/TenderManagement/Edit.cshtml`):
 
 ```html
@@ -182,6 +185,17 @@ Canonical: `Sale/TenderPart/ListByParentId.cshtml`, `Sale/TenderAttachment/ListB
   - `data-time="true"` — `initTimeInputs` / `initPage` apply Inputmask (`mask: '99:99'`, `placeholder: '__:__'`).
   - `dataBind` writes via `inputmask.setvalue` / `MJUtil.formatTime` and reads `MJUtil.unformatTime` (empty / incomplete `__:__` → `null`). Backend `string` time properties stay `"HH:MM"`.
   - Injected `$.confirm` time inputs: `Inputmask(timeInputmaskOptions).mask($content.find('[data-time="true"]'))` or `initTimeInputs($content)`.
+- **Duration stored as integer MINUTES (نفر ساعت, e.g. `Edms.Document.HourPrePerson`):** users type `HH:MM`, the column stays minutes. Incident 2026-10: Portal users typed hours into a minutes field. Canonical: `Edms/Document/_DocumentRevisionEditorPartial.cshtml`.
+
+```html
+<input class="form-control ltr" type="text" id="HourPrePerson" name="HourPrePerson" data-bind="hourPrePerson" data-duration-hm="true" required
+ placeholder="__:__" value="@Common.Utilities.MinutesFromHourMinJsonConverter.MinToHourMin(Model?.HourPrePerson, hourLength: 2)" />
+```
+
+ - `data-duration-hm="true"` — `initDurationHmInputs` / `initPage` / `initItemsForms` apply the mask `9{2,4}:m9` (hours may exceed 99, minutes 00-59). Do not use `data-time` (clock time, `99:99`) and do not use `data-duration="true"` (Mission page only, its own handler).
+ - `dataBind` reads `HH:MM` as integer minutes (`MJUtil.unformatDuration`; empty / incomplete → `null`) and writes minutes back as `HH:MM` (`MJUtil.formatDuration`). Post the number, no server converter needed.
+ - Server display (details partials, `value=`): `MinutesFromHourMinJsonConverter.MinToHourMin(int?, hourLength: 2)`. Never print the raw minute count in a field labelled ساعت.
+ - Do not use `asp-for` on this input (it renders the raw minutes) and do not add a `data-inputmask` regex.
 - **Event binding:** use `data-action="myAction"` attributes plus a delegated handler (`page.$pageEl.on('click', '[data-action="myAction"]', fn)` or `$$('.container').on('click', '[data-action="myAction"]', fn)`) — never inline `onclick="..."` in the `.cshtml`.
   - Note: `$$(document).on(...)` does **not** work for tab-scoped delegation, because `document` is not inside `page.$pageEl`. Delegate from `page.$pageEl` or a `$$(...)`-selected container instead.
 
@@ -209,5 +223,6 @@ Canonical: `Sale/TenderPart/ListByParentId.cshtml`, `Sale/TenderAttachment/ListB
 | `appController.addPage` for افزودن/ویرایش of a child row (embedded grid **or** ListByParentId tab) | `$.confirm` modal + `ajax.reload` (see §5) | older `ListByParentId` pages that still open a tab |
 | Bare price `<input>` with no thousand grouping | `data-money="true"` + numeric `data-inputmask` (see §6) | older money fields that still show `1234567` |
 | `<input type="time">` or a bare ساعت field | `type="text"` + `data-time="true"` (`__:__` / `99:99`, see §6) | older `SendTime` placeholders like `12:00` |
+| Date picker `data-bind` without `shamsi`, or `value` bound to the Shamsi / `*InText` property | Pair `{Stem}ShamsiDate` + `{Stem}MiladiDate`: `data-bind` = Shamsi, `value` = invariant `yyyy-MM-dd` of the Miladi property (see §6) | `Srv/CarRequest/Edit.cshtml` before the NeedDate pair |
 
 When editing an existing legacy file that already uses one of the "don't" patterns, prefer matching the surrounding file's existing style over a partial rewrite, unless the user explicitly asks for cleanup.

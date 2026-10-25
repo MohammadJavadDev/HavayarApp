@@ -8,6 +8,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Unicode;
 using System.Threading.Tasks;
 using Common.Attributes;
 using Common.Auth.Enums;
@@ -209,9 +213,102 @@ namespace Services.AccessServices
             }
         }
 
+        public void RemoveSystemMenu(long id)
+        {
+            lock (_lockObj)
+            {
+                _systemMenus.RemoveAll(c => c.Id == id);
+                _systemMenusById.Remove(id);
+            }
+        }
+
         public string GetHtmlItems(List<SystemMenuItem> items ,string? url,ISdk sdk)
         {
             return RenderMenuItems(items, url, sdk);
+        }
+
+        private static readonly JsonSerializerOptions SidebarJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
+        };
+
+        public List<SidebarMenuNode> GetSidebarNodes(List<SystemMenuItem> items, string? url, ISdk sdk)
+        {
+            var roleAccess = sdk.CurrentUser.RoleAccess ?? new List<RoleAccessDto>();
+            var filtered = FilterMenuItems(items ?? new List<SystemMenuItem>(), roleAccess, sdk.CurrentUser.IsAdministrator);
+            var nodes = new List<SidebarMenuNode>();
+            MapSidebarNodes(filtered, url, nodes);
+            return nodes;
+        }
+
+        public string GetSidebarJson(List<SystemMenuItem> items, string? url, ISdk sdk)
+        {
+            return JsonSerializer.Serialize(GetSidebarNodes(items, url, sdk), SidebarJsonOptions);
+        }
+
+        private static bool MapSidebarNodes(List<SystemMenuItem>? items, string? url, List<SidebarMenuNode> target)
+        {
+            if (items == null || items.Count == 0)
+                return false;
+
+            var anyActive = false;
+            foreach (var item in items)
+            {
+                if (item == null)
+                    continue;
+
+                var node = new SidebarMenuNode
+                {
+                    Text = item.Text ?? ""
+                };
+                if (item.Icon.HasValue(true))
+                    node.Icon = item.Icon;
+                if (item.iconColor.HasValue(true))
+                    node.IconColor = item.iconColor;
+
+                if (item.Children is { Count: > 0 })
+                {
+                    var children = new List<SidebarMenuNode>();
+                    var childActive = MapSidebarNodes(item.Children, url, children);
+                    if (children.Count == 0)
+                        continue;
+                    node.Children = children;
+                    node.Open = childActive;
+                    anyActive |= childActive;
+                }
+                else
+                {
+                    if (!item.Path.HasValue(true) || item.Path == "#")
+                        continue;
+                    node.Path = item.Path;
+                    node.Active = IsSameMenuPath(item.Path, url);
+                    anyActive |= node.Active;
+                }
+
+                target.Add(node);
+            }
+
+            return anyActive;
+        }
+
+        private static bool IsSameMenuPath(string? menuPath, string? url)
+        {
+            if (!menuPath.HasValue(true) || !url.HasValue(true))
+                return false;
+            return string.Equals(NormalizeMenuPath(menuPath!), NormalizeMenuPath(url!), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeMenuPath(string path)
+        {
+            var value = path.Trim();
+            var query = value.IndexOf('?');
+            if (query >= 0)
+                value = value[..query];
+            if (value.Length > 1 && value.EndsWith('/'))
+                value = value[..^1];
+            return value;
         }
 
         public bool MenuIsActive(List<SystemMenuItem> items , string? url)
@@ -344,29 +441,38 @@ namespace Services.AccessServices
 			if (isAdmin)
 				return items;
 
+			var allowed = new HashSet<string>(StringComparer.Ordinal);
+			if (roleAccess != null)
+			{
+				foreach (var access in roleAccess)
+				{
+					if (!string.IsNullOrEmpty(access.Path))
+						allowed.Add(access.Path);
+				}
+			}
+
+			return FilterMenuItemsByPath(items, allowed);
+		}
+
+		private List<SystemMenuItem> FilterMenuItemsByPath(List<SystemMenuItem> items, HashSet<string> allowed)
+		{
 			var filtered = new List<SystemMenuItem>();
 
 			foreach (var item in items)
 			{
 				if (item.Children != null && item.Children.Any())
 				{
-					// فیلتر کردن فرزندان به صورت بازگشتی
-					var filteredChildren = FilterMenuItems(item.Children, roleAccess, isAdmin);
+					var filteredChildren = FilterMenuItemsByPath(item.Children, allowed);
 					if (filteredChildren.Any())
 					{
-						// کپی کردن آیتم و جایگزینی فرزندان فیلتر شده
 						var newItem = CloneMenuItem(item);
 						newItem.Children = filteredChildren;
 						filtered.Add(newItem);
 					}
 				}
-				else
+				else if (!string.IsNullOrEmpty(item.Path) && allowed.Contains(item.Path))
 				{
-					// آیتم نهایی: فقط در صورتی مجاز است که Path آن در roleAccess وجود داشته باشد
-					if (!string.IsNullOrEmpty(item.Path) && roleAccess.Any(ra => ra.Path == item.Path))
-					{
-						filtered.Add(item);
-					}
+					filtered.Add(item);
 				}
 			}
 
@@ -423,7 +529,21 @@ namespace Services.AccessServices
         public List<SystemMenu> GetMenuByRole(ISdk sdk);
         public List<SystemMenu> GetSystemMenu();
         public void UpdateSystemMenu(SystemMenu systemMenu);
+        public void RemoveSystemMenu(long id);
           public string GetHtmlItems(List<SystemMenuItem> items, string? url, ISdk sdk);
+        public List<SidebarMenuNode> GetSidebarNodes(List<SystemMenuItem> items, string? url, ISdk sdk);
+        public string GetSidebarJson(List<SystemMenuItem> items, string? url, ISdk sdk);
+    }
+
+    public sealed class SidebarMenuNode
+    {
+        public string Text { get; set; } = "";
+        public string? Path { get; set; }
+        public string? Icon { get; set; }
+        public string? IconColor { get; set; }
+        public bool Open { get; set; }
+        public bool Active { get; set; }
+        public List<SidebarMenuNode>? Children { get; set; }
     }
 
 }

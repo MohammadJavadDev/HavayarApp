@@ -9,8 +9,10 @@ using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml;
 using ValidationType = Aspose.Cells.ValidationType;
 
@@ -395,12 +397,8 @@ namespace Services.ImportDefinitionServices
 		// -------------------------------------------------------
 		public static List<string> ReadExcelHeaders(Stream stream )
 		{
-			var licensePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Aspose.Total.NET.lic");
+			EnsureAsposeLicense();
 			var wb = new Workbook(stream);
-			 
-
-			if (!wb.IsLicensed)
-				new License().SetLicense(licensePath);
 			var ws = wb.Worksheets[0];
 			var maxCol = ws.Cells.MaxDataColumn;   // 0-based
 			var headers = new List<string>();
@@ -419,11 +417,8 @@ namespace Services.ImportDefinitionServices
 		// -------------------------------------------------------
 		public static List<Dictionary<string, string>> ReadExcel(Stream stream)
 		{
+			EnsureAsposeLicense();
 			var wb = new Workbook(stream);
-			var licensePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Aspose.Total.NET.lic");
-
-			if (!wb.IsLicensed)
-				new License().SetLicense(licensePath);
 			var ws = wb.Worksheets[0];
 			var maxRow = ws.Cells.MaxDataRow;    // 0-based (آخرین ردیف با داده)
 			var maxCol = ws.Cells.MaxDataColumn; // 0-based
@@ -447,17 +442,7 @@ namespace Services.ImportDefinitionServices
 
 				foreach (var kv in headers)
 				{
-					// StringValue مقدار سلول را همیشه به صورت string برمی‌گرداند
-					// حتی برای سلول‌های عددی یا تاریخ
-					var cell = ws.Cells[r, kv.Key];
-					string val;
-
-					// تاریخ را به فرمت استاندارد تبدیل می‌کنیم
-					if (cell.Type == CellValueType.IsDateTime)
-						val = cell.DateTimeValue.ToString("yyyy-MM-dd HH:mm");
-					else
-						val = cell.StringValue?.Trim() ?? "";
-
+					var val = CellToImportString(ws.Cells[r, kv.Key]);
 					row[kv.Value] = val;
 					if (!string.IsNullOrEmpty(val)) hasData = true;
 				}
@@ -467,6 +452,31 @@ namespace Services.ImportDefinitionServices
 			}
 
 			return rows;
+		}
+
+		private static void EnsureAsposeLicense()
+		{
+			var licensePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "Aspose.Total.NET.lic");
+			if (File.Exists(licensePath))
+				new License().SetLicense(licensePath);
+		}
+
+		/// <summary>
+		/// عدد را از مقدار خام سلول می‌خواند، نه از متن قالب‌بندی‌شده.
+		/// قالب 0.000 روی مقدار 1 متن «1.000» می‌سازد و اگر نقطه حذف شود ۱۰۰۰ ذخیره می‌شود.
+		/// </summary>
+		private static string CellToImportString(Cell cell)
+		{
+			if (cell == null || cell.Type is CellValueType.IsNull or CellValueType.IsError)
+				return "";
+
+			if (cell.Type == CellValueType.IsDateTime)
+				return cell.DateTimeValue.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+
+			if (cell.Type == CellValueType.IsNumeric)
+				return Convert.ToString(cell.Value, CultureInfo.InvariantCulture)?.Trim() ?? "";
+
+			return cell.StringValue?.Trim() ?? "";
 		}
 	}
 
@@ -548,14 +558,13 @@ namespace Services.ImportDefinitionServices
 						{
 							object paramValue = DBNull.Value;
 
-							// پیدا کردن ستون در اکسل از طریق mapping
-							var excelHeader = columnMapping.ContainsKey(col.ColumnName)
-							    ? columnMapping[col.ColumnName]
-							    : col.DisplayName;
+							var excelHeader = ResolveExcelHeader(excelRow, columnMapping, col);
 
-							if (excelRow.ContainsKey(excelHeader) && !string.IsNullOrWhiteSpace(excelRow[excelHeader]))
+							if (!string.IsNullOrWhiteSpace(excelHeader)
+							    && excelRow.TryGetValue(excelHeader, out var cellText)
+							    && !string.IsNullOrWhiteSpace(cellText))
 							{
-								paramValue = ConvertValue(excelRow[excelHeader], col.DataType, col);
+								paramValue = ConvertValue(cellText, col.DataType, col);
 							}
 							else if (col.IsRequired)
 							{
@@ -625,6 +634,91 @@ namespace Services.ImportDefinitionServices
 		}
  
 
+		private static string ResolveExcelHeader(
+			Dictionary<string, string> excelRow,
+			Dictionary<string, string> columnMapping,
+			ImportDefinitionColumn col)
+		{
+			var candidates = new List<string>();
+			if (columnMapping != null && columnMapping.TryGetValue(col.ColumnName, out var mapped) && !string.IsNullOrWhiteSpace(mapped))
+				candidates.Add(mapped.Trim());
+			if (!string.IsNullOrWhiteSpace(col.DisplayName))
+			{
+				candidates.Add(col.DisplayName.Trim());
+				candidates.Add(col.DisplayName.Trim() + " *");
+			}
+
+			foreach (var candidate in candidates.Distinct())
+			{
+				if (excelRow.TryGetValue(candidate, out var text) && !string.IsNullOrWhiteSpace(text))
+					return candidate;
+			}
+
+			return candidates.FirstOrDefault() ?? col.ColumnName;
+		}
+
+		/// <summary>
+		/// «1.000» و «1٫000» یعنی یک (سه رقم اعشار)، نه هزار.
+		/// «1,000» و «1.000.000» جداکننده هزارگان‌اند و همان هزار / میلیون می‌مانند.
+		/// </summary>
+		private static decimal ParseImportDecimal(string value)
+		{
+			var text = NormalizeImportNumber(value);
+			if (string.IsNullOrEmpty(text))
+				throw new Exception($"مقدار «{value}» عدد اعشاری نیست.");
+
+			var dots = text.Count(c => c == '.');
+			var commas = text.Count(c => c == ',');
+
+			if (dots > 0 && commas > 0)
+			{
+				if (text.LastIndexOf('.') > text.LastIndexOf(','))
+					text = text.Replace(",", "");
+				else
+					text = text.Replace(".", "").Replace(',', '.');
+			}
+			else if (commas > 0)
+			{
+				text = Regex.IsMatch(text, @"^-?\d{1,3}(,\d{3})+$")
+					? text.Replace(",", "")
+					: text.Replace(',', '.');
+			}
+			else if (dots > 1)
+			{
+				if (!Regex.IsMatch(text, @"^-?\d{1,3}(\.\d{3})+$"))
+					throw new Exception($"مقدار «{value}» عدد اعشاری نیست.");
+				text = text.Replace(".", "");
+			}
+
+			if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+				throw new Exception($"مقدار «{value}» عدد اعشاری نیست.");
+
+			return number;
+		}
+
+		private static string NormalizeImportNumber(string value)
+		{
+			if (string.IsNullOrWhiteSpace(value))
+				return "";
+
+			var sb = new StringBuilder(value.Length);
+			foreach (var ch in value.Trim())
+			{
+				if (ch is >= '۰' and <= '۹')
+					sb.Append((char)('0' + (ch - '۰')));
+				else if (ch is >= '٠' and <= '٩')
+					sb.Append((char)('0' + (ch - '٠')));
+				else if (ch is '٫' or '،')
+					sb.Append(ch == '٫' ? '.' : ',');
+				else if (ch is '٬')
+					sb.Append(',');
+				else if (!char.IsWhiteSpace(ch))
+					sb.Append(ch);
+			}
+
+			return sb.ToString();
+		}
+
 		public static object ConvertValue(string value, SystemType dataType , ImportDefinitionColumn col)
 		{
 
@@ -632,13 +726,11 @@ namespace Services.ImportDefinitionServices
 			if (string.IsNullOrWhiteSpace(value)) return DBNull.Value;
 			return dataType switch
 			{
-				SystemType.Int=> int.TryParse(value, out int i) ? (object)i
+				SystemType.Int=> int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i) ? (object)i
 						   : throw new Exception($"مقدار «{value}» عدد صحیح نیست."),
-				SystemType.Long => long.TryParse(value, out long i) ? (object)i
+				SystemType.Long => long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long i) ? (object)i
 				   : throw new Exception($"مقدار «{value}» عدد صحیح نیست."),
-				SystemType.Decimal => decimal.TryParse(value.Replace(",", "."), System.Globalization.NumberStyles.Any,
-						   System.Globalization.CultureInfo.InvariantCulture, out decimal d) ? (object)d
-						   : throw new Exception($"مقدار «{value}» عدد اعشاری نیست."),
+				SystemType.Decimal => ParseImportDecimal(value),
 				SystemType.Date => DateTime.TryParse(value, out DateTime dt) ? (object)dt
 						   : throw new Exception($"مقدار «{value}» تاریخ معتبر نیست."),
 				SystemType.DateTime => DateTime.TryParse(value, out DateTime dtt) ? (object)dtt

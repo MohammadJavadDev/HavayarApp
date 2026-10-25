@@ -41,14 +41,18 @@ public class AuthService(IConfiguration _configuration) : IAuthService
         claims.Add(new Claim(ClaimTypes.Name, user.Name));
         claims.Add(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()));
         claims.Add(new Claim("id", user.Id.ToString()));
-        
-        // Add role claims for authorization
-        if (user.Roles != null && user.Roles.Count > 0)
+
+        // Role checks for the panel read Redis (online user), not this cookie.
+        // Embedding every role blows past the browser 4096-byte cookie limit, so the
+        // Set-Cookie is dropped and login stays on the page. Keep only "admin", which
+        // [Authorize(Roles = "admin")] still reads from the JWT.
+        if (user.Roles == null)
+            return;
+
+        foreach (var role in user.Roles)
         {
-            foreach (var role in user.Roles)
-            {
+            if (string.Equals(role, "admin", StringComparison.OrdinalIgnoreCase))
                 claims.Add(new Claim(ClaimTypes.Role, role));
-            }
         }
     }
 }

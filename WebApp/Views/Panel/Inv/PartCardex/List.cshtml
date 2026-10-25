@@ -1,0 +1,49 @@
+@using Entities.App.Inv
+@using Entities.Base
+@{
+	ViewData["Title"] = "کاردکس کالا";
+}
+
+<div class="card mb-4">
+	<div class="card-body row g-3 align-items-end">
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label">انتخاب کالا</label>
+			@(Html.EntitySelector<Part>(
+				"PartCardexPartSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+				c => new { c.Code, c.Name },
+				"{Code} - {Name}",
+				"partId",
+				"partName",
+				null
+			))
+		</div>
+		<div class="col-md-2">
+			<button type="button" class="btn btn-primary w-100" data-action="partCardexShow">
+				<i class="fa fa-search"></i> مشاهده کاردکس
+			</button>
+		</div>
+	</div>
+</div>
+
+<datatableprofile unicode="entities.app.inv.partcardex" profile-names="Inv_PartCardex_Report"></datatableprofile>
+
+<script>
+	page.$pageEl.on('click', '[data-action="partCardexShow"]', function () {
+		const model = page.$pageEl.dataBind();
+		const partId = parseInt(model.partId, 10) || 0;
+		if (!partId) {
+			toastr.warning('ابتدا کالا را انتخاب کنید', 'هشدار');
+			return;
+		}
+
+		const $select = $$('[data-action="dataProfile"]');
+		$select.attr('data-query-params', JSON.stringify({ PartId: String(partId) }));
+
+		const table = $select.data('dtProfileTable') || self.table;
+		if (table && table.ajax) {
+			table.ajax.reload(null, false);
+		}
+	});
+</script>

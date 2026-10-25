@@ -148,3 +148,15 @@ Workflow buttons via `form-action-buttons` extra actions, shown with the same pr
 7. Force-notify writes 26 and 18, requires notify date, skips process-owner required fields.
 8. After ChangeStatus, `LastStatus` equals the latest StatusLog Id’s status (EntityAction, not SQL).
 9. No service class; no EDMS types; refresh via `appController.refreshCurrentPage()`.
+
+
+## 10. HTS parity pass (2026-10-11) — overrides earlier sections where they conflict
+
+Sources: `_BpmManageDocument.cshtml`, `BpmManageDocumentController`, `BpmDocumentModel`, `CaptionsLibrary.fa-IR`.
+
+- **Page = data profile `Bpm_ProcessDocument_Manage`** (unicode `Entities.App.Bpm.ProcessDocument.Manage`), no separate manage Edit page (`ManageEdit` / `SaveManage` removed; notification links point to `/panel/bpm/processdocument/manage`). Seed: `Patch_ProcessDocument_Manage_HtsColumns.sql` (apply with `sqlcmd -x`).
+- **Grid columns:** شماره درخواست, آخرین وضعیت, عنوان سند, کد سند, شماره بازنگری, نوع درخواست, نوع سند, سطح محرمانگی, ورودی درخواست, فوریت رسیدگی, مالک فرآیند, تایید کننده, تصویب کننده, واحدهای دریافت کننده ابلاغ, تاریخ ایجاد (default sort, descending), کاربر ایجادکننده, شرح درخواست (no درخواست کننده). Users show `NameFa`. Row color on the ردیف cell: 11 `#ffc080`, 9 `lightgreen`, 10 `#6e85da`, 16 `#eba7ec`; the «راهنمای رنگ‌ها» legend (`EventScriptsJson.legend`) lists the same four.
+- **Buttons:** «بررسی / تایید» (modal, enabled by hidden `t1_CanTransition` = `CanOpenTransitionUi`), دریافت ف اصلی, دانلود فایل متفرقه (`t1_CanTemp`, the HTS inverted owner/approver rule), دریافت فایل یادداشت (`t1_CanComment`), دانلود فایل نهایی, دانلود فایل نهایی (PDF). No new/edit/delete.
+- **Modal `ManageStatusForm`** (`_ManageStatusForm.cshtml`, saved with `ChangeStatus`): rows follow the selected next status exactly as HTS `bpmManageDocument_cmbStatus_onChange` — 10/24: force-notify (10 only), نوع سند, مجموعه فرآیندی, مالک فرآیند, تایید کننده, تصویب کننده, تاریخ پیش بینی انجام درخواست; 18 or force-notify: عنوان سند, سطح محرمانگی, تاریخ ابلاغ, مستندات مرتبط, تیم بازنگری/تدوین, واحدهای دریافت کننده ابلاغ, دریافت کنندگان ابلاغ, مجری فرآیند, واحد مرتبط. Files group «پیوست (ها)»: فایل اصلی (supervisor, last 19), فایل نهایی + PDF (supervisor, last 16 or force-notify), فایل کامنت + زمان ارسال/دریافت (expert, last 10/21/24). Validation order and wording are HTS' (`({0}) نمیتواند خالی باشد`, `فایلی انتخاب نشده است`).
+- **Server behaviour like HTS:** title / access level / number are only overwritten when a value is posted; each junction list is replaced only when posted non-empty.
+- **Not ported:** the synthetic picker options «تمام سازمان» and «کاربران HTS - غیر از مالکان»; the job title next to user names; HTS' admin quirk that enables «بررسی / تایید» on every row for admins (Havayar keeps the stricter per-status rule).

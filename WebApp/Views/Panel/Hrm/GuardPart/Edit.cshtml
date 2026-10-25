@@ -1,0 +1,63 @@
+@using Entities.App.Hrm
+@using Entities.App.Hrm.Enums
+@model GuardPart
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(GuardPart)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">کالا (حراست/دژبان)</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">عنوان</label>
+				<input class="form-control" data-bind="title" data-required="true" asp-for="Title" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">واحد شمارش</label>
+				<select class="form-control" data-bind="enumerationUnit" data-required="true" asp-for="EnumerationUnit" asp-items="Html.GetEnumSelectList(typeof(GuardPartUnitEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 d-flex align-items-center mt-8">
+				<div class="form-check form-switch form-check-custom form-check-solid">
+					<input data-bind="isDisable" class="form-check-input" type="checkbox" id="chkIsDisable" @(Model?.IsDisable == true ? "checked" : "") />
+					<label class="form-check-label ms-3" for="chkIsDisable">غیرفعال</label>
+				</div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">کامنت</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.title) {
+			toastr.error('عنوان نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		if (!model.enumerationUnit) {
+			toastr.error('واحد شمارش نمی‌تواند خالی باشد', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post(model.id ? 'update' : 'add', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

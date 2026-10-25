@@ -6,14 +6,14 @@ namespace Data.Services.Edms;
 
 public static class EdmsMdrReportExcelExporter
 {
-	private const int SummaryColumns = 33;
+	private const int SummaryColumns = 34;
 	private const int RevisionBlockSize = 14;
 	private const int MaxRevisionBlocks = 31; // Revision 0 .. 30
-	private const int TotalColumns = SummaryColumns + MaxRevisionBlocks * RevisionBlockSize; // 467
+	private const int TotalColumns = SummaryColumns + MaxRevisionBlocks * RevisionBlockSize; // 468
 
 	private static readonly string[] SummaryHeaders =
 	[
-		"Project Name", "Document No.", "Document Title", "Department", "Discipline",
+		"Project Code", "Project Name", "Document No.", "Document Title", "Department", "Discipline",
 		"Responsible", "Checker", "Approver", "Overall Progress", "Weight Factor",
 		"Progress", "Class", "Type", "ConsumedManHours", "First Issue Date", "Re-Plan Date",
 		"Hold Documents", "Responsible Of Hold", "Description For Hold Documents",
@@ -32,10 +32,10 @@ public static class EdmsMdrReportExcelExporter
 
 	private static readonly (int StartCol, int EndCol, string Title)[] SectionRow =
 	[
-		(0, 2, "General Data"),
-		(3, 13, "General Data"),
-		(14, 18, "Schedule Data"),
-		(19, 32, "Final Status")
+		(0, 3, "General Data"),
+		(4, 14, "General Data"),
+		(15, 19, "Schedule Data"),
+		(20, 33, "Final Status")
 	];
 
 	public static string BuildFileName()
@@ -58,8 +58,8 @@ public static class EdmsMdrReportExcelExporter
 		WriteHeaderRows(worksheet, headerStyle);
 		WriteDataRows(worksheet, report.Items);
 
-		worksheet.AutoFitColumns(0, TotalColumns - 1);
-		worksheet.FreezePanes(2, 3, 2, 3);
+		ApplyColumnWidths(worksheet);
+		worksheet.FreezePanes(2, 4, 2, 4);
 
 		workbook.Save(outputStream, SaveFormat.Xlsx);
 	}
@@ -116,6 +116,25 @@ public static class EdmsMdrReportExcelExporter
 		}
 	}
 
+	private static void ApplyColumnWidths(Worksheet ws)
+	{
+		for (var col = 0; col < SummaryHeaders.Length; col++)
+			ws.Cells.SetColumnWidth(col, ColumnWidthFor(SummaryHeaders[col]));
+
+		for (var rev = 0; rev < MaxRevisionBlocks; rev++)
+		{
+			var startCol = SummaryColumns + rev * RevisionBlockSize;
+			for (var i = 0; i < RevisionHeaders.Length; i++)
+				ws.Cells.SetColumnWidth(startCol + i, ColumnWidthFor(RevisionHeaders[i]));
+		}
+	}
+
+	private static double ColumnWidthFor(string header)
+	{
+		var width = Math.Max(14, header.Length + 2);
+		return Math.Min(width, 42);
+	}
+
 	private static void WriteDataRows(Worksheet ws, List<MdrReportItemDto> items)
 	{
 		var rowIndex = 2;
@@ -129,39 +148,40 @@ public static class EdmsMdrReportExcelExporter
 
 	private static void WriteSummaryRow(Worksheet ws, int rowIndex, MdrReportItemDto item)
 	{
-		PutValue(ws, rowIndex, 0, item.ProjectName);
-		PutValue(ws, rowIndex, 1, item.DocumentNumber);
-		PutValue(ws, rowIndex, 2, item.DocumentTitle);
-		PutValue(ws, rowIndex, 3, item.BeneficiaryUnit);
-		PutValue(ws, rowIndex, 4, item.Disipline);
-		PutValue(ws, rowIndex, 5, item.Responsible);
-		PutValue(ws, rowIndex, 6, item.Checker);
-		PutValue(ws, rowIndex, 7, item.Approver);
-		PutNumber(ws, rowIndex, 8, item.OverallProgress);
-		PutNumber(ws, rowIndex, 9, item.WeightFactor ?? 0m);
-		PutNumber(ws, rowIndex, 10, item.Progress);
-		PutValue(ws, rowIndex, 11, item.DocClass);
-		PutValue(ws, rowIndex, 12, item.DocType);
-		PutValue(ws, rowIndex, 13, item.ConsumedManHoursInText);
-		PutDate(ws, rowIndex, 14, item.FirstIssueDate);
-		PutDate(ws, rowIndex, 15, item.RePlanDate);
-		ws.Cells[rowIndex, 16].PutValue(item.HoldDocuments);
-		PutValue(ws, rowIndex, 17, item.HoldResponsible);
-		PutValue(ws, rowIndex, 18, item.DescriptionForHoldDocuments);
-		PutValue(ws, rowIndex, 19, item.LastRev);
-		PutValue(ws, rowIndex, 20, item.FinalStatus);
-		PutValue(ws, rowIndex, 21, item.InternalStatus);
-		PutValue(ws, rowIndex, 22, item.HavayarRepliedTime);
-		PutValue(ws, rowIndex, 23, item.ClientRepliedTime);
-		PutDate(ws, rowIndex, 24, item.HavayarLastSendDate);
-		PutValue(ws, rowIndex, 25, item.HavayarLastSendTransmittal);
-		PutDate(ws, rowIndex, 26, item.HavayarRdsDate);
-		PutValue(ws, rowIndex, 27, item.HavayarRdsNo);
-		PutValue(ws, rowIndex, 28, item.LastPoi);
-		PutDate(ws, rowIndex, 29, item.ClientLastSentDate);
-		PutValue(ws, rowIndex, 30, item.ClientLastRepliedTransmittal);
-		PutDate(ws, rowIndex, 31, item.ClientLastRepliedRdsDate);
-		PutValue(ws, rowIndex, 32, item.ClientLastRepliedRdsNo);
+		PutValue(ws, rowIndex, 0, item.ProjectCode);
+		PutValue(ws, rowIndex, 1, item.ProjectName);
+		PutValue(ws, rowIndex, 2, item.DocumentNumber);
+		PutValue(ws, rowIndex, 3, item.DocumentTitle);
+		PutValue(ws, rowIndex, 4, item.BeneficiaryUnit);
+		PutValue(ws, rowIndex, 5, item.Disipline);
+		PutValue(ws, rowIndex, 6, item.Responsible);
+		PutValue(ws, rowIndex, 7, item.Checker);
+		PutValue(ws, rowIndex, 8, item.Approver);
+		PutNumber(ws, rowIndex, 9, item.OverallProgress);
+		PutNumber(ws, rowIndex, 10, item.WeightFactor ?? 0m);
+		PutNumber(ws, rowIndex, 11, item.Progress);
+		PutValue(ws, rowIndex, 12, item.DocClass);
+		PutValue(ws, rowIndex, 13, item.DocType);
+		PutValue(ws, rowIndex, 14, item.ConsumedManHoursInText);
+		PutDate(ws, rowIndex, 15, item.FirstIssueDate);
+		PutDate(ws, rowIndex, 16, item.RePlanDate);
+		ws.Cells[rowIndex, 17].PutValue(item.HoldDocuments);
+		PutValue(ws, rowIndex, 18, item.HoldResponsible);
+		PutValue(ws, rowIndex, 19, item.DescriptionForHoldDocuments);
+		PutValue(ws, rowIndex, 20, item.LastRev);
+		PutValue(ws, rowIndex, 21, item.FinalStatus);
+		PutValue(ws, rowIndex, 22, item.InternalStatus);
+		PutValue(ws, rowIndex, 23, item.HavayarRepliedTime);
+		PutValue(ws, rowIndex, 24, item.ClientRepliedTime);
+		PutDate(ws, rowIndex, 25, item.HavayarLastSendDate);
+		PutValue(ws, rowIndex, 26, item.HavayarLastSendTransmittal);
+		PutDate(ws, rowIndex, 27, item.HavayarRdsDate);
+		PutValue(ws, rowIndex, 28, item.HavayarRdsNo);
+		PutValue(ws, rowIndex, 29, item.LastPoi);
+		PutDate(ws, rowIndex, 30, item.ClientLastSentDate);
+		PutValue(ws, rowIndex, 31, item.ClientLastRepliedTransmittal);
+		PutDate(ws, rowIndex, 32, item.ClientLastRepliedRdsDate);
+		PutValue(ws, rowIndex, 33, item.ClientLastRepliedRdsNo);
 	}
 
 	private static void WriteRevisionBlocks(Worksheet ws, int rowIndex, MdrReportItemDto item)

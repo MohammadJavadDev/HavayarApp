@@ -1,0 +1,278 @@
+@{
+	ViewData["Title"] = "داشبورد سفارش ساخت";
+}
+
+<style>
+	#saleProductionDashPage .spd-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#saleProductionDashPage .spd-summary-card {
+		min-height: 140px;
+	}
+
+	#saleProductionDashPage .spd-definition {
+		font-size: 0.78rem;
+		line-height: 1.5;
+		min-height: 2.4em;
+	}
+
+	#saleProductionDashPage .spd-badge {
+		font-size: 0.7rem;
+	}
+
+	#saleProductionDashPage svg text {
+		font-family: inherit !important;
+	}
+</style>
+
+<div id="saleProductionDashPage" dir="rtl">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">داشبورد فروش و سفارش ساخت</h3>
+					<div class="text-muted fs-7">
+						مانده اقلام آخرین نسخه به‌تفکیک وضعیت و تاریخ توافقی، به‌همراه درصد تحویل به‌موقع از گزارش برنامه‌ریزی
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-light-primary" id="btnSaleProdTimelyDetails">
+					جزئیات
+				</button>
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadSaleProductionDash">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4" id="spdCardsRow"></div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">تفکیک وضعیت اقلام</h3>
+						<div class="text-muted fs-8 mt-1">آخرین نسخه اقلام حذف‌نشده</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="spdStatusChart" style="min-height:360px"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">تاریخ توافقی (فقط تکمیل‌نشده)</h3>
+						<div class="text-muted fs-8 mt-1">تاریخ توافقی روی اقلام تکمیل‌نشده</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="spdAgreedDateChart" style="min-height:360px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card">
+		<div class="card-body py-3">
+			<div class="text-muted fs-8 mb-1" id="spdComputedAt">زمان محاسبه: -</div>
+			<div class="text-muted fs-8" id="spdFilterDescription">-</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Sale/SaleProductionDashboard/GetData';
+	const timelyDetailsUrl = '/panel/pln/plntimelydeliveryreport/report';
+
+	const $page = $$('#saleProductionDashPage');
+	const $loadButton = $$('#btnLoadSaleProductionDash');
+	const $detailsButton = $$('#btnSaleProdTimelyDetails');
+
+	let statusChart = null;
+	let agreedDateChart = null;
+
+	const statusColors = {
+		notCompleted: '#ffc700',
+		completed: '#50cd89',
+		invalid: '#f1416c',
+		unknown: '#a1a5b7'
+	};
+
+	const agreedColors = {
+		pastDue: '#f1416c',
+		notYetDue: '#50cd89',
+		noAgreedDate: '#a1a5b7'
+	};
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function renderOrUpdateChart(existing, elementId, options) {
+		if (existing) {
+			existing.updateOptions(options);
+			return existing;
+		}
+		const chart = new ApexCharts($$('#' + elementId)[0], options);
+		chart.render();
+		return chart;
+	}
+
+	function donutOptions(slices, colorMap) {
+		const labels = (slices || []).map(function (s) { return s.label; });
+		const series = (slices || []).map(function (s) { return Number(s.count || 0); });
+		const colors = (slices || []).map(function (s) { return colorMap[s.key] || '#009ef7'; });
+
+		return {
+			chart: { type: 'donut', height: 360, fontFamily: 'inherit', toolbar: { show: false } },
+			labels: labels,
+			series: series,
+			colors: colors,
+			legend: { position: 'bottom', fontFamily: 'inherit' },
+			dataLabels: {
+				enabled: true,
+				formatter: function (val, opts) {
+					const count = opts.w.config.series[opts.seriesIndex];
+					return Number(count).toLocaleString('fa-IR');
+				}
+			},
+			tooltip: {
+				y: {
+					formatter: function (val) {
+						return Number(val).toLocaleString('fa-IR');
+					}
+				}
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function renderCards(cards) {
+		const $row = $$('#spdCardsRow').empty();
+		(cards || []).forEach(function (card) {
+			const accent = card.accentClass ? ' ' + card.accentClass : '';
+			const isPercent = card.unit === 'درصد';
+			const valueText = isPercent
+				? formatNumber(card.value, 1) + '٪'
+				: formatNumber(card.value);
+
+			$row.append(
+				'<div class="col-md-4 col-xl-3">' +
+					'<div class="card spd-summary-card h-100">' +
+						'<div class="card-body py-4">' +
+							'<div class="d-flex justify-content-between align-items-start mb-2">' +
+								'<div class="text-muted">' + escapeHtml(card.title) + '</div>' +
+								'<span class="badge badge-light spd-badge">' + escapeHtml(card.badge || 'وضعیت همین لحظه') + '</span>' +
+							'</div>' +
+							'<div class="spd-summary-value' + accent + '">' + valueText + '</div>' +
+							'<div class="text-muted spd-definition mt-2">' + escapeHtml(card.definition) + '</div>' +
+						'</div>' +
+					'</div>' +
+				'</div>'
+			);
+		});
+	}
+
+	function renderFooter(report) {
+		const computed = report.computedAtMiladi
+			? new Date(report.computedAtMiladi).toLocaleString('fa-IR')
+			: '-';
+		$$('#spdComputedAt').text('زمان محاسبه: ' + computed);
+		$$('#spdFilterDescription').text(report.filterDescription || '-');
+	}
+
+	function renderCharts(report) {
+		whenApexReady(function () {
+			statusChart = renderOrUpdateChart(
+				statusChart,
+				'spdStatusChart',
+				donutOptions(report.statusSlices, statusColors)
+			);
+			agreedDateChart = renderOrUpdateChart(
+				agreedDateChart,
+				'spdAgreedDateChart',
+				donutOptions(report.agreedDateSlices, agreedColors)
+			);
+		});
+	}
+
+	function renderReport(report) {
+		renderCards(report.cards || []);
+		renderFooter(report || {});
+		renderCharts(report || {});
+	}
+
+	function loadReport() {
+		$loadButton.prop('disabled', true);
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, {}, function (response) {
+			$loadButton.prop('disabled', false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderReport(unwrap(response) || {});
+		});
+	}
+
+	$detailsButton.on('click', function () {
+		appController.addPage(timelyDetailsUrl);
+	});
+
+	$loadButton.on('click', loadReport);
+	loadReport();
+</script>

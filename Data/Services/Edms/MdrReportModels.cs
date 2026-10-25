@@ -15,6 +15,7 @@ public class MdrReportResponse
 
 public class MdrReportItemDto
 {
+	public long VpisId { get; set; }
 	public string? ProjectCode { get; set; }
 	public string? ProjectName { get; set; }
 	public string? BeneficiaryUnit { get; set; }

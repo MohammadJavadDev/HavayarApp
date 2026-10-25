@@ -1,0 +1,32 @@
+@using Entities.App.Qc
+@model ProductInspectionAttachment
+@{
+	var isNew = Model?.Id is null or 0;
+}
+<div class="card shadow-sm border-0">
+	<div class="card-body">
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="productInspectionId" value="@Model?.ProductInspectionId" />
+		<div class="row g-3">
+			<div class="col-md-12 form-group-inline">
+				<fileuploader bind="fileId" file-id="@Model?.FileId" file-entity="@Model?.File"
+							  label="الصاق فایل(ها)" entity-type="@typeof(ProductInspectionAttachment).FullName" entity-prop-name="File"
+							  max-file-size="20"></fileuploader>
+			</div>
+			@if (isNew)
+			{
+				<div class="col-md-12 form-group-inline">
+					<fileuploader bind="fileId2" label="الصاق فایل(ها)" entity-type="@typeof(ProductInspectionAttachment).FullName" entity-prop-name="File" max-file-size="20"></fileuploader>
+				</div>
+				<div class="col-md-12 form-group-inline">
+					<fileuploader bind="fileId3" label="الصاق فایل(ها)" entity-type="@typeof(ProductInspectionAttachment).FullName" entity-prop-name="File" max-file-size="20"></fileuploader>
+				</div>
+			}
+			<div class="col-md-12 form-group-inline">
+				<label>کامنت</label>
+				<textarea class="form-control" data-bind="comment" rows="3">@Model?.Comment</textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>

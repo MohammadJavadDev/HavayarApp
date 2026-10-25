@@ -1,4 +1,4 @@
--- ============================================
+﻿-- ============================================
 -- همگام‌سازی درخواست‌های باز (OpenOrderRequest)
 -- از TotalSystem (Linked Server: TMS) به HavayarApp
 --
@@ -220,10 +220,10 @@ BEGIN TRY
         CAST(NULL AS DATETIME) AS NeedDateMiladiDate,
         o.OrderConfirmDate AS OrderConfirmShamsiDate,
         CAST(NULL AS DATETIME) AS OrderConfirmMiladiDate,
-        CAST(o.SumSendQty AS BIGINT) AS SumSendQty,
-        CAST(o.FactoredCount AS INT) AS FactoredCount,
-        CAST(o.OrderQty AS INT) AS OrderQty,
-        CAST(o.RequiredQty AS INT) AS RequiredQty,
+        CAST(o.SumSendQty AS DECIMAL(18,3)) AS SumSendQty,
+        CAST(o.FactoredCount AS DECIMAL(18,3)) AS FactoredCount,
+        CAST(o.OrderQty AS DECIMAL(18,3)) AS OrderQty,
+        CAST(o.RequiredQty AS DECIMAL(18,3)) AS RequiredQty,
         o.OrderItmComment AS OrderItemComment,
         CAST(ISNULL(o.IsStop, 0) AS BIT) AS IsStop,
         o.Stop_Date AS StopShamsiDate,
@@ -505,18 +505,47 @@ BEGIN TRY
 
     /* ─────────────────────────────────────────────
        5) پرسنل درخواست‌کننده / مهندسی -> JSON List<long>
+       شناسه از ایمیل هدر HTS ساخته می‌شود.
+       RequestedPersonel_FK در جدول فرزند Personel_ID است، نه Gnr_User.User_ID.
        ───────────────────────────────────────────── */
-    ;WITH PersonelAgg AS
+    ;WITH EmailTokens AS
+    (
+        SELECT m.NewId, 2829 AS UserCategoryId, LOWER(LTRIM(RTRIM(ss.value))) AS Email
+        FROM #Src s
+        INNER JOIN #IdMap m ON m.OldId = s.OldId
+        CROSS APPLY STRING_SPLIT(REPLACE(ISNULL(s.RequestedPersonelEmail, N''), N',', N';'), N';') ss
+        WHERE LTRIM(RTRIM(ss.value)) <> N''
+        UNION ALL
+        SELECT m.NewId, 2830, LOWER(LTRIM(RTRIM(ss.value)))
+        FROM #Src s
+        INNER JOIN #IdMap m ON m.OldId = s.OldId
+        CROSS APPLY STRING_SPLIT(REPLACE(ISNULL(s.RequestedEngineeringPersonelEmail, N''), N',', N';'), N';') ss
+        WHERE LTRIM(RTRIM(ss.value)) <> N''
+    ),
+    Resolved AS
+    (
+        SELECT DISTINCT e.NewId, e.UserCategoryId, u.NewUserId
+        FROM EmailTokens e
+        CROSS APPLY (
+            SELECT TOP 1 uu.Id AS NewUserId
+            FROM [system].[User] uu
+            WHERE LOWER(LTRIM(RTRIM(uu.Email))) = e.Email
+               OR LOWER(LTRIM(RTRIM(uu.Username))) =
+                    CASE
+                        WHEN CHARINDEX(N'@', e.Email) > 1 THEN LEFT(e.Email, CHARINDEX(N'@', e.Email) - 1)
+                        ELSE e.Email
+                    END
+            ORDER BY CASE WHEN uu.IsActive = 1 THEN 0 ELSE 1 END, uu.Id
+        ) u
+    ),
+    PersonelAgg AS
     (
         SELECT
-            m.NewId,
-            CONCAT(N'[', STRING_AGG(CAST(um.NewUserId AS NVARCHAR(30)), N',') WITHIN GROUP (ORDER BY um.NewUserId), N']') AS IdsJson,
-            rp.UserCategoryId
-        FROM [TMS].[TotalSystem].[dbo].[Sup_OpenOrderRequest_Requested_Personel] rp
-        INNER JOIN #IdMap m ON m.OldId = rp.OpenOrderRequest_FK
-        INNER JOIN #UserMap um ON um.OldUserId = rp.RequestedPersonel_FK
-        WHERE rp.UserCategoryId IN (2829, 2830)
-        GROUP BY m.NewId, rp.UserCategoryId
+            NewId,
+            CONCAT(N'[', STRING_AGG(CAST(NewUserId AS NVARCHAR(30)), N',') WITHIN GROUP (ORDER BY NewUserId), N']') AS IdsJson,
+            UserCategoryId
+        FROM Resolved
+        GROUP BY NewId, UserCategoryId
     )
     SELECT
         NewId,

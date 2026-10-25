@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Update_ProductionOrderDelay_MaxDeliverDate.sql
 ================================================================================
@@ -58,6 +58,8 @@ BEGIN TRY
       AND po.IsActive = 1
       AND po.ProjectManagerId IS NULL
       AND po.DelayNotCalculated = 0
+      AND poi.ProductionOrderId IS NOT NULL
+      AND po.Id <> 1004
 ),
 OrderDeliver AS (
     SELECT

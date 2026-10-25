@@ -1,0 +1,163 @@
+@using Common.Utilities
+@using Entities.App.Hcm
+@using Entities.App.Hrm
+@using Entities.App.Hrm.Enums
+@using Entities.Base
+@model GuardGuestIo
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(GuardGuestIo)"
+			save-btn="true"
+			save-and-close-btn="true"
+			new-page-btn="false"
+			save-and-new-btn="false"
+			history-btn="false">
+		</form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">ورود/خروج میهمان</h4></div></div>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		<input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+
+		<div class="row g-3 mb-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع میهمان</label>
+				<select class="form-control" id="guardGuestType" data-bind="guestType" data-required="true">
+					<option value="">لطفا انتخاب کنید</option>
+					@foreach (var v in Enum.GetValues<GuardGuestTypeEnum>())
+					{
+						<option value="@((int)v)" selected="@(Model?.GuestType == v)">@v.ToDisplay()</option>
+					}
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نام</label>
+				<input class="form-control" data-bind="name" data-required="true" maxlength="50" value="@Model?.Name" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نام خانوادگی</label>
+				<input class="form-control" data-bind="family" data-required="true" maxlength="50" value="@Model?.Family" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">شخص ملاقات شونده</label>
+				@{ var currentPersonId = Model?.PersonId; }
+				@(Html.EntitySelector<Personel>(
+					"GuardGuestIoPersonSelector",
+					c => (c.Code != null && c.Code.Length <= 5) || c.Id == currentPersonId,
+					c => new { Id = c.Id, Name = c.Name, Family = c.Family, FamilyDisplay = c.FamilyDisplay, Code = c.Code },
+					c => new { c.Name, c.Family, c.FamilyDisplay, c.Code },
+					"{Name} {FamilyDisplay}",
+					"personId",
+					"personName",
+					Model?.PersonId > 0 ? Model.PersonId.ToString() : null
+				))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">علت مراجعه</label>
+				<input class="form-control" data-bind="visitReason" maxlength="128" value="@Model?.VisitReason" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">عنوان شرکت</label>
+				<input class="form-control" data-bind="companyTitle" maxlength="50" value="@Model?.CompanyTitle" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">همراهان</label>
+				<input class="form-control" data-bind="attendant" maxlength="255" value="@Model?.Attendant" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ ورود</label>
+				<input class="form-control" data-bind="entryShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@(Model?.EntryMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">ساعت ورود</label>
+				<input class="form-control ltr" type="text" data-bind="entryTime" data-time="true" placeholder="__:__" value="@Model?.EntryTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">تاریخ خروج</label>
+				<input class="form-control" data-bind="exitShamsiDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					value="@(Model?.ExitMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">ساعت خروج</label>
+				<input class="form-control ltr" type="text" data-bind="exitTime" data-time="true" placeholder="__:__" value="@Model?.ExitTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیحات</label>
+				<textarea class="form-control" data-bind="comment" rows="2" maxlength="2048">@Model?.Comment</textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+
+			<div class="col-md-6 form-group-inline">
+				<fileuploader bind="entryFileId" file-id="@Model?.EntryFileId" file-entity="@Model?.EntryFile"
+					label="تصویر ورود مهمان" entity-type="@typeof(GuardGuestIo).FullName" entity-prop-name="EntryFile"
+					max-file-size="5" accepted-file-types=".jpg,.png,.jpeg,.rar,.zip,.pdf,.doc,.docx"></fileuploader>
+			</div>
+			<div class="col-md-6 form-group-inline" id="exitGuestPicRow" style="@(Model?.Id is null or 0 ? "display:none" : null)">
+				<fileuploader bind="exitFileId" file-id="@Model?.ExitFileId" file-entity="@Model?.ExitFile"
+					label="تصویر خروج مهمان" entity-type="@typeof(GuardGuestIo).FullName" entity-prop-name="ExitFile"
+					max-file-size="5" accepted-file-types=".jpg,.png,.jpeg,.rar,.zip,.pdf,.doc,.docx"></fileuploader>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	function hasText(v) {
+		return v != null && String(v).trim() !== '';
+	}
+
+	function hasTime(v) {
+		if (!hasText(v)) return false;
+		return String(v).replace(/[_:]/g, '').trim() !== '';
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.guestType) { toastr.error('نوع میهمان نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (!hasText(model.name)) { toastr.error('نام نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (!hasText(model.family)) { toastr.error('نام خانوادگی نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (!model.personId || model.personId === '0') { toastr.error('شخص ملاقات شونده نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (hasText(model.entryShamsiDate) && !hasTime(model.entryTime)) { toastr.error('ساعت ورود نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (hasText(model.exitShamsiDate) && !hasTime(model.exitTime)) { toastr.error('ساعت خروج نمی‌تواند خالی باشد', 'خطا'); return; }
+
+		if (!model.id || model.id === '0') model.exitFileId = null;
+
+		const $btn = $($btnAction.element).block();
+		$$.post(model.id ? 'update' : 'add', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			if (r.data && r.data.id) $$('#exitGuestPicRow').show();
+			$btnAction.baseaction();
+		});
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	if (self.FormActionButtons.saveandclose)
+		self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

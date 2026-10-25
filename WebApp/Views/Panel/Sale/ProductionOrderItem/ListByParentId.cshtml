@@ -1,10 +1,10 @@
 @using Common.Utilities
+@using Entities.App.Sale
 @using Entities.App.Sale.Enums
 @using WebApp.Controllers.Dynamic
 @model ProductionOrderItemBomListByParentViewModel
 
 @{
-	var tableId = "productionOrderItemBomListTable_" + Model.ProductionOrderItemId;
 	var listProductionOrderItemBomProductionStepEnum = EnumExtensions.GetEnumValuesWithDisplayNames<ProductionOrderItemBomProductionStepEnum>();
 	var listProductionOrderItemBomStatusEnum = EnumExtensions.GetEnumValuesWithDisplayNames<ProductionOrderItemBomEnum>();
 	var headerParts = new List<string>();
@@ -15,421 +15,115 @@
 	var headerTitle = headerParts.Count > 0
 		? $"BOM قلم سفارش ساخت ({string.Join(" - ", headerParts)})"
 		: $"BOM قلم سفارش ساخت ({Model.ProductionOrderItemId})";
+	var canEditBom = Model.CanManageBom || Model.CanEditBomNewFields;
 }
 
-<div class="card" id="productionOrderItemBomListPage" data-production-order-item-id="@Model.ProductionOrderItemId">
-	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-		<h5 class="mb-0 fw-bold">
-			<i class="fa fa-sitemap ms-2"></i>
-			@headerTitle
-		</h5>
-		<div>
-			@if (Model.CanManageBom)
+@* جدول BOM یک نمایه داده است (POI_BomByItem، Data/Scripts/Seed_ProductionOrderItemBomByItem_DataProfile.sql).
+   دکمه‌های نوار ابزار نمایه فقط رویداد bomAction را می‌فرستند و منطق مودال‌ها در اسکریپت همین صفحه است.
+   دکمه‌ها بر اساس دسترسی کاربر با data-can-* و CSS پایین پنهان می‌شوند؛ مجوز واقعی در کنترلر و SQL نمایه است. *@
+<div class="bom-page"
+	 data-production-order-item-id="@Model.ProductionOrderItemId"
+	 data-can-manage="@(Model.CanManageBom ? "true" : "false")"
+	 data-can-edit="@(canEditBom ? "true" : "false")"
+	 data-can-consider="@(Model.CanConsider ? "true" : "false")"
+	 data-can-formula="@(Model.CanAddFromFormula ? "true" : "false")">
+	<div class="card mb-3">
+		<div class="card-body py-3">
+			<h5 class="mb-0 fw-bold">
+				<i class="fa fa-sitemap ms-2"></i>
+				@headerTitle
+			</h5>
+			@if (!string.IsNullOrEmpty(Model.WriteBlockReason))
 			{
-			<button type="button" class="btn btn-primary" id="btnNewBom">
-				<i class="fa fa-plus-circle ms-1"></i>
-				افزودن
-			</button>
-			<button type="button" class="btn btn-warning" id="btnImportBomExcel">
-				<i class="fa fa-file-excel ms-1"></i>
-				افزودن با اکسل
-			</button>
+				<div class="alert alert-warning py-2 mt-3 mb-0">@(Model.WriteBlockReason). این صفحه فقط برای مشاهده است.</div>
 			}
-			<button type="button" class="btn btn-success" id="btnExportBomExcel">
-				<i class="fa fa-file-excel ms-1"></i>
-				خروجی اکسل
-			</button>
-			<button type="button" class="btn btn-info" id="btnRefreshBomPage">
-				<i class="fa-light fa-magnifying-glass-arrows-rotate ms-1"></i>
-				بروزرسانی اطلاعات
-			</button>
 		</div>
 	</div>
-	<div class="card-body">
-		<div class="table-responsive">
-			<table class="table table-bordered table-striped table-hover nowrap ellipsis-tooltip-table" id="@tableId" style="width: auto;">
-				<thead>
-					<tr>
-						<th>عملیات</th>
-						<th>ردیف</th>
-						<th>نسخه</th>
-						<th>کد کالا</th>
-						<th>نام کالا</th>
-						<th>تعداد/مقدار</th>
-						<th>واحد</th>
-						<th>آخرین نسخه</th>
-						<th>مرحله ساخت</th>
-						<th>تعداد تامین شده</th>
-						<th>وضعیت</th>
-						<th>توضیحات</th>
-						<th>توضیحات واحد فروش</th>
-						<th>نیاز به AVL</th>
-						<th>زمان ایجاد</th>
-						<th>ایجاد کننده</th>
-						<th>زمان ویرایش</th>
-						<th>ویرایش کننده</th>
-					</tr>
-				</thead>
-				<tbody></tbody>
-			</table>
-		</div>
-	</div>
+
+	<datatableprofile entity-Type="typeof(ProductionOrderItemBom)" profile-names="POI_BomByItem"></datatableprofile>
 </div>
 
 <script>
-	(function () {
-		const productionOrderItemId = @Model.ProductionOrderItemId;
-		const tableSelector = "#@tableId";
-		const listApiUrl = "/Panel/ProductionOrderItem/GetBomListByParentId?productionOrderItemId=" + productionOrderItemId;
-		const canManageBom = @(Model.CanManageBom ? "true" : "false");
-		const canEditBomNewFields = @(Model.CanEditBomNewFields ? "true" : "false");
-		const canEditBom = canManageBom || canEditBomNewFields;
-		const listProductionOrderItemBomProductionStepEnum = @Html.Raw(listProductionOrderItemBomProductionStepEnum.JsonSerialize());
-		const listProductionOrderItemBomStatusEnum = @Html.Raw(listProductionOrderItemBomStatusEnum.JsonSerialize());
+	const productionOrderItemId = @Model.ProductionOrderItemId;
+	const canManageBom = @(Model.CanManageBom ? "true" : "false");
+	const canEditBom = @(canEditBom ? "true" : "false");
+	const canConsiderBom = @(Model.CanConsider ? "true" : "false");
+	const historyEventTitles = { 0: "ایجاد", 1: "ویرایش", 2: "ملاحظات واحد پروژه/فروش" };
+	const listProductionOrderItemBomProductionStepEnum = @Html.Raw(listProductionOrderItemBomProductionStepEnum.JsonSerialize());
+	const listProductionOrderItemBomStatusEnum = @Html.Raw(listProductionOrderItemBomStatusEnum.JsonSerialize());
 
-		function dash(val) {
-			return val === null || val === undefined || val === "" ? "-" : val;
+	// شناسهٔ قلم قبل از اولین درخواست داده به نمایه می‌رسد (execScripts پیش از initPage اجرا می‌شود).
+	// بدون آن SQL نمایه ردیفی برنمی‌گرداند.
+	$$('[data-action="dataProfile"]').attr('data-query-params', JSON.stringify({ ProductionOrderItemId: String(productionOrderItemId) }));
+
+	function reloadBomGrid() {
+		const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+		if (table && table.ajax) table.ajax.reload(null, false);
+	}
+
+	function dash(val) {
+		return val === null || val === undefined || val === "" ? "-" : val;
+	}
+
+	function formatEnumDisplay(list, value) {
+		if (value === null || value === undefined || value === "" || value === 0) return "-";
+		const item = (list || []).find(function (c) { return c.value == value; });
+		return (item && (item.exteraData || item.extraData || item.displayName || item.name)) || dash(value);
+	}
+
+	function escapeHtml(value) {
+		return String(value ?? "")
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;");
+	}
+
+	function singleSelectedRow(rows) {
+		if (!rows || rows.length !== 1) {
+			toastr.warning("فقط یک ردیف را انتخاب کنید");
+			return null;
 		}
+		return rows[0];
+	}
 
-		function formatBoolBadge(val, trueText, falseText, trueClass, falseClass) {
-			const isTrue = val === true || val === "true" || val === 1;
-			return `<span class="badge ${isTrue ? trueClass : falseClass}">${isTrue ? trueText : falseText}</span>`;
-		}
+	function denyAction() {
+		toastr.error("شما مجوز انجام این عملیات را ندارید", "عدم دسترسی");
+	}
 
-		function formatEnumDisplay(list, value) {
-			if (value === null || value === undefined || value === "" || value === 0) return "-";
-			const item = (list || []).find(function (c) { return c.value == value; });
-			return (item && (item.exteraData || item.extraData || item.displayName || item.name)) || dash(value);
-		}
+	// ── افزودن / ویرایش ────────────────────────────────────────────────────────────
+	function openBomModal(bomId) {
+		const url = bomId
+			? `/Panel/ProductionOrderItem/ProductionOrderItemBomPartial?id=${bomId}&productionOrderItemId=${productionOrderItemId}`
+			: `/Panel/ProductionOrderItem/ProductionOrderItemBomPartial?productionOrderItemId=${productionOrderItemId}`;
 
-		const ellipsisMaxWidths = {
-			partName: 250
-		};
-
-		function measureTextWidth(text, sampleEl) {
-			const $probe = $("<span/>").css({
-				position: "absolute",
-				visibility: "hidden",
-				whiteSpace: "nowrap",
-				font: sampleEl ? window.getComputedStyle(sampleEl).font : "14px Vazirmatn, Tahoma, sans-serif"
-			}).text(text || "").appendTo("body");
-			const width = $probe.outerWidth();
-			$probe.remove();
-			return width;
-		}
-
-		function fitColumnWidths(api) {
-			const $container = $(api.table().container());
-			const $scrollHead = $container.find(".dataTables_scrollHead, .dt-scroll-head");
-			const $scrollBody = $container.find(".dataTables_scrollBody, .dt-scroll-body");
-			const sortIconExtra = 28;
-
-			api.columns().every(function (colIdx) {
-				const headerEl = this.header();
-				const headerText = $(headerEl).text().trim();
-				const dataSrc = typeof this.dataSrc === "function" ? this.dataSrc() : null;
-				const cap = dataSrc && ellipsisMaxWidths[dataSrc];
-				let maxWidth = measureTextWidth(headerText, headerEl) + sortIconExtra;
-
-				this.nodes().to$().each(function () {
-					const cellWidth = measureTextWidth($(this).text().trim(), this) + 24;
-					if (cellWidth > maxWidth) maxWidth = cellWidth;
-				});
-
-				maxWidth = Math.ceil(maxWidth);
-				if (cap)
-					maxWidth = Math.min(maxWidth, cap);
-
-				$(headerEl).css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
-				this.nodes().to$().css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
-				$scrollHead.find("thead th").eq(colIdx).css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
-				$scrollBody.find("tbody tr").each(function () {
-					$(this).children("td").eq(colIdx).css({ "min-width": maxWidth + "px", "max-width": maxWidth + "px", width: maxWidth + "px" });
-				});
-			});
-
-			api.columns.adjust();
-		}
-
-		if ($.fn.DataTable.isDataTable(tableSelector)) {
-			$$(tableSelector).DataTable().clear().destroy();
-		}
-
-		const table = $$(tableSelector).DataTable({
-			destroy: true,
-			processing: true,
-			serverSide: false,
-			autoWidth: false,
-			scrollX: true,
-			pageLength: 25,
-			lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "همه"]],
-			order: [[1, "asc"]],
-			ajax: {
-				url: listApiUrl,
-				type: "GET",
-				dataSrc: function (json) {
-					if (json && json.isSuccess === false) {
-						toastr.error(json.message || "خطا در دریافت اطلاعات");
-						return [];
-					}
-					return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
-				}
-			},
-			columns: [
-				{
-					data: "id",
-					orderable: false,
-					searchable: false,
-					className: "text-center",
-					render: function (id) {
-						let html = "";
-						if (canEditBom) {
-							html += `<button type="button" class="btn btn-sm btn-warning btn-edit-bom" data-id="${id}" title="ویرایش">
-								<i class="fa fa-pencil"></i>
-							</button>`;
-						}
-						if (canManageBom) {
-							html += `<button type="button" class="btn btn-sm btn-danger btn-delete-bom" data-id="${id}" title="حذف">
-								<i class="fa fa-trash"></i>
-							</button>`;
-						}
-						return html || "-";
-					}
-				},
-				{
-					data: null,
-					orderable: false,
-					searchable: false,
-					className: "text-center",
-					render: function (data, type, row, meta) {
-						return meta.row + meta.settings._iDisplayStart + 1;
-					}
-				},
-				{ data: "revision", className: "text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-				{ data: "partCode", defaultContent: "-", render: function (d) { return dash(d); } },
-				{
-					data: "partName",
-					defaultContent: "-",
-					width: "250px",
-					className: "dt-part-name",
-					render: renderEllipsisCell
-				},
-				{ data: "amount", className: "text-end", defaultContent: "-", render: function (d) { return dash(d); } },
-				{ data: "partUnitName", defaultContent: "-", render: function (d) { return dash(d); } },
-				{
-					data: "isLatest",
-					className: "text-center",
-					render: function (d) {
-						return formatBoolBadge(d, "بله", "خیر", "badge-success", "badge-secondary");
-					}
-				},
-				{
-					data: "productionStep",
-					defaultContent: "-",
-					render: function (d) {
-						return formatEnumDisplay(listProductionOrderItemBomProductionStepEnum, d);
-					}
-				},
-				{ data: "numberSupplied", className: "text-end", defaultContent: "-", render: function (d) { return dash(d); } },
-				{
-					data: "status",
-					defaultContent: "-",
-					render: function (d) {
-						return formatEnumDisplay(listProductionOrderItemBomStatusEnum, d);
-					}
-				},
-				{ data: "description", defaultContent: "-", render: function (d) { return dash(d); } },
-				{ data: "saleUnitDetails", defaultContent: "-", render: function (d) { return dash(d); } },
-				{
-					data: "needsAVL",
-					className: "text-center",
-					render: function (d) {
-						return formatBoolBadge(d, "دارد", "ندارد", "badge-warning", "badge-secondary");
-					}
-				},
-				{ data: "createdOnShamsiDateTime", className: "rtl text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-				{ data: "createdByName", defaultContent: "-", render: function (d) { return dash(d); } },
-				{ data: "modifiedDateShamsiDateTime", className: "rtl text-center", defaultContent: "-", render: function (d) { return dash(d); } },
-				{ data: "modifiedByName", defaultContent: "-", render: function (d) { return dash(d); } }
-			],
-			language: {
-				url: "/panelLib/plugins/custom/datatables/fa.json",
-				emptyTable: "هیچ BOM یافت نشد",
-				zeroRecords: "هیچ BOM یافت نشد"
-			},
-			initComplete: function () {
-				const api = this.api();
-				fitColumnWidths(api);
-				if (typeof bindEmbeddedTableCellTooltips === "function")
-					bindEmbeddedTableCellTooltips(api);
+		$$.get(url, function (result) {
+			if (result && typeof result === "object" && result.isSuccess === false) {
+				toastr.error(result.message || "خطا در بارگذاری فرم BOM", "خطا");
+				return;
 			}
-		});
-
-		window["productionOrderItemBomListTable_" + productionOrderItemId] = table;
-
-		window.reloadProductionOrderItemBomList = function (id) {
-			const targetId = id || productionOrderItemId;
-			const dt = window["productionOrderItemBomListTable_" + targetId];
-			if (dt && typeof dt.ajax === "object") {
-				dt.ajax.reload(function () {
-					fitColumnWidths(dt);
-				}, false);
-			}
-		};
-
-		function deleteBom(id) {
-			Swal.fire({
-				icon: "warning",
-				title: "آیا از حذف این BOM مطمئن هستید؟",
-				showDenyButton: true,
-				confirmButtonText: "بله",
-				denyButtonText: "خیر"
-			}).then(function (result) {
-				if (!result.isConfirmed) return;
-
-				$$.get("/Panel/ProductionOrderItem/DeleteBom?id=" + id, function (response) {
-					if (response && response.isSuccess === false) {
-						toastr.error(response.message || "خطا در حذف رکورد");
-						return;
-					}
-					toastr.success("رکورد با موفقیت حذف شد");
-					reloadProductionOrderItemBomList(productionOrderItemId);
-				});
-			});
-		}
-
-		function openBomModal(bomId) {
-			const url = bomId
-				? `/Panel/ProductionOrderItem/ProductionOrderItemBomPartial?id=${bomId}&productionOrderItemId=${productionOrderItemId}`
-				: `/Panel/ProductionOrderItem/ProductionOrderItemBomPartial?productionOrderItemId=${productionOrderItemId}`;
-
-			$$.get(url, function (result) {
-				const bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
-				$.confirm({
-					title: bomId ? "ویرایش BOM" : "افزودن BOM",
-					columnClass: "col-md-8",
-					content: bodyCn,
-					rtl: true,
-					buttons: {
-						save: {
-							text: "ذخیره",
-							btnClass: "btn-primary",
-							action: function () {
-								const $content = this.$content;
-								if (validateError($content)) {
-									return false;
-								}
-
-								const model = $content.dataBind();
-								const modalSelf = this;
-
-								$.confirm({
-									title: "اعلان",
-									content: "آیا تغییرات بر روی سایر محصولات مشابه در این سفارش نیز اعمال شود؟",
-									rtl: true,
-									buttons: {
-										yes: {
-											text: "بله",
-											btnClass: "btn-primary",
-											action: function () {
-												persistBom(model, true, modalSelf);
-											}
-										},
-										no: {
-											text: "خیر",
-											btnClass: "btn-secondary",
-											action: function () {
-												persistBom(model, false, modalSelf);
-											}
-										}
-									}
-								});
-
-								return false;
-							}
-						},
-						cancel: {
-							text: "انصراف",
-							btnClass: "btn-secondary"
-						}
-					},
-					onContentReady: function () {
-						const self = this;
-						setTimeout(function () {
-							initPersionDatePicker(self.$body);
-							self.$body.find("select.select2-hidden-accessible").each(function () {
-								const $select = $$(this);
-								const currentData = $select.select2("data");
-								$select.select2("destroy");
-								$select.select2({
-									dropdownParent: self.$body,
-									width: "100%",
-									placeholder: $select.attr("placeholder") || "انتخاب کنید"
-								});
-								if (currentData && currentData.length > 0) {
-									$select.val($select.val()).trigger("change");
-								}
-							});
-						}, 100);
-					}
-				});
-			});
-		}
-
-		function persistBom(model, isApplyToAllSimilarBomPartsOnThisProductionOrder, modalSelf) {
-			const url = `/Panel/ProductionOrderItem/SaveBom?isApplyToAllSimilarBomPartsOnThisProductionOrder=${isApplyToAllSimilarBomPartsOnThisProductionOrder}`;
-			$$.post(url, model, function (r) {
-				if (!r.isSuccess) {
-					toastr.error(`${r.message}`, "خطا");
-					return;
-				}
-
-				toastr.success("ذخیره سازی با موفقیت انجام شد");
-				reloadProductionOrderItemBomList(productionOrderItemId);
-				if (modalSelf) {
-					modalSelf.close();
-				}
-			});
-		}
-
-		$$("#btnNewBom").on("click", function () {
-			openBomModal(null);
-		});
-
-		$$("#btnImportBomExcel").on("click", function () {
-			openImportBomExcelModal();
-		});
-
-		function openImportBomExcelModal() {
+			const bodyCn = `<div style="overflow-x: hidden;">${result}</div>`;
 			$.confirm({
-				title: "افزودن BOM از اکسل",
-				columnClass: "col-md-6",
-				content: `
-					<div class="row">
-						<div class="col-12 mb-3">
-							<a href="/Panel/ProductionOrderItem/DownloadBomExcelTemplate" class="btn btn-sm btn-outline-primary" target="_blank">
-								<i class="fa fa-download ms-1"></i>
-								دانلود نمونه اکسل
-							</a>
-							<div class="text-muted mt-2" style="font-size: 0.85rem;">
-								ستون‌های الزامی: <strong>PartCode</strong>، <strong>Amount</strong> — ستون اختیاری: <strong>Comment</strong>
-							</div>
-						</div>
-						<div class="col-12">
-							<label class="required">فایل اکسل</label>
-							<input type="file" class="form-control" id="bomExcelFileInput" accept=".xlsx,.xls" />
-						</div>
-					</div>`,
+				title: bomId ? "ویرایش BOM" : "افزودن BOM",
+				columnClass: "col-md-8",
+				content: bodyCn,
 				rtl: true,
 				buttons: {
 					save: {
-						text: "ادامه",
+						text: "ذخیره",
 						btnClass: "btn-primary",
 						action: function () {
-							const fileInput = this.$content.find("#bomExcelFileInput")[0];
-							const file = fileInput && fileInput.files && fileInput.files[0];
-							if (!file) {
-								toastr.error("فایل اکسل انتخاب نشده است");
+							const $content = this.$content;
+							if (validateError($content)) {
+								return false;
+							}
+
+							const model = $content.dataBind();
+							const modalSelf = this;
+
+							// کپی روی اقلام مشابه فقط برای نقش BOM (کالا، مقدار، توضیحات)؛ فیلدهای صنایع هرگز کپی نمی‌شوند
+							if (!canManageBom) {
+								persistBom(model, false, modalSelf);
 								return false;
 							}
 
@@ -442,19 +136,19 @@
 										text: "بله",
 										btnClass: "btn-primary",
 										action: function () {
-											submitBomExcelImport(file, true);
-											return false;
+											persistBom(model, true, modalSelf);
 										}
 									},
 									no: {
 										text: "خیر",
 										btnClass: "btn-secondary",
 										action: function () {
-											submitBomExcelImport(file, false);
+											persistBom(model, false, modalSelf);
 										}
 									}
 								}
 							});
+
 							return false;
 						}
 					},
@@ -462,152 +156,398 @@
 						text: "انصراف",
 						btnClass: "btn-secondary"
 					}
-				}
-			});
-		}
-
-		function submitBomExcelImport(file, isApplyToAllSimilarBomPartsOnThisProductionOrder) {
-			const formData = new FormData();
-			formData.append("productionOrderItemId", productionOrderItemId);
-			formData.append("isApplyToAllSimilarBomPartsOnThisProductionOrder", isApplyToAllSimilarBomPartsOnThisProductionOrder);
-			formData.append("file", file);
-
-			$.ajax({
-				url: "/Panel/ProductionOrderItem/ImportBomFromExcel",
-				type: "POST",
-				data: formData,
-				processData: false,
-				contentType: false,
-				success: function (r) {
-					if (r && r.isSuccess === false) {
-						toastr.error(r.message || "خطا در افزودن از اکسل");
-						return;
-					}
-					const count = (r && r.data && r.data.count) ? r.data.count : null;
-					toastr.success(count ? `${count} قلم BOM با موفقیت افزوده شد` : "افزودن از اکسل با موفقیت انجام شد");
-					reloadProductionOrderItemBomList(productionOrderItemId);
 				},
-				error: function (xhr) {
-					let msg = "خطا در افزودن از اکسل";
-					if (xhr.responseJSON) {
-						msg = xhr.responseJSON.message || xhr.responseJSON.title || msg;
-					} else if (xhr.responseText) {
-						msg = xhr.responseText;
-					}
-					toastr.error(msg);
+				onContentReady: function () {
+					const self = this;
+					setTimeout(function () {
+						initPersionDatePicker(self.$body);
+						self.$body.find("select.select2-hidden-accessible").each(function () {
+							const $select = $$(this);
+							const currentData = $select.select2("data");
+							$select.select2("destroy");
+							$select.select2({
+								dropdownParent: self.$body,
+								width: "100%",
+								placeholder: $select.attr("placeholder") || "انتخاب کنید"
+							});
+							if (currentData && currentData.length > 0) {
+								$select.val($select.val()).trigger("change");
+							}
+						});
+					}, 100);
 				}
 			});
+		});
+	}
+
+	function persistBom(model, isApplyToAllSimilarBomPartsOnThisProductionOrder, modalSelf) {
+		const url = `/Panel/ProductionOrderItem/SaveBom?isApplyToAllSimilarBomPartsOnThisProductionOrder=${isApplyToAllSimilarBomPartsOnThisProductionOrder}`;
+		$$.post(url, model, function (r) {
+			if (!r.isSuccess) {
+				toastr.error(`${r.message}`, "خطا");
+				return;
+			}
+
+			toastr.success("ذخیره سازی با موفقیت انجام شد");
+			reloadBomGrid();
+			if (modalSelf) {
+				modalSelf.close();
+			}
+		});
+	}
+
+	// ── حذف ────────────────────────────────────────────────────────────────────────
+	function deleteBom(id) {
+		Swal.fire({
+			icon: "warning",
+			title: "آیا از حذف این BOM مطمئن هستید؟",
+			showDenyButton: true,
+			confirmButtonText: "بله",
+			denyButtonText: "خیر"
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+
+			$$.get("/Panel/ProductionOrderItem/DeleteBom?id=" + id, function (response) {
+				if (response && response.isSuccess === false) {
+					toastr.error(response.message || "خطا در حذف رکورد");
+					return;
+				}
+				toastr.success("رکورد با موفقیت حذف شد");
+				reloadBomGrid();
+			});
+		});
+	}
+
+	// ── افزودن از اکسل ─────────────────────────────────────────────────────────────
+	function openImportBomExcelModal() {
+		$.confirm({
+			title: "افزودن BOM از اکسل",
+			columnClass: "col-md-6",
+			content: `
+				<div class="row">
+					<div class="col-12 mb-3">
+						<a href="/Panel/ProductionOrderItem/DownloadBomExcelTemplate" class="btn btn-sm btn-outline-primary" target="_blank">
+							<i class="fa fa-download ms-1"></i>
+							دانلود نمونه اکسل
+						</a>
+						<div class="text-muted mt-2" style="font-size: 0.85rem;">
+							ستون‌های الزامی: <strong>PartCode</strong>، <strong>Amount</strong> — ستون اختیاری: <strong>Comment</strong>
+						</div>
+					</div>
+					<div class="col-12">
+						<label class="required">فایل اکسل</label>
+						<input type="file" class="form-control" id="bomExcelFileInput" accept=".xlsx,.xls" />
+					</div>
+				</div>`,
+			rtl: true,
+			buttons: {
+				save: {
+					text: "ادامه",
+					btnClass: "btn-primary",
+					action: function () {
+						const fileInput = this.$content.find("#bomExcelFileInput")[0];
+						const file = fileInput && fileInput.files && fileInput.files[0];
+						if (!file) {
+							toastr.error("فایل اکسل انتخاب نشده است");
+							return false;
+						}
+
+						$.confirm({
+							title: "اعلان",
+							content: "آیا تغییرات بر روی سایر محصولات مشابه در این سفارش نیز اعمال شود؟",
+							rtl: true,
+							buttons: {
+								yes: {
+									text: "بله",
+									btnClass: "btn-primary",
+									action: function () {
+										submitBomExcelImport(file, true);
+										return false;
+									}
+								},
+								no: {
+									text: "خیر",
+									btnClass: "btn-secondary",
+									action: function () {
+										submitBomExcelImport(file, false);
+									}
+								}
+							}
+						});
+						return false;
+					}
+				},
+				cancel: {
+					text: "انصراف",
+					btnClass: "btn-secondary"
+				}
+			}
+		});
+	}
+
+	function submitBomExcelImport(file, isApplyToAllSimilarBomPartsOnThisProductionOrder) {
+		const formData = new FormData();
+		formData.append("productionOrderItemId", productionOrderItemId);
+		formData.append("isApplyToAllSimilarBomPartsOnThisProductionOrder", isApplyToAllSimilarBomPartsOnThisProductionOrder);
+		formData.append("file", file);
+
+		$.ajax({
+			url: "/Panel/ProductionOrderItem/ImportBomFromExcel",
+			type: "POST",
+			data: formData,
+			processData: false,
+			contentType: false,
+			success: function (r) {
+				if (r && r.isSuccess === false) {
+					toastr.error(r.message || "خطا در افزودن از اکسل");
+					return;
+				}
+				const count = (r && r.data && r.data.count) ? r.data.count : null;
+				toastr.success(count ? `${count} قلم BOM با موفقیت افزوده شد` : "افزودن از اکسل با موفقیت انجام شد");
+				reloadBomGrid();
+			},
+			error: function (xhr) {
+				let msg = "خطا در افزودن از اکسل";
+				if (xhr.responseJSON) {
+					msg = xhr.responseJSON.message || xhr.responseJSON.title || msg;
+				} else if (xhr.responseText) {
+					msg = xhr.responseText;
+				}
+				toastr.error(msg);
+			}
+		});
+	}
+
+	// ── افزودن از روی فرمول محصول (فقط کالای روتین) ────────────────────────────────
+	function addBomFromFormula($btn) {
+		Swal.fire({
+			icon: "question",
+			title: "BOM از روی فرمول محصول به این قلم افزوده شود؟",
+			showDenyButton: true,
+			confirmButtonText: "بله",
+			denyButtonText: "خیر"
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+
+			$btn.block();
+			$$.post("/Panel/ProductionOrderItem/AddBomFromProductFormula?productionOrderItemId=" + productionOrderItemId, {}, function (r) {
+				$btn.block(false);
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || "خطا در افزودن BOM", "خطا");
+					return;
+				}
+				toastr.success(r.data + " ردیف BOM از روی فرمول محصول افزوده شد");
+				reloadBomGrid();
+			});
+		});
+	}
+
+	// ── تاریخچهٔ یک ردیف (ایجاد، ویرایش، ملاحظات) ─────────────────────────────────
+	function renderHistoryTable(rows) {
+		if (!rows || !rows.length) {
+			return '<div class="p-3 text-muted">تاریخچه‌ای برای این ردیف ثبت نشده است.</div>';
 		}
 
-		$$(tableSelector).on("click", ".btn-edit-bom", function () {
-			const id = $(this).data("id");
-			openBomModal(id);
+		let html = '<div class="bom-history-wrap">' +
+			'<table class="table table-sm table-bordered table-striped mb-0"><thead><tr>' +
+			'<th>نوع رخداد</th><th>نسخه</th><th>تعداد/مقدار</th>' +
+			'<th>مرحله ساخت</th><th>تعداد تامین شده</th><th>وضعیت</th><th>توضیحات</th>' +
+			'<th>توضیحات واحد فروش</th><th>نیاز به AVL</th><th>نیاز به بازرسی/مدارک بازرسی</th>' +
+			'<th>زمان</th><th>کاربر</th>' +
+			'</tr></thead><tbody>';
+
+		function historyCell(value) {
+			return escapeHtml(dash(value));
+		}
+
+		rows.forEach(function (row) {
+			const needsAvl = row.needsAVL === true || row.needsAVL === "true" || row.needsAVL === 1;
+			const needsInspection = row.needsInspection === true || row.needsInspection === "true" || row.needsInspection === 1;
+			html += '<tr>' +
+				'<td>' + historyCell(historyEventTitles[row.eventType]) + '</td>' +
+				'<td class="text-center">' + historyCell(row.revision) + '</td>' +
+				'<td class="text-end">' + historyCell(row.amount) + '</td>' +
+				'<td>' + historyCell(formatEnumDisplay(listProductionOrderItemBomProductionStepEnum, row.productionStep)) + '</td>' +
+				'<td class="text-end">' + historyCell(row.numberSupplied) + '</td>' +
+				'<td>' + historyCell(formatEnumDisplay(listProductionOrderItemBomStatusEnum, row.status)) + '</td>' +
+				'<td>' + historyCell(row.description) + '</td>' +
+				'<td>' + historyCell(row.saleUnitDetails) + '</td>' +
+				'<td class="text-center">' + (needsAvl ? "دارد" : "ندارد") + '</td>' +
+				'<td class="text-center">' + (needsInspection ? "دارد" : "ندارد") + '</td>' +
+				'<td class="text-center">' + historyCell(row.createdOnShamsiDateTime) + '</td>' +
+				'<td>' + historyCell(row.createdByName) + '</td>' +
+				'</tr>';
 		});
 
-		$$(tableSelector).on("click", ".btn-delete-bom", function () {
-			const id = $(this).data("id");
-			deleteBom(id);
-		});
+		html += '</tbody></table></div>';
+		return html;
+	}
 
-		$$("#btnRefreshBomPage").on("click", function () {
-			reloadProductionOrderItemBomList(productionOrderItemId);
-		});
+	function unwrapList(response) {
+		if (response && response.isSuccess === false) return null;
+		if (response && Array.isArray(response.data)) return response.data;
+		if (Array.isArray(response)) return response;
+		return [];
+	}
 
-		$$("#btnExportBomExcel").on("click", function () {
-			const items = [];
-			const api = table.rows({ search: "applied" }).data();
+	function openBomHistoryModal(row) {
+		const partId = row.t1_PartId;
+		if (!partId) {
+			toastr.error("شناسه کالای ردیف انتخاب‌شده یافت نشد");
+			return;
+		}
 
-			for (let i = 0; i < api.length; i++) {
-				const row = api[i];
-				items.push({
-					"ردیف": i + 1,
-					"نسخه": row.revision,
-					"کدکالا": row.partCode,
-					"نام کالا": row.partName,
-					"تعداد/مقدار": row.amount,
-					"واحد": row.partUnitName,
-					"آخرین نسخه": row.isLatest ? "بله" : "خیر",
-					"مرحله ساخت": formatEnumDisplay(listProductionOrderItemBomProductionStepEnum, row.productionStep),
-					"تعداد تامین شده": row.numberSupplied,
-					"وضعیت": formatEnumDisplay(listProductionOrderItemBomStatusEnum, row.status),
-					"توضیحات": row.description,
-					"توضیحات واحد فروش": row.saleUnitDetails,
-					"نیاز به AVL": row.needsAVL ? "دارد" : "ندارد",
-					"زمان ایجاد": row.createdOnShamsiDateTime,
-					"ایجاد کننده": row.createdByName,
-					"زمان ویرایش": row.modifiedDateShamsiDateTime,
-					"ویرایش کننده": row.modifiedByName
-				});
+		const jc = $.confirm({
+			title: "تاریخچه BOM: " + escapeHtml(dash(row.t2_Code)) + " " + escapeHtml(row.t2_Name || ""),
+			columnClass: "col-md-12",
+			rtl: true,
+			content: '<div class="p-3 text-center">در حال بارگذاری تاریخچه...</div>',
+			buttons: {
+				close: {
+					text: "بستن",
+					btnClass: "btn-secondary"
+				}
 			}
-
-			if (items.length === 0) {
-				return toastr.warning("هیچ قلمی برای خروجی اکسل یافت نشد");
-			}
-
-			const worksheet = XLSX.utils.json_to_sheet(items);
-			const workbook = XLSX.utils.book_new();
-			worksheet["!rightToLeft"] = true;
-
-			const range = XLSX.utils.decode_range(worksheet["!ref"]);
-			for (let C = range.s.c; C <= range.e.c; ++C) {
-				const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: C });
-				if (!worksheet[cellAddress]) continue;
-				worksheet[cellAddress].s = {
-					font: { bold: true },
-					fill: { fgColor: { rgb: "FFD9D9D9" } }
-				};
-			}
-
-			XLSX.utils.book_append_sheet(workbook, worksheet, "ProductionOrderItemBom");
-			XLSX.writeFile(workbook, `ProductionOrderItemBom_${productionOrderItemId}.xlsx`);
 		});
-	})();
+
+		$$.get("/Panel/ProductionOrderItem/GetBomHistory?productionOrderItemId=" + productionOrderItemId + "&partId=" + partId, function (response) {
+			if (response && response.isSuccess === false) {
+				jc.setContent('<div class="p-3 text-danger">' + escapeHtml(response.message || "خطا در دریافت تاریخچه") + '</div>');
+				return;
+			}
+			jc.setContent(renderHistoryTable(unwrapList(response) || []));
+		});
+	}
+
+	// ── ثبت ملاحظات (تعیین تکلیف) ─────────────────────────────────────────────────
+	// توسط مدیر پروژه/فروش همین سفارش؛ معادل «افزودن ملاحظات» HTS
+	function openConsiderModal(rows) {
+		const bomIds = rows
+			.map(function (r) { return Number(r.t1_Id); })
+			.filter(function (id) { return id > 0; });
+		if (bomIds.length === 0) {
+			toastr.warning("حداقل یک ردیف BOM را انتخاب کنید");
+			return;
+		}
+
+		$.confirm({
+			title: "ثبت ملاحظات برای " + bomIds.length + " ردیف انتخاب‌شده",
+			columnClass: "col-md-6",
+			rtl: true,
+			content:
+				'<div class="mb-3">' +
+				'<div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="considerNeedsAvl" />' +
+				'<label class="form-check-label" for="considerNeedsAvl">نیاز به AVL دارد</label></div>' +
+				'<div class="form-check mb-3"><input class="form-check-input" type="checkbox" id="considerNeedsInspection" />' +
+				'<label class="form-check-label" for="considerNeedsInspection">نیاز به بازرسی/مدارک بازرسی دارد</label></div>' +
+				'<label class="mb-1">توضیحات واحد فروش</label>' +
+				'<textarea class="form-control" id="considerSaleUnitDetails" rows="4" maxlength="2048"></textarea>' +
+				'</div>',
+			buttons: {
+				save: {
+					text: "ثبت",
+					btnClass: "btn-primary",
+					action: function () {
+						const modalSelf = this;
+						const $content = this.$content;
+						const model = {
+							productionOrderItemId: productionOrderItemId,
+							bomIds: bomIds,
+							needsAVL: $content.find("#considerNeedsAvl").is(":checked"),
+							needsInspection: $content.find("#considerNeedsInspection").is(":checked"),
+							saleUnitDetails: $content.find("#considerSaleUnitDetails").val()
+						};
+
+						$$.post("/Panel/ProductionOrderItem/SaveBomConsideration", model, function (r) {
+							if (!r || !r.isSuccess) {
+								toastr.error((r && r.message) || "خطا در ثبت ملاحظات", "خطا");
+								return;
+							}
+
+							toastr.success("ملاحظات با موفقیت ثبت شد");
+							modalSelf.close();
+							reloadBomGrid();
+						});
+
+						return false;
+					}
+				},
+				cancel: {
+					text: "انصراف",
+					btnClass: "btn-secondary"
+				}
+			}
+		});
+	}
+
+	// ── دکمه‌های نوار ابزار نمایه (ActionScript فقط رویداد را می‌فرستد) ────────────
+	page.$pageEl.on("bomAction", function (e, action, ctx) {
+		// انتخاب چندتایی خاموش است: ctx.selectedRow پر می‌شود. اگر روزی روشن شد ctx.selectedRows هم کار می‌کند.
+		const rows = (ctx && ctx.selectedRows && ctx.selectedRows.length)
+			? ctx.selectedRows
+			: (ctx && ctx.selectedRow ? [ctx.selectedRow] : []);
+
+		switch (action) {
+			case "add":
+				if (!canManageBom) return denyAction();
+				openBomModal(null);
+				break;
+			case "edit": {
+				if (!canEditBom) return denyAction();
+				const row = singleSelectedRow(rows);
+				if (row) openBomModal(Number(row.t1_Id));
+				break;
+			}
+			case "delete": {
+				if (!canManageBom) return denyAction();
+				const row = singleSelectedRow(rows);
+				if (row) deleteBom(Number(row.t1_Id));
+				break;
+			}
+			case "import":
+				if (!canManageBom) return denyAction();
+				openImportBomExcelModal();
+				break;
+			case "formula":
+				if (!canManageBom) return denyAction();
+				addBomFromFormula($(e.target));
+				break;
+			case "consider":
+				if (!canConsiderBom) return denyAction();
+				openConsiderModal(rows);
+				break;
+			case "history": {
+				const row = singleSelectedRow(rows);
+				if (row) openBomHistoryModal(row);
+				break;
+			}
+		}
+	});
 </script>
 
 <style>
-	#productionOrderItemBomListPage #@tableId,
-	#productionOrderItemBomListPage table.ellipsis-tooltip-table {
-		width: max-content !important;
-		table-layout: fixed;
+	.bom-page[data-can-manage="false"] [data-action="bomAdd"],
+	.bom-page[data-can-manage="false"] [data-action="bomDelete"],
+	.bom-page[data-can-manage="false"] [data-action="bomImport"],
+	.bom-page[data-can-edit="false"] [data-action="bomEdit"],
+	.bom-page[data-can-formula="false"] [data-action="bomFormula"],
+	.bom-page[data-can-consider="false"] [data-action="bomConsider"] {
+		display: none !important;
 	}
 
-	#productionOrderItemBomListPage #@tableId th,
-	#productionOrderItemBomListPage #@tableId td,
-	#productionOrderItemBomListPage .dataTables_scrollHead th,
-	#productionOrderItemBomListPage .dataTables_scrollBody td,
-	#productionOrderItemBomListPage .dt-scroll-head th,
-	#productionOrderItemBomListPage .dt-scroll-body td {
-		white-space: nowrap !important;
-		vertical-align: middle;
-		padding-inline: 0.75rem;
-	}
-
-	#productionOrderItemBomListPage #@tableId td.dt-part-name,
-	#productionOrderItemBomListPage #@tableId th.dt-part-name,
-	#productionOrderItemBomListPage .dataTables_scrollHead th.dt-part-name,
-	#productionOrderItemBomListPage .dataTables_scrollBody td.dt-part-name,
-	#productionOrderItemBomListPage .dt-scroll-head th.dt-part-name,
-	#productionOrderItemBomListPage .dt-scroll-body td.dt-part-name {
-		width: 250px !important;
-		max-width: 250px !important;
-		min-width: 0 !important;
-		overflow: hidden;
-	}
-
-	#productionOrderItemBomListPage #@tableId td.dt-part-name .dt-ellipsis-cell {
-		display: block;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		width: 100%;
-		max-width: 250px;
-	}
-
-	#productionOrderItemBomListPage #@tableId tbody tr:hover {
-		background-color: #f5f5f5;
-	}
-
-	#productionOrderItemBomListPage .dataTables_wrapper .dataTables_scroll {
+	.bom-page .bom-history-wrap {
 		overflow-x: auto;
+	}
+
+	.bom-page .bom-history-wrap table,
+	.jconfirm .bom-history-wrap table {
+		width: max-content;
+		min-width: 100%;
+		table-layout: auto;
+	}
+
+	.jconfirm .bom-history-wrap th,
+	.jconfirm .bom-history-wrap td {
+		white-space: nowrap;
 	}
 </style>

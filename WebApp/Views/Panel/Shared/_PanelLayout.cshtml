@@ -10,6 +10,10 @@
 @{
 	IgnoreBody();
 
+	var savedSidebar = Context.Request.Cookies["sidebar_minimize_state"];
+	var sidebarMinimized = savedSidebar == "on"
+		|| (savedSidebar != "off" && Context.Request.Cookies["data-kt-app-sidebar-minimize"] == "on");
+
 	var dashbords = _reportBuilderService.GetDashboardSelectItemsByRole();
 
 	if (_sdk.IsAdministrator)
@@ -74,10 +78,12 @@
 </head>
 
 <body id="kt_app_body" data-kt-app-layout="dark-sidebar"
+	 data-kt-app-sidebar-minimize="@(sidebarMinimized ? "on" : "off")"
 	 data-kt-app-header-fixed="true" data-kt-app-sidebar-enabled="true"
-	 data-kt-app-sidebar-fixed="true" data-kt-app-sidebar-hoverable="true"
+	 data-kt-app-sidebar-fixed="true" data-kt-app-sidebar-hoverable="false"
 	 data-kt-app-sidebar-push-header="true" data-kt-app-sidebar-push-toolbar="true"
-	 data-kt-app-sidebar-push-footer="true" data-kt-app-toolbar-enabled="true" class="app-default">
+	 data-kt-app-sidebar-push-footer="true" data-kt-app-toolbar-enabled="true" class="app-default@(Context.Items["ViewAs"] != null ? " havayar-view-as" : "")">
+	<script src="~/js/view-as.js" asp-append-version="true"></script>
 
 	<div class="d-flex flex-column flex-root app-root" id="kt_app_root">
 		<div class="app-page flex-column flex-column-fluid" id="kt_app_page">
@@ -93,6 +99,10 @@
 					<div id="pagesContainer">
 						 <div class="tab-pane fade havayar-home" data-sys="system-tab" id="dashbordContent">
 							<div class="havayar-home__toolbar">
+								<div class="havayar-home__heading">
+									<h1 class="havayar-home__title">داشبورد</h1>
+									<p class="havayar-home__subtitle">کارها، میان‌برها و اعلانات شما در یک نگاه</p>
+								</div>
 								<label class="havayar-home__picker" for="selectDashbords">
 									<span>داشبورد تخصصی</span>
 									<select class="form-select" id="selectDashbords">
@@ -123,11 +133,20 @@
 								</div>
 								<div class="dfp-row" id="dashboardFavPagesSlots" role="list"></div>
 							</div>
-							<div id="dashboardRecentPagesHost" class="havayar-home__section">
-								<div class="dfp-head">
-									<h2 class="dfp-head__title">آخرین صفحات</h2>
+							<div class="havayar-home__split">
+								<div id="dashboardNotificationsHost" class="havayar-home__section">
+									<div class="dfp-head">
+										<h2 class="dfp-head__title">آخرین اعلانات</h2>
+										<a href="/panel/ListMyNotifications" class="dnl-head__all">نمایش همه</a>
+									</div>
+									<div class="dnl-list" id="dashboardNotificationsSlots" role="list"></div>
 								</div>
-								<div class="dfp-row" id="dashboardRecentPagesSlots" role="list"></div>
+								<div id="dashboardRecentPagesHost" class="havayar-home__section">
+									<div class="dfp-head">
+										<h2 class="dfp-head__title">آخرین صفحات</h2>
+									</div>
+									<div class="dfp-row" id="dashboardRecentPagesSlots" role="list"></div>
+								</div>
 							</div>
 							<div id="dashbordRenderArea"></div>
 						</div> 
@@ -144,12 +163,13 @@
 	</div>
 
      <script src="~/js/static.js"></script>
+	<script src="~/js/hv-menu.js" asp-append-version="true"></script>
  	<script src="~/js/site.js" asp-append-version="true"></script>
 	<script src="~/panelLib/js/scripts.bundle.js"></script>
 	<script src="~/panelLib/plugins/custom/datatables/datatables.bundle.js"></script>
 	<script src="~/panellib/plugins/custom/dropzone/dropzone.js"></script>
 	<script src="~/panelLib/plugins/custom/persion-datepicker/persian-date.js"></script>
-	<script src="~/panelLib/plugins/custom/persion-datepicker/persion-datepicker.js"></script>
+	<script src="~/panelLib/plugins/custom/persion-datepicker/persion-datepicker.js" asp-append-version="true"></script>
 
 	<script src="~/panelLib/plugins/custom/inputmask/jquery.inputmask.js"></script>
 	<script src="~/panelLib/plugins/custom/inputmask/inputmask.binding.js"></script>

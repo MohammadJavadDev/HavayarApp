@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Seed_OpenOrderRequest_SendToSupplier_RoleAccess.sql  (WP1)
 ================================================================================
@@ -8,7 +8,7 @@ Seed_OpenOrderRequest_SendToSupplier_RoleAccess.sql  (WP1)
       نقش: ConfigManage، SupplyAndPurchase
   HTS AddComponyMansToRequests (صفحه 76)
       → /setselectedsupplier, /setselectedsupplierpartial
-      نقش: ConfigManage، Industrial، Industries، SupplyAndPurchase
+      نقش: ConfigManage، Industrial، Industries، SupplyAndPurchase، Supply (واحد تدارکات)
 
 Idempotent. RoleId از system.Role.Name. پس از اجرا WebApp را ری‌استارت کنید.
 ================================================================================
@@ -56,7 +56,8 @@ BEGIN TRY
         (N'Sup.OpenOrderRequest.ConfigManage'),
         (N'Sup.OpenOrderRequest.Industrial'),
         (N'Industries'),
-        (N'SupplyAndPurchase')
+        (N'SupplyAndPurchase'),
+        (N'Sup.OpenOrderRequest.Supply')
     ) r(RoleName);
 
     INSERT INTO @Rows (Path, AccessType, ItemType, RoleName)
@@ -66,7 +67,8 @@ BEGIN TRY
         (N'Sup.OpenOrderRequest.ConfigManage'),
         (N'Sup.OpenOrderRequest.Industrial'),
         (N'Industries'),
-        (N'SupplyAndPurchase')
+        (N'SupplyAndPurchase'),
+        (N'Sup.OpenOrderRequest.Supply')
     ) r(RoleName);
 
     SELECT DISTINCT x.RoleName AS MissingRole

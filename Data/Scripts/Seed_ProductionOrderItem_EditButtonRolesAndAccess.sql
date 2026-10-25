@@ -9,7 +9,7 @@ Seed_ProductionOrderItem_EditButtonRolesAndAccess.sql
   3) Sale.ProductionOrderItem.SellTeam    — HTS گروه 596 (تغییر وضعیت روی ۳۱۶۷)
 
   RoleAccess:
-  - SaveComment برای نقش‌های تغییر وضعیت
+  - SaveComment برای نقش‌های تغییر وضعیت، از جمله AcceptIndustrial (صنایع؛ آیکن تغییر وضعیت صفحه ویرایش)
   - DoObsolete برای Sale.ProductionOrder.Obsolete
 
 اعضای Item 3 (AcceptProjectManager / Inquirer / Ministry / Obsolete / ViewActive / History)
@@ -95,6 +95,7 @@ BEGIN TRY
         (N'/panel/productionorderitem/savecomment', 2, 0, N'Sale.ProductionOrderItem.SupplyCommitteeBoss', @Entity),
         (N'/panel/productionorderitem/savecomment', 2, 0, N'Sale.ProductionOrderItem.Inquirer', @Entity),
         (N'/panel/productionorderitem/savecomment', 2, 0, N'Sale.ProductionOrderItem.MinistryOfIndustryInquirer', @Entity),
+        (N'/panel/productionorderitem/savecomment', 2, 0, N'Sale.ProductionOrderItem.AcceptIndustrial', @Entity),
         (N'/panel/productionorder/doobsolete/{id}', 2, 1000, @ObsoleteRoleName, @PoEntity);
 
     INSERT INTO system.RoleAccess

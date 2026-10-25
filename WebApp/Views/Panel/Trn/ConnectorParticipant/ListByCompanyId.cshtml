@@ -23,8 +23,14 @@
           <table id="@tableId" class="table table-striped table-row-bordered gy-2 w-100">
                <thead>
                     <tr class="fw-bold fs-6 text-muted">
-                         <th>شرکت‌کننده</th>
-                         <th>سمت در شرکت</th>
+                         <th>نام</th>
+                         <th>نام خانوادگی</th>
+                         <th>سمت</th>
+                         <th>تلفن مستقیم</th>
+                         <th>فکس</th>
+                         <th>تاییدیه فکس</th>
+                         <th>شماره موبایل</th>
+                         <th>ایمیل</th>
                          <th>توضیحات</th>
                          <th style="width:120px;">عملیات</th>
                     </tr>
@@ -96,8 +102,14 @@
                }
           },
           columns: [
-               { data: 'participantName', render: function (d) { return escapeHtml(d); } },
+               { data: 'firstName', render: function (d) { return escapeHtml(d); } },
+               { data: 'lastName', render: function (d) { return escapeHtml(d); } },
                { data: 'position', render: function (d) { return escapeHtml(d); } },
+               { data: 'directPhoneNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'faxNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'confirmedFaxNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'mobileNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'email', render: function (d) { return escapeHtml(d); } },
                { data: 'description', render: function (d) { return escapeHtml(d); } },
                {
                     data: null,

@@ -1,26 +1,20 @@
-@using Common.Utilities
+﻿@using Common.Utilities
 @using Entities.App.Edms
 @using Entities.App.Edms.Enums
 @model Document
 
 @{
 	var statusText = Model.Status.HasValue ? Model.Status.Value.ToDisplay() : "-";
-	var statusClass = Model.Status switch
-	{
-		DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
-		DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
-		DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-		DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
-		DocumentStatusEnums.Archived => "badge-light-dark",
-		_ => "badge-light"
-	};
+	var statusClass = DocumentStatusPalette.BadgeClass(Model.Status);
+	var statusStyle = DocumentStatusPalette.BadgeStyle(Model.Status);
 
 	var files = new[]
 	{
 		new { Label = "فایل اصلی", Id = Model.MainFileId, File = Model.MainFile },
 		new { Label = "فایل مادر", Id = Model.MotherFileId, File = Model.MotherFile },
 		new { Label = "فایل ثانوی", Id = Model.SecondaryFileId, File = Model.SecondaryFile },
-		new { Label = "فایل ReplySheet", Id = Model.ReplySheetId, File = Model.ReplySheet }
+		new { Label = "فایل ReplySheet", Id = Model.ReplySheetId, File = Model.ReplySheet },
+		new { Label = "فایل ثانوی ReplySheet", Id = Model.SecondReplySheetId, File = Model.SecondReplySheet }
 	};
 }
 
@@ -33,7 +27,7 @@
 						<span class="fw-bold">ریویژن</span>
 						<span class="badge badge-light-primary">@Model.Revision</span>
 						<span class="text-muted">وضعیت:</span>
-						<span class="badge @statusClass">@statusText</span>
+						<span class="@statusClass" style="@statusStyle">@statusText</span>
 					</div>
 					<div class="text-muted small">
 						آخرین ویرایش: <span class="rtl">@(Model.ModifiedDateShamsiDateTime ?? "-")</span>
@@ -49,9 +43,9 @@
 			</div>
 
 			<div class="col-md-4 form-group-inline">
-				<label class="form-label">نفر-ساعت</label>
-				<div class="form-control-plaintext border rounded px-3 min-h-40px">
-					@(Model.HourPrePerson?.ToString() ?? "-")
+				<label class="form-label">نفر-ساعت (ساعت:دقیقه)</label>
+				<div class="form-control-plaintext border rounded px-3 min-h-40px ltr">
+					@(Model.HourPrePerson == null ? "-" : Common.Utilities.MinutesFromHourMinJsonConverter.MinToHourMin(Model.HourPrePerson, hourLength: 2))
 				</div>
 			</div>
 
@@ -84,7 +78,7 @@
 			<div class="col-md-4 form-group-inline">
 				<label class="form-label">وضعیت مدرک</label>
 				<div class="form-control-plaintext border rounded px-3 min-h-40px">
-					<span class="badge @statusClass">@statusText</span>
+					<span class="@statusClass" style="@statusStyle">@statusText</span>
 				</div>
 			</div>
 

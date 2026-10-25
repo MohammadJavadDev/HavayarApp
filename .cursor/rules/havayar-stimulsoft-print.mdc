@@ -31,3 +31,10 @@ Font: IRANSansWeb(FaNum) Medium
 کد تجهیز / تاریخ / تعداد / شماره ردیف     RightToLeft false, Center
 شماره و تاریخ سربرگ     size 10, maroon, RightToLeft false
 ```
+
+## Fonts on the server (PDF / print)
+
+Incident 2026-10-17 and 2026-10-24: print of ProductionOrderForm failed with `Exception in PdfFonts.GetFontMetrics, font 'IRANSansWeb(FaNum) Medium' step #70: 'CMAP table not found.'`. The TTF itself has a cmap. PDF export uses whatever bytes `StiFontCollection.GetCustomFontData` returns, and `PdfFonts` keeps the first buffer for the process. A packed report resource or a GDI fallback is non-empty and still fails that step. `StimulsoftFontRegistry.EnsureRegistered` only treats a buffer as registered when it is a TTF/OTF with a `cmap` table, and sets `StiOptions.Export.Pdf.AllowFontsCache = false` so the bad buffer is not reused.
+
+- The five IRANSansWeb TTFs are **embedded** in `ReportBuilder.WebApp/EmbeddedFonts/` and registered by `StimulsoftFontRegistry.EnsureRegistered()` (called from the controller static ctor, `AddFontResourcesToReport`, and `ViewerEvent`). Do not go back to reading them only from `wwwroot/panelLib/fonts` with a swallowed `catch`. Do not turn `AllowFontsCache` back on.
+- A new font family for print templates must be added to `EmbeddedFonts/`, to the `Catalog` in `StimulsoftFontRegistry.cs`, and kept TTF with a `cmap` table (not woff/eot).

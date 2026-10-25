@@ -207,8 +207,6 @@
 </div>
 
 <script>
-	debugger
-	  
 	var personHourRevisionZero = @(Model?.PersonHourRevisionZero ?? 0)
 	var personHourRevisionOne  = @(Model?.PersonHourRevisionOne ?? 0)
 	var personHourRevisionTwo  = @(Model?.PersonHourRevisionTwo ?? 0)
@@ -219,41 +217,31 @@
 	var normalizeForInputpersonHourRevisionTwo = String(MJUtil.minutesToTimeFormat(personHourRevisionTwo)).padStart(6, "0")
 	var normalizeForInputpersonHourRevisionThree = String(MJUtil.minutesToTimeFormat(personHourRevisionThree)).padStart(6, "0")
 
-	 
-	 $("[data-bind=personHourRevisionZero]").val(normalizeForInputpersonHourRevisionZero)
-	 $("[data-bind=personHourRevisionOne]").val(normalizeForInputpersonHourRevisionOne)
-	 $("[data-bind=personHourRevisionTwo]").val(normalizeForInputpersonHourRevisionTwo)
-	 $("[data-bind=personHourRevisionThree]").val(normalizeForInputpersonHourRevisionThree)
+	$$("[data-bind=personHourRevisionZero]").val(normalizeForInputpersonHourRevisionZero)
+	$$("[data-bind=personHourRevisionOne]").val(normalizeForInputpersonHourRevisionOne)
+	$$("[data-bind=personHourRevisionTwo]").val(normalizeForInputpersonHourRevisionTwo)
+	$$("[data-bind=personHourRevisionThree]").val(normalizeForInputpersonHourRevisionThree)
+
+	function personHoursToMinutes(value) {
+		if (value === null || value === undefined || value === '') return 0;
+		const text = String(value);
+		if (text.indexOf('_') >= 0 || text.indexOf(':') < 0) return 0;
+		const parts = text.split(':');
+		const hours = parseInt(parts[0], 10);
+		const minutes = parseInt(parts[1], 10);
+		if (isNaN(hours) || isNaN(minutes)) return 0;
+		return hours * 60 + minutes;
+	}
 
 	function savefn($btnAction) {
 		if (validateError($$('.card'))) { return; }
 		var model = $$('.card').dataBind();
-		const $btn = $(this.element).block();
+		const $btn = $($btnAction.element).block();
 
-			let spliter= [];
-			if(model.personHourRevisionZero)
-			{
-				spliter= model.personHourRevisionZero.split(":")
-			 model.personHourRevisionZero = spliter[0] *60 + spliter[1]
-			}
-
-			if(model.personHourRevisionOne)
-			{
-				 spliter= model.personHourRevisionOne.split(":")
-			 model.personHourRevisionOne = spliter[0] *60 + spliter[1]
-			}
-
-			if(model.personHourRevisionTwo)
-			{
-				spliter= model.personHourRevisionTwo.split(":")
-			 model.personHourRevisionTwo = spliter[0] *60 + spliter[1]
-			}
-
-			if(model.personHourRevisionThree)
-			{
-				 spliter= model.personHourRevisionThree.split(":")
-				 model.personHourRevisionThree = spliter[0] *60 + spliter[1]
-			}
+		model.personHourRevisionZero = personHoursToMinutes(model.personHourRevisionZero);
+		model.personHourRevisionOne = personHoursToMinutes(model.personHourRevisionOne);
+		model.personHourRevisionTwo = personHoursToMinutes(model.personHourRevisionTwo);
+		model.personHourRevisionThree = personHoursToMinutes(model.personHourRevisionThree);
 
 		 
 		$$.post('save',

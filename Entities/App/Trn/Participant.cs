@@ -22,12 +22,12 @@ namespace Entities.App.Trn
 		[MaxLength(100)]
 		public string? LastName { get; set; }
 
-		[DisplayName("نام لاتین")]
+		[DisplayName("نام(انگلیسی)")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(100)]
 		public string? FirstNameInLatin { get; set; }
 
-		[DisplayName("نام خانوادگی لاتین")]
+		[DisplayName("نام خانوادگی(انگلیسی)")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(100)]
 		public string? LastNameInLatin { get; set; }
@@ -44,7 +44,7 @@ namespace Entities.App.Trn
 		[MaxLength(10)]
 		public string? NationalCode { get; set; }
 
-		[DisplayName("شماره شناسنامه")]
+		[DisplayName("ش ش/ش ملی")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(20)]
 		public string? BirthCertificateNo { get; set; }
@@ -71,14 +71,19 @@ namespace Entities.App.Trn
 		[MaxLength(256)]
 		public string? FieldOfStudy { get; set; }
 
-		[DisplayName("تلفن همراه")]
+		[DisplayName("شماره موبایل")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(20)]
+		[MaxLength(50)]
 		public string? Mobile { get; set; }
 
-		[DisplayName("تلفن")]
+		[DisplayName("تلفن مستقیم")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(20)]
+		[MaxLength(50)]
+		public string? DirectPhoneNumber { get; set; }
+
+		[DisplayName("شماره داخلی")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(50)]
 		public string? Phone { get; set; }
 
 		[DisplayName("ایمیل")]
@@ -95,7 +100,7 @@ namespace Entities.App.Trn
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? Address { get; set; }
 
-		[DisplayName("محل کار")]
+		[DisplayName("سمت")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(256)]
 		public string? Workplace { get; set; }
@@ -105,15 +110,15 @@ namespace Entities.App.Trn
 		[MaxLength(256)]
 		public string? JobPosition { get; set; }
 
-		[DisplayName("شرکت (محل اشتغال)")]
+		[DisplayName("شرکت")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public long? CompanyId { get; set; }
 		public virtual Company? Company { get; set; }
 
 
 		public long? PhotoFileId { get; set; }
-		[DisplayName("عکس")]
-		[DisplayInfo(null, true, type: SystemType.File)]
+		[DisplayName("الصاق فایل(ها)")]
+		[DisplayInfo(null, true, type: SystemType.File, fileTypes: ".jpg,.jpeg,.png,.bmp,.gif", maxFileSize: 1)]
 		public virtual FileEntity? PhotoFile { get; set; }
 
 		[DisplayName("توضیحات")]

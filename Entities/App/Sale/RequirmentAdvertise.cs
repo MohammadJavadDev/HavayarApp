@@ -13,6 +13,7 @@ namespace Entities.App.Sale
 {
 	[Display(Name = "اعلام نیازمندی")]
 	[Table("RequirmentAdvertise", Schema = "Sale")]
+	[Microsoft.EntityFrameworkCore.Index(nameof(ProductionOrderNumber))]
 	public class RequirmentAdvertise : BaseEntity
 	{
  
@@ -112,6 +113,14 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(255)]
 		public string? RepresentativeContactNumber { get; set; }
+
+		/// <summary>
+		/// شماره سفارش ساخت (راهکاران: Sale_RequirmentAdvertise.ProductionNumber؛ در HTS: ProjectReportManagement.ProductionOrderNumber).
+		/// پیوند اعلام نیازمندی به سفارش ساخت؛ برای پیدا کردن شماره نماینده مشتری در پیامک‌های ارسال/خروج/لینک مدارک.
+		/// </summary>
+		[DisplayName("شماره سفارش ساخت")]
+		[DisplayInfo(null, true, type: SystemType.Long)]
+		public long? ProductionOrderNumber { get; set; }
 
 
 		[DisplayName("توضیحات")]

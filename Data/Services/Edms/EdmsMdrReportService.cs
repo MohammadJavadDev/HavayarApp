@@ -30,7 +30,15 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 
 	public async Task<MdrReportResponse> GetReportAsync(MdrReportFilter filter, CancellationToken cancellationToken = default)
 	{
-		var excludedProjectStatuses = new[] { ProjectStatusEnum.StartNotStarted, ProjectStatusEnum.Completed };
+		// خروجی همه پروژه‌ها چند ده هزار شناسه دارد. لیست کلاینتی در Contains
+		// به پارامترهای SQL تبدیل می‌شود و از سقف ۲۱۰۰ پارامتر رد می‌شود.
+		db.Database.SetCommandTimeout(180);
+		var excludedProjectStatuses = new[]
+		{
+			ProjectStatusEnum.StartNotStarted,
+			ProjectStatusEnum.Completed,
+			ProjectStatusEnum.Stopped
+		};
 
 		var vpisQuery =
 			from v in db.Set<ProjectVpis>().AsNoTracking()
@@ -59,39 +67,41 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 		if (vpisList.Count == 0)
 			return new MdrReportResponse();
 
-		var projectIds = vpisList.Select(v => v.Project.Id!.Value).Distinct().ToList();
+		var vpisIdQuery = vpisQuery.Select(x => x.Vpis.Id);
+		var projectIdQuery = vpisQuery.Select(x => x.Project.Id);
 		var progressByProject = await db.Set<ProjectProgressPercentage>().AsNoTracking()
-			.Where(p => projectIds.Contains(p.ProjectId) && p.IsActive != IsActiveEnum.Deleted)
+			.Where(p => projectIdQuery.Contains(p.ProjectId) && p.IsActive != IsActiveEnum.Deleted)
 			.GroupBy(p => p.ProjectId)
 			.ToDictionaryAsync(g => g.Key, g => g.ToList(), cancellationToken);
 
-		var vpisIds = vpisList.Select(v => v.Vpis.Id!.Value).ToList();
 		var documents = await db.Set<Document>().AsNoTracking()
-			.Where(d => d.DocumentVpisId != null && vpisIds.Contains(d.DocumentVpisId.Value) && d.IsActive != IsActiveEnum.Deleted)
+			.Where(d => d.DocumentVpisId != null && vpisIdQuery.Contains(d.DocumentVpisId) && d.IsActive != IsActiveEnum.Deleted)
 			.OrderBy(d => d.Revision).ThenBy(d => d.Id)
 			.ToListAsync(cancellationToken);
 
-		var documentIds = documents.Select(d => d.Id!.Value).ToList();
-		var comments = documentIds.Count == 0
-			? []
-			: await db.Set<DocumentComment>().AsNoTracking()
-				.Where(c => documentIds.Contains(c.DocumentId) && c.IsActive != IsActiveEnum.Deleted)
-				.OrderBy(c => c.Id)
-				.ToListAsync(cancellationToken);
+		var documentIdQuery = db.Set<Document>().AsNoTracking()
+			.Where(d => d.DocumentVpisId != null && vpisIdQuery.Contains(d.DocumentVpisId) && d.IsActive != IsActiveEnum.Deleted)
+			.Select(d => d.Id);
+		var comments = await db.Set<DocumentComment>().AsNoTracking()
+			.Where(c => documentIdQuery.Contains(c.DocumentId) && c.IsActive != IsActiveEnum.Deleted)
+			.OrderBy(c => c.Id)
+			.ToListAsync(cancellationToken);
 
-		var transmittals = documentIds.Count == 0
-			? []
-			: await db.Set<Transmital>().AsNoTracking()
-				.Where(t => documentIds.Contains(t.DocumentId) && t.IsActive != IsActiveEnum.Deleted)
-				.OrderBy(t => t.Id)
-				.ToListAsync(cancellationToken);
+		var transmittals = await db.Set<Transmital>().AsNoTracking()
+			.Where(t => t.DocumentId != null && documentIdQuery.Contains(t.DocumentId) && t.IsActive != IsActiveEnum.Deleted)
+			.OrderBy(t => t.Id)
+			.ToListAsync(cancellationToken);
 
-		var userIds = vpisList
-			.SelectMany(v => new long?[] { v.Vpis.ProducerId, v.Vpis.ApproverId })
-			.Where(id => id.HasValue)
-			.Select(id => id!.Value)
-			.Distinct()
-			.ToList();
+		var userIds = new HashSet<long>();
+		foreach (var item in vpisList)
+		{
+			if (item.Vpis.ProducerId is long producerId)
+				userIds.Add(producerId);
+			if (item.Vpis.ApproverId is long approverId)
+				userIds.Add(approverId);
+			foreach (var reviewerId in ParseUserIds(item.Vpis.ReviewersId))
+				userIds.Add(reviewerId);
+		}
 
 		var users = userIds.Count == 0
 			? new Dictionary<long, UserNameInfo>()
@@ -114,7 +124,10 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 					cancellationToken);
 
 		var commentsByDocument = comments.GroupBy(c => c.DocumentId).ToDictionary(g => g.Key, g => g.ToList());
-		var transmittalsByDocument = transmittals.GroupBy(t => t.DocumentId).ToDictionary(g => g.Key, g => g.ToList());
+		var transmittalsByDocument = transmittals
+			.Where(t => t.DocumentId is > 0)
+			.GroupBy(t => t.DocumentId!.Value)
+			.ToDictionary(g => g.Key, g => g.ToList());
 		var documentsByVpis = documents.GroupBy(d => d.DocumentVpisId!.Value).ToDictionary(g => g.Key, g => g.ToList());
 
 		var bundles = vpisList.Select(item =>
@@ -143,7 +156,7 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 			items.Add(BuildMdrItem(bundle, users, now));
 		}
 
-		return new MdrReportResponse { Items = items.OrderBy(i => i.ProjectCode).ThenBy(i => i.DocumentNumber).ToList() };
+		return new MdrReportResponse { Items = items.OrderBy(i => i.VpisId).ToList() };
 	}
 
 	private static MdrReportItemDto BuildMdrItem(VpisBundle bundle, Dictionary<long, UserNameInfo> users, DateTime now)
@@ -199,7 +212,7 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 					if (transmital?.CreatedOnMiladiDateTime is not null)
 					{
 						issueDate = transmital.CreatedOnMiladiDateTime.Value;
-						havayarLastSendDate = EdmsMdrReportLogic.FormatDate(issueDate);
+						havayarLastSendDate = EdmsMdrReportLogic.FormatDate(ParseEmployerDeliveryDate(transmital.DeliveryDateToEmployer));
 						havayarLastSendTransmittal = transmital.Number;
 					}
 				}
@@ -222,7 +235,7 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 			if (lastReplaySheetClientComment is not null)
 			{
 				clientLastRepliedRdsDate = EdmsMdrReportLogic.FormatDate(lastReplaySheetClientComment.CreatedOnMiladiDateTime);
-				clientLastRepliedRdsNo = lastReplaySheetClientComment.Comment;
+				clientLastRepliedRdsNo = lastReplaySheetClientComment.ReceivedTransmittalNumber;
 			}
 
 			var lastIssuedOrReplayedComments = allComments
@@ -236,7 +249,10 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 				var lastClientComment = lastIssuedOrReplayedComments.LastOrDefault(c => c.Status != DocumentStatusEnums.NotReview);
 
 				if (lastClientComment is not null && (!isVendor || lastClientComment.Status != DocumentStatusEnums.Issue))
+				{
 					clientLastSentDateValue = EdmsMdrReportLogic.FormatDate(lastClientComment.CreatedOnMiladiDateTime);
+					clientLastRepliedTransmittalValue = lastClientComment.ReceivedTransmittalNumber;
+				}
 
 				if (lastComment.Status != DocumentStatusEnums.ApproveByClient)
 				{
@@ -285,13 +301,14 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 				progress = progressTemp;
 		}
 
-		users.TryGetValue(vpis.ProducerId ?? 0, out var checkerUser);
+		users.TryGetValue(vpis.ProducerId ?? 0, out var producerUser);
 		users.TryGetValue(vpis.ApproverId ?? 0, out var approverUser);
 
 		var firstDocument = bundle.Documents.FirstOrDefault();
 
 		return new MdrReportItemDto
 		{
+			VpisId = vpis.Id ?? 0,
 			ProjectCode = project.Code,
 			ProjectName = project.Name,
 			BeneficiaryUnit = bundle.SubjectUnit?.Title,
@@ -299,9 +316,9 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 			DocumentTitle = vpis.Title,
 			Disipline = EdmsMdrReportLogic.GetDisciplineCode(vpis.Displaying),
 			MainResponsibleId = vpis.ProducerId,
-			Responsible = vpis.ReviewerNames,
-			Checker = checkerUser is null ? null : EdmsMdrReportLogic.GetUserEnglishName(checkerUser.Name, checkerUser.FullNameInEnglish, checkerUser.FirstNameInEnglish, checkerUser.LastNameInEnglish),
-			Approver = approverUser is null ? null : EdmsMdrReportLogic.GetUserEnglishName(approverUser.Name, approverUser.FullNameInEnglish, approverUser.FirstNameInEnglish, approverUser.LastNameInEnglish),
+			Responsible = FormatUserName(producerUser),
+			Checker = ResolveCheckerName(vpis, users),
+			Approver = FormatUserName(approverUser),
 			OverallProgress = overallProgress,
 			WeightFactor = vpis.Weight,
 			Progress = progress,
@@ -477,13 +494,13 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 		if (clientLastDocumentComments.Count > 0)
 		{
 			var clientLastComment = clientLastDocumentComments.Last();
-			var replayClient = thisRevisionComments.LastOrDefault(c => c.Status == DocumentStatusEnums.ReplaySheetFromClient && !string.IsNullOrWhiteSpace(c.Comment));
+			var replayClient = thisRevisionComments.LastOrDefault(c => c.Status == DocumentStatusEnums.ReplaySheetFromClient && !string.IsNullOrWhiteSpace(c.ReceivedTransmittalNumber));
 			clientRdsDateValue = EdmsMdrReportLogic.FormatShamsiDate(replayClient?.CreatedOnShamsiDateTime)
 			                     ?? EdmsMdrReportLogic.FormatDate(replayClient?.CreatedOnMiladiDateTime);
-			clientRdsNoValue = replayClient?.Comment;
+			clientRdsNoValue = replayClient?.ReceivedTransmittalNumber;
 
-			var received = thisRevisionComments.LastOrDefault(c => c.Status != DocumentStatusEnums.ReplaySheetFromClient && !string.IsNullOrWhiteSpace(c.Comment));
-			receivedTransmittalNumber = received?.Comment;
+			var received = thisRevisionComments.LastOrDefault(c => c.Status != DocumentStatusEnums.ReplaySheetFromClient && !string.IsNullOrWhiteSpace(c.ReceivedTransmittalNumber));
+			receivedTransmittalNumber = received?.ReceivedTransmittalNumber;
 			clientReplyDateInText = EdmsMdrReportLogic.FormatDate(clientLastComment.CreatedOnMiladiDateTime);
 
 			if (transmital is not null && clientLastComment.CreatedOnMiladiDateTime is not null)
@@ -578,10 +595,10 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 		if (clientLastDocumentComments.Count > 0)
 		{
 			var clientLastComment = clientLastDocumentComments.Last();
-			var replayClient = thisRevisionComments.LastOrDefault(c => c.Status == DocumentStatusEnums.ReplaySheetFromClient && !string.IsNullOrWhiteSpace(c.Comment));
+			var replayClient = thisRevisionComments.LastOrDefault(c => c.Status == DocumentStatusEnums.ReplaySheetFromClient && !string.IsNullOrWhiteSpace(c.ReceivedTransmittalNumber));
 			clientRdsDateValue = EdmsMdrReportLogic.FormatShamsiDate(replayClient?.CreatedOnShamsiDateTime)
 			                     ?? EdmsMdrReportLogic.FormatDate(replayClient?.CreatedOnMiladiDateTime);
-			clientRdsNoValue = replayClient?.Comment;
+			clientRdsNoValue = replayClient?.ReceivedTransmittalNumber;
 			clientReplyDateInText = EdmsMdrReportLogic.FormatDate(clientLastComment.CreatedOnMiladiDateTime);
 
 			if (clientLastComment.CreatedOnMiladiDateTime is not null)
@@ -616,5 +633,81 @@ public class EdmsMdrReportService(ApplicationDbContext db) : IEdmsMdrReportServi
 			ClientDelay = clientDelay,
 			Status = lastStatusValue
 		};
+	}
+
+	private static string? FormatUserName(UserNameInfo? user)
+	{
+		if (user is null)
+			return null;
+
+		var name = EdmsMdrReportLogic.GetUserEnglishName(
+			user.Name, user.FullNameInEnglish, user.FirstNameInEnglish, user.LastNameInEnglish);
+		return string.IsNullOrWhiteSpace(name) ? null : name;
+	}
+
+	/// <summary>
+	/// Checker در MDR همان بررسی‌کننده VPIS است (ReviewersId). Responsible تهیه‌کننده (ProducerId) است.
+	/// </summary>
+	private static string? ResolveCheckerName(ProjectVpis vpis, Dictionary<long, UserNameInfo> users)
+	{
+		var names = new List<string>();
+		foreach (var reviewerId in ParseUserIds(vpis.ReviewersId))
+		{
+			if (!users.TryGetValue(reviewerId, out var user))
+				continue;
+
+			var name = FormatUserName(user);
+			if (!string.IsNullOrWhiteSpace(name))
+				names.Add(name);
+		}
+
+		if (names.Count > 0)
+			return string.Join(",", names);
+
+		return string.IsNullOrWhiteSpace(vpis.ReviewerNames) ? null : vpis.ReviewerNames.Trim();
+	}
+
+	private static IEnumerable<long> ParseUserIds(string? raw)
+	{
+		if (string.IsNullOrWhiteSpace(raw))
+			yield break;
+
+		foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+		{
+			if (long.TryParse(part, out var id))
+				yield return id;
+		}
+	}
+
+	/// <summary>
+	/// تاریخ ارسال به کارفرما روی ترانسمیتال شمسی است (مثلاً 1405/07/01).
+	/// سال کمتر از ۱۷۰۰ شمسی حساب می‌شود تا با TryParse به‌اشتباه میلادی نشود.
+	/// </summary>
+	private static DateTime? ParseEmployerDeliveryDate(string? value)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+			return null;
+
+		var datePart = value.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+		if (string.IsNullOrWhiteSpace(datePart))
+			return null;
+
+		var parts = datePart.Split(['/', '-'], StringSplitOptions.RemoveEmptyEntries);
+		if (parts.Length != 3
+			|| !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var year)
+			|| !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var month)
+			|| !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var day))
+			return null;
+
+		try
+		{
+			return year < 1700
+				? new PersianCalendar().ToDateTime(year, month, day, 0, 0, 0, 0)
+				: new DateTime(year, month, day);
+		}
+		catch (ArgumentOutOfRangeException)
+		{
+			return null;
+		}
 	}
 }

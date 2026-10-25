@@ -11,10 +11,23 @@ namespace Entities.Hts.Hrm
 
 		public int? Hamkaran_Personel_FK { get; set; }
 
+		[StringLength(20)]
+		public string? PrsCode { get; set; }
+
 		[StringLength(100)]
 		public string? PrsName { get; set; }
 
 		[StringLength(100)]
+		public string? PrsFamily { get; set; }
+
+		[StringLength(100)]
 		public string? PrsFamily_Display { get; set; }
+
+		[StringLength(100)]
+		public string? PrsEmail { get; set; }
+
+		public bool? IsActive { get; set; }
+
+		public bool IsExternal_Person { get; set; }
 	}
 }

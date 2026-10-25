@@ -1,0 +1,162 @@
+@using Entities.App.Hrm
+@using Entities.App.Hrm.Enums
+@model Resume
+<div class="card shadow-sm border-0">
+    <div class="form-action-buttons border-bottom p-3">
+        <form-action-buttons entity-type="typeof(Resume)"></form-action-buttons>
+    </div>
+    <div class="card-body">
+        <input type="hidden" data-bind="id" value="@Model?.Id" />
+        <input type="hidden" data-bind="htsId" value="@Model?.HtsId" />
+        <div class="row g-3">
+            <div class="col-md-3 form-group-inline"><label>نام</label><input class="form-control" data-bind="name" data-required="true" value="@Model?.Name" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>نام خانوادگی</label><input class="form-control" data-bind="family" data-required="true" value="@Model?.Family" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>موبایل</label><input class="form-control" data-bind="mobileNumber" data-required="true" value="@Model?.MobileNumber" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>تلفن</label><input class="form-control" data-bind="phoneNumber" value="@Model?.PhoneNumber" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>ایمیل</label><input class="form-control" data-bind="emailAddress" value="@Model?.EmailAddress" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>جنسیت</label><select class="form-control" data-bind="sex"><option value="">انتخاب کنید</option><option value="2">مرد</option><option value="3">زن</option></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>مقطع</label><select class="form-control" data-bind="education" id="resumeEducation"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>رشته</label><select class="form-control" data-bind="studyCourseId" id="resumeCourse"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>گرایش</label><select class="form-control" data-bind="trendOfStudyCourseId" id="resumeTrend"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>دانشگاه</label><select class="form-control" data-bind="universityId" id="resumeUniversity"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>پست</label><select class="form-control" data-bind="interestedPostId" id="resumePost"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>شهر</label><select class="form-control" data-bind="cityId" id="resumeCity"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>کانال ارتباطی</label><select class="form-control" data-bind="incomingSourceId" id="resumeSource"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>معرف</label><select class="form-control" data-bind="representingPersonelId" id="resumePerson"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>سازمان</label><select class="form-control" data-bind="organization"><option value="">انتخاب کنید</option><option value="1185">هوایار</option><option value="1186">هوایار کنترل پیشرو</option><option value="1187">هوایار سوخت</option><option value="1188">هوایار گاز</option></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>وضعیت رزومه</label><select class="form-control" data-bind="resumeStatus"><option value="">انتخاب کنید</option><option value="52">بایگانی</option><option value="53">نامناسب</option><option value="54">رزرو</option><option value="73">جذب</option><option value="1715">عدم مصاحبه</option><option value="1716">عدم حضور در مصاحبه</option><option value="1717">انصراف</option><option value="1718">برای پست های سازمانی هوایار مناسب نمی باشد</option></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>درخواست نیرو</label><select class="form-control" data-bind="staffRequestId" id="resumeRequest"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>شغل مناسب</label><select class="form-control" data-bind="suitableForJobId" id="resumeJob"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>سابقه کار</label><input class="form-control" data-bind="workExperience" value="@Model?.WorkExperience" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>ترم</label><input class="form-control" data-bind="studentTerm" value="@Model?.StudentTerm" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-2 form-group-inline"><label>تاریخ تولد</label><input class="form-control" data-bind="birthDate" value="@Model?.BirthDate" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+            <div class="col-md-3 form-group-inline"><label>مهلت بررسی</label><input class="form-control" data-bind="resumeReviewDeadline" value="@Model?.ResumeReviewDeadline" /><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>
+        </div>
+        <hr />
+        <div class="row g-3">
+            <div class="col-md-6"><h6>زبان</h6><div id="resumeLangBox"></div><button type="button" class="btn btn-sm btn-light-primary mt-2" data-action="addLang">افزودن</button></div>
+            <div class="col-md-6"><h6>نرم‌افزار</h6><div id="resumeSoftBox"></div><button type="button" class="btn btn-sm btn-light-primary mt-2" data-action="addSoft">افزودن</button></div>
+            <div class="col-md-6"><h6>مهارت</h6><div id="resumeSkillBox"></div><button type="button" class="btn btn-sm btn-light-primary mt-2" data-action="addSkill">افزودن</button></div>
+            <div class="col-md-6"><h6>سابقه کار</h6><div id="resumeWorkBox"></div><button type="button" class="btn btn-sm btn-light-primary mt-2" data-action="addWork">افزودن</button></div>
+        </div>
+    </div>
+</div>
+<script>
+    const resumeModel = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+        sex = Model?.Sex.HasValue == true ? (int)Model.Sex.Value : (int?)null,
+        education = Model?.Education.HasValue == true ? (int)Model.Education.Value : (int?)null,
+        studyCourseId = Model?.StudyCourseId,
+        trendOfStudyCourseId = Model?.TrendOfStudyCourseId,
+        universityId = Model?.UniversityId,
+        interestedPostId = Model?.InterestedPostId,
+        cityId = Model?.CityId,
+        incomingSourceId = Model?.IncomingSourceId,
+        representingPersonelId = Model?.RepresentingPersonelId,
+        organization = Model?.Organization.HasValue == true ? (int)Model.Organization.Value : (int?)null,
+        resumeStatus = Model?.ResumeStatus.HasValue == true ? (int)Model.ResumeStatus.Value : (int?)null,
+        staffRequestId = Model?.StaffRequestId,
+        suitableForJobId = Model?.SuitableForJobId,
+        languages = Model?.Languages?.Select(x => new { languageId = x.LanguageId, knowledgeLevel = x.KnowledgeLevel.HasValue ? (int)x.KnowledgeLevel.Value : (int?)null }),
+        softwares = Model?.Softwares?.Select(x => new { softwareId = x.SoftwareId, otherSoftware = x.OtherSoftware, knowledgeLevel = x.KnowledgeLevel.HasValue ? (int)x.KnowledgeLevel.Value : (int?)null, learnType = x.LearnType.HasValue ? (int)x.LearnType.Value : (int?)null }),
+        skills = Model?.Skills?.Select(x => new { skillId = x.SkillId }),
+        workExperiences = Model?.WorkExperiences?.Select(x => new { companyName = x.CompanyName, orgPost = x.OrgPost, startDate = x.StartDate, endDate = x.EndDate })
+    }));
+    let resumeLookups = {};
+    const resumeChildren = {
+        languages: resumeModel.languages || [],
+        softwares: resumeModel.softwares || [],
+        skills: resumeModel.skills || [],
+        workExperiences: resumeModel.workExperiences || []
+    };
+
+    function fillSelect($el, items, selected, textKey) {
+        $el.empty().append('<option value="">انتخاب کنید</option>');
+        (items || []).forEach(function (item) {
+            const text = item.title || item.text || item.Title || item.Text || '';
+            $el.append($('<option></option>').val(item.id || item.Id).text(text));
+        });
+        if (selected) $el.val(String(selected));
+    }
+
+    function renderChildren() {
+        $$('#resumeLangBox').html(resumeChildren.languages.map(function (x, i) { return '<div>' + (x.languageId || '') + ' <a href="#" data-remove="languages" data-i="' + i + '">حذف</a></div>'; }).join(''));
+        $$('#resumeSoftBox').html(resumeChildren.softwares.map(function (x, i) { return '<div>' + (x.otherSoftware || x.softwareId || '') + ' <a href="#" data-remove="softwares" data-i="' + i + '">حذف</a></div>'; }).join(''));
+        $$('#resumeSkillBox').html(resumeChildren.skills.map(function (x, i) { return '<div>' + (x.skillId || '') + ' <a href="#" data-remove="skills" data-i="' + i + '">حذف</a></div>'; }).join(''));
+        $$('#resumeWorkBox').html(resumeChildren.workExperiences.map(function (x, i) { return '<div>' + (x.companyName || '') + ' <a href="#" data-remove="workExperiences" data-i="' + i + '">حذف</a></div>'; }).join(''));
+    }
+
+    $$.get('Lookups', function (r) {
+        if (!r.isSuccess) return;
+        resumeLookups = r.data;
+        const edu = [{ id: 1, title: 'بیسواد' }, { id: 2, title: 'ابتدائی' }, { id: 3, title: 'سیکل' }, { id: 4, title: 'زیردیپلم' }, { id: 5, title: 'دیپلم' }, { id: 6, title: 'فوق دیپلم' }, { id: 7, title: 'لیسانس' }, { id: 8, title: 'فوق لیسانس' }, { id: 9, title: 'دکتری' }, { id: 10, title: 'فوق دکتری' }, { id: 11, title: 'دانشجوی (فوق دیپلم)' }, { id: 12, title: 'دانشجوی (لیسانس)' }, { id: 13, title: 'دانشجوی (فوق لیسانس)' }, { id: 14, title: 'دانشجوی (دکتری)' }];
+        fillSelect($$('#resumeEducation'), edu, resumeModel.education);
+        fillSelect($$('#resumeCourse'), r.data.courses, resumeModel.studyCourseId);
+        fillSelect($$('#resumeUniversity'), r.data.universities, resumeModel.universityId);
+        fillSelect($$('#resumePost'), r.data.posts, resumeModel.interestedPostId);
+        fillSelect($$('#resumeCity'), r.data.cities, resumeModel.cityId);
+        fillSelect($$('#resumeSource'), r.data.sources, resumeModel.incomingSourceId);
+        fillSelect($$('#resumePerson'), r.data.people, resumeModel.representingPersonelId);
+        fillSelect($$('#resumeRequest'), r.data.requests, resumeModel.staffRequestId);
+        fillSelect($$('#resumeJob'), r.data.jobs, resumeModel.suitableForJobId);
+        const trends = (r.data.trends || []).filter(function (x) { return !resumeModel.studyCourseId || x.studyCourseId == resumeModel.studyCourseId; });
+        fillSelect($$('#resumeTrend'), trends, resumeModel.trendOfStudyCourseId);
+        if (resumeModel.sex) $$('[data-bind="sex"]').val(String(resumeModel.sex));
+        if (resumeModel.organization) $$('[data-bind="organization"]').val(String(resumeModel.organization));
+        if (resumeModel.resumeStatus) $$('[data-bind="resumeStatus"]').val(String(resumeModel.resumeStatus));
+    });
+
+    page.$pageEl.on('click', '[data-action="addLang"]', function () {
+        const id = prompt('شناسه زبان');
+        if (!id) return;
+        resumeChildren.languages.push({ languageId: Number(id), knowledgeLevel: 48 });
+        renderChildren();
+    });
+    page.$pageEl.on('click', '[data-action="addSoft"]', function () {
+        const name = prompt('نام نرم‌افزار یا شناسه');
+        if (!name) return;
+        resumeChildren.softwares.push({ otherSoftware: name, knowledgeLevel: 48 });
+        renderChildren();
+    });
+    page.$pageEl.on('click', '[data-action="addSkill"]', function () {
+        const id = prompt('شناسه مهارت');
+        if (!id) return;
+        resumeChildren.skills.push({ skillId: Number(id) });
+        renderChildren();
+    });
+    page.$pageEl.on('click', '[data-action="addWork"]', function () {
+        const name = prompt('نام شرکت');
+        if (!name) return;
+        resumeChildren.workExperiences.push({ companyName: name });
+        renderChildren();
+    });
+    page.$pageEl.on('click', '[data-remove]', function (e) {
+        e.preventDefault();
+        const key = $(this).data('remove');
+        resumeChildren[key].splice(Number($(this).data('i')), 1);
+        renderChildren();
+    });
+    renderChildren();
+
+    function savefn($btnAction) {
+        if (validateError(page.$pageEl)) return;
+        const model = page.$pageEl.dataBind();
+        model.languages = resumeChildren.languages;
+        model.softwares = resumeChildren.softwares;
+        model.skills = resumeChildren.skills;
+        model.workExperiences = resumeChildren.workExperiences;
+        const $btn = $($btnAction.element).block();
+        $$.post(model.id ? 'update' : 'add', model, function (r) {
+            $btn.block(false);
+            if (!r.isSuccess) {
+                toastr.error(r.message, 'خطا');
+                return;
+            }
+            toastr.success('ذخیره سازی با موفقیت انجام شد');
+            if (r.data) page.$pageEl.dataBind(r.data);
+            $btnAction.baseaction();
+        });
+    }
+    self.FormActionButtons.save.onclick(function () { savefn(this); });
+    self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+    self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

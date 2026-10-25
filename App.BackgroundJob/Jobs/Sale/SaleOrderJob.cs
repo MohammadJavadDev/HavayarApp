@@ -7,13 +7,25 @@ using Entities.App.Sale;
 using Entities.App.Sale.Enums;
 using Entities.App.SLS;
 using Entities.Base;
+using Entities.Base.Sms;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
+using Services.Sms;
+using System.Data;
 
 namespace App.BackgroundJob.Jobs.Sale
 {
-	public class SaleOrderJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork, ApplicationDbContext appContext)
+	public class SaleOrderJob(RahkaranDbContext Rdb, IUnitOfWork unitOfWork, ApplicationDbContext appContext, ISmsService sms, ISmsRecipientResolver smsRecipients)
 	{
+		/// <summary>سفارش‌هایی که در این اجرا تازه «تایید شده» (۹۳) شده‌اند (HamkaranId)؛ پیامک ارسال سفارش بعد از همگام‌سازی اقلام ساخته می‌شود.</summary>
+		private readonly HashSet<long> _approvedHamkaranIds = [];
+
+		/// <summary>سفارش تازه‌واردشده با وضعیت تایید فقط تا این تعداد روز بعد از تاریخ سند پیامک می‌گیرد.</summary>
+		private const int ShippingSmsMaxOrderAgeDays = 2;
+
+		/// <summary>HTS GetSalesOrdersForSendSms: فقط سفارش‌های با تاریخ سند از این تاریخ به بعد.</summary>
+		private static readonly DateTime ShippingSmsMinVchDate = new(2025, 3, 21);
+
 		private const long DefaultBranchId = 10;
 		private const long MinFiscalYearRef = 102;
 		private const int BatchSize = 500;
@@ -30,6 +42,7 @@ namespace App.BackgroundJob.Jobs.Sale
 				await SyncHeadersAsync(jobLogger, cn);
 				await SyncDetailsAsync(jobLogger, cn);
 				await MarkDeletedOrdersAsync(jobLogger, cn);
+				await QueueShippingSmsAsync(jobLogger, cn);
 
 				try
 				{
@@ -41,6 +54,18 @@ namespace App.BackgroundJob.Jobs.Sale
 						$"همگام‌سازی HTS بعد از راهکاران ناموفق بود: {htsEx.Message}",
 						0,
 						cn);
+
+					try
+					{
+						await RemoveReplacedOrderDetailsAsync(jobLogger, cn);
+					}
+					catch (Exception cleanupEx)
+					{
+						await jobLogger?.LogWarningAsync(
+							$"حذف قلم‌های حذف‌شده از راهکاران ناموفق بود: {cleanupEx.Message}",
+							0,
+							cn);
+					}
 				}
 
 				await jobLogger?.LogInfoAsync("همگام‌سازی سفارشات فروش با موفقیت انجام شد", cn);
@@ -60,14 +85,21 @@ namespace App.BackgroundJob.Jobs.Sale
 				await jobLogger?.LogInfoAsync("شروع همگام‌سازی Order / OrderDetail / OrderDetailSerial از HTS", cn);
 				appContext.Database.SetCommandTimeout(0);
 
-				var orderRows = await appContext.Database.ExecuteSqlRawAsync(HtsStampOrderSql, cn);
-				await jobLogger?.LogInfoAsync($"HtsId سفارش: {orderRows} ردیف به‌روز شد", cn);
+				await ExecuteOnOpenAppConnectionAsync(async () =>
+				{
+					await appContext.Database.ExecuteSqlRawAsync(CreateActiveRahkaranOrderItemSql, cn);
 
-				var detailRows = await appContext.Database.ExecuteSqlRawAsync(HtsStampAndInsertDetailSql, cn);
-				await jobLogger?.LogInfoAsync($"HtsId / درج قلم: {detailRows} ردیف", cn);
+					var orderRows = await appContext.Database.ExecuteSqlRawAsync(HtsStampOrderSql, cn);
+					await jobLogger?.LogInfoAsync($"HtsId سفارش: {orderRows} ردیف به‌روز شد", cn);
 
-				var serialRows = await appContext.Database.ExecuteSqlRawAsync(HtsMergeSerialSql, cn);
-				await jobLogger?.LogInfoAsync($"سریال MERGE: {serialRows} ردیف", cn);
+					var detailRows = await appContext.Database.ExecuteSqlRawAsync(HtsStampAndInsertDetailSql, cn);
+					await jobLogger?.LogInfoAsync($"HtsId / درج قلم: {detailRows} ردیف", cn);
+
+					var serialRows = await appContext.Database.ExecuteSqlRawAsync(HtsMergeSerialSql, cn);
+					await jobLogger?.LogInfoAsync($"سریال MERGE: {serialRows} ردیف", cn);
+
+					await RemoveReplacedOrderDetailsCoreAsync(jobLogger, cn);
+				}, cn);
 
 				await jobLogger?.LogInfoAsync("همگام‌سازی سفارش و سریال از HTS انجام شد", cn);
 			}
@@ -159,12 +191,26 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 				$"Entity های مرتبط هدر بارگذاری شدند: {customerMap.Count} مشتری، {contractMap.Count} قرارداد، {branchIds.Count} شعبه",
 				cn);
 
+			// حلقه‌ی پایین فقط روی ردیف‌های راهکاران می‌چرخد و سفارش برنامه را با HamkaranId پیدا می‌کند؛
+			// پس فقط سفارش‌هایی که HamkaranId آن‌ها داخل بازه‌ی OrderID نتیجه‌ی راهکاران است می‌توانند match شوند.
+			// بارگذاری بقیه (سفارش‌های قدیمی خارج از بازه) نتیجه را تغییر نمی‌داد و فقط حافظه و زمان مصرف می‌کرد.
+			// اگر نتیجه‌ی راهکاران خالی باشد بازه تهی است (min > max) و چیزی match نمی‌شد.
+			var minRahkaranOrderId = rahkaranOrders.Count > 0 ? rahkaranOrders.Min(r => r.OrderID) : 0L;
+			var maxRahkaranOrderId = rahkaranOrders.Count > 0 ? rahkaranOrders.Max(r => r.OrderID) : -1L;
+
 			var appOrders = await unitOfWork.Repository<Order>()
 				.Table
-				.Where(x => x.HamkaranId.HasValue)
+				.Where(x => x.HamkaranId.HasValue
+					&& x.HamkaranId.Value >= minRahkaranOrderId
+					&& x.HamkaranId.Value <= maxRahkaranOrderId)
+				// HamkaranId در جدول تکراری دارد و پایین‌تر GroupBy(...).First() یکی را برمی‌دارد؛
+				// ترتیب Id (ترتیب ایندکس خوشه‌ای) باعث می‌شود همیشه همان ردیف قبلی انتخاب شود.
+				.OrderBy(x => x.Id)
 				.ToListAsync(cn);
 
-			await jobLogger?.LogInfoAsync($"تعداد {appOrders.Count} سفارش با HamkaranId در پایگاه داده برنامه موجود است", cn);
+			await jobLogger?.LogInfoAsync(
+				$"تعداد {appOrders.Count} سفارش با HamkaranId در بازه‌ی راهکاران ({minRahkaranOrderId} تا {maxRahkaranOrderId}) در پایگاه داده برنامه موجود است",
+				cn);
 
 			var appOrdersDict = appOrders
 				.GroupBy(x => x.HamkaranId!.Value)
@@ -224,12 +270,18 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 						IsActive = IsActiveEnum.Active
 					};
 					newOrders.Add(newOrder);
+
+					// سفارش تازه واردشده با وضعیت تایید: فقط اگر چند روز اخیر باشد (واردسازی اولیه سفارش‌های قدیمی پیامک نمی‌سازد).
+					if (status == SaleOrderStatusEnum.Approved
+						&& row.VchDateMiladi.HasValue && row.VchDateMiladi.Value >= DateTime.Today.AddDays(-ShippingSmsMaxOrderAgeDays))
+						_approvedHamkaranIds.Add(row.OrderID);
 					appOrdersDict[row.OrderID] = newOrder;
 					pendingChanges++;
 				}
 				else
 				{
 					var changed = false;
+					var previousStatus = existOrder.StatusEnum;
 					changed |= SetIfChanged(existOrder.OrderNumber, row.OrderNumber, v => existOrder.OrderNumber = v);
 					changed |= SetIfChanged(existOrder.Year, yearText, v => existOrder.Year = v);
 					changed |= SetIfChanged(existOrder.FiscalYearRef, row.FiscalYearRef, v => existOrder.FiscalYearRef = v);
@@ -237,6 +289,8 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 					changed |= SetIfChanged(existOrder.VchDateShamsiDate, Truncate(row.VchDateShamsi, 30), v => existOrder.VchDateShamsiDate = v);
 					changed |= SetIfChanged(existOrder.CustomerId, customerId, v => existOrder.CustomerId = v);
 					changed |= SetIfChanged(existOrder.StatusEnum, status, v => existOrder.StatusEnum = v);
+					if (status == SaleOrderStatusEnum.Approved && previousStatus != SaleOrderStatusEnum.Approved)
+						_approvedHamkaranIds.Add(row.OrderID);
 					changed |= SetIfChanged(existOrder.VoucherTypeStatus, voucherType, v => existOrder.VoucherTypeStatus = v);
 					changed |= SetIfChanged(existOrder.BranchId, branchId, v => existOrder.BranchId = v);
 					changed |= SetIfChanged(existOrder.ContractId, contractId, v => existOrder.ContractId = v);
@@ -288,6 +342,65 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 			await jobLogger?.LogInfoAsync(
 				$"همگام‌سازی هدر سفارشات تمام شد. به‌روزرسانی‌شده: {updatedCount}، ردشده: {skippedCount}",
 				cn);
+		}
+
+		/// <summary>
+		/// معادل HTS (Gnr_SmsBucketList نوع 2710 + SendFromGnrSmsBucketListForCompressorAndCustomerData):
+		/// سفارش تایید شده (۹۳) که قلمی با کد کالای 1801* (کمپرسور) دارد، یک‌بار پیامک «سفارش شما بزودی ارسال می‌شود» می‌گیرد.
+		/// یکتایی روی (رویداد، Order، شناسه سفارش) در system.SmsMessage است. خطا نباید همگام‌سازی را خراب کند.
+		/// </summary>
+		private async Task QueueShippingSmsAsync(IJobLogger? jobLogger, CancellationToken cn)
+		{
+			if (_approvedHamkaranIds.Count == 0)
+				return;
+
+			try
+			{
+				var ids = _approvedHamkaranIds.ToList();
+				_approvedHamkaranIds.Clear();
+
+				var candidates = await unitOfWork.Repository<OrderDetail>().TableNoTracking
+					.Where(d => d.Sale_Order.HamkaranId != null
+						&& ids.Contains(d.Sale_Order.HamkaranId.Value)
+						&& d.Sale_Order.StatusEnum == SaleOrderStatusEnum.Approved
+						&& d.Sale_Order.VchDateMiladiDate >= ShippingSmsMinVchDate
+						&& d.Part != null && d.Part.Code != null && d.Part.Code.StartsWith("1801"))
+					.Select(d => new
+					{
+						OrderId = d.Sale_Order.Id,
+						CustomerTitle = d.Sale_Order.Customer.Party != null ? d.Sale_Order.Customer.Party.FullName : null,
+						Mobile = d.Sale_Order.Customer.Party != null ? d.Sale_Order.Customer.Party.Mobile : null
+					})
+					.Distinct()
+					.ToListAsync(cn);
+
+				var queued = 0;
+				foreach (var item in candidates)
+				{
+					if (item.OrderId is null or 0)
+						continue;
+
+					if (await sms.ExistsAsync(SmsEventKeys.SaleOrderShipping, nameof(Order), item.OrderId.Value, cn))
+						continue;
+
+					// معادل HTS: ISNULL(CustomerAgentPhone, موبایل شرکت). اول نماینده مشتری، وگرنه موبایل مشتری.
+					var agentMobile = await smsRecipients.GetCustomerAgentMobileAsync(item.OrderId, cn);
+					var mobile = !string.IsNullOrWhiteSpace(agentMobile) ? agentMobile : item.Mobile;
+					if (string.IsNullOrWhiteSpace(mobile))
+						continue;
+
+					if (await sms.TryEnqueueAsync(SmsEventKeys.SaleOrderShipping, mobile,
+						SmsTemplates.OrderShipping(item.CustomerTitle), nameof(Order), item.OrderId, ct: cn))
+						queued++;
+				}
+
+				if (queued > 0)
+					await jobLogger?.LogInfoAsync($"پیامک ارسال سفارش برای {queued} سفارش کمپرسور در صف قرار گرفت", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogWarningAsync($"ثبت پیامک ارسال سفارش ناموفق بود: {ex.Message}", 0, cn);
+			}
 		}
 
 		private async Task SyncDetailsAsync(IJobLogger? jobLogger, CancellationToken cn)
@@ -382,12 +495,23 @@ WHERE [Order].FiscalYearRef >= {MinFiscalYearRef}
 				$"Entity های مرتبط اقلام بارگذاری شدند: {orderIdByHamkaranId.Count} سفارش، {partMap.Count} کالا، {unitMap.Count} واحد",
 				cn);
 
+			// مثل هدر: فقط اقلامی که HamkaranId آن‌ها داخل بازه‌ی OrderItemID نتیجه‌ی راهکاران است می‌توانند match شوند.
+			// اگر نتیجه‌ی راهکاران خالی باشد بازه تهی است (min > max) و چیزی match نمی‌شد.
+			var minRahkaranItemId = rahkaranDetails.Count > 0 ? rahkaranDetails.Min(r => r.OrderItemID) : 0L;
+			var maxRahkaranItemId = rahkaranDetails.Count > 0 ? rahkaranDetails.Max(r => r.OrderItemID) : -1L;
+
 			var appDetails = await unitOfWork.Repository<OrderDetail>()
 				.Table
-				.Where(x => x.HamkaranId.HasValue)
+				.Where(x => x.HamkaranId.HasValue
+					&& x.HamkaranId.Value >= minRahkaranItemId
+					&& x.HamkaranId.Value <= maxRahkaranItemId)
+				// مثل هدر: HamkaranId تکراری دارد؛ ترتیب Id انتخاب GroupBy(...).First() را ثابت نگه می‌دارد.
+				.OrderBy(x => x.Id)
 				.ToListAsync(cn);
 
-			await jobLogger?.LogInfoAsync($"تعداد {appDetails.Count} قلم سفارش با HamkaranId در پایگاه داده برنامه موجود است", cn);
+			await jobLogger?.LogInfoAsync(
+				$"تعداد {appDetails.Count} قلم سفارش با HamkaranId در بازه‌ی راهکاران ({minRahkaranItemId} تا {maxRahkaranItemId}) در پایگاه داده برنامه موجود است",
+				cn);
 
 			var appDetailsDict = appDetails
 				.GroupBy(x => x.HamkaranId!.Value)
@@ -599,6 +723,54 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 				cn);
 		}
 
+		/// <summary>
+		/// معادل DELETE در Import_All_Sale_OrderDetail سیستم HTS:
+		/// قلمی که HamkaranId آن دیگر در SLS3.OrderItem نیست، از سال مالی ۱۰۲ به بعد حذف می‌شود.
+		/// </summary>
+		private async Task RemoveReplacedOrderDetailsAsync(IJobLogger? jobLogger, CancellationToken cn)
+		{
+			appContext.Database.SetCommandTimeout(0);
+			await ExecuteOnOpenAppConnectionAsync(async () =>
+			{
+				await appContext.Database.ExecuteSqlRawAsync(CreateActiveRahkaranOrderItemSql, cn);
+				await RemoveReplacedOrderDetailsCoreAsync(jobLogger, cn);
+			}, cn);
+		}
+
+		private async Task RemoveReplacedOrderDetailsCoreAsync(IJobLogger? jobLogger, CancellationToken cn)
+		{
+			var deleted = await appContext.Database.ExecuteSqlRawAsync(DeleteReplacedOrderDetailSql, cn);
+			var skipped = await appContext.Database
+				.SqlQueryRaw<int>(CountSkippedReplacedOrderDetailSql)
+				.SingleAsync(cn);
+
+			await jobLogger?.LogInfoAsync(
+				$"حذف قلم‌های حذف‌شده از راهکاران: {deleted} قلم حذف شد، {skipped} قلم به‌خاطر اتصال سریال یا خدمات فروش باقی ماند",
+				cn);
+		}
+
+		private async Task ExecuteOnOpenAppConnectionAsync(Func<Task> action, CancellationToken cn)
+		{
+			var connection = appContext.Database.GetDbConnection();
+			var openedHere = connection.State != ConnectionState.Open;
+			if (openedHere)
+			{
+				await connection.OpenAsync(cn);
+			}
+
+			try
+			{
+				await action();
+			}
+			finally
+			{
+				if (openedHere)
+				{
+					await connection.CloseAsync();
+				}
+			}
+		}
+
 		private static bool IsInSyncScope(Order order)
 		{
 			if (order.FiscalYearRef.HasValue)
@@ -700,6 +872,50 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 			return value[..maxLength];
 		}
 
+		private const string CreateActiveRahkaranOrderItemSql = """
+			IF OBJECT_ID('tempdb..#ActiveRahkaranOrderItem') IS NOT NULL DROP TABLE #ActiveRahkaranOrderItem;
+			SELECT oi.OrderItemID AS Id
+			INTO #ActiveRahkaranOrderItem
+			FROM ERPS.Erps.SLS3.OrderItem AS oi;
+			CREATE UNIQUE CLUSTERED INDEX IX_ActiveRahkaranOrderItem ON #ActiveRahkaranOrderItem(Id);
+			""";
+
+		private static readonly string DeleteReplacedOrderDetailSql = $"""
+			DELETE d
+			FROM Sale.OrderDetail AS d
+			INNER JOIN Sale.[Order] AS o ON o.Id = d.Sale_OrderId
+			WHERE d.HamkaranId IS NOT NULL
+			  AND (
+			        (o.FiscalYearRef IS NOT NULL AND o.FiscalYearRef >= {MinFiscalYearRef})
+			        OR (o.FiscalYearRef IS NULL AND TRY_CAST(o.[Year] AS bigint) >= {MinFiscalYearRef})
+			      )
+			  AND NOT EXISTS (SELECT 1 FROM #ActiveRahkaranOrderItem AS a WHERE a.Id = d.HamkaranId)
+			  AND NOT EXISTS (SELECT 1 FROM Sale.OrderDetailSerial AS s WHERE s.OrderDetailId = d.Id)
+			  AND NOT EXISTS (SELECT 1 FROM Sale.ServiceRequestDetail AS s WHERE s.OrderDetailId = d.Id)
+			  AND NOT EXISTS (SELECT 1 FROM Sale.ServiceRequestPart AS s WHERE s.OrderDetailId = d.Id)
+			  AND NOT EXISTS (SELECT 1 FROM Sale.OrderDetailProduct AS s WHERE s.OrderDetailId = d.Id OR s.ProductOrderDetailId = d.Id)
+			  AND NOT EXISTS (SELECT 1 FROM Crm.CustomerSatisfactionSurvey AS s WHERE s.SaleOrderDetailId = d.Id);
+			""";
+
+		private static readonly string CountSkippedReplacedOrderDetailSql = $"""
+			SELECT CAST(COUNT(*) AS int) AS Value
+			FROM Sale.OrderDetail AS d
+			INNER JOIN Sale.[Order] AS o ON o.Id = d.Sale_OrderId
+			WHERE d.HamkaranId IS NOT NULL
+			  AND (
+			        (o.FiscalYearRef IS NOT NULL AND o.FiscalYearRef >= {MinFiscalYearRef})
+			        OR (o.FiscalYearRef IS NULL AND TRY_CAST(o.[Year] AS bigint) >= {MinFiscalYearRef})
+			      )
+			  AND NOT EXISTS (SELECT 1 FROM #ActiveRahkaranOrderItem AS a WHERE a.Id = d.HamkaranId)
+			  AND (
+			        EXISTS (SELECT 1 FROM Sale.OrderDetailSerial AS s WHERE s.OrderDetailId = d.Id)
+			        OR EXISTS (SELECT 1 FROM Sale.ServiceRequestDetail AS s WHERE s.OrderDetailId = d.Id)
+			        OR EXISTS (SELECT 1 FROM Sale.ServiceRequestPart AS s WHERE s.OrderDetailId = d.Id)
+			        OR EXISTS (SELECT 1 FROM Sale.OrderDetailProduct AS s WHERE s.OrderDetailId = d.Id OR s.ProductOrderDetailId = d.Id)
+			        OR EXISTS (SELECT 1 FROM Crm.CustomerSatisfactionSurvey AS s WHERE s.SaleOrderDetailId = d.Id)
+			      )
+			""";
+
 		private const string HtsStampOrderSql = """
 			;WITH h AS (
 				SELECT
@@ -800,7 +1016,12 @@ WHERE OrderHeader.FiscalYearRef >= {MinFiscalYearRef}
 			) h
 			INNER JOIN Sale.[Order] o ON o.HtsId = h.OrderHtsId AND o.HtsId <> 0
 			LEFT JOIN Inv.Part p ON p.HtsId = h.PartHtsId AND p.HtsId <> 0
-			WHERE NOT EXISTS (SELECT 1 FROM Sale.OrderDetail d WHERE d.HtsId = h.HtsId AND d.HtsId <> 0);
+			WHERE NOT EXISTS (SELECT 1 FROM Sale.OrderDetail d WHERE d.HtsId = h.HtsId AND d.HtsId <> 0)
+			  AND EXISTS (
+			      SELECT 1
+			      FROM #ActiveRahkaranOrderItem AS a
+			      WHERE a.Id = CAST(h.HamkaranId AS BIGINT)
+			  );
 			""";
 
 		private const string HtsMergeSerialSql = """

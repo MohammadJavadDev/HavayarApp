@@ -2,6 +2,7 @@ using Common.Utilities;
 using Data.Contracts;
 using Entities.App.Edms;
 using Entities.App.Sup;
+using Entities.Auth;
 using Entities.Base.Enums;
 using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
@@ -97,70 +98,139 @@ public static class OpenOrderRequestVpisRevisionHelper
 				CommentValue = "تغییر Revision مدارک VPIS - نیاز به تایید مجدد واحد فروش/پروژه"
 			}, cancellationToken, saveAudit: false, saveNow: true, InvokeAction: false);
 
-			await AddRevisionNotificationsAsync(unitOfWork, request, group.ToList(), cancellationToken);
 			await unitOfWork.SaveChangesAsync(cancellationToken);
 		}
+
+		await AddRevisionNotificationsAsync(unitOfWork, changed, latestByVpis, cancellationToken);
+		await unitOfWork.SaveChangesAsync(cancellationToken);
 
 		return changed.Count;
 	}
 
+	/// <summary>
+	/// HTS: یک ایمیل برای همهٔ درخواست‌های همان VPIS.
+	/// گیرنده: کارشناس فروش، مدیر فروش، مدیر پروژه. رونوشت: متولی خرید.
+	/// </summary>
 	private static async Task AddRevisionNotificationsAsync(
 		IUnitOfWork unitOfWork,
-		OpenOrderRequest openOrderRequest,
-		List<OpenOrderRequestVpis> changedVpis,
+		List<OpenOrderRequestVpis> changed,
+		Dictionary<long, Document> latestByVpis,
 		CancellationToken cancellationToken)
 	{
-		var recipientUserIds = new List<long>();
-		if (openOrderRequest.SalesUnitSalesExpertId.HasValue)
-			recipientUserIds.Add(openOrderRequest.SalesUnitSalesExpertId.Value);
-		if (openOrderRequest.SalesUnitSalesManagerId.HasValue)
-			recipientUserIds.Add(openOrderRequest.SalesUnitSalesManagerId.Value);
-		if (openOrderRequest.SalesUnitProjectManagerId.HasValue)
-			recipientUserIds.Add(openOrderRequest.SalesUnitProjectManagerId.Value);
+		var requestIds = changed.Select(v => v.OpenOrderRequestId).Distinct().ToList();
+		var requests = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+			.Include(o => o.SalesUnitSalesExpert)
+			.Include(o => o.SalesUnitSalesManager)
+			.Include(o => o.SalesUnitProjectManager)
+			.Include(o => o.Part)
+				.ThenInclude(p => p.BuyCategory)
+					.ThenInclude(b => b!.PurchaseResponsible)
+			.Where(o => requestIds.Contains(o.Id!.Value))
+			.ToListAsync(cancellationToken);
+		var requestById = requests.ToDictionary(r => r.Id!.Value);
 
-		if (recipientUserIds.Count == 0)
-			return;
+		var vpisIds = changed.Select(v => v.ProjectVpisId).Distinct().ToList();
+		var vpisRows = await unitOfWork.Repository<ProjectVpis>().TableNoTracking
+			.Where(v => vpisIds.Contains(v.Id!.Value))
+			.Select(v => new { v.Id, v.Code, v.ProjectNameId })
+			.ToListAsync(cancellationToken);
+		var vpisById = vpisRows.ToDictionary(v => v.Id!.Value);
 
-		var firstVpis = changedVpis.FirstOrDefault();
-		var project = firstVpis?.Project;
-		var projectName = project?.ProjectName ?? "نامشخص";
-		var projectCode = project?.Code ?? "-";
+		var projectIds = changed.Select(v => v.ProjectId).Distinct().ToList();
+		var projects = await unitOfWork.Repository<Project>().TableNoTracking
+			.Where(p => projectIds.Contains(p.Id!.Value))
+			.Select(p => new { p.Id, p.Code, p.ProjectName })
+			.ToListAsync(cancellationToken);
+		var projectById = projects.ToDictionary(p => p.Id!.Value);
 
-		const string title = "تغییر Revision مدرک مهندسی - نیاز به تایید مجدد";
-		var body = $@"
-                    <div style='text-align:center;direction:rtl'>
-                        <table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>
-                            <tr style='background: #000aa0'>
-                                <td><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td>
-                            </tr>
-                            <tr><td>
-                                <div style='font-size:12pt;text-align:right;direction:rtl'>
-                                    <p>با سلام و احترام</p>
-                                    <p>رویژن جدیدی از مدارک پروژه در سامانه بارگذاری گردید. لذا خواهشمند است نسبت به بررسی مجدد درخواست های باز اقدام فرمایید.</p>
-                                    <ul>
-                                        <li>کد پروژه: <strong>{projectCode}</strong></li>
-                                        <li>عنوان پروژه: <strong>{projectName}</strong></li>
-                                        <li>شماره درخواست خرید: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-                                        <li>شماره سفارش خرید: <strong>{openOrderRequest.OrderNo}</strong></li>
-                                    </ul>
-                                </div>
-                            </td></tr>
-                        </table>
-                    </div>
-                ";
-
-		foreach (var userId in recipientUserIds.Distinct())
+		foreach (var vpisGroup in changed.GroupBy(v => v.ProjectVpisId))
 		{
+			var links = vpisGroup.ToList();
+			var related = links
+				.Select(v => requestById.GetValueOrDefault(v.OpenOrderRequestId))
+				.Where(r => r != null)
+				.ToList();
+			if (related.Count == 0)
+				continue;
+
+			var to = new List<string>();
+			foreach (var request in related)
+			{
+				AddUserEmail(to, request!.SalesUnitSalesExpert);
+				AddUserEmail(to, request.SalesUnitSalesManager);
+				AddUserEmail(to, request.SalesUnitProjectManager);
+			}
+
+			var cc = new List<string>();
+			foreach (var request in related)
+			{
+				var buyer = request!.Part?.BuyCategory?.PurchaseResponsible;
+				AddEmail(cc, buyer?.Email.HasValue() == true ? buyer.Email : buyer?.Username);
+			}
+			cc.RemoveAll(c => to.Any(t => string.Equals(t, c, StringComparison.OrdinalIgnoreCase)));
+
+			if (to.Count == 0)
+				continue;
+
+			projectById.TryGetValue(links[0].ProjectId, out var project);
+			vpisById.TryGetValue(vpisGroup.Key, out var vpis);
+			latestByVpis.TryGetValue(vpisGroup.Key, out var document);
+
+			var requestNumbers = string.Join(" | ", related.Select(r => r!.PurchaseRequestNumber.ToString()).Distinct());
+			var orderNumbers = string.Join(" | ", related.Select(r => r!.OrderNo?.ToString()).Where(n => n.HasValue()).Distinct());
+			var documentNumber = vpis?.Code ?? document?.Id?.ToString() ?? "-";
+
+			var body = $@"
+<div style='text-align:center;direction:rtl'>
+<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>
+<tr style='background: #000aa0'><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td></tr>
+<tr><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#1F497D;text-align:right;direction:rtl'>
+با سلام و احترام <br />
+بدینوسیله اعلام میگردد رویژن جدیدی از مدرکی با مشخصات ذیل در سامانه بارگذاری گردید، لذا خواهمشند است نسبت به بررسی درخواست های باز آن مساعدت فرمایید
+<br /><br />
+<ul>
+<li>کد پروژه : <strong>{project?.Code}</strong></li>
+<li>عنوان پروژه : <strong>{project?.ProjectName}</strong></li>
+<li>شماره مدرک : <strong>{documentNumber}</strong></li>
+<li>شماره درخواست های خرید : <strong>{requestNumbers}</strong></li>
+<li>شماره سفارش های خرید : <strong>{orderNumbers}</strong></li>
+</ul>
+</div></td></tr>
+</table>
+</div>";
+
 			await unitOfWork.Repository<Notification>().AddAsync(new Notification
 			{
 				Type = NotificationType.Email,
-				Title = title,
+				Title = "اعلان افزایش رویژن مدرک مهندسی",
 				Body = body,
-				EntityId = openOrderRequest.Id,
-				OwnerId = userId,
-				ViewPath = $"Panel/Sup/OpenOrderRequest/Edit/{openOrderRequest.Id}",
-				IsRead = false
+				EntityId = related[0]!.Id,
+				OwnerId = related[0]!.SalesUnitSalesExpertId ?? 1,
+				ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={related[0]!.Id}",
+				IsRead = false,
+				IsSend = false,
+				ToEmails = to,
+				CcEmails = cc.Count == 0 ? null : cc
 			}, cancellationToken, saveAudit: false, saveNow: false, InvokeAction: false);
 		}
+	}
+
+	private static void AddUserEmail(List<string> target, User? user)
+	{
+		if (user == null)
+			return;
+		AddEmail(target, user.Email.HasValue() ? user.Email : user.Username);
+	}
+
+	private static void AddEmail(List<string> target, string? value)
+	{
+		if (string.IsNullOrWhiteSpace(value))
+			return;
+		var email = value.Trim();
+		if (!email.Contains('@'))
+			email += "@havayar.com";
+		if (target.Any(e => string.Equals(e, email, StringComparison.OrdinalIgnoreCase)))
+			return;
+		target.Add(email);
 	}
 }

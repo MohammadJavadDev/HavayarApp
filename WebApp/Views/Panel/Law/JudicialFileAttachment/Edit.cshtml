@@ -1,0 +1,18 @@
+@using Entities.App.Law
+@using Entities.App.Law.Enums
+@model JudicialFileAttachment
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="judicialFileId" value="@Model?.JudicialFileId" />
+	<div class="col-md-12 form-group-inline">
+		<fileuploader bind="fileId" file-id="@Model?.FileId" file-entity="@Model?.File"
+					  label="فایل" entity-type="@typeof(JudicialFileAttachment).FullName" entity-prop-name="File"
+					  max-file-size="20" accepted-file-types=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.zip,.rar"></fileuploader>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold">توضیحات</label>
+		<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3" maxlength="4000"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

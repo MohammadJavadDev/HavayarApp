@@ -20,6 +20,10 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(KeyParticipant keyParticipant, CancellationToken cn)
 		{
+			var error = TrainingContactRules.RequireContact(keyParticipant.Position, keyParticipant.DirectPhoneNumber, keyParticipant.MobileNumber);
+			if (error != null)
+				return BadRequest(error);
+
 			if (keyParticipant.Id == null || keyParticipant.Id == 0)
 			{
 				return await Add(keyParticipant, cn);
@@ -116,8 +120,14 @@ namespace WebApp.Controllers.Dynamic
 					FirstName = c.FirstName,
 					LastName = c.LastName,
 					Position = c.Position,
-					Mobile = c.Mobile,
-					Email = c.Email
+					DirectPhoneNumber = c.DirectPhoneNumber,
+					PhoneNumber = c.PhoneNumber,
+					MobileNumber = c.MobileNumber,
+					FaxNumber = c.FaxNumber,
+					ConfirmedFaxNumber = c.ConfirmedFaxNumber,
+					Email = c.Email,
+					CreatedByName = c.CreatedByName,
+					CreatedOnShamsiDateTime = c.CreatedOnShamsiDateTime
 				})
 				.ToListAsync(cn);
 
@@ -145,7 +155,27 @@ namespace WebApp.Controllers.Dynamic
 		public string? FirstName { get; set; }
 		public string? LastName { get; set; }
 		public string? Position { get; set; }
-		public string? Mobile { get; set; }
+		public string? DirectPhoneNumber { get; set; }
+		public string? PhoneNumber { get; set; }
+		public string? MobileNumber { get; set; }
+		public string? FaxNumber { get; set; }
+		public string? ConfirmedFaxNumber { get; set; }
 		public string? Email { get; set; }
+		public string? CreatedByName { get; set; }
+		public string? CreatedOnShamsiDateTime { get; set; }
+	}
+
+	internal static class TrainingContactRules
+	{
+		public static string? RequireContact(string? position, string? directPhone, string? mobile)
+		{
+			if (string.IsNullOrWhiteSpace(position))
+				return "(سمت) نمیتواند خالی باشد";
+			if (string.IsNullOrWhiteSpace(directPhone))
+				return "(تلفن مستقیم) نمیتواند خالی باشد";
+			if (string.IsNullOrWhiteSpace(mobile))
+				return "(شماره موبایل) نمیتواند خالی باشد";
+			return null;
+		}
 	}
 }

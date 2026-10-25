@@ -1,11 +1,14 @@
 using Common.System;
 using Data;
 using Data.Contracts;
+using Data.Logging;
 using Data.Repositories;
 using Data.Services;
 using Data.Services.Edms;
 using Data.Services.Eng.CompressorSizing;
 using Data.Services.Eng.FilterWaterTrap;
+using Data.Services.Eng.N2GeneratorSizing;
+using Data.Services.Dashboard;
 using Data.Services.Pln;
 using Data.Services.Trn;
 using Data.Services.QueryBuilderServices;
@@ -15,6 +18,7 @@ using Entities.Services;
 using Infrastructure.CrudEventInterceptors;
 using Infrastructure.Messaging;
 using Services.Cng;
+using Services.Rpr;
 using Infrastructure.NotificationServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -42,6 +46,7 @@ using Data.Actions;
 using Shared.Realtime.Options;
 using System.IO.Compression;
 using System.Text;
+using WebApp.Framework.ViewAs;
 using WebApp.Services;
 using WebApp.Services.Realtime;
 using WebFramework.Abstractions;
@@ -54,6 +59,23 @@ using Z.EntityFramework.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Dropzone/DisplayInfo default is 100 MB.
+// Kestrel (dotnet run / out-of-process) and IIS in-process both default to 30,000,000 bytes.
+// IIS requestFiltering is separate and lives in web.config (maxAllowedContentLength); keep that value in sync.
+const long maxUploadRequestBytes = 110L * 1024 * 1024;
+builder.WebHost.ConfigureKestrel(options =>
+{
+	options.Limits.MaxRequestBodySize = maxUploadRequestBytes;
+});
+builder.Services.Configure<IISServerOptions>(options =>
+{
+	options.MaxRequestBodySize = maxUploadRequestBytes;
+});
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+	options.MultipartBodyLengthLimit = maxUploadRequestBytes;
+});
  
  
 builder.Services.AddControllersWithViews()
@@ -99,6 +121,7 @@ builder.Services.AddScoped(typeof(IUnitOfWork), typeof(UnitOfWork));
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped(typeof(IEntityRepository), typeof(EntityRepository));
 builder.Services.AddScoped<ICngRepairsUsedPartImporter, CngRepairsUsedPartImporter>();
+builder.Services.AddScoped<IRepairRequestPartImporter, RepairRequestPartImporter>();
 
 builder.Services.AddEntityActions(
 	typeof(Program).Assembly
@@ -125,6 +148,7 @@ builder.Services.AddSingleton<IAccessMemoryStorage, AccessMemoryStorage>();
 
 // Redis-backed caches
 builder.Services.AddSingleton<IRoleMemoryStorage, RedisRoleMemoryStorage>();
+builder.Services.AddSingleton<IAccessDecisionCache, AccessDecisionCache>();
 
 builder.Services.AddSingleton<IEntityMetadataCache, RedisEntityMetadataCache>();
 builder.Services.AddSingleton<EntityMetadataCache>();
@@ -132,7 +156,11 @@ builder.Services.AddSingleton<IMenuBuilderService, MenuBuilderService>();
 builder.Services.AddSingleton<IDataTableProfileService, DataTableProfileService>();
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IExceptionLogWriter, ExceptionLogWriter>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<Services.Settings.IGeneralSettingService, Services.Settings.GeneralSettingService>();
+builder.Services.AddScoped<Services.Sms.ISmsService, Services.Sms.SmsService>();
+builder.Services.AddScoped<Services.Sms.ISmsRecipientResolver, Services.Sms.SmsRecipientResolver>();
 builder.Services.AddScoped<ISdk, Sdk>();
 builder.Services.AddScoped<IFormBuilderCodeGenerator,FormBuilderCodeGenerator>();
 builder.Services.AddScoped<IFormBuilderSchemaService, FormBuilderSchemaService>();
@@ -185,6 +213,7 @@ builder.Services.AddTransient<FileUploaderTagHelper>();
 builder.Services.AddScoped<IEntitySelectorService, EntitySelectorService>();
 builder.Services.AddDataProtection();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ViewAsSessionStore>();
 builder.Services.AddSingleton<PayloadProtector>();
 builder.Services.AddSingleton<SqlCacheStore>(); // The Bridge
 builder.Services.AddScoped<IUserService, UserService>();
@@ -223,6 +252,12 @@ builder.Services.AddScoped<IEdmsMdrReportService, EdmsMdrReportService>();
 // گزارش انحراف از تحویل به‌موقع سفارش ساخت
 builder.Services.AddScoped<ITimelyDeliveryReportService, TimelyDeliveryReportService>();
 builder.Services.AddScoped<ICourseStatisticalReportService, CourseStatisticalReportService>();
+builder.Services.AddScoped<IBoardPulseDashboardService, BoardPulseDashboardService>();
+builder.Services.AddScoped<IOpenOrderDashboardService, OpenOrderDashboardService>();
+builder.Services.AddScoped<IEdmsDocumentDashboardService, EdmsDocumentDashboardService>();
+builder.Services.AddScoped<ISaleProductionDashboardService, SaleProductionDashboardService>();
+builder.Services.AddScoped<Services.ProductionOrderServices.IProductionOrderItemBomService, Services.ProductionOrderServices.ProductionOrderItemBomService>();
+builder.Services.AddScoped<IAfterSalesExecutiveDashboardService, AfterSalesExecutiveDashboardService>();
 
 builder.Services.AddSingleton<ICompressorSizingService>(sp =>
 {
@@ -280,6 +315,37 @@ builder.Services.AddSingleton<IFilterWaterTrapService>(sp =>
 
 	directories.Add(@"E:\Uploads\SizingExcels");
 	return new FilterWaterTrapService(directories);
+});
+
+builder.Services.AddSingleton<IN2GeneratorSizingService>(sp =>
+{
+	var env = sp.GetRequiredService<IWebHostEnvironment>();
+	var config = sp.GetRequiredService<IConfiguration>();
+	var directories = new List<string>();
+
+	var configured = config["N2GeneratorSizing:DataDirectory"]
+		?? config["FilterWaterTrap:DataDirectory"]
+		?? config["CompressorSizing:DataDirectory"];
+	if (!string.IsNullOrWhiteSpace(configured))
+	{
+		directories.Add(Path.IsPathRooted(configured)
+			? configured
+			: Path.Combine(env.ContentRootPath, configured));
+	}
+
+	directories.Add(Path.Combine(env.ContentRootPath, "App_Data", "SizingExcels"));
+	if (!string.IsNullOrWhiteSpace(env.WebRootPath))
+		directories.Add(Path.Combine(env.WebRootPath, "SizingExcels"));
+
+	var uploads = config["Storage:UploadsPath"];
+	if (!string.IsNullOrWhiteSpace(uploads))
+	{
+		var uploadsFull = Path.IsPathRooted(uploads) ? uploads : Path.Combine(env.ContentRootPath, uploads);
+		directories.Add(Path.Combine(uploadsFull, "SizingExcels"));
+	}
+
+	directories.Add(@"E:\Uploads\SizingExcels");
+	return new N2GeneratorSizingService(directories);
 });
 
 // سرویس جایگزینی پارامترها
@@ -380,10 +446,21 @@ app.UseStaticFiles(new StaticFileOptions
 {
 	OnPrepareResponse = ctx =>
 	{
-		var file = ctx.File;
 		var headers = ctx.Context.Response.Headers;
-           
-		headers.CacheControl = "public,max-age=31536000";
+		var path = ctx.Context.Request.Path.Value ?? "";
+		var devSource = path.StartsWith("/js/", StringComparison.OrdinalIgnoreCase)
+			|| path.StartsWith("/css/", StringComparison.OrdinalIgnoreCase);
+
+		if (devSource)
+		{
+			headers.CacheControl = "no-cache, no-store, must-revalidate";
+			headers.Pragma = "no-cache";
+			headers.Expires = "0";
+		}
+		else
+		{
+			headers.CacheControl = "public,max-age=31536000";
+		}
 	}
 });
 
@@ -393,26 +470,19 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 
-app.Use(async (context, next) =>
-{
-    if (context.Request.Cookies.TryGetValue("JwtToken", out var token))
-    {
-        context.Request.Headers["Authorization"] = $"Bearer {token}";
-    }
-    await next();
-});
+app.UseMiddleware<ViewAsMiddleware>();
 
 app.UseStatusCodePages(context =>
 {
     if (context.HttpContext.Response.StatusCode == 403)
     {
-        context.HttpContext.Response.Redirect("/Authenticate/Forbidden");
+        context.HttpContext.Response.Redirect(ViewAsSessionStore.KeepOnUrl(context.HttpContext, "/Authenticate/Forbidden"));
     }
 
 
     if (context.HttpContext.Response.StatusCode == 401)
     {
-        context.HttpContext.Response.Redirect("/Authenticate/Login");
+        context.HttpContext.Response.Redirect(ViewAsSessionStore.KeepOnUrl(context.HttpContext, "/Authenticate/Login"));
     }
 
     if (context.HttpContext.Response.StatusCode == 404)
@@ -433,7 +503,7 @@ app.UseStatusCodePages(context =>
 
 		if (!isStatic)
 		{
-			context.HttpContext.Response.Redirect("/Panel/NotFounded");
+			context.HttpContext.Response.Redirect(ViewAsSessionStore.KeepOnUrl(context.HttpContext, "/Panel/NotFounded"));
 		}
 	}
     return Task.CompletedTask;

@@ -1,4 +1,4 @@
-﻿using Common.Attributes;
+using Common.Attributes;
 using Data;
 using Entities.Base.Job;
 using Microsoft.EntityFrameworkCore;
@@ -18,14 +18,46 @@ namespace Services.Job
 			"App.BackgroundJob.Jobs.Bom.ProductPriceSnapshotJob.CaptureDailyProductPriceSnapshot";
 		private const string CustomerAddressAgencyDlJobId =
 			"App.BackgroundJob.Jobs.Sls.CustomerAddressJob.FillEmptyAgencyDlFromRahkaranRegion";
+		private const string CustomerAddressFromRahkaranJobId =
+			"App.BackgroundJob.Jobs.Sls.CustomerAddressJob.AddCustomerAddressFromRahkaran";
 		private const string AgencyPartCardexJobId =
 			"App.BackgroundJob.Jobs.Sale.AgencyPartCardexJob.AddNewItemsByCheckSaleOrders";
+		private const string InvSystemTasksJobId =
+			"App.BackgroundJob.Jobs.Inv.PartCardexJob.RunInvSystemTasks";
 		private const string CngRepairsUsedPartImportJobId =
 			"App.BackgroundJob.Jobs.Cng.CngRepairsUsedPartImportJob.ImportFromRahkaran";
+		private const string RepairRequestPartImportJobId =
+			"App.BackgroundJob.Jobs.Rpr.RepairRequestPartImportJob.ImportFromRahkaran";
 		private const string CngMaintenanceContractExpireJobId =
 			"App.BackgroundJob.Jobs.Cng.CngMaintenanceContractExpireJob.CheckExpiredItems";
 		private const string DabirkhanehEmailJobId =
 			"App.BackgroundJob.Jobs.Sec.DabirkhanehEmailJob.SendBirthAndEmploymentEmails";
+		private const string JobLogCleanupJobId =
+			"App.BackgroundJob.Jobs.System.JobLogCleanupJob.PurgeOldJobLogs";
+		private const string DollarExchangeRateJobId =
+			"App.BackgroundJob.Jobs.Acc.DollarExchangeRateJob.UpdateDollarExchangeRate";
+		private const string SmsJobId =
+			"App.BackgroundJob.Jobs.System.SmsJob.SendPendingSmsAsync";
+		private const string CentrifugeDocsSmsJobId =
+			"App.BackgroundJob.Jobs.Sale.CentrifugeDocsSmsJob.SendCentrifugeDocsSmsAsync";
+		private const string ExitRemittanceSmsJobId =
+			"App.BackgroundJob.Jobs.Sale.ExitRemittanceSmsJob.SendExitRemittanceSmsAsync";
+		private const string SmsDeliveryJobId =
+			"App.BackgroundJob.Jobs.System.SmsJob.CheckSmsDeliveryAsync";
+		private const string ProductInspectionFailureSyncJobId =
+			"App.BackgroundJob.Jobs.Qc.ProductInspectionJob.AddFailureTypesFromProductionOrderItems";
+		private const string CustomerIndustryFromHtsJobId =
+			"App.BackgroundJob.Jobs.Sls.CustomerJob.SyncCustomerIndustryFromHts";
+		private const string EnexTodayReminderJobId =
+			"App.BackgroundJob.Jobs.Hrm.EnexEntryReminderJob.SendTodayReminders";
+		private const string EnexExpiredReminderJobId =
+			"App.BackgroundJob.Jobs.Hrm.EnexEntryReminderJob.SendExpiredReminders";
+		private const string RequirmentAdvertiseCommentEmailJobId =
+			"App.BackgroundJob.Jobs.Sls.RequirmentAdvertiseCommentEmailJob.QueueCommentEmailsAsync";
+		private const string ShippingPriceAlarmMorningJobId =
+			"App.BackgroundJob.Jobs.Sup.InquiryPartPriceShippingAlarmJob.SendMorningAlarm";
+		private const string ShippingPriceAlarmAfternoonJobId =
+			"App.BackgroundJob.Jobs.Sup.InquiryPartPriceShippingAlarmJob.SendAfternoonAlarm";
 
 		private readonly IServiceProvider _serviceProvider;
 
@@ -88,7 +120,7 @@ namespace Services.Job
 			}
 
 			// فقط جاب‌هایی که وسط اجرا با کرش/ری‌استارت گیر کرده‌اند آزاد می‌شوند.
-			// وضعیت Error باید بماند تا ادمین عمداً با «اجرا فوری» دوباره راهش بیندازد.
+			// وضعیت Error باید بماند. اجرای بعدی فقط با «اجرا فوری» یا گزینه ContinueOnError انجام می‌شود.
 			var stuckRunning = await dbContext.JobSchedules
 				.Where(s => s.LastStatus == JobStatus.Running)
 				.ToListAsync(cancellationToken);
@@ -138,6 +170,42 @@ namespace Services.Job
 				await dbContext.SaveChangesAsync(cancellationToken);
 			}
 
+			// HTS BaseHamkaranTask → Import_AllCustomer_Address: هر ۱۵ دقیقه
+			var customerAddressFromRahkaranJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == CustomerAddressFromRahkaranJobId, cancellationToken);
+			if (customerAddressFromRahkaranJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == customerAddressFromRahkaranJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = customerAddressFromRahkaranJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 900,
+					NextRunTime = DateTime.Now.AddMinutes(2),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS RunQualitySystemTasks: هر ۲۰ دقیقه بین ۶ تا ۲۱
+			var productInspectionJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == ProductInspectionFailureSyncJobId, cancellationToken);
+			if (productInspectionJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == productInspectionJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = productInspectionJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1200,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
 			// HTS AfterSalesAndRepairSystemTask: هر ۲۰ دقیقه بین ۶ تا ۲۱
 			var agencyPartCardexJob = await dbContext.JobDefinitions
 				.FirstOrDefaultAsync(x => x.JobId == AgencyPartCardexJobId, cancellationToken);
@@ -147,6 +215,42 @@ namespace Services.Job
 				dbContext.JobSchedules.Add(new JobSchedule
 				{
 					JobId = agencyPartCardexJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1200,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS InvSystemTask (کاردکس کالا، هدر اسناد انبار، اعلان سند جدید، نقطه سفارش): هر ۱۵ دقیقه بین ۶ تا ۲۱
+			var invSystemTasksJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == InvSystemTasksJobId, cancellationToken);
+			if (invSystemTasksJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == invSystemTasksJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = invSystemTasksJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 900,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS AfterSalesAndRepairSystemTask → Import_Rpr_RepairRequest_Part: هر ۲۰ دقیقه بین ۶ تا ۲۱
+			var repairRequestPartJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == RepairRequestPartImportJobId, cancellationToken);
+			if (repairRequestPartJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == repairRequestPartJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = repairRequestPartJob.Id,
 					IsActive = true,
 					ScheduleType = ScheduleType.Interval,
 					IntervalSeconds = 1200,
@@ -209,6 +313,198 @@ namespace Services.Job
 				});
 				await dbContext.SaveChangesAsync(cancellationToken);
 			}
+
+			// لاگ جاب‌ها بعد از ۳ روز حذف می‌شوند. اجرای اول کمی بعد از استقرار است، بعد هر روز ساعت ۳.
+			var jobLogCleanupJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == JobLogCleanupJobId, cancellationToken);
+			if (jobLogCleanupJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == jobLogCleanupJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = jobLogCleanupJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Daily,
+					DailyIntervalDays = 1,
+					DailyTime = TimeSpan.FromHours(3),
+					IntervalSeconds = 86400,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// صف پیامک (system.SmsMessage): هر ۶۰ ثانیه
+			var smsJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == SmsJobId, cancellationToken);
+			if (smsJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == smsJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = smsJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 60,
+					NextRunTime = DateTime.Now.AddMinutes(1),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// پیامک لینک مدارک سانتریفیوژ (جایگزین کار SQL راهکاران): هر ۳۰ دقیقه؛ تا تنظیم Sms:CentrifugeDocs:Enabled=true چیزی نمی‌فرستد.
+			var centrifugeDocsJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == CentrifugeDocsSmsJobId, cancellationToken);
+			if (centrifugeDocsJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == centrifugeDocsJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = centrifugeDocsJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 1800,
+					NextRunTime = DateTime.Now.AddMinutes(5),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// پیامک خروج از کارخانه (جایگزین کار SQL راهکاران نوع 2746): هر روز ساعت ۰۸:۰۰ مثل کار قدیمی.
+			var exitRemittanceJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == ExitRemittanceSmsJobId, cancellationToken);
+			if (exitRemittanceJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == exitRemittanceJob.Id, cancellationToken))
+			{
+				var exitDailyTime = new TimeSpan(8, 0, 0);
+				var exitNextRun = DateTime.Now.Date.Add(exitDailyTime);
+				if (exitNextRun <= DateTime.Now)
+					exitNextRun = exitNextRun.AddDays(1);
+
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = exitRemittanceJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Daily,
+					DailyIntervalDays = 1,
+					DailyTime = exitDailyTime,
+					IntervalSeconds = 86400,
+					NextRunTime = exitNextRun,
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// استعلام دلیوری پیامک‌ها: هر ۵ دقیقه
+			var smsDeliveryJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == SmsDeliveryJobId, cancellationToken);
+			if (smsDeliveryJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == smsDeliveryJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = smsDeliveryJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 300,
+					NextRunTime = DateTime.Now.AddMinutes(2),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS UpdateExchangeRateArchive: هر روز ساعت ۱۱:۱۵
+			var dollarRateJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == DollarExchangeRateJobId, cancellationToken);
+			if (dollarRateJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == dollarRateJob.Id, cancellationToken))
+			{
+				var dailyTime = new TimeSpan(11, 15, 0);
+				var nextRun = DateTime.Now.Date.Add(dailyTime);
+				if (nextRun <= DateTime.Now)
+					nextRun = nextRun.AddDays(1);
+
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = dollarRateJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Daily,
+					DailyIntervalDays = 1,
+					DailyTime = dailyTime,
+					IntervalSeconds = 86400,
+					NextRunTime = nextRun,
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// نوع صنعت مشتری از HTS (linked server TMS): جدا از جاب دقیقه‌ای مشتری، هر ساعت
+			var customerIndustryJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == CustomerIndustryFromHtsJobId, cancellationToken);
+			if (customerIndustryJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == customerIndustryJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = customerIndustryJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 3600,
+					NextRunTime = DateTime.Now.AddMinutes(2),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+
+			// HTS SendTodayEnexEntryNotifications و SendExpiredEnexEntryNotifications: هر روز ساعت ۱۰:۲۵
+			await EnsureDailyAsync(dbContext, EnexTodayReminderJobId, new TimeSpan(10, 25, 0), cancellationToken);
+			await EnsureDailyAsync(dbContext, EnexExpiredReminderJobId, new TimeSpan(10, 25, 0), cancellationToken);
+
+			// HTS SentShippingActualPriceChangeAlarm: هر روز ۱۱:۵۰ و ۱۵:۵۰
+			await EnsureDailyAsync(dbContext, ShippingPriceAlarmMorningJobId, new TimeSpan(11, 50, 0), cancellationToken);
+			await EnsureDailyAsync(dbContext, ShippingPriceAlarmAfternoonJobId, new TimeSpan(15, 50, 0), cancellationToken);
+
+			// جایگزین کار SQL راهکاران HTS_SaleRequirmentAdvertise_NewComment و تریگر روی SYS3.Note: هر ۵ دقیقه
+			var requirmentAdvertiseCommentEmailJob = await dbContext.JobDefinitions
+				.FirstOrDefaultAsync(x => x.JobId == RequirmentAdvertiseCommentEmailJobId, cancellationToken);
+			if (requirmentAdvertiseCommentEmailJob != null
+				&& !await dbContext.JobSchedules.AnyAsync(x => x.JobId == requirmentAdvertiseCommentEmailJob.Id, cancellationToken))
+			{
+				dbContext.JobSchedules.Add(new JobSchedule
+				{
+					JobId = requirmentAdvertiseCommentEmailJob.Id,
+					IsActive = true,
+					ScheduleType = ScheduleType.Interval,
+					IntervalSeconds = 300,
+					NextRunTime = DateTime.Now.AddMinutes(2),
+					LastStatus = JobStatus.Idle
+				});
+				await dbContext.SaveChangesAsync(cancellationToken);
+			}
+		}
+
+		private static async Task EnsureDailyAsync(ApplicationDbContext dbContext, string jobId, TimeSpan dailyTime, CancellationToken cancellationToken)
+		{
+			var job = await dbContext.JobDefinitions.FirstOrDefaultAsync(x => x.JobId == jobId, cancellationToken);
+			if (job == null || await dbContext.JobSchedules.AnyAsync(x => x.JobId == job.Id, cancellationToken))
+				return;
+
+			var nextRun = DateTime.Now.Date.Add(dailyTime);
+			if (nextRun <= DateTime.Now)
+				nextRun = nextRun.AddDays(1);
+
+			dbContext.JobSchedules.Add(new JobSchedule
+			{
+				JobId = job.Id,
+				IsActive = true,
+				ScheduleType = ScheduleType.Daily,
+				DailyIntervalDays = 1,
+				DailyTime = dailyTime,
+				IntervalSeconds = 86400,
+				NextRunTime = nextRun,
+				LastStatus = JobStatus.Idle
+			});
+			await dbContext.SaveChangesAsync(cancellationToken);
 		}
 
 		public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

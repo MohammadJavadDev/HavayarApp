@@ -74,7 +74,7 @@ DECLARE @ScriptSendToSupplier NVARCHAR(MAX) = N'function(ctx) {
         toastr.error("شما دسترسی ارسال به پیمانکار را ندارید");
         return;
     }
-    get("/Panel/Sup/OpenOrderRequest/SendToSupplierPartial?openOrderRequestId=" + ids[0], function (result) {
+    get("/Panel/Sup/OpenOrderRequest/SendToSupplierPartial?openOrderRequestId=" + ids[0] + "&ids=" + ids.join(","), function (result) {
         $.confirm({
             title: "ارسال به پیمانکار",
             columnClass: "col-md-8",

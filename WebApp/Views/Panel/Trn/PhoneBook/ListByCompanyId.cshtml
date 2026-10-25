@@ -23,13 +23,12 @@
           <table id="@tableId" class="table table-striped table-row-bordered gy-2 w-100">
                <thead>
                     <tr class="fw-bold fs-6 text-muted">
-                         <th>نام</th>
-                         <th>نام خانوادگی</th>
-                         <th>سمت</th>
-                         <th>تلفن داخلی</th>
-                         <th>تلفن مستقیم</th>
-                         <th>تلفن همراه</th>
-                         <th style="width:120px;">عملیات</th>
+                         <th>واحد سازمانی</th>
+                         <th>شماره تماس</th>
+                         <th>فکس</th>
+                         <th>ایجاد کننده</th>
+                         <th>تاریخ ایجاد</th>
+                         <th style="width:70px;">حذف</th>
                     </tr>
                </thead>
                <tbody></tbody>
@@ -99,19 +98,17 @@
                }
           },
           columns: [
-               { data: 'firstName', render: function (d) { return escapeHtml(d); } },
-               { data: 'lastName', render: function (d) { return escapeHtml(d); } },
-               { data: 'position', render: function (d) { return escapeHtml(d); } },
-               { data: 'innerPhone', render: function (d) { return escapeHtml(d); } },
-               { data: 'directPhone', render: function (d) { return escapeHtml(d); } },
-               { data: 'mobile', render: function (d) { return escapeHtml(d); } },
+               { data: 'departmentTitle', render: function (d) { return escapeHtml(d); } },
+               { data: 'phoneNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'faxNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'createdByName', render: function (d) { return escapeHtml(d); } },
+               { data: 'createdOnShamsiDateTime', render: function (d) { return escapeHtml(d ? String(d).split(' ')[0] : ''); } },
                {
                     data: null,
                     orderable: false,
                     className: 'text-center',
                     render: function (d, t, row) {
-                         return '<button type="button" class="btn btn-sm btn-icon btn-light-warning btn-edit-row" data-id="' + row.id + '" title="ویرایش"><i class="fa fa-edit"></i></button> '
-                              + '<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete-row" data-id="' + row.id + '" title="حذف"><i class="fa fa-trash"></i></button>';
+                         return '<button type="button" class="btn btn-sm btn-icon btn-light-danger btn-delete-row" data-id="' + row.id + '" title="حذف"><i class="fa fa-trash"></i></button>';
                     }
                }
           ]
@@ -121,11 +118,6 @@
 
      $$('#btnNewPhoneBook').on('click', function () {
           appController.addPage('/Panel/Trn/PhoneBook/New?companyId=' + companyId);
-     });
-
-     $$(tableSelector).on('click', '.btn-edit-row', function () {
-          const id = $(this).data('id');
-          appController.addPage('/Panel/Trn/PhoneBook/Edit?id=' + id);
      });
 
      $$(tableSelector).on('click', '.btn-delete-row', function () {

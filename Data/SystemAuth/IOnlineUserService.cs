@@ -83,6 +83,11 @@ public interface IOnlineUserService
 	Task RefreshUserRoleAccessesAsync(long userId, CancellationToken ct = default);
 	void RefreshUserRoleAccesses(long userId);
 
+	/// <summary>
+	/// نقش و دسترسی همهٔ کاربران کش‌شده را از دیتابیس دوباره می‌خواند.
+	/// </summary>
+	Task RefreshAllOnlineUsersRoleAccessesAsync(CancellationToken ct = default);
+
 	Task AddOrUpdatePageAsync(
 			long userId,
 			string connectionId,

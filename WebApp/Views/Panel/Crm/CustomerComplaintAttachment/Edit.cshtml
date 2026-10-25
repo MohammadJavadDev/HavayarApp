@@ -1,0 +1,17 @@
+@using Entities.App.Crm
+@model CustomerComplaintAttachment
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="complaintId" value="@Model?.ComplaintId" />
+	<div class="col-md-12 form-group-inline">
+		<fileuploader bind="fileId" file-id="@Model?.FileId" file-entity="@Model?.File"
+					  label="فایل" entity-type="@typeof(CustomerComplaintAttachment).FullName" entity-prop-name="File"
+					  max-file-size="20" accepted-file-types=".pdf,.zip,.rar,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.txt"></fileuploader>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label>توضیحات</label>
+		<textarea class="form-control" data-bind="comment" rows="2">@Model?.Comment</textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

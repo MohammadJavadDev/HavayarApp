@@ -12,9 +12,7 @@
 
           <div class="row mb-4">
                <div class="col-12">
-                    <h4 class="fw-bold text-dark mb-0">
-                         رابط شرکت
-                    </h4>
+                    <h4 class="fw-bold text-dark mb-0">رابطین</h4>
                </div>
           </div>
 
@@ -24,36 +22,50 @@
           <div class="row g-3">
 
                <div class='col-md-4 form-group-inline'>
-                    <label class="form-label fw-bold required">شرکت‌کننده (رابط)</label>
-                    @(Html.EntitySelector<Participant>(
-                                        "ParticipantSelector",
-                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        c => new
-                                        {
-                                             Id = c.Id,
-                                             FullName = c.FirstName + " " + c.LastName,
-                                             NationalCode = c.NationalCode
-                                        },
-                                        c => new { c.FirstName, c.LastName, c.NationalCode },
-                                        "{FullName}",
-                                        "ParticipantId",
-                                        Model?.Participant != null ? (Model.Participant.FirstName + " " + Model.Participant.LastName) : null,
-                                        Model?.ParticipantId.ToString()
-                                        ))
-                    <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>سمت در شرکت</label>
-                    <input class='form-control' data-bind='position'
-                           asp-for='Position' />
+                    <label class='form-label fw-bold'>نام</label>
+                    <input class='form-control' data-bind='firstName' asp-for='FirstName' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
-               <div class='col-md-12 form-group-inline'>
-                    <label class='form-label fw-bold'>توضیحات</label>
-                    <textarea class='form-control' data-bind='description'
-                              asp-for='Description'>@Model?.Description</textarea>
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>نام خانوادگی</label>
+                    <input class='form-control' data-bind='lastName' asp-for='LastName' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>سمت</label>
+                    <input class='form-control' data-bind='position' data-required="true" asp-for='Position' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تلفن مستقیم</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='directPhoneNumber' data-required="true" asp-for='DirectPhoneNumber' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>فکس</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='faxNumber' asp-for='FaxNumber' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>تایید فکس</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='confirmedFaxNumber' asp-for='ConfirmedFaxNumber' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>شماره موبایل</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='mobileNumber' data-required="true" asp-for='MobileNumber' />
+                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+               </div>
+
+               <div class='col-md-4 form-group-inline'>
+                    <label class='form-label fw-bold'>ایمیل</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='email' asp-for='Email' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
@@ -65,27 +77,22 @@
 <div class="card mt-4 border-0 shadow-sm">
      <div class="card-body">
           <div class="row text-muted">
-
                <div class="col-md-3">
                     <span class="fw-bold">ایجاد کننده :</span>
                     <span data-bind="createdByName">@Model?.CreatedByName</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">تاریخ ایجاد :</span>
                     <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">ویرایش کننده :</span>
                     <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">تاریخ ویرایش :</span>
                     <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
                </div>
-
           </div>
      </div>
 </div>

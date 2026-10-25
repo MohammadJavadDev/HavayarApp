@@ -55,13 +55,13 @@
 			</div>
 			<div class="col-md-6 form-group-inline">
 				<fileuploader bind="attachmentId"
-					accepted-file-types=".pdf,.zip,.png,.jpg"
+						    accepted-file-types=".pdf,.zip,.png,.jpg,.rar,.dwg"
 					file-id="@(Model?.AttachmentId > 0 ? Model.AttachmentId : null)"
 					file-entity="@Model?.Attachment"
 					entity-prop-name="Attachment"
 					entity-type="@typeof(PartDocument).FullName"
 					required="true"
-					max-file-size="10"
+					max-file-size="50"
 					label="پیوست"></fileuploader>
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>

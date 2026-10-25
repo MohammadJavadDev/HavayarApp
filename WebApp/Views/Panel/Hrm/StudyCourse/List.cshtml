@@ -1,0 +1,187 @@
+@using Entities.App.Hrm
+@{
+	var canAddTrend = ViewBag.CanAddTrend as bool? == true;
+	var canEditTrend = ViewBag.CanEditTrend as bool? == true;
+	var canDeleteTrend = ViewBag.CanDeleteTrend as bool? == true;
+}
+
+<datatableprofile entity-type="typeof(StudyCourse)"></datatableprofile>
+
+<div class="card shadow-sm border-0 mt-4" id="trendCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">گرایش رشته تحصیلی</h5>
+		@if (canAddTrend)
+		{
+			<button type="button" class="btn btn-sm btn-primary" data-action="newTrend" disabled>افزودن</button>
+		}
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="trendTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>عنوان</th>
+					@if (canEditTrend || canDeleteTrend)
+					{
+						<th style="width:120px;">عملیات</th>
+					}
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const canEditTrend = @(canEditTrend ? "true" : "false");
+	const canDeleteTrend = @(canDeleteTrend ? "true" : "false");
+	let selectedStudyCourseId = null;
+
+	const trendColumns = [{ data: 'title', defaultContent: '' }];
+	if (canEditTrend || canDeleteTrend) {
+		trendColumns.push({
+			data: 'id',
+			orderable: false,
+			className: 'text-center dt-ellipsis-skip',
+			render: function (id) {
+				let html = '';
+				if (canEditTrend)
+					html += '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editTrend" data-id="' + id + '"><i class="fa fa-edit"></i></button> ';
+				if (canDeleteTrend)
+					html += '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteTrend" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
+				return html;
+			}
+		});
+	}
+
+	const trendTable = $$('#trendTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 10,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		data: [],
+		columns: trendColumns
+	});
+
+	function studyCourseRowId(data) {
+		if (!data) return null;
+		const id = data.t1_Id || data.t1_id || data.Id || data.id;
+		const number = Number(id);
+		return number > 0 ? number : null;
+	}
+
+	function loadTrends(studyCourseId) {
+		selectedStudyCourseId = studyCourseId;
+		$$('#trendCard [data-action="newTrend"]').prop('disabled', !studyCourseId);
+		if (!studyCourseId) {
+			trendTable.clear().draw();
+			return;
+		}
+		$$.get('/Panel/Hrm/TrendOfStudyCourse/GetByStudyCourse?studyCourseId=' + studyCourseId, function (r) {
+			if (r && r.isSuccess === false) {
+				toastr.error(r.message || 'خطا در دریافت گرایش‌ها', 'خطا');
+				return;
+			}
+			const rows = (r && r.data) ? r.data : [];
+			trendTable.clear();
+			trendTable.rows.add(rows);
+			trendTable.draw();
+		});
+	}
+
+	function decodeChildPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function openTrendModal(id) {
+		if (!selectedStudyCourseId) {
+			toastr.error('ابتدا یک رشته تحصیلی را انتخاب کنید', 'خطا');
+			return;
+		}
+		const url = id
+			? '/Panel/Hrm/TrendOfStudyCourse/Edit?id=' + id
+			: '/Panel/Hrm/TrendOfStudyCourse/New?studyCourseId=' + selectedStudyCourseId;
+		page.getPartialView(url, function (r) {
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeChildPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$bodyCn.find('.form-action-buttons').remove();
+			$.confirm({
+				title: id ? 'ویرایش گرایش' : 'افزودن گرایش',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							if (validateError($content)) return false;
+							const model = $content.dataBind();
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Hrm/TrendOfStudyCourse/' + (model.id ? 'update' : 'add'), model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								loadTrends(selectedStudyCourseId);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				}
+			});
+		});
+	}
+
+	function hookStudyCourseSelect() {
+		const table = $$('[data-action="dataProfile"]').data('dtProfileTable') || self.table;
+		if (!table) {
+			setTimeout(hookStudyCourseSelect, 400);
+			return;
+		}
+		table.on('click', 'tbody tr', function () {
+			const $row = $(this);
+			const data = table.row(this).data();
+			loadTrends($row.hasClass('selected') ? studyCourseRowId(data) : null);
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="newTrend"]', function () {
+		openTrendModal(null);
+	});
+	page.$pageEl.on('click', '[data-action="editTrend"]', function () {
+		openTrendModal($(this).data('id'));
+	});
+	page.$pageEl.on('click', '[data-action="deleteTrend"]', function () {
+		const id = $(this).data('id');
+		Swal.fire({
+			title: 'حذف',
+			text: 'آیا از حذف این گرایش مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله',
+			cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.get('/Panel/Hrm/TrendOfStudyCourse/Delete?id=' + id, function (r) {
+				if (r && r.isSuccess === false) {
+					toastr.error(r.message || 'خطا در حذف', 'خطا');
+					return;
+				}
+				toastr.success('رکورد با موفقیت حذف شد');
+				loadTrends(selectedStudyCourseId);
+			});
+		});
+	});
+
+	hookStudyCourseSelect();
+</script>

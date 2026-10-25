@@ -27,6 +27,10 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, false, type: SystemType.Long)]
 		public long HtsPartCardexId { get; set; }
 
+		[DisplayName("کاردکس انبار")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long? PartCardexId { get; set; }
+
 		[DisplayName("کالای جایگزین")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public virtual Part? AlternativePart { get; set; }
@@ -52,6 +56,8 @@ namespace Entities.App.Sale
 		{
 			builder.HasIndex(x => x.HtsId).IsUnique().HasFilter("[HtsId] <> CAST(0 AS bigint)")
 				.HasDatabaseName("IX_Sale_OrderPoint_HtsId");
+			builder.HasIndex(x => x.PartCardexId).HasDatabaseName("IX_Sale_OrderPoint_PartCardexId");
+			builder.HasOne<Entities.App.Inv.PartCardex>().WithMany().HasForeignKey(x => x.PartCardexId).OnDelete(DeleteBehavior.Restrict);
 		}
 	}
 

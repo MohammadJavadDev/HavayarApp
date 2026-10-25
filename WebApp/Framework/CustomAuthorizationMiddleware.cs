@@ -17,6 +17,7 @@ namespace WebFramework.Middlewares
         private readonly IRoleMemoryStorage _roleMemoryStorage;
         private readonly IAccessMemoryStorage _accessMemoryStorage;
         private readonly IOnlineUserService _onlineUserService;
+        private readonly IAccessDecisionCache _accessDecisionCache;
         private readonly ILogger<CustomAuthorizationMiddleware> _logger;
         private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(1);
 
@@ -29,6 +30,7 @@ namespace WebFramework.Middlewares
             IRoleMemoryStorage roleMemoryStorage,
             IAccessMemoryStorage accessMemoryStorage,
             IOnlineUserService onlineUserService,
+            IAccessDecisionCache accessDecisionCache,
             ILogger<CustomAuthorizationMiddleware> logger)
         {
             _next = next;
@@ -36,6 +38,7 @@ namespace WebFramework.Middlewares
             _roleMemoryStorage = roleMemoryStorage;
             _accessMemoryStorage = accessMemoryStorage;
             _onlineUserService = onlineUserService;
+            _accessDecisionCache = accessDecisionCache;
             _logger = logger;
         }
 
@@ -126,7 +129,7 @@ namespace WebFramework.Middlewares
 
 
 				var templatePath = _accessMemoryStorage.GetMatchingTemplate(requestPath) ?? requestPath;
-				var cacheKey = BuildCacheKey(roleNames, templatePath);
+				var cacheKey = _accessDecisionCache.Version + ":" + BuildCacheKey(roleNames, templatePath);
 
 				if (_cache.TryGetValue(cacheKey, out bool cachedAccess))
 				{

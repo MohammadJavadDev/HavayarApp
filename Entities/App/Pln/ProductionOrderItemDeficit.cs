@@ -35,7 +35,7 @@ namespace Entities.App.Pln
 		public long? PartId { get; set; }
 
  
-		[MaxLength(16)]
+ 
 		[DisplayName("سریال")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string Serial { get; set; }
@@ -54,10 +54,10 @@ namespace Entities.App.Pln
 
 		[DisplayName("تاریخ میلادی تحویل استاندارد")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? StandardDeliveryMiladiDate { get; set; }
+		public DateTime? StandardDeliveryMiladiDateTime { get; set; }
 
 		[DisplayName("تاریخ شمسی تحویل استاندارد")]
-		[DisplayInfo("StandardDeliveryMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayInfo("StandardDeliveryMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? StandardDeliveryShamsiDateTime { get; set; }
 
@@ -68,10 +68,10 @@ namespace Entities.App.Pln
 
 		[DisplayName("تاریخ میلادی صدور درخواست خرید")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? PurchaseRequestIssuanceMiladiDate { get; set; }
+		public DateTime? PurchaseRequestIssuanceMiladiDateTime { get; set; }
 
 		[DisplayName("تاریخ شمسی صدور درخواست خرید")]
-		[DisplayInfo("SPurchaseRequestIssuanceMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayInfo("PurchaseRequestIssuanceMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? PurchaseRequestIssuanceShamsiDateTime { get; set; }
 
@@ -79,22 +79,22 @@ namespace Entities.App.Pln
 
 		[DisplayName("تاریخ میلادی تایید درخواست خرید")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? PurchaseRequestConfirmationMiladiDate { get; set; }
+		public DateTime? PurchaseRequestConfirmationMiladiDateTime { get; set; }
 
 
 		[DisplayName("تاریخ شمسی تایید درخواست خرید")]
-		[DisplayInfo("PurchaseRequestConfirmationMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayInfo("PurchaseRequestConfirmationMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? PurchaseRequestConfirmationShamsiDateTime { get; set; }
 
 
-		[DisplayName("تاریخ میلادی تایید درخواست خرید")]
+		[DisplayName("تاریخ میلادی نیاز درخواست خرید")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? PurchaseRequestNeedMiladiDate { get; set; }
+		public DateTime? PurchaseRequestNeedMiladiDateTime { get; set; }
 
 
-		[DisplayName("تاریخ شمسی تایید درخواست خرید")]
-		[DisplayInfo("PurchaseRequestNeedMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayName("تاریخ شمسی نیاز درخواست خرید")]
+		[DisplayInfo("PurchaseRequestNeedMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? PurchaseRequestNeedShamsiDateTime { get; set; }
 
@@ -109,11 +109,11 @@ namespace Entities.App.Pln
 
 		[DisplayName("تاریخ میلادی پیش بینی تامین واحد تامین کننده-گزارش قبل")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? PreReportSupplierUnitForecastMiladiDate { get; set; }
+		public DateTime? PreReportSupplierUnitForecastMiladiDateTime { get; set; }
 
 
 		[DisplayName("تاریخ شمسی پیش بینی تامین واحد تامین کننده-گزارش قبل")]
-		[DisplayInfo("PreReportSupplierUnitForecastMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayInfo("PreReportSupplierUnitForecastMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? PreReportSupplierUnitForecastShamsiDateTime { get; set; }
 
@@ -121,21 +121,21 @@ namespace Entities.App.Pln
 
 		[DisplayName("تاریخ میلادی  پیش بینی تامین واحد تامین کننده-گزارش دو هفته قبل")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? LastTwoWeeksForecastSupplierUnitMiladiDate { get; set; }
+		public DateTime? LastTwoWeeksForecastSupplierMiladiDateTime { get; set; }
 
 
 		[DisplayName("تاریخ شمسی  پیش بینی تامین واحد تامین کننده-گزارش دو هفته قبل")]
-		[DisplayInfo("LastTwoWeeksForecastSupplierUnitMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayInfo("LastTwoWeeksForecastSupplierMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? LastTwoWeeksForecastSupplierShamsiDateTime { get; set; }
 
 		[DisplayName("تاریخ میلادی پیش بینی تامین واحد تامین کننده")]
 		[DisplayInfo(null, false, SystemType.DateTime)]
-		public DateTime? SupplierUnitForecastDateUnitMiladiDate { get; set; }
+		public DateTime? SupplierUnitForecastDateMiladiDateTime { get; set; }
 
 
 		[DisplayName("تاریخ شمسی پیش بینی تامین واحد تامین کننده")]
-		[DisplayInfo("SupplierUnitForecastDateUnitMiladiDate", true, SystemType.DateShamsi)]
+		[DisplayInfo("SupplierUnitForecastDateMiladiDateTime", true, SystemType.DateShamsi)]
 		[MaxLength(30)]
 		public string? SupplierUnitForecastDateShamsiDateTime { get; set; }
 

@@ -13,6 +13,9 @@ namespace Entities.App.Pln
 	[Table("ProductionOrderDelay", Schema = "Pln")]
 	public class ProductionOrderDelay : BaseEntity
 	{
+		[DisplayName("شناسه HTS")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long HtsId { get; set; }
 		[DisplayName("سفارش ساخت")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
 		public ProductionOrder? ProductionOrder { get; set; }
@@ -64,8 +67,26 @@ namespace Entities.App.Pln
 
 		[DisplayName("توضیحات")]
 		[DisplayInfo(null, true, type: SystemType.String)]
-		[MaxLength(2048)]
 		public string? Description { get; set; }
+
+		[DisplayName("توضیحات توجیه")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? JustificationComment { get; set; }
+
+		[DisplayName("تاریخ میلادی توجیه")]
+		[DisplayInfo(null, false, SystemType.DateTime, systemProprty: true)]
+		public DateTime? JustificationMiladiDateTime { get; set; }
+
+		[DisplayName("تاریخ شمسی توجیه")]
+		[MaxLength(30)]
+		[DisplayInfo("JustificationMiladiDateTime", true, SystemType.DateTimeShamsi, systemProprty: true)]
+		public string? JustificationShamsiDateTime { get; set; }
+
+		[DisplayName("متولی توجیه")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(200)]
+		public string? TrusteeName { get; set; }
 
 	}
 }

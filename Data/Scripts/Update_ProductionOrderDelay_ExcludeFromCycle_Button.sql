@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Update_ProductionOrderDelay_ExcludeFromCycle_Button.sql
 ================================================================================
@@ -6,8 +6,9 @@ Update_ProductionOrderDelay_ExcludeFromCycle_Button.sql
   vw_All_Need_POD
   vw_All_POD
 
-با انتخاب ردیف و کلیک دکمه، فیلد Sale.ProductionOrder.DelayNotCalculated
-(پروژه‌ای / خروج از سیکل تاخیرات) برابر ۱ می‌شود و جدول رفرش می‌گردد.
+با انتخاب ردیف و کلیک دکمه، علت پروژه‌ای شدن پرسیده می‌شود و روی
+Sale.ProductionOrder.DelayNotCalculatedComment ذخیره می‌گردد.
+DelayNotCalculated برابر ۱ می‌شود و جدول رفرش می‌گردد.
 
 Idempotent: دکمه قبلی با dataActionName = excludeFromDelayCycle حذف و دوباره اضافه می‌شود.
 ================================================================================
@@ -29,20 +30,32 @@ BEGIN TRY
                   return;
               }
 
-              var productionOrderId = ctx.primaryKeyValue;
+              var productionOrderId = Number(ctx.primaryKeyValue);
               var orderNumber = ctx.selectedRow.productionOrderNumber || ctx.selectedRow.ProductionOrderNumber || '''';
 
               Swal.fire({
                   title: ''خارج کردن از سیکل تاخیر'',
-                  text: ''با این کار فیلد پروژه‌ای (خروج از سیکل تأخیرات) برای سفارش ساخت '' + orderNumber + '' تیک می‌خورد و سفارش از لیست تاخیر خارج می‌شود.'',
+                  text: ''علت پروژه‌ای شدن سفارش ساخت '' + orderNumber + '' را بنویسید. سفارش از لیست تاخیر خارج می‌شود.'',
+                  input: ''textarea'',
+                  inputLabel: ''علت پروژه‌ای شدن'',
+                  inputPlaceholder: ''علت پروژه‌ای شدن این سفارش را بنویسید'',
+                  inputAttributes: { maxlength: 1024 },
+                  inputValidator: function (value) {
+                      if (!value || !String(value).trim())
+                          return ''علت پروژه‌ای شدن را وارد کنید'';
+                  },
                   icon: ''warning'',
                   showCancelButton: true,
                   confirmButtonText: ''بله، خارج شود'',
                   cancelButtonText: ''انصراف''
               }).then(function (result) {
                   if (!result.isConfirmed) return;
+                  var comment = String(result.value || '''').trim();
                   var $btn = ctx.$btn.block();
-                  post(''/Panel/ProductionOrderDelay/ExcludeFromDelayCycle?productionOrderId='' + encodeURIComponent(productionOrderId), null, function (r) {
+                  post(''/Panel/ProductionOrderDelay/ExcludeFromDelayCycle'', {
+                      productionOrderId: productionOrderId,
+                      delayNotCalculatedComment: comment
+                  }, function (r) {
                       $btn.block(false);
                       if (!r.isSuccess) {
                           toastr.error(r.message || ''خطا در خارج کردن از سیکل تاخیر'', ''خطا'');

@@ -715,8 +715,8 @@
         });
     });
 
-    // حذف کاربر از نقش
-    $$(document).on('click', '.btn-remove-user', function() {
+    // حذف کاربر از نقش — $$ فقط داخل تب جستجو می‌کند؛ document داخل صفحه نیست
+    page.$pageEl.on('click', '.btn-remove-user', function() {
         var userId = $(this).data('userid');
         
         Swal.fire({

@@ -448,15 +448,21 @@ WHEN NOT MATCHED THEN INSERT
 MERGE Rpr.RepairRequestManHour AS t
 USING (
     SELECT CAST(s.RepairRequest_ManHours_ID AS BIGINT) AS HtsId, rr.Id AS RepairRequestId,
-           CAST(s.Personel_FK AS BIGINT) AS HtsPersonelId, u.Id AS ExpertId,
+           CAST(s.Personel_FK AS BIGINT) AS HtsPersonelId, pe.Id AS ExpertId,
            s.WorkDate AS WorkShamsiDate, s.StartTime, s.EndTime, s.ManHourPrice, s.ManHourSalePrice, s.Comment
     FROM [TMS].[TotalSystem].[dbo].[Rpr_RepairRequest_ManHours] s
     INNER JOIN Rpr.RepairRequest rr ON rr.HtsId = s.RepairRequest_FK
-    LEFT JOIN Hcm.Personel pe ON pe.HamkaranId = s.Personel_FK
-    LEFT JOIN [system].[User] u ON u.PartyId = pe.PartyId AND pe.PartyId IS NOT NULL
+    LEFT JOIN [TMS].[TotalSystem].[dbo].[HRM_Personel] hrm ON hrm.Personel_ID = s.Personel_FK
+    OUTER APPLY (
+        SELECT TOP (1) p.Id
+        FROM Hcm.Personel p
+        WHERE ISNULL(hrm.Hamkaran_Personel_FK, 0) <> 0
+          AND TRY_CONVERT(int, p.Code) = hrm.Hamkaran_Personel_FK
+        ORDER BY p.Id
+    ) pe
 ) s ON t.HtsId = s.HtsId
 WHEN MATCHED THEN UPDATE SET
-    t.RepairRequestId=s.RepairRequestId, t.HtsPersonelId=s.HtsPersonelId, t.ExpertId=COALESCE(s.ExpertId, t.ExpertId),
+    t.RepairRequestId=s.RepairRequestId, t.HtsPersonelId=s.HtsPersonelId, t.ExpertId=s.ExpertId,
     t.WorkShamsiDate=s.WorkShamsiDate, t.StartTime=s.StartTime, t.EndTime=s.EndTime,
     t.ManHourPrice=s.ManHourPrice, t.ManHourSalePrice=s.ManHourSalePrice, t.Comment=s.Comment,
     t.ModifiedById=1, t.ModifiedByName=@SeedUser, t.ModifiedDateMiladiDateTime=@Now, t.ModifiedDateShamsiDateTime=@NowShamsi

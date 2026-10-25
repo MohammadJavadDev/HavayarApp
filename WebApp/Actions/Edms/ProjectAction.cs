@@ -2,13 +2,16 @@
 using Data.Contracts;
 using Data.Contracts.Actions;
 using Data.Repositories;
+using Data.SystemAuth;
 using Entities.App.Edms;
 using Entities.App.Hrm;
+using Entities.Base;
+using Microsoft.EntityFrameworkCore;
 
 namespace WebApp.Actions.Edms
 {
 
-	public class ProjectAction(IUnitOfWork unitOfWork) : IEntityAction<Project>
+	public class ProjectAction(IUnitOfWork unitOfWork, ISdk sdk) : IEntityAction<Project>
 	{
 		[EntityAction(typeof(Project), EntityActionTrigger.BeforeSave, "CheckCode", "بررسی و تولید کد پروژه", Priority = 1)]
 		public async Task CheckCode(Project entity, CancellationToken ct)
@@ -18,6 +21,68 @@ namespace WebApp.Actions.Edms
 				entity.Code = GetProjectCode(entity);
 
 			await Task.CompletedTask;
+		}
+
+		[EntityAction(typeof(Project), EntityActionTrigger.BeforeAdd, "StampProjectAttachmentAuditOnAdd", "ثبت تاریخ و ایجادکننده پیوست پروژه", Priority = 5)]
+		public Task StampProjectAttachmentAuditOnAdd(Project entity, CancellationToken ct)
+			=> StampProjectAttachmentAudit(entity, ct);
+
+		[EntityAction(typeof(Project), EntityActionTrigger.BeforeUpdate, "StampProjectAttachmentAuditOnUpdate", "ثبت تاریخ و ایجادکننده پیوست پروژه", Priority = 5)]
+		public Task StampProjectAttachmentAuditOnUpdate(Project entity, CancellationToken ct)
+			=> StampProjectAttachmentAudit(entity, ct);
+
+		private async Task StampProjectAttachmentAudit(Project entity, CancellationToken ct)
+		{
+			var attachments = entity.ProjectAttachments;
+			if (attachments == null || attachments.Count == 0)
+				return;
+
+			var existingIds = attachments
+				.Where(a => a.Id is > 0)
+				.Select(a => a.Id!.Value)
+				.Distinct()
+				.ToList();
+
+			var previous = existingIds.Count == 0
+				? new Dictionary<long, ProjectAttachment>()
+				: await unitOfWork.Repository<ProjectAttachment>().TableNoTracking
+					.Where(a => a.Id.HasValue && existingIds.Contains(a.Id.Value))
+					.ToDictionaryAsync(a => a.Id!.Value, ct);
+
+			var now = DateTime.Now;
+			var user = sdk.CurrentUser;
+
+			foreach (var attachment in attachments)
+			{
+				if (attachment.ProjectId == 0 && entity.Id is > 0)
+					attachment.ProjectId = entity.Id.Value;
+
+				if (attachment.Id is > 0 && previous.TryGetValue(attachment.Id.Value, out var stored))
+				{
+					attachment.CreatedById = stored.CreatedById;
+					attachment.CreatedByName = stored.CreatedByName;
+					attachment.CreatedOnMiladiDateTime = stored.CreatedOnMiladiDateTime;
+					attachment.CreatedOnShamsiDateTime = stored.CreatedOnShamsiDateTime;
+					attachment.IsActive = stored.IsActive;
+					attachment.HtsId = stored.HtsId;
+					attachment.DocumentCode = stored.DocumentCode;
+					attachment.DocumentName = stored.DocumentName;
+					continue;
+				}
+
+				attachment.CreatedOnMiladiDateTime ??= now;
+				if (!attachment.CreatedOnShamsiDateTime.HasValue())
+					attachment.CreatedOnShamsiDateTime = now.ToShamsiDateTime();
+				attachment.IsActive ??= IsActiveEnum.Active;
+
+				if (user == null)
+					continue;
+
+				if (!attachment.CreatedById.HasValue)
+					attachment.CreatedById = user.Id;
+				if (!attachment.CreatedByName.HasValue())
+					attachment.CreatedByName = user.FullName;
+			}
 		}
 
 

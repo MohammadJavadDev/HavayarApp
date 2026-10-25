@@ -1,0 +1,17 @@
+@using Entities.App.Law
+@using Entities.App.Law.Enums
+@model JudicialReviewAuthority
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="judicialFileId" value="@Model?.JudicialFileId" />
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold required">عنوان</label>
+		<input class="form-control" data-bind="title" data-required="true" asp-for="Title" maxlength="50" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold">توضیحات</label>
+		<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3" maxlength="1024"></textarea>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

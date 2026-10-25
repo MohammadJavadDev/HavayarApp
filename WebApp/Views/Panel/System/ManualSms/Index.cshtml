@@ -1,0 +1,124 @@
+@using Entities.App.Hcm
+@using Entities.App.SLS
+@using Entities.Base
+<div class="card shadow-sm border-0">
+	<div class="card-header">
+		<h3 class="card-title fw-bold">ارسال پیامک دستی</h3>
+	</div>
+	<div class="card-body row">
+		<div class="col-12 mb-6">
+			<div class="alert alert-info mb-0">
+				پیامک‌ها در صف ثبت می‌شوند و چند ثانیه بعد توسط سامانه ارسال می‌شوند. وضعیت ارسال و تحویل هر گیرنده را در صفحه «پیامک‌ها» ببینید.
+			</div>
+		</div>
+
+		<div class="col-md-12 form-group-inline mb-6">
+			<label class="required">متن پیامک</label>
+			<textarea class="form-control" id="manualSmsBody" data-bind="body" rows="5" maxlength="1000" placeholder="متن پیامک را بنویسید..."></textarea>
+			<div class="text-muted mt-1">
+				<span id="manualSmsCounter">0 نویسه / 1 بخش پیامک</span>
+			</div>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+
+		<div class="col-md-6 form-group-inline mb-6">
+			<label>پرسنل</label>
+			@(Html.EntitySelector<Personel>(
+				"ManualSmsPersonelSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, Family = c.Family, FamilyDisplay = c.FamilyDisplay, Code = c.Code },
+				c => new { c.Name, c.Family, c.FamilyDisplay, c.Code },
+				"{Name} {FamilyDisplay}",
+				"personelIds",
+				null,
+				null,
+				false,
+				true
+			))
+		</div>
+
+		<div class="col-md-6 form-group-inline mb-6">
+			<label>مشتریان</label>
+			@(Html.EntitySelector<Customer>(
+				"ManualSmsCustomerSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+				c => new { c.Party.FullName, c.Code },
+				"{Code} {Party.FullName}",
+				"customerIds",
+				null,
+				null,
+				false,
+				true
+			))
+		</div>
+
+		<div class="col-md-12 form-group-inline mb-6">
+			<label>شماره‌های خارجی</label>
+			<textarea class="form-control ltr" data-bind="externalMobiles" rows="2" placeholder="09121234567؛ 09351234567 (با ; یا , یا خط جدید جدا کنید)"></textarea>
+		</div>
+
+		<div class="col-12">
+			<button type="button" class="btn btn-primary" data-action="sendManualSms">
+				<i class="ki-outline ki-send fs-3"></i> ارسال پیامک
+			</button>
+		</div>
+	</div>
+</div>
+
+<script>
+	function updateManualSmsCounter() {
+		const text = $$('#manualSmsBody').val() || '';
+		const unicode = /[^\u0000-\u007f]/.test(text);
+		const single = unicode ? 70 : 160;
+		const multi = unicode ? 67 : 153;
+		const segments = text.length === 0 ? 1 : (text.length <= single ? 1 : Math.ceil(text.length / multi));
+		$$('#manualSmsCounter').text(text.length + ' نویسه / ' + segments + ' بخش پیامک');
+	}
+
+	$$('#manualSmsBody').on('input', updateManualSmsCounter);
+
+	page.$pageEl.on('click', '[data-action="sendManualSms"]', function () {
+		const model = page.$pageEl.dataBind();
+		const body = (model.body || '').trim();
+		if (!body) {
+			toastr.error('متن پیامک را وارد کنید.', 'خطا');
+			return;
+		}
+		if (!model.personelIds && !model.customerIds && !(model.externalMobiles || '').trim()) {
+			toastr.error('حداقل یک گیرنده انتخاب کنید.', 'خطا');
+			return;
+		}
+
+		const $btn = $(this);
+		Swal.fire({
+			title: 'پیامک برای گیرندگان انتخاب‌شده ارسال شود؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله، ارسال شود',
+			cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+
+			$btn.block();
+			$$.post('send', model, function (r) {
+				$btn.block(false);
+
+				if (!r.isSuccess) {
+					toastr.error(r.message, 'خطا');
+					return;
+				}
+
+				const d = r.data || {};
+				let msg = d.queued + ' پیامک در صف ارسال قرار گرفت.';
+				if (d.invalid > 0) msg += ' ' + d.invalid + ' شماره نامعتبر بود.';
+				toastr.success(msg);
+				if (d.withoutMobile && d.withoutMobile.length > 0)
+					toastr.warning('بدون شماره موبایل (ارسال نشد): ' + d.withoutMobile.join('، '));
+
+				$$('#manualSmsBody').val('');
+				updateManualSmsCounter();
+			});
+		});
+	});
+</script>

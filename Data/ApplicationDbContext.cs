@@ -91,6 +91,12 @@ public class ApplicationDbContext(
 		    .ToTable("SavedQuery", schema: "system")
 		    .HasKey(x => x.Id);
 
+		modelBuilder.Entity<ExceptionLog>()
+		    .ToTable("ExceptionLog", schema: "system")
+		    .HasKey(x => x.Id);
+		modelBuilder.Entity<ExceptionLog>()
+		    .HasIndex(x => x.CreatedOn);
+
 
 		var entitiesAssembly = typeof(BaseEntity).Assembly;
 
@@ -259,6 +265,7 @@ public class ApplicationDbContext(
 
 	public DbSet<AuditLog> AuditLogs { get; set; }
      public DbSet<AuditLogDetail> AuditLogDetails { get; set; }
+     public DbSet<ExceptionLog> ExceptionLogs { get; set; }
      public DbSet<JobLog> JobLogs { get; set; }
      public virtual DbSet<User> Users { get; set; }
 	public virtual DbSet<Role> Roles { get; set; }

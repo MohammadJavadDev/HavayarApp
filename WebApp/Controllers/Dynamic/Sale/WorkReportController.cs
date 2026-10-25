@@ -1,6 +1,8 @@
 using Common.Attributes;
 using Common.Auth.Enums;
+using Data;
 using Data.Contracts;
+using WebApp.Actions.Sale;
 using Entities.App.Sale;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +16,7 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("گزارش کار ماموریت", typeof(WorkReport))]
-	public class WorkReportController(IUnitOfWork unitOfWork, IWebHostEnvironment env) : BaseController
+	public class WorkReportController(IUnitOfWork unitOfWork, IWebHostEnvironment env, ApplicationDbContext db) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -95,8 +97,10 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("لیست وابسته", ActionAccessType.View, ActionAccessItemType.List)]
-		public IActionResult ListByParentId(long serviceRequestId)
+		public async Task<IActionResult> ListByParentId(long serviceRequestId, CancellationToken cn)
 		{
+			if (await AgencyCannotSeeAsync(serviceRequestId, cn))
+				return View(@"\Views\Panel\Sale\ServiceRequest\AccessDenied.cshtml");
 			ViewBag.ParentId = serviceRequestId;
 			return View(@"\Views\Panel\Sale\WorkReport\ListByParentId.cshtml");
 		}
@@ -107,6 +111,8 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (serviceRequestId == null || serviceRequestId == 0)
 				return BadRequest("شناسه والد خالی است");
+			if (await AgencyCannotSeeAsync(serviceRequestId.Value, cn))
+				return BadRequest(ServiceRequestAgencyAccess.DeniedMessage);
 			var items = await unitOfWork.Repository<WorkReport>().TableNoTracking
 				.Where(c =>
 					(c.Mission != null && c.Mission.ServiceRequestId == serviceRequestId)
@@ -114,35 +120,58 @@ namespace WebApp.Controllers.Dynamic
 				.Select(c => new
 				{
 					c.Id,
+					ServiceRequestId = c.ServiceRequestDetail != null
+						? c.ServiceRequestDetail.ServiceRequestId
+						: c.Mission != null ? c.Mission.ServiceRequestId : null,
+					c.IsSurveyLinkSended,
 					c.ReportNumber,
-					HokmNumber = c.Mission != null ? c.Mission.HokmNumber : (int?)null,
-					ExpertName = c.Mission != null && c.Mission.Personel != null ? c.Mission.Personel.Name +" " + c.Mission.Personel.Family  : null,
-
-					PartCode = c.ServiceRequestDetail != null &&
-					c.ServiceRequestDetail.OtherPart != null? c.ServiceRequestDetail.OtherPart.Code :
-					c.ServiceRequestDetail.OrderDetailSerial != null ?
-					c.ServiceRequestDetail.OrderDetailSerial.OrderDetail.Part.Code: null,
-
-					PartName = c.ServiceRequestDetail != null && c.ServiceRequestDetail.OtherPart != null
-						? c.ServiceRequestDetail.OtherPart.Name :
-					 c.ServiceRequestDetail.OrderDetailSerial != null ?
-					c.ServiceRequestDetail.OrderDetailSerial.OrderDetail.Part.Name : null,
-
-					Serial = c.ServiceRequestDetail != null && c.ServiceRequestDetail.OtherPartSerial != null
-					? c.ServiceRequestDetail.OtherPartSerial :
-					 c.ServiceRequestDetail.OrderDetailSerial != null ?
-					c.ServiceRequestDetail.OrderDetailSerial.Serial : null,
-
+					ExpertName = c.Mission != null && c.Mission.Personel != null
+							&& ((c.Mission.Personel.Name ?? "") != "" || (c.Mission.Personel.Family ?? "") != "")
+						? ((c.Mission.Personel.Name ?? "") + " " + (c.Mission.Personel.Family ?? "")).Trim()
+						: c.Mission != null && c.Mission.Expert != null
+							? (c.Mission.Expert.NameFa ?? c.Mission.Expert.Name)
+							: null,
+					PartCode = c.ServiceRequestDetail == null ? null
+						: c.ServiceRequestDetail.OtherPart != null ? c.ServiceRequestDetail.OtherPart.Code
+						: c.ServiceRequestDetail.OrderDetail != null && c.ServiceRequestDetail.OrderDetail.Part != null
+							? c.ServiceRequestDetail.OrderDetail.Part.Code
+						: c.ServiceRequestDetail.OrderDetailSerial != null && c.ServiceRequestDetail.OrderDetailSerial.OrderDetail.Part != null
+							? c.ServiceRequestDetail.OrderDetailSerial.OrderDetail.Part.Code
+						: null,
+					PartName = c.ServiceRequestDetail == null ? null
+						: c.ServiceRequestDetail.OtherPart != null ? c.ServiceRequestDetail.OtherPart.Name
+						: c.ServiceRequestDetail.OrderDetail != null && c.ServiceRequestDetail.OrderDetail.Part != null
+							? c.ServiceRequestDetail.OrderDetail.Part.Name
+						: c.ServiceRequestDetail.OrderDetailSerial != null && c.ServiceRequestDetail.OrderDetailSerial.OrderDetail.Part != null
+							? c.ServiceRequestDetail.OrderDetailSerial.OrderDetail.Part.Name
+						: null,
+					Serial = c.ServiceRequestDetail == null ? null
+						: c.ServiceRequestDetail.OtherPart != null ? c.ServiceRequestDetail.OtherPartSerial
+						: c.ServiceRequestDetail.OrderDetailSerial != null ? c.ServiceRequestDetail.OrderDetailSerial.Serial
+						: null,
 					c.FailureTypeInText,
 					c.RepairsTypeInText,
 					c.ServiceStartShamsiDate,
 					c.ServiceStartTime,
 					c.ServiceEndShamsiDate,
 					c.ServiceEndTime,
-					c.TotalRunTime,
+					c.RequestDescription,
 					c.ExecutiveBarriersDescription,
-					MissionResult = (int)c.MissionResult,
-					c.IsSurveyLinkSended
+					c.TotalRunTime,
+					c.WorkHoursUnderload,
+					c.FlowIntensityUnderload,
+					c.FlowIntensityWithoutLoad,
+					c.MaximumWorkingPressure,
+					c.MinimumWorkingPressure,
+					c.EnvironmentTemperature,
+					c.DeviceTemperature,
+					c.VoltagePowerGrid,
+					c.AmountDryerDewpoint,
+					c.CompressorHouseStatus,
+					c.ElectricalPanelStatus,
+					c.PipingStatus,
+					c.ExpertGuaranteeComment,
+					c.CreatedOnShamsiDateTime
 				})
 				.ToListAsync(cn);
 			return Ok(items);
@@ -228,6 +257,12 @@ namespace WebApp.Controllers.Dynamic
 				})
 				.ToList();
 		}
+
+		private bool IsAgencyViewer()
+			=> !IsAdministrator && CurrentUserHasAnyRole("نمایندگی ها", "نمایندگان فروش");
+
+		private Task<bool> AgencyCannotSeeAsync(long serviceRequestId, CancellationToken cn)
+			=> ServiceRequestAgencyAccess.IsHiddenFromAgencyAsync(db, IsAgencyViewer(), CurrentUserId, serviceRequestId, cn);
 
 		public class WorkReportServiceRequestDetailViewModel
 		{

@@ -55,6 +55,9 @@ namespace Entities.App.Rpr
 		public virtual Part? Product { get; set; }
 		public long? ProductId { get; set; }
 
+		[DisplayName("نوع تجهیز")]
+		[DisplayInfo(null, true, type: SystemType.Select)]
+		public RepairEquipmentTypeEnum? EquipmentType { get; set; }
 
 		[DisplayName("محصول مادر")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
@@ -164,6 +167,12 @@ namespace Entities.App.Rpr
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(255)]
 		public string? ExpertsInText { get; set; }
+
+		[DisplayName("مدیر منطقه")]
+		[DisplayInfo(null, true, type: SystemType.Entity)]
+		[ForeignKey(nameof(ZoneManagerId))]
+		public virtual Personel? ZoneManager { get; set; }
+		public long? ZoneManagerId { get; set; }
 
 		[DisplayName("ایستگاه")]
 		[DisplayInfo(null, true, type: SystemType.Entity)]
@@ -435,6 +444,7 @@ namespace Entities.App.Rpr
 			builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.NoAction);
 			builder.HasOne(x => x.CustomerAgency).WithMany().HasForeignKey(x => x.CustomerAgencyId).OnDelete(DeleteBehavior.NoAction);
 			builder.HasOne(x => x.ZoneSupervisor).WithMany().HasForeignKey(x => x.ZoneSupervisorId).OnDelete(DeleteBehavior.NoAction);
+			builder.HasOne(x => x.ZoneManager).WithMany().HasForeignKey(x => x.ZoneManagerId).OnDelete(DeleteBehavior.NoAction);
 			builder.HasOne(x => x.Confirmer).WithMany().HasForeignKey(x => x.ConfirmerId).OnDelete(DeleteBehavior.NoAction);
 			builder.HasOne(x => x.Responsible).WithMany().HasForeignKey(x => x.ResponsibleId).OnDelete(DeleteBehavior.NoAction);
 		}

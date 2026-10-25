@@ -182,7 +182,7 @@
 		</div>
 
 		<div class="col-md-6 form-group-inline">
-			<label class="@(showExpertConfirm ? "required" : null)">واحد های مسئول توقف</label>
+			<label>واحد های مسئول توقف</label>
 			@(Html.EntitySelector<OrgUnit>(
 				"ResponsibleUnitIdsSelector",
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
@@ -199,7 +199,7 @@
 		</div>
 
 		<div class="col-md-6 form-group-inline">
-			<label class="@(showExpertConfirm ? "required" : null)">مسئول های توقف</label>
+			<label>مسئول های توقف</label>
 			@(Html.EntitySelector<User>(
 				"ResponsibleUserIdsSelector",
 				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
@@ -487,10 +487,6 @@
 	$$('#btnExpertConfirm').on('click', function () {
 		var model = page.$pageEl.dataBind();
 		syncStopReasons(model);
-		if (!model.responsibleUnitIds || !model.responsibleUserIds) {
-			toastr.error('واحد و مسئول عامل الزامی است');
-			return;
-		}
 		promptComment('تایید کارشناس تولید', function (comment) {
 			postWorkflow('/Panel/StopRequst/ExpertConfirm', {
 				id: stopId,

@@ -3,6 +3,7 @@ using Common.Auth.Enums;
 using Common.Utilities;
 using Data;
 using Data.Contracts;
+using WebApp.Actions.Sale;
 using Entities.App.Gnr;
 using Entities.App.Hcm;
 using Entities.App.Sale;
@@ -24,9 +25,12 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(Mission model, CancellationToken cn)
 		{
-			if (model.Id == null || model.Id == 0) return await Add(model, cn);
-			if (await unitOfWork.Repository<Mission>().TableNoTracking.AnyAsync(c => c.Id == model.Id, cn))
+			if (model.Id is > 0 && await unitOfWork.Repository<Mission>().TableNoTracking.AnyAsync(c => c.Id == model.Id, cn))
+			{
+				var denied = await DenyForeignAgencyMissionAsync(model.Id.Value, cn);
+				if (denied != null) return denied;
 				return await Update(model, cn);
+			}
 			return await Add(model, cn);
 		}
 
@@ -38,12 +42,21 @@ namespace WebApp.Controllers.Dynamic
 		[HttpPost("[action]")]
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(Mission model, CancellationToken cn)
-			=> Ok(await unitOfWork.Repository<Mission>().UpdateAsync(model, cn, true));
+		{
+			if (model.Id is > 0)
+			{
+				var denied = await DenyForeignAgencyMissionAsync(model.Id.Value, cn);
+				if (denied != null) return denied;
+			}
+			return Ok(await unitOfWork.Repository<Mission>().UpdateAsync(model, cn, true));
+		}
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("حذف", ActionAccessType.Api, ActionAccessItemType.Delete)]
 		public async Task<IActionResult> Delete(long id, CancellationToken cn)
 		{
+			var denied = await DenyForeignAgencyMissionAsync(id, cn);
+			if (denied != null) return denied;
 			var entity = unitOfWork.Repository<Mission>().TableNoTracking.FirstOrDefault(c => c.Id == id);
 			if (entity != null) await unitOfWork.Repository<Mission>().DeleteAsync(entity, cn, true);
 			return Ok();
@@ -51,8 +64,14 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
-		public IActionResult Edit(long? id, long? serviceRequestId = null)
+		public async Task<IActionResult> Edit(long? id, long? serviceRequestId = null, CancellationToken cn = default)
 		{
+			if (id is > 0)
+			{
+				var denied = await DenyForeignAgencyMissionAsync(id.Value, cn);
+				if (denied != null) return denied;
+			}
+
 			Mission entity;
 			if (id != null && id != 0)
 				entity = unitOfWork.Repository<Mission>().TableNoTracking.FirstOrDefault(c => c.Id == id)
@@ -79,8 +98,10 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("لیست وابسته", ActionAccessType.View, ActionAccessItemType.List)]
-		public IActionResult ListByParentId(long serviceRequestId)
+		public async Task<IActionResult> ListByParentId(long serviceRequestId, CancellationToken cn)
 		{
+			if (await AgencyCannotSeeAsync(serviceRequestId, cn))
+				return View(@"\Views\Panel\Sale\ServiceRequest\AccessDenied.cshtml");
 			ViewBag.ParentId = serviceRequestId;
 			return View(@"\Views\Panel\Sale\Mission\ListByParentId.cshtml");
 		}
@@ -91,6 +112,8 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (serviceRequestId == null || serviceRequestId == 0)
 				return BadRequest("شناسه والد خالی است");
+			if (await AgencyCannotSeeAsync(serviceRequestId.Value, cn))
+				return BadRequest(ServiceRequestAgencyAccess.DeniedMessage);
 			var items = await unitOfWork.Repository<Mission>().TableNoTracking
 				.Where(c => c.ServiceRequestId == serviceRequestId)
 				.Select(c => new
@@ -101,15 +124,17 @@ namespace WebApp.Controllers.Dynamic
 						? ((c.Personel.Name ?? "") + " " + (c.Personel.Family ?? "")).Trim()
 						: (c.Expert != null ? (c.Expert.NameFa ?? c.Expert.Name) : null),
 					CostCenterTitle = c.CostCenter != null ? c.CostCenter.Title : null,
-					TotalCost = (c.BreakfastFee ?? 0)
-						+ (c.LunchFee ?? 0)
-						+ (c.DinnerFee ?? 0)
-						+ (c.NightRight ?? 0)
-						+ (c.WorkOvertimeFee ?? 0)
-						+ (c.MissionRight ?? 0)
-						+ (c.MissionHolidayRight ?? 0)
+					// HTS Sale_Mission.Total_Cost (computed): rate × count/factor; overtime is rate × minutes / 60.
+					TotalCost = ((c.BreakfastFee ?? 0) * (c.Breakfast ?? 0))
+						+ ((c.LunchFee ?? 0) * (c.Lunch ?? 0))
+						+ ((c.DinnerFee ?? 0) * (c.Dinner ?? 0))
+						+ ((c.NightRight ?? 0) * (c.NightRightFactor ?? 0))
+						+ (((c.WorkOvertimeFee ?? 0) * (c.WorkOvertimeHour ?? 0)) / 60)
+						+ ((c.MissionRight ?? 0) * (c.MissionRightFactor ?? 0))
+						+ ((c.MissionHolidayRight ?? 0) * (c.MissionHolidayRightFactor ?? 0))
 						+ (c.TransportationPersonal ?? 0)
-						+ (c.TransportationDriving ?? 0),
+						+ (c.TransportationDriving ?? 0)
+						+ (c.OtherCost ?? 0),
 					c.HaveGuarantee,
 					c.HokmNumber,
 					c.DispatchShamsiDate,
@@ -122,6 +147,11 @@ namespace WebApp.Controllers.Dynamic
 					c.Lunch,
 					c.DinnerFee,
 					c.Dinner,
+					c.HasFactorBreakfast,
+					c.HasFactorLunch,
+					c.HasFactorDinner,
+					c.HasFactorHotel,
+					c.HotelCost,
 					c.NightRight,
 					c.NightRightFactor,
 					c.WorkOvertimeFee,
@@ -130,10 +160,55 @@ namespace WebApp.Controllers.Dynamic
 					c.MissionHolidayRightFactor,
 					c.MissionHolidayRight,
 					c.TransportationPersonal,
-					c.TransportationDriving
+					c.TransportationDriving,
+					c.OtherCost,
+					c.CreatedById
 				})
 				.ToListAsync(cn);
-			return Ok(items);
+
+			var agencyLimited = IsAgencyMissionUser();
+			var userId = CurrentUserId;
+			var visible = items.Select(c =>
+			{
+				var own = !agencyLimited || c.CreatedById == userId;
+				return new
+				{
+					c.Id,
+					c.ServiceRequestId,
+					c.FullName,
+					c.CostCenterTitle,
+					TotalCost = own ? (long?)c.TotalCost : null,
+					c.HaveGuarantee,
+					c.HokmNumber,
+					c.DispatchShamsiDate,
+					c.DispatchTime,
+					c.ReturnShamsiDate,
+					c.ReturnTime,
+					BreakfastFee = own ? c.BreakfastFee : null,
+					c.Breakfast,
+					LunchFee = own ? c.LunchFee : null,
+					c.Lunch,
+					DinnerFee = own ? c.DinnerFee : null,
+					c.Dinner,
+					c.HasFactorBreakfast,
+					c.HasFactorLunch,
+					c.HasFactorDinner,
+					HasFactorHotel = c.HasFactorHotel,
+					HotelCost = own ? c.HotelCost : null,
+					NightRight = own ? c.NightRight : null,
+					c.NightRightFactor,
+					WorkOvertimeFee = own ? c.WorkOvertimeFee : null,
+					c.WorkOvertimeHour,
+					MissionRight = own ? c.MissionRight : null,
+					c.MissionHolidayRightFactor,
+					MissionHolidayRight = own ? c.MissionHolidayRight : null,
+					TransportationPersonal = own ? c.TransportationPersonal : null,
+					TransportationDriving = own ? c.TransportationDriving : null,
+					OtherCost = own ? c.OtherCost : null,
+					CanModify = own
+				};
+			}).ToList();
+			return Ok(visible);
 		}
 
 		[HttpGet("[action]")]
@@ -216,6 +291,25 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("دریافت اطلاعات", ActionAccessType.Api, ActionAccessItemType.FetchData)]
 		public async Task<IActionResult> FetchData(DataTableRequest request, CancellationToken cn)
 			=> Ok(await unitOfWork.Repository<Mission>().FetchDataAsync(request, cn));
+
+		private bool IsAgencyMissionUser()
+			=> !IsAdministrator && CurrentUserHasAnyRole("نمایندگی ها", "نمایندگان فروش");
+
+		private Task<bool> AgencyCannotSeeAsync(long serviceRequestId, CancellationToken cn)
+			=> ServiceRequestAgencyAccess.IsHiddenFromAgencyAsync(db, IsAgencyMissionUser(), CurrentUserId, serviceRequestId, cn);
+
+		private async Task<IActionResult?> DenyForeignAgencyMissionAsync(long id, CancellationToken cn)
+		{
+			if (!IsAgencyMissionUser())
+				return null;
+			var ownerId = await unitOfWork.Repository<Mission>().TableNoTracking
+				.Where(c => c.Id == id)
+				.Select(c => c.CreatedById)
+				.FirstOrDefaultAsync(cn);
+			if (ownerId == CurrentUserId)
+				return null;
+			return BadRequest("امکان ویرایش یا حذف ماموریت ثبت‌شده توسط دیگران وجود ندارد");
+		}
 
 		private List<long?> GetAssignedPersonelIds(long? serviceRequestId)
 		{

@@ -28,18 +28,20 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.1" />
     <PackageReference Include="Z.EntityFramework.Extensions.EFCore" Version="10.105.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Aspose.Cells">
-      <HintPath>..\ExteraAssembiles\Aspose.Cells.dll</HintPath>
-    </Reference>
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.9" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Seed\TrnReports\*.json" />
     <EmbeddedResource Include="Seed\TrnProfiles\*.json" />
     <EmbeddedResource Include="Seed\TrnRoles\*.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Aspose.Cells">
+      <HintPath>..\ExteraAssembiles\Aspose.Cells.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

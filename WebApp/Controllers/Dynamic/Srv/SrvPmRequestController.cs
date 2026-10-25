@@ -10,7 +10,9 @@ using Entities.Base;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Entities.Base.Sms;
 using Services.Auth;
+using Services.Sms;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -23,7 +25,9 @@ namespace WebApp.Controllers.Dynamic
 	public class SrvPmRequestController(
 		IUnitOfWork unitOfWork,
 		IWebHostEnvironment env,
-		IUserService userService) : BaseController
+		IUserService userService,
+		ISmsService sms,
+		ISmsRecipientResolver smsRecipients) : BaseController
 	{
 		private const string RoleSupport = "Srv.PmRequest.Support";
 		private const string RoleRequesterConfirm = "Srv.PmRequest.RequesterConfirm";
@@ -111,17 +115,9 @@ namespace WebApp.Controllers.Dynamic
 
 			var saved = await unitOfWork.Repository<PmRequest>().SaveAsync(model, cn, true);
 
-			// TODO: SMS + desktop notification (do NOT call any SMS API / sender here).
-			// Old HTS Add (PmRequestService.SendNotification + controller double-send for central):
-			// Message body:
-			//   "درخواست PM\nنوع: {Type}\nمتن: {RequestText truncated 30}+(… if len>25)\nاز: {CreatedUser}"
-			// Recipients:
-			//   - Factory (creator BranchCode=2): mobiles of group-269 members with Personel.BranchCode=2,
-			//     plus fixed numbers 09123670651;09191030853;09120218648
-			//   - Central / other: 09352201099 once (controller also sent this for BranchCode=1 —
-			//     old double-send bug; when implemented later send central number only once)
-			// Desktop notification: OnlineUsersHub to user ids in group 269 only (not all Support / 258).
-			// Audience for SMS TODO is group 269 only, not the whole Support role.
+			await SendPmRequestSmsAsync(saved, personel, cn);
+
+			// TODO: desktop notification (OnlineUsersHub) to user ids of the PM factory group only (not all Support / 258).
 
 			return Ok(await LoadForEditAsync(saved.Id!.Value, cn));
 		}
@@ -512,6 +508,37 @@ namespace WebApp.Controllers.Dynamic
 				.Where(p => p.PartyId == partyId)
 				.Select(p => p.BranchCode)
 				.FirstOrDefaultAsync(cn);
+		}
+
+		/// <summary>
+		/// معادل HTS PmRequestService.SendNotification: کارخانه (شعبه ۲) → اعضای گروه PM کارخانه با شعبه ۲ + شماره‌های ثابت اضافه؛
+		/// غیر از آن → شماره دفتر مرکزی (فقط یک‌بار؛ ارسال دوباره HTS برای شعبه ۱ عمداً منتقل نشد).
+		/// خطای پیامک نباید ثبت درخواست را خراب کند.
+		/// </summary>
+		private async Task SendPmRequestSmsAsync(PmRequest saved, Personel? creator, CancellationToken cn)
+		{
+			try
+			{
+				var body = SmsTemplates.PmRequest(saved.TypeId.ToDisplay(), saved.RequestText, CurrentUserFullNameFn ?? CurrentUserFullName);
+
+				string receivers;
+				if (creator?.BranchCode == 2)
+				{
+					var group = await smsRecipients.GetGroupMobilesAsync(SmsRecipientGroups.PmRequestFactory, 2, cn);
+					var extra = await smsRecipients.GetSettingNumbersAsync(GeneralSettingKeys.SmsRecipientsPmFactoryExtra, cn);
+					receivers = group + ";" + extra;
+				}
+				else
+				{
+					receivers = await smsRecipients.GetSettingNumbersAsync(GeneralSettingKeys.SmsRecipientsPmCentral, cn);
+				}
+
+				await sms.TryEnqueueAsync(SmsEventKeys.SrvPmRequest, receivers, body, nameof(PmRequest), saved.Id, ct: cn);
+			}
+			catch
+			{
+				// شکست پیامک نباید ثبت درخواست را متوقف کند
+			}
 		}
 
 		private async Task<Personel?> GetCurrentPersonelAsync(CancellationToken cn)

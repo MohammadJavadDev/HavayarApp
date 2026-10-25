@@ -1,0 +1,130 @@
+@using Entities.App.Hrm
+@using Entities.App.Hrm.Enums
+@model GuardDriver
+
+<style>
+	.guard-plate-container {
+		background: url('/images/hrm/plate.png');
+		background-size: cover;
+		background-repeat: round;
+		height: 35px;
+		padding: 1px;
+		padding-top: 13px;
+		direction: ltr;
+	}
+	.guard-plate-container input {
+		border: 1px solid silver;
+		text-align: center;
+		direction: rtl;
+	}
+</style>
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(GuardDriver)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4"><div class="col-12"><h4 class="fw-bold text-dark mb-0">راننده (حراست/دژبان)</h4></div></div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<input class="form-control" data-bind="htsId" value="@Model?.HtsId" type="hidden" />
+		<input class="form-control" id="licensePlate" data-bind="licensePlate" value="@Model?.LicensePlate" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نام</label>
+				<input class="form-control" data-bind="name" data-required="true" asp-for="Name" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نام خانوادگی</label>
+				<input class="form-control" data-bind="family" data-required="true" asp-for="Family" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold required">نوع وسیله نقلیه</label>
+				<select class="form-control" id="carType" data-bind="carType" data-required="true" asp-items="Html.GetEnumSelectList(typeof(GuardVehicleTypeEnum))">
+					<option value="">لطفا انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">وسیله نقلیه</label>
+				<input class="form-control" data-bind="carName" asp-for="CarName" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">پلاک وسیله نقلیه</label>
+				<div id="plateContainer" class="guard-plate-container">
+					<input id="plate1" type="number" class="tlp" style="width:20%" max="99" data-rel="2" />
+					<input id="plate2" type="text" class="tlp" style="width:15%" maxlength="1" data-rel="1" />
+					<input id="plate3" type="number" class="tlp" style="width:20%" max="999" data-rel="3" />
+					<input id="plate4" type="number" class="tlp" style="width:15%; margin-left:6%; margin-right:10px;" max="99" data-rel="2" />
+				</div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">کامنت</label>
+				<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="3"></textarea>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	const carTypeInitial = '@((int)(Model?.CarType ?? 0))';
+
+	function updatePlateColor() {
+		const type = $$('#carType').val();
+		let color = '';
+		if (type === '1406' || type === '1407') color = 'yellow';
+		else if (type === '1447') color = 'red';
+		$$('#plateContainer').css('background-color', color);
+	}
+
+	function loadPlate(value) {
+		const parts = (value || '').split('-');
+		$$('#plate1').val(parts[0] || '');
+		$$('#plate2').val(parts[1] || '');
+		$$('#plate3').val(parts[2] || '');
+		$$('#plate4').val(parts[3] || '');
+	}
+
+	function composePlate() {
+		const parts = [$$('#plate1').val(), $$('#plate2').val(), $$('#plate3').val(), $$('#plate4').val()];
+		return parts.every(p => !p) ? '' : parts.join('-');
+	}
+
+	if (carTypeInitial !== '0') $$('#carType').val(carTypeInitial);
+	loadPlate($$('#licensePlate').val());
+	updatePlateColor();
+	$$('#carType').on('change', updatePlateColor);
+
+	$$('.tlp').on('keyup', function () {
+		const $el = $(this);
+		const len = Number($el.attr('data-rel'));
+		if (this.value.length > len) {
+			$el.val($el.val().substring(0, len));
+		}
+		if (this.value.length === len) {
+			const $next = $el.nextAll('.tlp').first();
+			if ($next.length) $next.focus(); else $el.blur();
+		}
+	});
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		$$('#licensePlate').val(composePlate());
+		const model = page.$pageEl.dataBind();
+		if (!model.name) { toastr.error('نام نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (!model.family) { toastr.error('نام خانوادگی نمی‌تواند خالی باشد', 'خطا'); return; }
+		if (!model.carType) { toastr.error('نوع وسیله نقلیه نمی‌تواند خالی باشد', 'خطا'); return; }
+		const $btn = $($btnAction.element).block();
+		$$.post(model.id ? 'update' : 'add', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) { toastr.error(r.message, 'خطا'); return; }
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

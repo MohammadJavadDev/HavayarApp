@@ -276,7 +276,8 @@ namespace WebApp.Controllers.Dynamic
 		/// <summary>HTS: Id&lt;1 insert، موجود update، غایب delete.</summary>
 		private async Task SyncItemsAsync(long invoiceId, List<InvoiceItem> items, CancellationToken cn)
 		{
-			var existing = await unitOfWork.Repository<InvoiceItem>().Table
+			// NoTracking: UpdateAsync نمونهٔ پست‌شده را Attach می‌کند؛ Table همان Id را از قبل Track کرده و EF تعارض می‌دهد.
+			var existing = await unitOfWork.Repository<InvoiceItem>().TableNoTracking
 				.Where(c => c.InvoiceId == invoiceId)
 				.ToListAsync(cn);
 

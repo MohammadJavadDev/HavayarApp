@@ -1,6 +1,7 @@
 using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
+using Data;
 using Data.Contracts;
 using Entities.App.Crm;
 using Entities.App.Gnr;
@@ -24,12 +25,14 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("درخواست پشتیبانی", typeof(ServiceRequest))]
-	public class ServiceRequestController(IUnitOfWork unitOfWork, IWebHostEnvironment env, IUserService userService) : BaseController
+	public class ServiceRequestController(IUnitOfWork unitOfWork, IWebHostEnvironment env, IUserService userService, ApplicationDbContext db) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(ServiceRequest model, CancellationToken cn)
 		{
+			var denied = await DenyAgencyRequestAsync(model.Id, false, cn);
+			if (denied != null) return denied;
 			var saved = await unitOfWork.Repository<ServiceRequest>().SaveAsync(model, cn, true);
 			await FillSelectorIds(saved, cn);
 			return Ok(saved);
@@ -48,6 +51,8 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(ServiceRequest model, CancellationToken cn)
 		{
+			var denied = await DenyAgencyRequestAsync(model.Id, false, cn);
+			if (denied != null) return denied;
 			var saved = await unitOfWork.Repository<ServiceRequest>().SaveAsync(model, cn, true);
 			await FillSelectorIds(saved, cn);
 			return Ok(saved);
@@ -57,6 +62,8 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("حذف", ActionAccessType.Api, ActionAccessItemType.Delete)]
 		public async Task<IActionResult> Delete(long id, CancellationToken cn)
 		{
+			var denied = await DenyAgencyRequestAsync(id, false, cn);
+			if (denied != null) return denied;
 			var entity = unitOfWork.Repository<ServiceRequest>().TableNoTracking.FirstOrDefault(c => c.Id == id);
 			if (entity != null) await unitOfWork.Repository<ServiceRequest>().DeleteAsync(entity, cn, true);
 			return Ok();
@@ -66,6 +73,8 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش اطلاعات", ActionAccessType.View, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Edit(long? id, CancellationToken cn)
 		{
+			var denied = await DenyAgencyRequestAsync(id, true, cn);
+			if (denied != null) return denied;
 			var entity = (id != null && id != 0)
 				? await unitOfWork.Repository<ServiceRequest>().TableNoTracking.FirstOrDefaultAsync(c => c.Id == id, cn)
 				: new ServiceRequest();
@@ -85,11 +94,22 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("لیست اطلاعات", ActionAccessType.View, ActionAccessItemType.List)]
-		public IActionResult List() => View(@"\Views\Panel\Sale\ServiceRequest\List.cshtml");
+		public IActionResult List()
+		{
+			ViewBag.ServiceRequestProfileNames = IsAgencyServiceRequestUser()
+				? "AfterSales_ServiceRequest_Agency"
+				: "AfterSales_ServiceRequest_List,AfterSales_Sale_ServiceRequestPart";
+			return View(@"\Views\Panel\Sale\ServiceRequest\List.cshtml");
+		}
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("اعزام کارشناس", ActionAccessType.View, ActionAccessItemType.List)]
-		public IActionResult Dispatch() => View(@"\Views\Panel\Sale\ServiceRequest\Dispatch.cshtml");
+		public IActionResult Dispatch()
+		{
+			if (IsAgencyServiceRequestUser())
+				ViewBag.ServiceRequestProfileNames = "AfterSales_ServiceRequest_Agency";
+			return View(@"\Views\Panel\Sale\ServiceRequest\Dispatch.cshtml");
+		}
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("گزارش کار", ActionAccessType.View, ActionAccessItemType.Custom)]
@@ -154,6 +174,8 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ثبت اعزام کارشناس", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> SendDispatch(long id, CancellationToken cn)
 		{
+			var denied = await DenyAgencyRequestAsync(id, false, cn);
+			if (denied != null) return denied;
 			var entity = await unitOfWork.Repository<ServiceRequest>().TableNoTracking.FirstOrDefaultAsync(c => c.Id == id, cn);
 			if (entity == null) return BadRequest("درخواست یافت نشد");
 			if (entity.DispatchMiladiDate == null && string.IsNullOrWhiteSpace(entity.DispatchShamsiDate))
@@ -181,8 +203,7 @@ namespace WebApp.Controllers.Dynamic
 				unitOfWork,
 				userService,
 				saved,
-				"<div style='direction:rtl;text-align:right'>درخواست اعزام کارشناس ثبت شد.<br/>شماره: "
-					+ entity.Id + "<br/>تاریخ اعزام: " + entity.DispatchShamsiDate + "</div>",
+				null,
 				cn);
 			return Ok(saved);
 		}
@@ -191,6 +212,8 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ابلاغ و ارسال گزارش کارهای قبلی", ActionAccessType.Api, ActionAccessItemType.Custom)]
 		public async Task<IActionResult> SendWorkReportAttachment(long serviceRequestId, CancellationToken cn)
 		{
+			var denied = await DenyAgencyRequestAsync(serviceRequestId, false, cn);
+			if (denied != null) return denied;
 			var request = await unitOfWork.Repository<ServiceRequest>().TableNoTracking
 				.Include(c => c.Customer)
 				.ThenInclude(c => c!.Party)
@@ -330,6 +353,20 @@ namespace WebApp.Controllers.Dynamic
 					.ToListAsync(cn);
 			}
 			entity.LegacyRepairRequestIds = repairIds.Count > 0 ? string.Join(",", repairIds) : "";
+		}
+
+		private bool IsAgencyServiceRequestUser()
+			=> !IsAdministrator && CurrentUserHasAnyRole("نمایندگی ها", "نمایندگان فروش");
+
+		private async Task<IActionResult?> DenyAgencyRequestAsync(long? id, bool page, CancellationToken cn)
+		{
+			if (id is null or <= 0)
+				return null;
+			if (!await ServiceRequestAgencyAccess.IsHiddenFromAgencyAsync(db, IsAgencyServiceRequestUser(), CurrentUserId, id.Value, cn))
+				return null;
+			return page
+				? View(@"\Views\Panel\Sale\ServiceRequest\AccessDenied.cshtml")
+				: BadRequest(ServiceRequestAgencyAccess.DeniedMessage);
 		}
 	}
 }

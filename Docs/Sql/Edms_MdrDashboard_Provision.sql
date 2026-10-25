@@ -29,7 +29,7 @@ INSERT INTO @ValidStatusClient VALUES (13),(12),(15),(14),(18),(21);
 DECLARE @AcceptableStatusNormal TABLE (StatusId INT PRIMARY KEY);
 INSERT INTO @AcceptableStatusNormal VALUES (12),(13),(14),(15),(18),(21),(28),(29),(16),(17);
 
-/* ---------- VPIS پایه (پروژه‌های شروع‌نشده/خاتمه‌یافته حذف می‌شوند - مطابق Edms_MDR_Report.sql) ---------- */
+/* ---------- VPIS پایه (پروژه‌های شروع‌نشده/خاتمه‌یافته/متوقف‌شده حذف می‌شوند - مطابق Edms_MDR_Report.sql) ---------- */
 IF OBJECT_ID(''tempdb..#VpisBase'') IS NOT NULL DROP TABLE #VpisBase;
 SELECT
     v.Id AS VpisId, v.Code AS DocumentNumber, v.Title AS DocumentTitle,
@@ -41,7 +41,7 @@ INTO #VpisBase
 FROM Edms.ProjectVpis v
 INNER JOIN Edms.Project p ON p.Id = v.ProjectNameId
 WHERE ISNULL(v.IsActive, 1) <> 2 AND ISNULL(p.IsActive, 1) <> 2
-  AND p.Status NOT IN (0, 2); -- StartNotStarted(0) / Completed(2)
+  AND p.Status NOT IN (0, 2, 4); -- StartNotStarted(0) / Completed(2) / Stopped(4)
 
 IF OBJECT_ID(''tempdb..#Documents'') IS NOT NULL DROP TABLE #Documents;
 SELECT d.Id, d.DocumentVpisId, d.Revision,
@@ -91,7 +91,7 @@ LastClientInRev AS (
             CROSS APPLY (SELECT CASE c2.Status
                 WHEN 12 THEN N''Reject By Employer'' WHEN 13 THEN N''Approve By Employer''
                 WHEN 14 THEN N''Approved As Note By Employer'' WHEN 15 THEN N''Commented By Employer''
-                WHEN 18 THEN N''Not Issued'' WHEN 21 THEN N''Re Issued'' END AS StatusLabel) sl
+                WHEN 18 THEN N''Not Issued'' WHEN 21 THEN N''ReIssued'' END AS StatusLabel) sl
             WHERE c2.DocumentId = c.DocumentId
               AND c2.Status IN (SELECT StatusId FROM @ValidStatusClient)
             ORDER BY c2.Id DESC) AS LastClientTitle
@@ -112,7 +112,7 @@ SELECT
         WHEN lv.LastNonReplayStatus = 17 THEN
             CASE WHEN lv.CntAll <= 2 THEN N''Not Issued'' ELSE lc.LastClientTitle END
         WHEN lv.LastNonReplayStatus = 21 THEN
-            CASE WHEN lv.CntAll <= 2 THEN N''Re Issued'' ELSE lc.LastClientTitle END
+            CASE WHEN lv.CntAll <= 2 THEN N''ReIssued'' ELSE lc.LastClientTitle END
         ELSE N''Not Issued''
     END AS ValidStatus
 INTO #RevisionValidStatus

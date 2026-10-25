@@ -11,7 +11,7 @@ namespace Common.Attributes
     [AttributeUsage(AttributeTargets.Property, Inherited = false, AllowMultiple = false)]
     public sealed class DisplayInfoAttribute(string? searchPath, bool addToTable = false 
         , SystemType type = SystemType.String , bool systemProprty = false , bool showInRelationData = false 
-        ,string fileTypes ="" , int maxFileSize = 10, bool required = false , string? regex =null
+        ,string fileTypes ="" , int maxFileSize = 100, bool required = false , string? regex =null
         , string? regexInvalidError ="کاراکتر وارد شده غیر مجاز میباشد. " , long start = 1 , long step =1) : Attribute
     {
      

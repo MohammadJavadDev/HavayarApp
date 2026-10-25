@@ -11,7 +11,7 @@ namespace Entities.App.Bpm
 		public const string AnnouncementEmailTitle = "ابلاغیه سیستم مدیریت یکپارچه اسناد";
 		public const string AnnouncementViewPath = "/panel/bpm/processdocument/published";
 		public const string RequestEditViewPath = "/panel/bpm/processdocument/edit";
-		public const string ManageEditViewPath = "/panel/bpm/processdocument/manageedit";
+		public const string ManageEditViewPath = "/panel/bpm/processdocument/manage";
 
 		public const string RoleShowAll = "Bpm.ProcessDocument.ShowAll";
 		public const string RoleSupervisor = "Bpm.ProcessDocument.Supervisor";

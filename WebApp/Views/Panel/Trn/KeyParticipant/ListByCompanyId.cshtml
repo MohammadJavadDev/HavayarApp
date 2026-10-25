@@ -26,7 +26,11 @@
                          <th>نام</th>
                          <th>نام خانوادگی</th>
                          <th>سمت</th>
-                         <th>تلفن همراه</th>
+                         <th>تلفن مستقیم</th>
+                         <th>شماره تماس</th>
+                         <th>شماره موبایل</th>
+                         <th>فکس</th>
+                         <th>تاییدیه فکس</th>
                          <th>ایمیل</th>
                          <th style="width:120px;">عملیات</th>
                     </tr>
@@ -101,7 +105,11 @@
                { data: 'firstName', render: function (d) { return escapeHtml(d); } },
                { data: 'lastName', render: function (d) { return escapeHtml(d); } },
                { data: 'position', render: function (d) { return escapeHtml(d); } },
-               { data: 'mobile', render: function (d) { return escapeHtml(d); } },
+               { data: 'directPhoneNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'phoneNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'mobileNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'faxNumber', render: function (d) { return escapeHtml(d); } },
+               { data: 'confirmedFaxNumber', render: function (d) { return escapeHtml(d); } },
                { data: 'email', render: function (d) { return escapeHtml(d); } },
                {
                     data: null,

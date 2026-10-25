@@ -51,6 +51,11 @@ namespace Entities.App.Sale
 		[DisplayInfo(null, true, type: SystemType.Date)]
 		public DateTime? AgreedDeliverDate { get; set; }
 
+		[DisplayName("تاریخ تحویل توافقی شمسی")]
+		[MaxLength(30)]
+		[DisplayInfo("AgreedDeliverDate", true, SystemType.DateShamsi)]
+		public string? AgreedDeliverShamsiDate { get; set; }
+
 
 		[DisplayName("مدل")]
 		[DisplayInfo(null, true, type: SystemType.String)]
@@ -194,7 +199,7 @@ namespace Entities.App.Sale
 
 		[DisplayName("نوع سریال")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
-		public ProductionOrderItemSerialTypeEnum SerialType { get; set; }
+		public ProductionOrderItemSerialTypeEnum? SerialType { get; set; }
 
 
 
@@ -498,8 +503,13 @@ namespace Entities.App.Sale
 	}
 
 
-		[Display(Name = "Bom اقلام سفارش ساخت")]
+		/// <summary>
+	/// فقط آخرین نسخهٔ هر کالا روی هر قلم؛ نسخه‌های قبلی و همهٔ رخدادها در <see cref="ProductionOrderItemBomHistory"/> هستند.
+	/// ایندکس یکتا هم‌زمان‌ثبت‌کردن دو ردیف برای یک کالا را غیرممکن می‌کند.
+	/// </summary>
+	[Display(Name = "Bom اقلام سفارش ساخت")]
 	[Table("ProductionOrderItemBom", Schema = "Sale")]
+	[Microsoft.EntityFrameworkCore.Index(nameof(ProductionOrderItemId), nameof(PartId), IsUnique = true)]
 	public class ProductionOrderItemBom : BaseEntity
 	{
 		public long ProductionOrderItemId { get; set; }
@@ -540,6 +550,11 @@ namespace Entities.App.Sale
 		[DisplayName("نیاز به AVL دارد")]
 		[DisplayInfo(null, true, type: SystemType.Boolean)]
 		public bool NeedsAVL { get; set; } = false;
+
+		/// <summary>معادل HTS: HasNeedToBuyOrBuild با عنوان «نیاز به بازرسی/مدارک بازرسی دارد».</summary>
+		[DisplayName("نیاز به بازرسی/مدارک بازرسی دارد")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool NeedsInspection { get; set; } = false;
 
 		[DisplayName("مرحله ساخت")]
 		[DisplayInfo(null, true, type: SystemType.Select)]

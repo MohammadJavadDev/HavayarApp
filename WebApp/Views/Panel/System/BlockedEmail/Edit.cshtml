@@ -1,0 +1,62 @@
+@using Entities.Base
+@model BlockedEmail
+
+<div class="card shadow-sm border-0">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(BlockedEmail)"></form-action-buttons>
+	</div>
+	<div class="card-body">
+		<div class="row mb-4">
+			<div class="col-12">
+				<h4 class="fw-bold text-dark mb-0">ایمیل‌های عدم ارسال</h4>
+			</div>
+		</div>
+		<input class="form-control" data-bind="id" value="@Model?.Id" type="hidden" />
+		<div class="row g-3">
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold required">ایمیل</label>
+				<input class="form-control ltr" dir="ltr" data-bind="email" data-required="true" asp-for="Email" maxlength="320" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="form-label fw-bold">نام شخص</label>
+				<input class="form-control" data-bind="personName" asp-for="PersonName" maxlength="200" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="form-label fw-bold">توضیح</label>
+				<textarea class="form-control" data-bind="description" asp-for="Description" maxlength="1000" rows="3"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label fw-bold">وضعیت</label>
+				<select class="form-select" data-bind="isActive" asp-for="IsActive" asp-items="Html.GetEnumSelectList(typeof(IsActiveEnum))"></select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+		</div>
+	</div>
+</div>
+<script>
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		if (!model.email) {
+			toastr.error('ایمیل نمی‌تواند خالی باشد.', 'خطا');
+			return;
+		}
+		const $btn = $($btnAction.element).block();
+		$$.post(model.id ? 'update' : 'add', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			page.$pageEl.dataBind(r.data);
+			$btnAction.baseaction();
+		});
+	}
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

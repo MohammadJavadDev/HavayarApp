@@ -9,6 +9,7 @@ using Entities.Auth;
 using Entities.Base.Enums;
 using Entities.Base.Notification;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Services.Auth;
 
 namespace WebApp.Actions.Rpr
@@ -17,7 +18,9 @@ namespace WebApp.Actions.Rpr
 		IUnitOfWork unitOfWork,
 		IUserService userService,
 		ISdk sdk,
-		IConfiguration configuration)
+		IConfiguration configuration,
+		IRepairRequestPartImporter repairRequestPartImporter,
+		ILogger<RepairRequestAction> logger)
 	{
 		public const string RoleAfterSale = "Rpr.RepairRequest.AfterSale";
 		public const string RoleRepairs = "Rpr.RepairRequest.Repairs";
@@ -51,6 +54,7 @@ namespace WebApp.Actions.Rpr
 				return;
 
 			entity.HtsId = existing.HtsId;
+			entity.StationId = existing.StationId;
 			if (!entity.IsConfirmOperation)
 			{
 				PreserveConfirms(entity, existing);
@@ -60,17 +64,25 @@ namespace WebApp.Actions.Rpr
 			await FillDerivedAsync(entity, ct);
 		}
 
-		[EntityAction(typeof(RepairRequest), EntityActionTrigger.AfterSave,
-			"RepairRequestAfterSaveEmails", "ایمیل‌های ذخیره و تغییر وضعیت درخواست تعمیر", Priority = 2)]
-		public async Task AfterSaveEmails(RepairRequest entity, CancellationToken ct)
+		// Repository.UpdateAsync / AddAsync fire only AfterUpdate / AfterAdd (AfterSave fires only inside SaveAsync,
+		// which this controller does not use for edits), so the hooks are bound to both.
+		[EntityAction(typeof(RepairRequest), EntityActionTrigger.AfterAdd,
+			"RepairRequestAfterAddEmails", "ایمیل‌های ثبت درخواست تعمیر", Priority = 2)]
+		public Task AfterAddEmails(RepairRequest entity, CancellationToken ct)
+		{
+			_previous = null;
+			return SendSaveEmailsAsync(entity, null, ct);
+		}
+
+		[EntityAction(typeof(RepairRequest), EntityActionTrigger.AfterUpdate,
+			"RepairRequestAfterUpdateEmails", "ایمیل‌های ویرایش و تغییر وضعیت درخواست تعمیر", Priority = 2)]
+		public Task AfterUpdateEmails(RepairRequest entity, CancellationToken ct)
+			=> SendSaveEmailsAsync(entity, _previous, ct);
+
+		private async Task SendSaveEmailsAsync(RepairRequest entity, RepairRequest? previous, CancellationToken ct)
 		{
 			if (entity.IsConfirmOperation)
 				return;
-
-			var previous = _previous;
-			if (previous == null && entity.Id != null)
-				previous = await unitOfWork.Repository<RepairRequest>().TableNoTracking
-					.FirstOrDefaultAsync(c => c.Id == entity.Id, ct);
 
 			if (entity.HasContentProductionImaging == true
 				&& (previous == null || previous.HasContentProductionImaging != true))
@@ -78,15 +90,17 @@ namespace WebApp.Actions.Rpr
 
 			if (previous != null)
 			{
+				// مثل سیستم قدیمی: «ثبت» اگر تاریخ توافقی اول قبلا خالی بوده، در غیر این صورت «ویرایش»
+				var agreedOperation = previous.AgreedMiladiDate == null ? "ثبت" : "ویرایش";
 				if (!string.Equals(previous.AgreedShamsiDate, entity.AgreedShamsiDate, StringComparison.Ordinal)
 					&& !string.IsNullOrWhiteSpace(entity.AgreedShamsiDate))
-					await SendTypedEmailAsync(entity, 6, previous.AgreedMiladiDate == null ? "ثبت" : "ویرایش", null, 1, ct);
+					await SendTypedEmailAsync(entity, 6, agreedOperation, null, 1, ct);
 				if (!string.Equals(previous.Agreed2ShamsiDate, entity.Agreed2ShamsiDate, StringComparison.Ordinal)
 					&& !string.IsNullOrWhiteSpace(entity.Agreed2ShamsiDate))
-					await SendTypedEmailAsync(entity, 6, "ویرایش", null, 2, ct);
+					await SendTypedEmailAsync(entity, 6, agreedOperation, null, 2, ct);
 				if (!string.Equals(previous.Agreed3ShamsiDate, entity.Agreed3ShamsiDate, StringComparison.Ordinal)
 					&& !string.IsNullOrWhiteSpace(entity.Agreed3ShamsiDate))
-					await SendTypedEmailAsync(entity, 6, "ویرایش", null, 3, ct);
+					await SendTypedEmailAsync(entity, 6, agreedOperation, null, 3, ct);
 
 				if (!string.Equals(previous.QcRequestShamsiDate, entity.QcRequestShamsiDate, StringComparison.Ordinal)
 					&& !string.IsNullOrWhiteSpace(entity.QcRequestShamsiDate))
@@ -99,6 +113,31 @@ namespace WebApp.Actions.Rpr
 			}
 
 			await RefreshHasContractorAsync(entity.Id, ct);
+		}
+
+		[EntityAction(typeof(RepairRequest), EntityActionTrigger.AfterAdd,
+			"RepairRequestImportPartsAfterAdd", "ورود اقلام مصرفی از راهکاران (ثبت)", Priority = 5)]
+		public Task ImportPartsAfterAdd(RepairRequest entity, CancellationToken ct)
+			=> ImportPartsAfterSave(entity, ct);
+
+		[EntityAction(typeof(RepairRequest), EntityActionTrigger.AfterUpdate,
+			"RepairRequestImportPartsAfterUpdate", "ورود اقلام مصرفی از راهکاران (ویرایش)", Priority = 5)]
+		public Task ImportPartsAfterUpdate(RepairRequest entity, CancellationToken ct)
+			=> ImportPartsAfterSave(entity, ct);
+
+		private async Task ImportPartsAfterSave(RepairRequest entity, CancellationToken ct)
+		{
+			if (entity.IsConfirmOperation || entity.DlId is null or 0)
+				return;
+
+			try
+			{
+				await repairRequestPartImporter.ImportAsync(entity.DlId, ct);
+			}
+			catch (Exception ex)
+			{
+				logger.LogError(ex, "ورود اقلام مصرفی درخواست تعمیر {RepairRequestId} از راهکاران انجام نشد", entity.Id);
+			}
 		}
 
 		public async Task SendConfirmEmailAsync(RepairRequest entity, RepairRequestConfirmType type, CancellationToken ct)
@@ -138,8 +177,27 @@ namespace WebApp.Actions.Rpr
 
 		public async Task SendContractorCostEmailAsync(RepairRequest entity, RepairRequestContractor row, CancellationToken ct)
 		{
-			entity.Comment = row.Comment;
-			await SendTypedEmailAsync(entity, 3, "ثبت", BuildContractorLine(row), 1, ct);
+			var contractorTitle = await ResolveContractorTitleAsync(row, ct);
+			await SendTypedEmailAsync(entity, 3, "ثبت", BuildContractorLine(entity, row, contractorTitle), 1, ct);
+		}
+
+		/// <summary>
+		/// نام پیمانکار مثل لیست پیمانکارها: اول عنوان پیمانکار انتخاب‌شده، بعد ContractorTitle.
+		/// ردیف‌هایی که پیمانکار از لیست انتخاب شده ContractorTitle ندارند و نام در ایمیل خالی می‌آمد.
+		/// </summary>
+		private async Task<string?> ResolveContractorTitleAsync(RepairRequestContractor row, CancellationToken ct)
+		{
+			if (row.ContractorId is > 0)
+			{
+				var title = await unitOfWork.Repository<RepairContractor>().TableNoTracking
+					.Where(c => c.Id == row.ContractorId)
+					.Select(c => c.Title)
+					.FirstOrDefaultAsync(ct);
+				if (!string.IsNullOrWhiteSpace(title))
+					return title;
+			}
+
+			return row.ContractorTitle;
 		}
 
 		public bool HasAfterSaleAccess()
@@ -250,6 +308,7 @@ namespace WebApp.Actions.Rpr
 			entity.DlId = existing.DlId;
 			entity.ExpertIds = existing.ExpertIds;
 			entity.ExpertsInText = existing.ExpertsInText;
+			entity.ZoneManagerId = existing.ZoneManagerId;
 			entity.Status = existing.Status;
 			entity.StartMiladiDate = existing.StartMiladiDate;
 			entity.StartShamsiDate = existing.StartShamsiDate;
@@ -520,24 +579,28 @@ namespace WebApp.Actions.Rpr
 				8 => $"برای درخواست تعمیر با شماره شناسنامه {entity.IdNumber} تاریخ ارسال پیشنهاد مالی به تاریخ {entity.FinancialProposalSentShamsiDate} ثبت گردید",
 				9 => $"درخواست تعمیر با شماره شناسنامه {entity.IdNumber} در وضعیت تکمیل شده قرار گرفته است.",
 				10 => $"درخواست تعمیر با شماره شناسنامه {entity.IdNumber} در وضعیت تحویل به انبار قرار گرفته است.",
-				_ => extraHtml ?? ""
+				_ => ""
 			};
 
 			return "<div style='text-align:center;direction:rtl'>"
 				+ "<table border='1' cellspacing='0' cellpadding='5' style='text-align:right;direction:rtl' width='672'>"
 				+ "<tr style='background:#000aa0'><td colspan='2'><div style='font-size:14pt;color:#fff;text-align:center'>گروه صنعتی هوایار</div></td></tr>"
 				+ "<tr><td colspan='2'><div style='font-size:14pt;color:#1F497D;text-align:right'>"
-				+ "با سلام و احترام <br />" + line + "<br/>"
+				+ "با سلام و احترام <br />" + (string.IsNullOrEmpty(line) ? "" : line + "<br/>")
 				+ (extraHtml ?? "")
 				+ "<ul>"
+				+ (type == 3 ? $"<li>شماره شناسنامه تعمیر : <strong>{entity.IdNumber}</strong></li>" : "")
 				+ $"<li>سایت مشتری : <strong>{entity.CustomerAddressManual}</strong></li>"
 				+ (string.IsNullOrWhiteSpace(partCode) ? "" : $"<li>کد تجهیز : <strong>{partCode}</strong></li>")
 				+ (string.IsNullOrWhiteSpace(partName) ? "" : $"<li>عنوان تجهیز : <strong>{partName}</strong></li>")
 				+ "</ul></div></td></tr></table></div>";
 		}
 
-		private static string BuildContractorLine(RepairRequestContractor row)
-			=> $"برای درخواست تعمیر هزینه تعمیر پیمانکار {row.ContractorTitle} به مبلغ {row.Cost} ریال در نظر گرفته شده است.<br/>توضیحات : <strong>{row.Comment}</strong><br/>";
+		private static string BuildContractorLine(RepairRequest entity, RepairRequestContractor row, string? contractorTitle)
+		{
+			var cost = (row.Cost ?? 0).ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+			return $"برای درخواست تعمیر با شماره شناسنامه {entity.IdNumber} هزینه تعمیر پیمانکار {contractorTitle} به مبلغ {cost} ریال در نظر گرفته شده است.<br/>توضیحات : <strong>{row.Comment}</strong><br/>";
+		}
 
 		private static string? ToHavayarEmail(string? value)
 		{
@@ -552,7 +615,7 @@ namespace WebApp.Actions.Rpr
 	{
 		[EntityAction(typeof(RepairRequestContractor), EntityActionTrigger.AfterSave,
 			"RepairRequestContractorAfterSave", "پرچم پیمانکار و ایمیل هزینه", Priority = 1)]
-		public async Task AfterSave(RepairRequestContractor entity, CancellationToken ct)
+		public async Task AfterSave(RepairRequestContractor entity, RepairRequestContractor? oldEntity, CancellationToken ct)
 		{
 			if (entity.RepairRequestId == null)
 				return;
@@ -560,12 +623,42 @@ namespace WebApp.Actions.Rpr
 				.FirstOrDefaultAsync(c => c.Id == entity.RepairRequestId, ct);
 			if (header == null)
 				return;
-			header.HasContractor = true;
-			header.IsConfirmOperation = true;
-			await unitOfWork.Repository<RepairRequest>().UpdateAsync(header, ct, true, true, false);
-			if (entity.Cost != null && entity.Cost != 0)
-				await headerAction.SendContractorCostEmailAsync(header, entity, ct);
+
+			// فقط وقتی پرچم هنوز ست نشده هدر به‌روزرسانی شود؛ وگرنه با هر ویرایش پیمانکار
+			// تاریخ و کاربر ویرایش درخواست تعمیر بی‌دلیل عوض می‌شد.
+			if (header.HasContractor != true)
+			{
+				header.HasContractor = true;
+				header.IsConfirmOperation = true;
+				await unitOfWork.Repository<RepairRequest>().UpdateAsync(header, ct, true, true, false);
+			}
+
+			if (entity.Cost == null || entity.Cost == 0)
+				return;
+
+			// مثل HTS: ایمیل برای ردیف جدید یا وقتی یکی از فیلدهای ردیف پیمانکار تغییر کرده
+			// (oldEntity فقط در ویرایش مقدار دارد).
+			if (oldEntity != null && !HasEmailRelevantChange(entity, oldEntity))
+				return;
+
+			await headerAction.SendContractorCostEmailAsync(header, entity, ct);
 		}
+
+		private static bool HasEmailRelevantChange(RepairRequestContractor entity, RepairRequestContractor old)
+			=> entity.Cost != old.Cost
+				|| entity.ContractorId != old.ContractorId
+				|| entity.PartId != old.PartId
+				|| !SameText(entity.ContractorTitle, old.ContractorTitle)
+				|| !SameText(entity.PartTitle, old.PartTitle)
+				|| !SameText(entity.Comment, old.Comment)
+				|| !SameText(entity.SendPartShamsiDate, old.SendPartShamsiDate)
+				|| !SameText(entity.AcceptShamsiDate, old.AcceptShamsiDate)
+				|| !SameText(entity.AgreementShamsiDate, old.AgreementShamsiDate)
+				|| !SameText(entity.ReturnShamsiDate, old.ReturnShamsiDate)
+				|| !SameText(entity.CostAnnouncementShamsiDate, old.CostAnnouncementShamsiDate);
+
+		private static bool SameText(string? a, string? b)
+			=> string.Equals((a ?? "").Trim(), (b ?? "").Trim(), StringComparison.Ordinal);
 
 		[EntityAction(typeof(RepairRequestContractor), EntityActionTrigger.AfterDelete,
 			"RepairRequestContractorAfterDelete", "به‌روزرسانی پرچم پیمانکار", Priority = 1)]

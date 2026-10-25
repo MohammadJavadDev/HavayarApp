@@ -17,7 +17,10 @@ Mappings:
   AmbassadorId: HRM_Personel.Hamkaran_Personel_FK -> Hcm.Personel.HamkaranId, else PrsCode -> Code; NULL if unmatched
     (source AmbassadorId is smallint personnel id)
   TypeId, JobTypeId, OutdoorAmbassadorServiceId, StatusId: copy HTS lookup ids as-is (StatusId 0 stays 0)
-  NeedDate / NeedDateInText / NeedTime / PackageDescription / Destination / LastComment /
+  NeedDateShamsiDate / NeedDateMiladiDate: HTS NeedDateInText is the Shamsi text.
+    HTS NeedDate is Miladi when YEAR >= 1900. Years 1300-1599 are Shamsi stuffed into the date
+    column and are converted with dbo.fn_ShamsiToMiladiDate. Year 0720/0721 stays Shamsi text with NULL Miladi.
+  NeedTime / PackageDescription / Destination / LastComment /
     WaitingTime / DoneDateTimeIntext -> DoneDateTimeInText / CreatedDateInText: copy as stored (no year-0720 fix)
   CreatedOnMiladiDateTime <- HTS CreatedDate; CreatedOnShamsiDateTime <- CreatedDateInText when present
   IsActive = 1
@@ -136,9 +139,9 @@ BEGIN TRY
         CAST(a.Id AS BIGINT) AS HtsId,
         CAST(a.TypeId AS INT) AS TypeId,
         CAST(a.JobTypeId AS INT) AS JobTypeId,
-        CAST(a.NeedDate AS DATE) AS NeedDate,
+        CAST(a.NeedDate AS DATE) AS NeedDateMiladiDate,
         LEFT(NULLIF(LTRIM(RTRIM(a.NeedTime)), N''), 5) AS NeedTime,
-        NULLIF(LTRIM(RTRIM(a.NeedDateInText)), N'') AS NeedDateInText,
+        NULLIF(LTRIM(RTRIM(a.NeedDateInText)), N'') AS NeedDateShamsiDate,
         NULLIF(LTRIM(RTRIM(a.PackageDescription)), N'') AS PackageDescription,
         CASE WHEN a.AmbassadorId IS NULL THEN NULL ELSE pmAmb.NewPersonelId END AS AmbassadorId,
         CAST(a.AmbassadorId AS INT) AS OldAmbassadorId,
@@ -160,15 +163,42 @@ BEGIN TRY
     LEFT JOIN #PersonelMap pmAmb ON a.AmbassadorId IS NOT NULL AND pmAmb.OldPersonelId = CAST(a.AmbassadorId AS INT)
     LEFT JOIN #UserMap umc ON umc.OldUserId = CAST(a.CreatedUserId AS INT);
 
+    UPDATE #HdrSrc
+    SET NeedDateShamsiDate =
+        CONVERT(nvarchar(4), YEAR(NeedDateMiladiDate)) + N'/'
+        + RIGHT(N'0' + CONVERT(nvarchar(2), MONTH(NeedDateMiladiDate)), 2) + N'/'
+        + RIGHT(N'0' + CONVERT(nvarchar(2), DAY(NeedDateMiladiDate)), 2)
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND YEAR(NeedDateMiladiDate) BETWEEN 1300 AND 1599
+      AND (NeedDateShamsiDate IS NULL OR NeedDateShamsiDate NOT LIKE N'1[34][0-9][0-9]/[0-9][0-9]/[0-9][0-9]');
+
+    UPDATE #HdrSrc
+    SET NeedDateMiladiDate = dbo.fn_ShamsiToMiladiDate(REPLACE(NeedDateShamsiDate, N'-', N'/'), N'/')
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND YEAR(NeedDateMiladiDate) < 1900
+      AND REPLACE(NeedDateShamsiDate, N'-', N'/') LIKE N'1[34][0-9][0-9]/[0-9][0-9]/[0-9][0-9]'
+      AND TRY_CAST(LEFT(REPLACE(NeedDateShamsiDate, N'-', N'/'), 4) AS int) >= 1354
+      AND dbo.fn_ShamsiToMiladiDate(REPLACE(NeedDateShamsiDate, N'-', N'/'), N'/') IS NOT NULL;
+
+    UPDATE #HdrSrc
+    SET NeedDateMiladiDate = NULL
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND YEAR(NeedDateMiladiDate) < 1900;
+
+    UPDATE #HdrSrc
+    SET NeedDateShamsiDate = dbo.ToShamsiDate(NeedDateMiladiDate, N'/')
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND (NeedDateShamsiDate IS NULL OR NeedDateShamsiDate NOT LIKE N'1[34][0-9][0-9]/[0-9][0-9]/[0-9][0-9]');
+
     PRINT N'Syncing AmbassadorRequest headers (unmapped ambassador -> NULL; unmapped creator -> Id 1)...';
 
     /* ========== Headers: UPDATE then INSERT (skip HtsId = 0 targets) ========== */
     UPDATE t SET
         t.TypeId = s.TypeId,
         t.JobTypeId = s.JobTypeId,
-        t.NeedDate = s.NeedDate,
+        t.NeedDateMiladiDate = s.NeedDateMiladiDate,
         t.NeedTime = s.NeedTime,
-        t.NeedDateInText = s.NeedDateInText,
+        t.NeedDateShamsiDate = s.NeedDateShamsiDate,
         t.PackageDescription = s.PackageDescription,
         t.AmbassadorId = s.AmbassadorId,
         t.OutdoorAmbassadorServiceId = s.OutdoorAmbassadorServiceId,
@@ -193,13 +223,13 @@ BEGIN TRY
     PRINT N'  AmbassadorRequest updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
 
     INSERT INTO Srv.AmbassadorRequest (
-        HtsId, TypeId, JobTypeId, NeedDate, NeedTime, NeedDateInText, PackageDescription,
+        HtsId, TypeId, JobTypeId, NeedDateMiladiDate, NeedTime, NeedDateShamsiDate, PackageDescription,
         AmbassadorId, OutdoorAmbassadorServiceId, Destination, LastComment, StatusId, WaitingTime,
         DoneDateTimeInText, CreatedDateInText,
         CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime,
         ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
     SELECT
-        s.HtsId, s.TypeId, s.JobTypeId, s.NeedDate, s.NeedTime, s.NeedDateInText, s.PackageDescription,
+        s.HtsId, s.TypeId, s.JobTypeId, s.NeedDateMiladiDate, s.NeedTime, s.NeedDateShamsiDate, s.PackageDescription,
         s.AmbassadorId, s.OutdoorAmbassadorServiceId, s.Destination, s.LastComment, s.StatusId, s.WaitingTime,
         s.DoneDateTimeInText, s.CreatedDateInText,
         s.CreatedById, s.CreatedByName, s.CreatedOnMiladiDateTime, s.CreatedOnShamsiDateTime,
@@ -290,7 +320,7 @@ BEGIN TRY
         (SELECT COUNT(*) FROM Srv.AmbassadorRequest WHERE HtsId <> 0 AND StatusId = 0) AS StatusIdZero,
         (SELECT COUNT(*) FROM Srv.AmbassadorRequest
          WHERE HtsId <> 0
-           AND (YEAR(NeedDate) < 1900 OR NeedDateInText LIKE N'0720%')) AS NeedDateAnomalies;
+           AND (NeedDateMiladiDate IS NULL OR YEAR(NeedDateMiladiDate) < 1900 OR NeedDateShamsiDate LIKE N'0720%' OR NeedDateShamsiDate LIKE N'99/%')) AS NeedDateAnomalies;
 
     PRINT N'Sync_SrvAmbassadorRequest_FromTotalSystem completed.';
 

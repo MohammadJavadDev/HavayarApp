@@ -10,7 +10,7 @@
 	string MiladiAttr(string? shamsi)
 	{
 		if (string.IsNullOrWhiteSpace(shamsi)) return "";
-		try { return shamsi.ToMiladiDateTimeWithSplitData().ToString("yyyy-MM-dd"); }
+		try { return shamsi.ToMiladiDateTimeWithSplitData()?.ToString("yyyy-MM-dd"); }
 		catch { return ""; }
 	}
 }
@@ -105,9 +105,9 @@
 				@(Html.EntitySelector<Personel>(
 					"TicketHotelApplicantSelector",
 					c => c.IsActive == IsActiveEnum.Active,
-					c => new { Id = c.Id, Name = c.Name, Family = c.Family, FamilyDisplay = c.FamilyDisplay, Code = c.Code },
-					c => new { c.Name, c.Family, c.FamilyDisplay, c.Code },
-					"{Name} {FamilyDisplay}",
+					c => new { Id = c.Id, Name = c.Name, Family = c.Family, FamilyDisplay = c.FamilyDisplay, Code = c.Code, NationalID = c.NationalID },
+					c => new { c.Name, c.Family, c.FamilyDisplay, c.Code, c.NationalID },
+					"{Name} {FamilyDisplay}({NationalID})",
 					"applicantIds",
 					null,
 					Model?.ApplicantIds,
@@ -211,6 +211,10 @@
 					<th>تاریخ صدور</th>
 					<th>شماره</th>
 					<th>مبلغ (ریال)</th>
+					<th>مبدا</th>
+					<th>مقصد</th>
+					<th>تاریخ حرکت</th>
+					<th>ساعت حرکت</th>
 					<th>کنسل</th>
 					<th>تاریخ کنسل</th>
 					<th>علت کنسل</th>
@@ -366,6 +370,10 @@
 				{ data: 'issueDate', defaultContent: '-', render: renderEllipsisCell },
 				{ data: 'ticketNumber', defaultContent: '-', render: renderEllipsisCell },
 				{ data: 'ticketAmount', defaultContent: '-', render: function (v) { return moneyCell(v); } },
+				{ data: 'source', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'destination', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'departurDate', defaultContent: '-', render: renderEllipsisCell },
+				{ data: 'departurTime', defaultContent: '-', render: renderEllipsisCell },
 				{ data: 'isCanceled', defaultContent: '-', render: function (v) { return boolCell(v); } },
 				{ data: 'cancelDateInText', defaultContent: '-', render: renderEllipsisCell },
 				{ data: 'cancelReason', defaultContent: '-', render: renderEllipsisCell },

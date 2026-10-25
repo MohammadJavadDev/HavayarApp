@@ -27,7 +27,6 @@ namespace WebApp.Controllers.Dynamic.Inv
 		IWebHostEnvironment webHostEnvironment,
 		IUserService userService) : BaseController
 	{
-		// TODO: نام نقش گیرنده درخواست کد کالا را در سیستم تعریف کنید
 		private const string RequestRecipientRoleName = "InvPartCodingRequestRecipient";
 
 		private const int MinPartCodePrefixLength = 6;
@@ -195,6 +194,81 @@ namespace WebApp.Controllers.Dynamic.Inv
 				RecordsFiltered = recordsFiltered,
 				Data = pageData
 			});
+		}
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("خروجی اکسل کالاهای مرتبط", ActionAccessType.Api)]
+		public async Task<IActionResult> ExportPartsToExcel(
+			DataTableRequestGridData request,
+			CancellationToken cn)
+		{
+			var partQuery = unitOfWork.Repository<Part>().TableNoTracking
+				.Where(p => p.Code != null && !p.Code.StartsWith("5"));
+
+			if (request.partCodePrefix.HasValue())
+				partQuery = partQuery.Where(p => p.Code!.StartsWith(request.partCodePrefix));
+
+			var parts = await partQuery
+				.Select(p => new PartGridRowDto
+				{
+					Id = p.Id,
+					Code = p.Code,
+					Name = p.Name,
+					ModifiedDateShamsiDateTime = p.ModifiedDateShamsiDateTime,
+					Number = p.Number,
+					Description = p.Description,
+					Type = p.Type,
+					UnitTitle = p.Unit != null ? p.Unit.Title : null,
+					Foreign = p.Foreign,
+					EngineeringRoutine = p.EngineeringRoutine
+				})
+				.ToListAsync(cn);
+
+			parts = ApplyAdvancedSearchFilter(parts, request.searchContent);
+
+			var orderColumn = request.order?.FirstOrDefault()?.column;
+			var columnName = orderColumn != null && request.columns != null && int.TryParse(orderColumn, out var colIndex) && colIndex < request.columns.Count
+				? request.columns[colIndex].data
+				: "Code";
+			parts = ApplyOrdering(parts, columnName, request.order?.FirstOrDefault()?.dir ?? "asc");
+
+			try
+			{
+				var workbook = new Aspose.Cells.Workbook();
+				if (!workbook.IsLicensed)
+					new Aspose.Cells.License().SetLicense(webHostEnvironment.WebRootPath + "\\Aspose.Total.NET.lic");
+
+				var sheet = workbook.Worksheets[0];
+				sheet.Name = "کالاها";
+				sheet.DisplayRightToLeft  = true;
+
+				var headers = new[] { "#", "کد", "نام", "تاریخ بروزرسانی", "شماره", "توضیحات", "نوع", "واحد", "خارجی", "روتین" };
+				for (var i = 0; i < headers.Length; i++)
+					sheet.Cells[0, i].PutValue(headers[i]);
+
+				for (var r = 0; r < parts.Count; r++)
+				{
+					var p = parts[r];
+					var row = r + 1;
+					sheet.Cells[row, 0].PutValue(row);
+					sheet.Cells[row, 1].PutValue(p.Code ?? string.Empty);
+					sheet.Cells[row, 2].PutValue(p.Name ?? string.Empty);
+					sheet.Cells[row, 3].PutValue(p.ModifiedDateShamsiDateTime ?? string.Empty);
+					sheet.Cells[row, 4].PutValue(p.Number ?? string.Empty);
+					sheet.Cells[row, 5].PutValue(p.Description ?? string.Empty);
+					sheet.Cells[row, 6].PutValue(p.Type.HasValue ? p.Type.Value.ToDisplay() : string.Empty);
+					sheet.Cells[row, 7].PutValue(p.UnitTitle ?? string.Empty);
+					sheet.Cells[row, 8].PutValue(p.Foreign ? "بله" : string.Empty);
+					sheet.Cells[row, 9].PutValue(p.EngineeringRoutine ? "بله" : string.Empty);
+				}
+
+				sheet.AutoFitColumns();
+				var memoryStream = new MemoryStream();
+				workbook.Save(memoryStream, Aspose.Cells.SaveFormat.Xlsx);
+				memoryStream.Position = 0;
+				return File(memoryStream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "PartCoding.xlsx");
+			}
+			catch (Exception ex) { return StatusCode(500, "خطا در زمان ایجاد فایل اکسل: " + ex.Message); }
 		}
 
 		#endregion

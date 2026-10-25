@@ -9,34 +9,378 @@
 	string url = Context.Request.Path;
 	var items = menuService.GetMenuItems(null, sdk);
 	var accessMenus = menuService.GetMenuByRole(sdk);
-	var html = menuService.GetHtmlItems(items, url,sdk);
+	var menuJson = menuService.GetSidebarJson(items, url, sdk);
 
 	var clientSdkData = SdkClientSerializer.SerializeForClient(
 	    sdk.CurrentUser,
 	    sdk.Authenticated
 	);
+
+	var savedSidebar = Context.Request.Cookies["sidebar_minimize_state"];
+	var sidebarMinimized = savedSidebar == "on"
+		|| (savedSidebar != "off" && Context.Request.Cookies["data-kt-app-sidebar-minimize"] == "on");
 }
  
 
 
+@* After the Metronic bundle: open width only. Minimized stays 75px. *@
+<style>
+	@@media (min-width: 992px) {
+		:root {
+			--bs-app-sidebar-width: 200px;
+			--bs-app-sidebar-width-actual: 200px;
+		}
+
+		[data-kt-app-sidebar-sticky="on"] {
+			--bs-app-sidebar-width: 200px;
+		}
+
+		[data-kt-app-sidebar-minimize="on"] {
+			--bs-app-sidebar-width: 75px;
+		}
+
+		[data-kt-app-sidebar-collapse="on"] {
+			--bs-app-sidebar-width: 0px;
+		}
+	}
+
+	@@media (max-width: 991.98px) {
+		:root {
+			--bs-app-sidebar-width: 200px;
+			--bs-app-sidebar-width-actual: 200px;
+		}
+
+		[data-kt-app-sidebar-minimize-mobile="on"] {
+			--bs-app-sidebar-width: 75px;
+		}
+
+		[data-kt-app-sidebar-collapse-mobile="on"] {
+			--bs-app-sidebar-width: 0px;
+		}
+	}
+
+	#kt_app_sidebar .app-sidebar-logo {
+		padding-inline: .65rem;
+	}
+
+	#kt_app_sidebar_menu_scroll {
+		margin-inline: .2rem !important;
+	}
+
+	#kt_app_sidebar .menu-item {
+		padding-top: .28rem;
+		padding-bottom: .28rem;
+	}
+
+	#kt_app_sidebar .menu-item .menu-link {
+		padding: .5rem .45rem;
+	}
+
+	#kt_app_sidebar_menu.hv-menu,
+	#kt_app_sidebar_menu.hv-menu .menu-link,
+	#kt_app_sidebar_menu.hv-menu .menu-title,
+	#kt_app_sidebar .app-sidebar-menu .menu > .menu-item > .menu-link > .menu-title {
+		font-weight: 400;
+	}
+
+	#kt_app_sidebar .menu-item .menu-link .menu-icon {
+		width: 1.5rem;
+		margin-left: .3rem;
+	}
+
+	#kt_app_sidebar .menu-item .menu-link .menu-bullet {
+		width: 1rem;
+		margin-left: .25rem;
+	}
+
+	#kt_app_sidebar .menu-item .menu-link .menu-title {
+		display: block;
+		min-width: 0;
+		flex: 1 1 auto;
+		line-height: 1.3;
+		overflow-wrap: anywhere;
+	}
+
+	#kt_app_sidebar .menu-sub-indention .menu-sub:not([data-popper-placement]) {
+		margin-right: .4rem;
+	}
+
+	#kt_app_sidebar .menu-sub-indention .menu-item .menu-item .menu-link.active {
+		margin-left: .25rem;
+	}
+
+	#kt_app_sidebar .app-sidebar-logo {
+		overflow: visible;
+		z-index: 3;
+	}
+
+	#kt_app_sidebar_toggle {
+		z-index: 6;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar {
+		z-index: 110;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .app-sidebar-wrapper,
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar_menu_scroll,
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar_menu {
+		width: 100% !important;
+		max-width: 100%;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .app-sidebar-menu > .px-2 {
+		display: none;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-sub {
+		display: none !important;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar_menu_scroll {
+		margin-inline: 0 !important;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-item .menu-link {
+		justify-content: center;
+		padding-inline: 0;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-title,
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-arrow,
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .hv-crumb {
+		display: none !important;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-item .menu-link .menu-icon,
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-item .menu-link .menu-bullet {
+		margin: 0;
+	}
+
+	[data-kt-app-sidebar-minimize="on"] #kt_app_sidebar .menu-item.hv-flyout-source > .menu-link {
+		background: color-mix(in srgb, var(--bs-primary, #2E86C1) 32%, transparent);
+		border-radius: .45rem;
+	}
+
+	.hv-flyout {
+		position: fixed;
+		z-index: 120;
+		box-sizing: border-box;
+		width: 240px;
+		padding: .7rem .5rem .75rem;
+		border-radius: .75rem;
+		background: var(--bs-app-sidebar-bg-color, #1e1e2d);
+		color: var(--bs-app-sidebar-color, #dbdfe9);
+		border: 1px solid color-mix(in srgb, var(--bs-app-sidebar-color, #fff) 14%, transparent);
+		box-shadow: 0 16px 40px rgba(0, 0, 0, .28);
+		overflow: visible;
+		font-weight: 400;
+		animation: hv-flyout-in .16s ease-out;
+	}
+
+	.hv-flyout__menu {
+		max-height: min(62vh, 24rem);
+		overflow: auto;
+	}
+
+	.hv-flyout__title {
+		padding: .1rem .5rem .55rem;
+		font-size: 1.15rem;
+		font-weight: 400;
+		line-height: 1.4;
+		color: inherit;
+	}
+
+	.hv-flyout .menu-link,
+	.hv-flyout .menu-title,
+	.hv-flyout .hv-toggle {
+		font-weight: 400;
+		color: var(--hv-flyout-color, #DBDFE9) !important;
+	}
+
+	.hv-flyout .menu-arrow:after {
+		background-color: var(--hv-flyout-color, var(--bs-app-sidebar-color, #f3f6f9));
+	}
+
+	.hv-flyout .hv-toggle {
+		width: 100%;
+		border: 0;
+		background: transparent;
+		font: inherit;
+		text-align: inherit;
+	}
+
+	.hv-flyout .menu-link {
+		border-radius: .45rem;
+	}
+
+	.hv-flyout .menu-link:hover,
+	.hv-flyout .hv-toggle:hover {
+		background: color-mix(in srgb, var(--bs-app-sidebar-color, #fff) 10%, transparent);
+	}
+
+	.hv-flyout .menu-link.active {
+		background: color-mix(in srgb, var(--bs-primary, #2E86C1) 22%, transparent);
+	}
+
+	.hv-flyout::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 100%;
+		width: 14px;
+	}
+
+	@@keyframes hv-flyout-in {
+		from { opacity: 0; transform: translateX(8px); }
+		to { opacity: 1; transform: none; }
+	}
+
+	#kt_app_sidebar .app-sidebar-logo {
+		justify-content: center;
+	}
+
+	#kt_app_sidebar .hv-brand {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		flex-shrink: 0;
+		text-decoration: none;
+		animation: hv-brand-in .55s cubic-bezier(.2, .8, .2, 1) both;
+	}
+
+	#kt_app_sidebar .hv-brand__ring,
+	#kt_app_sidebar .hv-brand__halo {
+		position: absolute;
+		border-radius: 50%;
+		pointer-events: none;
+	}
+
+	#kt_app_sidebar .hv-brand__halo {
+		inset: 4px;
+		background: radial-gradient(circle, rgba(229, 0, 25, .55) 0%, rgba(229, 0, 25, 0) 70%);
+		animation: hv-brand-glow 2.4s ease-in-out infinite;
+	}
+
+	#kt_app_sidebar .hv-brand__ring {
+		inset: 0;
+		background: conic-gradient(from 0deg, transparent 0 68%, rgba(255, 90, 102, .2) 78%, #ff2a3c 90%, #fff 96%, transparent 100%);
+		-webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+		mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+		animation: hv-brand-spin 2.6s linear infinite;
+		filter: drop-shadow(0 0 3px rgba(229, 0, 25, .85));
+	}
+
+	#kt_app_sidebar .hv-brand__spark {
+		position: absolute;
+		top: -1px;
+		left: 50%;
+		width: 5px;
+		height: 5px;
+		margin-left: -2.5px;
+		border-radius: 50%;
+		background: #fff;
+		box-shadow: 0 0 6px 2px #ff2940;
+	}
+
+	#kt_app_sidebar .hv-brand__mark {
+		position: relative;
+		z-index: 1;
+		width: 26px;
+		height: 26px;
+		overflow: visible;
+		filter: drop-shadow(0 0 6px rgba(229, 0, 25, .95)) drop-shadow(0 0 14px rgba(229, 0, 25, .45));
+		animation: hv-brand-float 2.8s ease-in-out infinite;
+		transition: transform .25s ease;
+	}
+
+	#kt_app_sidebar .hv-brand__sheen {
+		transform-box: fill-box;
+		transform-origin: center;
+		animation: hv-brand-sheen 2.8s ease-in-out infinite;
+	}
+
+	#kt_app_sidebar .hv-brand:hover .hv-brand__mark {
+		transform: scale(1.14) rotate(-8deg);
+		filter: drop-shadow(0 0 8px #ff2034) drop-shadow(0 0 18px rgba(229, 0, 25, .8));
+	}
+
+	#kt_app_sidebar .hv-brand:hover .hv-brand__ring {
+		animation-duration: .7s;
+	}
+
+	@@keyframes hv-brand-spin {
+		to { transform: rotate(360deg); }
+	}
+
+	@@keyframes hv-brand-glow {
+		0%, 100% { opacity: .45; transform: scale(.86); }
+		50% { opacity: 1; transform: scale(1.08); }
+	}
+
+	@@keyframes hv-brand-float {
+		0%, 100% { transform: translateY(0); }
+		50% { transform: translateY(-1.5px); }
+	}
+
+	@@keyframes hv-brand-sheen {
+		0%, 42% { transform: translateX(-18px); opacity: 0; }
+		52% { opacity: .95; }
+		78%, 100% { transform: translateX(22px); opacity: 0; }
+	}
+
+	@@keyframes hv-brand-in {
+		from { opacity: 0; transform: scale(.55); }
+		to { opacity: 1; transform: none; }
+	}
+
+	@@media (prefers-reduced-motion: reduce) {
+		#kt_app_sidebar .hv-brand,
+		#kt_app_sidebar .hv-brand__halo,
+		#kt_app_sidebar .hv-brand__ring,
+		#kt_app_sidebar .hv-brand__mark,
+		#kt_app_sidebar .hv-brand__sheen {
+			animation: none;
+		}
+	}
+</style>
+
 <div id="kt_app_sidebar" class="app-sidebar flex-column" data-kt-drawer="true" data-kt-drawer-name="app-sidebar"
-	data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="225px"
+	data-kt-drawer-activate="{default: true, lg: false}" data-kt-drawer-overlay="true" data-kt-drawer-width="200px"
 	data-kt-drawer-direction="start" data-kt-drawer-toggle="#kt_app_sidebar_mobile_toggle">
 
-	<div class="app-sidebar-logo px-6" id="kt_app_sidebar_logo">
+	<div class="app-sidebar-logo px-3" id="kt_app_sidebar_logo">
 
-		<a href="/">
-			<img alt="Logo" src="~/panellib/media/havayar_logo_sign.svg"
-				class="h-25px app-sidebar-logo-default" />
-			<img alt="Logo" src="~/panellib/media/havayar_logo_sign.svg"
-				class="h-20px app-sidebar-logo-minimize" />
-		 
-
+		<a href="/" class="hv-brand" aria-label="هوایار">
+			<span class="hv-brand__halo" aria-hidden="true"></span>
+			<span class="hv-brand__ring" aria-hidden="true"><span class="hv-brand__spark"></span></span>
+			<svg class="hv-brand__mark" viewBox="0 0 64 64" aria-hidden="true">
+				<defs>
+					<linearGradient id="hvBrandH" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+						<stop offset="0" stop-color="#ff8b96" />
+						<stop offset=".42" stop-color="#ff2036" />
+						<stop offset="1" stop-color="#c40016" />
+					</linearGradient>
+					<clipPath id="hvBrandClip">
+						<rect x="12" y="8" width="12" height="48" rx="3.5" />
+						<rect x="40" y="8" width="12" height="48" rx="3.5" />
+						<rect x="12" y="26.5" width="40" height="11" rx="3.5" />
+					</clipPath>
+				</defs>
+				<g clip-path="url(#hvBrandClip)">
+					<rect x="8" y="4" width="48" height="56" fill="url(#hvBrandH)" />
+					<rect class="hv-brand__sheen" x="8" y="0" width="14" height="64" fill="rgba(255,255,255,.72)" />
+				</g>
+			</svg>
 		</a>
 
 
 		<div id="kt_app_sidebar_toggle"
-			class="app-sidebar-toggle btn btn-icon btn-shadow btn-sm btn-color-muted btn-active-color-primary h-30px w-30px position-absolute top-50 start-100 translate-middle rotate"
+			class="app-sidebar-toggle btn btn-icon btn-shadow btn-sm btn-color-muted btn-active-color-primary h-30px w-30px position-absolute top-50 start-100 translate-middle rotate@(sidebarMinimized ? " active" : "")"
 			data-kt-toggle="true" data-kt-toggle-state="active" data-kt-toggle-target="body"
 			data-kt-toggle-name="app-sidebar-minimize">
 			<i class="ki-duotone ki-black-left-line fs-3 rotate-180">
@@ -50,7 +394,7 @@
 	<div class="app-sidebar-menu overflow-hidden flex-column-fluid">
 		@if (accessMenus.Count > 1 || sdk.CurrentUser.IsAdministrator)
 		{
-			<div class="px-3 pt-3">
+			<div class="px-2 pt-2">
 				<select class="form-select form-select-transparent" data-action="changeMenu">
 					@if (sdk.CurrentUser.IsAdministrator)
 					{
@@ -64,13 +408,13 @@
 				</select>
 			</div>
 		}
-		<div class="px-3 pt-3">
+		<div class="px-2 pt-2">
 			<div class="position-relative">
-				<i class="ki-duotone ki-magnifier fs-3 position-absolute top-50 translate-middle-y ms-3">
+				<i class="ki-duotone ki-magnifier fs-5 position-absolute top-50 translate-middle-y ms-2">
 					<span class="path1"></span>
 					<span class="path2"></span>
 				</i>
-				<input type="text" id="sidebar_menu_search" class="form-control form-control-sm ps-10 form-control-plaintext"
+				<input type="text" id="sidebar_menu_search" class="form-control form-control-sm ps-8 form-control-plaintext"
 					placeholder="جستجوی منو..." autocomplete="off" />
 			</div>
 		</div>
@@ -82,13 +426,8 @@
 				data-kt-scroll-wrappers="#kt_app_sidebar_menu" data-kt-scroll-offset="5px"
 				data-kt-scroll-save-state="true">
 
-				<div class="menu menu-column menu-rounded menu-sub-indention fw-semibold fs-6" id="kt_app_sidebar_menu"
-					data-kt-menu="true" data-kt-menu-expand="false">
-
-
-					@Html.Raw(html)
-
-				</div>
+				<div class="menu menu-column menu-rounded menu-sub-indention fs-6 hv-menu" id="kt_app_sidebar_menu"
+					data-active-path="@url"></div>
 
 			</div>
 
@@ -98,6 +437,7 @@
 
 
 </div>
+<script type="application/json" id="hv-menu-data">@Html.Raw(menuJson)</script>
 
 <script>
 		 (function () {

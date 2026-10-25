@@ -1,8 +1,13 @@
+@using Common.Utilities
 @using Entities.App.Qc
 @using Entities.App.Sale
 @using Entities.App.Sale.Enums
 @using Entities.Auth
 @model ProductionOrderItemComment
+@{
+	var allowedStatuses = ViewBag.AllowedProductionStatuses as IReadOnlyList<ProductionOrderItemProductionStatusEnum>
+		?? Array.Empty<ProductionOrderItemProductionStatusEnum>();
+}
 
 <div class="row">
 	<input type="hidden" data-bind="id" value="@Model?.Id" />
@@ -10,13 +15,32 @@
 
 	<div class="col-md-6">
 		<label class="required">وضعیت تولید</label>
-		<select class="form-control" data-bind="productionStatus" asp-for="ProductionStatus"
-			asp-items="Html.GetEnumSelectList(typeof(ProductionOrderItemProductionStatusEnum))">
-		</select>
+		@if (allowedStatuses.Count == 0)
+		{
+			<div class="alert alert-warning py-2 mb-0">برای مرحله و وضعیت فعلی این قلم، وضعیت قابل انتخابی وجود ندارد.</div>
+		}
+		else
+		{
+			<select class="form-control" data-bind="productionStatus" name="ProductionStatus" required>
+				<option value="">انتخاب کنید</option>
+				@foreach (var status in allowedStatuses)
+				{
+					var isSelected = Model?.Id > 0 && Model.ProductionStatus == status;
+					if (isSelected)
+					{
+						<option value="@((int)status)" selected>@status.ToDisplay()</option>
+					}
+					else
+					{
+						<option value="@((int)status)">@status.ToDisplay()</option>
+					}
+				}
+			</select>
+		}
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
+	<div class="col-md-6 d-none" data-poi-comment-field="start">
 		<label>تاریخ شروع</label>
 		<input class="form-control" data-bind="startShamsiDate" data-persionDatePicker="true"
 			  persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
@@ -24,7 +48,7 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
+	<div class="col-md-6 d-none" data-poi-comment-field="end">
 		<label>تاریخ پایان</label>
 		<input class="form-control" data-bind="endShamsiDate" data-persionDatePicker="true"
 			  persion-datetimepicker='{"format": "YYYY/MM/DD HH:mm:ss","autoClose": true,"initialValue": false,"timePicker":{"enabled": true}}'
@@ -32,8 +56,8 @@
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>
 
-	<div class="col-md-6">
-		<label>علت های خرابی</label>
+	<div class="col-md-6 d-none" data-poi-comment-field="failure">
+		<label data-poi-failure-label>علت های خرابی</label>
 
 		@(Html.EntitySelector<FailureType>
 				(
@@ -58,7 +82,7 @@
 	</div>
 
 	<div class="col-md-12">
-		<label class="required">کامنت</label>
+		<label data-poi-comment-label>کامنت</label>
 		<textarea class="form-control" data-bind="comment" asp-for="Comment" rows="4"></textarea>
 		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 	</div>

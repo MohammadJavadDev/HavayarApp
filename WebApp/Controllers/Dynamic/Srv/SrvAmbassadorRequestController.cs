@@ -9,7 +9,9 @@ using Entities.Base;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Entities.Base.Sms;
 using Services.Auth;
+using Services.Sms;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -22,7 +24,9 @@ namespace WebApp.Controllers.Dynamic
 	public class SrvAmbassadorRequestController(
 		IUnitOfWork unitOfWork,
 		IWebHostEnvironment env,
-		IUserService userService) : BaseController
+		IUserService userService,
+		ISmsService sms,
+		ISmsRecipientResolver smsRecipients) : BaseController
 	{
 		private const string RoleSupport = "Srv.AmbassadorRequest.Support";
 		private const string RoleRequesterConfirm = "Srv.AmbassadorRequest.RequesterConfirm";
@@ -71,6 +75,7 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (!CanCrud) return BadRequest("دسترسی ذخیره وجود ندارد");
 			ClearNav(model);
+			EnsureNeedDatePair(model);
 			var err = ValidateHeader(model);
 			if (err != null) return BadRequest(err);
 
@@ -87,10 +92,9 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if (!CanCrud) return BadRequest("دسترسی ذخیره وجود ندارد");
 			ClearNav(model);
+			EnsureNeedDatePair(model);
 			var err = ValidateHeader(model);
 			if (err != null) return BadRequest(err);
-
-			ApplyNeedDateFromText(model);
 
 			model.HtsId = 0;
 			model.StatusId = StatusUnderReview;
@@ -117,9 +121,9 @@ namespace WebApp.Controllers.Dynamic
 			if (old == null) return BadRequest("رکورد یافت نشد");
 			if (!await CanAccessRowAsync(old, cn)) return BadRequest("دسترسی به این رکورد وجود ندارد");
 
+			EnsureNeedDatePair(model);
 			var err = ValidateHeader(model);
 			if (err != null) return BadRequest(err);
-			ApplyNeedDateFromText(model);
 
 			// Preserve non-form fields; only Type/JobType/Need*/WaitingTime/Destination/PackageDescription change.
 			model.CreatedById = old.CreatedById;
@@ -274,15 +278,36 @@ namespace WebApp.Controllers.Dynamic
 			await unitOfWork.Repository<AmbassadorRequest>().UpdateAsync(entity, cn, true);
 
 			if (hasAmbassador && entity.StatusId == StatusApproved)
-			{
-				// TODO: later SMS to the driver's mobile with the old message body.
-				// Do not call any SMS API and do not write a sender.
-			}
+				await SendAmbassadorSmsAsync(entity, model.Comment!.Trim(), cn);
 
 			return Ok();
 		}
 
 		#endregion
+
+		/// <summary>
+		/// معادل HTS AmbassadorRequestController: جزئیات درخواست به موبایل پیک. مسافر = ایجادکننده درخواست
+		/// (در HTS پرسنل ثبت‌کننده). خطای پیامک نباید تایید را خراب کند.
+		/// </summary>
+		private async Task SendAmbassadorSmsAsync(AmbassadorRequest entity, string supportComment, CancellationToken cn)
+		{
+			try
+			{
+				var mobile = await smsRecipients.GetPersonelMobileAsync(entity.AmbassadorId, cn);
+				if (string.IsNullOrWhiteSpace(mobile))
+					return;
+
+				var body = SmsTemplates.AmbassadorRequest(
+					entity.TypeId.ToDisplay(), entity.JobTypeId.ToDisplay(), entity.CreatedByName, entity.Destination,
+					entity.NeedDateShamsiDate, entity.NeedTime, entity.PackageDescription, supportComment);
+
+				await sms.TryEnqueueAsync(SmsEventKeys.SrvAmbassadorRequest, mobile, body, nameof(AmbassadorRequest), entity.Id, ct: cn);
+			}
+			catch
+			{
+				// شکست پیامک نباید تایید درخواست را متوقف کند
+			}
+		}
 
 		#region Attachments
 
@@ -539,23 +564,51 @@ namespace WebApp.Controllers.Dynamic
 		{
 			if ((int)model.TypeId == 0) return "نوع اجباری است";
 			if ((int)model.JobTypeId == 0) return "نوع کار اجباری است";
-			if (!model.NeedDateInText.HasValue() && model.NeedDate == default)
+			if (!model.NeedDateShamsiDate.HasValue() || model.NeedDateMiladiDate is null || model.NeedDateMiladiDate.Value.Year < 1900)
 				return "تاریخ نیاز اجباری است";
 			if (!model.NeedTime.HasValue()) return "ساعت نیاز اجباری است";
 			if (!model.Destination.HasValue()) return "مقصد اجباری است";
 			return null;
 		}
 
-		private static void ApplyNeedDateFromText(AmbassadorRequest model)
+		private static void EnsureNeedDatePair(AmbassadorRequest model)
 		{
-			if (!model.NeedDateInText.HasValue()) return;
+			var shamsi = model.NeedDateShamsiDate?.Trim();
+			if (!shamsi.HasValue())
+			{
+				if (model.NeedDateMiladiDate is { Year: >= 1900 })
+					model.NeedDateShamsiDate = model.NeedDateMiladiDate.Value.ToShamsiDate();
+				return;
+			}
+
+			shamsi = shamsi!.Fa2En().Replace('-', '/').Trim();
+			var space = shamsi.IndexOf(' ');
+			if (space > 0) shamsi = shamsi[..space];
+			model.NeedDateShamsiDate = shamsi;
+
+			if (model.NeedDateMiladiDate is { Year: >= 1900 }) return;
+			if (TryShamsiToMiladi(shamsi, out var miladi))
+				model.NeedDateMiladiDate = miladi.Date;
+		}
+
+		private static bool TryShamsiToMiladi(string shamsi, out DateTime miladi)
+		{
+			miladi = default;
+			var parts = shamsi.Split('/');
+			if (parts.Length < 3) return false;
+			if (!int.TryParse(parts[0], out var year)) return false;
+			if (!int.TryParse(parts[1], out var month)) return false;
+			var dayText = parts[2].Length > 2 ? parts[2][..2] : parts[2];
+			if (!int.TryParse(dayText, out var day)) return false;
+			if (year is < 1200 or > 1500 || month is < 1 or > 12 || day is < 1 or > 31) return false;
 			try
 			{
-				model.NeedDate = model.NeedDateInText!.ToMiladiDate().Date;
+				miladi = new System.Globalization.PersianCalendar().ToDateTime(year, month, day, 0, 0, 0, 0);
+				return miladi.Year >= 1900;
 			}
 			catch
 			{
-				// leave NeedDate as posted; validation may catch
+				return false;
 			}
 		}
 

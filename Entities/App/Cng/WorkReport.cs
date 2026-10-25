@@ -90,9 +90,10 @@ namespace Entities.App.Cng
 		[MaxLength(10)]
 		public string? WorkReportFileType { get; set; }
 
+		
+		public long? FileId { get; set; }
 		[DisplayName("فایل")]
 		[DisplayInfo(null, true, type: SystemType.File)]
-		public long? FileId { get; set; }
 		public virtual FileEntity? File { get; set; }
 
 		/// <summary>ستون داده / گرید — بدون دکمه ارسال رضایت‌سنجی.</summary>

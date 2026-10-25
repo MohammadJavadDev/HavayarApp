@@ -514,7 +514,7 @@ namespace App.BackgroundJob.Jobs.Sup
                 AppendItem(sb, "کد کالا", order?.Part?.Code);
                 AppendItem(sb, "عنوان کالا", order?.Part?.Name);
                 AppendItem(sb, "عنوان شرکت", company);
-                AppendItem(sb, "تعداد درخواست", order?.RequiredQty.ToString());
+				AppendItem(sb, "تعداد درخواست", order?.OrderQty?.ToString());
                 AppendItem(sb, "تعداد خریداری", order?.SumSendQty?.ToString());
                 AppendItem(sb, "تاریخ تامین", comment.ShamsiDate.HasValue() ? comment.ShamsiDate : comment.MiladiDate?.ToShamsiDate());
                 AppendItem(sb, "توضیحات", comment.CommentValue);

@@ -88,6 +88,64 @@ namespace Entities.App.Bpm
 		public long OrgUnitId { get; set; }
 	}
 
+	/// <summary>
+	/// «تیم بازنگری/تدوین» در HTS (EditingOrganizationUnitIds) شناسهٔ کاربران است، نه واحد سازمانی.
+	/// جایگزین ProcessDocumentEditingOrgUnit (که معکوس مدل شده بود).
+	/// </summary>
+	[Display(Name = "تیم بازنگری/تدوین سند فرآیندی")]
+	[Table("ProcessDocumentEditingUser", Schema = "Bpm")]
+	public class ProcessDocumentEditingUser : BaseEntity
+	{
+		public long ProcessDocumentId { get; set; }
+		public virtual ProcessDocument? ProcessDocument { get; set; }
+
+		[DisplayName("کاربر")]
+		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
+		public virtual User? User { get; set; }
+		public long UserId { get; set; }
+	}
+
+	/// <summary>
+	/// «مجری فرآیند» در HTS (ProcessExecuterIds) شناسهٔ واحد سازمانی است، نه کاربر.
+	/// جایگزین ProcessDocumentProcessExecuter (که معکوس مدل شده بود).
+	/// </summary>
+	[Display(Name = "مجری فرآیند سند فرآیندی")]
+	[Table("ProcessDocumentProcessExecuterOrgUnit", Schema = "Bpm")]
+	public class ProcessDocumentProcessExecuterOrgUnit : BaseEntity
+	{
+		public long ProcessDocumentId { get; set; }
+		public virtual ProcessDocument? ProcessDocument { get; set; }
+
+		[DisplayName("واحد سازمانی")]
+		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
+		public virtual OrgUnit? OrgUnit { get; set; }
+		public long OrgUnitId { get; set; }
+	}
+
+	public class ProcessDocumentEditingUserConfiguration : IEntityTypeConfiguration<ProcessDocumentEditingUser>
+	{
+		public void Configure(EntityTypeBuilder<ProcessDocumentEditingUser> builder)
+		{
+			builder.HasIndex(x => new { x.ProcessDocumentId, x.UserId }).IsUnique();
+			builder.HasOne(x => x.User)
+				.WithMany()
+				.HasForeignKey(x => x.UserId)
+				.OnDelete(DeleteBehavior.NoAction);
+		}
+	}
+
+	public class ProcessDocumentProcessExecuterOrgUnitConfiguration : IEntityTypeConfiguration<ProcessDocumentProcessExecuterOrgUnit>
+	{
+		public void Configure(EntityTypeBuilder<ProcessDocumentProcessExecuterOrgUnit> builder)
+		{
+			builder.HasIndex(x => new { x.ProcessDocumentId, x.OrgUnitId }).IsUnique();
+			builder.HasOne(x => x.OrgUnit)
+				.WithMany()
+				.HasForeignKey(x => x.OrgUnitId)
+				.OnDelete(DeleteBehavior.NoAction);
+		}
+	}
+
 	public class ProcessDocumentEditingOrgUnitConfiguration : IEntityTypeConfiguration<ProcessDocumentEditingOrgUnit>
 	{
 		public void Configure(EntityTypeBuilder<ProcessDocumentEditingOrgUnit> builder)

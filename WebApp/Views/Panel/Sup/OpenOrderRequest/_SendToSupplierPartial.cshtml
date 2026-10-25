@@ -1,7 +1,46 @@
 @using Entities.App.Gnr
+@{
+	var previewRows = ViewBag.PreviewRows as List<WebApp.Controllers.Dynamic.OpenOrderRequestController.SendToSupplierPreviewRow>
+		?? new List<WebApp.Controllers.Dynamic.OpenOrderRequestController.SendToSupplierPreviewRow>();
+}
 <input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
 
+<div class="alert alert-warning py-2">
+	تعداد درخواست‌هایی که ارسال می‌شود: <strong>@previewRows.Count</strong>
+	— لطفاً قبل از ارسال، فهرست زیر را کنترل کنید.
+</div>
+<div class="table-responsive mb-3" style="max-height: 220px; overflow-y: auto;">
+	<table class="table table-sm table-bordered mb-0">
+		<thead class="table-light">
+			<tr>
+				<th>ش درخواست</th>
+				<th>ش سفارش ساخت</th>
+				<th>کد کالا</th>
+				<th>عنوان کالا</th>
+				<th>پروژه</th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var r in previewRows)
+			{
+				<tr>
+					<td>@r.PurchaseRequestNumber</td>
+					<td>@r.ProductionOrderNumber</td>
+					<td>@r.PartCode</td>
+					<td>@r.PartName</td>
+					<td>@r.Project</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+</div>
+
 <div class="row">
+	<div class="col-md-4 form-group-inline">
+		<label class="required">تعداد سفارش</label>
+		<input class="form-control ltr" type="text" data-bind="sendingCount" required autocomplete="off" inputmode="decimal" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
 	<div class="col-md-12 form-group-inline">
 		<label>پیمانکار / تامین‌کننده</label>
 		@(Html.EntitySelector<Supplier>(

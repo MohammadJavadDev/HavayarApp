@@ -1,4 +1,4 @@
-﻿ 
+﻿
 @{
     Layout = null;
 }
@@ -6,73 +6,436 @@
 
 <!DOCTYPE html>
 
-<html direction="rtl" dir="rtl" style="direction: rtl">
+<html lang="fa" direction="rtl" dir="rtl" style="direction: rtl">
 <!--begin::Head-->
 <head>
- 
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
 	<title>شرکت هوایار</title>
- 
- 
+
+
 	<link href="~/panelLib/plugins/global/plugins.bundle.rtl.css" rel="stylesheet" type="text/css" />
     <link href="~/panelLib/css/style.bundle.rtl.css" rel="stylesheet" type="text/css" />
     <link href="~/css/site.css" rel="stylesheet" type="text/css" />
- 
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+			background: #fff;
+		}
+
+		.login-shell {
+			min-height: 100vh;
+			display: flex;
+			flex-direction: row;
+			background: #fff;
+		}
+
+		.login-panel {
+			flex: 1 1 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 48px 28px;
+			background: #fff;
+			color: #181c32;
+		}
+
+		.login-card {
+			width: min(100%, 420px);
+		}
+
+		.login-card h1 {
+			margin: 0 0 8px;
+			font-size: 28px;
+			font-weight: 700;
+			line-height: 1.3;
+			color: #181c32;
+		}
+
+		.login-lead {
+			margin: 0 0 28px;
+			font-size: 14px;
+			line-height: 1.7;
+			color: #7e8299;
+		}
+
+		.login-label {
+			display: block;
+			margin: 0 0 8px;
+			font-size: 13px;
+			font-weight: 600;
+			color: #3f4254;
+		}
+
+		.login-field {
+			position: relative;
+			margin-bottom: 18px;
+		}
+
+		.login-field__icon {
+			position: absolute;
+			top: 50%;
+			inset-inline-start: 14px;
+			display: flex;
+			color: #a1a5b7;
+			transform: translateY(-50%);
+			pointer-events: none;
+		}
+
+		.login-field:focus-within .login-field__icon {
+			color: #e50019;
+		}
+
+		.login-input {
+			height: 48px;
+			/* dir=ltr on the input, icon stays on the RTL start (right) */
+			padding: 0 46px 0 14px;
+			text-align: right;
+			border: 1px solid #e1e3ea;
+			border-radius: 10px;
+			background: #fff;
+			color: #181c32;
+			font-family: "Segoe UI", Tahoma, sans-serif;
+			font-size: 16px;
+		}
+
+		.login-input--secret {
+			padding-left: 48px;
+		}
+
+		.login-input:focus {
+			border-color: #e50019;
+			box-shadow: 0 0 0 3px rgba(229, 0, 25, .14);
+			background: #fff;
+			color: #181c32;
+		}
+
+		.login-input.border-danger {
+			border-color: #f1416c;
+			box-shadow: none;
+		}
+
+		.login-input::-ms-reveal,
+		.login-input::-ms-clear {
+			display: none;
+		}
+
+		.login-reveal {
+			position: absolute;
+			top: 50%;
+			inset-inline-end: 6px;
+			z-index: 2;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 36px;
+			height: 36px;
+			padding: 0;
+			border: 0;
+			border-radius: 8px;
+			background: transparent;
+			color: #7e8299;
+			transform: translateY(-50%);
+			cursor: pointer;
+		}
+
+		.login-reveal:hover,
+		.login-reveal:focus-visible {
+			background: #f4f6fa;
+			color: #181c32;
+		}
+
+		.login-reveal:focus-visible {
+			outline: 2px solid #e50019;
+			outline-offset: 1px;
+		}
+
+		.login-reveal .login-eye--hide { display: none; }
+		.login-reveal.is-on .login-eye--show { display: none; }
+		.login-reveal.is-on .login-eye--hide { display: block; }
+
+		.login-caps {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin: -6px 0 16px;
+			padding: 8px 12px;
+			border-radius: 8px;
+			background: #fff8dd;
+			color: #7a5800;
+			font-size: 13px;
+			font-weight: 600;
+			line-height: 1.5;
+		}
+
+		.login-caps[hidden] { display: none; }
+
+		.login-remember {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			margin: 0 0 22px;
+			color: #3f4254;
+			font-size: 14px;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.login-remember input {
+			width: 18px;
+			height: 18px;
+			margin: 0;
+			accent-color: #e50019;
+			cursor: pointer;
+		}
+
+		.login-submit {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			height: 48px;
+			border: 0;
+			border-radius: 10px;
+			background: #e50019;
+			color: #fff;
+			font-size: 16px;
+			font-weight: 700;
+			cursor: pointer;
+		}
+
+		.login-submit:hover { background: #c40016; color: #fff; }
+
+		.login-submit:focus-visible {
+			outline: 2px solid #e50019;
+			outline-offset: 3px;
+		}
+
+		.login-submit:disabled { opacity: .72; }
+
+		.login-aside {
+			position: relative;
+			flex: 1 1 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			overflow: hidden;
+			min-height: 100vh;
+			padding: 48px 32px;
+			background: #000000  ;
+		}
+
+		.login-aside::before {
+			content: "";
+			position: absolute;
+			width: min(560px, 86%);
+			aspect-ratio: 1;
+			border-radius: 50%;
+			background: radial-gradient(circle, rgba(255, 255, 255, .2) 0%, rgba(255, 255, 255, 0) 68%);
+			pointer-events: none;
+		}
+
+		.login-identity {
+			position: relative;
+			z-index: 1;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+		}
+
+		.login-lockup {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			direction: ltr;
+		}
+
+		.login-wordmark {
+			margin: 0;
+			font-family: "Segoe UI", IRANSansWeb, Tahoma, sans-serif;
+			font-size: clamp(48px, 5.6vw, 92px);
+			font-weight: 700;
+			line-height: 1;
+			letter-spacing: -0.02em;
+			white-space: nowrap;
+			color: #fff;
+			text-shadow: 0 10px 28px rgba(0, 48, 140, .28);
+		}
+
+		/* The H is the logo mark, sized to the cap height so it sits on the baseline with AVAYAR. */
+		.login-wordmark__h {
+			display: inline-block;
+			width: .5833em;
+			height: .7em;
+			margin-inline-end: .035em;
+			vertical-align: baseline;
+			overflow: visible;
+			filter: drop-shadow(0 0 .08em rgba(229, 0, 25, .95)) drop-shadow(0 0 .2em rgba(229, 0, 25, .45));
+			animation: login-brand-glow 2.8s ease-in-out infinite;
+		}
+
+		.login-mark__sheen {
+			transform-box: fill-box;
+			transform-origin: center;
+			animation: login-brand-sheen 2.8s ease-in-out infinite;
+		}
+
+		.login-lockup__co {
+			margin-top: .6em;
+			padding-inline-start: .5em;
+			font-family: "Segoe UI", IRANSansWeb, Tahoma, sans-serif;
+			font-size: clamp(14px, 1.4vw, 19px);
+			font-weight: 600;
+			letter-spacing: .5em;
+			line-height: 1;
+			color: #fff;
+			text-shadow: 0 10px 28px rgba(0, 48, 140, .28);
+		}
+
+		.login-aside__fa {
+			margin: 26px 0 0;
+			color: #fff;
+			font-size: 22px;
+			font-weight: 600;
+			line-height: 1.4;
+			text-shadow: 0 8px 22px rgba(0, 48, 140, .3);
+		}
+
+		@@keyframes login-brand-glow {
+			0%, 100% { filter: drop-shadow(0 0 .05em rgba(229, 0, 25, .7)) drop-shadow(0 0 .14em rgba(229, 0, 25, .3)); }
+			50% { filter: drop-shadow(0 0 .09em rgba(255, 32, 54, 1)) drop-shadow(0 0 .24em rgba(229, 0, 25, .6)); }
+		}
+
+		@@keyframes login-brand-sheen {
+			0%, 40% { transform: translateX(-8px); opacity: 0; }
+			50% { opacity: .95; }
+			80%, 100% { transform: translateX(60px); opacity: 0; }
+		}
+
+		@@media (max-width: 991.98px) {
+			.login-shell { flex-direction: column; }
+			.login-aside {
+				order: -1;
+				flex: none;
+				min-height: 240px;
+				padding: 36px 20px;
+			}
+			.login-panel {
+				flex: 1;
+				align-items: flex-start;
+				padding: 32px 20px 40px;
+			}
+			.login-wordmark { font-size: 48px; }
+			.login-aside__fa { margin-top: 14px; font-size: 18px; }
+		}
+
+		@@media (prefers-reduced-motion: reduce) {
+			.login-wordmark__h,
+			.login-mark__sheen {
+				animation: none;
+			}
+		}
+	</style>
+
 </head>
- 
+
 <body id="kt_body" class="app-blank">
- 
-	<script>var defaultThemeMode = "light"; var themeMode; if (document.documentElement) { if (document.documentElement.hasAttribute("data-bs-theme-mode")) { themeMode = document.documentElement.getAttribute("data-bs-theme-mode"); } else { if (localStorage.getItem("data-bs-theme") !== null) { themeMode = localStorage.getItem("data-bs-theme"); } else { themeMode = defaultThemeMode; } } if (themeMode === "system") { themeMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } document.documentElement.setAttribute("data-bs-theme", themeMode); }</script>
-	<div class="d-flex flex-column flex-root" id="kt_app_root">
-		<div class="d-flex flex-column flex-lg-row flex-column-fluid">
-			<div class="d-flex flex-column flex-lg-row-fluid w-lg-50 p-10 order-2 order-lg-1">
-				<div class="d-flex flex-center flex-column flex-lg-row-fluid">
-					<div class="w-lg-500px p-10">
-						<div class="form w-100"   id="form">
-							<div class="fv-row mb-8">
-								<input type="text" placeholder="نام کاربری" data-bind="username" autocomplete="off" class="form-control bg-transparent" />
-					 
-							</div>
-				 
-							<div class="fv-row mb-3">
-					 
-								<input type="password" placeholder="کلمه عبور" data-bind="password" autocomplete="off" class="form-control bg-transparent" />
-		 
-							</div>
-				  
-							<div class="d-grid mb-10">
-								<button type="button" id="login" class="btn btn-primary">
-									<span class="indicator-label">ورود</span>
-									<span class="indicator-progress">
-										لطفا منتظر بمانید...
-										<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
-									</span>
-								</button>
-							</div>
-				 
-							 
-						</div>
- 
-					</div>
-	 
+
+	<script>document.documentElement.setAttribute("data-bs-theme", "light");</script>
+	<div class="login-shell">
+		<section class="login-panel">
+			<form class="login-card" id="form" method="post" action="/Authenticate/Login" autocomplete="on" novalidate>
+				<h1>ورود به سامانه</h1>
+			 
+
+				<label class="login-label" for="username">نام کاربری</label>
+				<div class="login-field">
+					<span class="login-field__icon" aria-hidden="true">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M20 21a8 8 0 0 0-16 0" />
+							<circle cx="12" cy="8" r="4" />
+						</svg>
+					</span>
+					<input id="username" name="username" type="text" class="form-control login-input" data-bind="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" lang="en" dir="ltr" required />
 				</div>
- 
-		 
- 
- 
-			</div>
- 
-			<div class="d-flex flex-lg-row-fluid w-lg-50 bgi-size-cover bgi-position-center order-1 order-lg-2" style="background-image: url(/panelLib/media/auth-bg.png)">
-				<div class="d-flex flex-column flex-center py-7 py-lg-15 px-5 px-md-15 w-100">
-                    <h1 class="d-none d-lg-block text-white fs-2qx fw-bolder text-center mb-7"> <br/> شرکت هوایار</h1>
+
+				<label class="login-label" for="password">کلمه عبور</label>
+				<div class="login-field">
+					<span class="login-field__icon" aria-hidden="true">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+							<rect x="4" y="11" width="16" height="10" rx="2" />
+							<path d="M8 11V8a4 4 0 0 1 8 0v3" />
+						</svg>
+					</span>
+					<input id="password" name="password" type="password" class="form-control login-input login-input--secret" data-bind="password" autocomplete="current-password" lang="en" dir="ltr" required />
+					<button type="button" class="login-reveal" id="togglePassword" aria-label="نمایش کلمه عبور" aria-pressed="false">
+						<svg class="login-eye login-eye--show" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+							<circle cx="12" cy="12" r="3" />
+						</svg>
+						<svg class="login-eye login-eye--hide" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M3 3l18 18" />
+							<path d="M10.6 10.6a3 3 0 0 0 4.2 4.2" />
+							<path d="M9.9 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a18 18 0 0 1-3.2 4.2" />
+							<path d="M6.1 6.7C3.7 8.4 2 12 2 12s3.5 7 10 7c1.5 0 2.9-.3 4.1-.9" />
+						</svg>
+					</button>
 				</div>
-	 
+
+				<p class="login-caps" id="capsNotice" hidden role="status">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M4 18h16" />
+						<path d="M7 18l5-12 5 12" />
+						<path d="M9 13h6" />
+					</svg>
+					حروف بزرگ روشن است
+				</p>
+
+				<label class="login-remember">
+					<input type="checkbox" id="rememberUser" />
+					<span>نام کاربری ذخیره شود</span>
+				</label>
+
+				<button type="submit" id="login" class="login-submit">
+					<span class="indicator-label">ورود</span>
+					<span class="indicator-progress">
+						لطفا منتظر بمانید...
+						<span class="spinner-border spinner-border-sm align-middle ms-2"></span>
+					</span>
+				</button>
+			</form>
+		</section>
+
+		<section class="login-aside" aria-label="شرکت هوایار">
+			<div class="login-identity">
+				<div class="login-lockup" role="img" aria-label="Havayar Company">
+					<div class="login-wordmark" aria-hidden="true"><svg class="login-wordmark__h" viewBox="12 8 40 48" focusable="false">
+							<defs>
+								<linearGradient id="loginBrandH" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+									<stop offset="0" stop-color="#ff8b96" />
+									<stop offset=".42" stop-color="#ff2036" />
+									<stop offset="1" stop-color="#c40016" />
+								</linearGradient>
+								<clipPath id="loginBrandClip">
+									<rect x="12" y="8" width="12" height="48" rx="3.5" />
+									<rect x="40" y="8" width="12" height="48" rx="3.5" />
+									<rect x="12" y="26.5" width="40" height="11" rx="3.5" />
+								</clipPath>
+							</defs>
+							<g clip-path="url(#loginBrandClip)">
+								<rect x="12" y="8" width="40" height="48" fill="url(#loginBrandH)" />
+								<rect class="login-mark__sheen" x="0" y="8" width="14" height="48" fill="rgba(255,255,255,.72)" />
+							</g>
+						</svg>AVAYAR</div>
+					<div class="login-lockup__co" aria-hidden="true">COMPANY</div>
+				</div>
+			 
 			</div>
- 
-		</div>
- 
+		</section>
 	</div>
- 
- 
+
+
 <script src="~/panelLib/plugins/global/plugins.bundle.js"></script>
 <script src="~/panelLib/js/scripts.bundle.js"></script>
 
@@ -80,8 +443,37 @@
 		<script src="~/js/site.js" asp-append-version="true"></script>
 	<script>
 		(function () {
+			// site.js (appController) re-runs this inline script for the current URL.
+			// Bind once, otherwise every click handler runs twice and the eye toggles back.
+			const formEl = document.getElementById('form');
+			if (!formEl || formEl.dataset.loginReady === '1') return;
+			formEl.dataset.loginReady = '1';
+
 			const $btn = $('#login');
 			const $form = $('#form');
+			const $user = $('#username');
+			const $pass = $('#password');
+			const $caps = $('#capsNotice');
+			const $toggle = $('#togglePassword');
+			const $remember = $('#rememberUser');
+			const storageKey = 'havayar.login.username';
+			let capsOn = false;
+
+			function setPasswordVisible(show) {
+				const input = document.getElementById('password');
+				if (!input) return;
+				input.type = show ? 'text' : 'password';
+				$toggle
+					.toggleClass('is-on', show)
+					.attr('aria-pressed', show ? 'true' : 'false')
+					.attr('aria-label', show ? 'پنهان کردن کلمه عبور' : 'نمایش کلمه عبور');
+			}
+
+			$toggle.on('click', function (e) {
+				e.preventDefault();
+				const input = document.getElementById('password');
+				setPasswordVisible(input.type === 'password');
+			});
 
 			function setLoginLoading(isLoading) {
 				if (isLoading) {
@@ -91,9 +483,33 @@
 				}
 			}
 
+			function credentialFocused() {
+				const el = document.activeElement;
+				return el === $user[0] || el === $pass[0];
+			}
+
+			function renderCaps() {
+				$caps.prop('hidden', !(capsOn && credentialFocused()));
+			}
+
+			function readCaps(e) {
+				const native = e.originalEvent || e;
+				if (native && typeof native.getModifierState === 'function')
+					capsOn = native.getModifierState('CapsLock');
+				renderCaps();
+			}
+
 			function submitLogin() {
 				if ($btn.prop('disabled')) return;
+				$user.val(($user.val() || '').trim());
 				if (validateError($form)) return;
+
+				try {
+					if ($remember.is(':checked'))
+						localStorage.setItem(storageKey, $user.val());
+					else
+						localStorage.removeItem(storageKey);
+				} catch (e) { }
 
 				const model = $form.dataBind();
 				setLoginLoading(true);
@@ -102,21 +518,38 @@
 					if (!r.isSuccess) {
 						setLoginLoading(false);
 						toastr.error(r.message, 'خطا');
+						$pass.trigger('focus');
 						return;
 					}
 					location.assign('/');
 				});
 			}
 
-			$btn.on('click', submitLogin);
-			$form.on('keydown', 'input', function (e) {
-				if (e.key === 'Enter') {
-					e.preventDefault();
-					submitLogin();
+			try {
+				const saved = localStorage.getItem(storageKey);
+				if (saved) {
+					$user.val(saved);
+					$remember.prop('checked', true);
+					$pass.trigger('focus');
+				} else {
+					$user.trigger('focus');
 				}
+			} catch (e) {
+				$user.trigger('focus');
+			}
+
+			$user.add($pass).on('keydown keyup', readCaps);
+			$user.add($pass).on('focus', renderCaps);
+			$user.add($pass).on('blur', function () {
+				setTimeout(renderCaps, 0);
+			});
+
+			$form.on('submit', function (e) {
+				e.preventDefault();
+				submitLogin();
 			});
 		})();
 	</script>
 </body>
- 
+
 </html>

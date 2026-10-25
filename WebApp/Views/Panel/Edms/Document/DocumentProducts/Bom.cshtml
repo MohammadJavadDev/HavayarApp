@@ -1,0 +1,33 @@
+@{
+	var productId = ViewBag.ProductId as long?;
+	var partCode = ViewBag.PartCode as string;
+	var partName = ViewBag.PartName as string;
+	var headerParts = new List<string>();
+	if (!string.IsNullOrWhiteSpace(partCode))
+		headerParts.Add(partCode.Trim());
+	if (!string.IsNullOrWhiteSpace(partName))
+		headerParts.Add(partName.Trim());
+	var headerTitle = headerParts.Count > 0
+		? $"BOM {string.Join(" - ", headerParts)}"
+		: "BOM محصول";
+	var parentProductId = productId.HasValue && productId.Value > 0
+		? productId.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+		: "-1";
+}
+
+<div class="card mb-3">
+	<div class="card-body py-3">
+		<h5 class="mb-0 fw-bold">
+			<i class="fa fa-sitemap ms-2"></i>
+			@headerTitle
+		</h5>
+	</div>
+</div>
+
+<datatableprofile unicode="ListDocumentProduct"
+	profile-names="ListDocumentProduct_Bom_NoPrice,ListDocumentProduct_Bom_Buy,ListDocumentProduct_Bom_Sale,vw_ListDocumentProductPriceBom"></datatableprofile>
+
+<script>
+	const parentProductId = '@parentProductId';
+	$$('[data-action="dataProfile"]').attr('data-query-params', JSON.stringify({ ParentProductId: parentProductId }));
+</script>

@@ -1,2 +1,16 @@
-﻿ 
-<datatableprofile unicode="ListDocumentProduct"></datatableprofile>
+﻿@using Data.SystemAuth
+@inject ISdk sdk
+@{
+	var canShowBom = sdk.IsAdministrator
+		|| sdk.HasRole("Sale.DocumentProduct.Items")
+		|| sdk.HasRole("Sale.DocumentProduct.ItemsBuy")
+		|| sdk.HasRole("Sale.DocumentProduct.ItemsSale")
+		|| sdk.HasRole("Sale.DocumentProduct.ItemsBoth")
+		|| sdk.HasRole("Sale.Document.Pricing");
+}
+<div data-can-show-bom="@(canShowBom ? "true" : "false")">
+	<datatableprofile unicode="ListDocumentProduct"></datatableprofile>
+</div>
+<style>
+	[data-can-show-bom="false"] [data-action="showProductBom"] { display: none !important; }
+</style>

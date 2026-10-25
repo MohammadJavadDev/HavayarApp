@@ -13,7 +13,15 @@ namespace Entities.App.Sale.DTO
 		public decimal? LastBuyPrice { get; set; }
 		public long? HavayarPartId { get; set; }
 		public long? HavayarOrderDetailId { get; set; }
+		public long? HavayarPartUnitId { get; set; }
 		public bool FromSaleOrder { get; set; }
+	}
+
+	public class ServiceRequestPartFetchPiecesRequest
+	{
+		public int VchNo { get; set; }
+		public string? Year { get; set; }
+		public long? SaleCenterId { get; set; }
 	}
 
 	public class ServiceRequestPartSaveRequest

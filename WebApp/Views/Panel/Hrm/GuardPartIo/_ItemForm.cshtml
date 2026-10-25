@@ -1,0 +1,71 @@
+@using Common.Utilities
+@using Entities.App.Hrm
+@using Entities.App.Hrm.Enums
+@using Entities.Base
+@model GuardPartIoDetail?
+@{
+	var unitIds = (ViewBag.UnitIds as List<long>) ?? new List<long>();
+	var currentUnitId = Model?.RelatedUnitId ?? 0;
+	var currentPartId = Model?.PartId ?? 0;
+}
+
+<div class="guard-partio-item-form">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<div class="row g-3">
+		<div class="col-md-12 form-group-inline">
+			<label class="form-label fw-bold required">کالا</label>
+			@(Html.EntitySelector<GuardPart>(
+				"GuardPartIoItemPartSelector",
+				c => (c.IsActive == IsActiveEnum.Active && !c.IsDisable) || c.Id == currentPartId,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"partId",
+				"partTitle",
+				Model?.PartId > 0 ? Model.PartId.ToString() : null,
+				true
+			))
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold required">مقدار</label>
+			<input class="form-control" type="number" step="any" min="0" max="9999999999" data-bind="mount" data-required="true"
+				value="@(Model?.PartId > 0 ? Model.Mount.ToString(System.Globalization.CultureInfo.InvariantCulture) : "")" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold required">علت</label>
+			<select class="form-control" data-bind="ioReason" data-required="true">
+				<option value="">لطفا انتخاب کنید</option>
+				@foreach (var v in Enum.GetValues<GuardIoReasonEnum>())
+				{
+					<option value="@((int)v)" selected="@(Model?.PartId > 0 && Model.IoReason == v)">@v.ToDisplay()</option>
+				}
+			</select>
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">واحد مرتبط</label>
+			@(Html.EntitySelector<OrgUnit>(
+				"GuardPartIoItemUnitSelector",
+				c => (c.IsActive == IsActiveEnum.Active && unitIds.Contains(c.Id.Value)
+					&& c.Title != null && !c.Title.Contains("*")) || c.Id == currentUnitId,
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"relatedUnitId",
+				"relatedUnitTitle",
+				Model?.RelatedUnitId > 0 ? Model.RelatedUnitId.ToString() : null
+			))
+		</div>
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label fw-bold">شماره برگه</label>
+			<input class="form-control" data-bind="paperNumber" maxlength="128" value="@Model?.PaperNumber" />
+		</div>
+		<div class="col-md-12 form-group-inline">
+			<fileuploader bind="fileId" file-id="@Model?.FileId" file-entity="@Model?.File"
+						  label="فایل پیوست" entity-type="@typeof(GuardPartIoDetail).FullName" entity-prop-name="File"
+						  max-file-size="20" accepted-file-types=".pdf,.zip,.rar,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.txt"></fileuploader>
+		</div>
+	</div>
+</div>

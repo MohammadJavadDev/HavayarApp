@@ -5,9 +5,11 @@ using Entities.App.Sale;
 using Entities.Base.DataTable;
 using Entities.Base.Enums;
 using Entities.Base.Notification;
+using Entities.Base.Sms;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Services.Auth;
+using Services.Sms;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -17,7 +19,13 @@ namespace WebApp.Controllers.Dynamic
 	[ApiController]
 	[ApiResultFilter]
 	[ControllerInfo("پرسش فنی", typeof(TechnicalQuery))]
-	public class TechnicalQueryController(IUnitOfWork unitOfWork, IWebHostEnvironment env, IEntityRepository entityRepository, IUserService userService) : BaseController
+	public class TechnicalQueryController(
+		IUnitOfWork unitOfWork,
+		IWebHostEnvironment env,
+		IEntityRepository entityRepository,
+		IUserService userService,
+		ISmsService sms,
+		ISmsRecipientResolver smsRecipients) : BaseController
 	{
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
@@ -148,6 +156,23 @@ namespace WebApp.Controllers.Dynamic
 					}, cn);
 				}
 			}
+
+			// معادل HTS SaleTQManagement: بعد از تایید، پیامک «پرسش فنی جدید» به تکنسین‌های گروه پرسش فنی.
+			// (پرسش فنی جدید شماره TQ/نسخه ندارد؛ شناسه رکورد جایگزین شماره درخواست است.) خطا نباید تایید را خراب کند.
+			if (statusId == 1)
+			{
+				try
+				{
+					var receivers = await smsRecipients.GetGroupMobilesAsync(SmsRecipientGroups.TechnicalQueryTechnician, null, cn);
+					await sms.TryEnqueueAsync(SmsEventKeys.SaleTqNew, receivers, SmsTemplates.TechnicalQueryNew(entity.Id ?? 0),
+						nameof(TechnicalQuery), entity.Id, ct: cn);
+				}
+				catch
+				{
+					// شکست پیامک نباید تایید پرسش فنی را متوقف کند
+				}
+			}
+
 			return Ok(entity);
 		}
 	}

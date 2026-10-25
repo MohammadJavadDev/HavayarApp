@@ -116,7 +116,18 @@ namespace Common.Utilities
         public static DateTime ToMiladiDate(this string shamsiDateTime)
         {
             if (IsMiladiDateTime(shamsiDateTime))
-                return DateTime.Parse(shamsiDateTime);
+                return DateTime.Parse(shamsiDateTime, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
+
+            // تاریخ بدون صفر پیشرو (مثل 1405/7/27) با جداکننده / یا -
+            var dateOnly = shamsiDateTime.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+            var parts = dateOnly.Split(['/', '-'], StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 3)
+            {
+                var y = parts[0].Fa2En().ToInt();
+                var m = parts[1].Fa2En().ToInt();
+                var d = parts[2].Fa2En().ToInt();
+                return Pc.ToDateTime(y, m, d, 0, 0, 0, 0);
+            }
 
             shamsiDateTime =   shamsiDateTime.Replace("/", "").Replace(":","").Replace(" ","");
 
@@ -134,7 +145,7 @@ namespace Common.Utilities
         public static DateTime ToMiladiDateTime(this string shamsiDateTime)
         {
             if (IsMiladiDateTime(shamsiDateTime))
-                return DateTime.Parse(shamsiDateTime);
+                return DateTime.Parse(shamsiDateTime, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces);
 
             shamsiDateTime =   shamsiDateTime.Replace("/", "").Replace(":","").Replace(" ","");
 
@@ -155,7 +166,13 @@ namespace Common.Utilities
         }
         public static bool IsMiladiDateTime(this string dateTimeString)
         {
-            return DateTime.TryParse(dateTimeString, out _);
+            if (string.IsNullOrWhiteSpace(dateTimeString))
+                return false;
+            // سال‌های ۱۲۰۰ تا ۱۶۹۹ در این سامانه تاریخ شمسی‌اند. TryParse آن‌ها را میلادیِ همان عدد می‌خواند
+            // و ۱۴۰۵/۰۷/۱۷ به سال ۷۸۴ شمسی برمی‌گردد.
+            if (!DateTime.TryParse(dateTimeString, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out var parsed))
+                return false;
+            return parsed.Year >= 1700;
         }
 
 		public static int GetShamsiYear(this DateTime date)

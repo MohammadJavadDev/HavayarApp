@@ -1,0 +1,19 @@
+@using Entities.App.Law
+@using Entities.App.Law.Enums
+@model JudicialFileDemand
+<div class="row">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="judicialFileId" value="@Model?.JudicialFileId" />
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold required">خواسته</label>
+		<select class="form-control" data-bind="demandType" data-required="true" asp-for="DemandType" asp-items="Html.GetEnumSelectList(typeof(JudicialDemandTypeEnum))">
+			<option value="">انتخاب کنید</option>
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-12 form-group-inline">
+		<label class="form-label fw-bold">مبلغ خواسته (ریال)</label>
+		<input class="form-control" type="text" data-bind="demandValue" data-money="true" asp-for="DemandValue" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

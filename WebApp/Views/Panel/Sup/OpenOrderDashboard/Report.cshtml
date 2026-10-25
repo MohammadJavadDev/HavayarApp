@@ -1,0 +1,445 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "داشبورد درخواست‌های باز خرید";
+	var todayShamsi = DateTime.Today.ToShamsiDate();
+}
+
+<style>
+	#openOrderDashPage .ood-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#openOrderDashPage .ood-summary-card {
+		min-height: 118px;
+	}
+
+	#openOrderDashPage .ood-definition {
+		font-size: 0.8rem;
+		line-height: 1.45;
+		min-height: 2.2em;
+	}
+
+	#openOrderDashPage .ood-danger {
+		color: var(--bs-danger);
+	}
+
+	#openOrderDashPage .ood-success {
+		color: var(--bs-success);
+	}
+
+	#openOrderDashPage svg text {
+		font-family: inherit !important;
+	}
+</style>
+
+<div id="openOrderDashPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">داشبورد درخواست‌های باز خرید</h3>
+					<div class="text-muted fs-7">
+						ماندهٔ درخواست‌های باز تدارکات — برچسب
+						<span class="fw-semibold">وضعیت همین لحظه</span>
+						(فیلتر تاریخ روی این شاخص‌ها اثر ندارد)
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadOpenOrderDash">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">از تاریخ</label>
+				<input class="form-control ltr" id="oodFromDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تا تاریخ</label>
+				<input class="form-control ltr" id="oodToDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4">
+				<div class="text-muted fs-7" id="oodAsOfText">زمان محاسبه: -</div>
+				<div class="text-muted fs-8 mt-1" id="oodStockLabel">وضعیت همین لحظه</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4" id="oodMetricCards">
+		<div class="col-md-4">
+			<div class="card ood-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted" id="oodOpenTotalTitle">درخواست‌های باز خرید</div>
+					<div class="ood-summary-value" id="oodOpenTotalCount">-</div>
+					<div class="text-muted ood-definition mt-2" id="oodOpenTotalDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card ood-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted" id="oodStoppedTitle">متوقف</div>
+					<div class="ood-summary-value ood-danger" id="oodStoppedCount">-</div>
+					<div class="text-muted ood-definition mt-2" id="oodStoppedDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card ood-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted" id="oodActiveTitle">فعال</div>
+					<div class="ood-summary-value ood-success" id="oodActiveCount">-</div>
+					<div class="text-muted ood-definition mt-2" id="oodActiveDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-6">
+			<div class="card ood-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted" id="oodEngAcceptedTitle">تایید مهندسی</div>
+					<div class="ood-summary-value" id="oodEngAcceptedCount">-</div>
+					<div class="text-muted ood-definition mt-2" id="oodEngAcceptedDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-6">
+			<div class="card ood-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted" id="oodEngNotAcceptedTitle">بدون تایید مهندسی</div>
+					<div class="ood-summary-value" id="oodEngNotAcceptedCount">-</div>
+					<div class="text-muted ood-definition mt-2" id="oodEngNotAcceptedDef"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">توقف / فعال</h3>
+					<div class="card-toolbar text-muted fs-8">توقف یا فعال بودن درخواست‌های باز</div>
+				</div>
+				<div class="card-body">
+					<div id="oodStopChart" style="min-height:320px"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">تایید مهندسی</h3>
+					<div class="card-toolbar text-muted fs-8">تایید مهندسی روی درخواست‌های باز</div>
+				</div>
+				<div class="card-body">
+					<div id="oodEngineeringChart" style="min-height:320px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">سن درخواست (از تاریخ ایجاد)</h3>
+					<div class="card-toolbar text-muted fs-8">سن از تاریخ ایجاد</div>
+				</div>
+				<div class="card-body">
+					<div id="oodAgeChart" style="min-height:340px"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">تاریخ نیاز</h3>
+					<div class="card-toolbar text-muted fs-8">تاریخ نیاز</div>
+				</div>
+				<div class="card-body">
+					<div id="oodNeedDateChart" style="min-height:340px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">۵۰ درخواست باز اخیر</h3>
+			<div class="card-toolbar text-muted fs-7">همان جمعیت حذف‌نشده — بدون پرش به لیست فیلترنشده</div>
+		</div>
+		<div class="card-body p-2">
+			<div class="table-responsive">
+				<table class="table table-rounded table-striped border table-bordered nowrap table-hover align-middle mb-0"
+					style="width:100%;direction:rtl">
+					<thead>
+						<tr>
+							<th>شناسه</th>
+							<th>کالا</th>
+							<th>کد کالا</th>
+							<th>درخواست‌کننده</th>
+							<th>تاریخ درخواست خرید</th>
+							<th>تاریخ نیاز</th>
+							<th class="text-center">متوقف</th>
+							<th class="text-center">تایید مهندسی</th>
+						</tr>
+					</thead>
+					<tbody id="oodDetailsBody"></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="text-muted fs-8 mb-2" id="oodPopulationFilterText"></div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Sup/OpenOrderDashboard/GetData';
+	const todayShamsi = '@todayShamsi';
+
+	const $page = $$('#openOrderDashPage');
+	const $fromDate = $$('#oodFromDate');
+	const $toDate = $$('#oodToDate');
+	const $loadButton = $$('#btnLoadOpenOrderDash');
+
+	let stopChart = null;
+	let engineeringChart = null;
+	let ageChart = null;
+	let needDateChart = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 0
+		});
+	}
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function findMetric(list, key) {
+		const items = list || [];
+		for (let i = 0; i < items.length; i++) {
+			if (items[i].key === key) return items[i];
+		}
+		return null;
+	}
+
+	function getFilter() {
+		return {
+			fromDateShamsi: $fromDate.val() || null,
+			toDateShamsi: $toDate.val() || null
+		};
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function renderOrUpdateChart(existing, elementId, options) {
+		if (existing) {
+			existing.updateOptions(options);
+			return existing;
+		}
+		const chart = new ApexCharts($$('#' + elementId)[0], options);
+		chart.render();
+		return chart;
+	}
+
+	function donutOptions(labels, series, colors) {
+		return {
+			chart: { type: 'donut', height: 320, fontFamily: 'inherit', toolbar: { show: false } },
+			labels: labels,
+			series: series,
+			colors: colors,
+			legend: { position: 'bottom', fontFamily: 'inherit' },
+			dataLabels: {
+				enabled: true,
+				formatter: function (val, opts) {
+					const count = opts.w.config.series[opts.seriesIndex];
+					return Number(count).toLocaleString('fa-IR');
+				}
+			},
+			tooltip: {
+				y: { formatter: function (v) { return Number(v).toLocaleString('fa-IR'); } }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function columnOptions(categories, data, colors, height) {
+		return {
+			chart: { type: 'bar', height: height || 340, fontFamily: 'inherit', toolbar: { show: false } },
+			plotOptions: { bar: { distributed: true, columnWidth: '45%' } },
+			series: [{ name: 'تعداد', data: data }],
+			colors: colors,
+			xaxis: { categories: categories },
+			legend: { show: false },
+			dataLabels: {
+				enabled: true,
+				formatter: function (v) { return Number(v).toLocaleString('fa-IR'); }
+			},
+			yaxis: {
+				labels: { formatter: function (v) { return Number(v).toLocaleString('fa-IR'); } }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function boolLabel(value) {
+		return value ? 'بله' : 'خیر';
+	}
+
+	function renderCards(report) {
+		const openTotal = report.openTotal || {};
+		$$('#oodOpenTotalTitle').text(openTotal.title || 'درخواست‌های باز خرید');
+		$$('#oodOpenTotalCount').text(formatNumber(openTotal.count));
+		$$('#oodOpenTotalDef').text(openTotal.definition || '');
+
+		const stopped = findMetric(report.stopSplit, 'stopped') || {};
+		const active = findMetric(report.stopSplit, 'active') || {};
+		$$('#oodStoppedTitle').text(stopped.title || 'متوقف');
+		$$('#oodStoppedCount').text(formatNumber(stopped.count));
+		$$('#oodStoppedDef').text(stopped.definition || '');
+		$$('#oodActiveTitle').text(active.title || 'فعال');
+		$$('#oodActiveCount').text(formatNumber(active.count));
+		$$('#oodActiveDef').text(active.definition || '');
+
+		const engAccepted = findMetric(report.engineeringSplit, 'engineeringAccepted') || {};
+		const engNotAccepted = findMetric(report.engineeringSplit, 'engineeringNotAccepted') || {};
+		$$('#oodEngAcceptedTitle').text(engAccepted.title || 'تایید مهندسی');
+		$$('#oodEngAcceptedCount').text(formatNumber(engAccepted.count));
+		$$('#oodEngAcceptedDef').text(engAccepted.definition || '');
+		$$('#oodEngNotAcceptedTitle').text(engNotAccepted.title || 'بدون تایید مهندسی');
+		$$('#oodEngNotAcceptedCount').text(formatNumber(engNotAccepted.count));
+		$$('#oodEngNotAcceptedDef').text(engNotAccepted.definition || '');
+
+		$$('#oodAsOfText').text('زمان محاسبه: ' + (report.asOfShamsiDateTime || '-'));
+		$$('#oodStockLabel').text(report.stockLabel || 'وضعیت همین لحظه');
+		$$('#oodPopulationFilterText').text(report.populationFilterText || '');
+	}
+
+	function renderCharts(report) {
+		const stopped = findMetric(report.stopSplit, 'stopped');
+		const active = findMetric(report.stopSplit, 'active');
+		stopChart = renderOrUpdateChart(stopChart, 'oodStopChart', donutOptions(
+			[stopped ? stopped.title : 'متوقف', active ? active.title : 'فعال'],
+			[Number(stopped && stopped.count || 0), Number(active && active.count || 0)],
+			['#f1416c', '#50cd89']
+		));
+
+		const engAccepted = findMetric(report.engineeringSplit, 'engineeringAccepted');
+		const engNotAccepted = findMetric(report.engineeringSplit, 'engineeringNotAccepted');
+		engineeringChart = renderOrUpdateChart(engineeringChart, 'oodEngineeringChart', donutOptions(
+			[engAccepted ? engAccepted.title : 'تایید مهندسی', engNotAccepted ? engNotAccepted.title : 'بدون تایید مهندسی'],
+			[Number(engAccepted && engAccepted.count || 0), Number(engNotAccepted && engNotAccepted.count || 0)],
+			['#50cd89', '#a1a5b7']
+		));
+
+		const ageBuckets = report.ageBuckets || [];
+		ageChart = renderOrUpdateChart(ageChart, 'oodAgeChart', columnOptions(
+			ageBuckets.map(function (m) { return m.title; }),
+			ageBuckets.map(function (m) { return Number(m.count || 0); }),
+			['#009ef7', '#7239ea', '#ffc700', '#a1a5b7'],
+			340
+		));
+
+		const needBuckets = report.needDateBuckets || [];
+		needDateChart = renderOrUpdateChart(needDateChart, 'oodNeedDateChart', columnOptions(
+			needBuckets.map(function (m) { return m.title; }),
+			needBuckets.map(function (m) { return Number(m.count || 0); }),
+			['#f1416c', '#50cd89', '#a1a5b7'],
+			340
+		));
+	}
+
+	function renderDetails(report) {
+		const rows = report.details || [];
+		const $body = $$('#oodDetailsBody').empty();
+		if (!rows.length) {
+			$body.append('<tr><td colspan="8" class="text-center text-muted">ردیفی یافت نشد</td></tr>');
+			return;
+		}
+
+		rows.forEach(function (row) {
+			const stopClass = row.isStop ? 'ood-danger' : 'ood-success';
+			$body.append(
+				'<tr>' +
+				'<td class="ltr text-center">' + formatNumber(row.id) + '</td>' +
+				'<td>' + escapeHtml(row.partTitle || '-') + '</td>' +
+				'<td class="ltr">' + escapeHtml(row.partCode || '-') + '</td>' +
+				'<td>' + escapeHtml(row.requestedPersonel || '-') + '</td>' +
+				'<td class="ltr text-center">' + escapeHtml(row.purchaseRequestShamsiDate || '-') + '</td>' +
+				'<td class="ltr text-center">' + escapeHtml(row.needDateShamsiDate || '-') + '</td>' +
+				'<td class="text-center ' + stopClass + '">' + escapeHtml(boolLabel(row.isStop)) + '</td>' +
+				'<td class="text-center">' + escapeHtml(boolLabel(row.engineeringAccept)) + '</td>' +
+				'</tr>'
+			);
+		});
+	}
+
+	function renderReport(report) {
+		renderCards(report || {});
+		renderDetails(report || {});
+		whenApexReady(function () {
+			renderCharts(report || {});
+		});
+	}
+
+	function loadReport() {
+		const $btn = $($loadButton).block();
+
+		$$.post(dataUrl, getFilter(), function (response) {
+			$btn.block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderReport(unwrap(response) || {});
+		});
+	}
+
+	$fromDate.val(todayShamsi);
+	$toDate.val(todayShamsi);
+	$loadButton.on('click', loadReport);
+	loadReport();
+</script>

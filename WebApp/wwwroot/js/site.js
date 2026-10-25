@@ -210,7 +210,7 @@ const initUploadFileDropzone = function ($el) {
 	$el.find("[data-uploadFile=true]").each((c, i) => {
 
 		var acceptedFiles = $(i).attr("data-uploadFileTypeFormat");
-		var maxFileSize = $(i).attr("data-uploadFileMaxSize") ?? 10;
+		var maxFileSize = $(i).attr("data-uploadFileMaxSize") ?? 100;
 		var value = $(i).attr("value");
 
 
@@ -1980,6 +1980,103 @@ function InitDataTable($el, columns, tabelName = "", path, searchBuilderOnButton
 	return table;
 }
 
+/**
+ * پارس راهنمای رنگ‌ها (EventScriptsJson.legend)
+ * قالب: [{ "color": "#0FF135", "text": "#111111", "label": "معنی رنگ" }, ...]
+ * @param {string|Array|null} raw
+ * @returns {Array<{color:string,text:string,label:string}>}
+ */
+function parseDataTableLegend(raw) {
+	if (!raw) return [];
+	let arr = raw;
+	if (typeof raw === 'string') {
+		if (!raw.trim()) return [];
+		try { arr = JSON.parse(raw); } catch (e) { console.warn('legend: JSON نامعتبر', e); return []; }
+	}
+	if (!Array.isArray(arr)) return [];
+	return arr
+		.filter(i => i && i.label && i.color)
+		.map(i => ({ color: String(i.color), text: i.text ? String(i.text) : '#111111', label: String(i.label) }));
+}
+
+/**
+ * نمایش دکمه «راهنمای رنگ‌ها» وسط نوار پایین جدول (بین تعداد در صفحه و pagination)
+ * @param {Object} api - DataTable API
+ * @param {string|Array|null} rawLegend
+ */
+function mountDataTableLegend(api, rawLegend) {
+	const items = parseDataTableLegend(rawLegend);
+	if (!items.length) return;
+
+	const $container = $(api.table().container());
+	const $paging = $container.find('.dt-paging').first();
+	// در قالب bootstrap5 ردیف‌ها کلاس dt-layout-row ندارند؛ سلول انتهایی dt-layout-end و والد آن ردیف است
+	const $endCell = $paging.closest('.dt-layout-end');
+	const $row = $endCell.length ? $endCell.parent() : $paging.closest('.dt-layout-row');
+	if (!$row.length || $row.find('.dt-color-legend').length) return;
+
+	const $btn = $('<button type="button" class="btn btn-sm btn-light-primary d-inline-flex align-items-center gap-2"></button>')
+		.append('<i class="bi bi-palette fs-5"></i>')
+		.append($('<span></span>').text('راهنمای رنگ‌ها'));
+	const $cell = $('<div class="dt-layout-cell dt-color-legend col-md-auto d-flex align-items-center"></div>').append($btn);
+
+	// فاصله بین سه بخش: start | legend | end
+	$row.addClass('justify-content-between align-items-center');
+	$row.find('.dt-layout-start').removeClass('me-auto');
+	$row.find('.dt-layout-end').removeClass('ms-auto');
+	$paging.closest('.dt-layout-end, .dt-layout-cell').before($cell);
+
+	let $panel = null;
+	const closePanel = () => {
+		if (!$panel) return;
+		$panel.remove();
+		$panel = null;
+		$(document).off('.dtLegend');
+	};
+
+	$btn.on('click', function (e) {
+		e.stopPropagation();
+		if ($panel) { closePanel(); return; }
+
+		$panel = $('<div class="dt-legend-panel card shadow border" dir="rtl"></div>').css({
+			position: 'fixed', zIndex: 2000, minWidth: '220px', maxWidth: '360px',
+			maxHeight: '60vh', overflowY: 'auto', padding: '10px 12px', visibility: 'hidden'
+		});
+		$panel.append($('<div class="fw-bold mb-2"></div>').text('راهنمای رنگ‌ها'));
+		items.forEach(i => {
+			const $sw = $('<span></span>').css({
+				display: 'inline-block', flex: '0 0 auto', width: '28px', height: '16px',
+				borderRadius: '3px', border: '1px solid rgba(0,0,0,.25)', backgroundColor: i.color
+			});
+			const $item = $('<div class="d-flex align-items-center gap-2 py-1"></div>')
+				.append($sw)
+				.append($('<span class="small"></span>').text(i.label));
+			$panel.append($item);
+		});
+		$('body').append($panel);
+
+		// باز شدن به سمت بالا (دکمه پایین صفحه است)
+		const r = $btn[0].getBoundingClientRect();
+		const pw = $panel.outerWidth();
+		const ph = $panel.outerHeight();
+		let left = r.left + (r.width - pw) / 2;
+		left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+		let top = r.top - ph - 6;
+		if (top < 8) top = Math.min(r.bottom + 6, window.innerHeight - ph - 8);
+		$panel.css({ left: left + 'px', top: top + 'px', visibility: 'visible' });
+
+		$(document)
+			.on('click.dtLegend', function (ev) {
+				if (!$(ev.target).closest('.dt-legend-panel').length) closePanel();
+			})
+			.on('keydown.dtLegend', function (ev) {
+				if (ev.key === 'Escape') closePanel();
+			});
+	});
+
+	api.on('destroy', closePanel);
+}
+
 var DT_PAGE_FIT_MIN_BODY = 140;
 var DT_PAGE_FIT_STICKY_PX = 2;
 
@@ -2153,7 +2250,20 @@ function dataProfileExportCellValue(value) {
 	else template.innerHTML = String(value);
 	template.content.querySelectorAll('script, style, [hidden], .d-none').forEach(el => el.remove());
 	template.content.querySelectorAll('br').forEach(el => el.replaceWith('\n'));
-	return template.content.textContent || '';
+	const text = template.content.textContent || '';
+	return text.trim() ? toWesternDigits(text) : '';
+}
+
+function toWesternDigits(value) {
+	return String(value)
+		.replace(/[۰-۹٠-٩]/g, function (ch) {
+			const code = ch.charCodeAt(0);
+			if (code >= 0x06F0 && code <= 0x06F9) return String(code - 0x06F0);
+			if (code >= 0x0660 && code <= 0x0669) return String(code - 0x0660);
+			return ch;
+		})
+		.replace(/\u066C/g, ',')
+		.replace(/\u066B/g, '.');
 }
 
 async function buildDataProfileDisplayExport(table, columns, request, fetchUrl) {
@@ -2307,6 +2417,8 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	let multiSelectMode = false;
 	/** @type {Map<string, Object>} key = primaryKey string */
 	const selectedRowsMap = new Map();
+	let lastRequestSig = null;
+	let lastRequestStart = null;
 	let dataTableRequest = {};
 	let tableApi = null;
 	const rowRenderCallbacks = [];
@@ -2378,7 +2490,9 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 			rowData: rowData,
 			$row: $row,
 			rowIndex: rowIndex,
-			table: tableApi,
+			// tableApi در initComplete مقداردهی می‌شود که بعد از اولین draw اجرا می‌شود؛
+			// برای رندر اول از خود شیء DataTable استفاده می‌کنیم.
+			table: tableApi || table,
 			draw: () => table.draw(),
 			primaryKeyName: pkName,
 			primaryKeyValue: (pkName && rowData) ? (rowData[pkName] ?? null) : null,
@@ -3810,6 +3924,10 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 
 	if (!multiSelectAllowed) {
 		top1startBtns.find('[data-action=multiSelect]').remove();
+	} else {
+		multiSelectMode = true;
+		const selectCol = columns.find(c => c.type === 'rowSelect');
+		if (selectCol) selectCol.visible = true;
 	}
 
 	
@@ -3892,8 +4010,12 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 	$reStyleTableBtn = top1startBtns.find("[data-action='reStyleTable']");
 	$clearFiltersBtn = top1startBtns.find("[data-action=clearFilters]");
 	$multiSelectBtn = top1startBtns.find("[data-action=multiSelect]");
+	if (multiSelectMode && $multiSelectBtn.length) {
+		$multiSelectBtn
+			.addClass('btn-color-primary active')
+			.attr('title', 'خروج از انتخاب چندتایی');
+	}
 
-	 
 	 
 	const sortCols = [];
 	columns.forEach((c, i) => {
@@ -3928,6 +4050,10 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		initComplete: function () {
 			tableApi = this.api();
 			const api = tableApi;
+
+			// راهنمای رنگ‌ها (EventScriptsJson.legend)
+			try { mountDataTableLegend(api, eventScripts.legend); }
+			catch (e) { console.warn('legend:', e); }
 
 			// onRowRender helper
 			api.onRowRender = function (callback) {
@@ -4068,6 +4194,17 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 				d.search.value = [];
 				d.searchBuilder = table.searchBuilder.getDetails();
 
+				const queryParamsRaw = dataProfileSelector.attr('data-query-params');
+				if (queryParamsRaw) {
+					try {
+						const queryParams = JSON.parse(queryParamsRaw);
+						if (queryParams && typeof queryParams === 'object')
+							d.parameters = queryParams;
+					} catch (e) {
+						console.warn('data-query-params', e);
+					}
+				}
+
 				if (d.searchBuilder) {
 					try {
 						d.searchBuilder.criteria = addNameAndValueToSearchBuilder(
@@ -4078,6 +4215,22 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 						throw null;
 					}
 				}
+
+				// انتخاب چندتایی فقط هنگام تغییر صفحه حفظ می‌شود؛ با تغییر فیلتر/جستجو/مرتب‌سازی یا
+				// بارگذاری مجدد (مثلاً بعد از ارسال موفق) ردیف‌های انتخاب‌شدهٔ قبلی که دیگر دیده نمی‌شوند پاک می‌شوند.
+				const requestSig = JSON.stringify({
+					c: d.columns, s: d.search, sb: d.searchBuilder, p: d.parameters, o: d.order
+				});
+				if (selectedRowsMap.size > 0) {
+					const pageChanged = lastRequestSig === requestSig && lastRequestStart !== d.start;
+					if (!pageChanged) {
+						selectedRowsMap.clear();
+						selectedRow = null;
+						updateSelectionDependentButtons(false);
+					}
+				}
+				lastRequestSig = requestSig;
+				lastRequestStart = d.start;
 
 				dataTableRequest = d;
 				return JSON.stringify(d);
@@ -4343,8 +4496,11 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 				const request = JSON.parse(JSON.stringify(dataTableRequest));
 				request.displayExport = await buildDataProfileDisplayExport(table, columns, request, fetchUrl);
 				// Typed text fields prevent the server JSON reader from coercing ISO dates.
-				request.displayExport.rows = request.displayExport.rows.map(row => row.map(value =>
-					typeof value === 'number' ? { number: value } : { text: value }));
+				request.displayExport.rows = request.displayExport.rows.map(row => row.map(value => {
+					if (typeof value === 'number') return { number: value };
+					const text = value == null ? '' : String(value);
+					return { text: text.trim() ? text : null };
+				}));
 				await $.ajax({
 					url: exportPath,
 					method: 'POST',
@@ -4414,6 +4570,21 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 			setMultiSelectMode(!multiSelectMode);
 		});
 
+		if (multiSelectMode) {
+			const selectColIdx = columns.findIndex(c => c.type === 'rowSelect');
+			if (selectColIdx >= 0) {
+				const $container = $(table.table().container());
+				const $heads = $container.find(`.dt-scroll-head th[data-dt-column="${selectColIdx}"]`)
+					.add($(table.column(selectColIdx).header()));
+				$heads.each(function () {
+					const $th = $(this);
+					if (!$th.find('.dt-select-all').length) {
+						$th.html('<input type="checkbox" class="form-check-input dt-select-all" title="انتخاب همه صفحه" />');
+					}
+				});
+			}
+		}
+
 		$(table.table().container()).on('change.dtSelectAll', 'thead .dt-select-all', function (e) {
 			e.stopPropagation();
 			if (!multiSelectMode) return;
@@ -4430,6 +4601,7 @@ function InitDataTabelProfile($el, dataTable, profileId, searchBuilderOnButton =
 		appController.createBootstrapTooltips();
 		bindDataTablePageFit(table);
 		bindDataTableCellTooltips(table);
+		try { bindDataTableCellCopy(table); } catch (e) { console.warn('bindDataTableCellCopy failed', e); }
 	});
 
 	$.fn.dataTable.ext.errMode = (settings, helpPage, message) => {
@@ -4509,6 +4681,192 @@ function bindDataTableCellTooltips(table) {
 	table.on('destroy.dtCellTooltip', () => {
 		disposeActive();
 		$container.off('.dtCellTooltip').removeData('cellTooltipBound');
+	});
+}
+
+/**
+ * دکمهٔ کپی متن سلول (آیکن کوچک هنگام hover روی td) برای جداول Data Profile.
+ *
+ * - فقط «یک» دکمهٔ شناور (position: fixed) در body ساخته می‌شود؛ هیچ تغییری در DOM سلول‌ها یا DataTables داده نمی‌شود.
+ * - برای سلول‌هایی که کنترل تعاملی (button/input/select/textarea) دارند، یا خالی‌اند، نمایش داده نمی‌شود.
+ * - کلیک روی دکمه رویداد ردیف (انتخاب/ویرایش) را فعال نمی‌کند چون دکمه خارج از جدول است.
+ */
+const DT_CELL_COPY_SKIP_CONTROLS = 'button, input, select, textarea';
+const DT_CELL_COPY_SKIP_TD = '.dt-empty, .dataTables_empty, .child, .dtr-control, .dt-select, .select-checkbox, .dt-ellipsis-skip';
+const DT_CELL_COPY_ICON_COPY = '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M4 2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H6z"/><path d="M2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1H2z"/></svg>';
+const DT_CELL_COPY_ICON_DONE = '<svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M13.485 3.929a.75.75 0 0 1 .086 1.056l-6.5 7.5a.75.75 0 0 1-1.11.04l-3-3a.75.75 0 1 1 1.06-1.06l2.42 2.42 5.98-6.9a.75.75 0 0 1 1.064-.056z"/></svg>';
+
+let dtCellCopyState = { btn: null, td: null, resetTimer: null, globalBound: false };
+
+function dtCellCopyGetButton() {
+	if (dtCellCopyState.btn && document.body.contains(dtCellCopyState.btn)) return dtCellCopyState.btn;
+
+	const btn = document.createElement('button');
+	btn.type = 'button';
+	btn.className = 'dt-cell-copy-btn';
+	btn.title = 'کپی متن سلول';
+	btn.setAttribute('aria-label', 'کپی متن سلول');
+	btn.innerHTML = DT_CELL_COPY_ICON_COPY;
+	document.body.appendChild(btn);
+	dtCellCopyState.btn = btn;
+
+	// جلوگیری از از دست رفتن focus / selection و رسیدن رویداد به بقیهٔ صفحه
+	btn.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); });
+	btn.addEventListener('dblclick', function (e) { e.preventDefault(); e.stopPropagation(); });
+	btn.addEventListener('click', function (e) {
+		e.preventDefault();
+		e.stopPropagation();
+		const td = dtCellCopyState.td;
+		if (!td) return;
+		const text = dtCellCopyGetText(td);
+		if (!text) return;
+		dtCellCopyWrite(text).then(function (ok) {
+			if (ok) dtCellCopyShowDone(); else toastr.error('کپی انجام نشد', 'خطا');
+		});
+	});
+	btn.addEventListener('mouseleave', function (e) {
+		const td = dtCellCopyState.td;
+		if (td && e.relatedTarget && td.contains(e.relatedTarget)) return;
+		dtCellCopyHide();
+	});
+
+	if (!dtCellCopyState.globalBound) {
+		dtCellCopyState.globalBound = true;
+		// scroll داخل هر container (capture) و resize: دکمه شناور است و باید پنهان شود
+		window.addEventListener('scroll', function (e) {
+			if (e.target === dtCellCopyState.btn) return;
+			dtCellCopyHide();
+		}, true);
+		window.addEventListener('resize', dtCellCopyHide);
+	}
+	return btn;
+}
+
+function dtCellCopyGetText(td) {
+	return (td.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function dtCellCopyWrite(text) {
+	const fallback = function () {
+		try {
+			const ta = document.createElement('textarea');
+			ta.value = text;
+			ta.setAttribute('readonly', '');
+			ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0;';
+			document.body.appendChild(ta);
+			ta.select();
+			const ok = document.execCommand('copy');
+			document.body.removeChild(ta);
+			return ok;
+		} catch (_) {
+			return false;
+		}
+	};
+
+	if (navigator.clipboard && window.isSecureContext) {
+		return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return fallback(); });
+	}
+	return Promise.resolve(fallback());
+}
+
+function dtCellCopyShowDone() {
+	const btn = dtCellCopyState.btn;
+	if (!btn) return;
+	clearTimeout(dtCellCopyState.resetTimer);
+	btn.classList.add('is-copied');
+	btn.innerHTML = DT_CELL_COPY_ICON_DONE;
+	btn.title = 'کپی شد';
+	dtCellCopyState.resetTimer = setTimeout(dtCellCopyResetIcon, 1200);
+}
+
+function dtCellCopyResetIcon() {
+	const btn = dtCellCopyState.btn;
+	if (!btn) return;
+	btn.classList.remove('is-copied');
+	btn.innerHTML = DT_CELL_COPY_ICON_COPY;
+	btn.title = 'کپی متن سلول';
+}
+
+function dtCellCopyHide() {
+	const btn = dtCellCopyState.btn;
+	dtCellCopyState.td = null;
+	if (!btn) return;
+	clearTimeout(dtCellCopyState.resetTimer);
+	btn.style.display = 'none';
+	dtCellCopyResetIcon();
+}
+
+/** بخش قابل‌دیدِ td (اشتراک با ancestorهایی که overflow دارند) */
+function dtCellCopyVisibleRect(td) {
+	const r = td.getBoundingClientRect();
+	let left = r.left, right = r.right, top = r.top, bottom = r.bottom;
+	let el = td.parentElement;
+	while (el && el !== document.body && el !== document.documentElement) {
+		const cs = getComputedStyle(el);
+		if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+			const pr = el.getBoundingClientRect();
+			left = Math.max(left, pr.left);
+			right = Math.min(right, pr.right);
+			top = Math.max(top, pr.top);
+			bottom = Math.min(bottom, pr.bottom);
+		}
+		el = el.parentElement;
+	}
+	left = Math.max(left, 0);
+	top = Math.max(top, 0);
+	right = Math.min(right, window.innerWidth);
+	bottom = Math.min(bottom, window.innerHeight);
+	return { left: left, right: right, top: top, bottom: bottom, width: right - left, height: bottom - top };
+}
+
+function dtCellCopyShow(td) {
+	const size = 22;
+	const vr = dtCellCopyVisibleRect(td);
+	if (vr.width < size + 8 || vr.height < size) { dtCellCopyHide(); return; }
+
+	const btn = dtCellCopyGetButton();
+	clearTimeout(dtCellCopyState.resetTimer);
+	dtCellCopyResetIcon();
+	dtCellCopyState.td = td;
+
+	// سمت انتهای متن: در RTL سمت چپ، در LTR سمت راست
+	const isRtl = getComputedStyle(td).direction === 'rtl';
+	const left = isRtl ? vr.left + 2 : vr.right - size - 2;
+	const top = vr.top + (vr.height - size) / 2;
+
+	btn.style.left = Math.round(left) + 'px';
+	btn.style.top = Math.round(top) + 'px';
+	btn.style.display = 'flex';
+}
+
+function bindDataTableCellCopy(table) {
+	if (!table || typeof table.table !== 'function') return;
+
+	const $container = $(table.table().container());
+	if (!$container.length || $container.data('cellCopyBound')) return;
+	$container.data('cellCopyBound', true);
+
+	$container.on('mouseenter.dtCellCopy', 'tbody td', function () {
+		try {
+			const td = this;
+			if (td.matches(DT_CELL_COPY_SKIP_TD) || td.querySelector(DT_CELL_COPY_SKIP_CONTROLS)) { dtCellCopyHide(); return; }
+			if (!dtCellCopyGetText(td)) { dtCellCopyHide(); return; }
+			dtCellCopyShow(td);
+		} catch (_) {
+			dtCellCopyHide();
+		}
+	});
+
+	$container.on('mouseleave.dtCellCopy', 'tbody td', function (e) {
+		const btn = dtCellCopyState.btn;
+		if (btn && e.relatedTarget && (e.relatedTarget === btn || btn.contains(e.relatedTarget))) return;
+		dtCellCopyHide();
+	});
+
+	table.on('draw.dtCellCopy preDraw.dtCellCopy', dtCellCopyHide);
+	table.on('destroy.dtCellCopy', function () {
+		dtCellCopyHide();
+		$container.off('.dtCellCopy').removeData('cellCopyBound');
 	});
 }
 
@@ -7600,6 +7958,63 @@ var MJUtil = function () {
 			return null;
 		}
 		return s;
+	},
+
+	    /**
+	     * Duration stored as integer MINUTES (e.g. Edms.Document.HourPrePerson) -> "HH:MM" text for [data-duration-hm].
+	     * Accepts minutes (number / numeric string) or an already formatted "H:MM" / "HH:MM" text. Hours may exceed 99.
+	     */
+	    formatDuration(value) {
+		if (value === null || value === undefined || value === '') {
+			return '';
+		}
+		let s = String(value);
+		if (typeof MJUtil.toEnglishNumbers === 'function')
+			s = MJUtil.toEnglishNumbers(s) || '';
+		s = s.trim();
+		if (!s || s.indexOf('_') >= 0) {
+			return '';
+		}
+		if (s.indexOf(':') >= 0) {
+			const m = /^(\d{1,4}):(\d{1,2})$/.exec(s);
+			if (!m)
+				return '';
+			return m[1].padStart(2, '0') + ':' + m[2].padStart(2, '0');
+		}
+		if (!/^\d+$/.test(s)) {
+			return '';
+		}
+		const total = parseInt(s, 10);
+		return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+	},
+
+	    /**
+	     * "HH:MM" text from [data-duration-hm] -> integer minutes (hours * 60 + minutes).
+	     * Empty or incomplete mask (contains "_") -> null. A plain integer is taken as minutes already.
+	     */
+	    unformatDuration(value) {
+		if (value === null || value === undefined || value === '') {
+			return null;
+		}
+		let s = String(value);
+		if (typeof MJUtil.toEnglishNumbers === 'function')
+			s = MJUtil.toEnglishNumbers(s) || '';
+		s = s.trim();
+		if (!s || s.indexOf('_') >= 0) {
+			return null;
+		}
+		if (s.indexOf(':') < 0) {
+			return /^\d+$/.test(s) ? parseInt(s, 10) : null;
+		}
+		const m = /^(\d{1,4}):(\d{1,2})$/.exec(s);
+		if (!m) {
+			return null;
+		}
+		const minutes = parseInt(m[2], 10);
+		if (minutes > 59) {
+			return null;
+		}
+		return (parseInt(m[1], 10) * 60) + minutes;
 	}
 
 	}
@@ -8070,16 +8485,24 @@ $.fn.dataBind = function (model) {
             }
 		  else if ($el.is('[data-money="true"]')) {
 			  const raw = MJUtil.unformatMoney(value);
-			  if ($el[0] && $el[0].inputmask)
-				  $el[0].inputmask.setvalue(raw == null ? '' : raw);
+			  if ($el[0] && $el[0].inputmask && typeof $el[0].inputmask.setValue === 'function')
+				  $el[0].inputmask.setValue(raw == null ? '' : raw);
 			  else
 				  $el.val(raw == null ? '' : MJUtil.formatMoney(raw));
 			  $el.change();
 		  }
+		  else if ($el.is('[data-duration-hm="true"]')) {
+			  const raw = MJUtil.formatDuration(value);
+			  if ($el[0] && $el[0].inputmask && typeof $el[0].inputmask.setValue === 'function')
+				  $el[0].inputmask.setValue(raw);
+			  else
+				  $el.val(raw);
+			  $el.change();
+		  }
 		  else if ($el.is('[data-time="true"]')) {
 			  const raw = MJUtil.formatTime(value);
-			  if ($el[0] && $el[0].inputmask)
-				  $el[0].inputmask.setvalue(raw);
+			  if ($el[0] && $el[0].inputmask && typeof $el[0].inputmask.setValue === 'function')
+				  $el[0].inputmask.setValue(raw);
 			  else
 				  $el.val(raw);
 			  $el.change();
@@ -8090,12 +8513,25 @@ $.fn.dataBind = function (model) {
 				  let optionsDataPicker = JSON.parse($el.attr("persion-datetimepicker"))
 				  if (value && value.length > 0) {
 					  if (key.toLowerCase().includes("shamsi")) {
-						  var miladi = MJUtil.shamsiToMiladi(value);
-						  $el.val(miladi).change();
+						  const miladi = MJUtil.shamsiToMiladi(value);
+						  if (miladi) {
+							  const parts = String(miladi).split(' ');
+							  const isoDate = parts[0].replace(/\//g, '-');
+							  const iso = parts.length > 1 ? (isoDate + 'T' + parts[1]) : isoDate;
+							  // datepicker reads the value attribute, not the live property
+							  $el.attr('value', iso);
+							  $el.val(iso);
+							  const unix = new Date(iso).valueOf();
+							  const dp = $el.data('datepicker');
+							  if (dp && typeof dp.setDate === 'function' && !isNaN(unix)) {
+								  dp.setDate(unix);
+								  continue;
+							  }
+						  }
 					  }
 					  optionsDataPicker.initialValue = true
 				  }
-	
+
 				  $el.persianDatepicker(optionsDataPicker)
 			  }
             }
@@ -8159,6 +8595,9 @@ $.fn.dataBind = function (model) {
 		   if ($(this).is('[data-money="true"]')) {
 			   result[path] = MJUtil.unformatMoney(result[path]);
 		   }
+		   if ($(this).is('[data-duration-hm="true"]')) {
+			   result[path] = MJUtil.unformatDuration(result[path]);
+		   }
 		   if ($(this).is('[data-time="true"]')) {
 			   result[path] = MJUtil.unformatTime(result[path]);
 		   }
@@ -8199,10 +8638,11 @@ $.fn.dataBind = function (model) {
  
                 // Persian date support
                 if (el && el.attr("data-persionDatePicker")) {
-					 
+					if (typeof val === "string")
+						val = MJUtil.toEnglishNumbers(val);
 				 obj[p] = val;
-				 if (path.toLowerCase().includes("shamsi"))
-					 obj[p.replace("shamsi", "miladi")] = MJUtil.shamsiToMiladi(val);
+				 if (p.toLowerCase().includes("shamsi"))
+					 obj[p.toLowerCase().replace("shamsi", "miladi")] = MJUtil.shamsiToMiladi(val);
                 } else {
                     obj[p] = val;
                 }
@@ -8282,9 +8722,11 @@ class Page {
 	deactivate() {
 		this.$pageEl.removeClass("show active");
 		this.$tabEl.removeClass("active_page_tab");
+		releaseEntitySelectors(this.$pageEl, false);
 	}
 
 	destroy() {
+		releaseEntitySelectors(this.$pageEl, true);
 		// Check if Bootstrap is available
 		if (typeof bootstrap === 'undefined' || !bootstrap || !bootstrap.Tooltip) {
 			// Bootstrap not available, just remove elements
@@ -8490,7 +8932,13 @@ class AppController {
 		if (!url) return "/";
 		const q = url.indexOf("?");
 		const path = (q === -1 ? url : url.slice(0, q)).replace(/\/+$/, "") || "/";
-		const search = q === -1 ? "" : url.slice(q);
+		let search = q === -1 ? "" : url.slice(q);
+		if (search) {
+			const params = new URLSearchParams(search);
+			params.delete("viewAs");
+			const rest = params.toString();
+			search = rest ? "?" + rest : "";
+		}
 		return path + search;
 	}
 
@@ -8647,6 +9095,16 @@ class AppController {
 		</div>`;
 	}
 
+	getPageLoadingHtml() {
+		return `<div class="hv-page-loading" role="status" aria-live="polite" aria-busy="true">
+			<div class="hv-page-loading__orb" aria-hidden="true">
+				<span class="hv-page-loading__ring"></span>
+			</div>
+			<p class="hv-page-loading__title">در حال بارگذاری صفحه</p>
+			<p class="hv-page-loading__hint">اطلاعات در حال دریافت است</p>
+		</div>`;
+	}
+
 	loadDashboardContent(url, type) {
 		const $area = $("#dashbordRenderArea");
 		if (!$area.length) return;
@@ -8715,11 +9173,109 @@ class AppController {
 		});
 	}
 
+	normalizeMenuAddress(address) {
+		let value = String(address || "").trim().toLowerCase();
+		if (value.startsWith("http://") || value.startsWith("https://")) {
+			try {
+				const u = new URL(value);
+				value = u.pathname + u.search;
+			} catch (e) { }
+		}
+		const hash = value.indexOf("#");
+		if (hash >= 0)
+			value = value.slice(0, hash);
+		let path = value;
+		let query = "";
+		const q = value.indexOf("?");
+		if (q >= 0) {
+			path = value.slice(0, q);
+			query = value.slice(q + 1);
+		}
+		if (path.length > 1 && path.endsWith("/"))
+			path = path.slice(0, -1);
+		return { path: path, query: query };
+	}
+
+	queriesEqual(a, b) {
+		const left = new URLSearchParams(a || "");
+		const right = new URLSearchParams(b || "");
+		const keys = new Set();
+		left.forEach(function (_, key) { keys.add(key); });
+		right.forEach(function (_, key) { keys.add(key); });
+		for (const key of keys) {
+			if ((left.get(key) || "") !== (right.get(key) || ""))
+				return false;
+		}
+		return true;
+	}
+
+	lookupMenuTitle(address) {
+		if (!window.HvMenu || typeof window.HvMenu.pages !== "function")
+			return null;
+		const pages = window.HvMenu.pages() || [];
+		const target = this.normalizeMenuAddress(address);
+		if (!target.path)
+			return null;
+
+		let exact = null;
+		const pathHits = [];
+		for (let i = 0; i < pages.length; i++) {
+			const item = pages[i];
+			const title = String((item && item.title) || "").replace(/\s+/g, " ").trim();
+			if (!title)
+				continue;
+			const normalized = this.normalizeMenuAddress(item.path);
+			if (normalized.path !== target.path)
+				continue;
+			pathHits.push(title);
+			if (!exact && this.queriesEqual(normalized.query, target.query))
+				exact = title;
+		}
+		if (exact)
+			return exact;
+		if (pathHits.length === 1)
+			return pathHits[0];
+		return null;
+	}
+
+	chooseTabTitle(address, explicitTitle, systemTitle) {
+		const ignore = {
+			"": true,
+			"در حال بارگذاری...": true,
+			"بدون عنوان": true,
+			"تب جدید": true,
+			"-": true
+		};
+		const explicit = String(explicitTitle || "").replace(/\s+/g, " ").trim();
+		const system = String(systemTitle || "").replace(/\s+/g, " ").trim();
+		const menuTitle = this.lookupMenuTitle(address);
+		if (explicit && !ignore[explicit] && explicit !== system)
+			return explicit;
+		if (menuTitle)
+			return menuTitle;
+		if (explicit && !ignore[explicit])
+			return explicit;
+		if (system && system !== "-")
+			return system;
+		return "تب جدید";
+	}
+
 	addPage(address, pushState = true , tabTitle = null) {
 		address = address.toLowerCase();
 		if (address === "#") return;
 		let existing = this.pages.find(p => p.address === address);
-		if (existing) { this.setActivePage(existing, pushState); return; }
+		if (existing) {
+			const explicit = String(tabTitle || "").replace(/\s+/g, " ").trim();
+			const current = (existing.$tabEl.find("span").first().text() || "").replace(/\s+/g, " ").trim();
+			const systemTitle = String(existing.systemTitle || "").replace(/\s+/g, " ").trim();
+			const next = this.chooseTabTitle(address, tabTitle, existing.systemTitle || "");
+			if (next && next !== "تب جدید" && (explicit || (systemTitle && current === systemTitle))) {
+				existing.title = next;
+				existing.$tabEl.find("span").first().text(next);
+			}
+			this.setActivePage(existing, pushState);
+			return;
+		}
 
 		// Create Tab + Page DOM
 		let $tab = $(`<li class="page_tab">
@@ -8729,6 +9285,7 @@ class AppController {
 					</div>
                       </li>`);
 		let $page = $(`<div class="tab-pane fade" data-sys="system-tab" id="${address}"></div>`);
+		$page.html(this.getPageLoadingHtml());
 
 		if (this.pages.length === 0) {
 			this.$pagesContainer.children().addClass("fade")
@@ -8737,7 +9294,9 @@ class AppController {
 		this.$tabsContainer.append($tab);
 		this.$pagesContainer.append($page);
 
-	
+		const earlyTitle = this.chooseTabTitle(address, tabTitle, "");
+		if (earlyTitle && earlyTitle !== "تب جدید")
+			$tab.find("span").first().text(earlyTitle);
 
 		let page = new Page(address, $page, $tab);
 		this.pages.push(page);
@@ -8766,21 +9325,11 @@ class AppController {
 			headers: { "X-Requested-With": "XMLHttpRequest", "X-Partial-Request": "true" },
 			success: function (r) {
 				const decoded = appController.decodePartialResponse(r);
-				if (tabTitle) {
-
-					$tab.find("span").text(tabTitle);
-				}
-				else {
-					
-					$tab.find("span").text(decoded.title);
-				}
+				const title = appController.chooseTabTitle(address, tabTitle, decoded.title);
+				$tab.find("span").first().text(title);
 				$page.html(decoded.html);
-
-				if (decoded.title === "-") {
-					page.title = "تب جدید";
-				} else {
-					page.title = decoded.title;
-				}
+				page.title = title;
+				page.systemTitle = decoded.title;
 
 				if (typeof window.DashboardRecentPages !== "undefined" && window.DashboardRecentPages.recordPage)
 					window.DashboardRecentPages.recordPage(page);
@@ -10277,6 +10826,9 @@ class AppController {
 		if (typeof window.DashboardRecentPages !== "undefined" && window.DashboardRecentPages.recordPage)
 			window.DashboardRecentPages.recordPage(page);
 
+		if (window.HvMenu && typeof window.HvMenu.highlight === "function")
+			window.HvMenu.highlight(address);
+
 		if (page && page.address === "dashbord"
 			&& typeof window.DashboardRecentPages !== "undefined"
 			&& window.DashboardRecentPages.reload) {
@@ -10333,6 +10885,8 @@ class AppController {
 			initMoneyInputs($el);
 		if (typeof initTimeInputs === 'function')
 			initTimeInputs($el);
+		if (typeof initDurationHmInputs === 'function')
+			initDurationHmInputs($el);
 	}
 	createBootstrapTooltip(el, options) {
 		if (el.getAttribute("data-kt-initialized") === "1") {
@@ -10381,8 +10935,9 @@ class AppController {
 	}
 	refreshCurrentPage() {
 		let activePageAddress = this.activePage.address;
+		const currentTitle = (this.activePage.$tabEl.find("span").first().text() || this.activePage.title || "").trim();
 		this.closePage(activePageAddress);
-		this.addPage(activePageAddress)
+		this.addPage(activePageAddress, true, currentTitle);
 	}
 	closeCurrentPage() {
 		let activePageAddress = this.activePage.address;
@@ -12889,6 +13444,7 @@ function initItemsForms($el) {
 	initPersionDatePicker($el)
 	initMoneyInputs($el)
 	initTimeInputs($el)
+	initDurationHmInputs($el)
 
 	initFileUploaders($el)
 }
@@ -12947,6 +13503,34 @@ const initTimeInputs = function ($el) {
 window.timeInputmaskOptions = timeInputmaskOptions;
 window.initTimeInputs = initTimeInputs;
 
+// Duration in minutes shown as HH:MM (hours may exceed 99, minutes 00-59), e.g. Edms.Document.HourPrePerson.
+// Mark the input with data-duration-hm="true"; dataBind() writes minutes -> "HH:MM" and reads "HH:MM" -> minutes.
+const durationHmInputmaskOptions = {
+	mask: '9{2,4}:m9',
+	definitions: { m: { validator: '[0-5]', cardinality: 1 } },
+	placeholder: '_',
+	insertMode: true,
+	clearIncomplete: true,
+	autoUnmask: false,
+	showMaskOnHover: true,
+	showMaskOnFocus: true
+};
+
+const initDurationHmInputs = function ($el) {
+	if (!$el || !$el.length || !window.Inputmask) return;
+	const $fields = $el.find('[data-duration-hm="true"]');
+	if (!$fields.length) return;
+	const $unmasked = $fields.filter(function () {
+		if (this.type === 'number' || this.type === 'time')
+			this.type = 'text';
+		return !this.inputmask;
+	});
+	if (!$unmasked.length) return;
+	Inputmask(durationHmInputmaskOptions).mask($unmasked);
+};
+window.durationHmInputmaskOptions = durationHmInputmaskOptions;
+window.initDurationHmInputs = initDurationHmInputs;
+
 const initPersionDatePicker = function ($el) {
 	 
 	$el.find("[data-persionDatePicker=true]").each((c, i) => {
@@ -12962,6 +13546,8 @@ const initPersionDatePicker = function ($el) {
 			objOptions = persionDatePickerOptionsDateTime;
 		}
 
+		// Copy so one field cannot flip initialValue on the shared default options.
+		objOptions = $.extend(true, {}, objOptions);
 		if ($(i).val() && $(i).val().length > 0) {
 			objOptions.initialValue = true
 		}
@@ -13036,7 +13622,7 @@ function initFileUploaders($container) {
             url: `/File/upload/${entityType}/${entityPropName}`,
             paramName: 'file',
             maxFiles: parseInt($el.data('max-files') || 1),
-            maxFilesize: parseFloat($el.data('max-file-size') || 10),
+            maxFilesize: parseFloat($el.data('max-file-size') || 50),
             acceptedFiles: $el.data('accepted-file-types') || '*/*',
             addRemoveLinks: true,
             dictDefaultMessage: '<i class="fas fa-cloud-upload-alt fs-3x text-primary"><span class="path1"></span><span class="path2"></span></i><p>فایل را اینجا رها کنید یا کلیک کنید</p>',
@@ -13630,11 +14216,24 @@ $(document).ready(function () {
 			})
 		});
 
+	function stripViewAsParam(url) {
+		if (!url) return url;
+		try {
+			const u = new URL(url, window.location.origin);
+			if (!u.searchParams.has("viewAs")) return url;
+			u.searchParams.delete("viewAs");
+			const q = u.searchParams.toString();
+			return u.pathname + (q ? "?" + q : "") + u.hash;
+		} catch (e) {
+			return url;
+		}
+	}
+
 	window.appController = new AppController(
 		$("#pagesContainer"),
 		$("#tabsContainer"),
 		$("#loader"),
-		window.location.pathname + window.location.search
+		stripViewAsParam(window.location.pathname + window.location.search)
 	);
 
 	const DashboardWorkCards = (function () {
@@ -13901,6 +14500,69 @@ $(document).ready(function () {
 	.dashboard-work-card:hover .dashboard-work-card__count{
 		color:var(--dwc-ink);
 	}
+}
+[data-bs-theme="dark"] #dashboardWorkCardsHost{
+	--dwc-ink:var(--bs-body-color, #E8ECF2);
+	--dwc-muted:var(--bs-text-muted, #9BA4B5);
+	--dwc-line:var(--bs-border-color, #2B3347);
+	--dwc-surface:var(--bs-secondary-bg, #1E2533);
+	--dwc-soft:var(--bs-gray-200, #252E41);
+	--dwc-primary:var(--bs-primary, #4D9EFF);
+}
+[data-bs-theme="dark"] #dashboardWorkCardsHost .dwc-head__title{
+	color:var(--bs-text-muted, #9BA4B5);
+}
+[data-bs-theme="dark"] #dashboardWorkCardsHost .dwc-head__refresh:hover,
+[data-bs-theme="dark"] #dashboardWorkCardsHost .dwc-head__refresh:focus{
+	background:color-mix(in srgb, var(--bs-primary, #4D9EFF) 16%, transparent);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color="primary"]{
+	--dwc-accent:var(--bs-primary, #4D9EFF);
+	--dwc-accent-soft:color-mix(in srgb, var(--bs-primary, #4D9EFF) 22%, transparent);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color="success"]{
+	--dwc-accent:var(--bs-success, #3DDC84);
+	--dwc-accent-soft:color-mix(in srgb, var(--bs-success, #3DDC84) 22%, transparent);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color="danger"]{
+	--dwc-accent:var(--bs-danger, #FF5A65);
+	--dwc-accent-soft:color-mix(in srgb, var(--bs-danger, #FF5A65) 22%, transparent);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color="warning"]{
+	--dwc-accent:var(--bs-warning, #FFB627);
+	--dwc-accent-soft:color-mix(in srgb, var(--bs-warning, #FFB627) 22%, transparent);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color="info"]{
+	--dwc-accent:var(--bs-info, #9B5CFF);
+	--dwc-accent-soft:color-mix(in srgb, var(--bs-info, #9B5CFF) 22%, transparent);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color="dark"]{
+	--dwc-accent:var(--bs-body-color, #E8ECF2);
+	--dwc-accent-soft:var(--bs-gray-200, #252E41);
+}
+[data-bs-theme="dark"] .dashboard-work-card:hover{
+	border-color:var(--bs-border-color, #2B3347);
+	box-shadow:0 1px 0 rgba(0,0,0,.28);
+}
+[data-bs-theme="dark"] .dashboard-work-card[data-color]:hover{
+	border-color:color-mix(in srgb, var(--dwc-accent) 50%, var(--bs-border-color, #2B3347));
+}
+[data-bs-theme="dark"] .dashboard-work-card-empty{
+	border-color:var(--bs-border-color, #2B3347);
+}
+[data-bs-theme="dark"] .dashboard-work-card-empty:hover{
+	border-color:var(--bs-primary, #4D9EFF);
+	background:color-mix(in srgb, var(--bs-primary, #4D9EFF) 10%, transparent);
+	color:var(--bs-primary, #4D9EFF);
+}
+[data-bs-theme="dark"] .dashboard-work-card-empty__plus{
+	background:color-mix(in srgb, var(--bs-primary, #4D9EFF) 18%, transparent);
+	color:var(--bs-primary, #4D9EFF);
+}
+[data-bs-theme="dark"] .dashboard-work-card__menu .dropdown-menu{
+	background:var(--bs-secondary-bg, #1E2533);
+	color:var(--bs-body-color, #E8ECF2);
+	box-shadow:0 8px 24px rgba(0,0,0,.4);
 }`;
 			const style = document.createElement("style");
 			style.id = "dashboardWorkCardsStyles";
@@ -14526,6 +15188,42 @@ $(document).ready(function () {
 	.dashboard-fav-page-empty{
 		transition:none;
 	}
+}
+[data-bs-theme="dark"] #dashboardFavPagesHost,
+[data-bs-theme="dark"] #dashboardRecentPagesHost{
+	--dfp-ink:var(--bs-body-color, #E8ECF2);
+	--dfp-muted:var(--bs-text-muted, #9BA4B5);
+	--dfp-line:var(--bs-border-color, #2B3347);
+	--dfp-surface:var(--bs-secondary-bg, #1E2533);
+	--dfp-soft:var(--bs-gray-200, #252E41);
+	--dfp-primary:var(--bs-primary, #4D9EFF);
+	--dfp-accent:var(--bs-text-muted, #9BA4B5);
+	--dfp-accent-soft:color-mix(in srgb, var(--bs-text-muted, #9BA4B5) 18%, transparent);
+}
+[data-bs-theme="dark"] #dashboardFavPagesHost .dfp-head__title,
+[data-bs-theme="dark"] #dashboardRecentPagesHost .dfp-head__title{
+	color:var(--bs-text-muted, #9BA4B5);
+}
+[data-bs-theme="dark"] .dashboard-fav-page:hover{
+	border-color:var(--bs-border-color, #2B3347);
+	box-shadow:0 1px 0 rgba(0,0,0,.28);
+}
+[data-bs-theme="dark"] .dashboard-fav-page-empty{
+	border-color:var(--bs-border-color, #2B3347);
+}
+[data-bs-theme="dark"] .dashboard-fav-page-empty:hover{
+	border-color:var(--bs-primary, #4D9EFF);
+	background:color-mix(in srgb, var(--bs-primary, #4D9EFF) 10%, transparent);
+	color:var(--bs-primary, #4D9EFF);
+}
+[data-bs-theme="dark"] .dashboard-fav-page-empty__plus{
+	background:color-mix(in srgb, var(--bs-primary, #4D9EFF) 18%, transparent);
+	color:var(--bs-primary, #4D9EFF);
+}
+[data-bs-theme="dark"] .dashboard-fav-page__menu .dropdown-menu{
+	background:var(--bs-secondary-bg, #1E2533);
+	color:var(--bs-body-color, #E8ECF2);
+	box-shadow:0 8px 24px rgba(0,0,0,.4);
 }`;
 			const style = document.createElement("style");
 			style.id = "dashboardFavPagesStyles";
@@ -14541,6 +15239,11 @@ $(document).ready(function () {
 		}
 
 		function collectMenuPages() {
+			if (window.HvMenu && typeof window.HvMenu.pages === "function") {
+				const indexed = window.HvMenu.pages();
+				if (indexed && indexed.length)
+					return indexed;
+			}
 			const pages = [];
 			const seen = {};
 			$("#kt_app_sidebar_menu a.menu-link").each(function () {
@@ -14621,9 +15324,16 @@ $(document).ready(function () {
 			}
 		}
 
+		function isDarkTheme() {
+			return document.documentElement.getAttribute("data-bs-theme") === "dark";
+		}
+
 		function softAccent(hex) {
+			const fallback = isDarkTheme()
+				? "color-mix(in srgb, var(--bs-text-muted, #9BA4B5) 18%, transparent)"
+				: "#F1F1F4";
 			if (!hex || hex.charAt(0) !== "#" || (hex.length !== 7 && hex.length !== 4))
-				return "#F1F1F4";
+				return fallback;
 			let r, g, b;
 			if (hex.length === 4) {
 				r = parseInt(hex.charAt(1) + hex.charAt(1), 16);
@@ -14634,7 +15344,7 @@ $(document).ready(function () {
 				g = parseInt(hex.slice(3, 5), 16);
 				b = parseInt(hex.slice(5, 7), 16);
 			}
-			if (isNaN(r) || isNaN(g) || isNaN(b)) return "#F1F1F4";
+			if (isNaN(r) || isNaN(g) || isNaN(b)) return fallback;
 			return "rgba(" + r + "," + g + "," + b + ",0.14)";
 		}
 
@@ -14661,8 +15371,8 @@ $(document).ready(function () {
 			slots.forEach(function (page, slot) {
 				const titleHtml = escapeHtml(page.title || "");
 				const iconClass = escapeHtml(page.iconClass || "fas fa-file-alt");
-				const accent = page.iconColor || "#5E6278";
-				const soft = softAccent(page.iconColor);
+				const accent = page.iconColor || "";
+				const soft = page.iconColor ? softAccent(page.iconColor) : "";
 				const $card = $(`
 					<div class="dashboard-fav-page" data-slot="${slot}" data-path="${escapeHtml(page.path)}"
 						role="listitem" tabindex="0" aria-label="${titleHtml}">
@@ -14681,12 +15391,13 @@ $(document).ready(function () {
 						</span>
 						<div class="dashboard-fav-page__title" title="${titleHtml}">${titleHtml}</div>
 					</div>`);
-				$card.css({
-					"--dfp-accent": accent,
-					"--dfp-accent-soft": soft
-				});
-				if (page.iconColor)
+				if (accent) {
+					$card.css({
+						"--dfp-accent": accent,
+						"--dfp-accent-soft": soft
+					});
 					$card.find(".dashboard-fav-page__icon i").css("color", page.iconColor);
+				}
 				$container.append($card);
 			});
 
@@ -14899,6 +15610,7 @@ $(document).ready(function () {
 		const STORAGE_PREFIX = "havayar.dashboard.recentPages";
 		const TILE_SIZE_PX = 120;
 		const MAX_HISTORY = 24;
+		const VISIBLE_COUNT = 9;
 		const GAP_REM = 0.85;
 
 		let homeVisible = true;
@@ -14936,9 +15648,16 @@ $(document).ready(function () {
 			return $("<div/>").text(s || "").html();
 		}
 
+		function isDarkTheme() {
+			return document.documentElement.getAttribute("data-bs-theme") === "dark";
+		}
+
 		function softAccent(hex) {
+			const fallback = isDarkTheme()
+				? "color-mix(in srgb, var(--bs-text-muted, #9BA4B5) 18%, transparent)"
+				: "#F1F1F4";
 			if (!hex || hex.charAt(0) !== "#" || (hex.length !== 7 && hex.length !== 4))
-				return "#F1F1F4";
+				return fallback;
 			let r, g, b;
 			if (hex.length === 4) {
 				r = parseInt(hex.charAt(1) + hex.charAt(1), 16);
@@ -14949,7 +15668,7 @@ $(document).ready(function () {
 				g = parseInt(hex.slice(3, 5), 16);
 				b = parseInt(hex.slice(5, 7), 16);
 			}
-			if (isNaN(r) || isNaN(g) || isNaN(b)) return "#F1F1F4";
+			if (isNaN(r) || isNaN(g) || isNaN(b)) return fallback;
 			return "rgba(" + r + "," + g + "," + b + ",0.14)";
 		}
 
@@ -14978,11 +15697,19 @@ $(document).ready(function () {
 
 		function writeStored(items) {
 			try {
-				localStorage.setItem(storageKey(), JSON.stringify((items || []).slice(0, MAX_HISTORY)));
+				const plain = (items || []).slice(0, MAX_HISTORY).map(function (it) {
+					return { path: it.path, title: it.title || "" };
+				});
+				localStorage.setItem(storageKey(), JSON.stringify(plain));
 			} catch (e) { /* ignore quota */ }
 		}
 
 		function collectMenuPages() {
+			if (window.HvMenu && typeof window.HvMenu.pages === "function") {
+				const indexed = window.HvMenu.pages();
+				if (indexed && indexed.length)
+					return indexed;
+			}
 			const pages = [];
 			const seen = {};
 			$("#kt_app_sidebar_menu a.menu-link").each(function () {
@@ -15077,7 +15804,7 @@ $(document).ready(function () {
 
 		function resolveTitle(path, title, menuPage) {
 			let t = (title || "").trim();
-			if (t && t !== "بدون عنوان" && t !== "در حال بارگذاری..." && t !== "-")
+			if (t && t !== "بدون عنوان" && t !== "در حال بارگذاری..." && t !== "-" && t !== "تب جدید")
 				return t;
 			if (menuPage && menuPage.title)
 				return menuPage.title;
@@ -15085,33 +15812,50 @@ $(document).ready(function () {
 			return path;
 		}
 
-		function record(path, title) {
+		function isRealTitle(t) {
+			return !!t && t !== "بدون عنوان" && t !== "در حال بارگذاری..." && t !== "-" && t !== "تب جدید";
+		}
+
+		// A tile is added the moment the page is requested. While the page is still
+		// loading and its title is not yet known (not in the menu), it is shown as a
+		// loading tile (`pending`), then resolved when the page content arrives.
+		function record(path, title, loaded) {
 			if (!path || isDashboardAddress(path)) return;
 
 			const key = normalizePath(path);
 			const cleanPath = String(path).trim();
 			const cleanTitle = (title || "").trim();
+			const real = isRealTitle(cleanTitle);
 
-			if (historyItems.length && normalizePath(historyItems[0].path) === key) {
-				if (cleanTitle
-					&& cleanTitle !== "بدون عنوان"
-					&& cleanTitle !== "در حال بارگذاری..."
-					&& cleanTitle !== "-"
-					&& historyItems[0].title !== cleanTitle) {
-					historyItems[0].title = cleanTitle;
+			let idx = -1;
+			for (let i = 0; i < historyItems.length; i++) {
+				if (normalizePath(historyItems[i].path) === key) { idx = i; break; }
+			}
+
+			let item;
+			if (idx === 0) {
+				item = historyItems[0];
+				let changed = false;
+				if (real && item.title !== cleanTitle) { item.title = cleanTitle; changed = true; }
+				if ((real || loaded) && item.pending) { item.pending = false; changed = true; }
+				if (changed) {
 					writeStored(historyItems);
 					if (homeVisible) render();
 				}
 				return;
 			}
 
-			historyItems = historyItems.filter(function (item) {
-				return normalizePath(item.path) !== key;
-			});
-			historyItems.unshift({
-				path: cleanPath,
-				title: cleanTitle
-			});
+			if (idx > 0) {
+				item = historyItems.splice(idx, 1)[0];
+				if (real) item.title = cleanTitle;
+			} else {
+				item = { path: cleanPath, title: real ? cleanTitle : "" };
+			}
+
+			const known = real || !!item.title || !!findMenuPage(cleanPath, collectMenuPages());
+			item.pending = !known && !loaded;
+
+			historyItems.unshift(item);
 			if (historyItems.length > MAX_HISTORY)
 				historyItems = historyItems.slice(0, MAX_HISTORY);
 
@@ -15131,7 +15875,8 @@ $(document).ready(function () {
 			}
 			if (!title)
 				title = page.title || "";
-			record(page.address, title);
+			// systemTitle is only assigned once the page content has been loaded.
+			record(page.address, title, page.systemTitle !== undefined);
 		}
 
 		function render() {
@@ -15143,19 +15888,11 @@ $(document).ready(function () {
 				return;
 			}
 
-			if (!historyItems.length) {
-				$container.empty();
-				applyVisibility();
-				return;
-			}
-
 			applyVisibility();
 
-			const capacity = measureVisibleCount();
-			if (capacity <= 0) {
-				$container.empty();
-				return;
-			}
+			// Fixed 3x3 grid (layout in site.css: .havayar-home__split).
+			// Unused slots are filled with empty placeholder boxes.
+			const capacity = VISIBLE_COUNT;
 
 			const menuPages = collectMenuPages();
 			const visible = historyItems.slice(0, capacity);
@@ -15163,11 +15900,22 @@ $(document).ready(function () {
 
 			visible.forEach(function (item) {
 				const menuPage = findMenuPage(item.path, menuPages);
+				if (item.pending && !(item.title || (menuPage && menuPage.title))) {
+					$container.append(`
+						<div class="dashboard-fav-page dashboard-fav-page--loading" data-path="${escapeHtml(item.path)}"
+							role="listitem" tabindex="0" aria-busy="true" aria-label="در حال بارگذاری">
+							<span class="dashboard-fav-page__icon" aria-hidden="true">
+								<span class="spinner-border spinner-border-sm"></span>
+							</span>
+							<div class="dashboard-fav-page__title">در حال بارگذاری…</div>
+						</div>`);
+					return;
+				}
 				const title = resolveTitle(item.path, item.title, menuPage);
 				const titleHtml = escapeHtml(title);
 				const iconClass = escapeHtml((menuPage && menuPage.iconClass) || "fas fa-file-alt");
-				const accent = (menuPage && menuPage.iconColor) || "#5E6278";
-				const soft = softAccent(menuPage && menuPage.iconColor);
+				const accent = (menuPage && menuPage.iconColor) || "";
+				const soft = accent ? softAccent(accent) : "";
 				const $card = $(`
 					<div class="dashboard-fav-page" data-path="${escapeHtml(item.path)}"
 						role="listitem" tabindex="0" aria-label="${titleHtml}">
@@ -15176,14 +15924,18 @@ $(document).ready(function () {
 						</span>
 						<div class="dashboard-fav-page__title" title="${titleHtml}">${titleHtml}</div>
 					</div>`);
-				$card.css({
-					"--dfp-accent": accent,
-					"--dfp-accent-soft": soft
-				});
-				if (menuPage && menuPage.iconColor)
+				if (accent) {
+					$card.css({
+						"--dfp-accent": accent,
+						"--dfp-accent-soft": soft
+					});
 					$card.find(".dashboard-fav-page__icon i").css("color", menuPage.iconColor);
+				}
 				$container.append($card);
 			});
+
+			for (let i = visible.length; i < capacity; i++)
+				$container.append('<div class="dfp-placeholder" role="presentation" aria-hidden="true"></div>');
 		}
 
 		function bindEvents() {
@@ -15235,9 +15987,682 @@ $(document).ready(function () {
 		return api;
 	})();
 
+	const DashboardNotifications = (function () {
+		// Number of rows that exactly fills the height of the «آخرین صفحات» 3x3 grid
+		// (keep in sync with --dnl-rows in site.css).
+		const PAGE_SIZE = 7;
+		const ALL_NOTIFICATIONS_PATH = "/panel/ListMyNotifications";
+
+		let homeVisible = true;
+
+		function $host() { return $("#dashboardNotificationsHost"); }
+		function $slots() { return $("#dashboardNotificationsSlots"); }
+
+		function escapeHtml(s) {
+			return $("<div/>").text(s == null ? "" : String(s)).html();
+		}
+
+		function setVisible(show) {
+			homeVisible = !!show;
+			const $h = $host();
+			if (!$h.length) return;
+			if (homeVisible) {
+				$h.show();
+				load();
+			} else {
+				$h.hide();
+			}
+		}
+
+		function render(items) {
+			const $container = $slots();
+			if (!$container.length) return;
+			$container.empty();
+
+			if (!items || !items.length) {
+				$container.append('<div class="dnl-empty">اعلانی برای نمایش وجود ندارد</div>');
+				return;
+			}
+
+			items.forEach(function (n) {
+				const title = String(n.title || "").trim() || "بدون عنوان";
+				const viewPath = String(n.viewPath || "").trim();
+				const unreadClass = n.isRead ? "" : " dnl-item--unread";
+				const readBtn = n.isRead ? "" : `
+							<button type="button" class="dnl-act" data-action="dnl-read"
+								title="ثبت به عنوان خوانده شده" aria-label="ثبت به عنوان خوانده شده">
+								<i class="fas fa-check" aria-hidden="true"></i>
+							</button>`;
+				const $item = $(`
+					<div class="dnl-item${unreadClass}" role="listitem" tabindex="0"
+						data-id="${Number(n.id)}" title="${escapeHtml(title)}">
+						<span class="dnl-item__dot" aria-hidden="true"></span>
+						<span class="dnl-item__text">
+							<span class="dnl-item__title">${escapeHtml(title)}</span>
+							<span class="dnl-item__date">${escapeHtml(n.createdOnShamsiDateTime || "")}</span>
+						</span>
+						<span class="dnl-item__actions">${readBtn}
+							<button type="button" class="dnl-act dnl-act--danger" data-action="dnl-delete"
+								title="حذف اعلان" aria-label="حذف اعلان">
+								<i class="fas fa-trash" aria-hidden="true"></i>
+							</button>
+						</span>
+					</div>`);
+				$item.attr("data-path", viewPath && viewPath !== "#" ? viewPath : ALL_NOTIFICATIONS_PATH);
+				$container.append($item);
+			});
+		}
+
+		function load() {
+			if (!$slots().length) return;
+			get("/System/Notify/GetMyNotifications?page=1&pageSize=" + PAGE_SIZE, function (r) {
+				if (!r || !r.isSuccess || !r.data) {
+					render([]);
+					return;
+				}
+				render(r.data.notifications || []);
+			});
+		}
+
+		function bindEvents() {
+			const $container = $slots();
+			if (!$container.length) return;
+
+			$container.off(".dashboardNotifications");
+
+			$container.on("click.dashboardNotifications", ".dnl-item", function (e) {
+				if ($(e.target).closest(".dnl-act").length) return;
+				const path = $(this).attr("data-path");
+				if (!path) return;
+				appController.addPage(path);
+			});
+
+			$container.on("keydown.dashboardNotifications", ".dnl-item", function (e) {
+				if (e.target !== this) return;
+				if (e.key !== "Enter" && e.key !== " ") return;
+				e.preventDefault();
+				$(this).trigger("click");
+			});
+
+			// Mark as read: keep the row, drop the unread marker.
+			$container.on("click.dashboardNotifications", "[data-action=dnl-read]", function (e) {
+				e.stopPropagation();
+				const $btn = $(this);
+				const $item = $btn.closest(".dnl-item");
+				const id = Number($item.attr("data-id"));
+				$btn.prop("disabled", true);
+				post("/System/Notify/MarkAsRead", id, function (r) {
+					if (!r || !r.isSuccess) {
+						$btn.prop("disabled", false);
+						return toastr.error((r && r.message) || "خطا در ثبت وضعیت اعلان", "خطا");
+					}
+					$item.removeClass("dnl-item--unread");
+					$btn.remove();
+					syncHeader(id);
+				});
+			});
+
+			// Delete: first click asks for confirmation, second click deletes.
+			$container.on("click.dashboardNotifications", "[data-action=dnl-delete]", function (e) {
+				e.stopPropagation();
+				const $btn = $(this);
+				const $item = $btn.closest(".dnl-item");
+				const id = Number($item.attr("data-id"));
+
+				if (!$btn.hasClass("is-confirm")) {
+					$btn.addClass("is-confirm").attr("title", "برای حذف دوباره کلیک کنید")
+						.find("i").attr("class", "fas fa-question");
+					const timer = setTimeout(function () {
+						$btn.removeClass("is-confirm").attr("title", "حذف اعلان")
+							.find("i").attr("class", "fas fa-trash");
+					}, 3000);
+					$btn.data("confirmTimer", timer);
+					return;
+				}
+
+				clearTimeout($btn.data("confirmTimer"));
+				$btn.prop("disabled", true);
+				post("/System/Notify/Delete", id, function (r) {
+					if (!r || !r.isSuccess) {
+						$btn.prop("disabled", false).removeClass("is-confirm")
+							.find("i").attr("class", "fas fa-trash");
+						return toastr.error((r && r.message) || "خطا در حذف اعلان", "خطا");
+					}
+					syncHeader(id);
+					load(); // refill the list so it keeps showing the latest notifications
+				});
+			});
+		}
+
+		// Keep the header bell (list + unread counter) in sync with changes made here.
+		function syncHeader(id) {
+			$("#notificationSection [data-action=readNotification][data-id='" + id + "']")
+				.closest("[data-row=notification]").remove();
+			if (typeof CalculationCountUnreadNotifications === "function")
+				CalculationCountUnreadNotifications();
+		}
+
+		function init() {
+			if (!$host().length) return;
+			bindEvents();
+			const selVal = $("#selectDashbords").val();
+			homeVisible = !selVal || selVal === "0";
+			if (homeVisible) load();
+		}
+
+		const api = {
+			init: init,
+			setVisible: setVisible,
+			reload: function () { if (homeVisible) load(); }
+		};
+		window.DashboardNotifications = api;
+		return api;
+	})();
+
 	DashboardWorkCards.init();
 	DashboardFavPages.init();
 	DashboardRecentPages.init();
+	DashboardNotifications.init();
+
+	// Popup shown once when the user opens the site: latest unread notifications
+	// with per-item «خوانده شد» / «حذف» and three close choices (stored in the browser).
+	const NotificationPopup = (function () {
+		const PAGE_SIZE = 10;
+		const ALL_NOTIFICATIONS_PATH = "/panel/ListMyNotifications";
+		const SHOW_DELAY_MS = 800;
+		const DELETE_CONFIRM_MS = 3000;
+
+		let dialog = null;
+		let remainingTotal = 0;
+
+		function userSuffix() {
+			let userId = null;
+			try {
+				if (window.AppSdk && typeof window.AppSdk.getUserId === "function")
+					userId = window.AppSdk.getUserId();
+			} catch (e) { /* ignore */ }
+			return (userId != null && userId !== "" && Number(userId) > 0) ? "." + userId : "";
+		}
+
+		function prefKey() { return "havayar.notificationPopup" + userSuffix(); }
+
+		function pad(n) { return n < 10 ? "0" + n : String(n); }
+		function todayStamp() {
+			const d = new Date();
+			return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+		}
+
+		function readPref() {
+			try {
+				const raw = localStorage.getItem(prefKey());
+				return raw ? JSON.parse(raw) : null;
+			} catch (e) {
+				return null;
+			}
+		}
+
+		function writePref(mode) {
+			try {
+				const pref = { mode: mode };
+				if (mode === "today") pref.date = todayStamp();
+				localStorage.setItem(prefKey(), JSON.stringify(pref));
+			} catch (e) { /* ignore quota */ }
+		}
+
+		// "always" (default) | "today" | "forever"
+		function getMode() {
+			const pref = readPref();
+			if (pref) {
+				if (pref.mode === "forever") return "forever";
+				if (pref.mode === "today" && pref.date === todayStamp()) return "today";
+			}
+			return "always";
+		}
+
+		function setMode(mode) {
+			if (mode === "today" || mode === "forever") {
+				writePref(mode);
+			} else {
+				try { localStorage.removeItem(prefKey()); } catch (e) { /* ignore */ }
+			}
+		}
+
+		function isSuppressed() {
+			return getMode() !== "always";
+		}
+
+		// Display-settings panel (offcanvas in _AdminHeader): choose when the popup appears.
+		function refreshSettingsUi() {
+			const mode = getMode();
+			$(".notification-popup-mode-opt").removeClass("border-primary").addClass("border-light");
+			$(".notification-popup-mode-opt[data-mode='" + mode + "']")
+				.removeClass("border-light").addClass("border-primary");
+		}
+
+		function bindSettingsUi() {
+			$(document).on("click", ".notification-popup-mode-opt", function () {
+				setMode($(this).attr("data-mode"));
+				refreshSettingsUi();
+				toastr.success("تنظیم پاپ‌آپ اعلانات ذخیره شد");
+			});
+			$(document).on("click", "#btnHeaderStylePanel", refreshSettingsUi);
+			refreshSettingsUi();
+		}
+
+		function escapeHtml(s) {
+			return $("<div/>").text(s == null ? "" : String(s)).html();
+		}
+
+		// ---- HTML body rendering -------------------------------------------------
+		// Bodies are admin-authored HTML (greetings, system-update notices, ...) but can
+		// also contain data typed by other users, so everything is sanitized with an
+		// allow-list before it is inserted. The parsing document is inert (DOMParser):
+		// nothing runs and no resource is loaded while sanitizing.
+		const ALLOWED_TAGS = new Set([
+			"A", "B", "STRONG", "I", "EM", "U", "S", "STRIKE", "DEL", "INS", "SMALL", "SUB", "SUP", "MARK",
+			"P", "BR", "HR", "DIV", "SPAN", "FONT", "CENTER", "BLOCKQUOTE", "PRE", "CODE",
+			"H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "LI",
+			"TABLE", "THEAD", "TBODY", "TFOOT", "TR", "TD", "TH", "CAPTION", "COLGROUP", "COL",
+			"IMG"
+		]);
+		const DROP_TAGS = new Set([
+			"SCRIPT", "STYLE", "IFRAME", "FRAME", "FRAMESET", "OBJECT", "EMBED", "APPLET", "LINK", "META",
+			"BASE", "FORM", "INPUT", "BUTTON", "TEXTAREA", "SELECT", "OPTION", "SVG", "MATH", "VIDEO",
+			"AUDIO", "SOURCE", "NOSCRIPT", "TEMPLATE", "TITLE", "HEAD"
+		]);
+		const COMMON_ATTRS = ["style", "dir", "align", "title"];
+		const TAG_ATTRS = {
+			A: ["href", "target"],
+			IMG: ["src", "alt", "width", "height"],
+			TD: ["colspan", "rowspan", "valign"],
+			TH: ["colspan", "rowspan", "valign"],
+			FONT: ["color", "size"],
+			COL: ["span", "width"],
+			COLGROUP: ["span"],
+			OL: ["start", "type"]
+		};
+
+		function isSafeUrl(url, allowDataImage) {
+			const u = String(url || "").replace(/[\u0000-\u0020]+/g, "").toLowerCase();
+			if (!u) return false;
+			if (u.charAt(0) === "#" || u.charAt(0) === "/" || u.charAt(0) === ".") return true;
+			if (/^(https?:|mailto:|tel:)/.test(u)) return true;
+			if (allowDataImage && /^data:image\/(png|jpe?g|gif|webp);base64,/.test(u)) return true;
+			return !/^[a-z][a-z0-9+.-]*:/.test(u); // relative URL without a scheme
+		}
+
+		function sanitizeStyle(style) {
+			return String(style || "").split(";").map(function (d) { return d.trim(); }).filter(function (d) {
+				if (!d) return false;
+				const l = d.toLowerCase();
+				return !/(url\s*\(|expression|@import|behavior|javascript:|position\s*:|z-index|-moz-binding)/.test(l);
+			}).join("; ");
+		}
+
+		function cleanNode(node) {
+			Array.prototype.slice.call(node.childNodes).forEach(function (child) {
+				if (child.nodeType === 3) return; // text
+				if (child.nodeType !== 1) { node.removeChild(child); return; } // comments etc.
+
+				const tag = child.tagName.toUpperCase();
+				if (DROP_TAGS.has(tag)) { node.removeChild(child); return; }
+
+				cleanNode(child);
+
+				if (!ALLOWED_TAGS.has(tag)) { // unknown tag: keep its (cleaned) content
+					while (child.firstChild) node.insertBefore(child.firstChild, child);
+					node.removeChild(child);
+					return;
+				}
+
+				const allowed = COMMON_ATTRS.concat(TAG_ATTRS[tag] || []);
+				Array.prototype.slice.call(child.attributes).forEach(function (attr) {
+					const name = attr.name.toLowerCase();
+					if (allowed.indexOf(name) < 0) { child.removeAttribute(attr.name); return; }
+					if (name === "style") {
+						const s = sanitizeStyle(attr.value);
+						if (s) child.setAttribute("style", s); else child.removeAttribute("style");
+					} else if (name === "href") {
+						if (!isSafeUrl(attr.value, false)) child.removeAttribute("href");
+					} else if (name === "src") {
+						if (!isSafeUrl(attr.value, true)) child.removeAttribute("src");
+					}
+				});
+
+				if (tag === "A" && child.hasAttribute("href")) {
+					const href = child.getAttribute("href") || "";
+					if (/^https?:/i.test(href)) {
+						child.setAttribute("target", "_blank");
+						child.setAttribute("rel", "noopener noreferrer");
+					} else {
+						child.removeAttribute("target");
+					}
+				}
+				if (tag === "IMG" && !child.getAttribute("src")) node.removeChild(child);
+			});
+		}
+
+		function renderBody(body) {
+			const raw = String(body == null ? "" : body);
+			if (!raw.trim()) return "";
+			// Plain text (no tags): keep line breaks.
+			if (!/<\/?[a-z][\s\S]*>/i.test(raw))
+				return escapeHtml(raw.trim()).replace(/\r?\n/g, "<br>");
+			try {
+				const doc = new DOMParser().parseFromString(raw, "text/html");
+				cleanNode(doc.body);
+				return doc.body.innerHTML.trim();
+			} catch (e) {
+				return escapeHtml(raw);
+			}
+		}
+
+		function formatCount(n) {
+			return Number(n || 0).toLocaleString("fa-IR");
+		}
+
+		function headText() {
+			return "شما " + formatCount(remainingTotal) + " اعلان خوانده‌نشده دارید";
+		}
+
+		// ---- One notification at a time (scroll-snap carousel) -------------------
+		let $root = null;
+		let current = 0;
+		let scrollTimer = null;
+		let wheelLock = 0;
+		let lastInnerScroll = 0;
+
+		function buildSlide(n) {
+			const title = String(n.title || "").trim() || "بدون عنوان";
+			const bodyHtml = renderBody(n.body);
+			const viewPath = String(n.viewPath || "").trim();
+			const path = (viewPath && viewPath !== "#") ? viewPath : "";
+			return `
+				<section class="hv-np-slide" data-id="${Number(n.id)}" role="listitem">
+					<header class="hv-np-slide__head">
+						<h3 class="hv-np-slide__title">${escapeHtml(title)}</h3>
+						<div class="hv-np-slide__date">${escapeHtml(n.createdOnShamsiDateTime || "")}</div>
+					</header>
+					${bodyHtml ? `<div class="hv-np-slide__body">${bodyHtml}</div>` : ""}
+					${path ? `<a href="#" class="hv-np-slide__open" data-action="np-open" data-path="${escapeHtml(path)}">مشاهده جزئیات <i class="fas fa-arrow-left" aria-hidden="true"></i></a>` : ""}
+				</section>`;
+		}
+
+		function slides() { return $root ? $root.find(".hv-np-slide") : $(); }
+		function trackEl() { return $root ? $root.find(".hv-np-track")[0] : null; }
+
+		function resetDeleteButton() {
+			if (!$root) return;
+			const $btn = $root.find("[data-action=np-delete]");
+			clearTimeout($btn.data("confirmTimer"));
+			$btn.removeClass("is-confirm").prop("disabled", false).find(".hv-np-btn__label").text("حذف");
+		}
+
+		function renderDots() {
+			const n = slides().length;
+			const $dots = $root.find(".hv-np-dots").empty();
+			if (n < 2) return;
+			for (let i = 0; i < n; i++)
+				$dots.append(`<button type="button" class="hv-np-dot" data-action="np-go" data-index="${i}" aria-label="اعلان ${formatCount(i + 1)}"></button>`);
+		}
+
+		function updateNav() {
+			if (!$root) return;
+			const n = slides().length;
+			$root.find(".hv-np-count").text(formatCount(current + 1) + " از " + formatCount(n));
+			$root.find("[data-action=np-prev]").prop("disabled", current <= 0);
+			$root.find("[data-action=np-next]").prop("disabled", current >= n - 1);
+			$root.find(".hv-np-pager").toggleClass("is-single", n < 2);
+			$root.find(".hv-np-dot").each(function (i) { $(this).toggleClass("is-active", i === current); });
+			resetDeleteButton();
+		}
+
+		function goTo(index, smooth) {
+			const track = trackEl();
+			const n = slides().length;
+			if (!track || !n) return;
+			current = Math.max(0, Math.min(n - 1, index));
+			// Slide positions are relative to the (RTL) track, so offsetLeft is the scroll target.
+			track.scrollTo({ left: slides()[current].offsetLeft, behavior: smooth === false ? "auto" : "smooth" });
+			updateNav();
+		}
+
+		function indexFromScroll(track) {
+			const w = track.clientWidth || 1;
+			return Math.max(0, Math.min(slides().length - 1, Math.round(Math.abs(track.scrollLeft) / w)));
+		}
+
+		function bindCarousel() {
+			const track = trackEl();
+			if (!track) return;
+
+			// Swipe / trackpad / drag: follow wherever the snap lands.
+			track.addEventListener("scroll", function () {
+				clearTimeout(scrollTimer);
+				scrollTimer = setTimeout(function () {
+					const idx = indexFromScroll(track);
+					if (idx !== current) { current = idx; updateNav(); }
+				}, 80);
+			});
+
+			// Mouse wheel: scrolls a long notification first, then moves to the next one.
+			track.addEventListener("wheel", function (e) {
+				if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // native horizontal gesture
+				const slide = slides()[current];
+				if (!slide) return;
+				const now = Date.now();
+				if (slide.scrollHeight > slide.clientHeight + 1) {
+					const atTop = slide.scrollTop <= 0;
+					const atBottom = slide.scrollTop + slide.clientHeight >= slide.scrollHeight - 1;
+					if ((e.deltaY > 0 && !atBottom) || (e.deltaY < 0 && !atTop)) {
+						lastInnerScroll = now;
+						return; // let the slide scroll
+					}
+					if (now - lastInnerScroll < 250) { e.preventDefault(); return; } // ignore momentum
+				}
+				e.preventDefault();
+				if (now - wheelLock < 450) return;
+				wheelLock = now;
+				goTo(current + (e.deltaY > 0 ? 1 : -1));
+			}, { passive: false });
+
+			// Keyboard (RTL: left arrow = next).
+			$(document).off("keydown.hvnp").on("keydown.hvnp", function (e) {
+				if ($(e.target).is("input, textarea, select, [contenteditable]")) return;
+				if (e.key === "ArrowLeft") { e.preventDefault(); goTo(current + 1); }
+				else if (e.key === "ArrowRight") { e.preventDefault(); goTo(current - 1); }
+			});
+		}
+
+		function syncOtherViews(id) {
+			$("#notificationSection [data-action=readNotification][data-id='" + id + "']")
+				.closest("[data-row=notification]").remove();
+			if (typeof CalculationCountUnreadNotifications === "function")
+				CalculationCountUnreadNotifications();
+			if (window.DashboardNotifications && window.DashboardNotifications.reload)
+				window.DashboardNotifications.reload();
+		}
+
+		function removeCurrentSlide(id) {
+			remainingTotal = Math.max(0, remainingTotal - 1);
+			slides().eq(current).remove();
+			syncOtherViews(id);
+			if (!slides().length) {
+				if (dialog) dialog.close();
+				return;
+			}
+			$root.find(".hv-np-head__text").text(headText());
+			renderDots();
+			goTo(Math.min(current, slides().length - 1), false);
+		}
+
+		function bindContentEvents($content) {
+			$content.on("click", "[data-action=np-prev]", function () { goTo(current - 1); });
+			$content.on("click", "[data-action=np-next]", function () { goTo(current + 1); });
+			$content.on("click", "[data-action=np-go]", function () { goTo(Number($(this).attr("data-index"))); });
+
+			$content.on("click", "[data-action=np-read]", function () {
+				const $btn = $(this);
+				const id = Number(slides().eq(current).attr("data-id"));
+				$btn.prop("disabled", true);
+				post("/System/Notify/MarkAsRead", id, function (r) {
+					$btn.prop("disabled", false);
+					if (!r || !r.isSuccess)
+						return toastr.error((r && r.message) || "خطا در ثبت وضعیت اعلان", "خطا");
+					removeCurrentSlide(id);
+				});
+			});
+
+			// Two-step delete: first click asks for confirmation, second click deletes.
+			$content.on("click", "[data-action=np-delete]", function () {
+				const $btn = $(this);
+				const id = Number(slides().eq(current).attr("data-id"));
+
+				if (!$btn.hasClass("is-confirm")) {
+					$btn.addClass("is-confirm").find(".hv-np-btn__label").text("تایید حذف؟");
+					$btn.data("confirmTimer", setTimeout(resetDeleteButton, DELETE_CONFIRM_MS));
+					return;
+				}
+
+				clearTimeout($btn.data("confirmTimer"));
+				$btn.prop("disabled", true);
+				post("/System/Notify/Delete", id, function (r) {
+					if (!r || !r.isSuccess) {
+						resetDeleteButton();
+						return toastr.error((r && r.message) || "خطا در حذف اعلان", "خطا");
+					}
+					removeCurrentSlide(id);
+				});
+			});
+
+			// Links inside the HTML body: internal ones are opened by the global link
+			// handler, so just close the popup; external ones open in a new tab.
+			$content.on("click", ".hv-np-slide__body a[href]", function () {
+				const href = $(this).attr("href") || "";
+				if (!/^https?:/i.test(href) && dialog) dialog.close();
+			});
+
+			$content.on("click", "[data-action=np-open]", function (e) {
+				e.preventDefault();
+				const path = $(this).attr("data-path");
+				if (!path) return;
+				if (dialog) dialog.close();
+				appController.addPage(path);
+			});
+
+			$content.on("click", "[data-action=np-all]", function (e) {
+				e.preventDefault();
+				if (dialog) dialog.close();
+				appController.addPage(ALL_NOTIFICATIONS_PATH);
+			});
+		}
+
+		function open(items, total) {
+			if (dialog) return;
+			remainingTotal = total || items.length;
+			current = 0;
+
+			const $content = $(`
+				<div class="hv-np">
+					<div class="hv-np-head">
+						<span class="hv-np-head__text"></span>
+						<a href="#" class="hv-np-head__all" data-action="np-all">مشاهده همه اعلانات</a>
+					</div>
+					<div class="hv-np-track" role="list"></div>
+					<div class="hv-np-nav">
+						<div class="hv-np-actions">
+							<button type="button" class="hv-np-btn" data-action="np-read" title="ثبت به عنوان خوانده شده">
+								<i class="fas fa-check" aria-hidden="true"></i> خوانده شد
+							</button>
+							<button type="button" class="hv-np-btn hv-np-btn--danger" data-action="np-delete" title="حذف اعلان">
+								<i class="fas fa-trash" aria-hidden="true"></i> <span class="hv-np-btn__label">حذف</span>
+							</button>
+						</div>
+						<div class="hv-np-pager">
+							<button type="button" class="hv-np-arrow" data-action="np-prev" aria-label="اعلان قبلی">
+								<i class="fas fa-chevron-right" aria-hidden="true"></i>
+							</button>
+							<div class="hv-np-dots"></div>
+							<span class="hv-np-count"></span>
+							<button type="button" class="hv-np-arrow" data-action="np-next" aria-label="اعلان بعدی">
+								<i class="fas fa-chevron-left" aria-hidden="true"></i>
+							</button>
+						</div>
+					</div>
+				</div>`);
+			$content.find(".hv-np-head__text").text(headText());
+			const $track = $content.find(".hv-np-track");
+			items.forEach(function (n) { $track.append(buildSlide(n)); });
+			bindContentEvents($content);
+			$root = $content;
+			renderDots();
+			updateNav();
+
+			dialog = $.confirm({
+				title: "اعلانات خوانده‌نشده",
+				content: $content,
+				rtl: true,
+				useBootstrap: false,
+				boxWidth: "820px",
+				backgroundDismiss: true,
+				onOpen: function () {
+					this.$el.addClass("hv-np-dialog");
+					bindCarousel();
+					goTo(0, false);
+				},
+				buttons: {
+					close: {
+						text: "بستن",
+						btnClass: "btn btn-primary",
+						action: function () { /* only closes; shown again next time the site is opened */ }
+					},
+					today: {
+						text: "بستن برای امروز",
+						btnClass: "btn btn-light",
+						action: function () { writePref("today"); }
+					},
+					forever: {
+						text: "بستن برای همیشه",
+						btnClass: "btn btn-light-danger",
+						action: function () { writePref("forever"); }
+					}
+				},
+				onDestroy: function () {
+					dialog = null;
+					$root = null;
+					clearTimeout(scrollTimer);
+					$(document).off("keydown.hvnp");
+				}
+			});
+		}
+
+		function maybeShowForced() { maybeShow(true); }
+
+		function maybeShow(force) {
+			try {
+				if (sessionStorage.getItem("havayarViewAs")) return;
+			} catch (e) { /* ignore */ }
+			if (force !== true && isSuppressed()) return;
+
+			get("/System/Notify/GetMyNotifications?page=1&pageSize=" + PAGE_SIZE + "&isRead=false", function (r) {
+				if (!r || !r.isSuccess || !r.data) return;
+				const items = r.data.notifications || [];
+				if (!items.length) return;
+				open(items, r.data.total);
+			});
+		}
+
+		function init() {
+			bindSettingsUi();
+			setTimeout(maybeShow, SHOW_DELAY_MS);
+		}
+
+		const api = { init: init, show: maybeShowForced };
+		window.NotificationPopup = api;
+		return api;
+	})();
+
+	NotificationPopup.init();
 
 	$("#selectDashbords").on("change", function () {
 		const $opt = $(this).find("option:selected");
@@ -15248,11 +16673,13 @@ $(document).ready(function () {
 			DashboardFavPages.setVisible(true);
 			DashboardFavPages.reload();
 			DashboardRecentPages.setVisible(true);
+			DashboardNotifications.setVisible(true);
 			return;
 		}
 		DashboardWorkCards.setVisible(false);
 		DashboardFavPages.setVisible(false);
 		DashboardRecentPages.setVisible(false);
+		DashboardNotifications.setVisible(false);
 		const type = $opt.attr("data-type") || "";
 		const url = $opt.attr("data-url") || "";
 		appController.loadDashboardContent(url, type);
@@ -15285,20 +16712,26 @@ $(document).ready(function () {
 
 	
 		if (href == "/Authenticate/Logout") {
+			if (sessionStorage.getItem("havayarViewAs")) {
+				sessionStorage.removeItem("havayarViewAs");
+				window.close();
+				return;
+			}
 			get(href, function (r) {
 				window.location.assign("/Authenticate/Login")
 			})
 		}
 		else {
 			 
-			var menuTitle = null;
-
-			if ($a.find(".menu-title")) {
-				if ($a.find(".menu-title").text().length > 0) {
-					menuTitle = $a.find(".menu-title").text();
-				}
+			let menuTitle = ($a.attr("data-menu-title") || "").replace(/\s+/g, " ").trim();
+			if (!menuTitle) {
+				const $title = $a.children(".menu-title").first();
+				if ($title.length)
+					menuTitle = ($title.text() || "").replace(/\s+/g, " ").trim();
 			}
-			appController.addPage(href, true, menuTitle);
+			if (!menuTitle && $a.closest("#kt_app_sidebar, .hv-flyout").length)
+				menuTitle = ($a.attr("title") || "").replace(/\s+/g, " ").trim();
+			appController.addPage(href, true, menuTitle || null);
 
 		}
 
@@ -15324,8 +16757,8 @@ $(document).ready(function () {
 		}
 		post(path, null, function (r) {
 			if (!r.isSuccess) return error2(r.message);
-			 
-			$("#kt_app_sidebar_menu").html(r.data);
+			if (window.HvMenu && typeof window.HvMenu.load === "function")
+				window.HvMenu.load(r.data);
 			if (typeof DashboardFavPages !== "undefined" && DashboardFavPages.reload)
 				DashboardFavPages.reload();
 		});
@@ -15359,6 +16792,8 @@ if (typeof initItemsForms === 'function') {
 			this.$container = $(element);
 			if (this.$container.data('entitySelectorInstance')) return;
 			this.$container.data('entitySelectorInstance', this);
+			if (this.$container[0]) this.$container[0]._entitySelector = this;
+			this._eventNs = '.esEvt' + Math.random().toString(36).slice(2, 10);
 
 			this.options = $.extend({}, EntitySelector.DEFAULTS, this.$container.data(), options);
 			this.isMulti = this.options.multiSelect === true;
@@ -15480,7 +16915,8 @@ if (typeof initItemsForms === 'function') {
 			this.$input.on('keydown', (e) => this.onKeydown(e));
 
 			// Close dropdown when clicking outside
-			$(document).on('click', (e) => {
+			$(document).on('click' + this._eventNs, (e) => {
+				if (this._disposed) return;
 				const target = e.target;
 				const inContainer = this.$container.is(target) || this.$container.has(target).length > 0;
 				const inResults = this.$results.is(target) || this.$results.has(target).length > 0;
@@ -15500,15 +16936,16 @@ if (typeof initItemsForms === 'function') {
 			});
 
 			// Update dropdown position on scroll/resize
-			$(window).on('scroll resize', () => {
-				if (this.$results.hasClass('show')) {
+			$(window).on('scroll' + this._eventNs + ' resize' + this._eventNs, () => {
+				if (this.$results && this.$results.hasClass('show')) {
 					this.updateDropdownPosition();
 				}
 			});
 
 			// Handle modal scroll if inside a modal
-			this.$container.closest('.modal').on('scroll', () => {
-				if (this.$results.hasClass('show')) {
+			this.$modal = this.$container.closest('.modal');
+			this.$modal.on('scroll' + this._eventNs, () => {
+				if (this.$results && this.$results.hasClass('show')) {
 					this.updateDropdownPosition();
 				}
 			});
@@ -15539,17 +16976,32 @@ if (typeof initItemsForms === 'function') {
 			this.updateIcons();
 		}
 		watchDependencies() {
+			if (!this._dependencyNamespace) {
+				this._dependencyNamespace = '.esDep' + Math.random().toString(36).slice(2, 10);
+			}
+			const ns = this._dependencyNamespace;
+			$(document).off('change' + ns);
+
 			this.options.watchDependencies.forEach(selectorId => {
-				$(document).on('change', selectorId, () => {
-					// در صورت تغییر مقدار سلکتور وابسته، دوباره جستجو را صفر می‌کنیم
-					this.selectedItems = [];
-					this.page = 1;
-					this.lastId = 0;
-					this.hasMore = true;
-					this.$input.val('');
-					this.updateHidden();
-					if (!this.isMulti) this.renderChips();  // برای حالت multi
-					this.search(this.$input.val());
+				$(document).on('change' + ns, selectorId, () => {
+					if (this._clearingFromDependency) return;
+					this._clearingFromDependency = true;
+					try {
+						this.page = 1;
+						this.lastId = 0;
+						this.hasMore = true;
+						this.lastQuery = null;
+						const hadValue = this.selectedItems.length > 0 || !!(this.$hidden.val());
+						if (hadValue) {
+							this.clearAll();
+						} else {
+							this.$input.val('');
+							this.close();
+							this.updateIcons();
+						}
+					} finally {
+						this._clearingFromDependency = false;
+					}
 				});
 			});
 		}
@@ -15613,7 +17065,14 @@ if (typeof initItemsForms === 'function') {
 		}
 
 		updateDropdownPosition() {
+			if (this._disposed || !this.$results || !this.$results.length) return;
+			const el = this.$container && this.$container[0];
+			if (!el || !document.body.contains(el)) {
+				this.dispose();
+				return;
+			}
 			const offset = this.$container.offset();
+			if (!offset) return;
 			const height = this.$container.outerHeight();
 			const width = this.$container.outerWidth();
 
@@ -15628,6 +17087,7 @@ if (typeof initItemsForms === 'function') {
 		}
 
 		search(query, append = false) {
+			if (this._disposed) return;
 			// Reset state if not appending
 			if (!append) {
 				this.page = 1;
@@ -15926,8 +17386,33 @@ if (typeof initItemsForms === 'function') {
 		}
 
 		close() {
+			if (!this.$results || !this.$results.length) return;
 			this.$results.removeClass('show');
 			this.$results.css('display', 'none');
+		}
+
+		dispose() {
+			if (this._disposed) return;
+			this._disposed = true;
+			this.close();
+			if (this._eventNs) {
+				$(document).off(this._eventNs);
+				$(window).off(this._eventNs);
+				if (this.$modal && this.$modal.length) this.$modal.off(this._eventNs);
+			}
+			if (this._dependencyNamespace) {
+				$(document).off(this._dependencyNamespace);
+			}
+			if (this.$results && this.$results.length) {
+				this.$results.remove();
+			}
+			this.$results = $();
+			const el = this.$container && this.$container[0];
+			if (el && el._entitySelector === this) delete el._entitySelector;
+			if (this.$container) {
+				this.$container.removeData('entitySelectorInstance');
+				this.$container.removeData('entitySelector');
+			}
 		}
 
 		onKeydown(e) {
@@ -15963,8 +17448,32 @@ if (typeof initItemsForms === 'function') {
 
 })(jQuery);
 
+function releaseEntitySelectors(root, dispose) {
+	if (!root) return;
+	const el = root.jquery ? root[0] : root;
+	if (!el || el.nodeType !== 1) return;
+	if (el.classList && el.classList.contains('entity-selector-results')) return;
+
+	const nodes = [];
+	if (el.classList && el.classList.contains('entity-selector-wrapper')) nodes.push(el);
+	if (el.querySelectorAll) {
+		const found = el.querySelectorAll('.entity-selector-wrapper');
+		for (let i = 0; i < found.length; i++) nodes.push(found[i]);
+	}
+	for (let i = 0; i < nodes.length; i++) {
+		const inst = nodes[i]._entitySelector;
+		if (!inst) continue;
+		if (dispose && typeof inst.dispose === 'function') inst.dispose();
+		else if (typeof inst.close === 'function') inst.close();
+	}
+}
+
 const observer = new MutationObserver(function(mutations) {
     for (let i = 0; i < mutations.length; i++) {
+        const removedNodes = mutations[i].removedNodes;
+        for (let r = 0; r < removedNodes.length; r++) {
+            releaseEntitySelectors(removedNodes[r], true);
+        }
         const addedNodes = mutations[i].addedNodes;
         for (let j = 0; j < addedNodes.length; j++) {
             const node = addedNodes[j];
@@ -16009,6 +17518,8 @@ observer.observe(document.body, { childList: true, subtree: true });
         menuObserver: null,
 
         init: function() {
+            // Accordion and search live in hv-menu.js.
+            return;
             this.searchInput = document.getElementById('sidebar_menu_search');
             this.menuContainer = document.getElementById('kt_app_sidebar_menu');
             this.changeMenuSelect = document.querySelector('[data-action="changeMenu"]');

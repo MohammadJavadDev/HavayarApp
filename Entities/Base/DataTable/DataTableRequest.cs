@@ -20,6 +20,11 @@ namespace Entities.Base.DataTable
         public bool UserDataFillter { get; set; } = false;
         public long? profileId { get; set; }
 
+        /// <summary>
+        /// پارامترهای زمان اجرای نمایه (مثلاً FromDate / ToDate). وارد SearchBuilder نمی‌شوند.
+        /// </summary>
+        public Dictionary<string, string>? parameters { get; set; }
+
         // Display values are rendered in the browser; never execute JavaScript on the server.
         public DataTableDisplayExport? displayExport { get; set; }
     }

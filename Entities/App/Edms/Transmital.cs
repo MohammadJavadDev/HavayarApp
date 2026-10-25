@@ -18,11 +18,22 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("مدرک")]
-		[DisplayInfo(null, false, type: SystemType.Entity, required: true)]
-		public Document Document { get; set; }
+		[DisplayInfo(null, false, type: SystemType.Entity)]
+		public Document? Document { get; set; }
 
-		public long DocumentId { get; set; }
+		public long? DocumentId { get; set; }
 
+		/// <summary>
+		/// شناسه‌های مدرک انتخاب‌شده در فرم (جدا شده با ویرگول) — فقط برای بایند UI، در دیتابیس ذخیره نمی‌شود.
+		/// </summary>
+		[NotMapped]
+		public string? DocumentIds { get; set; }
+
+		/// <summary>
+		/// رزرو شماره بعدی پروژه بدون مدرک. فقط از فرم پست می‌شود.
+		/// </summary>
+		[NotMapped]
+		public bool ReserveNumberOnly { get; set; }
 
 		[DisplayName("شماره ترانسمیتال")]
 		[DisplayInfo(null, false, type: SystemType.String)]
@@ -56,11 +67,16 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("پیوست")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word", maxFileSize: 100)]
 		public FileEntity? Attachment { get; set; }
 
 		public long? AttachmentId { get; set; }
 
+		/// <summary>
+		/// شناسه ردیف Edms_Transmital_Document در TotalSystem / HTS برای همگام‌سازی یکتا
+		/// (مدل جدید یک مدرک در هر ترانسمیتال دارد؛ دانهٔ HtsId همان Document-link است)
+		/// </summary>
+		public long HtsId { get; set; }
 
 	}
 }

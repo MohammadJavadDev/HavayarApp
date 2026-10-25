@@ -62,7 +62,11 @@ DECLARE @CustomQuery NVARCHAR(MAX) = N'SELECT
     NULLIF(LTRIM(RTRIM(photo.PhysicalPath)), N'''') AS PhotoUrl,
     LTRIM(RTRIM(ISNULL(t.FirstName, N'''') + N'' '' + ISNULL(t.LastName, N''''))) AS TeacherName,
     COALESCE(cpComp.Title, pComp.Title, coComp.Title) AS CompanyTitle,
-    NULLIF(LTRIM(RTRIM(COALESCE(cpComp.Description, coComp.Description, pComp.Description))), N'''') AS CompanyTitleInLatin,
+    NULLIF(LTRIM(RTRIM(COALESCE(
+        NULLIF(LTRIM(RTRIM(cpComp.TitleInLatin)), N''''),
+        NULLIF(LTRIM(RTRIM(coComp.TitleInLatin)), N''''),
+        NULLIF(LTRIM(RTRIM(pComp.TitleInLatin)), N'''')
+    ))), N'''') AS CompanyTitleInLatin,
     co.TrainingCourseTitles, co.TrainingCourseTitles1, co.TrainingCourseTitles2, co.TrainingCourseTitles3
 FROM Trn.Certificate AS c
 LEFT JOIN Trn.CourseParticipant AS cp ON cp.Id = c.CourseParticipantId

@@ -1,7 +1,7 @@
 using Common.Attributes;
 using Entities.App.FIN;
+using Entities.App.Hcm;
 using Entities.App.Inv;
-using Entities.Auth;
 using Entities.Base;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -92,6 +92,20 @@ namespace Entities.App.Rpr
 		[DisplayInfo(null, false, type: SystemType.Int)]
 		public int? HtsPartRequestItemId { get; set; }
 
+		[DisplayName("شماره درخواست راهکاران")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(64)]
+		public string? RahkaranRequestNo { get; set; }
+
+		[DisplayName("توضیحات راهکاران")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(1024)]
+		public string? RahkaranDescription { get; set; }
+
+		[DisplayName("شناسه قلم درخواست کالا راهکاران")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long? RahkaranPartRequestItemId { get; set; }
+
 		[DisplayName("شناسه قلم سند انبار همکاران")]
 		[DisplayInfo(null, false, type: SystemType.Int)]
 		public int HtsHamkaranInvVchItemId { get; set; }
@@ -103,6 +117,12 @@ namespace Entities.App.Rpr
 		{
 			builder.HasIndex(x => x.HtsId).IsUnique().HasFilter("[HtsId] <> CAST(0 AS bigint)")
 				.HasDatabaseName("IX_Rpr_RepairRequestPart_HtsId");
+			builder.HasIndex(x => x.RepairRequestId)
+				.HasDatabaseName("IX_RepairRequestPart_RepairRequestId");
+			builder.HasIndex(x => new { x.RepairRequestId, x.RahkaranPartRequestItemId })
+				.IsUnique()
+				.HasFilter("[RahkaranPartRequestItemId] IS NOT NULL")
+				.HasDatabaseName("IX_Rpr_RepairRequestPart_Repair_RahkaranItem");
 		}
 	}
 
@@ -153,7 +173,7 @@ namespace Entities.App.Rpr
 
 		[DisplayName("کارشناس")]
 		[DisplayInfo(null, true, type: SystemType.Entity, required: true)]
-		public virtual User? Expert { get; set; }
+		public virtual Personel? Expert { get; set; }
 		public long? ExpertId { get; set; }
 
 		[DisplayName("شناسه پرسنل HTS")]
@@ -197,6 +217,11 @@ namespace Entities.App.Rpr
 	{
 		public void Configure(EntityTypeBuilder<RepairRequestManHour> builder)
 		{
+			builder.HasOne(x => x.Expert)
+				.WithMany()
+				.HasForeignKey(x => x.ExpertId)
+				.OnDelete(DeleteBehavior.NoAction);
+
 			builder.HasIndex(x => x.HtsId).IsUnique().HasFilter("[HtsId] <> CAST(0 AS bigint)")
 				.HasDatabaseName("IX_Rpr_RepairRequestManHour_HtsId");
 		}

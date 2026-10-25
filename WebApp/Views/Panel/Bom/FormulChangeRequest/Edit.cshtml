@@ -17,52 +17,33 @@
 		disableForEditBool = true;
 	}
 
-	IEnumerable<FormulChangeRequestStatusEnum> filterdStatus = null;
-
-	if(!sdk.IsAdministrator)
-	{
-		//TODO add admin for access to All status && !sdk.IsAdministrator
-	}
-
 	switch(Model?.Status)
 	{
-		case null or FormulChangeRequestStatusEnum.PlanningReject:
-			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
-				c=>c == FormulChangeRequestStatusEnum.InitialRegistration);
-			break;
-		case FormulChangeRequestStatusEnum.InitialRegistration or FormulChangeRequestStatusEnum.QcReject:
-			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
-					c=>c == FormulChangeRequestStatusEnum.PlanningApproval 
-						|| c == FormulChangeRequestStatusEnum.PlanningReject);
-			break;
-		case FormulChangeRequestStatusEnum.PlanningApproval or FormulChangeRequestStatusEnum.EngineeringReject:
-			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
-					c=>c == FormulChangeRequestStatusEnum.QcApproval 
-						|| c == FormulChangeRequestStatusEnum.QcReject);
-			break;
-
-		case FormulChangeRequestStatusEnum.QcApproval:
-			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
-					c=>c == FormulChangeRequestStatusEnum.EngineeringApproval 
-						|| c == FormulChangeRequestStatusEnum.EngineeringReject);
-			break;
-
-
 		case FormulChangeRequestStatusEnum.EngineeringApproval:
-			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
-			c=>c == FormulChangeRequestStatusEnum.EndOperation);
 			changePartMode = true;
 			break;
 
 		case FormulChangeRequestStatusEnum.EndOperation:
-			filterdStatus = EnumExtensions.GetEnumSelectListFiltered<FormulChangeRequestStatusEnum>(
-			c=>c == FormulChangeRequestStatusEnum.EndOperation);
 			changePartMode = true;
 			endOperation = true;
 			break;
 	}
 
-	var avableStatus = filterdStatus.GetEnumValuesWithDisplayNames();
+	// دسترسی مرحله‌ای (معادل PermissionType های 80/81/82/84 در HTS): فقط انتقال‌هایی که نقش کاربر اجازه می‌دهد.
+	// درخواست جدید همیشه «ثبت اولیه» است (سمت سرور هم اجبار می‌شود).
+	var allowedStatuses = Model?.Status == null
+		? new[] { FormulChangeRequestStatusEnum.InitialRegistration }
+		: WebApp.Framework.FormulChangeRequestWorkflow.GetAllowedNextStatuses(sdk.IsAdministrator, r => sdk.HasRole(r), Model.Status);
+	var hasStageAccess = allowedStatuses.Length > 0 && !endOperation;
+
+	// بدون دسترسی: فقط وضعیت فعلی نمایش داده می‌شود و ذخیره غیرفعال است
+	var statusOptions = hasStageAccess
+		? allowedStatuses
+		: (Model?.Status != null ? new[] { Model.Status.Value } : Array.Empty<FormulChangeRequestStatusEnum>());
+	var avableStatus = statusOptions.GetEnumValuesWithDisplayNames();
+
+	// فقط نقش «اعمال نهایی» (یا ادمین) می‌تواند در مرحلهٔ «تایید مهندسی» تغییر قطعه را ویرایش کند
+	var lockChangePart = endOperation || !hasStageAccess;
 
 }
 
@@ -177,7 +158,7 @@
 
 		 <div class='col-md-6'>
 			<label class=''>  ضریب مصرفی<spam class="text-danger">(ضریب مصرف جایگزین میشود)</spam></label>
-			<input disabled="@disableForEdit" class='form-control' data-bind='usingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.UsingRate' />
+			<input disabled="@disableForEdit" type='text' class='form-control ltr' inputmode='decimal' autocomplete='off' placeholder='1.00' data-bind='usingRate' value='@Model?.UsingRate?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -185,12 +166,16 @@
 
 		<div class='col-md-6'>
 			<label class=''>وضعیت</label>
-			<select class='form-control' data-bind='status'  asp-for='Status'  >
+			<select class='form-control' data-bind='status' disabled="@(hasStageAccess ? null : "disabled")" asp-for='Status'  >
 					@foreach(var option in avableStatus)
 					{
 						<option value="@option.Value">@option.Text</option>
 					 }
 			</select>
+			@if(!hasStageAccess && !endOperation)
+			{
+				<div class="text-danger small my-1">برای اقدام روی این مرحله از درخواست دسترسی ندارید.</div>
+			}
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
@@ -253,8 +238,8 @@
 				Model?.ChangedProductGroupIds,
 				false,
 				true,
-				endOperation,
-				endOperation
+				lockChangePart,
+				lockChangePart
 
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
@@ -276,15 +261,15 @@
 				Model?.ChangedProductFormulIds,
 				false,
 				true,
-				endOperation,
-				endOperation
+				lockChangePart,
+				lockChangePart
 			))
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
 		  <div class='col-md-6'>
 				<label class=''>  ضریب مصرفی برای تغییر<spam class="text-danger">(ضریب مصرف جایگزین میشود)</spam></label>
-				<input   class='form-control' data-bind='changedUsingRate'  data-invalidMessage='فقط عداد' data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" value='@Model?.ChangedUsingRate' />
+				<input type='text' class='form-control ltr' inputmode='decimal' autocomplete='off' placeholder='1.00' data-bind='changedUsingRate' value='@Model?.ChangedUsingRate?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)' />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
@@ -445,7 +430,7 @@
  
 	self.FormActionButtons.saveandclose.onclick(function () { savefn(this) })
  
-	if(endOperation == true)
+	if(endOperation == true || @((!hasStageAccess).ToString().ToLower()) == true)
 	{
 		self.FormActionButtons.saveandclose.element.disabled = true
 		 

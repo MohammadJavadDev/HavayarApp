@@ -28,9 +28,41 @@
 				</td>
 				<td>
 					<a href="/system/menubuilder/edit?id=@l.Id">ویرایش</a>
+					<span class="mx-2 text-muted">|</span>
+					<a href="#" class="text-danger" data-action="deleteMenu" data-id="@l.Id" data-title="@l.Title">حذف</a>
 				</td>
 			</tr>
 		}
 		
 	</thead>
  </table>
+
+<script>
+page.$pageEl.on('click', '[data-action="deleteMenu"]', function (e) {
+	e.preventDefault();
+	const $link = $(this);
+	const id = $link.data('id');
+	const title = $link.attr('data-title') || '';
+	Swal.fire({
+		title: 'حذف منو',
+		text: title ? ('منوی «' + title + '» حذف شود؟') : 'این منو حذف شود؟',
+		icon: 'warning',
+		showCancelButton: true,
+		confirmButtonText: 'حذف',
+		cancelButtonText: 'انصراف'
+	}).then(function (result) {
+		if (!result.isConfirmed) return;
+		const $row = $link.closest('tr');
+		$row.block();
+		$$.get('/System/MenuBuilder/Delete?id=' + encodeURIComponent(id), function (r) {
+			$row.block(false);
+			if (!r || r.isSuccess === false) {
+				toastr.error((r && r.message) || 'خطا در حذف', 'خطا');
+				return;
+			}
+			toastr.success('منو حذف شد');
+			$row.remove();
+		});
+	});
+});
+</script>

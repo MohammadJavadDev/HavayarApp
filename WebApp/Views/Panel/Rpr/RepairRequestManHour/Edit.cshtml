@@ -1,5 +1,5 @@
+@using Entities.App.Hcm
 @using Entities.App.Rpr
-@using Entities.Auth
 @using Entities.Base
 @model RepairRequestManHour
 @{
@@ -23,15 +23,16 @@
 		<div class="row g-3">
 			<div class="col-md-6 form-group-inline">
 				<label class="form-label fw-bold required">کارشناس</label>
-				@(Html.EntitySelector<User>(
+				@(Html.EntitySelector<Personel>(
 					"RepairManHourExpertSelector",
-					c => c.IsActive == IsActiveEnum.Active,
-					c => new { Id = c.Id, Name = c.Name },
-					c => new { c.Name },
-					"{Name}",
+					c => c.Id > 0,
+					c => new { Id = c.Id, Code = c.Code, Name = c.Name, Family = c.Family },
+					c => new { c.Code, c.Name, c.Family },
+					"{Code} {Name} {Family}",
 					"expertId",
 					"expertName",
-					Model?.ExpertId?.ToString()
+					Model?.ExpertId?.ToString(),
+					true
 				))
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>

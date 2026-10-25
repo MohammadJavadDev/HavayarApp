@@ -1,0 +1,280 @@
+@{
+	ViewData["Title"] = "نبض هیئت‌مدیره";
+}
+
+<style>
+	#boardPulsePage .bp-summary-value {
+		font-size: 1.75rem;
+		font-weight: 700;
+	}
+
+	#boardPulsePage .bp-summary-card {
+		min-height: 140px;
+	}
+
+	#boardPulsePage .bp-definition {
+		font-size: 0.8rem;
+		line-height: 1.5;
+		color: var(--bs-gray-600);
+		margin-top: 0.5rem;
+	}
+
+	#boardPulsePage .bp-success {
+		color: var(--bs-success);
+	}
+
+	#boardPulsePage .bp-warning {
+		color: var(--bs-warning);
+	}
+
+	#boardPulsePage svg text {
+		font-family: inherit !important;
+	}
+</style>
+
+<div id="boardPulsePage" dir="rtl">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">نبض هیئت‌مدیره</h3>
+					<div class="text-muted fs-7">
+						مانده‌های عملیاتی همین لحظه — بدون کارت وصول پول
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<span class="badge badge-light-primary fs-7" id="bpSnapshotLabel">وضعیت همین لحظه</span>
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadBoardPulse">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+				<button type="button" class="btn btn-sm btn-light-primary" id="btnOpenTimelyDelivery">
+					جزئیات تحویل به‌موقع
+				</button>
+			</div>
+		</div>
+		<div class="card-body py-3">
+			<div class="text-muted fs-7">
+				زمان محاسبه: <span class="ltr d-inline-block" id="bpAsOf">-</span>
+			</div>
+			<div class="text-muted fs-7 mt-1" id="bpOnTimeFilterSentence"></div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4 col-xl-4">
+			<div class="card bp-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">اقلام ساخت باز</div>
+					<div class="bp-summary-value" id="bpOpenProduction">-</div>
+					<div class="bp-definition" id="bpOpenProductionDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4 col-xl-4">
+			<div class="card bp-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">درخواست خرید باز</div>
+					<div class="bp-summary-value" id="bpOpenPurchase">-</div>
+					<div class="fs-7 mt-1">
+						متوقف: <span class="bp-warning fw-bold" id="bpStoppedPurchase">-</span>
+					</div>
+					<div class="bp-definition" id="bpOpenPurchaseDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4 col-xl-4">
+			<div class="card bp-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">پروژه‌های مهندسی در جریان</div>
+					<div class="bp-summary-value" id="bpEdmsInProcess">-</div>
+					<div class="bp-definition" id="bpEdmsInProcessDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4 col-xl-4">
+			<div class="card bp-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">تعمیرات باز</div>
+					<div class="bp-summary-value" id="bpOpenRepairs">-</div>
+					<div class="bp-definition" id="bpOpenRepairsDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4 col-xl-4">
+			<div class="card bp-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">پشتیبانی منتظر اعزام</div>
+					<div class="bp-summary-value" id="bpWaitingDispatch">-</div>
+					<div class="bp-definition" id="bpWaitingDispatchDef"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4 col-xl-4">
+			<div class="card bp-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">درصد تحویل به‌موقع</div>
+					<div class="bp-summary-value bp-success" id="bpOnTimePct">-</div>
+					<div class="bp-definition" id="bpOnTimeDef"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<h3 class="card-title mb-0">درخواست خرید باز — فعال در برابر متوقف</h3>
+					<div class="card-toolbar text-muted fs-7">درخواست خرید حذف‌نشده</div>
+				</div>
+				<div class="card-body">
+					<div id="bpPurchaseChart" style="min-height:320px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Gnr/BoardPulseDashboard/GetData';
+	const $page = $$('#boardPulsePage');
+	const $loadButton = $$('#btnLoadBoardPulse');
+	let purchaseChart = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value, fractionDigits) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: fractionDigits === undefined ? 0 : fractionDigits
+		});
+	}
+
+	function formatPercent(value) {
+		if (value === null || value === undefined) return '-';
+		return formatNumber(value, 2) + '%';
+	}
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function setMetric(valueId, defId, metric) {
+		$$('#' + valueId).text(formatNumber(metric && metric.count));
+		$$('#' + defId).text((metric && metric.definition) || '');
+	}
+
+	function renderPurchaseChart(slices) {
+		const rows = slices || [];
+		const labels = rows.map(function (s) { return s.label; });
+		const series = rows.map(function (s) { return Number(s.count) || 0; });
+
+		const options = {
+			chart: { type: 'donut', height: 320, fontFamily: 'inherit' },
+			labels: labels,
+			series: series,
+			colors: ['#50cd89', '#ffc700'],
+			legend: { position: 'bottom' },
+			dataLabels: {
+				formatter: function (value, opts) {
+					return formatNumber(opts.w.config.series[opts.seriesIndex]);
+				}
+			},
+			tooltip: {
+				y: {
+					formatter: function (value) { return formatNumber(value); }
+				}
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+
+		if (purchaseChart) {
+			purchaseChart.updateOptions(options);
+			return;
+		}
+
+		purchaseChart = new ApexCharts($$('#bpPurchaseChart')[0], options);
+		purchaseChart.render();
+	}
+
+	function renderReport(report) {
+		$$('#bpSnapshotLabel').text(report.snapshotLabel || 'وضعیت همین لحظه');
+		$$('#bpAsOf').text(report.asOfShamsiDateTime || '-');
+
+		setMetric('bpOpenProduction', 'bpOpenProductionDef', report.openProductionItems);
+		setMetric('bpEdmsInProcess', 'bpEdmsInProcessDef', report.edmsProjectsInProcess);
+		setMetric('bpOpenRepairs', 'bpOpenRepairsDef', report.openRepairs);
+		setMetric('bpWaitingDispatch', 'bpWaitingDispatchDef', report.serviceRequestsWaitingToDispatch);
+
+		const purchase = report.openPurchaseRequests || {};
+		$$('#bpOpenPurchase').text(formatNumber(purchase.count));
+		$$('#bpStoppedPurchase').text(formatNumber(purchase.stoppedCount));
+		$$('#bpOpenPurchaseDef').text(purchase.definition || '');
+
+		const onTime = report.onTimeDelivery || {};
+		$$('#bpOnTimePct').text(formatPercent(onTime.onTimeDeliveryPercentage));
+		$$('#bpOnTimeDef').text(onTime.definition || '');
+		$$('#bpOnTimeFilterSentence').text(onTime.filterSentence || '');
+
+		whenApexReady(function () {
+			renderPurchaseChart(report.openPurchaseSlices);
+		});
+	}
+
+	function loadReport() {
+		const $btn = $($loadButton[0]).block();
+
+		$$.post(dataUrl, {}, function (response) {
+			$btn.block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderReport(unwrap(response) || {});
+		});
+	}
+
+	$loadButton.on('click', loadReport);
+
+	$$('#btnOpenTimelyDelivery').on('click', function () {
+		appController.addPage('/panel/pln/plntimelydeliveryreport/report');
+	});
+
+	loadReport();
+</script>

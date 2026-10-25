@@ -21,21 +21,24 @@ namespace WebApp.Controllers.Dynamic
 			return View(@"\Views\Panel\Bpm\ProcessDocument\Manage.cshtml");
 		}
 
+		/// <summary>
+		/// فرم مودال «بررسی / تایید» (معادل property grid در حالت AddDetail در HTS).
+		/// دکمهٔ لیست آن را با page.getPartialView باز می‌کند؛ ثبت از طریق ChangeStatus است.
+		/// </summary>
 		[HttpGet("[action]")]
-		[ActionDisplayName("ویرایش مدیریت درخواست", ActionAccessType.View, ActionAccessItemType.Custom)]
-		public async Task<IActionResult> ManageEdit(long? id, CancellationToken cn)
+		public async Task<IActionResult> ManageStatusForm(long id, CancellationToken cn)
 		{
-			if (id is null or 0)
-				return View(@"\Views\Panel\Bpm\ProcessDocument\Manage.cshtml");
-
-			var entity = await LoadForEditAsync(id.Value, cn);
+			var entity = await LoadForEditAsync(id, cn);
 			if (entity.Id is null or 0)
 				throw new Exception("درخواست یافت نشد");
 			if (!CanViewManage(entity))
 				throw new Exception("دسترسی به این درخواست را ندارید");
 
 			FillManageViewBag(entity);
-			return View(@"\Views\Panel\Bpm\ProcessDocument\Edit.cshtml", entity);
+			if (!(bool)ViewBag.CanChangeStatus)
+				throw new Exception("در این وضعیت مجاز به تعیین وضعیت نیستید");
+
+			return View(@"\Views\Panel\Bpm\ProcessDocument\_ManageStatusForm.cshtml", entity);
 		}
 
 		[HttpPost("[action]")]
@@ -90,44 +93,6 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		[HttpPost("[action]")]
-		[ActionDisplayName("ذخیره مشخصات مدیریت", ActionAccessType.Api, ActionAccessItemType.Update)]
-		public async Task<IActionResult> SaveManage(ProcessDocument posted, CancellationToken cn)
-		{
-			if (posted.Id is null or 0)
-				return BadRequest("درخواست یافت نشد");
-			if (!CurrentUserHasAnyRole(RoleSupervisor) && !IsAdministrator)
-				return BadRequest("فقط سرپرست می‌تواند مشخصات فرآیندی را ذخیره کند");
-
-			var existing = await unitOfWork.Repository<ProcessDocument>().TableNoTracking
-				.FirstOrDefaultAsync(c => c.Id == posted.Id, cn);
-			if (existing == null)
-				return BadRequest("درخواست یافت نشد");
-			if (!CanViewManage(existing))
-				return BadRequest("دسترسی به این درخواست را ندارید");
-			if (existing.LastStatus is ProcessDocumentStatusEnum.Notified
-				or ProcessDocumentStatusEnum.CancelRequest
-				or ProcessDocumentStatusEnum.BpmCancelRequest)
-				return BadRequest("ذخیره مشخصات در این وضعیت مجاز نیست");
-
-			ApplySupervisorFields(existing, posted);
-			var fileError = await ValidateManageFilesAsync(existing, cn);
-			if (fileError != null)
-				return BadRequest(fileError);
-
-			ClearGraph(existing);
-			await unitOfWork.Repository<ProcessDocument>().UpdateAsync(existing, cn, true);
-			await ReplaceManageJunctions(existing.Id!.Value, posted, cn);
-			await GrantViewManageRoleAsync(
-			[
-				existing.ProcessOwnerId ?? 0,
-				existing.ApproverId ?? 0,
-				existing.FinalApproverId ?? 0
-			], cn);
-			await AddStatusLogAsync(existing.Id.Value, ProcessDocumentStatusEnum.BpmUpdated, cn);
-			return Ok(await LoadForEditAsync(existing.Id.Value, cn));
-		}
-
-		[HttpPost("[action]")]
 		[ActionDisplayName("ثبت وضعیت سند فرآیندی", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> ChangeStatus(ProcessDocument posted, CancellationToken cn)
 		{
@@ -163,19 +128,19 @@ namespace WebApp.Controllers.Dynamic
 			if (forceNotify)
 			{
 				if (string.IsNullOrWhiteSpace(existing.NotificationShamsiDate) && existing.NotificationMiladiDate == null)
-					return BadRequest("تاریخ ابلاغ برای عدم گردش فرآیند الزامی است");
+					return BadRequest(MsgEmpty("تاریخ ابلاغ"));
 				if (existing.RequestType != ProcessDocumentRequestTypeEnum.Delete)
 				{
 					if (existing.FinalFileId is null or 0)
-						return BadRequest("فایل نهایی الزامی است");
+						return BadRequest(MsgNoFileSelected);
 					if (existing.DocumentType != ProcessDocumentTypeEnum.F && existing.FinalPdfFileId is null or 0)
-						return BadRequest("فایل PDF نهایی الزامی است");
+						return BadRequest(MsgNoFileSelected);
 				}
 			}
 			else
 			{
 				if (posted.NextStatus == null || !Enum.IsDefined(posted.NextStatus.Value))
-					return BadRequest("وضعیت بعدی الزامی است");
+					return BadRequest(MsgEmpty("وضعیت"));
 
 				var allowed = ProcessDocumentWorkflow.GetAllowedNextStatuses(
 					existing.LastStatus,
@@ -217,7 +182,7 @@ namespace WebApp.Controllers.Dynamic
 			if (!forceNotify
 				&& nextStatus is ProcessDocumentStatusEnum.InProgress or ProcessDocumentStatusEnum.BpmAcceptComments
 				&& string.IsNullOrWhiteSpace(saved.DocumentNumber))
-				return BadRequest("شماره سند الزامی است");
+				return BadRequest(MsgEmpty("کد سند"));
 
 			if (forceNotify)
 			{
@@ -353,9 +318,14 @@ namespace WebApp.Controllers.Dynamic
 
 		private static void ApplySupervisorFields(ProcessDocument target, ProcessDocument posted)
 		{
-			target.DocumentType = posted.DocumentType;
-			target.DocumentNumber = string.IsNullOrWhiteSpace(posted.DocumentNumber) ? null : posted.DocumentNumber.Trim();
-			target.AccessLevel = posted.AccessLevel;
+			// HTS DoDocumentDetailOperation: عنوان، سطح محرمانگی، شماره و ... فقط وقتی مقدار ارسال شده باشد جایگزین می‌شوند.
+			target.DocumentType = posted.DocumentType ?? target.DocumentType;
+			if (!string.IsNullOrWhiteSpace(posted.DocumentNumber))
+				target.DocumentNumber = posted.DocumentNumber.Trim();
+			if (!string.IsNullOrWhiteSpace(posted.DocumentTitle))
+				target.DocumentTitle = posted.DocumentTitle.Trim();
+			if (Enum.IsDefined(posted.AccessLevel))
+				target.AccessLevel = posted.AccessLevel;
 			target.ProcessSet = posted.ProcessSet;
 			target.ProcessOwnerId = posted.ProcessOwnerId is > 0 ? posted.ProcessOwnerId : null;
 			target.ApproverId = posted.ApproverId is > 0 ? posted.ApproverId : null;
@@ -391,39 +361,41 @@ namespace WebApp.Controllers.Dynamic
 			string? comment,
 			bool isSupervisor)
 		{
+			// متن و ترتیب پیام‌ها مطابق bpmManageDocument_validatePropertyGrid در HTS
+			if (entity.DocumentType == null)
+				return MsgEmpty("نوع سند");
+
 			if (ProcessDocumentWorkflow.CommentRequiredStatuses.Contains(nextStatus)
 				&& string.IsNullOrWhiteSpace(comment))
-				return "توضیح برای این وضعیت الزامی است";
-
-			if (nextStatus is ProcessDocumentStatusEnum.InProgress or ProcessDocumentStatusEnum.BpmAcceptComments)
-			{
-				if (entity.DocumentType == null)
-					return "نوع سند الزامی است";
-				if (entity.ProcessSet == null)
-					return "مجموعه فرآیندی الزامی است";
-				if (entity.ProcessOwnerId is null or 0)
-					return "مالک فرآیند الزامی است";
-				if (entity.ApproverId is null or 0)
-					return "تایید کننده الزامی است";
-				if (entity.FinalApproverId is null or 0)
-					return "تصویب کننده الزامی است";
-				if (entity.CompletionForecastMiladiDate == null && string.IsNullOrWhiteSpace(entity.CompletionForecastShamsiDate))
-					return "تاریخ پیش‌بینی تکمیل الزامی است";
-			}
+				return MsgEmpty("توضیحات");
 
 			if (nextStatus == ProcessDocumentStatusEnum.BpmApproved
 				&& isSupervisor
 				&& entity.LastStatus == ProcessDocumentStatusEnum.BpmExpertApproved
 				&& entity.MainFileId is null or 0)
-				return "فایل اصلی الزامی است";
+				return MsgNoFileSelected;
+
+			if (nextStatus is ProcessDocumentStatusEnum.InProgress or ProcessDocumentStatusEnum.BpmAcceptComments)
+			{
+				if (entity.ProcessSet == null)
+					return MsgEmpty("مجموعه فرآیندی");
+				if (entity.ProcessOwnerId is null or 0)
+					return MsgEmpty("مالک فرآیند");
+				if (entity.ApproverId is null or 0)
+					return MsgEmpty("تایید کننده");
+				if (entity.FinalApproverId is null or 0)
+					return MsgEmpty("تصویب کننده");
+				if (entity.CompletionForecastMiladiDate == null && string.IsNullOrWhiteSpace(entity.CompletionForecastShamsiDate))
+					return MsgEmpty("تاریخ پیش بینی انجام درخواست");
+			}
 
 			if (nextStatus == ProcessDocumentStatusEnum.Notified
 				&& entity.RequestType != ProcessDocumentRequestTypeEnum.Delete)
 			{
 				if (entity.FinalFileId is null or 0)
-					return "فایل نهایی الزامی است";
+					return MsgNoFileSelected;
 				if (entity.DocumentType != ProcessDocumentTypeEnum.F && entity.FinalPdfFileId is null or 0)
-					return "فایل PDF نهایی الزامی است";
+					return MsgNoFileSelected;
 			}
 
 			return null;
@@ -470,33 +442,39 @@ namespace WebApp.Controllers.Dynamic
 
 		private async Task ReplaceManageJunctions(long documentId, ProcessDocument posted, CancellationToken cn)
 		{
-			await ReplaceOrgUnitJunction<ProcessDocumentEditingOrgUnit>(
-				documentId, ParseIds(posted.EditingOrgUnitIds), cn);
-			await ReplaceOrgUnitJunction<ProcessDocumentExecuterOrgUnit>(
-				documentId, ParseIds(posted.ExecuterOrgUnitIds), cn);
-			await ReplaceOrgUnitJunction<ProcessDocumentBeneficiaryOrgUnit>(
-				documentId, ParseIds(posted.BeneficiaryOrgUnitIds), cn);
-			await ReplaceOrgUnitJunction<ProcessDocumentRelatedOrgUnit>(
-				documentId, ParseIds(posted.RelatedOrgUnitIds), cn);
-
-			await unitOfWork.Repository<ProcessDocumentProcessExecuter>()
-				.DeleteWhereAsync(c => c.ProcessDocumentId == documentId, cn);
-			var executerIds = ParseIds(posted.ProcessExecuterIds);
-			if (executerIds.Count > 0)
+			// HTS: هر فهرست فقط وقتی مقدار ارسال شده باشد جایگزین می‌شود (خالی = بدون تغییر).
+			// «تیم بازنگری/تدوین» = کاربران، «مجری فرآیند» = واحدهای سازمانی (مطابق دادهٔ HTS).
+			var editingUserIds = ParseIds(posted.EditingUserIds);
+			if (editingUserIds.Count > 0)
 			{
-				await unitOfWork.Repository<ProcessDocumentProcessExecuter>().AddRangeAsync(
-					executerIds.Select(userId => new ProcessDocumentProcessExecuter
+				await unitOfWork.Repository<ProcessDocumentEditingUser>()
+					.DeleteWhereAsync(c => c.ProcessDocumentId == documentId, cn);
+				await unitOfWork.Repository<ProcessDocumentEditingUser>().AddRangeAsync(
+					editingUserIds.Select(userId => new ProcessDocumentEditingUser
 					{
 						ProcessDocumentId = documentId,
 						UserId = userId
 					}).ToList(), cn, true);
 			}
 
-			await unitOfWork.Repository<ProcessDocumentNotificationRecipient>()
-				.DeleteWhereAsync(c => c.ProcessDocumentId == documentId, cn);
+			if (ParseIds(posted.ExecuterOrgUnitIds).Count > 0)
+				await ReplaceOrgUnitJunction<ProcessDocumentExecuterOrgUnit>(
+					documentId, ParseIds(posted.ExecuterOrgUnitIds), cn);
+			if (ParseIds(posted.ProcessExecuterOrgUnitIds).Count > 0)
+				await ReplaceOrgUnitJunction<ProcessDocumentProcessExecuterOrgUnit>(
+					documentId, ParseIds(posted.ProcessExecuterOrgUnitIds), cn);
+			if (ParseIds(posted.BeneficiaryOrgUnitIds).Count > 0)
+				await ReplaceOrgUnitJunction<ProcessDocumentBeneficiaryOrgUnit>(
+					documentId, ParseIds(posted.BeneficiaryOrgUnitIds), cn);
+			if (ParseIds(posted.RelatedOrgUnitIds).Count > 0)
+				await ReplaceOrgUnitJunction<ProcessDocumentRelatedOrgUnit>(
+					documentId, ParseIds(posted.RelatedOrgUnitIds), cn);
+
 			var recipientIds = ParseIds(posted.NotificationRecipientIds);
 			if (recipientIds.Count > 0)
 			{
+				await unitOfWork.Repository<ProcessDocumentNotificationRecipient>()
+					.DeleteWhereAsync(c => c.ProcessDocumentId == documentId, cn);
 				await unitOfWork.Repository<ProcessDocumentNotificationRecipient>().AddRangeAsync(
 					recipientIds.Select(userId => new ProcessDocumentNotificationRecipient
 					{
@@ -555,8 +533,10 @@ namespace WebApp.Controllers.Dynamic
 			entity.CommentFile = null;
 			entity.StatusLogs = [];
 			entity.EditingOrgUnits = [];
+			entity.EditingUsers = [];
 			entity.ExecuterOrgUnits = [];
 			entity.ProcessExecuters = [];
+			entity.ProcessExecuterOrgUnits = [];
 			entity.BeneficiaryOrgUnits = [];
 			entity.NotificationRecipients = [];
 			entity.RelatedOrgUnits = [];

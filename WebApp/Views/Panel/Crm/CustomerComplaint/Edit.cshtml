@@ -1,0 +1,848 @@
+@using Entities.App.Crm
+@using Entities.App.Crm.Enums
+@using Entities.App.Hcm
+@using Entities.App.Hrm
+@using Entities.App.Inv
+@using Entities.App.SLS
+@using Entities.Auth
+@using Entities.Base
+@using WebApp.Controllers.Dynamic
+@model CustomerComplaint
+@{
+	var channels = (IReadOnlyList<CustomerComplaintController.ComplaintLookupOption>)(ViewBag.Channels ?? new List<CustomerComplaintController.ComplaintLookupOption>());
+	var subjects = (IReadOnlyList<CustomerComplaintController.ComplaintLookupOption>)(ViewBag.Subjects ?? new List<CustomerComplaintController.ComplaintLookupOption>());
+	var informs = (IReadOnlyList<CustomerComplaintController.ComplaintLookupOption>)(ViewBag.InformReceives ?? new List<CustomerComplaintController.ComplaintLookupOption>());
+	var results = (IReadOnlyList<CustomerComplaintController.ComplaintLookupOption>)(ViewBag.HandlingResults ?? new List<CustomerComplaintController.ComplaintLookupOption>());
+	var agencies = (IReadOnlyList<CustomerComplaintController.ComplaintLookupOption>)(ViewBag.Agencies ?? new List<CustomerComplaintController.ComplaintLookupOption>());
+	var orgUnits = (IReadOnlyList<CustomerComplaintController.ComplaintLookupOption>)(ViewBag.OrgUnits ?? new List<CustomerComplaintController.ComplaintLookupOption>());
+	var handlingIds = (Model?.HandlingResultIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+	var mainIds = (Model?.MainSubjectsIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+	var subjectGroups = subjects.GroupBy(s => string.IsNullOrWhiteSpace(s.Group) ? "" : s.Group).OrderBy(g => g.Key);
+}
+
+<div id="customerComplaintForm">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="moduleTypeId" value="@(Model?.ModuleTypeId > 0 ? Model.ModuleTypeId : ComplaintRules.ModuleCustomerComplaint)" />
+	<input type="hidden" id="complaintReceiverText" data-bind="complaintReceiver" value="@Model?.ComplaintReceiver" />
+	<div class="card shadow-sm border-0 mb-3">
+		<div class="form-action-buttons border-bottom p-3">
+			<form-action-buttons entity-type="typeof(CustomerComplaint)"></form-action-buttons>
+		</div>
+	</div>
+	<div class="card shadow-sm border-0 my-2">
+		<div class="card-body row">
+		<span class="section-box-title">مشخصات کلی</span>
+			<div class="col-md-6 form-group-inline">
+				<label>نوع</label>
+				<select class="form-control" id="ownerType" data-bind="ownerType" asp-for="OwnerType" asp-items="Html.GetEnumSelectList(typeof(ComplaintOwnerTypeEnum))" data-action="ownerTypeChanged">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>شماره سریال</label>
+				<input class="form-control" data-bind="serialNumber" value="@Model?.SerialNumber" readonly />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>نوع مشتری</label>
+				<select class="form-control" data-bind="customerType" asp-for="CustomerType" asp-items="Html.GetEnumSelectList(typeof(ComplaintCustomerTypeEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>مشتری</label>
+				@(Html.EntitySelector<Customer>(
+					"complaintCustomer",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Party_FullName = c.Party.FullName, Code = c.Code },
+					c => new { c.Party.FullName, c.Code },
+					"{Party.FullName} {Code}",
+					"customerId",
+					null,
+					Model?.CustomerId?.ToString()))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>مشتری</label>
+				<input class="form-control" id="complaintCustomerTitle" data-bind="customerTitle" value="@Model?.CustomerTitle" maxlength="100" />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>ارسال به کارتابل</label>
+				@(Html.EntitySelector<User>(
+					"complaintViewers",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, NameFa = c.NameFa, Username = c.Username },
+					c => new { c.NameFa, c.Username },
+					"{NameFa} {Username}",
+					"viewersIds",
+					null,
+					Model?.ViewersIds,
+					multiSelect: true,
+					placeholder: "انتخاب نمایید"))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="required">تاریخ تکمیل</label>
+				<input class="form-control ltr" data-bind="completionShamsiDate" data-required="true" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}'
+					   value="@(Model?.CompletionMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>آدرس</label>
+				<textarea class="form-control" data-bind="address" rows="3">@Model?.Address</textarea>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>اطلاعات تماس</label>
+				<div class="d-flex justify-content-end mb-2">
+					<button type="button" class="btn btn-sm btn-primary" data-action="newComplaintContact">افزودن</button>
+				</div>
+				<table class="table table-bordered table-striped table-row-bordered w-100 mb-0" id="complaintContactTable">
+					<thead>
+						<tr>
+							<th>پیش شماره</th>
+							<th>تلفن</th>
+							<th>موبایل</th>
+							<th>پاسخ دهنده</th>
+							<th>شغل پاسخ دهنده</th>
+							<th>کامنت</th>
+							<th style="width:110px;">عملیات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>دریافت کننده شکایت</label>
+				@(Html.EntitySelector<Personel>(
+					"complaintReceiverPersonel",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+					c => new { c.Name, c.Family },
+					"{Name} {Family}",
+					"complaintReceiverPersonelId",
+					null,
+					Model?.ComplaintReceiverPersonelId?.ToString(),
+					placeholder: "انتخاب نمایید"))
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>ارائه کننده شکایت</label>
+				<input class="form-control" data-bind="complaintPresenter" value="@Model?.ComplaintPresenter" maxlength="128" />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="required">واحد سازمانی</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"complaintOrgUnits",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"organizationUnitIds",
+					"organizationUnitInText",
+					Model?.OrganizationUnitIds,
+					required: true,
+					multiSelect: true,
+					placeholder: "انتخاب نمایید"))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="required">کارشناس / مدیر</label>
+				@(Html.EntitySelector<Personel>(
+					"complaintExperts",
+					c => c.IsActive == IsActiveEnum.Active,
+					c => new { Id = c.Id, Name = c.Name, Family = c.Family },
+					c => new { c.Name, c.Family },
+					"{Name} {Family}",
+					"expertOrManagerIds",
+					"expertOrManagerInText",
+					Model?.ExpertOrManagerIds,
+					required: true,
+					multiSelect: true,
+					placeholder: "انتخاب نمایید"))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="required">اولویت</label>
+				<select class="form-control" data-bind="priority" data-required="true" asp-for="Priority" asp-items="Html.GetEnumSelectList(typeof(ComplaintPriorityEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>کد رهگیری</label>
+				<input class="form-control" data-bind="trackingCode" value="@Model?.TrackingCode" readonly />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label class="required">کانال ارتباطی</label>
+				<select class="form-control" id="communicationChannelId" data-bind="communicationChannelId" data-required="true" data-action="channelChanged">
+					<option value="">انتخاب نمایید</option>
+					@foreach (var item in channels)
+					{
+						if (Model?.CommunicationChannelId == item.Id)
+						{
+							<option value="@item.Id" data-hts="@item.HtsId" selected>@item.Title</option>
+						}
+						else
+						{
+							<option value="@item.Id" data-hts="@item.HtsId">@item.Title</option>
+						}
+					}
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>نوع شکایت</label>
+				<select class="form-control" data-bind="complaintType" asp-for="ComplaintType" asp-items="Html.GetEnumSelectList(typeof(ComplaintImportanceEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+		</div>
+	</div>
+
+	<div class="card shadow-sm border-0 my-2">
+		<div class="card-body row">
+		<span class="section-box-title">شکایت</span>
+			<div class="col-md-6 form-group-inline">
+				<label>موضوع کلی شکایت</label>
+				<select class="form-control" id="generalComplaintSubject" data-bind="generalComplaintSubject" asp-for="GeneralComplaintSubject" asp-items="Html.GetEnumSelectList(typeof(ComplaintGeneralSubjectEnum))" data-action="generalChanged">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>
+					<span id="processTitleLabel" class="d-none">عنوان فرآیند</span>
+					<span id="partLabel">کالا</span>
+				</label>
+				<input class="form-control d-none" id="generalComplaintSubjectTitle" data-bind="generalComplaintSubjectTitle" value="@Model?.GeneralComplaintSubjectTitle" maxlength="128" />
+				<div id="partRow">
+					@(Html.EntitySelector<Part>(
+						"complaintPart",
+						c => c.IsActive == IsActiveEnum.Active,
+						c => new { Id = c.Id, Code = c.Code, Name = c.Name },
+						c => new { c.Code, c.Name },
+						"{Code} {Name}",
+						"partId",
+						null,
+						Model?.PartId?.ToString(),
+						placeholder: "انتخاب نمایید"))
+				</div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>موضوع اصلی شکایت</label>
+				<div>
+				<select class="form-control" id="mainSubjects" multiple data-action="mainSubjectsChanged">
+					@foreach (ComplaintMainSubjectEnum item in Enum.GetValues(typeof(ComplaintMainSubjectEnum)))
+					{
+						var value = ((short)item).ToString();
+						var name = item.GetType().GetField(item.ToString())?.GetCustomAttributes(typeof(System.ComponentModel.DataAnnotations.DisplayAttribute), false).Cast<System.ComponentModel.DataAnnotations.DisplayAttribute>().FirstOrDefault()?.Name ?? item.ToString();
+						if (mainIds.Contains(value))
+						{
+							<option value="@value" selected>@name</option>
+						}
+						else
+						{
+							<option value="@value">@name</option>
+						}
+					}
+				</select>
+				</div>
+				<input type="hidden" id="mainSubjectsIds" data-bind="mainSubjectsIds" value="@Model?.MainSubjectsIds" />
+				<input type="hidden" id="mainSubjectsInText" data-bind="mainSubjectsInText" value="@Model?.MainSubjectsInText" />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="required">موضوع شکایت</label>
+				<div class="d-flex gap-2">
+					<select class="form-control" id="complaintSubjectId" data-bind="complaintSubjectId" data-required="true" data-action="subjectChanged">
+						<option value="">انتخاب نمایید</option>
+						@foreach (var group in subjectGroups)
+						{
+							<optgroup label="@group.Key">
+								@foreach (var item in group)
+								{
+									if (Model?.ComplaintSubjectId == item.Id)
+									{
+										<option value="@item.Id" data-hts="@item.HtsId" selected>@item.Title</option>
+									}
+									else
+									{
+										<option value="@item.Id" data-hts="@item.HtsId">@item.Title</option>
+									}
+								}
+							</optgroup>
+						}
+					</select>
+					<button type="button" class="btn btn-sm btn-primary text-nowrap" data-action="addRaisedSubject">افزودن</button>
+				</div>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline d-none" id="agencyRow">
+				<label>نمایندگی خاطی</label>
+				<select class="form-control" id="agencyId" data-bind="agencyId">
+					<option value="">انتخاب نمایید</option>
+					@foreach (var item in agencies)
+					{
+						if (Model?.AgencyId == item.Id)
+						{
+							<option value="@item.Id" selected>@item.Title</option>
+						}
+						else
+						{
+							<option value="@item.Id">@item.Title</option>
+						}
+					}
+				</select>
+			</div>
+			<div class="col-md-12 form-group-inline d-none" id="compressorRow">
+				<label>نقص فنی کمپرسور</label>
+				<select class="form-control" id="compressorFailure" data-bind="compressorFailure" asp-for="CompressorFailure" asp-items="Html.GetEnumSelectList(typeof(ComplaintCompressorFailureEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>موضوع</label>
+				<input class="form-control" id="raisedSubjects" data-bind="raisedSubjects" value="@Model?.RaisedSubjects" />
+				<input type="hidden" id="raisedSubjectIds" data-bind="raisedSubjectIds" value="@Model?.RaisedSubjectIds" />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>شرح شکایت</label>
+				<textarea class="form-control" data-bind="complaintDescription" rows="3">@Model?.ComplaintDescription</textarea>
+			</div>
+		</div>
+	</div>
+
+	<div class="card shadow-sm border-0 my-2">
+		<div class="card-body row">
+		<span class="section-box-title">رسیدگی اولیه</span>
+			<div class="col-md-6 form-group-inline">
+				<label>قابلیت تکرار</label>
+				<input type="checkbox" class="form-check-input" data-bind="repeatability" @(Model?.Repeatability == true ? "checked" : "") />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>بار مالی</label>
+				<input type="checkbox" class="form-check-input" data-bind="hasFinancialLoad" @(Model?.HasFinancialLoad == true ? "checked" : "") />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>فوریت رسیدگی</label>
+				<input type="checkbox" class="form-check-input" data-bind="hasUrgencyHandling" @(Model?.HasUrgencyHandling == true ? "checked" : "") />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>پیچیدگی</label>
+				<input type="checkbox" class="form-check-input" data-bind="hasComplexity" @(Model?.HasComplexity == true ? "checked" : "") />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>اطلاع رسانی به شاکی جهت دریافت شکایت</label>
+				<select class="form-control" id="informForReceiveComplaintId" data-bind="informForReceiveComplaintId" data-action="informChanged">
+					<option value="">انتخاب نمایید</option>
+					@foreach (var item in informs)
+					{
+						if (Model?.InformForReceiveComplaintId == item.Id)
+						{
+							<option value="@item.Id" data-hts="@item.HtsId" selected>@item.Title</option>
+						}
+						else
+						{
+							<option value="@item.Id" data-hts="@item.HtsId">@item.Title</option>
+						}
+					}
+				</select>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>شرح اقدامات</label>
+				<textarea class="form-control" data-bind="actionsDescription" rows="3">@Model?.ActionsDescription</textarea>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label class="required">وضعیت فعلی شکایت</label>
+				<select class="form-control" data-bind="complaintStatus" data-required="true" asp-for="ComplaintStatus" asp-items="Html.GetEnumSelectList(typeof(ComplaintStatusEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>اقدامات</label>
+				<div class="d-flex justify-content-end mb-2">
+					<button type="button" class="btn btn-sm btn-primary" data-action="newComplaintAction">افزودن</button>
+				</div>
+				<table class="table table-bordered table-striped table-row-bordered w-100 mb-0" id="complaintActionTable">
+					<thead>
+						<tr>
+							<th>تاریخ اقدام</th>
+							<th>شرح اقدام</th>
+							<th>تاریخ اقدام بعدی</th>
+							<th>توضیحات اقدام بعدی</th>
+							<th style="width:110px;">عملیات</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	<div class="card shadow-sm border-0 my-2">
+		<div class="card-body row">
+		<span class="section-box-title">رسیدگی نهایی</span>
+			<div class="col-md-12 form-group-inline">
+				<label>توضیحات</label>
+				<textarea class="form-control" data-bind="finalHandlingDescription" rows="3">@Model?.FinalHandlingDescription</textarea>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>نتیجه رسیدگی</label>
+				<div>
+				<select class="form-control" id="handlingResults" multiple data-action="handlingChanged">
+					@foreach (var item in results)
+					{
+						if (handlingIds.Contains(item.Id.ToString()))
+						{
+							<option value="@item.Id" data-hts="@item.HtsId" selected>@item.Title</option>
+						}
+						else
+						{
+							<option value="@item.Id" data-hts="@item.HtsId">@item.Title</option>
+						}
+					}
+				</select>
+				</div>
+				<input type="hidden" id="handlingResultIds" data-bind="handlingResultIds" value="@Model?.HandlingResultIds" />
+				<input type="hidden" id="handlingResultIdsInText" data-bind="handlingResultIdsInText" value="@Model?.HandlingResultIdsInText" />
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>اطلاع رسانی به شاکی</label>
+				<select class="form-control" data-bind="informComplainant" asp-for="InformComplainant" asp-items="Html.GetEnumSelectList(typeof(ComplaintInformComplainantEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+			<div class="col-md-6 form-group-inline">
+				<label>رضایت شاکی</label>
+				<select class="form-control" data-bind="complaintConsent" asp-for="ComplaintConsent" asp-items="Html.GetEnumSelectList(typeof(ComplaintConsentEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+			</div>
+		</div>
+	</div>
+
+	<div class="card shadow-sm border-0 my-2">
+		<div class="card-body row">
+		<span class="section-box-title">ارائه به مدیر عامل</span>
+			<div class="col-md-6 form-group-inline">
+				<label class="required">وضعیت نهایی شکایت</label>
+				<select class="form-control" data-bind="finalComplaintStatus" data-required="true" asp-for="FinalComplaintStatus" asp-items="Html.GetEnumSelectList(typeof(ComplaintFinalStatusEnum))">
+					<option value="">انتخاب نمایید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>توضیحات</label>
+				<textarea class="form-control" data-bind="managerDescription" rows="3">@Model?.ManagerDescription</textarea>
+			</div>
+		</div>
+	</div>
+
+	<div class="card shadow-sm border-0 my-2">
+		<div class="card-body row">
+		<span class="section-box-title">بررسی علل تاخیر</span>
+			<div class="col-md-6 form-group-inline">
+				<label>تاریخ بسته شدن شکایت</label>
+				<input class="form-control ltr" data-bind="complaintClosingShamsiDate" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}'
+					   value="@(Model?.ComplaintClosingMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>علت تاخیر/توقف</label>
+				<textarea class="form-control" data-bind="delayReason" rows="3">@Model?.DelayReason</textarea>
+			</div>
+		</div>
+	</div>
+
+		<select id="lookupOrgUnits" class="d-none">
+			<option value="">انتخاب نمایید</option>
+			@foreach (var item in orgUnits)
+			{
+				<option value="@item.Id">@item.Title</option>
+			}
+		</select>
+</div>
+<script>
+	let complaintId = @(Model?.Id ?? 0);
+	const agencySubjectIds = [1154, 2054, 2083, 2521];
+	const havayarType = '@ComplaintRules.OwnerTypeHavayar';
+	let contacts = [];
+	let actions = [];
+	let rowKey = 1;
+
+	function selectedHts(selector) {
+		return Number($$(selector).find('option:selected').data('hts') || 0);
+	}
+
+	function setCustomerMode() {
+		const type = String($$('#ownerType').val() || '');
+		const $customer = $$('#complaintCustomer');
+		const $title = $$('#complaintCustomerTitle');
+		if (type === havayarType) {
+			$customer.css({ pointerEvents: '', opacity: '' });
+			$title.val('').prop('disabled', true);
+		} else if (type) {
+			$customer.css({ pointerEvents: 'none', opacity: '0.65' });
+			$customer.find('[data-bind="customerId"]').val('');
+			$customer.find('.entity-selector-input').val('');
+			$customer.find('.entity-chip').remove();
+			$title.prop('disabled', false);
+		} else {
+			$customer.css({ pointerEvents: '', opacity: '' });
+			$title.prop('disabled', false);
+		}
+	}
+
+	function applySubjectRules(openLookup) {
+		const hts = selectedHts('#complaintSubjectId');
+		if (openLookup && hts === 1156) {
+			openAddLookup(174);
+			return;
+		}
+		$$('#agencyRow').toggleClass('d-none', agencySubjectIds.indexOf(hts) < 0);
+		$$('#compressorRow').toggleClass('d-none', hts !== 1155);
+	}
+
+	function applyGeneralRules(clearValues) {
+		const value = String($$('#generalComplaintSubject').val() || '');
+		const showPart = !value || value === '1495' || value === '1775';
+		const showTitle = value !== '' && value !== '1495';
+		$$('#partLabel, #partRow').toggleClass('d-none', !showPart);
+		$$('#processTitleLabel, #generalComplaintSubjectTitle').toggleClass('d-none', !showTitle);
+		if (!clearValues) return;
+		if (!showTitle) $$('#generalComplaintSubjectTitle').val('');
+		if (!showPart) {
+			$$('#complaintPart [data-bind="partId"]').val('');
+			$$('#complaintPart .entity-selector-input').val('');
+		}
+	}
+
+	function syncMulti(selectId, idsBind, textBind) {
+		const $sel = $$(selectId);
+		const values = $sel.val() || [];
+		const list = Array.isArray(values) ? values : [values];
+		$$(idsBind).val(list.filter(Boolean).join(','));
+		const texts = $sel.find('option:selected').map(function () { return $(this).text(); }).get();
+		$$(textBind).val(texts.join('، '));
+	}
+
+	function openAddLookup(typeId) {
+		const needOrg = typeId === 174;
+		const orgHtml = needOrg ? '<div class="mb-2"><label>واحد سازمانی</label><select class="form-control" id="newLookupOrg">' + $$('#lookupOrgUnits').html() + '</select></div>' : '';
+		$.confirm({
+			title: 'افزودن',
+			rtl: true,
+			content: '<div class="mb-2"><label>عنوان</label><input class="form-control" id="newLookupTitle" maxlength="50" /></div>' + orgHtml,
+			buttons: {
+				save: {
+					text: 'افزودن',
+					btnClass: 'btn-primary',
+					action: function () {
+						const title = this.$content.find('#newLookupTitle').val();
+						const orgUnitId = needOrg ? this.$content.find('#newLookupOrg').val() : null;
+						const orgText = needOrg ? this.$content.find('#newLookupOrg option:selected').text() : '';
+						if (!title) {
+							toastr.error('عنوان را وارد کنید');
+							return false;
+						}
+						const selfConfirm = this;
+						$$.post('/Panel/Crm/CustomerComplaint/AddLookup', { lookupType: typeId, title: title, orgUnitId: orgUnitId }, function (resp) {
+							if (!resp.isSuccess) {
+								toastr.error(resp.message || 'خطا', 'خطا');
+								return;
+							}
+							const row = resp.data;
+							const option = '<option value="' + row.id + '" data-hts="' + (row.htsId || 0) + '">' + row.title + '</option>';
+							if (typeId === 173) $$('#communicationChannelId').append(option).val(row.id);
+							else if (typeId === 174) {
+								const $sel = $$('#complaintSubjectId');
+								let $group = $sel.find('optgroup').filter(function () { return $(this).attr('label') === orgText; });
+								if (!$group.length) {
+									$group = $$('<optgroup></optgroup>').attr('label', orgText);
+									$sel.append($group);
+								}
+								$group.append(option);
+								$sel.val(String(row.id));
+							} else if (typeId === 177) $$('#informForReceiveComplaintId').append(option).val(row.id);
+							else $$('#handlingResults').append(option).trigger('change');
+							selfConfirm.close();
+						});
+						return false;
+					}
+				},
+				cancel: { text: 'انصراف' }
+			}
+		});
+	}
+
+	function esc(value) {
+		return $('<div>').text(value == null ? '' : value).html();
+	}
+
+	function renderContacts() {
+		const $body = $$('#complaintContactTable tbody');
+		$body.empty();
+		contacts.filter(function (row) { return !row._deleted; }).forEach(function (row) {
+			$body.append('<tr>'
+				+ '<td>' + esc(row.prePhoneNumber) + '</td>'
+				+ '<td>' + esc(row.phoneNumber) + '</td>'
+				+ '<td>' + esc(row.mobileNumber) + '</td>'
+				+ '<td>' + esc(row.responserFullName) + '</td>'
+				+ '<td>' + esc(row.responserJob) + '</td>'
+				+ '<td>' + esc(row.comment) + '</td>'
+				+ '<td class="text-center">'
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editComplaintContact" data-key="' + row._key + '"><i class="fa fa-edit"></i></button> '
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteComplaintContact" data-key="' + row._key + '"><i class="fa fa-trash"></i></button>'
+				+ '</td></tr>');
+		});
+	}
+
+	function renderActions() {
+		const $body = $$('#complaintActionTable tbody');
+		$body.empty();
+		actions.filter(function (row) { return !row._deleted; }).forEach(function (row) {
+			$body.append('<tr>'
+				+ '<td>' + esc(row.actionShamsiDate) + '</td>'
+				+ '<td>' + esc(row.actionDescription) + '</td>'
+				+ '<td>' + esc(row.nextActionShamsiDate) + '</td>'
+				+ '<td>' + esc(row.nextActionDescription) + '</td>'
+				+ '<td class="text-center">'
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editComplaintAction" data-key="' + row._key + '"><i class="fa fa-edit"></i></button> '
+				+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteComplaintAction" data-key="' + row._key + '"><i class="fa fa-trash"></i></button>'
+				+ '</td></tr>');
+		});
+	}
+
+	function contactForm(row) {
+		row = row || {};
+		return '<div class="row">'
+			+ '<div class="col-md-4 form-group-inline"><label>پیش شماره</label><input class="form-control" data-bind="prePhoneNumber" value="' + esc(row.prePhoneNumber) + '" /></div>'
+			+ '<div class="col-md-4 form-group-inline"><label>تلفن</label><input class="form-control" data-bind="phoneNumber" value="' + esc(row.phoneNumber) + '" /></div>'
+			+ '<div class="col-md-4 form-group-inline"><label>موبایل</label><input class="form-control" data-bind="mobileNumber" value="' + esc(row.mobileNumber) + '" /></div>'
+			+ '<div class="col-md-6 form-group-inline"><label>پاسخ دهنده</label><input class="form-control" data-bind="responserFullName" value="' + esc(row.responserFullName) + '" /></div>'
+			+ '<div class="col-md-6 form-group-inline"><label>شغل پاسخ دهنده</label><input class="form-control" data-bind="responserJob" value="' + esc(row.responserJob) + '" /></div>'
+			+ '<div class="col-md-12 form-group-inline"><label>کامنت</label><textarea class="form-control" data-bind="comment" rows="2">' + esc(row.comment) + '</textarea></div>'
+			+ '</div>';
+	}
+
+	function actionForm(row) {
+		row = row || {};
+		const actionValue = row.actionMiladiDate ? String(row.actionMiladiDate).substring(0, 10) : '';
+		const nextValue = row.nextActionMiladiDate ? String(row.nextActionMiladiDate).substring(0, 10) : '';
+		return '<div class="row">'
+			+ '<div class="col-md-6 form-group-inline"><label class="required">تاریخ اقدام</label><input class="form-control" data-bind="actionShamsiDate" data-required="true" data-persionDatePicker="true" persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}\' value="' + esc(actionValue) + '" /></div>'
+			+ '<div class="col-md-6 form-group-inline"><label>تاریخ اقدام بعدی</label><input class="form-control" data-bind="nextActionShamsiDate" data-persionDatePicker="true" persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false}\' value="' + esc(nextValue) + '" /></div>'
+			+ '<div class="col-md-12 form-group-inline"><label class="required">شرح اقدام</label><textarea class="form-control" data-bind="actionDescription" data-required="true" rows="3">' + esc(row.actionDescription) + '</textarea></div>'
+			+ '<div class="col-md-12 form-group-inline"><label>توضیحات اقدام بعدی</label><textarea class="form-control" data-bind="nextActionDescription" rows="2">' + esc(row.nextActionDescription) + '</textarea></div>'
+			+ '</div>';
+	}
+
+	function openRowModal(kind, key) {
+		const list = kind === 'action' ? actions : contacts;
+		const current = key ? list.find(function (row) { return row._key === key; }) : null;
+		$.confirm({
+			title: kind === 'action' ? 'اقدام' : 'اطلاعات تماس',
+			rtl: true,
+			columnClass: 'col-md-8',
+			content: kind === 'action' ? actionForm(current) : contactForm(current),
+			onContentReady: function () {
+				if (kind === 'action' && typeof initPersionDatePicker === 'function')
+					initPersionDatePicker(this.$content);
+			},
+			buttons: {
+				save: {
+					text: 'ذخیره',
+					btnClass: 'btn-primary',
+					action: function () {
+						const $content = this.$content;
+						if (validateError($content)) return false;
+						const model = $content.dataBind();
+						if (current) {
+							const comment = current.comment;
+							Object.assign(current, model);
+							if (kind === 'action') current.comment = comment;
+						} else {
+							model._key = rowKey++;
+							list.push(model);
+						}
+						if (kind === 'action') renderActions();
+						else renderContacts();
+					}
+				},
+				cancel: { text: 'انصراف' }
+			}
+		});
+	}
+
+	function runQueue(steps, done) {
+		const next = function () {
+			if (!steps.length) {
+				done(true);
+				return;
+			}
+			steps.shift()(next);
+		};
+		next();
+	}
+
+	function persistChildren(parentId, done) {
+		let failed = false;
+		const steps = [];
+		function pushDelete(url) {
+			steps.push(function (next) {
+				$$.get(url, function () { next(); });
+			});
+		}
+		function pushSave(url, row) {
+			steps.push(function (next) {
+				const payload = Object.assign({}, row, { complaintId: parentId });
+				delete payload._key;
+				delete payload._deleted;
+				$$.post(url, payload, function (resp) {
+					if (!resp.isSuccess) {
+						failed = true;
+						toastr.error(resp.message || 'خطا در ذخیره ردیف', 'خطا');
+						done(false);
+						return;
+					}
+					next();
+				});
+			});
+		}
+		contacts.filter(function (row) { return row._deleted && row.id; }).forEach(function (row) {
+			pushDelete('/Panel/Crm/CustomerComplaintContact/Delete?id=' + row.id);
+		});
+		contacts.filter(function (row) { return !row._deleted; }).forEach(function (row) {
+			pushSave('/Panel/Crm/CustomerComplaintContact/save', row);
+		});
+		actions.filter(function (row) { return row._deleted && row.id; }).forEach(function (row) {
+			pushDelete('/Panel/Crm/CustomerComplaintAction/Delete?id=' + row.id);
+		});
+		actions.filter(function (row) { return !row._deleted; }).forEach(function (row) {
+			pushSave('/Panel/Crm/CustomerComplaintAction/save', row);
+		});
+		runQueue(steps, done);
+	}
+
+	function loadChildren() {
+		if (!(complaintId > 0)) return;
+		$$.get('/Panel/Crm/CustomerComplaintContact/GetListByParentId?complaintId=' + complaintId, function (resp) {
+			contacts = ((resp && resp.data) || []).map(function (row) { row._key = rowKey++; return row; });
+			renderContacts();
+		});
+		$$.get('/Panel/Crm/CustomerComplaintAction/GetListByParentId?complaintId=' + complaintId, function (resp) {
+			actions = ((resp && resp.data) || []).map(function (row) { row._key = rowKey++; return row; });
+			renderActions();
+		});
+	}
+
+	function savefn($btnAction) {
+		syncMulti('#handlingResults', '#handlingResultIds', '#handlingResultIdsInText');
+		syncMulti('#mainSubjects', '#mainSubjectsIds', '#mainSubjectsInText');
+		const receiverName = $$('#complaintReceiverPersonel .entity-selector-input').val();
+		if (receiverName) $$('#complaintReceiverText').val(receiverName);
+		if (validateError(page.$pageEl)) return;
+		const wasNew = !$$('#customerComplaintForm [data-bind="id"]').val();
+		const model = page.$pageEl.dataBind();
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			if (!r.isSuccess) {
+				$btn.block(false);
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			const savedId = (r.data && r.data.id) || model.id;
+			persistChildren(savedId, function (ok) {
+				$btn.block(false);
+				if (!ok) return;
+				toastr.success('ذخیره سازی با موفقیت انجام شد');
+				if (wasNew && savedId) {
+					appController.addPage('/Panel/Crm/CustomerComplaint/Edit?id=' + savedId);
+					return;
+				}
+				page.$pageEl.dataBind(r.data);
+				complaintId = savedId;
+				loadChildren();
+				$btnAction.baseaction();
+			});
+		});
+	}
+
+	$$('#mainSubjects, #handlingResults').select2({
+		width: '100%',
+		dir: 'rtl',
+		placeholder: 'انتخاب نمایید',
+		closeOnSelect: false
+	});
+
+	setCustomerMode();
+	applyGeneralRules(false);
+	applySubjectRules(false);
+	loadChildren();
+
+	page.$pageEl.on('change', '[data-action="ownerTypeChanged"]', setCustomerMode);
+	page.$pageEl.on('change', '[data-action="subjectChanged"]', function () { applySubjectRules(true); });
+	page.$pageEl.on('change', '[data-action="generalChanged"]', function () { applyGeneralRules(true); });
+	page.$pageEl.on('change', '[data-action="channelChanged"]', function () {
+		if (selectedHts('#communicationChannelId') === 1134) openAddLookup(173);
+	});
+	page.$pageEl.on('change', '[data-action="informChanged"]', function () {
+		if (selectedHts('#informForReceiveComplaintId') === 1167) openAddLookup(177);
+	});
+	page.$pageEl.on('change', '[data-action="handlingChanged"]', function () {
+		const selected = $$(this).find('option:selected');
+		if (selected.length === 1 && Number($(selected[0]).data('hts')) === 1177) openAddLookup(179);
+		syncMulti('#handlingResults', '#handlingResultIds', '#handlingResultIdsInText');
+	});
+	page.$pageEl.on('change', '[data-action="mainSubjectsChanged"]', function () {
+		syncMulti('#mainSubjects', '#mainSubjectsIds', '#mainSubjectsInText');
+	});
+	page.$pageEl.on('click', '[data-action="addRaisedSubject"]', function () {
+		const $opt = $$('#complaintSubjectId option:selected');
+		if (!$opt.val()) {
+			toastr.error('موضوع شکایت را انتخاب کنید');
+			return;
+		}
+		let text = $opt.text();
+		let id = $opt.val();
+		if (!$$('#agencyRow').hasClass('d-none')) {
+			if (!$$('#agencyId').val()) {
+				toastr.error('نمایندگی خاطی را انتخاب کنید');
+				return;
+			}
+			text += '-' + $$('#agencyId option:selected').text();
+			id = $$('#agencyId').val();
+		} else if (!$$('#compressorRow').hasClass('d-none')) {
+			if (!$$('#compressorFailure').val()) {
+				toastr.error('نقص فنی کمپرسور را انتخاب کنید');
+				return;
+			}
+			text += '-' + $$('#compressorFailure option:selected').text();
+			id = $$('#compressorFailure').val();
+		}
+		const current = $$('#raisedSubjects').val();
+		$$('#raisedSubjects').val(current ? current + '، ' + text : text);
+		const ids = $$('#raisedSubjectIds').val();
+		$$('#raisedSubjectIds').val(ids ? ids + ',' + id : id);
+	});
+	page.$pageEl.on('click', '[data-action="newComplaintContact"]', function () { openRowModal('contact'); });
+	page.$pageEl.on('click', '[data-action="editComplaintContact"]', function () { openRowModal('contact', $(this).data('key')); });
+	page.$pageEl.on('click', '[data-action="deleteComplaintContact"]', function () {
+		const key = $(this).data('key');
+		const row = contacts.find(function (item) { return item._key === key; });
+		if (!row) return;
+		if (row.id) row._deleted = true;
+		else contacts = contacts.filter(function (item) { return item._key !== key; });
+		renderContacts();
+	});
+	page.$pageEl.on('click', '[data-action="newComplaintAction"]', function () { openRowModal('action'); });
+	page.$pageEl.on('click', '[data-action="editComplaintAction"]', function () { openRowModal('action', $(this).data('key')); });
+	page.$pageEl.on('click', '[data-action="deleteComplaintAction"]', function () {
+		const key = $(this).data('key');
+		const row = actions.find(function (item) { return item._key === key; });
+		if (!row) return;
+		if (row.id) row._deleted = true;
+		else actions = actions.filter(function (item) { return item._key !== key; });
+		renderActions();
+	});
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

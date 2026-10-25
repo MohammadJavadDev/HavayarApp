@@ -124,5 +124,10 @@ namespace Entities.App.SLS
 		[DisplayName("نسخه راهکاران")]
 		[DisplayInfo(null, true, type: SystemType.Long)]
 		public long? RahkaranVersion { get; set; }
+
+
+		[DisplayName("شناسه HTS")]
+		[DisplayInfo(null, false, type: SystemType.Long)]
+		public long? HtsId { get; set; }
 	}
 }

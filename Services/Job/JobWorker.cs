@@ -56,7 +56,8 @@ namespace Services.Job
 			var dueJobs = db.JobSchedules
 			    .Where(s => s.IsActive && s.NextRunTime <= DateTime.Now
 			    && 
-			    s.LastStatus != JobStatus.Running && s.LastStatus != JobStatus.Error)
+			    s.LastStatus != JobStatus.Running
+			    && (s.LastStatus != JobStatus.Error || s.ContinueOnError))
 			    .ToList();
 
 			foreach (var schedule in dueJobs)

@@ -1,0 +1,30 @@
+@using Common.Utilities
+@using Entities.App.Hrm.Enums
+
+<div class="row g-3">
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold">نام</label>
+		<input class="form-control" data-bind="name" maxlength="50" />
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold required">نام خانوادگی</label>
+		<input class="form-control" data-bind="family" data-required="true" maxlength="50" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold required">نوع وسیله نقلیه</label>
+		<select class="form-control" data-bind="carType" data-required="true">
+			<option value="">لطفا انتخاب کنید</option>
+			@foreach (var v in Enum.GetValues<GuardVehicleTypeEnum>())
+			{
+				<option value="@((int)v)">@v.ToDisplay()</option>
+			}
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-6 form-group-inline">
+		<label class="form-label fw-bold required">وسیله نقلیه</label>
+		<input class="form-control" data-bind="carName" data-required="true" maxlength="50" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

@@ -1,0 +1,201 @@
+@using Entities.App.Qc
+@{
+	var parentId = (long)ViewBag.ParentId;
+	var orderNumber = ViewBag.ProductionOrderNumber;
+}
+<div class="card" id="productInspectionAttachmentCard">
+	<div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+		<h5 class="mb-0 fw-bold">پیوست مدارک @(orderNumber == null ? "" : " - " + orderNumber)</h5>
+		<div class="d-flex gap-2">
+			<button type="button" class="btn btn-sm btn-primary" data-action="newAttachment">جدید</button>
+			<button type="button" class="btn btn-sm btn-danger" data-action="deleteAttachment" disabled>حذف</button>
+			<button type="button" class="btn btn-sm btn-info" data-action="viewAttachment" disabled>مشاهده</button>
+		</div>
+	</div>
+	<div class="card-body">
+		<table class="table table-striped table-row-bordered gy-2 w-100" id="productInspectionAttachmentTable">
+			<thead>
+				<tr class="fw-bold fs-6 text-muted">
+					<th>عنوان فایل پیوست</th>
+					<th>سایز فایل</th>
+					<th>کاربر</th>
+					<th>تاریخ ایجاد</th>
+					<th>زمان ایجاد</th>
+					<th>توضیحات پیوست</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</div>
+</div>
+<script>
+	const productInspectionAttachmentParentId = @parentId;
+	let selectedAttachment = null;
+
+	function attachmentCreatedParts(value) {
+		if (!value) return { date: '', time: '' };
+		const parts = String(value).split(' ');
+		return { date: parts[0] || '', time: (parts[1] || '').substring(0, 5) };
+	}
+
+	function setAttachmentButtons() {
+		const hasRow = !!(selectedAttachment && selectedAttachment.id);
+		$$('#productInspectionAttachmentCard [data-action="deleteAttachment"]').prop('disabled', !hasRow);
+		$$('#productInspectionAttachmentCard [data-action="viewAttachment"]').prop('disabled', !(hasRow && selectedAttachment.fileId));
+	}
+
+	const productInspectionAttachmentTable = $$('#productInspectionAttachmentTable').DataTable({
+		serverSide: false,
+		autoWidth: false,
+		pageLength: 50,
+		language: { url: '/panelLib/plugins/custom/datatables/fa.json' },
+		ajax: {
+			url: '/Panel/Qc/ProductInspectionAttachment/GetListByParentId?productInspectionId=' + productInspectionAttachmentParentId,
+			type: 'GET',
+			dataSrc: function (json) {
+				if (json && json.isSuccess === false) {
+					toastr.error(json.message || 'خطا در دریافت اطلاعات');
+					return [];
+				}
+				return (json && json.data) ? json.data : (Array.isArray(json) ? json : []);
+			}
+		},
+		columns: [
+			{ data: 'fileName', defaultContent: '' },
+			{ data: 'fileSize', defaultContent: '' },
+			{ data: 'createdByName', defaultContent: '' },
+			{
+				data: 'createdOnShamsiDateTime',
+				render: function (data) { return attachmentCreatedParts(data).date; }
+			},
+			{
+				data: 'createdOnShamsiDateTime',
+				render: function (data) { return attachmentCreatedParts(data).time; }
+			},
+			{ data: 'comment', defaultContent: '' }
+		]
+	});
+
+	$$('#productInspectionAttachmentTable tbody').on('click', 'tr', function () {
+		const row = productInspectionAttachmentTable.row(this).data();
+		$$('#productInspectionAttachmentTable tbody tr').removeClass('table-active');
+		if (!row) {
+			selectedAttachment = null;
+			setAttachmentButtons();
+			return;
+		}
+		$(this).addClass('table-active');
+		selectedAttachment = row;
+		setAttachmentButtons();
+	});
+
+	function decodeAttachmentPartial(r) {
+		if (window.appController && typeof appController.decodePartialResponse === 'function')
+			return appController.decodePartialResponse(r);
+		return { html: (typeof r === 'string' ? r : ''), scripts: [] };
+	}
+
+	function openAttachmentModal(id) {
+		const url = id
+			? '/Panel/Qc/ProductInspectionAttachment/Edit?id=' + id + '&productInspectionId=' + productInspectionAttachmentParentId
+			: '/Panel/Qc/ProductInspectionAttachment/New?productInspectionId=' + productInspectionAttachmentParentId;
+		const $trigger = $$('#productInspectionAttachmentCard [data-action="newAttachment"]');
+		$trigger.block();
+		page.getPartialView(url, function (r) {
+			$trigger.block(false);
+			if (!r) {
+				toastr.error('خطا در دریافت فرم', 'خطا');
+				return;
+			}
+			const decoded = decodeAttachmentPartial(r);
+			const $bodyCn = $('<div style="overflow-x:hidden;overflow-y:auto;max-height:70vh;"></div>').append(decoded.html || '');
+			$.confirm({
+				title: id ? 'ویرایش' : 'جدید',
+				columnClass: 'col-md-8',
+				content: $bodyCn,
+				rtl: true,
+				buttons: {
+					save: {
+						text: 'ذخیره',
+						btnClass: 'btn-primary',
+						action: function () {
+							const $content = this.$content;
+							const model = $content.dataBind();
+							const fileIds = [model.fileId, model.fileId2, model.fileId3].filter(function (value) { return value; });
+							if (!id && fileIds.length === 0) {
+								toastr.warning('الصاق فایل نمی تواند خالی باشد');
+								return false;
+							}
+							if (fileIds.length > 3) {
+								toastr.warning('حداکثر ۳ فایل');
+								return false;
+							}
+							const selfConfirm = this;
+							const $saveBtn = $(this.buttons.save.el).block();
+							$$.post('/Panel/Qc/ProductInspectionAttachment/save', model, function (resp) {
+								$saveBtn.block(false);
+								if (!resp.isSuccess) {
+									toastr.error(resp.message || 'خطا در ذخیره', 'خطا');
+									return;
+								}
+								toastr.success('ذخیره سازی با موفقیت انجام شد');
+								selfConfirm.close();
+								selectedAttachment = null;
+								setAttachmentButtons();
+								productInspectionAttachmentTable.ajax.reload(null, false);
+							});
+							return false;
+						}
+					},
+					cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+				},
+				onContentReady: function () {
+					const selfConfirm = this;
+					setTimeout(function () {
+						if (typeof initFileUploaders === 'function')
+							initFileUploaders(selfConfirm.$body);
+					}, 100);
+				}
+			});
+		});
+	}
+
+	$$('#productInspectionAttachmentCard').on('click', '[data-action="newAttachment"]', function () {
+		openAttachmentModal(null);
+	});
+
+	$$('#productInspectionAttachmentTable tbody').on('dblclick', 'tr', function () {
+		if (selectedAttachment && selectedAttachment.id)
+			openAttachmentModal(selectedAttachment.id);
+	});
+
+	$$('#productInspectionAttachmentCard').on('click', '[data-action="deleteAttachment"]', function () {
+		if (!selectedAttachment || !selectedAttachment.id) return;
+		const id = selectedAttachment.id;
+		Swal.fire({
+			title: 'حذف',
+			text: 'آیا از حذف این ردیف مطمئن هستید؟',
+			icon: 'warning',
+			showCancelButton: true,
+			confirmButtonText: 'بله',
+			cancelButtonText: 'خیر'
+		}).then(function (result) {
+			if (!result.isConfirmed) return;
+			$$.get('/Panel/Qc/ProductInspectionAttachment/Delete?id=' + id, function (r) {
+				if (r && r.isSuccess === false) {
+					toastr.error(r.message || 'خطا در حذف');
+					return;
+				}
+				toastr.success('رکورد با موفقیت حذف شد');
+				selectedAttachment = null;
+				setAttachmentButtons();
+				productInspectionAttachmentTable.ajax.reload(null, false);
+			});
+		});
+	});
+
+	$$('#productInspectionAttachmentCard').on('click', '[data-action="viewAttachment"]', function () {
+		if (!selectedAttachment || !selectedAttachment.fileId) return;
+		window.open('/File/download/' + selectedAttachment.fileId, '_blank');
+	});
+</script>

@@ -1,8 +1,10 @@
-/*
+﻿/*
 System_FK=14 report SavedQueries filled from Havayar tables that HTS Gnr_Report System 14 actually reads.
 Idempotent on SavedQuery.Name. See havayar-dataprofile-savedquery.mdc.
 AfterSales_Sale_ServiceRequestPart (گزارش درخواست های پشتیبانی) is owned by
 Seed_SaleServiceRequest_DataProfiles.sql — do not MERGE it here (would wipe ColumnsJson).
+AfterSales_Sale_CustomerDebit (گزارش مانده حساب مشتری) is owned by
+Seed_AfterSales_Sale_CustomerDebit_DataProfile.sql — do not MERGE it here.
 */
 SET NOCOUNT ON;
 DECLARE @Now DATETIME2 = GETDATE();
@@ -18,8 +20,6 @@ DECLARE @Actions NVARCHAR(MAX) = N'[{"dataActionName":"new","enable":false,"titl
          N'SELECT [t1].[Id] AS [t1_Id], [t1].[HokmNumber] AS [t1_HokmNumber], [t2].[Name] AS [t1_ExpertName], [t1].[DispatchShamsiDate] AS [t1_DispatchShamsiDate], [t1].[ReturnShamsiDate] AS [t1_ReturnShamsiDate], [t1].[HaveGuarantee] AS [t1_HaveGuarantee], [t1].[MissionRight] AS [t1_MissionRight], [t1].[BreakfastFee] AS [t1_BreakfastFee], [t1].[LunchFee] AS [t1_LunchFee], [t1].[DinnerFee] AS [t1_DinnerFee] FROM [Sale].[Mission] AS [t1] LEFT JOIN [system].[User] AS [t2] ON [t1].[ExpertId] = [t2].[Id]'),
         (N'AfterSales_Sale_Order', N'گزارش حواله های فروش', N'entities.app.sale.orderdetail',
          N'SELECT [t1].[Id] AS [t1_Id], [t1].[Seq] AS [t1_Seq], [t2].[Code] AS [t1_PartCode], [t2].[Name] AS [t1_PartName], [t1].[Qty] AS [t1_Qty] FROM [Sale].[OrderDetail] AS [t1] LEFT JOIN [Inv].[Part] AS [t2] ON [t1].[PartId] = [t2].[Id]'),
-        (N'AfterSales_Sale_CustomerDebit', N'گزارش مانده حساب مشتری', N'entities.app.sale.collectionclaim',
-         N'SELECT [t1].[Id] AS [t1_Id], [t1].[VchNumber] AS [t1_VchNumber], [t1].[DlTitle] AS [t1_DlTitle], [t1].[Debit] AS [t1_Debit], [t1].[Credit] AS [t1_Credit], [t3].[FullName] AS [t1_CustomerName] FROM [Sale].[CollectionClaim] AS [t1] LEFT JOIN [SLS].[Customer] AS [t2] ON [t1].[CustomerId] = [t2].[Id] LEFT JOIN [Gnr].[Party] AS [t3] ON [t2].[PartyId] = [t3].[Id]'),
         (N'AfterSales_Sale_RepairsReport', N'گزارش شناسنامه تعمیر', N'entities.app.rpr.repairrequest',
          N'SELECT [t1].[Id] AS [t1_Id], [t1].[IdNumber] AS [t1_IdNumber], [t1].[EntryShamsiDate] AS [t1_EntryShamsiDate], [t1].[Status] AS [t1_Status], [t1].[HasDelay] AS [t1_HasDelay], [t1].[HasContractor] AS [t1_HasContractor], [t3].[FullName] AS [t1_CustomerName], [t4].[Code] AS [t1_ProductCode] FROM [Rpr].[RepairRequest] AS [t1] LEFT JOIN [SLS].[Customer] AS [t2] ON [t1].[CustomerId] = [t2].[Id] LEFT JOIN [Gnr].[Party] AS [t3] ON [t2].[PartyId] = [t3].[Id] LEFT JOIN [Inv].[Part] AS [t4] ON [t1].[ProductId] = [t4].[Id]'),
         (N'AfterSales_Sale_EstimateCost', N'گزارش هزینه تقریبی', N'entities.app.rpr.estimatedcost',

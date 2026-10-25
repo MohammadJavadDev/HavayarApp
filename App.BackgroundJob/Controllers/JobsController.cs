@@ -68,6 +68,7 @@ namespace App.BackgroundJob.Controllers
 					DisplayName = def.DisplayName,
 					Description = def.Description,
 					IsActive = schedule?.IsActive ?? false,
+					ContinueOnError = schedule?.ContinueOnError ?? false,
 					IntervalSeconds = schedule?.IntervalSeconds ?? 0,
 					LastStatus = schedule?.LastStatus.ToString() ?? "NoSchedule",
 					LastRunTime = schedule?.LastRunTime,
@@ -84,7 +85,7 @@ namespace App.BackgroundJob.Controllers
 
 		// متد ایجاد زمان‌بندی برای جاب‌های بدون زمان‌بندی
 		[HttpPost]
-		public async Task<IActionResult> CreateSchedule(long jobId, bool isActive, int interval, ScheduleType scheduleType = ScheduleType.Interval, int dailyIntervalDays = 1, string weeklyDays = "", TimeSpan? dailyTime = null, int hourlyMinute = 0)
+		public async Task<IActionResult> CreateSchedule(long jobId, bool isActive, int interval, ScheduleType scheduleType = ScheduleType.Interval, int dailyIntervalDays = 1, string weeklyDays = "", TimeSpan? dailyTime = null, int hourlyMinute = 0, bool continueOnError = false)
 		{
 			// بررسی وجود جاب تعریف
 			var jobDefinition = await _db.JobDefinitions.FirstOrDefaultAsync(j => j.Id == jobId);
@@ -99,6 +100,7 @@ namespace App.BackgroundJob.Controllers
 			{
 				JobId = jobId,
 				IsActive = isActive,
+				ContinueOnError = continueOnError,
 				IntervalSeconds = interval,
 				ScheduleType = scheduleType,
 				DailyIntervalDays = dailyIntervalDays,
@@ -117,12 +119,13 @@ namespace App.BackgroundJob.Controllers
 
 		// متد ذخیره تغییرات (AJAX)
 		[HttpPost]
-		public async Task<IActionResult> UpdateSettings(int scheduleId, bool isActive, int interval, ScheduleType scheduleType, int dailyIntervalDays, string weeklyDays, TimeSpan? dailyTime, int hourlyMinute)
+		public async Task<IActionResult> UpdateSettings(int scheduleId, bool isActive, int interval, ScheduleType scheduleType, int dailyIntervalDays, string weeklyDays, TimeSpan? dailyTime, int hourlyMinute, bool continueOnError = false)
 		{
 			var schedule = await _db.JobSchedules.FindAsync(scheduleId);
 			if (schedule == null) return NotFound();
 
 			schedule.IsActive = isActive;
+			schedule.ContinueOnError = continueOnError;
 			schedule.IntervalSeconds = interval;
 			schedule.ScheduleType = scheduleType;
 			schedule.DailyIntervalDays = dailyIntervalDays;
@@ -130,10 +133,15 @@ namespace App.BackgroundJob.Controllers
 			schedule.DailyTime = dailyTime;
 			schedule.HourlyMinute = hourlyMinute;
 
-			// اگر فعال شد، زمان اجرای بعدی را ست کن
+			// وضعیت Error اینجا عوض نمی‌شود. اگر گزینه روشن باشد و اجرا عقب افتاده باشد،
+			// همان اجرای بعدی بدون انتظار یک دوره کامل زمان‌بندی انتخاب می‌شود.
 			if (isActive)
 			{
-				schedule.NextRunTime = CalculateNextRunTime(schedule);
+				var alreadyDue = schedule.NextRunTime == null || schedule.NextRunTime <= DateTime.Now;
+				if (continueOnError && schedule.LastStatus == JobStatus.Error && alreadyDue)
+					schedule.NextRunTime = DateTime.Now;
+				else
+					schedule.NextRunTime = CalculateNextRunTime(schedule);
 			}
 
 			await _db.SaveChangesAsync();

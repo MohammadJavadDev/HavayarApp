@@ -13,6 +13,22 @@ namespace WebApp.Actions.Sale
 	/// </summary>
 	public class ProductionOrderItemAction(IUnitOfWork unitOfWork)
 	{
+		[EntityAction(typeof(ProductionOrderItem), EntityActionTrigger.BeforeAdd,
+			"SyncAgreedDeliverShamsiDateOnAdd", "پر کردن تاریخ تحویل توافقی شمسی از تاریخ میلادی", Priority = 1)]
+		public Task SyncAgreedDeliverShamsiOnAdd(ProductionOrderItem model, CancellationToken ct)
+		{
+			SyncAgreedDeliverShamsi(model);
+			return Task.CompletedTask;
+		}
+
+		[EntityAction(typeof(ProductionOrderItem), EntityActionTrigger.BeforeUpdate,
+			"SyncAgreedDeliverShamsiDateOnUpdate", "پر کردن تاریخ تحویل توافقی شمسی از تاریخ میلادی", Priority = 1)]
+		public Task SyncAgreedDeliverShamsiOnUpdate(ProductionOrderItem model, CancellationToken ct)
+		{
+			SyncAgreedDeliverShamsi(model);
+			return Task.CompletedTask;
+		}
+
 		[EntityAction(typeof(ProductionOrderItem), EntityActionTrigger.AfterAdd,
 			"RenumberProductionOrderItemRevision", "شماره‌گذاری نسخه قلم سفارش ساخت پس از درج", Priority = 1)]
 		public Task AfterAdd(ProductionOrderItem model, CancellationToken ct)
@@ -28,6 +44,11 @@ namespace WebApp.Actions.Sale
 		public Task AfterDelete(ProductionOrderItem model, CancellationToken ct)
 			=> RenumberRevisionsAsync(model.ProductionOrderId, model.PartId, ct);
 
+		private static void SyncAgreedDeliverShamsi(ProductionOrderItem model)
+		{
+			model.AgreedDeliverShamsiDate = model.AgreedDeliverDate?.ToShamsiDate();
+		}
+
 		private async Task ApplyAsync(ProductionOrderItem model, CancellationToken ct)
 		{
 			await RenumberRevisionsAsync(model.ProductionOrderId, model.PartId, ct);
@@ -35,7 +56,8 @@ namespace WebApp.Actions.Sale
 		}
 
 		/// <summary>
-		/// معادل تریگر: Revision از -1 به بالا برای همه ردیف‌های هم‌گروه ProductionOrderId+PartId
+		/// معادل تریگر UpdateProductionOrderItemVersionInfo برای ردیف‌های هم‌گروه ProductionOrderId+PartId.
+		/// تریگر @Revision را -1 می‌گذارد، ولی انتساب SQL Server اولین ردیف را 0 می‌نویسد و بعد 1، 2، ...
 		/// </summary>
 		private async Task RenumberRevisionsAsync(long? productionOrderId, long? partId, CancellationToken ct)
 		{
@@ -49,7 +71,7 @@ namespace WebApp.Actions.Sale
 				.Select(c => c.Id)
 				.ToListAsync(ct);
 
-			decimal revision = -1;
+			decimal revision = 0;
 			foreach (var id in siblings)
 			{
 				if (id == null) continue;

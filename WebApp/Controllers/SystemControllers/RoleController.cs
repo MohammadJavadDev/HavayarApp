@@ -5,6 +5,7 @@ using Common.Utilities;
 using Data;
 using Data.Contracts;
 using Data.Repositories;
+using Data.SystemAuth;
 using Entities.Auth;
 using Entities.Base;
 using Entities.Base.DataTable;
@@ -31,7 +32,9 @@ namespace WebApp.Controllers.SystemControllers
 		IUnitOfWork unitOfWork,
 		ApplicationDbContext dbContext,
 		IAccessMemoryStorage _accessMemoryStorage,
-		IUserService userService) : BaseController
+		IUserService userService,
+		IOnlineUserService onlineUserService,
+		IAccessDecisionCache accessDecisionCache) : BaseController
 	{
 
 
@@ -40,6 +43,21 @@ namespace WebApp.Controllers.SystemControllers
 		public IActionResult ListRole()
 		{
 			return View("Views/Panel/System/Role/List.cshtml");
+		}
+
+		[HttpPost("/panel/Role/RefreshAccessCache")]
+		[ActionDisplayName("بروزرسانی کش دسترسی", ActionAccessType.Api, ActionAccessItemType.Update)]
+		public async Task<IActionResult> RefreshAccessCache(CancellationToken cn)
+		{
+			var roles = await unitOfWork.Repository<Role>().TableNoTracking
+				.Include(c => c.RoleAccesses)
+				.ToListAsync(cn);
+
+			roleMemoryStorage.SetRoles(roles);
+			await onlineUserService.RefreshAllOnlineUsersRoleAccessesAsync(cn);
+			accessDecisionCache.Invalidate();
+
+			return Ok(new { message = "کش دسترسی بروزرسانی شد" });
 		}
 
 		[HttpGet("/panel/Role/Edit")]
@@ -128,6 +146,8 @@ namespace WebApp.Controllers.SystemControllers
 					 AuthorizationType = user.AuthorizationType,
 					 RoleIds = user.RoleIds,
 					 Email = user.Email,
+					 NameFa = user.NameFa,
+					 PartyId = user.PartyId,
 				 }
 
 				 , cn);
@@ -151,14 +171,22 @@ namespace WebApp.Controllers.SystemControllers
 			var role = await dbContext.Set<Role>()
 		.FirstOrDefaultAsync(u => u.Id == ru.RoleId, cn);
 
-			if (user == null)
+			if (role == null)
 				return NotFound("نقش یافت نشد");
 
-			if (user.RoleIds.Contains(ru.RoleId))
-		{
-			user.RoleIds.Remove(ru.RoleId	);
+			user.RoleIds ??= [];
+			user.Roles ??= [];
 
-				user.Roles.Remove(role.Name);
+			var hadRole = user.RoleIds.Contains(ru.RoleId)
+				|| user.Roles.Any(r => string.Equals(r, role.Name, StringComparison.OrdinalIgnoreCase));
+
+			if (hadRole)
+		{
+			user.RoleIds.Remove(ru.RoleId);
+			user.Roles = user.Roles
+				.Where(r => !string.Equals(r, role.Name, StringComparison.OrdinalIgnoreCase))
+				.ToList();
+
 				await userService.AddAndUpdateUserAsync(
 					new()
 					{
@@ -171,6 +199,8 @@ namespace WebApp.Controllers.SystemControllers
 						AuthorizationType = user.AuthorizationType,
 						RoleIds = user.RoleIds,
 						Email = user.Email,
+						NameFa = user.NameFa,
+						PartyId = user.PartyId,
 					}
 
 					, cn);
@@ -249,6 +279,8 @@ namespace WebApp.Controllers.SystemControllers
 			AuthorizationType = user.AuthorizationType,
 			RoleIds = user.RoleIds,
 			Email = user.Email,
+			NameFa = user.NameFa,
+			PartyId = user.PartyId,
 		}, cn);
 
 			added.Add(new { username = user.Username, name = user.Name });

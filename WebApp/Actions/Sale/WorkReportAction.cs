@@ -10,9 +10,17 @@ namespace WebApp.Actions.Sale
 	{
 		[EntityAction(typeof(WorkReport), EntityActionTrigger.BeforeSave,
 			"WorkReportValidate", "اعتبار گزارش کار مطابق HTS", Priority = 1)]
-		public async Task BeforeSave(WorkReport entity, CancellationToken ct)
+		public async Task BeforeSave(WorkReport entity, WorkReport? oldEntity, CancellationToken ct)
 		{
 			await FillLookupTexts(entity, ct);
+
+			// ویرایش (oldEntity مقدار دارد): فقط فیلدهای محاسبه‌ای (متن‌های جانبی و تاریخ میلادی) به‌روز می‌شوند.
+			// اعتبارسنجی‌هایی که خطا می‌دهند فقط برای ردیف جدید است تا ردیف‌های قدیمی ناقص قابل ویرایش بمانند.
+			if (oldEntity != null)
+			{
+				ApplyMiladiDates(entity, ignoreErrors: true);
+				return;
+			}
 
 			var header = await LoadHeader(entity, ct);
 			var unreal = header?.Unreal == true;
@@ -40,12 +48,7 @@ namespace WebApp.Actions.Sale
 			if (entity.MissionResult == 0)
 				throw new InvalidOperationException("نتیجه ماموریت نمی‌تواند خالی باشد");
 
-			if (!string.IsNullOrWhiteSpace(entity.ServiceStartShamsiDate))
-				entity.ServiceStartMiladiDate = entity.ServiceStartShamsiDate.ToMiladiDate();
-			if (!string.IsNullOrWhiteSpace(entity.ServiceEndShamsiDate))
-				entity.ServiceEndMiladiDate = entity.ServiceEndShamsiDate.ToMiladiDate();
-			if (!string.IsNullOrWhiteSpace(entity.ExpertGuaranteeShamsiDate))
-				entity.ExpertGuaranteeMiladiDate = entity.ExpertGuaranteeShamsiDate.ToMiladiDate();
+			ApplyMiladiDates(entity, ignoreErrors: false);
 
 			if (entity.ServiceStartMiladiDate != null && entity.ServiceEndMiladiDate != null
 				&& entity.ServiceEndMiladiDate < entity.ServiceStartMiladiDate)
@@ -72,6 +75,29 @@ namespace WebApp.Actions.Sale
 					&& c.Id != entity.Id, ct);
 			if (duplicate)
 				throw new InvalidOperationException("این محصول برای این ماموریت قبلاً ثبت شده است");
+		}
+
+		private static void ApplyMiladiDates(WorkReport entity, bool ignoreErrors)
+		{
+			if (!string.IsNullOrWhiteSpace(entity.ServiceStartShamsiDate))
+				entity.ServiceStartMiladiDate = ShamsiToMiladi(entity.ServiceStartShamsiDate, entity.ServiceStartMiladiDate, ignoreErrors);
+			if (!string.IsNullOrWhiteSpace(entity.ServiceEndShamsiDate))
+				entity.ServiceEndMiladiDate = ShamsiToMiladi(entity.ServiceEndShamsiDate, entity.ServiceEndMiladiDate, ignoreErrors);
+			if (!string.IsNullOrWhiteSpace(entity.ExpertGuaranteeShamsiDate))
+				entity.ExpertGuaranteeMiladiDate = ShamsiToMiladi(entity.ExpertGuaranteeShamsiDate, entity.ExpertGuaranteeMiladiDate, ignoreErrors);
+		}
+
+		// در ویرایش، تاریخ شمسی نامعتبر (داده قدیمی) نباید جلوی ذخیره را بگیرد؛ تاریخ میلادی قبلی می‌ماند.
+		private static DateTime? ShamsiToMiladi(string shamsi, DateTime? current, bool ignoreErrors)
+		{
+			try
+			{
+				return shamsi.ToMiladiDate();
+			}
+			catch when (ignoreErrors)
+			{
+				return current;
+			}
 		}
 
 		private async Task FillLookupTexts(WorkReport entity, CancellationToken ct)

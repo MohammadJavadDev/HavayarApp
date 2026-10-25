@@ -92,7 +92,7 @@ USING (
     LEFT JOIN Crm.Zone dz ON dz.HtsId = s.DispachZoneId
 ) AS s ON t.HtsId = s.HtsId
 WHEN MATCHED THEN UPDATE SET
-    t.CustomerId=s.CustomerId, t.CustomerPhoneFromHistory=s.CustomerPhoneFromHistory,
+    t.CustomerId=COALESCE(s.CustomerId, t.CustomerId), t.CustomerPhoneFromHistory=s.CustomerPhoneFromHistory,
     t.ContactMiladiDate=s.ContactMiladiDate, t.ContactShamsiDate=s.ContactShamsiDate,
     t.CustomerAddressId=s.CustomerAddressId, t.ResponsiblePersonelId=s.ResponsiblePersonelId, t.DispatchZoneId=s.DispatchZoneId,
     t.ExpertMission=s.ExpertMission, t.AllProductName=s.AllProductName, t.Unreal=s.Unreal,

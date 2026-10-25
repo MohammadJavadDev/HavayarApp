@@ -2,6 +2,7 @@ using Common.Attributes;
 using Common.Auth.Enums;
 using Data.Contracts;
 using Data.SystemAuth;
+using Entities.App.Hrm;
 using Entities.App.Sale;
 using Entities.Base.DataTable;
 using Microsoft.AspNetCore.Mvc;
@@ -107,10 +108,12 @@ namespace WebApp.Controllers.Dynamic.Sale
 
 			if (canIndustries)
 			{
-				if (string.IsNullOrWhiteSpace(posted.LaunchShamsiDate)
-					|| posted.GuaranteeTime == null
-					|| posted.GuaranteeSendDay == null
-					|| posted.GuaranteeLaunchDay == null)
+				var requireIndustriesFields = !IsMonitoringWarehouseUser();
+				if (requireIndustriesFields
+					&& (string.IsNullOrWhiteSpace(posted.LaunchShamsiDate)
+						|| posted.GuaranteeTime == null
+						|| posted.GuaranteeSendDay == null
+						|| posted.GuaranteeLaunchDay == null))
 					return BadRequest("تاریخ راه‌اندازی و سه فیلد گارانتی الزامی است");
 
 				existing.LaunchShamsiDate = posted.LaunchShamsiDate;
@@ -287,7 +290,27 @@ namespace WebApp.Controllers.Dynamic.Sale
 			ViewBag.CanEditInventory = canInventory;
 			ViewBag.CanEditExit = canExit;
 			ViewBag.CanEditIndustries = CanEditIndustriesFields(canInventory);
+			ViewBag.RequireIndustriesFields = !IsMonitoringWarehouseUser();
 			ViewBag.CanIndustrialConfirm = HasMonitoringAction("industrialconfirm");
+		}
+
+		/// <summary>
+		/// HTS صفحه مانیتورینگ: اگر OrganizationUnitId برابر ۵۲ باشد (انبار ارسال و تغذیه خطوط) تاریخ راه‌اندازی و گارانتی اجباری نیست.
+		/// در هوایار همان واحد با HamkaranUnitId و نقش دسترسی انبار شناخته می‌شود.
+		/// </summary>
+		private const long MonitoringWarehouseHamkaranUnitId = 121000109;
+
+		private bool IsMonitoringWarehouseUser()
+		{
+			if (CurrentUserHasRole("Sale.AfterSales.Monitoring.Inventory"))
+				return true;
+
+			var orgUnitId = CurrentOrganizationUnitId;
+			if (orgUnitId is null or <= 0)
+				return false;
+
+			return unitOfWork.Repository<OrgUnit>().TableNoTracking
+				.Any(o => o.Id == orgUnitId.Value && o.HamkaranUnitId == MonitoringWarehouseHamkaranUnitId);
 		}
 
 		private bool CanEditIndustriesFields(bool canInventory)

@@ -35,6 +35,12 @@ namespace Entities.App.Inv
 		public string? Number { get; set; }
 
 
+		[DisplayName("عنوان کدینگ")]
+		[DisplayInfo(null, true, type: SystemType.String)]
+		[MaxLength(128)]
+		public string? CodingTitle { get; set; }
+
+
 		[DisplayName("نوع")]
 		[DisplayInfo(null, true, type: SystemType.Select)]
 		public PartTypeEnum? Type { get; set; }
@@ -207,7 +213,7 @@ namespace Entities.App.Inv
 
 
 		[DisplayName("پیوست")]
-		[DisplayInfo(null, true, type: SystemType.File, required: true ,fileTypes: ".pdf,.zip,.png,.jpg")]
+		[DisplayInfo(null, true, type: SystemType.File, required: true ,fileTypes: ".pdf,.zip,.png,.jpg,.rar,.dwg")]
 		public FileEntity Attachment { get; set; }
 
 		public long AttachmentId { get; set; }

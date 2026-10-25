@@ -1,0 +1,645 @@
+@using Entities.App.Hrm
+@using Entities.App.Qc
+@using Entities.App.Sale
+@model ProductInspection
+<style>
+	.pi-scroll-table { max-height: 320px; overflow: auto; }
+	.pi-scroll-table thead th { position: sticky; top: 0; z-index: 2; background: #f5f8fa; }
+</style>
+<div class="card">
+	<div class="form-action-buttons border-bottom p-3">
+		<form-action-buttons entity-type="typeof(ProductInspection)" new-page-btn="false" save-and-new-btn="false"></form-action-buttons>
+	</div>
+</div>
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">بازرسی حین ساخت</span>
+		<input type="hidden" data-bind="id" value="@Model?.Id" />
+		@{
+			var lockInspectionType = ViewBag.LockInspectionType as bool? == true;
+			var canInCompany = ViewBag.CanInCompany as bool? == true;
+			var canOutCompany = ViewBag.CanOutCompany as bool? == true;
+			var inspectionType = Model?.InspectionType ?? ProductInspectionConstants.InCompany;
+		}
+		<div class="col-md-12 form-group-inline">
+			<label class="required">محل بازرسی</label>
+			<div class="d-flex flex-wrap gap-4 align-items-center">
+				<label class="mb-0">
+					<input type="radio" name="inspectionType" value="@ProductInspectionConstants.InCompany" @(inspectionType == ProductInspectionConstants.InCompany ? "checked" : "") @(lockInspectionType || !canInCompany ? "disabled" : "") />
+					بازرسی در هوایار
+				</label>
+				<label class="mb-0">
+					<input type="radio" name="inspectionType" value="@ProductInspectionConstants.OutCompany" @(inspectionType == ProductInspectionConstants.OutCompany ? "checked" : "") @(lockInspectionType || !canOutCompany ? "disabled" : "") />
+					بازرسی محل پیمانکار
+				</label>
+			</div>
+		</div>
+		<div class="col-md-4 form-group-inline">
+				<label class="required">شماره سفارش ساخت</label>
+				@(Html.EntitySelector<ProductionOrder>(
+					"ProductionOrderSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.Number != null,
+					c => new { Id = c.Id, Number = c.Number },
+					c => new { c.Number },
+					"{Number}",
+					"productionOrderId",
+					null,
+					Model?.ProductionOrderId?.ToString(),
+					true))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-8 form-group-inline">
+				<label class="required">قلم سفارش ساخت</label>
+				<select class="form-control" id="productionOrderItemId" data-bind="productionOrderItemId" data-required="true">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline pi-out-only">
+				<label>سریال دستی</label>
+				<input class="form-control ltr" data-bind="manualSerial" maxlength="50" value="@Model?.ManualSerial" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>دپارتمان فروش</label>
+				@(Html.EntitySelector<OrgUnit>(
+					"SalesDepartmentSelector",
+					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
+					c => new { Id = c.Id, Title = c.Title },
+					c => new { c.Title },
+					"{Title}",
+					"salesDepartmentId",
+					null,
+					Model?.SalesDepartmentId?.ToString(),
+					false))
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="required">بازرس</label>
+				<select class="form-control" id="testPersonelId" data-bind="testPersonelId" data-required="true">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>نتیجه بازرسی</label>
+				<div class="form-check mt-2">
+					<input class="form-check-input" type="checkbox" data-bind="inspectionResult" @(Model?.InspectionResult == true ? "checked" : "") />
+				</div>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>عنوان پروژه</label>
+				<input class="form-control" data-bind="projectTitle" asp-for="ProjectTitle" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>گروه بندی پارامترهای اندازه گیری</label>
+				<select class="form-control" id="measurementParameterGroupId">
+					<option value="">انتخاب کنید</option>
+				</select>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline pi-out-only">
+				<label>پیمانکار</label>
+				<input class="form-control" data-bind="contractor" maxlength="1024" value="@Model?.Contractor" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label>تکمیل شده</label>
+				<div class="form-check mt-2">
+					<input class="form-check-input" type="checkbox" data-bind="isCompleted" @(Model?.IsCompleted == true ? "checked" : "") />
+				</div>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-12 form-group-inline">
+				<label>توضیحات</label>
+				<textarea class="form-control" data-bind="comment" rows="4" asp-for="Comment"></textarea>
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body row">
+		<span class="section-box-title">زمان بازرسی</span>
+		<div class="col-md-3 form-group-inline">
+				<label class="required">تاریخ شروع تست</label>
+				<input class="form-control" data-bind="testStartShamsiDate" data-required="true" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@(Model?.TestStartMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="required">ساعت شروع</label>
+				<input class="form-control ltr" type="text" data-bind="testStartTime" data-time="true" data-required="true" placeholder="__:__" value="@Model?.TestStartTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="required">تاریخ پایان تست</label>
+				<input class="form-control" data-bind="testEndShamsiDate" data-required="true" data-persionDatePicker="true"
+					   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+					   value="@(Model?.TestEndMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+			<div class="col-md-3 form-group-inline">
+				<label class="required">ساعت خاتمه</label>
+				<input class="form-control ltr" type="text" data-bind="testEndTime" data-time="true" data-required="true" placeholder="__:__" value="@Model?.TestEndTime" />
+				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+			</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">پارامتر اندازه گیری</span>
+		<div class="d-flex justify-content-end mb-2">
+			<button type="button" class="btn btn-sm btn-primary" data-action="addMeasurement">افزودن</button>
+		</div>
+		<div class="table-responsive pi-scroll-table border">
+			<table class="table table-bordered table-striped table-row-bordered gy-2 w-100 mb-0" id="measurementTable">
+				<thead>
+					<tr class="fw-bold fs-6 text-muted">
+						<th style="width:110px;" class="text-center">عملیات</th>
+						<th>پارامتر اندازه گیری</th>
+						<th>اقلام پارامتر اندازه گیری</th>
+						<th>ریز اقلام پارامتر اندازه گیری</th>
+						<th class="pi-measure-date">تاریخ شروع</th>
+						<th class="pi-measure-date">ساعت شروع</th>
+						<th class="pi-measure-date">تاریخ پایان</th>
+						<th class="pi-measure-date">ساعت خاتمه</th>
+						<th>نتیجه اندازه گیری</th>
+						<th>مقدار اندازه گیری</th>
+						<th>کامنت</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<div class="card my-2">
+	<div class="card-body">
+		<span class="section-box-title">انواع خرابی</span>
+		<div class="d-flex justify-content-end mb-2">
+			<button type="button" class="btn btn-sm btn-primary" data-action="addFailure">افزودن</button>
+		</div>
+		<div class="table-responsive pi-scroll-table border">
+			<table class="table table-bordered table-striped table-row-bordered gy-2 w-100 mb-0" id="failureTable">
+				<thead>
+					<tr class="fw-bold fs-6 text-muted">
+						<th style="width:110px;" class="text-center">عملیات</th>
+						<th>عنوان خرابی</th>
+						<th>تاریخ شروع گزارش خرابی</th>
+						<th>ساعت شروع</th>
+						<th>تاریخ پایان گزارش خرابی</th>
+						<th>ساعت خاتمه</th>
+						<th>اختلاف زمانی</th>
+						<th>کامنت</th>
+						<th>کاربر ایجادکننده</th>
+						<th>تاریخ ایجاد</th>
+						<th>زمان ایجاد</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+	const inCompanyType = @ProductInspectionConstants.InCompany;
+	const outCompanyType = @ProductInspectionConstants.OutCompany;
+	const inspectionLookups = @Html.Raw((string)(ViewBag.LookupsJson ?? "{}"));
+	const inspectionPersons = @Html.Raw((string)(ViewBag.PersonsJson ?? "[]"));
+	let failures = @Html.Raw((string)(ViewBag.FailuresJson ?? "[]"));
+	let measuredParameters = @Html.Raw((string)(ViewBag.ParametersJson ?? "[]"));
+	const initialOrderId = '@(Model?.ProductionOrderId?.ToString() ?? "")';
+	const initialItemId = '@(Model?.ProductionOrderItemId > 0 ? Model.ProductionOrderItemId.ToString() : "")';
+
+	function fillSelect($select, rows, selected, valueName, textName) {
+		const current = selected == null ? '' : String(selected);
+		$select.empty();
+		$select.append($('<option></option>').val('').text('انتخاب کنید'));
+		(rows || []).forEach(function (row) {
+			$select.append($('<option></option>').val(row[valueName]).text(row[textName] || ''));
+		});
+		if (current) $select.val(current);
+	}
+
+	fillSelect($$('#testPersonelId'), inspectionPersons, '@(Model?.TestPersonelId > 0 ? Model.TestPersonelId.ToString() : "")', 'id', 'name');
+	fillSelect($$('#measurementParameterGroupId'), inspectionLookups.groups || [], '', 'id', 'title');
+
+	function currentInspectionType() {
+		const checked = $$('input[name="inspectionType"]:checked').val();
+		return parseInt(checked || inCompanyType, 10);
+	}
+
+	function isOutCompany() {
+		return currentInspectionType() === outCompanyType;
+	}
+
+	function applyInspectionType() {
+		const out = isOutCompany();
+		$$('.pi-out-only').toggleClass('d-none', !out);
+		$$('.pi-measure-date').toggleClass('d-none', !out);
+		if (!out) {
+			$$('[data-bind="contractor"]').val('');
+			$$('[data-bind="manualSerial"]').val('');
+		}
+	}
+
+	$$('input[name="inspectionType"]').on('change', function () {
+		applyInspectionType();
+		renderMeasurements();
+	});
+	applyInspectionType();
+
+	function isCompressorText(text) {
+		const value = (text || '').toString();
+		const lower = value.toLowerCase();
+		return value.indexOf('کمپرسور') >= 0 && (lower.indexOf('oil') < 0 || lower.indexOf('oil free') < 0);
+	}
+
+	function updateMeasurementGroup() {
+		const text = $$('#productionOrderItemId option:selected').text() || '';
+		const $group = $$('#measurementParameterGroupId');
+		if (isCompressorText(text)) {
+			if ($group.find('option').length > 1)
+				$group.prop('selectedIndex', 1);
+		} else if (!$group.val()) {
+			$group.prop('selectedIndex', 0);
+		}
+	}
+
+	function loadItems(orderId, selectedId) {
+		const $item = $$('#productionOrderItemId');
+		$item.empty().append($('<option></option>').val('').text('انتخاب کنید'));
+		if (!orderId) return;
+		$$.get('GetProductionOrderItems?productionOrderId=' + orderId, function (r) {
+			const rows = (r && r.data) ? r.data : [];
+			rows.forEach(function (row) {
+				$item.append($('<option></option>').val(row.id).text(row.text || ''));
+			});
+			if (selectedId) $item.val(String(selectedId));
+			updateMeasurementGroup();
+		});
+	}
+
+	loadItems(initialOrderId, initialItemId);
+
+	// EntitySelector مقدار hidden را با trigger('change') تغییر می‌دهد (بدون originalEvent)،
+	// پس نباید به originalEvent تکیه کرد.
+	page.$pageEl.on('change', '[data-bind="productionOrderId"]', function () {
+		const orderId = $(this).val();
+		let keepId = window.__keepInspectionItemId || null;
+		window.__keepInspectionItemId = null;
+		if (!keepId && orderId && String(orderId) === String(initialOrderId))
+			keepId = initialItemId || null;
+		loadItems(orderId, keepId);
+	});
+
+	page.$pageEl.on('change', '#productionOrderItemId', function () {
+		updateMeasurementGroup();
+	});
+
+	function createdParts(value) {
+		if (!value) return { date: '', time: '' };
+		const parts = String(value).split(' ');
+		return { date: parts[0] || '', time: (parts[1] || '').substring(0, 5) };
+	}
+
+	function toHourAndMinute(minute) {
+		const negative = minute < 0;
+		minute = Math.abs(minute);
+		const hours = Math.floor(minute / 60);
+		const minutes = minute % 60;
+		const pad = function (n) { return (n < 10 ? '0' : '') + n; };
+		return (negative ? '-' : '') + pad(hours) + ':' + pad(minutes);
+	}
+
+	function timeDifference(row) {
+		if (!row.failureStartShamsiDate || !row.failureEndShamsiDate || typeof MJUtil === 'undefined') return '';
+		const start = MJUtil.shamsiToMiladi(row.failureStartShamsiDate);
+		const end = MJUtil.shamsiToMiladi(row.failureEndShamsiDate);
+		if (!start || !end) return '';
+		const startDate = new Date(String(start).substring(0, 10) + 'T00:00:00');
+		const endDate = new Date(String(end).substring(0, 10) + 'T00:00:00');
+		if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return '';
+		let diff = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+		if (row.failureStartTime && row.failureEndTime && row.failureStartTime.indexOf(':') > 0 && row.failureEndTime.indexOf(':') > 0) {
+			const startParts = row.failureStartTime.split(':');
+			const endParts = row.failureEndTime.split(':');
+			const startMin = (parseInt(startParts[0], 10) * 60) + parseInt(startParts[1], 10);
+			const endMin = (parseInt(endParts[0], 10) * 60) + parseInt(endParts[1], 10);
+			if (!isNaN(startMin) && !isNaN(endMin)) diff += endMin - startMin;
+		}
+		return toHourAndMinute(diff);
+	}
+
+	function renderMeasurements() {
+		const $body = $$('#measurementTable tbody');
+		$body.empty();
+		measuredParameters.forEach(function (row, index) {
+			const $tr = $('<tr></tr>');
+			const $ops = $('<td class="text-center"></td>');
+			$ops.append($('<button type="button" class="btn btn-sm btn-icon btn-light-warning me-1" data-action="editMeasurement"></button>').attr('data-index', index).append($('<i class="fa fa-edit"></i>')));
+			$ops.append($('<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteMeasurement"></button>').attr('data-index', index).append($('<i class="fa fa-trash"></i>')));
+			$tr.append($ops);
+			$tr.append($('<td></td>').text(row.groupTitle || ''));
+			$tr.append($('<td></td>').text(row.itemTitle || ''));
+			$tr.append($('<td></td>').text(row.subTitle || ''));
+			$tr.append($('<td class="pi-measure-date"></td>').text(row.measurementStartShamsiDate || ''));
+			$tr.append($('<td class="pi-measure-date"></td>').text(row.measurementStartTime || ''));
+			$tr.append($('<td class="pi-measure-date"></td>').text(row.measurementEndShamsiDate || ''));
+			$tr.append($('<td class="pi-measure-date"></td>').text(row.measurementEndTime || ''));
+			$tr.append($('<td></td>').text(row.measurementResult ? 'بلی' : 'خیر'));
+			let valueText = row.measurementValue == null ? '' : String(row.measurementValue);
+			if (row.commonSymbol) valueText = '(' + row.commonSymbol + ') ' + valueText;
+			$tr.append($('<td></td>').text(valueText));
+			$tr.append($('<td></td>').text(row.comment || ''));
+			$body.append($tr);
+		});
+		applyInspectionType();
+	}
+
+	function renderFailures() {
+		const $body = $$('#failureTable tbody');
+		$body.empty();
+		failures.forEach(function (row, index) {
+			const created = createdParts(row.createdOnShamsiDateTime);
+			const $tr = $('<tr></tr>');
+			const $ops = $('<td class="text-center"></td>');
+			$ops.append($('<button type="button" class="btn btn-sm btn-icon btn-light-warning me-1" data-action="editFailure"></button>').attr('data-index', index).append($('<i class="fa fa-edit"></i>')));
+			$ops.append($('<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteFailure"></button>').attr('data-index', index).append($('<i class="fa fa-trash"></i>')));
+			$tr.append($ops);
+			$tr.append($('<td></td>').text(row.failureTypeTitle || ''));
+			$tr.append($('<td></td>').text(row.failureStartShamsiDate || ''));
+			$tr.append($('<td></td>').text(row.failureStartTime || ''));
+			$tr.append($('<td></td>').text(row.failureEndShamsiDate || ''));
+			$tr.append($('<td></td>').text(row.failureEndTime || ''));
+			$tr.append($('<td></td>').text(timeDifference(row)));
+			$tr.append($('<td></td>').text(row.comment || ''));
+			$tr.append($('<td></td>').text(row.createdByName || ''));
+			$tr.append($('<td></td>').text(created.date));
+			$tr.append($('<td></td>').text(created.time));
+			$body.append($tr);
+		});
+	}
+
+	renderMeasurements();
+	renderFailures();
+
+	function groupTitle(id) {
+		const row = (inspectionLookups.groups || []).find(function (g) { return String(g.id) === String(id); });
+		return row ? row.title : '';
+	}
+
+	function itemsOfGroup(groupId) {
+		return (inspectionLookups.items || []).filter(function (item) { return String(item.measurementParameterId) === String(groupId); });
+	}
+
+	function subItemsOf(itemId) {
+		return (inspectionLookups.subItems || []).filter(function (item) { return String(item.measurementParameterItemId) === String(itemId); });
+	}
+
+	function openMeasurementModal(index) {
+		updateMeasurementGroup();
+		const row = index == null ? {} : measuredParameters[index];
+		const groupId = $$('#measurementParameterGroupId').val();
+		const $form = $('<div class="row g-3"></div>');
+		$form.append('<div class="col-md-6 form-group-inline"><label class="required">پارامتر اندازه گیری</label><select class="form-control" data-bind="measurementParameterItemId" data-required="true"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>');
+		$form.append('<div class="col-md-6 form-group-inline"><label>اقلام پارامتر اندازه گیری</label><select class="form-control" data-bind="measurementParameterSubItemId"></select></div>');
+		if (isOutCompany()) {
+			$form.append('<div class="col-md-3 form-group-inline"><label class="required">تاریخ شروع</label><input class="form-control" data-bind="measurementStartShamsiDate" data-required="true" data-persionDatePicker="true" persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}\' /></div>');
+			$form.append('<div class="col-md-3 form-group-inline"><label class="required">ساعت شروع</label><input class="form-control ltr" type="text" data-bind="measurementStartTime" data-time="true" data-required="true" placeholder="__:__" /></div>');
+			$form.append('<div class="col-md-3 form-group-inline"><label class="required">تاریخ پایان</label><input class="form-control" data-bind="measurementEndShamsiDate" data-required="true" data-persionDatePicker="true" persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}\' /></div>');
+			$form.append('<div class="col-md-3 form-group-inline"><label class="required">ساعت خاتمه</label><input class="form-control ltr" type="text" data-bind="measurementEndTime" data-time="true" data-required="true" placeholder="__:__" /></div>');
+		}
+		$form.append('<div class="col-md-4 form-group-inline"><label>نتیجه اندازه گیری</label><div class="form-check mt-2"><input class="form-check-input" type="checkbox" data-bind="measurementResult" /></div></div>');
+		$form.append('<div class="col-md-4 form-group-inline"><label>مقدار اندازه گیری</label><input class="form-control ltr" type="text" data-bind="measurementValue" /></div>');
+		$form.append('<div class="col-md-12 form-group-inline"><label>کامنت</label><textarea class="form-control" data-bind="comment" rows="3"></textarea></div>');
+
+		$.confirm({
+			title: index == null ? 'افزودن' : 'ویرایش',
+			content: $form,
+			rtl: true,
+			columnClass: 'col-md-8',
+			buttons: {
+				save: {
+					text: 'افزودن',
+					btnClass: 'btn-primary',
+					action: function () {
+						const $content = this.$content;
+						if (validateError($content)) return false;
+						const data = $content.dataBind();
+						if (!data.measurementParameterItemId) {
+							toastr.warning('پارامتر اندازه گیری نمی تواند خالی باشد');
+							return false;
+						}
+						if (isOutCompany()) {
+							if (!data.measurementStartShamsiDate || !data.measurementStartTime) {
+								toastr.warning('تاریخ و ساعت شروع اندازه گیری نمی تواند خالی باشد');
+								return false;
+							}
+							if (!data.measurementEndShamsiDate || !data.measurementEndTime) {
+								toastr.warning('تاریخ و ساعت پایان اندازه گیری نمی تواند خالی باشد');
+								return false;
+							}
+						}
+						const item = (inspectionLookups.items || []).find(function (x) { return String(x.id) === String(data.measurementParameterItemId); });
+						const sub = (inspectionLookups.subItems || []).find(function (x) { return String(x.id) === String(data.measurementParameterSubItemId); });
+						let value = data.measurementValue;
+						if (value === '' || value == null || isNaN(parseFloat(value))) value = null;
+						else value = parseFloat(value);
+						const stored = {
+							measurementParameterItemId: parseInt(data.measurementParameterItemId, 10),
+							measurementParameterSubItemId: data.measurementParameterSubItemId ? parseInt(data.measurementParameterSubItemId, 10) : null,
+							groupTitle: groupTitle(item ? item.measurementParameterId : groupId),
+							itemTitle: item ? item.title : '',
+							commonSymbol: item ? (item.commonSymbol || '') : '',
+							subTitle: sub ? sub.title : '',
+							measurementResult: !!data.measurementResult,
+							measurementValue: value,
+							comment: data.comment || '',
+							measurementStartShamsiDate: isOutCompany() ? (data.measurementStartShamsiDate || '') : (index == null ? '' : (measuredParameters[index].measurementStartShamsiDate || '')),
+							measurementStartTime: isOutCompany() ? (data.measurementStartTime || '') : (index == null ? '' : (measuredParameters[index].measurementStartTime || '')),
+							measurementEndShamsiDate: isOutCompany() ? (data.measurementEndShamsiDate || '') : (index == null ? '' : (measuredParameters[index].measurementEndShamsiDate || '')),
+							measurementEndTime: isOutCompany() ? (data.measurementEndTime || '') : (index == null ? '' : (measuredParameters[index].measurementEndTime || ''))
+						};
+						if (index == null) measuredParameters.push(stored);
+						else measuredParameters[index] = Object.assign({}, measuredParameters[index], stored);
+						renderMeasurements();
+					}
+				},
+				cancel: { text: 'انصراف' }
+			},
+			onContentReady: function () {
+				const $content = this.$content;
+				const $item = $content.find('[data-bind="measurementParameterItemId"]');
+				const $sub = $content.find('[data-bind="measurementParameterSubItemId"]');
+				fillSelect($item, itemsOfGroup(groupId), row.measurementParameterItemId, 'id', 'title');
+				fillSelect($sub, subItemsOf($item.val()), row.measurementParameterSubItemId, 'id', 'title');
+				$item.on('change', function () {
+					fillSelect($sub, subItemsOf($(this).val()), '', 'id', 'title');
+				});
+				if (typeof initPersionDatePicker === 'function') initPersionDatePicker($content);
+				if (typeof initTimeInputs === 'function') initTimeInputs($content);
+				$content.dataBind({
+					measurementStartShamsiDate: row.measurementStartShamsiDate || '',
+					measurementStartTime: row.measurementStartTime || '',
+					measurementEndShamsiDate: row.measurementEndShamsiDate || '',
+					measurementEndTime: row.measurementEndTime || '',
+					measurementValue: row.measurementValue == null ? '' : row.measurementValue,
+					comment: row.comment || ''
+				});
+				if (row.measurementResult) $content.find('[data-bind="measurementResult"]').prop('checked', true);
+			}
+		});
+	}
+
+	function openFailureModal(index) {
+		const row = index == null ? {} : failures[index];
+		const $form = $('<div class="row g-3"></div>');
+		$form.append('<div class="col-md-6 form-group-inline"><label class="required">عنوان خرابی</label><select class="form-control" data-bind="failureTypeId" data-required="true"></select><div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div></div>');
+		$form.append('<div class="col-md-3 form-group-inline"><label class="required">تاریخ شروع گزارش خرابی</label><input class="form-control" data-bind="failureStartShamsiDate" data-required="true" data-persionDatePicker="true" persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}\' /></div>');
+		$form.append('<div class="col-md-3 form-group-inline"><label>ساعت شروع</label><input class="form-control ltr" type="text" data-bind="failureStartTime" data-time="true" placeholder="__:__" /></div>');
+		$form.append('<div class="col-md-3 form-group-inline"><label class="required">تاریخ پایان گزارش خرابی</label><input class="form-control" data-bind="failureEndShamsiDate" data-required="true" data-persionDatePicker="true" persion-datetimepicker=\'{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}\' /></div>');
+		$form.append('<div class="col-md-3 form-group-inline"><label>ساعت خاتمه</label><input class="form-control ltr" type="text" data-bind="failureEndTime" data-time="true" placeholder="__:__" /></div>');
+		$form.append('<div class="col-md-12 form-group-inline"><label>کامنت</label><textarea class="form-control" data-bind="comment" rows="3"></textarea></div>');
+
+		$.confirm({
+			title: index == null ? 'افزودن' : 'ویرایش',
+			content: $form,
+			rtl: true,
+			columnClass: 'col-md-10',
+			buttons: {
+				save: {
+					text: 'افزودن',
+					btnClass: 'btn-primary',
+					action: function () {
+						const $content = this.$content;
+						if (validateError($content)) return false;
+						const data = $content.dataBind();
+						if (!data.failureTypeId) {
+							toastr.warning('عنوان خرابی نمی تواند خالی باشد');
+							return false;
+						}
+						if (!data.failureStartShamsiDate) {
+							toastr.warning('تاریخ شروع گزارش خرابی نمی تواند خالی باشد');
+							return false;
+						}
+						if (!data.failureEndShamsiDate) {
+							toastr.warning('تاریخ پایان گزارش خرابی نمی تواند خالی باشد');
+							return false;
+						}
+						const type = (inspectionLookups.failureTypes || []).find(function (x) { return String(x.id) === String(data.failureTypeId); });
+						const stored = {
+							failureTypeId: parseInt(data.failureTypeId, 10),
+							failureTypeTitle: type ? type.title : '',
+							productionOrderItemCommentId: index == null ? null : (failures[index].productionOrderItemCommentId || null),
+							failureStartShamsiDate: data.failureStartShamsiDate,
+							failureStartTime: data.failureStartTime || null,
+							failureEndShamsiDate: data.failureEndShamsiDate,
+							failureEndTime: data.failureEndTime || null,
+							comment: data.comment || '',
+							createdByName: index == null ? '' : (failures[index].createdByName || ''),
+							createdOnShamsiDateTime: index == null ? '' : (failures[index].createdOnShamsiDateTime || '')
+						};
+						if (index == null) failures.push(stored);
+						else failures[index] = stored;
+						renderFailures();
+					}
+				},
+				cancel: { text: 'انصراف' }
+			},
+			onContentReady: function () {
+				const $content = this.$content;
+				fillSelect($content.find('[data-bind="failureTypeId"]'), inspectionLookups.failureTypes || [], row.failureTypeId, 'id', 'title');
+				if (typeof initPersionDatePicker === 'function') initPersionDatePicker($content);
+				if (typeof initTimeInputs === 'function') initTimeInputs($content);
+				$content.dataBind({
+					failureStartShamsiDate: row.failureStartShamsiDate || '',
+					failureStartTime: row.failureStartTime || '',
+					failureEndShamsiDate: row.failureEndShamsiDate || '',
+					failureEndTime: row.failureEndTime || '',
+					comment: row.comment || ''
+				});
+			}
+		});
+	}
+
+	page.$pageEl.on('click', '[data-action="addMeasurement"]', function () { openMeasurementModal(null); });
+	page.$pageEl.on('click', '[data-action="editMeasurement"]', function () { openMeasurementModal(parseInt($(this).attr('data-index'), 10)); });
+	page.$pageEl.on('click', '[data-action="deleteMeasurement"]', function () {
+		measuredParameters.splice(parseInt($(this).attr('data-index'), 10), 1);
+		renderMeasurements();
+	});
+	page.$pageEl.on('click', '[data-action="addFailure"]', function () { openFailureModal(null); });
+	page.$pageEl.on('click', '[data-action="editFailure"]', function () { openFailureModal(parseInt($(this).attr('data-index'), 10)); });
+	page.$pageEl.on('click', '[data-action="deleteFailure"]', function () {
+		failures.splice(parseInt($(this).attr('data-index'), 10), 1);
+		renderFailures();
+	});
+	function applySaved(data) {
+		if (!data) return;
+		window.__keepInspectionItemId = data.productionOrderItemId;
+		page.$pageEl.dataBind(data);
+		if (data.inspectionType)
+			$$('input[name="inspectionType"][value="' + data.inspectionType + '"]').prop('checked', true);
+		$$('input[name="inspectionType"]').prop('disabled', true);
+		applyInspectionType();
+		if (data.productionOrderItemId)
+			$$('#productionOrderItemId').val(String(data.productionOrderItemId));
+		failures = data.failures || [];
+		measuredParameters = data.measuredParameters || [];
+		renderFailures();
+		renderMeasurements();
+	}
+
+	function postInspection($btnAction, model) {
+		const $btn = $($btnAction.element).block();
+		$$.post('save', model, function (r) {
+			$btn.block(false);
+			if (!r.isSuccess) {
+				toastr.error(r.message, 'خطا');
+				return;
+			}
+			toastr.success('ذخیره سازی با موفقیت انجام شد');
+			applySaved(r.data);
+			$btnAction.baseaction();
+		});
+	}
+
+	function savefn($btnAction) {
+		if (validateError(page.$pageEl)) return;
+		const model = page.$pageEl.dataBind();
+		model.inspectionType = currentInspectionType();
+		model.failures = failures;
+		model.measuredParameters = measuredParameters;
+		if (measuredParameters.length < 1) {
+			Swal.fire({
+				title: 'هشدار',
+				text: 'پارامتر اندازه گیری نمی تواند خالی باشد',
+				icon: 'warning',
+				showCancelButton: true,
+				confirmButtonText: 'بله',
+				cancelButtonText: 'خیر'
+			}).then(function (result) {
+				if (!result.isConfirmed) {
+					toastr.warning('پارامتر اندازه گیری نمی تواند خالی باشد');
+					return;
+				}
+				model.confirmEmptyMeasurement = true;
+				postInspection($btnAction, model);
+			});
+			return;
+		}
+		model.confirmEmptyMeasurement = false;
+		postInspection($btnAction, model);
+	}
+
+	self.FormActionButtons.save.onclick(function () { savefn(this); });
+	self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
+</script>

@@ -305,7 +305,7 @@ namespace Entities.App.Edms
 		public Project Project { get; set; }
 
 		[DisplayName("فایل پیوست")]
-		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word")]
+		[DisplayInfo(null, false, type: SystemType.File, fileTypes: ".rar,.zip,.pdf,.excel,.word,.xls,.xlsx", maxFileSize: 100)]
 
 		public FileEntity Attachment { get; set; }
 		public long AttachmentId { get; set; }
@@ -318,6 +318,16 @@ namespace Entities.App.Edms
 		[DisplayInfo(null, true, type: SystemType.Select)]
 
 		public ProjectAttachmentTypeEnum Type { get; set; }
+
+		[DisplayName("کد سند")]
+		[DisplayInfo(null, true, SystemType.String)]
+		[MaxLength(500)]
+		public string? DocumentCode { get; set; }
+
+		[DisplayName("نام سند")]
+		[DisplayInfo(null, true, SystemType.String)]
+		[MaxLength(500)]
+		public string? DocumentName { get; set; }
 
 		/// <summary>
 		/// شناسه پیوست در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا

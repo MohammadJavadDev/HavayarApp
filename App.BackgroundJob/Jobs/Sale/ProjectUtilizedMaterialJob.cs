@@ -11,7 +11,7 @@ namespace App.BackgroundJob.Jobs.Sale
 	/// معادل HTS WriteData.Import_ProjectUtilizedMaterial
 	/// (HtsTaskService.AfterSalesAndRepairSystemTask — سال جاری شمسی / Hamkaran)
 	/// به‌همراه کات‌اور یک‌باره از TotalSystem.
-	/// نوع رسید از [TMS]..Inv_VchType خوانده می‌شود (جدول Inv.VchType در هاویار ساخته نمی‌شود).
+	/// نوع رسید از Inv.VchType خوانده می‌شود (Id برابر VchType_ID در HTS، تطبیق راهکاران با HamkaranId).
 	/// </summary>
 	public class ProjectUtilizedMaterialJob(ApplicationDbContext db)
 	{
@@ -68,7 +68,7 @@ namespace App.BackgroundJob.Jobs.Sale
 				SELECT v.*
 				INTO #NewData
 				FROM #VchTemp v
-				LEFT JOIN Sale.ProjectUtilizedMaterial h ON h.VchItemId = v.VchItmID
+				LEFT JOIN Sale.ProjectUtilizedMaterial h ON h.VchItemId = v.VchItmID AND h.[Year] = v.[Year]
 				WHERE h.Id IS NULL;
 
 				SELECT v.*
@@ -77,8 +77,8 @@ namespace App.BackgroundJob.Jobs.Sale
 				JOIN Sale.ProjectUtilizedMaterial h ON h.VchItemId = v.VchItmID AND h.[Year] = v.[Year]
 				JOIN Inv.Part hp ON hp.Id = h.PartId
 				JOIN FIN.DL hd ON hd.Id = h.DLId
-				JOIN [TMS].[TotalSystem].[dbo].[Inv_VchType] hv ON hv.VchType_ID = h.VchTypeId
-				WHERE hv.Hamkaran_InvVchType_FK <> v.VchType
+				JOIN Inv.VchType hv ON hv.Id = h.VchTypeId
+				WHERE hv.HamkaranId <> v.VchType
 				   OR hp.HamkaranId <> v.PartSerial
 				   OR TRY_CONVERT(INT, LTRIM(RTRIM(hd.Code))) <> TRY_CONVERT(INT, LTRIM(RTRIM(CAST(v.AccNum AS NVARCHAR(32)))))
 				   OR h.Qty <> v.Qty
@@ -104,13 +104,13 @@ namespace App.BackgroundJob.Jobs.Sale
 						n.VchNum,
 						n.VchDate,
 						dbo.ToShamsiDate(CAST(n.VchDate AS DATE), '/'),
-						CAST(vt.VchType_ID AS TINYINT),
+						vt.Id,
 						n.Qty,
 						p.Id,
 						NULL,
 						0,
 						NULL,
-						0,
+						ISNULL(htsRow.Id, 0),
 						CAST(ISNULL(d.TypeId, 0) AS TINYINT),
 						1, @Seed, @Now, @NowShamsi,
 						1, @Seed, @Now, @NowShamsi,
@@ -118,7 +118,9 @@ namespace App.BackgroundJob.Jobs.Sale
 					FROM #NewData n
 					JOIN Inv.Part p ON p.HamkaranId = n.PartSerial
 					JOIN FIN.DL d ON TRY_CONVERT(INT, LTRIM(RTRIM(d.Code))) = TRY_CONVERT(INT, LTRIM(RTRIM(CAST(n.AccNum AS NVARCHAR(32)))))
-					JOIN [TMS].[TotalSystem].[dbo].[Inv_VchType] vt ON vt.Hamkaran_InvVchType_FK = n.VchType
+					JOIN Inv.VchType vt ON vt.HamkaranId = n.VchType
+					LEFT JOIN [TMS].[TotalSystem].[dbo].[Sale_ProjectUtilizedMaterial] htsRow
+						ON htsRow.VchItemId = n.VchItmID AND htsRow.[Year] = n.[Year]
 					LEFT JOIN Sale.ProjectUtilizedMaterial t
 						ON t.VchItemId = n.VchItmID AND t.[Year] = n.[Year] AND t.PartId = p.Id
 					WHERE t.Id IS NULL;
@@ -132,7 +134,7 @@ namespace App.BackgroundJob.Jobs.Sale
 					SET
 						pum.PartId = p.Id,
 						pum.DLId = d.Id,
-						pum.VchTypeId = CAST(vt.VchType_ID AS TINYINT),
+						pum.VchTypeId = vt.Id,
 						pum.VchMiladiDate = e.VchDate,
 						pum.VchDateShamsiDate = dbo.ToShamsiDate(CAST(e.VchDate AS DATE), '/'),
 						pum.Qty = e.Qty,
@@ -145,7 +147,7 @@ namespace App.BackgroundJob.Jobs.Sale
 					JOIN #EditedData e ON e.VchItmID = pum.VchItemId AND e.[Year] = pum.[Year]
 					JOIN Inv.Part p ON p.HamkaranId = e.PartSerial
 					JOIN FIN.DL d ON TRY_CONVERT(INT, LTRIM(RTRIM(d.Code))) = TRY_CONVERT(INT, LTRIM(RTRIM(CAST(e.AccNum AS NVARCHAR(32)))))
-					JOIN [TMS].[TotalSystem].[dbo].[Inv_VchType] vt ON vt.Hamkaran_InvVchType_FK = e.VchType;
+					JOIN Inv.VchType vt ON vt.HamkaranId = e.VchType;
 
 					SET @Updated = @@ROWCOUNT;
 				END
@@ -334,6 +336,36 @@ namespace App.BackgroundJob.Jobs.Sale
 				   OR t.DLTypeId <> m.DlTypeId;
 
 				DECLARE @Updated INT = @@ROWCOUNT;
+
+				UPDATE t
+				SET
+					t.HtsId = m.HtsId,
+					t.VchItemId = m.VchItemId,
+					t.VchHdrId = m.VchHdrId,
+					t.DLId = m.DlId,
+					t.[Year] = m.[Year],
+					t.VchNum = m.VchNum,
+					t.VchMiladiDate = m.VchDate,
+					t.VchDateShamsiDate = m.VchDateInText,
+					t.VchTypeId = m.VchTypeId,
+					t.Qty = m.Qty,
+					t.PartId = m.PartId,
+					t.ReplacedPartId = m.ReplacedPartId,
+					t.ReplacedQty = ISNULL(m.ReplacedQty, 0),
+					t.Comment = m.Comment,
+					t.DLTypeId = m.DlTypeId,
+					t.ModifiedById = 1,
+					t.ModifiedByName = @Seed,
+					t.ModifiedDateMiladiDateTime = @Now,
+					t.ModifiedDateShamsiDateTime = @NowShamsi
+				FROM Sale.ProjectUtilizedMaterial t
+				INNER JOIN #PumMapped m ON m.VchItemId = t.VchItemId AND m.[Year] = t.[Year]
+				WHERE t.HtsId = 0
+				  AND NOT EXISTS (
+					SELECT 1 FROM Sale.ProjectUtilizedMaterial x
+					WHERE x.HtsId = m.HtsId AND x.Id <> t.Id);
+
+				SET @Updated = @Updated + @@ROWCOUNT;
 
 				INSERT INTO Sale.ProjectUtilizedMaterial (
 					DLId, [Year], VchNum, VchMiladiDate, VchDateShamsiDate, Qty, PartId,

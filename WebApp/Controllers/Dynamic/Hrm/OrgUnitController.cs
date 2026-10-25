@@ -48,9 +48,32 @@ namespace WebApp.Controllers.Dynamic.Hrm
         [ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
         public async Task<IActionResult> Update(OrgUnit orgunit , CancellationToken cn)
         {
-            // Update logic here
+            await PreserveUnpostedSyncFieldsAsync(orgunit, cn);
            var entity = await unitOfWork.Repository<OrgUnit>().UpdateAsync(orgunit, cn, true);
             return Ok(entity);
+        }
+
+        /// <summary>
+        /// فرم ویرایش این فیلدها را نشان نمی‌دهد. اگر در پست نباشند long پیش‌فرض ۰ می‌شود و لینک راهکاران پاک می‌شود.
+        /// </summary>
+        private async Task PreserveUnpostedSyncFieldsAsync(OrgUnit orgunit, CancellationToken cn)
+        {
+            if (orgunit.Id is not > 0)
+                return;
+
+            var old = await unitOfWork.Repository<OrgUnit>().TableNoTracking
+                .Where(c => c.Id == orgunit.Id)
+                .Select(c => new { c.HamkaranUnitId, c.BranchId })
+                .FirstOrDefaultAsync(cn);
+
+            if (old == null)
+                return;
+
+            if (orgunit.HamkaranUnitId <= 0 && old.HamkaranUnitId > 0)
+                orgunit.HamkaranUnitId = old.HamkaranUnitId;
+
+            if (orgunit.BranchId is null)
+                orgunit.BranchId = old.BranchId;
         }
 
         [HttpGet("[action]")]

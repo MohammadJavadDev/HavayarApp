@@ -727,10 +727,6 @@
      }
 
      function deleteNotification(notificationId) {
-          if (!confirm('آیا از حذف این اعلان اطمینان دارید؟')) {
-               return;
-          }
-
           $$.post('/System/Notify/Delete', notificationId,
                function (r) {
                     if (!r.isSuccess) return error2(r.message);

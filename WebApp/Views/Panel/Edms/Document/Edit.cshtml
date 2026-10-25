@@ -62,60 +62,34 @@
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>نفر ساعت</label>
-			<input class='form-control' data-bind='hourPrePerson' data-invalidMessage='فقط عداد'
-				data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HourPrePerson' />
+		<div class='col-md-6 form-group-inline'>
+			<label class='form-label required'>نفر ساعت (ساعت:دقیقه)</label>
+			<input class='form-control ltr' type='text' id='HourPrePerson' name='HourPrePerson' data-bind='hourPrePerson' data-duration-hm='true' required
+				placeholder='__:__' value='@Common.Utilities.MinutesFromHourMinJsonConverter.MinToHourMin(Model?.HourPrePerson, hourLength: 2)' />
 			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class='col-md-6'>
-			<label class=''>
-				تاریخ انتشار/ارسال
-			</label>
-			<input class='form-control' data-bind='publicationShamsiDate' data-persionDatePicker="true"
+		<div class='col-md-6 form-group-inline'>
+			<label class='form-label required'>تاریخ انتشار/ارسال</label>
+			<input class='form-control' data-bind='publicationShamsiDate' required data-persionDatePicker="true"
 				persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
 				value='@Model?.PublicationMiladiDate' />
+			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 		</div>
 
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
+			<label class="form-label">تهیه کننده</label>
+			<input class="form-control" value="@(ViewData["VpisProducerName"] ?? "-")" readonly tabindex="-1" />
+		</div>
+
+		<div class="col-md-6 form-group-inline">
 			<label class="form-label">بررسی کننده</label>
-			@(Html.EntitySelector<User>
-						(
-						"ReviewerSelector",
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-						c => new
-						{
-							Id = c.Id,
-							Name = c.Name,
-
-						},
-						c => new { c.Username, c.Name },
-						"{Name}",
-						"reviewerId",
-						null,
-						Model?.ReviewerId.ToString()
-						))
+			<input class="form-control" value="@(ViewData["VpisReviewerNames"] ?? "-")" readonly tabindex="-1" />
 		</div>
 
-		<div class="col-md-6">
+		<div class="col-md-6 form-group-inline">
 			<label class="form-label">تایید کننده</label>
-			@(Html.EntitySelector<User>
-						(
-						"ApproverSelector",
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-						c => new
-						{
-							Id = c.Id,
-							Name = c.Name,
-
-						},
-						c => new { c.Username, c.Name },
-						"{Name}",
-						"approverId",
-						null,
-						Model?.ApproverId.ToString()
-						))
+			<input class="form-control" value="@(ViewData["VpisApproverName"] ?? "-")" readonly tabindex="-1" />
 		</div>
 		<div class='col-md-6'>
 			<label class=''>بازنگری</label>
@@ -135,28 +109,28 @@
 		<div class='col-md-6'>
 			<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
 					    Label="فایل اصلی" entity-type="@typeof(Document).FullName"
-					    entity-prop-name="MainFile" max-file-size="10"
+					    entity-prop-name="MainFile" max-file-size="100"
 				accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 		</div>
 
 
 		<div class='col-md-6'>
 			<fileuploader bind="motherFileId" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
-					    Label="فایل مادر" entity-type="@typeof(Document).FullName" entity-prop-name="MotherFile" max-file-size="10"
+					    Label="فایل مادر" entity-type="@typeof(Document).FullName" entity-prop-name="MotherFile" max-file-size="100"
 				accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 		</div>
 
 
 		<div class='col-md-6'>
 			<fileuploader bind="secondaryFileId" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
-					    Label="فایل ثانوی" entity-type="@typeof(Document).FullName" entity-prop-name="SecondaryFile" max-file-size="10"
+					    Label="فایل ثانوی" entity-type="@typeof(Document).FullName" entity-prop-name="SecondaryFile" max-file-size="100"
 				accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 		</div>
 
 
 		<div class='col-md-6'>
 			<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
-					    Label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" max-file-size="10"
+					    Label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" max-file-size="100"
 				accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 		</div>
 
@@ -232,6 +206,16 @@
 	function savefn($btnAction) {
 		if (validateError($$('.card'))) { return; }
 		var model = $$('.card').dataBind();
+		const hour = Number(model?.hourPrePerson);
+		if (!hour || hour <= 0) {
+			toastr.error('نفر ساعت الزامی است.', 'خطا');
+			return;
+		}
+		const publication = (model?.publicationShamsiDate || '').toString().trim();
+		if (!publication) {
+			toastr.error('تاریخ انتشار/ارسال الزامی است.', 'خطا');
+			return;
+		}
 		const $btn = $(this.element).block();
 		$$.post('save',
 			model,

@@ -114,34 +114,32 @@ namespace WebApp.Actions.Sale
 				}
 			}
 
-			// همیشه: ProductionStatus = آخرین کامنت با IsForProductionMode (معادل بخش پایانی تریگر)
-			var lastProductionStatus = await unitOfWork.Repository<ProductionOrderItemComment>()
+			// معادل بخش پایانی تریگر: وضعیت قلم = آخرین کامنت تولید (حذف آخرین کامنت، یا ویرایش کامنتی که آخرین نیست).
+			// وضعیت و متن باید از همان یک ردیف بیایند. دو FirstOrDefault جدا، در ثبت توقف، متن کامنت جدید و
+			// وضعیت کامنت قبلی را با هم روی قلم می‌نوشت و گزینه «پایان توقف» از لیست تغییر وضعیت حذف می‌شد.
+			var last = await unitOfWork.Repository<ProductionOrderItemComment>()
 				.TableNoTracking
 				.Where(c => c.ProductionOrderItemId == parentId
 					&& c.IsForProductionMode
 					&& c.IsActive == Entities.Base.IsActiveEnum.Active)
 				.OrderByDescending(c => c.Id)
-				.Select(c => (ProductionOrderItemProductionStatusEnum?)c.ProductionStatus)
+				.Select(c => new { c.Id, c.ProductionStatus, c.Comment })
 				.FirstOrDefaultAsync(ct);
 
-			if (lastProductionStatus.HasValue)
-			{
-				var lastCommentText = await unitOfWork.Repository<ProductionOrderItemComment>()
-					.TableNoTracking
-					.Where(c => c.ProductionOrderItemId == parentId
-						&& c.IsForProductionMode
-						&& c.IsActive == Entities.Base.IsActiveEnum.Active)
-					.OrderByDescending(c => c.Id)
-					.Select(c => c.Comment)
-					.FirstOrDefaultAsync(ct);
+			var useInserted = !isDeleteMode
+				&& model.Id is > 0
+				&& ProductionModeStatusIds.Contains(statusId)
+				&& (last == null || last.Id < model.Id);
 
-				await unitOfWork.Repository<ProductionOrderItem>()
-					.UpdateFieldsAsync(parentId, new Dictionary<string, object>
-					{
-						[nameof(ProductionOrderItem.ProductionStatus)] = lastProductionStatus.Value,
-						[nameof(ProductionOrderItem.LastComment)] = lastCommentText ?? string.Empty
-					}, ct);
-			}
+			if (last == null && !useInserted)
+				return;
+
+			await unitOfWork.Repository<ProductionOrderItem>()
+				.UpdateFieldsAsync(parentId, new Dictionary<string, object>
+				{
+					[nameof(ProductionOrderItem.ProductionStatus)] = useInserted ? model.ProductionStatus : last!.ProductionStatus,
+					[nameof(ProductionOrderItem.LastComment)] = (useInserted ? model.Comment : last!.Comment) ?? string.Empty
+				}, ct);
 		}
 	}
 }

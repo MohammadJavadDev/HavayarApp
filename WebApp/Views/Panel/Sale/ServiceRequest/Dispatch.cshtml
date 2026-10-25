@@ -1,3 +1,7 @@
 @using Entities.App.Sale
+@{
+	var profileNames = ViewBag.ServiceRequestProfileNames as string
+		?? "AfterSales_ServiceRequest_Dispatch";
+}
 <datatableprofile entity-Type="typeof(ServiceRequest)"
-	profile-names="AfterSales_ServiceRequest_Dispatch"></datatableprofile>
+	profile-names="@profileNames"></datatableprofile>

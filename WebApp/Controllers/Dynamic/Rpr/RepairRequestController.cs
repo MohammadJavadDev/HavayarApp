@@ -183,25 +183,35 @@ namespace WebApp.Controllers.Dynamic
 			switch (request.ConfirmType)
 			{
 				case RepairRequestConfirmType.PreCheckedConfirm:
-					entity.PreCheckShamsiDate = request.DateShamsi;
+					entity.PreCheckShamsiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateShamsi;
 					entity.PreCheckMiladiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateMiladi ?? now;
 					break;
 				case RepairRequestConfirmType.PreCheckedConfirm2:
-					entity.PreCheck2ShamsiDate = request.DateShamsi;
+					entity.PreCheck2ShamsiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateShamsi;
 					entity.PreCheck2MiladiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateMiladi ?? now;
 					entity.IsPreChecked2 = !string.IsNullOrWhiteSpace(request.DateShamsi);
 					break;
 				case RepairRequestConfirmType.FinancialProposalConfirm:
-					entity.FinancialProposalShamsiDate = request.DateShamsi;
-					entity.FinancialProposalMiladiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateMiladi ?? now;
-					if (!string.IsNullOrWhiteSpace(request.AgreedShamsiDate))
+					if (string.IsNullOrWhiteSpace(request.DateShamsi))
 					{
-						entity.AgreedShamsiDate = request.AgreedShamsiDate;
-						entity.AgreedMiladiDate = request.AgreedMiladi ?? now;
+						entity.FinancialProposalShamsiDate = null;
+						entity.FinancialProposalMiladiDate = null;
+						entity.AgreedShamsiDate = null;
+						entity.AgreedMiladiDate = null;
+					}
+					else
+					{
+						entity.FinancialProposalShamsiDate = request.DateShamsi;
+						entity.FinancialProposalMiladiDate = request.DateMiladi ?? now;
+						if (!string.IsNullOrWhiteSpace(request.AgreedShamsiDate))
+						{
+							entity.AgreedShamsiDate = request.AgreedShamsiDate;
+							entity.AgreedMiladiDate = request.AgreedMiladi ?? now;
+						}
 					}
 					break;
 				case RepairRequestConfirmType.FinancialProposalConfirm2:
-					entity.FinancialProposal2ShamsiDate = request.DateShamsi;
+					entity.FinancialProposal2ShamsiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateShamsi;
 					entity.FinancialProposal2MiladiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateMiladi ?? now;
 					entity.IsApprovedFinancialProposal2 = !string.IsNullOrWhiteSpace(request.DateShamsi);
 					break;
@@ -222,12 +232,12 @@ namespace WebApp.Controllers.Dynamic
 					}
 					break;
 				case RepairRequestConfirmType.FullConfirm2:
-					entity.Confirm2ShamsiDate = request.DateShamsi;
+					entity.Confirm2ShamsiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateShamsi;
 					entity.Confirm2MiladiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateMiladi ?? now;
 					entity.IsConfirmed2 = !string.IsNullOrWhiteSpace(request.DateShamsi);
 					break;
 				case RepairRequestConfirmType.SendFinancialProposal:
-					entity.FinancialProposalSentShamsiDate = request.DateShamsi;
+					entity.FinancialProposalSentShamsiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateShamsi;
 					entity.FinancialProposalSentMiladiDate = string.IsNullOrWhiteSpace(request.DateShamsi) ? null : request.DateMiladi ?? now;
 					entity.IsSentFinancialProposal = !string.IsNullOrWhiteSpace(request.DateShamsi);
 					break;
@@ -256,6 +266,7 @@ namespace WebApp.Controllers.Dynamic
 			model.Responsible = null;
 			model.CostCenter = null;
 			model.InspectionPersonel = null;
+			model.ZoneManager = null;
 			model.Station = null;
 		}
 	}

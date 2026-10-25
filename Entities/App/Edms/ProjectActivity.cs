@@ -13,10 +13,10 @@ namespace Entities.App.Edms
 	public class ProjectActivity : BaseEntity
 	{
 		[DisplayName("پروژه")]
-		[DisplayInfo(null, false, type: SystemType.Entity, required: true)]
-		public Project Project { get; set; }
+		[DisplayInfo(null, false, type: SystemType.Entity)]
+		public Project? Project { get; set; }
 
-		public long ProjectId { get; set; }
+		public long? ProjectId { get; set; }
 
 
 		[DisplayName("نام پروژه")]
@@ -37,8 +37,8 @@ namespace Entities.App.Edms
 
 
 		[DisplayName("نوع فعالیت")]
-		[DisplayInfo("Type", true, type: SystemType.Select, required: true, regexInvalidError: "کاراکتر وارد شده غیر مجاز میباشد. ")]
-		public ProjectActivityTypeEnum Type { get; set; }
+		[DisplayInfo("Type", true, type: SystemType.Select, regexInvalidError: "کاراکتر وارد شده غیر مجاز میباشد. ")]
+		public ProjectActivityTypeEnum? Type { get; set; }
 
 
 		[DisplayName("کامنت")]
@@ -60,6 +60,33 @@ namespace Entities.App.Edms
 		[DisplayInfo("Duration", true, type: SystemType.Long, regexInvalidError: "کاراکتر وارد شده غیر مجاز میباشد. ")]
 		public long? Duration { get; set; }
 
+		/// <summary>
+		/// شناسه فعالیت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
+	}
 
+	[Display(Name = "کامنت فعالیت های پروژه")]
+	[Table("ProjectActivityComment", Schema = "Edms")]
+	public class ProjectActivityComment : BaseEntity
+	{
+		[DisplayName("فعالیت پروژه")]
+		[DisplayInfo(null, false, type: SystemType.Entity, required: true)]
+		public ProjectActivity ProjectActivity { get; set; }
+
+		public long ProjectActivityId { get; set; }
+
+		[DisplayName("وضعیت")]
+		[DisplayInfo(null, false, type: SystemType.Select)]
+		public DocumentStatusEnums Status { get; set; }
+
+		[DisplayName("کامنت")]
+		[DisplayInfo(null, false, type: SystemType.String)]
+		public string? Comment { get; set; }
+
+		/// <summary>
+		/// شناسه کامنت در سیستم قدیم (TotalSystem / HTS) برای همگام‌سازی یکتا
+		/// </summary>
+		public long HtsId { get; set; }
 	}
 }

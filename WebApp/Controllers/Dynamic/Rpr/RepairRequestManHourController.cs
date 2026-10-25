@@ -16,6 +16,10 @@ namespace WebApp.Controllers.Dynamic
 	[ControllerInfo("نفرساعت درخواست تعمیر", typeof(RepairRequestManHour))]
 	public class RepairRequestManHourController(IUnitOfWork unitOfWork, IWebHostEnvironment env) : BaseController
 	{
+		private const string RoleRepairs = "Rpr.Repairs";
+		private const string RoleRequestRepairs = "Rpr.RepairRequest.Repairs";
+		private const string RoleShowAllMenus = "ShowAllMenus";
+
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(RepairRequestManHour model, CancellationToken cn)
@@ -81,6 +85,10 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult ListByParentId(long repairRequestId)
 		{
 			ViewBag.ParentId = repairRequestId;
+			// فقط برای پنهان‌کردن دکمه‌ها؛ مجوز واقعی Save/Delete با RoleAccess اعمال می‌شود.
+			ViewBag.CanNew = IsAdministrator || CurrentUserHasAnyRole(RoleRepairs, RoleRequestRepairs, RoleShowAllMenus);
+			ViewBag.CanEdit = IsAdministrator || CurrentUserHasAnyRole(RoleRepairs, RoleRequestRepairs, RoleShowAllMenus);
+			ViewBag.CanDelete = IsAdministrator || CurrentUserHasAnyRole(RoleRepairs, RoleShowAllMenus);
 			return View(@"\Views\Panel\Rpr\RepairRequestManHour\ListByParentId.cshtml");
 		}
 
@@ -94,7 +102,9 @@ namespace WebApp.Controllers.Dynamic
 				.Where(c => c.RepairRequestId == repairRequestId)
 				.Select(c => new {
 					c.Id,
-					ExpertName = c.Expert != null ? c.Expert.Name : null,
+					ExpertName = c.Expert == null
+						? null
+						: ((c.Expert.Code ?? "") + " " + (c.Expert.Name ?? "") + " " + (c.Expert.Family ?? "")).Trim(),
 					c.WorkShamsiDate,
 					c.StartTime,
 					c.EndTime,

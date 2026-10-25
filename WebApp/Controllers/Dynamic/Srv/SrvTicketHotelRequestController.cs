@@ -559,11 +559,18 @@ namespace WebApp.Controllers.Dynamic
 			}
 
 			model.ApplicantIds = string.Join(",", ids);
-			var names = await unitOfWork.Repository<Personel>().TableNoTracking
+			var people = await unitOfWork.Repository<Personel>().TableNoTracking
 				.Where(p => p.Id != null && ids.Contains(p.Id.Value))
-				.Select(p => ((p.Name ?? "") + " " + (p.FamilyDisplay ?? p.Family ?? "")).Trim())
+				.Select(p => new { p.Name, Family = p.FamilyDisplay ?? p.Family, p.NationalID })
 				.ToListAsync(cn);
-			model.ApplicantsInText = string.Join("، ", names.Where(n => n.HasValue()));
+			var names = people.Select(p =>
+			{
+				var label = ((p.Name ?? "") + " " + (p.Family ?? "")).Trim();
+				if (!string.IsNullOrWhiteSpace(p.NationalID))
+					label += "(" + p.NationalID.Trim() + ")";
+				return label;
+			}).Where(n => n.HasValue());
+			model.ApplicantsInText = string.Join(",", names);
 		}
 
 		private static List<long> ParseIdList(string? csv)

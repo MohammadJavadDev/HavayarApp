@@ -1,4 +1,4 @@
-﻿/*
+﻿﻿/*
 ================================================================================
 Seed_OpenOrderRequestEmailToSupplier_DataProfile.sql  (WP1 / D1 / D26)
 ================================================================================
@@ -7,7 +7,7 @@ Seed_OpenOrderRequestEmailToSupplier_DataProfile.sql  (WP1 / D1 / D26)
 
 ستون‌ها مطابق گرید HTS (_OpenOrderRequestEmailToSupplier):
   شماره درخواست خرید، شماره سفارش، کد/نام/واحد کالا، نام شرکت‌ها،
-  شرکت گیرنده سفارش، تعداد درخواست، تعداد ارسال، زمان ارسال، ساعت ارسال، متولی خرید.
+  شرکت گیرنده سفارش، تعداد درخواست، تعداد ارسال، زمان ارسال، ساعت ارسال، متولی خرید، توضیحات.
 
 دسترسی مستقل از «پیشینه درخواست‌ها» صفحه 77 (D26):
   نقش جدید 100015 Sup.OpenOrderRequest.SendHistoryView
@@ -70,7 +70,8 @@ BEGIN TRY
     [t1].[SendingCount] AS [t1_SendingCount],
     LEFT([t1].[SendShamsiDateTime], 10) AS [t1_SendDate],
     NULLIF(LTRIM(SUBSTRING([t1].[SendShamsiDateTime], 12, 8)), N'''') AS [t1_SendTime],
-    COALESCE([t7].[NameFa], [t1].[CreatedByName]) AS [tSender_Name]
+    COALESCE([t7].[NameFa], [t1].[CreatedByName]) AS [tSender_Name],
+    [t1].[Comment] AS [t1_Comment]
 FROM [Sup].[OpenOrderRequestEmailToSupplier] AS [t1]
 INNER JOIN [Sup].[OpenOrderRequest] AS [t2] ON [t1].[OpenOrderRequestId] = [t2].[Id]
 LEFT JOIN [Inv].[Part] AS [t3] ON [t2].[PartId] = [t3].[Id]
@@ -95,11 +96,12 @@ N'{"TableName":"Inv.Part","ColumnName":"t3_Name","DisplayName":"نام کالا"
 N'{"TableName":"Inv.PartUnit","ColumnName":"t6_Title","DisplayName":"واحد کالا","Alliance":"t6_Title","Address":"[t6].[Title]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":80,"Filterable":true,"Sortable":true,"ClassName":""},' +
 N'{"TableName":"Inv.PartCompany","ColumnName":"tCo_CompanyNames","DisplayName":"نام شرکت ها","Alliance":"tCo_CompanyNames","Address":"[tCo].[CompanyNames]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":180,"Filterable":true,"Sortable":true,"ClassName":""},' +
 N'{"TableName":"Gnr.Party","ColumnName":"t5_FullName","DisplayName":"شرکت گیرنده سفارش","Alliance":"t5_FullName","Address":"[t5].[FullName]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":180,"Filterable":true,"Sortable":true,"ClassName":""},' +
-N'{"TableName":"Sup.OpenOrderRequest","ColumnName":"t2_RequiredQty","DisplayName":"تعداد درخواست","Alliance":"t2_RequiredQty","Address":"[t2].[RequiredQty]","SystemTypeName":"Int","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":7,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":90,"Filterable":true,"Sortable":true,"ClassName":""},' +
+N'{"TableName":"Sup.OpenOrderRequest","ColumnName":"t2_RequiredQty","DisplayName":"تعداد درخواست","Alliance":"t2_RequiredQty","Address":"[t2].[RequiredQty]","SystemTypeName":"Decimal","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":14,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":90,"Filterable":true,"Sortable":true,"ClassName":""},' +
 N'{"TableName":"Sup.OpenOrderRequestEmailToSupplier","ColumnName":"t1_SendingCount","DisplayName":"تعداد ارسال","Alliance":"t1_SendingCount","Address":"[t1].[SendingCount]","SystemTypeName":"Decimal","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":14,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":90,"Filterable":true,"Sortable":true,"ClassName":""},' +
 N'{"TableName":"Sup.OpenOrderRequestEmailToSupplier","ColumnName":"t1_SendDate","DisplayName":"زمان ارسال","Alliance":"t1_SendDate","Address":"LEFT([t1].[SendShamsiDateTime], 10)","SystemTypeName":"DateShamsi","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":5,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":110,"Filterable":true,"Sortable":true,"ClassName":""},' +
 N'{"TableName":"Sup.OpenOrderRequestEmailToSupplier","ColumnName":"t1_SendTime","DisplayName":"ساعت ارسال","Alliance":"t1_SendTime","Address":"NULLIF(LTRIM(SUBSTRING([t1].[SendShamsiDateTime], 12, 8)), N'''')","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":80,"Filterable":true,"Sortable":true,"ClassName":""},' +
-N'{"TableName":"system.User","ColumnName":"tSender_Name","DisplayName":"متولی خرید","Alliance":"tSender_Name","Address":"COALESCE([t7].[NameFa], [t1].[CreatedByName])","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":140,"Filterable":true,"Sortable":true,"ClassName":""}' +
+N'{"TableName":"system.User","ColumnName":"tSender_Name","DisplayName":"متولی خرید","Alliance":"tSender_Name","Address":"COALESCE([t7].[NameFa], [t1].[CreatedByName])","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":140,"Filterable":true,"Sortable":true,"ClassName":""},' +
+N'{"TableName":"Sup.OpenOrderRequestEmailToSupplier","ColumnName":"t1_Comment","DisplayName":"توضیحات","Alliance":"t1_Comment","Address":"[t1].[Comment]","SystemTypeName":"String","SelectIndex":0,"Visible":true,"PrimaryKey":false,"SystemType":0,"SortDirection":null,"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":220,"Filterable":true,"Sortable":true,"ClassName":""}' +
 N']';
 
     DECLARE @ActionOptions NVARCHAR(MAX) = N'[{"dataActionName":"new","enable":false,"title":"جدید"},{"dataActionName":"edit","enable":true,"title":"مشاهده"},{"dataActionName":"delete","enable":false,"title":"حذف"},{"dataActionName":"exportExcell","enable":true,"title":"خروجی اکسل"}]';

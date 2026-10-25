@@ -55,8 +55,6 @@
         (function() {
 
           
-               debugger
-
               const queryParams = @Html.Raw(Json.Serialize(ViewBag.QueryParams));
               const reportId = @Html.Raw(Json.Serialize(ViewBag.ReportId));
                
@@ -156,8 +154,6 @@ else if (Model.Type == ReportType.StimulSoft)
         (function() {
 
 
-                    debugger
-
                 const queryParams = @Html.Raw(Json.Serialize(ViewBag.QueryParams));
                  const autoRun = @Html.Raw(ViewBag.AutoRun.ToString().ToLower());
 
@@ -179,26 +175,27 @@ else if (Model.Type == ReportType.StimulSoft)
                 }
             });
 
-                      $(`[data-bind]`).each((c,i)=>{
-              let bind = $(i).attr("data-bind").toLowerCase()
-              for( let qp in queryParams)
-              {
-                     if(qp.toLowerCase() == bind)
-                   {
-                         $(i).find("input").val(queryParams[qp].values[0]).change()
-                         $(i).find("select").val(queryParams[qp].condition).change()
-                   }
+                      $$('[data-bind]').each(function () {
+              const bindAttr = $(this).attr('data-bind');
+              if (!bindAttr || !queryParams) return;
+              const bind = bindAttr.toLowerCase();
+              for (let qp in queryParams) {
+                   if (qp.toLowerCase() !== bind) continue;
+                   const param = queryParams[qp];
+                   if (!param || !param.values || !param.values.length) continue;
+                   $(this).find('input').val(param.values[0]).change();
+                   $(this).find('select').val(param.condition).change();
               }
-          })
+          });
             if(autoRun == true){
                      $$("#filtersPlace").hide();
-                       $("#btnDraw").parent().removeClass('d-flex').addClass("d-none");
+                       $$("#btnDraw").parent().removeClass('d-flex').addClass("d-none");
           }
 
-            $('#btnDraw').on('click', function() {
+            $$('#btnDraw').on('click', function() {
                 const model = { filters: [] };
                 let hasError = '';
-                $('#filtersPlace .row').each(function() {
+                $$('#filtersPlace .row').each(function() {
                     const $row = $(this);
                     const values = $row.find('input').map(function() { return $(this).val(); }).get().filter(v => v && v.length > 0);
                     if (values.length > 0) {
@@ -236,12 +233,12 @@ else if (Model.Type == ReportType.StimulSoft)
                     });
                 }
                 const url = `/System/ReportBuilder/StimulSoftViewReport?reportId=${repId}&${params.toString()}`;
-                  $('#reportContent').html(`<iframe src="${url}" style="width:100%;min-height:1125px;border:none;"></iframe>`);
+                  $$('#reportContent').html(`<iframe src="${url}" style="width:100%;min-height:1125px;border:none;"></iframe>`);
             });
 
               if(autoRun == true)
               {
-                     $('#btnDraw').click();
+                     $$('#btnDraw').trigger('click');
               }
         })();
     </script>

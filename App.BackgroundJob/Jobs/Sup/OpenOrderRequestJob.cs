@@ -22,6 +22,7 @@ using Entities.Hts.Edms;
 using Microsoft.EntityFrameworkCore;
 using Services.FileServices;
 using Services.Job;
+using Services.ProductionOrderServices;
 using System.Data;
 using System.Globalization;
 using System.Text;
@@ -165,10 +166,10 @@ namespace App.BackgroundJob.Jobs.Sup
                                 PartId = partId,
                                 NeedDateShamsiDate = !remoteOrder.NeedDate.HasValue ? null : remoteOrder.NeedDate.Value.ToShamsiDate(),
                                 NeedDateMiladiDate = remoteOrder.NeedDate,
-						   SumSendQty = (long?)remoteOrder.SumSendQty,
-                                FactoredCount = (int)remoteOrder.FactoredCount,
-                                OrderQty = (int?)remoteOrder.OrderQty,
-                                RequiredQty = (int)remoteOrder.ReqQty,
+						   SumSendQty = remoteOrder.SumSendQty,
+                                FactoredCount = remoteOrder.FactoredCount,
+                                OrderQty = remoteOrder.OrderQty,
+                                RequiredQty = remoteOrder.ReqQty,
                                 OrderItemComment = remoteOrder.OrdItmComment,
                                 PurchaseRequestNumber = remoteOrder.PurchaseRequestNumber?.ToLong() ?? 0,
 
@@ -231,7 +232,7 @@ namespace App.BackgroundJob.Jobs.Sup
                             if (localOrder.Year != remoteOrder.Year) updated = true;
                             if (localOrder.PurchaseRequestNumber != (remoteOrder.PurchaseRequestNumber?.ToLong() ?? 0)) updated = true;
 
-                            if (localOrder.FactoredCount != (int)remoteOrder.FactoredCount) updated = true;
+                            if (localOrder.FactoredCount != remoteOrder.FactoredCount) updated = true;
                             if (localOrder.PartId != partId) updated = true;
 
                             long? newRelatedPartId = remoteOrder.RelatedPartId.HasValue && partsDict.TryGetValue(remoteOrder.RelatedPartId.Value, out var nrpId) ? nrpId : null;
@@ -242,9 +243,9 @@ namespace App.BackgroundJob.Jobs.Sup
                            
                            if ((localOrder.NeedDateShamsiDate ?? "").Trim() != (remNeedDate ?? "").Trim()) updated = true;
 
-                            if (localOrder.SumSendQty != (int?)remoteOrder.SumSendQty) updated = true;
-                            if (localOrder.OrderQty != (int?)remoteOrder.OrderQty) updated = true;
-                            if (localOrder.RequiredQty != (int)remoteOrder.ReqQty) updated = true;
+                            if (localOrder.SumSendQty != remoteOrder.SumSendQty) updated = true;
+                            if (localOrder.OrderQty != remoteOrder.OrderQty) updated = true;
+                            if (localOrder.RequiredQty != remoteOrder.ReqQty) updated = true;
                             if (localOrder.OrderItemComment != remoteOrder.OrdItmComment) updated = true;
                             if (localOrder.ProductionOrderNumber != productionOrderNumber) updated = true;
                             if (localOrder.ProductionOrderId != productionOrderId) updated = true;
@@ -277,10 +278,10 @@ namespace App.BackgroundJob.Jobs.Sup
                                 localOrder.PartId = partId;
 
 
-                                localOrder.SumSendQty = (int?)remoteOrder.SumSendQty;
-                                localOrder.FactoredCount = (int)remoteOrder.FactoredCount;
-                                localOrder.OrderQty = (int?)remoteOrder.OrderQty;
-                                localOrder.RequiredQty = (int)remoteOrder.ReqQty;
+                                localOrder.SumSendQty = remoteOrder.SumSendQty;
+                                localOrder.FactoredCount = remoteOrder.FactoredCount;
+                                localOrder.OrderQty = remoteOrder.OrderQty;
+                                localOrder.RequiredQty = remoteOrder.ReqQty;
                                 localOrder.OrderItemComment = remoteOrder.OrdItmComment;
                                 localOrder.ProductionOrderNumber = productionOrderNumber;
                                 localOrder.ProductionOrderId = productionOrderId;
@@ -373,6 +374,9 @@ namespace App.BackgroundJob.Jobs.Sup
                 // 9. تایید خودکار مهندسی برای درخواست‌های روتین دارای مدرک (معادل سیستم قدیم)
                 await AutoAcceptEngineeringForRoutineParts(jobLogger, cn);
 
+                // 10. تایید مهندسی که در HTS خورده و در سیستم جدید هنوز نخورده
+                await SyncEngineeringAcceptFromHts(jobLogger, cn);
+
             }
             catch (Exception ex)
             {
@@ -392,6 +396,9 @@ namespace App.BackgroundJob.Jobs.Sup
         private const string ReceiptBodyMarkerPrefix = "<!--receipt:";
         private const string LegacyReceiptKey = "*";
         private const string QcReceiptKey = "qc";
+
+        /// <summary>تا چند روز پس از soft-delete، درخواست هنوز برای اعلان رسید کالا / رد QC بررسی می‌شود.</summary>
+        private const int NotificationDeletedLookbackDays = 30;
 
         private const string ArrivalWarehouseGroupCode = "Sup.OpenOrderRequest.ArrivalWarehouse";
         private const string ArrivalPartialGroupCode = "Sup.OpenOrderRequest.ArrivalPartial";
@@ -418,8 +425,16 @@ namespace App.BackgroundJob.Jobs.Sup
             if (qcEmails.Length == 0)
                 logger?.LogInfoAsync($"گروه اعلان «{QcRejectionGroupCode}» عضو ندارد (WP8).");
 
+            // ComputeOpenOrderRequest (مرحله 8b) درخواست کامل‌رسیدشده را قبل از این مرحله soft-delete می‌کند.
+            // در HTS اعلان قبل از حذف ارسال می‌شد؛ پس اینجا درخواست‌های اخیراً حذف‌شده (که رسید دارند) هم بررسی می‌شوند.
+            // تکراری نشدن اعلان با sentKeys و NotifyEmailSendPaperIds تضمین می‌شود.
+            var deletedLookbackFrom = DateTime.Now.AddDays(-NotificationDeletedLookbackDays);
             var localOrders = await unitOfWork.Repository<OpenOrderRequest>().Table
-                .Where(x => !x.IsForceDeletedByUser && !x.IsDeleted)
+                .Where(x => !x.IsForceDeletedByUser
+                            && (!x.IsDeleted
+                                || (x.IsDeletedMiladiDate != null
+                                    && x.IsDeletedMiladiDate >= deletedLookbackFrom
+                                    && x.FactoredCount > 0)))
                 .ToListAsync(cn);
 
             if (localOrders.Count == 0)
@@ -464,9 +479,15 @@ namespace App.BackgroundJob.Jobs.Sup
                     if (orderEvents.Count == 0)
                         continue;
 
+                    var createdBeforeOrder = createdCount;
+
                     createdCount += await SendQcRejectionNotifications(order, orderEvents, userLookup, qcEmails, sentKeys, cn, incrementSkipped: () => skippedCount++);
 
                     createdCount += await SendArrivalNotifications(order, orderEvents, userLookup, arrivalEmails, partialEmails, sentKeys, cn, incrementSkipped: () => skippedCount++);
+
+                    // یک SaveChanges به ازای هر درخواست (نه هر اعلان): اعلان‌ها و NotifyEmailSendPaperIds با هم ذخیره می‌شوند.
+                    if (createdCount > createdBeforeOrder)
+                        await unitOfWork.SaveChangesAsync(cn);
                 }
                 catch (Exception ex)
                 {
@@ -639,11 +660,21 @@ namespace App.BackgroundJob.Jobs.Sup
         {
             var now = DateTime.Now;
             var factoredDate = receipts.Select(r => r.FactoredDate).FirstOrDefault(d => d.HasValue) ?? now;
-            order.IsDeleted = true;
-            order.IsDeletedMiladiDate = now;
-            order.IsDeletedShamsiDate = now.ToShamsiDateTime();
-            order.FactoredMiladiDate = factoredDate;
-            order.FactoredShamsiDate = factoredDate.ToShamsiDate();
+            var wasAlreadyDeleted = order.IsDeleted;
+
+            // اگر قبلاً soft-delete شده، تاریخ حذف اولیه حفظ شود (وگرنه پنجرهٔ lookback اعلان هر اجرا جلو می‌رود).
+            if (!wasAlreadyDeleted)
+            {
+                order.IsDeleted = true;
+                order.IsDeletedMiladiDate = now;
+                order.IsDeletedShamsiDate = now.ToShamsiDateTime();
+            }
+
+            if (!wasAlreadyDeleted || order.FactoredMiladiDate == null || string.IsNullOrEmpty(order.FactoredShamsiDate))
+            {
+                order.FactoredMiladiDate = factoredDate;
+                order.FactoredShamsiDate = factoredDate.ToShamsiDate();
+            }
             if (string.IsNullOrEmpty(order.CompletionShamsiDate))
             {
                 order.CompletionMiladiDate = factoredDate;
@@ -659,6 +690,7 @@ namespace App.BackgroundJob.Jobs.Sup
             string receiptKey,
             CancellationToken cn)
         {
+            // saveNow:false — ذخیره دسته‌ای توسط SendNotifications (قبلاً هر اعلان یک SaveChanges + Audit جدا داشت و job ساعت‌ها طول می‌کشید).
             await unitOfWork.Repository<Notification>().AddAsync(new Notification
             {
                 Type = NotificationType.Email,
@@ -668,7 +700,7 @@ namespace App.BackgroundJob.Jobs.Sup
                 OwnerId = userId,
                 ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={order.Id}&{ReceiptQueryParam}{receiptKey}",
                 IsRead = false
-            }, cn);
+            }, cn, saveAudit: false, saveNow: false);
         }
 
         private static bool WasNotificationAlreadySent(
@@ -963,8 +995,7 @@ namespace App.BackgroundJob.Jobs.Sup
         private static string BuildQcRejectionBody(OpenOrderRequest order, List<HamkaranNotifyDto> rejectedItems)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("<div style='direction:rtl;text-align:right;padding:5px; margin:5px; font-family:tahoma; font-size: 11pt'>");
-            sb.AppendLine($"کاربر گرامی، کالا با مشخصات ذیل، مربوط به سفارش ({rejectedItems[0].OrdNo ?? order.OrderNo?.ToString()}) توسط واحد کیفیت رد شد<br>");
+            sb.AppendLine($"کاربر گرامی، کالا با مشخصات ذیل، مربوط به سفارش ({rejectedItems[0].OrdNo ?? order.OrderNo?.ToString()}) توسط واحد کیفیت رد شد<br /><br />");
 
             foreach (var item in rejectedItems)
             {
@@ -981,8 +1012,7 @@ namespace App.BackgroundJob.Jobs.Sup
                 sb.AppendLine("</ul><br /><br /><br />");
             }
 
-            sb.AppendLine("</div>");
-            return sb.ToString();
+            return ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString());
         }
 
         private async Task AutoAcceptEngineeringForRoutineParts(IJobLogger? logger, CancellationToken cn)
@@ -1019,8 +1049,8 @@ namespace App.BackgroundJob.Jobs.Sup
                 var orders = await unitOfWork.Repository<OpenOrderRequest>().Table
                     .Include(o => o.Part)
                     .ThenInclude(p => p!.BuyCategory)
+                    .ThenInclude(b => b!.PurchaseResponsible)
                     .Where(o => !o.IsDeleted
-                                && !o.IsForceDeletedByUser
                                 && !o.EngineeringAccept
                                 && eligiblePartIds.Contains(o.PartId))
                     .ToListAsync(cn);
@@ -1039,32 +1069,26 @@ namespace App.BackgroundJob.Jobs.Sup
                     .GroupBy(lt => lt.PartId!.Value)
                     .ToDictionary(g => g.Key, g => g.First());
 
-                var lastDocumentCreators = await unitOfWork.Repository<Part>().TableNoTracking
+                // HTS: Engineering_Accept_User_FK = آخرین پیوست کالا از هر نوع (LastOrDefault)، نه فقط چهار نوع مدرک اصلی
+                var lastAttachmentCreators = await unitOfWork.Repository<Part>().TableNoTracking
                     .Where(p => partIds.Contains(p.Id!.Value))
-                    .SelectMany(p => p.Documents
-                        .Where(d => d.Main == true && d.Type != null && documentTypes.Contains(d.Type.Value))
-                        .Select(d => new { PartId = p.Id!.Value, d.Id, d.CreatedById }))
+                    .SelectMany(p => p.Documents.Select(d => new { PartId = p.Id!.Value, d.Id, d.CreatedById }))
                     .ToListAsync(cn);
-                var lastCreatorByPart = lastDocumentCreators
+                var lastCreatorByPart = lastAttachmentCreators
                     .GroupBy(d => d.PartId)
                     .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.Id).First().CreatedById);
 
-                var industrialUserIds = await dbContext.NotificationGroupMembers
-                    .AsNoTracking()
-                    .Where(m => m.NotificationGroup.Code == "Sup.OpenOrderRequest.Industrial"
-                                && m.IsActive == IsActiveEnum.Active)
-                    .Select(m => m.UserId)
-                    .ToListAsync(cn);
-
                 var now = DateTime.Now;
-                var acceptedCount = 0;
+                var acceptedOrders = new List<OpenOrderRequest>();
 
                 foreach (var order in orders)
                 {
                     var notNeedDocuments = order.Part?.DocumentsNotRequired == true;
-                    long? engineeringUserId = notNeedDocuments ? 1 : lastCreatorByPart.GetValueOrDefault(order.PartId);
-                    if (!notNeedDocuments && engineeringUserId is null or <= 0)
-                        continue;
+                    long? engineeringUserId = null;
+                    if (notNeedDocuments)
+                        engineeringUserId = 1;
+                    else if (lastCreatorByPart.TryGetValue(order.PartId, out var creator) && creator is > 0)
+                        engineeringUserId = creator;
 
                     order.Changed = true;
                     order.EngineeringAccept = true;
@@ -1073,39 +1097,18 @@ namespace App.BackgroundJob.Jobs.Sup
                     order.EngineeringAcceptShamsiDateTime = now.ToShamsiDateTime();
                     order.IsAcceptedAutomaticallyByEngineering = true;
 
-                    if (leadTimeByPart.TryGetValue(order.PartId, out var leadTime) && leadTime.LeadTimeDay > 0)
+                    if (leadTimeByPart.TryGetValue(order.PartId, out var leadTime))
                     {
                         order.SupplyMiladiDate = now.AddDays(leadTime.LeadTimeDay);
                         order.SupplyShamsiDate = order.SupplyMiladiDate.Value.ToShamsiDate();
                     }
 
-                    var recipientIds = new HashSet<long>();
-                    if (order.Part?.BuyCategory?.PurchaseResponsibleId is > 0)
-                        recipientIds.Add(order.Part.BuyCategory.PurchaseResponsibleId.Value);
-
-                    foreach (var industrialId in industrialUserIds)
-                        recipientIds.Add(industrialId);
-
-                    var body = BuildAutoEngineeringAcceptBody(order);
-                    foreach (var userId in recipientIds)
-                    {
-                        await unitOfWork.Repository<Notification>().AddAsync(new Notification
-                        {
-                            Type = NotificationType.Email,
-                            Title = AutoEngineeringAcceptTitle,
-                            Body = body,
-                            EntityId = order.Id,
-                            OwnerId = userId,
-                            ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={order.Id}",
-                            IsRead = false
-                        }, cn);
-                    }
-
-                    acceptedCount++;
+                    acceptedOrders.Add(order);
                 }
 
                 await unitOfWork.SaveChangesAsync(cn);
-                logger?.LogInfoAsync($"Auto engineering accept completed. Accepted={acceptedCount}");
+                await SendAutoEngineeringAcceptEmailsAsync(acceptedOrders, cn);
+                logger?.LogInfoAsync($"Auto engineering accept completed. Accepted={acceptedOrders.Count}");
             }
             catch (Exception ex)
             {
@@ -1114,24 +1117,285 @@ namespace App.BackgroundJob.Jobs.Sup
             }
         }
 
-        private static string BuildAutoEngineeringAcceptBody(OpenOrderRequest order)
+        /// <summary>
+        /// تایید مهندسی منبع حقیقتش HTS است تا وقتی هر دو سیستم موازی‌اند.
+        /// فقط ردیف‌هایی که در قدیم تایید شده‌اند و در جدید هنوز نشده‌اند کپی می‌شوند؛
+        /// تاییدِ خود سیستم جدید برگردانده نمی‌شود.
+        /// </summary>
+        private async Task SyncEngineeringAcceptFromHts(IJobLogger? logger, CancellationToken cn)
+        {
+            try
+            {
+                logger?.LogInfoAsync("Starting engineering-accept sync from HTS...");
+
+                var htsAccepted = await htsDb.Hts_Sup_OpenOrderRequests.AsNoTracking()
+                    .Where(o => o.Engineering_Accept == true && !o.IsDeleted)
+                    .Select(o => new
+                    {
+                        o.PurchaseRequestItemId,
+                        o.OrderRowId,
+                        o.Engineering_Accept_User_FK,
+                        o.Engineering_Accept_Date,
+                        o.Engineering_Accept_Time,
+                        o.EngineeringAcceptDateInEurope,
+                        o.IsAcceptedAutomaticallyByEngineering
+                    })
+                    .ToListAsync(cn);
+
+                if (htsAccepted.Count == 0)
+                {
+                    logger?.LogInfoAsync("No HTS engineering accepts to sync.");
+                    return;
+                }
+
+                var pending = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+                    .Where(o => !o.EngineeringAccept)
+                    .Select(o => new { Id = o.Id!.Value, o.PurchaseRequestItemId, o.OrderRowId })
+                    .ToListAsync(cn);
+
+                if (pending.Count == 0)
+                {
+                    logger?.LogInfoAsync("No local open-order rows pending engineering accept.");
+                    return;
+                }
+
+                var byOrderRow = pending
+                    .Where(p => p.OrderRowId.HasValue)
+                    .GroupBy(p => (p.PurchaseRequestItemId, p.OrderRowId!.Value))
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+
+                var byPurchaseRequestOnly = pending
+                    .Where(p => !p.OrderRowId.HasValue)
+                    .GroupBy(p => p.PurchaseRequestItemId)
+                    .ToDictionary(g => g.Key, g => g.First().Id);
+
+                var matches = new Dictionary<long, (short? HtsUserId, string? Shamsi, DateTime? Miladi, bool Auto)>();
+                foreach (var hts in htsAccepted)
+                {
+                    long? localId = null;
+                    if (hts.OrderRowId.HasValue)
+                    {
+                        if (byOrderRow.TryGetValue((hts.PurchaseRequestItemId, hts.OrderRowId.Value), out var byBoth))
+                            localId = byBoth;
+                    }
+                    else if (byPurchaseRequestOnly.TryGetValue(hts.PurchaseRequestItemId, out var byPr))
+                    {
+                        localId = byPr;
+                    }
+
+                    if (localId == null)
+                        continue;
+
+                    var date = hts.Engineering_Accept_Date?.Trim();
+                    var time = hts.Engineering_Accept_Time?.Trim();
+                    string? shamsi = string.IsNullOrEmpty(date)
+                        ? null
+                        : string.IsNullOrEmpty(time) ? date : $"{date} {time}";
+
+                    matches[localId.Value] = (
+                        hts.Engineering_Accept_User_FK,
+                        shamsi,
+                        hts.EngineeringAcceptDateInEurope,
+                        hts.IsAcceptedAutomaticallyByEngineering);
+                }
+
+                if (matches.Count == 0)
+                {
+                    logger?.LogInfoAsync("HTS engineering accepts already match the new system.");
+                    return;
+                }
+
+                var htsUserIds = matches.Values
+                    .Where(m => m.HtsUserId.HasValue)
+                    .Select(m => m.HtsUserId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var htsUsers = new List<(short UserId, string? Username)>();
+                if (htsUserIds.Count > 0)
+                {
+                    var loadedHtsUsers = await htsDb.Hts_Gnr_Users.AsNoTracking()
+                        .Where(u => htsUserIds.Contains(u.User_ID))
+                        .Select(u => new { u.User_ID, u.Username })
+                        .ToListAsync(cn);
+                    htsUsers = loadedHtsUsers.Select(u => (u.User_ID, u.Username)).ToList();
+                }
+
+                var usernames = htsUsers
+                    .Select(u => u.Username)
+                    .Where(u => !string.IsNullOrWhiteSpace(u))
+                    .Select(u => u!)
+                    .Distinct()
+                    .ToList();
+
+                var localUsers = new List<(long Id, string Username)>();
+                if (usernames.Count > 0)
+                {
+                    var loadedLocalUsers = await dbContext.Users.AsNoTracking()
+                        .Where(u => usernames.Contains(u.Username))
+                        .Select(u => new { Id = u.Id!.Value, u.Username })
+                        .ToListAsync(cn);
+                    localUsers = loadedLocalUsers.Select(u => (u.Id, u.Username)).ToList();
+                }
+
+                var localUserByName = localUsers
+                    .GroupBy(u => u.Username, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
+
+                var localUserByHtsId = new Dictionary<short, long>();
+                foreach (var htsUser in htsUsers)
+                {
+                    if (string.IsNullOrWhiteSpace(htsUser.Username))
+                        continue;
+                    if (localUserByName.TryGetValue(htsUser.Username, out var localUserId))
+                        localUserByHtsId[htsUser.UserId] = localUserId;
+                }
+
+                var ids = matches.Keys.ToList();
+                var orders = await unitOfWork.Repository<OpenOrderRequest>().Table
+                    .Where(o => o.Id != null && ids.Contains(o.Id.Value) && !o.EngineeringAccept)
+                    .ToListAsync(cn);
+
+                var updated = 0;
+                foreach (var order in orders)
+                {
+                    if (!matches.TryGetValue(order.Id!.Value, out var src))
+                        continue;
+
+                    order.EngineeringAccept = true;
+                    order.IsAcceptedAutomaticallyByEngineering = src.Auto;
+                    order.EngineeringAcceptShamsiDateTime = src.Shamsi;
+                    order.EngineeringConfirmationMiladiDateTime = src.Miladi;
+                    order.ModifiedByName = "SyncEngAcceptFromHts";
+                    order.ModifiedDateMiladiDateTime = DateTime.Now;
+                    if (src.HtsUserId.HasValue && localUserByHtsId.TryGetValue(src.HtsUserId.Value, out var localUserId))
+                        order.EngineeringAcceptUserId = localUserId;
+
+                    updated++;
+                }
+
+                if (updated > 0)
+                    await unitOfWork.SaveChangesAsync(cn);
+
+                logger?.LogInfoAsync($"Engineering-accept sync from HTS completed. Updated={updated}");
+            }
+            catch (Exception ex)
+            {
+                if (logger != null)
+                    await logger.LogInfoAsync($"Error in SyncEngineeringAcceptFromHts: {ex.Message}", cn);
+            }
+        }
+
+        /// <summary>
+        /// HTS SendNewAttachmentsEmailNotification: یک ایمیل به ازای هر متولی خرید.
+        /// گیرنده = متولی. اگر متولی عضو گروه همتا باشد، بقیهٔ همان گروه هم گیرنده می‌شوند.
+        /// رونوشت = گروه صنایع + گروه رونوشت ثابت. عضویت گروه‌ها از پنل اعلان قابل تغییر است.
+        /// </summary>
+        private async Task SendAutoEngineeringAcceptEmailsAsync(List<OpenOrderRequest> orders, CancellationToken cn)
+        {
+            if (orders.Count == 0)
+                return;
+
+            var industrialCc = await LoadGroupEmailsAsync("Sup.OpenOrderRequest.Industrial", cn);
+            var fixedCc = await LoadGroupEmailsAsync("Sup.OpenOrderRequest.AutoAcceptFixedCc", cn);
+            var peers = await LoadGroupEmailsAsync("Sup.OpenOrderRequest.AutoAcceptPeerTo", cn);
+
+            var cc = new List<string>();
+            foreach (var email in industrialCc.Concat(fixedCc))
+                AddDistinctEmail(cc, email);
+
+            foreach (var group in orders.GroupBy(PurchaseResponsibleEmail))
+            {
+                var to = new List<string>();
+                AddDistinctEmail(to, group.Key);
+
+                if (to.Count > 0 && peers.Any(p => to.Any(t => EmailMatchesPerson(t, p))))
+                {
+                    foreach (var peer in peers)
+                        AddDistinctEmail(to, peer);
+                }
+
+                if (to.Count == 0)
+                {
+                    foreach (var email in cc)
+                        AddDistinctEmail(to, email);
+                }
+
+                if (to.Count == 0)
+                    continue;
+
+                var ccOnly = cc.Where(c => !to.Any(t => string.Equals(t, c, StringComparison.OrdinalIgnoreCase))).ToList();
+                var first = group.First();
+                var ownerId = first.Part?.BuyCategory?.PurchaseResponsibleId is > 0
+                    ? first.Part.BuyCategory.PurchaseResponsibleId.Value
+                    : 1;
+
+                await unitOfWork.Repository<Notification>().AddAsync(new Notification
+                {
+                    Type = NotificationType.Email,
+                    Title = AutoEngineeringAcceptTitle,
+                    Body = BuildAutoEngineeringAcceptBody(group.ToList()),
+                    EntityId = first.Id,
+                    OwnerId = ownerId,
+                    ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={first.Id}",
+                    IsRead = false,
+                    IsSend = false,
+                    ToEmails = to,
+                    CcEmails = ccOnly.Count == 0 ? null : ccOnly
+                }, cn);
+            }
+
+            await unitOfWork.SaveChangesAsync(cn);
+        }
+
+        private static string? PurchaseResponsibleEmail(OpenOrderRequest order)
+        {
+            var user = order.Part?.BuyCategory?.PurchaseResponsible;
+            if (user == null)
+                return null;
+            if (!string.IsNullOrWhiteSpace(user.Email))
+                return user.Email.Trim();
+            if (!string.IsNullOrWhiteSpace(user.Username))
+                return user.Username.Trim() + "@havayar.com";
+            return null;
+        }
+
+        private static bool EmailMatchesPerson(string email, string person)
+        {
+            var left = email.Trim();
+            var right = person.Trim();
+            if (left.Length == 0 || right.Length == 0)
+                return false;
+            return left.Contains(right.Split('@')[0], StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void AddDistinctEmail(List<string> target, string? email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return;
+            var value = email.Trim();
+            if (target.Any(e => string.Equals(e, value, StringComparison.OrdinalIgnoreCase)))
+                return;
+            target.Add(value);
+        }
+
+        private static string BuildAutoEngineeringAcceptBody(IReadOnlyList<OpenOrderRequest> orders)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("<div style='width: 100%;text-align:center;direction:rtl'>");
-            sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' width='100%'>");
-            sb.AppendLine("<tr style='background: #000aa0'><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td></tr>");
-            sb.AppendLine("<tr><td>");
             sb.AppendLine("بدینوسیله اعلام میگردد، مدرک/مدارک جدیدی جهت درخواست باز، با مشخصات ذیل آپلود گردید");
             sb.AppendLine("<br><br>شما می توانید با مراجعه به سیستم جامع / سیستم تدارکات / عملیات / درخواست های باز / پیوست مدارک از جزییات آن اطلاع یابید<br><br>");
             sb.AppendLine("<ul>");
-            sb.AppendLine($"<li>شماره درخواست : <strong>{order.PurchaseRequestNumber}</strong></li>");
-            sb.AppendLine($"<li>شماره سفارش : <strong>{order.OrderNo}</strong></li>");
-            if (order.IsStop)
-                sb.AppendLine("<li>وضعیت درخواست : <strong style='color:red'>متوقف شده</strong></li>");
-            sb.AppendLine($"<li>کد کالا : <strong>{order.Part?.Code}</strong></li>");
-            sb.AppendLine($"<li>عنوان کالا : <strong>{order.Part?.Name}</strong></li>");
-            sb.AppendLine("</ul></td></tr></table></div>");
-            return sb.ToString();
+            foreach (var order in orders)
+            {
+                sb.AppendLine($"<li>شماره درخواست : <strong>{order.PurchaseRequestNumber}</strong></li>");
+                sb.AppendLine($"<li>شماره سفارش : <strong>{order.OrderNo}</strong></li>");
+                if (order.IsStop)
+                    sb.AppendLine("<li>وضعیت درخواست : <strong style='color:red'>متوقف شده</strong></li>");
+                sb.AppendLine($"<li>کد کالا : <strong>{order.Part?.Code}</strong></li>");
+                sb.AppendLine($"<li>عنوان کالا : <strong>{order.Part?.Name}</strong></li>");
+            }
+            sb.AppendLine("</ul>");
+            return ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString());
         }
 
         private async Task ComputeOpenOrderRequest(string yearNumbers, IJobLogger? logger, CancellationToken cn)

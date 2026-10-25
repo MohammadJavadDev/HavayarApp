@@ -1,5 +1,6 @@
 using Common.Attributes;
 using Common.Auth.Enums;
+using Common.Utilities;
 using Data.Contracts;
 using Entities.App.Trn;
 using Entities.Base.DataTable;
@@ -20,6 +21,15 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(TodoList todoList, CancellationToken cn)
 		{
+			if (string.IsNullOrWhiteSpace(todoList.Title))
+				return BadRequest("(عنوان) نمیتواند خالی باشد");
+			if (!string.IsNullOrEmpty(todoList.Description) && todoList.Description.Contains("09"))
+				return BadRequest("مجاز به وارد کردن شماره تلفن همراه در فیلد توضیحات نیستید!");
+
+			var now = DateTime.Now;
+			todoList.TodoMiladiDate = now;
+			todoList.TodoShamsiDate = now.ToShamsiDate();
+
 			if (todoList.Id == null || todoList.Id == 0)
 			{
 				return await Add(todoList, cn);
@@ -134,8 +144,12 @@ namespace WebApp.Controllers.Dynamic
 					CompanyId = c.CompanyId,
 					CompanyTitle = c.Company != null ? c.Company.Title : null,
 					Title = c.Title,
+					Description = c.Description,
+					IsDone = c.IsDone,
 					TodoShamsiDate = c.TodoShamsiDate,
-					CreatedByName = c.CreatedByName
+					CreatedByName = c.CreatedByName,
+					CreatedOnShamsiDateTime = c.CreatedOnShamsiDateTime,
+					CreatedOnMiladiDateTime = c.CreatedOnMiladiDateTime
 				})
 				.ToListAsync(cn);
 
@@ -206,7 +220,11 @@ namespace WebApp.Controllers.Dynamic
 		public long? CompanyId { get; set; }
 		public string? CompanyTitle { get; set; }
 		public string? Title { get; set; }
+		public string? Description { get; set; }
+		public bool IsDone { get; set; }
 		public string? TodoShamsiDate { get; set; }
 		public string? CreatedByName { get; set; }
+		public string? CreatedOnShamsiDateTime { get; set; }
+		public DateTime? CreatedOnMiladiDateTime { get; set; }
 	}
 }

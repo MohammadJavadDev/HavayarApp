@@ -51,11 +51,15 @@ namespace Services.Job
 			using var scope = _services.CreateScope();
 			var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-			// فقط Idle و Waiting اجرا می‌شوند. Error تا تغییر دستی وضعیت (اجرا فوری) تکرار نمی‌شود.
+			// Idle و Waiting همیشه اجرا می‌شوند.
+			// Error فقط وقتی ContinueOnError روشن است انتخاب می‌شود؛ وضعیت تا همین لحظه خطا می‌ماند
+			// و با شروع اجرا به Running تغییر می‌کند.
 			var dueJobs = await db.JobSchedules
 			    .Where(s => s.IsActive
 			        && s.NextRunTime <= DateTime.Now
-			        && (s.LastStatus == JobStatus.Idle || s.LastStatus == JobStatus.Waiting))
+			        && (s.LastStatus == JobStatus.Idle
+			            || s.LastStatus == JobStatus.Waiting
+			            || (s.LastStatus == JobStatus.Error && s.ContinueOnError)))
 			    .ToListAsync(stoppingToken);
 
 			foreach (var schedule in dueJobs)
@@ -165,7 +169,12 @@ namespace Services.Job
 				schedule.LastStatus = JobStatus.Error;
 				history.EndTime = DateTime.Now;
 
-				// وضعیت Error باید قبل از هر کار جانبی در دیتابیس بنشیند تا ورکر دوباره انتخابش نکند.
+				// وضعیت Error باید قبل از کار جانبی ذخیره شود.
+				// با ContinueOnError زمان بعدی هم همین‌جا ست می‌شود تا ورکر، قبل از finally،
+				// به‌خاطر NextRunTime گذشته دوباره همین جاب را برندارد. وضعیت تا آن اجرا خطا می‌ماند.
+				if (schedule.ContinueOnError)
+					schedule.NextRunTime = CalculateNextRunTime(schedule);
+
 				await db.SaveChangesAsync(stoppingToken);
 
 				try
@@ -211,8 +220,9 @@ VALUES (@Title, @Body, @IsRead, @OwnerId,@ModifiedDateShamsiDateTime,@ModifiedDa
 				if (history.EndTime == null)
 					history.EndTime = DateTime.Now;
 
-				// جاب خطا خورده نباید زمان اجرای بعدی بگیرد؛ تا تغییر دستی وضعیت دوباره انتخاب نمی‌شود.
-				if (schedule.LastStatus != JobStatus.Error)
+				// بدون ContinueOnError، خطای جاب زمان اجرای بعدی نمی‌گیرد و تا تغییر دستی وضعیت انتخاب نمی‌شود.
+				// با ContinueOnError زمان بعدی ست می‌شود ولی LastStatus همان Error می‌ماند تا شروع اجرای بعد.
+				if (schedule.LastStatus != JobStatus.Error || schedule.ContinueOnError)
 					schedule.NextRunTime = CalculateNextRunTime(schedule);
 
 				await db.SaveChangesAsync(stoppingToken);

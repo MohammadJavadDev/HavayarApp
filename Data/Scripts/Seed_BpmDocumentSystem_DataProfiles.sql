@@ -1,10 +1,16 @@
-/*
+﻿/*
 ================================================================================
 Seed_BpmDocumentSystem_DataProfiles.sql
 فاز ۸ — نقش، نمایه داده (ACL روی گرید datatableprofile)، RoleAccess و منو.
 
 گرید Panel به /System/FetchDataProfile می‌زند. فیلتر کارتابل/محرمانگی در SavedQuery
 است (معادل FetchData / FetchManageData / FetchPublishedData).
+
+نمایه‌های HTS-parity (ستون‌ها/عنوان‌ها/دکمه‌ها) پس از این Seed با Patch اجرا می‌شوند:
+  Patch_OrganizationalDocument_HtsColumns.sql  (اسناد سازمانی)
+  Patch_ProcessDocument_Request_HtsColumns.sql (درخواست ایجاد/تغییر؛ با sqlcmd -x)
+  Patch_ProcessDocument_Manage_HtsColumns.sql  (مدیریت درخواست‌ها؛ با sqlcmd -x)
+  Patch_ProcessDocument_Published_HtsColumns.sql (لیست اسناد؛ با sqlcmd -x)
 
 پس از اجرا WebApp را Restart کنید.
 ================================================================================
@@ -160,14 +166,26 @@ DECLARE @IsAdmin BIT = CASE WHEN EXISTS (SELECT 1 FROM OPENJSON(@CuRoles) WHERE 
 ';
 
     DECLARE @OrgSelect NVARCHAR(MAX) = N'
-SELECT [t1].[Id] AS [t1_Id], [t1].[Title] AS [t1_Title], [t1].[TitleInLatin] AS [t1_TitleInLatin],
-    [t1].[Brand] AS [t1_Brand], [t1].[Year] AS [t1_Year], [t1].[Revision] AS [t1_Revision],
-    [t1].[Comment] AS [t1_Comment], [t1].[FileId] AS [t1_FileId],
-    [t2].[Title] AS [t2_Title], [t2].[IsPrivate] AS [t2_IsPrivate],
-    [t3].[OriginalName] AS [t3_OriginalName], [t3].[Size] AS [t3_Size]
+SELECT
+    [t1].[Id] AS [t1_Id],
+    [t4].[Title] AS [t4_Title],
+    [t2].[Title] AS [t2_Title],
+    [t2].[FolderTitle] AS [t2_FolderTitle],
+    [t1].[Title] AS [t1_Title],
+    [t1].[TitleInLatin] AS [t1_TitleInLatin],
+    [t1].[Brand] AS [t1_Brand],
+    [t1].[Year] AS [t1_Year],
+    [t1].[Revision] AS [t1_Revision],
+    [t3].[OriginalName] AS [t3_OriginalName],
+    [t3].[Size] AS [t3_Size],
+    [t1].[CreatedByName] AS [t1_CreatedByName],
+    [t1].[CreatedOnShamsiDateTime] AS [t1_CreatedOnShamsiDateTime],
+    [t1].[Comment] AS [t1_Comment],
+    [t1].[FileId] AS [t1_FileId]
 FROM [Gnr].[OrganizationalDocument] AS [t1]
 INNER JOIN [Gnr].[DocumentFolder] AS [t2] ON [t1].[FolderId] = [t2].[Id]
 LEFT JOIN [dbo].[FileEntity] AS [t3] ON [t1].[FileId] = [t3].[Id]
+LEFT JOIN [Hrm].[OrgUnit] AS [t4] ON [t2].[OrganizationUnitId] = [t4].[Id]
 WHERE @IsAdmin = 1 OR [t2].[IsPrivate] = 0 OR [t2].[OrganizationUnitId] = @CuOrg
     OR EXISTS (SELECT 1 FROM [Gnr].[DocumentFolderUser] u WHERE u.[DocumentFolderId] = [t2].[Id] AND u.[UserId] = @CuId)';
 
@@ -182,6 +200,7 @@ WHERE [t1].[FolderLevel] = 1 OR [t1].[ParentId] IS NULL';
     DECLARE @Col NVARCHAR(MAX);
     DECLARE @PdColumnsJson NVARCHAR(MAX);
     DECLARE @OrgColumnsJson NVARCHAR(MAX);
+    DECLARE @OrgRenderSize NVARCHAR(MAX) = N'function(data, type, row) { if (data == null || data === '''') return ''''; if (type !== ''display'') return data; var b = Number(data); if (isNaN(b)) return data; if (b < 1024) return b + '' B''; var u = [''KB'', ''MB'', ''GB'', ''TB'']; var i = -1; do { b = b / 1024; i++; } while (b >= 1024 && i < u.length - 1); return (Math.round(b * 100) / 100) + '' '' + u[i]; }';
     DECLARE @FolderColumnsJson NVARCHAR(MAX);
 
     ;WITH C AS (
@@ -237,31 +256,48 @@ WHERE [t1].[FolderLevel] = 1 OR [t1].[ParentId] IS NULL';
 
     ;WITH C AS (
         SELECT * FROM (VALUES
-            (N'Gnr.OrganizationalDocument', N'Id', N'شناسه', N't1_Id', N'[t1].[Id]', N'Long', 6, 0, 1, 80),
-            (N'Gnr.OrganizationalDocument', N'Title', N'عنوان', N't1_Title', N'[t1].[Title]', N'String', 0, 1, 0, 220),
-            (N'Gnr.OrganizationalDocument', N'TitleInLatin', N'عنوان لاتین', N't1_TitleInLatin', N'[t1].[TitleInLatin]', N'String', 0, 1, 0, 200),
-            (N'Gnr.DocumentFolder', N'Title', N'پوشه', N't2_Title', N'[t2].[Title]', N'String', 0, 1, 0, 200),
-            (N'Gnr.OrganizationalDocument', N'Brand', N'برند', N't1_Brand', N'[t1].[Brand]', N'String', 0, 1, 0, 120),
-            (N'Gnr.OrganizationalDocument', N'Year', N'سال', N't1_Year', N'[t1].[Year]', N'Int', 7, 1, 0, 80),
-            (N'Gnr.OrganizationalDocument', N'Revision', N'بازنگری', N't1_Revision', N'[t1].[Revision]', N'Int', 7, 1, 0, 80),
-            (N'dbo.FileEntity', N'OriginalName', N'نام فایل', N't3_OriginalName', N'[t3].[OriginalName]', N'String', 0, 1, 0, 200),
-            (N'Gnr.OrganizationalDocument', N'Comment', N'توضیحات', N't1_Comment', N'[t1].[Comment]', N'String', 0, 1, 0, 200)
-        ) v(TableName, ColumnName, DisplayName, Alliance, Address, SystemTypeName, SystemType, Visible, PrimaryKey, Width)
+            (1,  N'Gnr.OrganizationalDocument', N'Id',               N'شناسه',            N't1_Id',                    N'[t1].[Id]',                    N'Long',           6, 0, 1,  80, N'',    CAST(NULL AS NVARCHAR(MAX)), CAST(NULL AS INT), CAST(NULL AS INT)),
+            (2,  N'Hrm.OrgUnit',                 N'Title',            N'واحد مرتبط',       N't4_Title',                 N'[t4].[Title]',                 N'String',         0, 1, 0, 150, N'',    NULL, NULL, NULL),
+            (3,  N'Gnr.DocumentFolder',          N'Title',            N'گروه اسناد',       N't2_Title',                 N'[t2].[Title]',                 N'String',         0, 1, 0, 200, N'',    NULL, NULL, NULL),
+            (4,  N'Gnr.DocumentFolder',          N'FolderTitle',      N'زیرمجموعه',        N't2_FolderTitle',           N'[t2].[FolderTitle]',           N'String',         0, 1, 0, 200, N'',    NULL, NULL, NULL),
+            (5,  N'Gnr.OrganizationalDocument', N'Title',            N'عنوان / مدل',      N't1_Title',                 N'[t1].[Title]',                 N'String',         0, 1, 0, 200, N'',    NULL, NULL, NULL),
+            (6,  N'Gnr.OrganizationalDocument', N'TitleInLatin',     N'عنوان / مدل (En)', N't1_TitleInLatin',          N'[t1].[TitleInLatin]',          N'String',         0, 1, 0, 180, N'',    NULL, NULL, NULL),
+            (7,  N'Gnr.OrganizationalDocument', N'Brand',            N'برند',             N't1_Brand',                 N'[t1].[Brand]',                 N'String',         0, 1, 0, 120, N'',    NULL, NULL, NULL),
+            (8,  N'Gnr.OrganizationalDocument', N'Year',             N'سال',              N't1_Year',                  N'[t1].[Year]',                  N'Int',            7, 1, 0,  90, N'',    NULL, NULL, NULL),
+            (9,  N'Gnr.OrganizationalDocument', N'Revision',         N'نسخه',             N't1_Revision',              N'[t1].[Revision]',              N'Int',            7, 1, 0,  80, N'',    NULL, NULL, NULL),
+            (10, N'dbo.FileEntity',              N'OriginalName',     N'نام فایل',         N't3_OriginalName',          N'[t3].[OriginalName]',          N'String',         0, 1, 0, 170, N'ltr', NULL, NULL, NULL),
+            (11, N'dbo.FileEntity',              N'Size',             N'سایز فایل',        N't3_Size',                  N'[t3].[Size]',                  N'Long',           6, 1, 0, 100, N'',    @OrgRenderSize, NULL, NULL),
+            (13, N'Gnr.OrganizationalDocument', N'CreatedByName',    N'کاربر ایجادکننده', N't1_CreatedByName',         N'[t1].[CreatedByName]',         N'String',         0, 1, 0, 150, N'',    NULL, NULL, NULL),
+            (14, N'Gnr.OrganizationalDocument', N'CreatedOnShamsiDateTime', N'تاریخ ایجاد', N't1_CreatedOnShamsiDateTime', N'[t1].[CreatedOnShamsiDateTime]', N'DateTimeShamsi', 4, 1, 0, 115, N'', NULL, 1, 0),
+            (15, N'Gnr.OrganizationalDocument', N'Comment',          N'کامنت',            N't1_Comment',               N'[t1].[Comment]',               N'String',         0, 1, 0, 350, N'',    NULL, NULL, NULL),
+            (16, N'Gnr.OrganizationalDocument', N'FileId',           N'شناسه فایل',       N't1_FileId',                N'[t1].[FileId]',                N'Long',           6, 0, 0,  80, N'',    NULL, NULL, NULL)
+        ) v(Ord, TableName, ColumnName, DisplayName, Alliance, Address, SystemTypeName, SystemType, Visible, PrimaryKey, Width, ClassName, Render, SortDirection, SortOrder)
     )
-    SELECT @OrgColumnsJson = N'[' + STUFF((
-        SELECT N',' + (
-            N'{"TableName":"' + TableName + N'","ColumnName":"' + ColumnName + N'","DisplayName":"' + DisplayName
-            + N'","Alliance":"' + Alliance + N'","Address":"' + Address + N'","SystemTypeName":"' + SystemTypeName
-            + N'","SelectIndex":0,"Visible":' + CASE Visible WHEN 1 THEN N'true' ELSE N'false' END
-            + N',"PrimaryKey":' + CASE PrimaryKey WHEN 1 THEN N'true' ELSE N'false' END
-            + N',"SystemType":' + CAST(SystemType AS NVARCHAR(10))
-            + N',"SortDirection":' + CASE PrimaryKey WHEN 1 THEN N'1' ELSE N'null' END
-            + N',"SortOrder":null,"GroupBy":false,"Options":[],"OptionSetting":null,"Aggregate":null,"Render":null,"IsCustom":false,"CustomColType":null,"HtmlTemplate":null,"BtnConfig":null,"InputConfig":null,"Width":'
-            + CAST(Width AS NVARCHAR(10)) + N',"Filterable":true,"Sortable":true,"ClassName":""}'
-        )
+    SELECT @OrgColumnsJson = (
+        SELECT
+            TableName, ColumnName, DisplayName, Alliance, Address, SystemTypeName,
+            CAST(0 AS INT) AS SelectIndex,
+            CAST(Visible AS BIT) AS Visible,
+            CAST(PrimaryKey AS BIT) AS PrimaryKey,
+            SystemType, SortDirection, SortOrder,
+            CAST(0 AS BIT) AS GroupBy,
+            JSON_QUERY(N'[]') AS Options,
+            CAST(NULL AS NVARCHAR(10)) AS OptionSetting,
+            CAST(NULL AS NVARCHAR(10)) AS Aggregate,
+            Render,
+            CAST(0 AS BIT) AS IsCustom,
+            CAST(NULL AS NVARCHAR(10)) AS CustomColType,
+            CAST(NULL AS NVARCHAR(10)) AS HtmlTemplate,
+            CAST(NULL AS NVARCHAR(10)) AS BtnConfig,
+            CAST(NULL AS NVARCHAR(10)) AS InputConfig,
+            Width,
+            CAST(1 AS BIT) AS Filterable,
+            CAST(1 AS BIT) AS Sortable,
+            ClassName
         FROM C
-        FOR XML PATH(''), TYPE
-    ).value('.', 'nvarchar(max)'), 1, 1, N'') + N']';
+        ORDER BY Ord
+        FOR JSON PATH, INCLUDE_NULL_VALUES
+    );
 
     ;WITH C AS (
         SELECT * FROM (VALUES
@@ -446,6 +482,37 @@ WHERE [t1].[FolderLevel] = 1 OR [t1].[ParentId] IS NULL';
 
     IF @@ROWCOUNT = 0
         THROW 51011, N'نمایه Bpm_ProcessDocument_Published برای دکمه‌های دانلود یافت نشد.', 1;
+
+    -- دکمه «مشاهده» اسناد سازمانی (btnViewAttachedFile در HTS)
+    DECLARE @ScriptOrgView NVARCHAR(MAX) = N'function(ctx) {
+    var id = ctx.primaryKeyValue
+        || (ctx.primaryKeyValues && ctx.primaryKeyValues[0])
+        || (ctx.selectedRow && (ctx.selectedRow.t1_Id || ctx.selectedRow.t1_id || ctx.selectedRow.id || ctx.selectedRow.Id));
+    if (!id) {
+        toastr.warning(''لطفاً یک ردیف انتخاب کنید'');
+        return;
+    }
+    window.open(''/Panel/Gnr/OrganizationalDocument/Download?id='' + id, ''_blank'');
+}';
+
+    DECLARE @OrgCustomButtons NVARCHAR(MAX) = N'[' + (
+        SELECT
+            N'id_viewOrganizationalDocumentFile' AS id,
+            N'مشاهده' AS title,
+            N'viewOrganizationalDocumentFile' AS dataActionName,
+            N'btn-color-info' AS colorClass,
+            N'fa fa-eye' AS iconClass,
+            CAST(1 AS bit) AS requiresSelection,
+            CAST(0 AS bit) AS requiresMultiSelection,
+            CAST(0 AS bit) AS useHtml,
+            N'' AS html,
+            @ScriptOrgView AS actionScript
+        FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    ) + N']';
+
+    UPDATE system.SavedQuery
+    SET CustomActionButtonsJson = @OrgCustomButtons
+    WHERE Name = N'Gnr_OrganizationalDocument_List';
 
     PRINT N'=== [3/5] RoleAccess نمایه ===';
 

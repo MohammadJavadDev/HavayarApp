@@ -48,13 +48,16 @@
 	</style>
 </head>
 <body>
+@{
+	var viewerQuery = Context.Request.QueryString.HasValue ? Context.Request.QueryString.Value : "";
+}
 <div style="direction: ltr">
 	@Html.StiNetCoreViewer(new StiNetCoreViewerOptions()
 	{
 		Actions =
 		{
-			GetReport = "GetViewReport",
-			ViewerEvent = "ViewerEvent"
+			GetReport = "GetViewReport" + viewerQuery,
+			ViewerEvent = "ViewerEvent" + viewerQuery
 		},
 		Server =
 		{

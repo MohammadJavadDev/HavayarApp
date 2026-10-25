@@ -24,6 +24,7 @@ using Microsoft.EntityFrameworkCore;
 using Services.Auth;
 using Services.NotificationGroupServices;
 using Services.NotificationServices;
+using Services.ProductionOrderServices;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,7 +45,8 @@ namespace WebApp.Controllers.Dynamic
 		IWebHostEnvironment _webHostEnvironment,
 		IUserService userService,
 		INotificationGroupService _notificationGroupService,
-		INotificationService notificationService
+		INotificationService notificationService,
+		IOnlineUserService onlineUserService
 		) : BaseController
 	{
 		#region Roles / Permission helpers (HTS page 74 «درخواست های باز» + page 71 «پیوست»)
@@ -70,6 +72,7 @@ namespace WebApp.Controllers.Dynamic
 			public const string IndustriesLegacy = "Industries";                                 // نقش قدیمی 3 «صنایع» — همان RoleAccess نقش Industrial
 			public const string Supply = "Sup.OpenOrderRequest.Supply";
 			public const string ConfigManage = "Sup.OpenOrderRequest.ConfigManage";
+			public const string View = "Sup.OpenOrderRequest.View";
 		}
 
 		/// <summary>
@@ -98,8 +101,8 @@ namespace WebApp.Controllers.Dynamic
 		// HTS صفحه 76 · SendEmail(27) — تصمیم WP1: نقش ConfigManage (+ FullAccess)
 		private bool CanSendToSupplier => HasOpenOrderRequestPermission(Roles.ConfigManage, Roles.SupplyAndPurchase);
 
-		// HTS AddComponyMansToRequests (کلاس Supp / صفحه 76) — همان نقش تخصیص پرسنل
-		private bool CanSetSelectedSupplier => HasOpenOrderRequestPermission(Roles.ConfigManage, Roles.Industrial, Roles.IndustriesLegacy, Roles.SupplyAndPurchase);
+		// HTS AddComponyMansToRequests (صفحه 76) + واحد تدارکات (گروه 27 / Sup.OpenOrderRequest.Supply)
+		private bool CanSetSelectedSupplier => HasOpenOrderRequestPermission(Roles.ConfigManage, Roles.Industrial, Roles.IndustriesLegacy, Roles.SupplyAndPurchase, Roles.Supply);
 
 		#endregion
 
@@ -285,15 +288,13 @@ namespace WebApp.Controllers.Dynamic
 				if (openOrderRequest == null)
 					return BadRequest("درخواست باز یافت نشد");
 
-				// D21 — گیت HTS (btnSaveItem_click): بدون درخواست‌کننده/ذینفع، ثبت کامنت ممکن نیست
+				// HTS btnSaveItem_click: فقط خالی بودن Requested_Personel مانع ثبت است
 				var hasRequestedPersonel =
 					(openOrderRequest.RequestedPersonelIds?.Any() ?? false) ||
-					(openOrderRequest.RequestedEngineeringPersonelIds?.Any() ?? false) ||
-					openOrderRequest.RequestedPersonel.HasValue() ||
-					openOrderRequest.RequestedEngineeringPersonel.HasValue();
+					openOrderRequest.RequestedPersonel.HasValue();
 
 				if (!hasRequestedPersonel)
-					return BadRequest("امکان ثبت توضیحات میسر نیست؛ لطفاً ابتدا درخواست‌کننده/ذینفع را وارد نمایید");
+					return BadRequest("امکان ثبت توضیحات میسر نیست لطفا درخواست کننده را وارد نمایید");
 
 				var now = DateTime.Now;
 				var comment = new OpenOrderRequestComment
@@ -344,59 +345,101 @@ namespace WebApp.Controllers.Dynamic
 		{
 			try
 			{
-
-				//Seed Role => Sup.OpenOrderRequest.EngineeringAccept => تامین و خرید -درخواست های باز - تایید مهندسی 
-				//برسی داشتن دسترسی برای تایید مهندسی 
 				if (!HasOpenOrderRequestPermission(Roles.EngineeringAccept))
 					return AccessDenied("شما دسترسی تایید مهندسی را ندارید");
 
-				var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
-					.Table
-					.Include(o => o.Part)
-				 
-					.FirstOrDefaultAsync(x => x.Id == id, cn);
+				var (ok, error, entity) = await TryApplyEngineeringAcceptAsync(id, cn);
+				if (!ok)
+					return BadRequest(error);
 
-				if (openOrderRequest == null)
-					return BadRequest("درخواست باز یافت نشد");
-
-				if (openOrderRequest.EngineeringAccept)
-					return BadRequest("این درخواست قبلاً تایید مهندسی شده است");
-
-				if (openOrderRequest.IsStop)
-					return BadRequest("درخواست متوقف شده قابل تایید نیست");
-
-				var now = DateTime.Now;
-				var currentUserId = CurrentUserId;
-
-				openOrderRequest.EngineeringAccept = true;
-				openOrderRequest.EngineeringAcceptUserId = currentUserId;
-				openOrderRequest.EngineeringAcceptShamsiDateTime = now.ToShamsiDateTime();
-				openOrderRequest.EngineeringConfirmationMiladiDateTime = now;
-
-				var leadTime = await unitOfWork.Repository<LeadTime>().TableNoTracking
-					.OrderByDescending(c=>c.CreatedOnMiladiDateTime)
-					.Select(c=>new { c.LeadTimeDay, c.PartId  , c.Id})
-					.FirstOrDefaultAsync(c => c.PartId == openOrderRequest.PartId);
-
-				if(leadTime != null)
-				{
-				 
-					openOrderRequest.SupplyMiladiDate = now.AddDays(leadTime.LeadTimeDay);
-					openOrderRequest.SupplyShamsiDate = openOrderRequest.SupplyMiladiDate.Value.ToShamsiDate();
-
-				}
-
-				await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, true);
-
-				// ایجاد Notification برای کاربران مربوط
-				await CreateEngineeringAcceptNotification(openOrderRequest.Id, cn);
-
-				return Ok(openOrderRequest);
+				return Ok(entity);
 			}
 			catch (Exception ex)
 			{
 				return StatusCode(500, "خطا در تایید مهندسی: " + ex.Message);
 			}
+		}
+
+		/// <summary>
+		/// تایید چند درخواست از نمایه «منتظر تایید مهندسی».
+		/// همان نقش و همان قواعد EngineeringAccept؛ هر ردیف جدا ذخیره و اعلام می‌شود.
+		/// </summary>
+		[HttpPost("[action]")]
+		[ActionDisplayName("تایید مهندسی گروهی", ActionAccessType.Api, ActionAccessItemType.Custom)]
+		public async Task<IActionResult> EngineeringAcceptBulk(EngineeringAcceptBulkRequest request, CancellationToken cn)
+		{
+			if (!HasOpenOrderRequestPermission(Roles.EngineeringAccept))
+				return AccessDenied("شما دسترسی تایید مهندسی را ندارید");
+
+			var ids = request?.Ids?
+				.Where(id => id > 0)
+				.Distinct()
+				.Take(200)
+				.ToList() ?? [];
+
+			if (ids.Count == 0)
+				return BadRequest("حداقل یک درخواست را انتخاب کنید");
+
+			var result = new EngineeringAcceptBulkResult();
+			foreach (var id in ids)
+			{
+				try
+				{
+					var (ok, error, _) = await TryApplyEngineeringAcceptAsync(id, cn);
+					if (ok)
+						result.AcceptedIds.Add(id);
+					else
+						result.Failed.Add(new EngineeringAcceptBulkFailure { Id = id, Message = error ?? "تایید انجام نشد" });
+				}
+				catch (Exception ex)
+				{
+					result.Failed.Add(new EngineeringAcceptBulkFailure { Id = id, Message = ex.Message });
+				}
+			}
+
+			result.AcceptedCount = result.AcceptedIds.Count;
+			return Ok(result);
+		}
+
+		/// <summary>Seed Role => Sup.OpenOrderRequest.EngineeringAccept => تامین و خرید - درخواست های باز - تایید مهندسی</summary>
+		private async Task<(bool Ok, string? Error, OpenOrderRequest? Entity)> TryApplyEngineeringAcceptAsync(long id, CancellationToken cn)
+		{
+			var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
+				.Table
+				.Include(o => o.Part)
+				.FirstOrDefaultAsync(x => x.Id == id, cn);
+
+			if (openOrderRequest == null)
+				return (false, "درخواست باز یافت نشد", null);
+
+			if (openOrderRequest.EngineeringAccept)
+				return (false, "این درخواست قبلاً تایید مهندسی شده است", null);
+
+			if (openOrderRequest.IsStop)
+				return (false, "درخواست متوقف شده قابل تایید نیست", null);
+
+			var now = DateTime.Now;
+			var currentUserId = CurrentUserId;
+
+			openOrderRequest.EngineeringAccept = true;
+			openOrderRequest.EngineeringAcceptUserId = currentUserId;
+			openOrderRequest.EngineeringAcceptShamsiDateTime = now.ToShamsiDateTime();
+			openOrderRequest.EngineeringConfirmationMiladiDateTime = now;
+
+			var leadTime = await unitOfWork.Repository<LeadTime>().TableNoTracking
+				.OrderByDescending(c => c.CreatedOnMiladiDateTime)
+				.Select(c => new { c.LeadTimeDay, c.PartId, c.Id })
+				.FirstOrDefaultAsync(c => c.PartId == openOrderRequest.PartId);
+
+			if (leadTime != null)
+			{
+				openOrderRequest.SupplyMiladiDate = now.AddDays(leadTime.LeadTimeDay);
+				openOrderRequest.SupplyShamsiDate = openOrderRequest.SupplyMiladiDate.Value.ToShamsiDate();
+			}
+
+			await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, true);
+			await CreateEngineeringAcceptNotification(openOrderRequest.Id, false, cn);
+			return (true, null, openOrderRequest);
 		}
 
 		#endregion
@@ -470,7 +513,6 @@ namespace WebApp.Controllers.Dynamic
 				var currentUserId = CurrentUserId;
 
 				openOrderRequest.HasSalesUnitConfirmation = true;
-				openOrderRequest.HasSalesUnitPrimitiveApprove = true;
 				openOrderRequest.SalesUnitConfirmationUserId = currentUserId;
 				openOrderRequest.SalesUnitConfirmationMiladiDateTime = now;
 				openOrderRequest.SalesUnitConfirmationShamsiDateTime = now.ToShamsiDateTime();
@@ -478,7 +520,22 @@ namespace WebApp.Controllers.Dynamic
 
 				await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, true);
 
-				// ثبت کامنت تایید
+				// HTS: Comment_Value = توضیح کاربر + عنوان و رویژن مدارک VPIS تاییدشده
+				var approvedDocuments = string.Join(" | ", latestVpisLinks.Select(v =>
+				{
+					var title = v.ProjectVpis?.Title?.Trim();
+					var revision = v.RevisionNumber?.ToString();
+					if (!title.HasValue())
+						return revision.HasValue() ? $"Rev({revision})" : null;
+					return revision.HasValue() ? $"{title} Rev({revision})" : title;
+				}).Where(s => s.HasValue()));
+
+				var salesCommentValue = request.SalesUnitConfirmationComment;
+				if (approvedDocuments.HasValue())
+					salesCommentValue = salesCommentValue.HasValue()
+						? salesCommentValue + " | " + approvedDocuments
+						: approvedDocuments;
+
 				var comment = new OpenOrderRequestComment
 				{
 					OpenOrderRequestId = request.OpenOrderRequestId,
@@ -486,15 +543,14 @@ namespace WebApp.Controllers.Dynamic
 					MiladiDate = now,
 					HasSalesUnitConfirmation = true,
 					SalesUnitConfirmationComment = "تایید درخواست باز توسط واحد پروژه/فروش",
-					CommentValue = request.SalesUnitConfirmationComment,
+					CommentValue = salesCommentValue,
 					CreatedOrgUnitId = CurrentOrganizationUnitId
 				};
 
 				await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(comment, cn);
 				await unitOfWork.SaveChangesAsync(cn);
 
-				// TODO: ایجاد Notification - سیستم قدیم به تدارکات ایمیل می‌فرستاد
-				await CreateSalesConfirmationNotification(openOrderRequest, cn);
+				await CreateEngineeringAcceptNotification(openOrderRequest.Id, true, cn);
 
 				return Ok(openOrderRequest);
 			}
@@ -519,8 +575,8 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		/// <summary>
-		/// HTS: ثبت اولیه توقف (0/2815) → Stop(22) (DoStartStopOperation)؛ مراحل بعدی (DoStopOperation) بدون چک نقش سرور،
-		/// در UI فقط عامل توقف (2807/2813/2816) یا ثبت‌کنندهٔ آخرین کامنت توقف (2808/2810/2811/2812/2821) — ادمین همه.
+		/// HTS: اگر IsStop نباشد دکمه توقف روشن است (JS صفحه 74). ثبت اولیه (0/2815) با Stop(22)؛
+		/// مراحل بعدی در UI فقط عامل توقف (2807/2813/2816) یا ثبت‌کنندهٔ آخرین کامنت توقف (2808/2810/2811/2812/2821) — ادمین همه.
 		/// </summary>
 		[HttpPost("[action]")]
 		[ActionDisplayName("ثبت / بررسی توقف", ActionAccessType.Api, ActionAccessItemType.Custom)]
@@ -652,6 +708,9 @@ namespace WebApp.Controllers.Dynamic
 							return BadRequest("کامنت توقف یافت نشد");
 						}
 
+						// HTS DoStopOperation روی ادامهٔ گردش توقف IsStop را true می‌کند
+						// (راه‌اندازی جداگانه فقط IsStop را خاموش می‌کند و StopStatus را عوض نمی‌کند).
+						openOrderRequest.IsStop = true;
 						openOrderRequest.StopStatus = nextStopStatus;
 						await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, true);
 
@@ -684,7 +743,7 @@ namespace WebApp.Controllers.Dynamic
 								OpenOrderRequestId = request.OpenOrderRequestId,
 								ShamsiDate = now.ToShamsiDate(),
 								MiladiDate = now,
-								CommentValue = request.ReStopCommentValue ?? request.CommentValue,
+								CommentValue = AppendReStopSuffix(request.ReStopCommentValue ?? request.CommentValue),
 								IsStop = true,
 								StopType = request.ReStopTypeEnum.HasValue ? (OpenOrderRequestStopTypeEnum)request.ReStopTypeEnum.Value : null,
 								StopOperatorId = request.ReStopOperatorId ?? request.StopOperatorId,
@@ -715,12 +774,17 @@ namespace WebApp.Controllers.Dynamic
 								OpenOrderRequestId = request.OpenOrderRequestId,
 								ShamsiDate = now.ToShamsiDate(),
 								MiladiDate = now,
-								CommentValue = $"درخواست توسط کاربر راه اندازی شد",
+								CommentValue = $"درخواست توسط {CurrentUserFullNameFn ?? CurrentUserFullName ?? "کاربر"} راه اندازی شد",
 								IsStop = false,
 								IsLaunched = true,
 								CreatedOrgUnitId = CurrentOrganizationUnitId
 							};
 							await unitOfWork.Repository<OpenOrderRequestComment>().AddAsync(restartComment, cn);
+						}
+						else
+						{
+							// HTS ادامهٔ گردش توقف را دوباره متوقف می‌کند
+							openOrderRequest.IsStop = true;
 						}
 
 						openOrderRequest.StopStatus = nextStopStatus;
@@ -736,6 +800,11 @@ namespace WebApp.Controllers.Dynamic
 
 				await unitOfWork.SaveChangesAsync(cn);
 
+				if (comment.StopOperatorId is > 0
+					&& openOrderRequest.StopStatus is OpenOrderRequestStopStatusEnum.InitialSubmissionAndSendToStopBoard
+						or OpenOrderRequestStopStatusEnum.CheckStopFactorReRegisterStop)
+					await GrantOpenOrderRequestViewRoleAsync(comment.StopOperatorId.Value, cn);
+
 				return Ok(openOrderRequest);
 			}
 			catch (Exception ex)
@@ -744,13 +813,50 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+		/// <summary>HTS UpdatePermissions(OpenOrderRequestView=442): عامل توقف عضو گروه مشاهده می‌شود.</summary>
+		private async Task GrantOpenOrderRequestViewRoleAsync(long userId, CancellationToken cn)
+		{
+			try
+			{
+				var role = await userService.Context.Set<Role>().AsNoTracking()
+					.FirstOrDefaultAsync(r => r.Name == Roles.View, cn);
+				if (role?.Id is null or 0)
+					return;
+
+				var user = await userService.GetById(userId);
+				if (user == null)
+					return;
+
+				user.RoleIds ??= [];
+				user.Roles ??= [];
+				if (user.RoleIds.Contains(role.Id.Value) || user.Roles.Contains(Roles.View, StringComparer.OrdinalIgnoreCase))
+					return;
+
+				user.RoleIds.Add(role.Id.Value);
+				user.Roles.Add(Roles.View);
+				await userService.AddAndUpdateUserAsync(user, cn);
+
+				try { await onlineUserService.RefreshUserRoleAccessesAsync(userId, cn); }
+				catch { /* نقش ذخیره شده؛ کش با ورود بعدی تازه می‌شود */ }
+			}
+			catch
+			{
+				// شکست انتساب نقش، ثبت توقف را برنمی‌گرداند
+			}
+		}
+
 		/// <summary>
-		/// قاعده دسترسی مراحل توقف (معادل JS صفحه 74 HTS + HasStopStartPermissions(isStop:true)).
+		/// قاعده دسترسی مراحل توقف (معادل JS صفحه 74 HTS).
+		/// اگر درخواست متوقف نباشد دکمه برای کاربر صفحه روشن است و سرور هم رد نمی‌کند.
 		/// null = مجاز؛ در غیر این صورت پیام خطا.
 		/// </summary>
 		private string? CheckStopOperationAccess(OpenOrderRequest openOrderRequest)
 		{
 			if (IsAdministrator)
+				return null;
+
+			// HTS: else if (selectedItem.IsStop === false) btnStop.enable(true)
+			if (!openOrderRequest.IsStop)
 				return null;
 
 			var hasStopRole = CurrentUserHasAnyRole(Roles.Stop, Roles.SupplyAndPurchase);
@@ -1000,6 +1106,7 @@ namespace WebApp.Controllers.Dynamic
 					return BadRequest("درخواست باز یافت نشد");
 
 				OpenOrderRequestAttachment attachment;
+				var isNewUpload = !(request.Id is > 0);
 
 				if (request.Id.HasValue && request.Id.Value > 0)
 				{
@@ -1029,21 +1136,22 @@ namespace WebApp.Controllers.Dynamic
 					await unitOfWork.SaveChangesAsync(cn);
 				}
 
-				// Mark as changed if has existing attachments
 				openOrderRequest.Changed = true;
 				await unitOfWork.Repository<OpenOrderRequest>().UpdateAsync(openOrderRequest, cn, true);
 
-				// TODO: Send notification for new attachment (سیستم قدیم برای برخی نوع فایل‌ها به تولید ایمیل می‌فرستاد)
-				var specialDocumentTypes = new[] { 
-					OpenOrderRequestAttachmentFileTypeEnum.DataSheet, 
-					OpenOrderRequestAttachmentFileTypeEnum.WiringDiagram, 
-					OpenOrderRequestAttachmentFileTypeEnum.TechnicalDocuments 
-				};
-				
-				if (request.FileType.HasValue && specialDocumentTypes.Contains(request.FileType.Value))
+				if (isNewUpload)
+					await SendUploadedAttachmentEmailAsync(openOrderRequest, cn);
+
+				// HTS: DocumentTypeId در {264 Data Sheet, 271 Wiring Diagram, 307 Nameplate}
+				var productionDocumentTypes = new[]
 				{
-					await CreateNewAttachmentNotification(openOrderRequest, attachment, cn);
-				}
+					OpenOrderRequestAttachmentFileTypeEnum.DataSheet,
+					OpenOrderRequestAttachmentFileTypeEnum.WiringDiagram,
+					OpenOrderRequestAttachmentFileTypeEnum.Nameplate
+				};
+
+				if (request.FileType.HasValue && productionDocumentTypes.Contains(request.FileType.Value))
+					await CreateProductionAttachmentEmailAsync(openOrderRequest, cn);
 
 				return Ok(attachment);
 			}
@@ -1280,298 +1388,426 @@ namespace WebApp.Controllers.Dynamic
 
 		#region Notification Methods
 
+		/// <summary>
+		/// HTS DoOperation ثبت کامنت: یک ایمیل.
+		/// گیرنده: درخواست‌کننده + ذینفع مهندسی + (اگر نویسنده تدارکات نیست و تایید مهندسی دارد) متولی خرید
+		/// + کاربر تایید مهندسی + گروه ثابت + اگر bagheri در گیرنده‌هاست اعضای گروه اضافه.
+		/// رونوشت: گروه صنایع. اگر گیرنده‌ای نباشد، صنایع گیرنده می‌شود و رونوشت خالی است.
+		/// </summary>
 		private async Task CreateCommentNotification(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment, CancellationToken cn)
 		{
-			var recipientEmails = new List<string>();
-			var recipientIds = new List<long>();
-			
-			if (!string.IsNullOrEmpty(openOrderRequest.RequestedPersonelEmail))
-				recipientEmails.AddRange(openOrderRequest.RequestedPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
-			
-			if (!string.IsNullOrEmpty(openOrderRequest.RequestedEngineeringPersonelEmail))
-				recipientEmails.AddRange(openOrderRequest.RequestedEngineeringPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+			var row = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => o.Id == openOrderRequest.Id)
+				.Select(o => new
+				{
+					o.Id,
+					o.PurchaseRequestNumber,
+					o.OrderNo,
+					o.RequiredQty,
+					o.OrderQty,
+					o.SumSendQty,
+					o.FactoredCount,
+					o.SupplyShamsiDate,
+					o.NeedDateShamsiDate,
+					o.ProductionOrderNumber,
+					o.OrderItemComment,
+					o.EngineeringAccept,
+					o.EngineeringAcceptUserId,
+					o.PartId,
+					o.RequestedPersonelEmail,
+					o.RequestedEngineeringPersonelEmail,
+					PartCode = o.Part.Code,
+					PartName = o.Part.Name,
+					CompanyName = o.ManCompany != null && o.ManCompany.Party != null ? o.ManCompany.Party.FullName : null,
+					BuyerName = o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.NameFa
+						: null,
+					BuyerEmail = o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.Email
+						: null,
+					BuyerUsername = o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.Username
+						: null
+				})
+				.FirstOrDefaultAsync(cn);
 
-			if(openOrderRequest.RequestedPersonelIds != null)
-				recipientIds.AddRange(openOrderRequest.RequestedPersonelIds);
+			if (row?.Id == null)
+				return;
 
-			if (openOrderRequest.RequestedEngineeringPersonelIds != null)
-				recipientIds.AddRange(openOrderRequest.RequestedEngineeringPersonelIds);
-			 
-			// اضافه کردن شناسه های واحد صنایع
-			var SupMembers = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.Industrial", cn);
-			recipientEmails.AddRange(SupMembers.Select(c=>c.Email));
-			recipientIds.AddRange(SupMembers.Select(c => (long)c.UserId));
+			var to = new List<string>();
+			foreach (var email in SplitEmailList(row.RequestedPersonelEmail))
+				AddEmail(to, email);
+			foreach (var email in SplitEmailList(row.RequestedEngineeringPersonelEmail))
+				AddEmail(to, email);
 
+			var isSupplyOrg = await unitOfWork.Repository<OrgUnit>().TableNoTracking
+				.AnyAsync(c => c.Id == CurrentOrganizationUnitId && c.HamkaranUnitId == 121000108, cn);
 
-			// اگر کامنت گذار کسی جز واحد تدارکات بود، برای متولی خرید
-			// که از بچه های تدارکاته ایمیل برود
-			// بشرطی که تایید مهندسی داشته باشه
+			if (row.EngineeringAccept && !isSupplyOrg)
+				AddEmail(to, row.BuyerEmail.HasValue() ? row.BuyerEmail : row.BuyerUsername);
 
-			if (openOrderRequest.EngineeringAccept == true )
+			if (row.EngineeringAccept && row.EngineeringAcceptUserId is > 0)
 			{
-				// شناسه 121000108 شناسه واحد تامین و خرید در راهکاران
-				//این شناسه ثابت میباشد اما Id OrgUnit ممکنه متفاوت باشه 
-				var isSupOrgUnit = await unitOfWork.Repository<OrgUnit>().TableNoTracking
-					.AnyAsync(c => c.Id == CurrentOrganizationUnitId && c.HamkaranUnitId == 121000108);
-
-				if(isSupOrgUnit)
-				{
-					// دریافت کاربر متولی خرید 
-					var purchaseResponsible = await unitOfWork.Repository<BuyCategoryItem>()
-						.TableNoTracking
-						.Select(c => new {c.Id , c.PartId, PurchaseResponsibleId = c.BuyCategory.PurchaseResponsible.Id , PurchaseResponsibleEmail= c.BuyCategory.PurchaseResponsible.Email })
-					.FirstOrDefaultAsync(c => c.PartId == openOrderRequest.PartId,cn);
-
-					if(purchaseResponsible != null && purchaseResponsible.PurchaseResponsibleId.HasValue)
-					{
-						recipientIds.Add((long)purchaseResponsible.PurchaseResponsibleId);
-						if(purchaseResponsible.PurchaseResponsibleEmail.HasValue())
-							recipientEmails.AddRange(purchaseResponsible.PurchaseResponsibleEmail);
-					}
-
-
-				}
-				// اگر تایید مهندسی داشت به کاربر مهندسی هم ایمیل می رود
-				if(openOrderRequest.EngineeringAcceptUserId.HasValue)
-				{
-					var enginneringAcceptUser = await userService.GetById((long)openOrderRequest.EngineeringAcceptUserId);
-					
-					if(enginneringAcceptUser !=null)
-					recipientIds.Add((long)enginneringAcceptUser.Id);
-					if (enginneringAcceptUser.Email.HasValue())
-						recipientEmails.Add(enginneringAcceptUser.Email);
-				}
+				var engineer = await userService.TableNoTracking
+					.Where(u => u.Id == row.EngineeringAcceptUserId)
+					.Select(u => new { u.Email, u.Username })
+					.FirstOrDefaultAsync(cn);
+				if (engineer != null)
+					AddEmail(to, engineer.Email.HasValue() ? engineer.Email : engineer.Username);
 			}
 
-			var title = "کامنت جدید درخواست خرید";
-			var body = BuildCommentNotificationBody(openOrderRequest, comment);
+			if (to.Any(e => e.Contains("bagheri.h", StringComparison.OrdinalIgnoreCase)))
+			{
+				var extras = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.CommentExtraWhenBagheri", cn);
+				foreach (var member in extras)
+					AddEmail(to, member.Email);
+			}
 
-			await SendNotificationToEmailRecipients(recipientEmails, recipientIds, title, body, openOrderRequest.Id!.Value, cn);
+			var fixedTo = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.CommentFixedTo", cn);
+			foreach (var member in fixedTo)
+				AddEmail(to, member.Email);
+
+			var industrial = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.Industrial", cn);
+			var cc = new List<string>();
+			if (to.Count == 0)
+			{
+				foreach (var member in industrial)
+					AddEmail(to, member.Email);
+			}
+			else
+			{
+				foreach (var member in industrial)
+					AddEmail(cc, member.Email);
+				cc.RemoveAll(c => to.Any(t => string.Equals(t, c, StringComparison.OrdinalIgnoreCase)));
+			}
+
+			if (to.Count == 0)
+				return;
+
+			var supplyDate = isSupplyOrg ? comment.ShamsiDate : row.SupplyShamsiDate;
+			var body = BuildCommentNotificationBody(
+				CurrentUserFullName, row.PartCode, row.PartName, row.RequiredQty, row.OrderQty, row.SumSendQty,
+				row.FactoredCount, supplyDate, row.NeedDateShamsiDate, row.OrderNo, row.CompanyName,
+				row.ProductionOrderNumber, row.BuyerName, comment.CommentValue, row.OrderItemComment);
+
+			await unitOfWork.Repository<Notification>().AddAsync(new Notification
+			{
+				Type = NotificationType.Email,
+				Title = "کامنت درخواست خرید",
+				Body = body,
+				EntityId = row.Id,
+				OwnerId = CurrentUserId ?? 1,
+				ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={row.Id}",
+				IsRead = false,
+				IsSend = false,
+				ToEmails = to,
+				CcEmails = cc.Count == 0 ? null : cc
+			}, cn);
+			await unitOfWork.SaveChangesAsync(cn);
 		}
 
-		private string BuildCommentNotificationBody(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment)
+		private static string BuildCommentNotificationBody(
+			string? author, string? partCode, string? partName, decimal requiredQty, decimal? orderQty, decimal? sumSendQty,
+			decimal factoredCount, string? supplyDate, string? needDate, long? orderNo, string? companyName,
+			int? productionOrderNumber, string? buyerName, string? commentValue, string? orderItemComment)
 		{
 			var sb = new StringBuilder();
-			sb.AppendLine("<div style='direction:rtl;text-align:right;padding:5px; margin:5px; font-family:tahoma; font-size: 11pt'>");
-			sb.AppendLine($"کاربر گرامی کامنت ذیل برای درخواست خرید شما توسط <strong>{CurrentUserFullName}</strong> صادر شد");
-			sb.AppendLine("<br/><br/>");
+			sb.AppendLine($"کاربر گرامی کامنت ذیل برای درخواست خرید شما توسط <strong>{author}</strong> صادر شد");
+			sb.AppendLine("<br />");
 			sb.AppendLine("<ul>");
-			sb.AppendLine($"<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>");
-			sb.AppendLine($"<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>");
-			sb.AppendLine($"<li>تاریخ: <strong>{comment.ShamsiDate}</strong></li>");
-			sb.AppendLine($"<li>توضیحات: <strong>{comment.CommentValue}</strong></li>");
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("کد کالا", partCode));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("عنوان کالا", partName));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("تعداد درخواست", requiredQty));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("تعداد سفارش", orderQty));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("تعداد برگ ارسال", sumSendQty));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("تعداد خرید", factoredCount));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("تاریخ تامین", supplyDate));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("تاریخ نیاز", needDate));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("شماره درخواست خرید", orderNo));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("عنوان شرکت", companyName));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("شماره سفارش ساخت", productionOrderNumber));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("مسئول خرید", buyerName));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("توضیحات", commentValue));
+			sb.AppendLine(ProductionOrderItemNotificationHelper.Li("توضیحات آیتم", orderItemComment));
 			sb.AppendLine("</ul>");
+			return ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString());
+		}
+
+		/// <summary>
+		/// معادل HTS SendConfirmedItemsNotification برای تایید مهندسی:
+		/// یک ایمیل با موضوع «درخواست های باز تایید شده» از صندوق IT Support.
+		/// </summary>
+		/// <param name="isSalesOrProject">false = تایید مهندسی؛ true = تایید فروش/پروژه (شاخه گیرندگان HTS فرق دارد).</param>
+		private async Task CreateEngineeringAcceptNotification(long? openOrderRequestId, bool isSalesOrProject, CancellationToken cn)
+		{
+			var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
+				.TableNoTracking
+				.Select(c => new
+				{
+					c.Id,
+					c.PurchaseRequestNumber,
+					c.OrderNo,
+					c.RequiredQty,
+					c.OrderItemComment,
+					PartCode = c.Part.Code,
+					PartName = c.Part.Name,
+					c.EngineeringAcceptUserId,
+					c.SalesUnitConfirmationUserId,
+					c.SalesUnitSalesExpertId,
+					c.SalesUnitSalesManagerId,
+					c.SalesUnitProjectManagerId,
+					PurchaseResponsibleEmail = c.Part.BuyCategory != null && c.Part.BuyCategory.PurchaseResponsible != null
+						? c.Part.BuyCategory.PurchaseResponsible.Email
+						: null,
+					PurchaseResponsibleUsername = c.Part.BuyCategory != null && c.Part.BuyCategory.PurchaseResponsible != null
+						? c.Part.BuyCategory.PurchaseResponsible.Username
+						: null
+				}).FirstOrDefaultAsync(c => c.Id == openOrderRequestId, cn);
+
+			if (openOrderRequest?.Id == null)
+				return;
+
+			var relatedUserIds = new[]
+			{
+				openOrderRequest.EngineeringAcceptUserId,
+				openOrderRequest.SalesUnitConfirmationUserId,
+				openOrderRequest.SalesUnitSalesExpertId,
+				openOrderRequest.SalesUnitSalesManagerId,
+				openOrderRequest.SalesUnitProjectManagerId
+			}.Where(id => id is > 0).Select(id => id!.Value).Distinct().ToArray();
+
+			var relatedUsers = relatedUserIds.Length == 0
+				? []
+				: await userService.TableNoTracking
+					.Where(u => u.Id != null && relatedUserIds.Contains(u.Id.Value))
+					.Select(u => new { u.Id, u.Username, u.Email })
+					.ToListAsync(cn);
+
+			string EmailOf(long? userId)
+			{
+				if (userId is not > 0)
+					return "";
+				var user = relatedUsers.FirstOrDefault(u => u.Id == userId);
+				if (user == null)
+					return "";
+				return HavayarEmail(user.Email.HasValue() ? user.Email : user.Username);
+			}
+
+			var suppliesUnitReceivers = new[]
+			{
+				"Dordab.y", "Bagheri.h", "Yaltaghian.f", "Shahpordeli.s",
+				"Sharifi.b", "sohrabi.za", "Ashrafi.m", "Abdollahi.a",
+				"zare.m", "Rajablou.a", "sarmadi.p"
+			}.Select(HavayarEmail).Where(e => e.Length > 0).ToList();
+
+			var receivers = new List<string>();
+			var ccReceivers = new List<string>();
+			AddEmail(ccReceivers, EmailOf(openOrderRequest.EngineeringAcceptUserId));
+
+			var responsibleEmail = HavayarEmail(
+				openOrderRequest.PurchaseResponsibleEmail.HasValue()
+					? openOrderRequest.PurchaseResponsibleEmail
+					: openOrderRequest.PurchaseResponsibleUsername);
+
+			if (openOrderRequest.SalesUnitSalesExpertId.HasValue)
+			{
+				if (isSalesOrProject)
+				{
+					foreach (var email in suppliesUnitReceivers)
+						AddEmail(receivers, email);
+
+					AddEmail(ccReceivers, EmailOf(openOrderRequest.SalesUnitConfirmationUserId));
+					AddEmail(ccReceivers, EmailOf(openOrderRequest.SalesUnitSalesExpertId));
+					AddEmail(ccReceivers, EmailOf(openOrderRequest.SalesUnitSalesManagerId));
+					AddEmail(ccReceivers, EmailOf(openOrderRequest.SalesUnitProjectManagerId));
+				}
+				else
+				{
+					AddEmail(receivers, EmailOf(openOrderRequest.SalesUnitConfirmationUserId));
+					AddEmail(receivers, EmailOf(openOrderRequest.SalesUnitSalesExpertId));
+					AddEmail(receivers, EmailOf(openOrderRequest.SalesUnitSalesManagerId));
+					AddEmail(receivers, EmailOf(openOrderRequest.SalesUnitProjectManagerId));
+
+					if (responsibleEmail.Length > 0)
+						AddEmail(receivers, responsibleEmail);
+					else
+					{
+						foreach (var email in suppliesUnitReceivers)
+							AddEmail(receivers, email);
+						AddEmail(receivers, "Razaghmanesh.z@havayar.com");
+					}
+				}
+			}
+			else if (responsibleEmail.Length > 0)
+			{
+				AddEmail(receivers, responsibleEmail);
+			}
+			else
+			{
+				foreach (var email in suppliesUnitReceivers)
+					AddEmail(receivers, email);
+				AddEmail(receivers, "Razaghmanesh.z@havayar.com");
+			}
+
+			if (receivers.Any(p => ContainsUser(p, "sohrabi.za") || ContainsUser(p, "razaghmanesh.z") || ContainsUser(p, "sarmadi.p")))
+				AddEmail(ccReceivers, "bagheri.h@havayar.com");
+			if (receivers.Any(p => ContainsUser(p, "shahpordeli.s") || ContainsUser(p, "rajablou.a")))
+				AddEmail(ccReceivers, "yaltaghian.f@havayar.com");
+			if (receivers.Any(p => ContainsUser(p, "ashrafi.m") || ContainsUser(p, "sharifi.b") || ContainsUser(p, "zabihian.s")))
+				AddEmail(ccReceivers, "parhizkari.s@havayar.com");
+
+			ccReceivers.RemoveAll(cc => receivers.Contains(cc, StringComparer.OrdinalIgnoreCase));
+
+			if (receivers.Count == 0)
+				return;
+
+			var requestId = openOrderRequest.Id.Value;
+			var pageUrl = BuildOpenOrderRequestAbsoluteUrl(requestId);
+			var confirmer = CurrentUserFullName.HasValue() ? CurrentUserFullName : CurrentUserName;
+			var unitTitle = isSalesOrProject ? "واحد پروژه / فروش" : "واحد مهندسی";
+
+			await unitOfWork.Repository<Notification>().AddAsync(new Notification
+			{
+				Type = NotificationType.Email,
+				Title = "درخواست های باز تایید شده",
+				Body = BuildEngineeringAcceptEmailBody(openOrderRequest.PurchaseRequestNumber, openOrderRequest.OrderNo, openOrderRequest.PartCode, openOrderRequest.PartName, openOrderRequest.RequiredQty, openOrderRequest.OrderItemComment, confirmer, unitTitle, pageUrl),
+				EntityId = requestId,
+				OwnerId = CurrentUserId ?? openOrderRequest.EngineeringAcceptUserId ?? 1,
+				ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={requestId}",
+				IsRead = false,
+				IsSend = false,
+				ToEmails = receivers,
+				CcEmails = ccReceivers.Count == 0 ? null : ccReceivers
+			}, cn);
+
+			await unitOfWork.SaveChangesAsync(cn);
+		}
+
+		private static string BuildEngineeringAcceptEmailBody(
+			long purchaseRequestNumber,
+			long? orderNo,
+			string? partCode,
+			string? partName,
+			decimal requiredQty,
+			string? orderItemComment,
+			string? confirmer,
+			string unitTitle,
+			string pageUrl)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine("<div style='width: 100%;text-align:center;direction:rtl'>");
+			sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>");
+			sb.AppendLine("<tr style='background: #000aa0'>");
+			sb.AppendLine("<td>");
+			sb.AppendLine("<div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center;direction:rtl'>");
+			sb.AppendLine("گروه صنعتی هوایار");
+			sb.AppendLine("</div>");
+			sb.AppendLine("</td>");
+			sb.AppendLine("</tr>");
+			sb.AppendLine("<tr>");
+			sb.AppendLine("<td>");
+			sb.AppendLine("با سلام و احترام");
+			sb.AppendLine("<br />");
+			sb.AppendLine($" بدینوسیله به استحضار می رساند، درخواست های باز ذیل توسط  <strong>{System.Net.WebUtility.HtmlEncode(confirmer)}</strong> به تایید {System.Net.WebUtility.HtmlEncode(unitTitle)} رسید");
+			sb.AppendLine("<br />");
+			sb.AppendLine("خواهشمند است بررسی و در صورت نیاز، اعمال لازم در جهت طی شدن ادامه مسیر درخواست اقدام فرمایید");
+			sb.Append("<ul>");
+			sb.Append("<li>");
+			sb.Append("شماره درخواست : &nbsp; <strong>" + purchaseRequestNumber + "</strong>");
+			sb.Append("</li>");
+			sb.Append("<li>");
+			sb.Append("شماره سفارش : &nbsp; <strong>" + orderNo + "</strong>");
+			sb.Append("</li>");
+			sb.Append("<li>");
+			sb.Append(" کد کالا : &nbsp;" + System.Net.WebUtility.HtmlEncode(partCode));
+			sb.Append("</li>");
+			sb.Append("<li>");
+			sb.Append(" نام کالا : &nbsp;" + System.Net.WebUtility.HtmlEncode(partName));
+			sb.Append("</li>");
+			sb.Append("<li>");
+			sb.Append(" تعداد درخواست : &nbsp;" + requiredQty);
+			sb.Append("</li>");
+			sb.Append("<li>");
+			sb.Append(" توضیحات : &nbsp;" + System.Net.WebUtility.HtmlEncode(orderItemComment));
+			sb.Append("</li>");
+			sb.Append("<br/><br/>");
+			sb.Append("</ul>");
+			sb.Append("<br />");
+			sb.Append("<a href='" + System.Net.WebUtility.HtmlEncode(pageUrl) + "'>مشاهده درخواست باز</a>");
+			sb.AppendLine("</td>");
+			sb.AppendLine("</tr>");
+			sb.AppendLine("</table>");
 			sb.AppendLine("</div>");
 			return sb.ToString();
 		}
 
-		private async Task SendNotificationToEmailRecipients(List<string> emails,List<long> recipientIds, string title, string body, long entityId, CancellationToken cn)
+		private string BuildOpenOrderRequestAbsoluteUrl(long id)
 		{
-			foreach (var id in recipientIds)
-			{
-				await unitOfWork.Repository<Notification>().AddAsync(new Notification
-				{
-					Type = NotificationType.Appliaction,
-					Title = title,
-					Body = body,
-					EntityId = entityId,
-					OwnerId = id,
-					ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={entityId}",
-					IsRead = false
-				}, cn);
-			}
-
-			await unitOfWork.SaveChangesAsync(cn);
+			var config = HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+			var baseUrl = config["WebAppBaseUrl"];
+			if (!baseUrl.HasValue())
+				baseUrl = "https://portal.havayar.com";
+			return $"{baseUrl!.TrimEnd('/')}/Panel/Sup/OpenOrderRequest/Edit?id={id}";
 		}
 
-		private async Task CreateEngineeringAcceptNotification(long? openOrderRequestId, CancellationToken cn)
+		private static string HavayarEmail(string? value)
 		{
-
-			var openOrderRequest = await unitOfWork.Repository<OpenOrderRequest>()
-				.TableNoTracking
-				 .Include(c => c.Part) 
-				.ThenInclude(p => p.BuyCategory) 
-				.Select(c => new { 
-				c.Id,
-				c.PurchaseRequestNumber,
-				c.OrderNo,
-				c.SupplyShamsiDate,
-				c.EngineeringAcceptUserId,
-				c.SalesUnitConfirmationUserId,
-				c.SalesUnitSalesExpertId,
-				c.SalesUnitSalesManagerId,
-				c.SalesUnitProjectManagerId,
-				PurchaseResponsibleId = c.Part.BuyCategory != null && c.Part.BuyCategory.PurchaseResponsible != null
-								  ? c.Part.BuyCategory.PurchaseResponsible.Id
-								  : (long?)null,
-				PurchaseResponsibleUsername = c.Part.BuyCategory != null && c.Part.BuyCategory.PurchaseResponsible != null
-								? c.Part.BuyCategory.PurchaseResponsible.Username
-								: (string?)null
-				}).FirstOrDefaultAsync(c=>c.Id == openOrderRequestId,cn);
-
-
-
-			var SupMembers = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.SupplyUnit", cn);
-			 
-			var title = "تایید مهندسی درخواست خرید";
-			var body = $@"
-				<div style='text-align:center;direction:rtl'>
-					<strong>درخواست خرید به تایید مهندسی رسید</strong>
-					<ul>
-						<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-						<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>
-						<li>تاییدکننده: <strong>{CurrentUserFullName}</strong></li>
-						<li>تاریخ تامین پیش‌بینی شده: <strong>{openOrderRequest.SupplyShamsiDate}</strong></li>
-					</ul>
-				</div>
-			";
-
-			var purchaseResponsibleId = openOrderRequest.PurchaseResponsibleId.HasValue && openOrderRequest.PurchaseResponsibleId.Value > 0;
-			var userRecivers = new List<long?>();
-
-			if (openOrderRequest.SalesUnitSalesExpertId.HasValue)
-			{
-				userRecivers.Add(openOrderRequest.SalesUnitConfirmationUserId);
-				userRecivers.Add(openOrderRequest.SalesUnitProjectManagerId);
-				userRecivers.Add(openOrderRequest.SalesUnitSalesExpertId);
-				userRecivers.Add(openOrderRequest.SalesUnitSalesManagerId);
-				
-				if (purchaseResponsibleId)
-					userRecivers.Add(openOrderRequest.PurchaseResponsibleId);
-				else
-					userRecivers.AddRange(SupMembers.Select(c => c.UserId));
-			}
-			else
-			{
-				if (purchaseResponsibleId)
-					userRecivers.Add(openOrderRequest.PurchaseResponsibleId);
-				else
-					userRecivers.AddRange(SupMembers.Select(c => c.UserId));
-			}
-
-
-			//به درخواست تدارکات اگر کارشناس تدارکات در دریافت کنندگان بود 
-			//سرپرست اون کارشناس هم در دریافت کنندگان اضافه شود 
-			if(purchaseResponsibleId)
-				AddSupplierSupervisorToRecivers(userRecivers , openOrderRequest.PurchaseResponsibleUsername);
-
-
-			foreach (var member in userRecivers.Distinct())
-			{
-				if(member != null)
-					await notificationService.CreateAndSendAsync(new Notification
-					{
-						Type = NotificationType.Appliaction,
-						Title = title,
-						Body = body,
-						EntityId = openOrderRequest.Id,
-						OwnerId = member!.Value,
-						ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
-						IsRead = false,
-					});
-				 
-			}
-
-			await unitOfWork.SaveChangesAsync(cn);
-		}
-		public void AddSupplierSupervisorToRecivers(List<long?> userRecivers, string purchaseResponsibleUsername)
-		{
-
-			if (string.IsNullOrEmpty(purchaseResponsibleUsername) || userRecivers == null)
-				return;
-
-			var userSupervisorDic = userService
-				.TableNoTracking
-				.Where(c =>
-				  c.Username.ToLower() == "bagheri.h" ||
-				  c.Username.ToLower() == "yaltaghian.f" ||
-				  c.Username.ToLower() == "parhizkari.s"
-				).
-				Select(c => new { Username =c.Username.ToLower(), c.Id}).ToDictionary(c=>c.Username,c=>c.Id);
-			var purchaseResponsibleUsernameLow = purchaseResponsibleUsername.ToLower();
-
-			string supervisorKey = null;
-
-			switch (purchaseResponsibleUsernameLow)
-			{
-				case "sohrabi.za":
-				case "razaghmanesh.z":
-				case "sarmadi.p":
-					supervisorKey = "bagheri.h";
-					break;
-
-				case "shahpordeli.s":
-				case "rajablou.a":
-					supervisorKey = "yaltaghian.f";
-					break;
-
-				case "ashrafi.m":
-				case "sharifi.b":
-				case "zabihian.s":
-					supervisorKey = "parhizkari.s";
-					break;
-
-				default:
-					// هیچ سرپرستی پیدا نشد
-					return;
-			}
-
-			// بررسی وجود کلید در دیکشنری
-			if (supervisorKey != null && userSupervisorDic.TryGetValue(supervisorKey, out var supervisorId))
-			{
-				// بررسی تکراری نبودن
-				if (!userRecivers.Contains(supervisorId))
-				{
-					userRecivers.Add(supervisorId);
-				}
-			}
-
-
+			if (!value.HasValue())
+				return "";
+			var email = value!.Trim();
+			return email.Contains('@') ? email : email + "@havayar.com";
 		}
 
-		private async Task CreateSalesConfirmationNotification(OpenOrderRequest openOrderRequest, CancellationToken cn)
+		private static string? UserNotifyEmail(User? user)
 		{
-			var supplyEmails = new List<string> 
-			{ 
-				"Dordab.y", "Bagheri.h", "Yaltaghian.f", "Shahpordeli.s", 
-				"Sharifi.b", "sohrabi.za", "Ashrafi.m", "Abdollahi.a", 
-				"zare.m", "Rajablou.a", "sarmadi.p"
-			};
-
-			var emails = supplyEmails.Select(e => e + "@havayar.com").ToList();
-			
-			var users = await userService.TableNoTracking
-				.Where(u => emails.Contains(u.Email))
-				.ToListAsync(cn);
-
-			var title = "تایید واحد پروژه/فروش - درخواست خرید";
-			var body = $@"
-				<div style='text-align:center;direction:rtl'>
-					درخواست خرید به تایید واحد پروژه/فروش رسید
-					<ul>
-						<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-						<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>
-						<li>توضیحات تایید: <strong>{openOrderRequest.SalesUnitConfirmationComment}</strong></li>
-					</ul>
-				</div>
-			";
-
-			foreach (var user in users)
-			{
-				await unitOfWork.Repository<Notification>().AddAsync(new Notification
-				{
-					Type = NotificationType.Appliaction,
-					Title = title,
-					Body = body,
-					EntityId = openOrderRequest.Id,
-					OwnerId = user.Id!.Value,
-					ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
-					IsRead = false
-				}, cn);
-			}
-
-			await unitOfWork.SaveChangesAsync(cn);
+			if (user == null)
+				return null;
+			if (user.Email.HasValue())
+				return user.Email;
+			return user.Username.HasValue() ? HavayarEmail(user.Username) : null;
 		}
+
+		private static IEnumerable<string> SplitEmailList(string? raw)
+		{
+			if (!raw.HasValue())
+				yield break;
+
+			foreach (var part in raw!.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+			{
+				if (part.HasValue())
+					yield return part.Trim();
+			}
+		}
+
+		/// <summary>HTS روی هر ایمیل توقف این دو نشانی را CC می‌کند.</summary>
+		private static void AddStopFixedCc(List<string> cc)
+		{
+			AddEmail(cc, "Saemian.r@havayar.com");
+			AddEmail(cc, "mosayebi.m@havayar.com");
+		}
+
+		private static string? AppendReStopSuffix(string? comment)
+		{
+			if (!comment.HasValue())
+				return comment;
+			return comment!.Contains("ثبت توقف مجدد") ? comment : comment + " (ثبت توقف مجدد)";
+		}
+
+		private static void AddEmail(List<string> target, string? email)
+		{
+			foreach (var part in SplitEmailList(email))
+			{
+				var normalized = HavayarEmail(part);
+				if (normalized.Length == 0)
+					continue;
+				if (target.Any(e => string.Equals(e, normalized, StringComparison.OrdinalIgnoreCase)))
+					continue;
+				target.Add(normalized);
+			}
+		}
+
+		private static bool ContainsUser(string email, string username)
+			=> email.Contains(username, StringComparison.OrdinalIgnoreCase);
 
 		private async Task CreateStopInitNotification(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment, CancellationToken cn)
 		{
@@ -1582,10 +1818,14 @@ namespace WebApp.Controllers.Dynamic
 			comment.StopOperator = userData.FirstOrDefault(u => u.Id == comment.StopOperatorId);
 
 			var title = "توقف درخواست خرید";
-			var body = BuildStopInitNotificationBody(openOrderRequest, comment);
+			var stopInfo = await LoadStopMailInfoAsync(openOrderRequest.Id, cn);
+			if (stopInfo == null)
+				return;
+			var body = BuildStopInitNotificationBody(openOrderRequest, comment, stopInfo);
 
-			if(comment.StopOperator?.Email.HasValue() ?? false)
-			  recipientEmails.Add(comment.StopOperator.Email);
+			var operatorEmail = UserNotifyEmail(comment.StopOperator);
+			if (operatorEmail.HasValue())
+				recipientEmails.Add(operatorEmail);
 
 			if (CurrentUserEmail.HasValue())
 				ccRecipientEmails.Add(CurrentUserEmail);
@@ -1603,7 +1843,7 @@ namespace WebApp.Controllers.Dynamic
 
 			if (comment.BeneficiariesIds.HasValue())
 			{
-				var beneficiariesIds = comment.BeneficiariesIds.Split(',').Where(p => !p.HasValue()).Select(long.Parse).ToList();
+				var beneficiariesIds = comment.BeneficiariesIds.Split(',').Where(p => p.HasValue()).Select(long.Parse).ToList();
 
 				var beneficiariesEmails = userData.Where(p => beneficiariesIds.Contains((long)p.Id)).Select(p => p.Email).ToArray();
 				if (beneficiariesEmails.Any())
@@ -1611,10 +1851,10 @@ namespace WebApp.Controllers.Dynamic
 			}
 
 			if (!string.IsNullOrEmpty(openOrderRequest.RequestedPersonelEmail))
-				ccRecipientEmails.AddRange(openOrderRequest.RequestedPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+				ccRecipientEmails.AddRange(SplitEmailList(openOrderRequest.RequestedPersonelEmail));
 
 			if (!string.IsNullOrEmpty(openOrderRequest.RequestedEngineeringPersonelEmail))
-				ccRecipientEmails.AddRange(openOrderRequest.RequestedEngineeringPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+				ccRecipientEmails.AddRange(SplitEmailList(openOrderRequest.RequestedEngineeringPersonelEmail));
 
 			if (openOrderRequest.EngineeringAcceptUserId.HasValue)
 			{
@@ -1629,6 +1869,8 @@ namespace WebApp.Controllers.Dynamic
 				if (salesUnitProjectManager != null && salesUnitProjectManager.Email.HasValue())
 					ccRecipientEmails.Add(salesUnitProjectManager.Email);
 			}
+
+			AddStopFixedCc(ccRecipientEmails);
 
 			await unitOfWork.Repository<Notification>().AddAsync(new Notification
 			{
@@ -1654,14 +1896,31 @@ namespace WebApp.Controllers.Dynamic
 			var ccRecipientEmails = new List<string>();
 			var userData = await userService.GetAll();
 
-			if (!string.IsNullOrEmpty(openOrderRequest.RequestedPersonelEmail))
-				recipientEmails.AddRange(openOrderRequest.RequestedPersonelEmail.Split(';', StringSplitOptions.RemoveEmptyEntries));
+			comment.StopOperator = userData.FirstOrDefault(u => u.Id == comment.StopOperatorId);
+			var operatorEmail = UserNotifyEmail(comment.StopOperator);
+			if (operatorEmail.HasValue())
+				recipientEmails.Add(operatorEmail);
 
-			if (!string.IsNullOrEmpty(openOrderRequest.RequestedEngineeringPersonelEmail))
-				recipientEmails.AddRange(openOrderRequest.RequestedEngineeringPersonelEmail.Split(';', StringSplitOptions.RemoveEmptyEntries));
+			if (comment.CreatedById is > 0)
+			{
+				var creator = userData.FirstOrDefault(u => u.Id == comment.CreatedById);
+				var creatorEmail = UserNotifyEmail(creator);
+				if (creatorEmail.HasValue())
+					recipientEmails.Add(creatorEmail);
+			}
 
-			var title = "نتیجه بررسی توقف درخواست خرید";
-			var body = BuildStopReviewNotificationBody(openOrderRequest, comment);
+			var stopStatus = (int?)openOrderRequest.StopStatus ?? 0;
+			var title = stopStatus == (int)OpenOrderRequestStopStatusEnum.ProjectManagerPendingStopReason
+				? "اطلاع رسانی 'در انتظار تایید' توقف درخواست خرید"
+				: "تعیین وضعیت عامل توقف درخواست خرید";
+			var stopInfo = await LoadStopMailInfoAsync(openOrderRequest.Id, cn);
+			if (stopInfo == null)
+				return;
+			var reviewer = CurrentUserFullNameFn ?? CurrentUserFullName;
+			var reviewMessage = stopStatus == (int)OpenOrderRequestStopStatusEnum.ProjectManagerPendingStopReason
+				? $"بدینوسیله اعلام می گردد توقفی با مشخصات ذیل در ماژول درخواست های باز توسط {reviewer} بررسی گردید، خواهشمند است تا اعمال نظر از سوی مدیر پروژه / کارفرما تا تاریخ تقریبی اعلام شده منتظر بمانید."
+				: $"بدینوسیله اعلام می گردد توقفی با مشخصات ذیل در ماژول درخواست های باز توسط {reviewer} بررسی گردید، خواهشمند است نسبت به ادامه روند آن اقدام فرمایید.";
+			var body = BuildStopReviewNotificationBody(openOrderRequest, comment, stopInfo, reviewMessage);
 
 			if (CurrentUserEmail.HasValue())
 				ccRecipientEmails.Add(CurrentUserEmail);
@@ -1679,7 +1938,7 @@ namespace WebApp.Controllers.Dynamic
 
 			if (comment.BeneficiariesIds.HasValue())
 			{
-				var beneficiariesIds = comment.BeneficiariesIds.Split(',').Where(p => !p.HasValue()).Select(long.Parse).ToList();
+				var beneficiariesIds = comment.BeneficiariesIds.Split(',').Where(p => p.HasValue()).Select(long.Parse).ToList();
 
 				var beneficiariesEmails = userData.Where(p => beneficiariesIds.Contains((long)p.Id)).Select(p => p.Email).ToArray();
 				if (beneficiariesEmails.Any())
@@ -1687,10 +1946,10 @@ namespace WebApp.Controllers.Dynamic
 			}
 
 			if (!string.IsNullOrEmpty(openOrderRequest.RequestedPersonelEmail))
-				ccRecipientEmails.AddRange(openOrderRequest.RequestedPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+				ccRecipientEmails.AddRange(SplitEmailList(openOrderRequest.RequestedPersonelEmail));
 
 			if (!string.IsNullOrEmpty(openOrderRequest.RequestedEngineeringPersonelEmail))
-				ccRecipientEmails.AddRange(openOrderRequest.RequestedEngineeringPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+				ccRecipientEmails.AddRange(SplitEmailList(openOrderRequest.RequestedEngineeringPersonelEmail));
 
 			if (openOrderRequest.EngineeringAcceptUserId.HasValue)
 			{
@@ -1705,6 +1964,8 @@ namespace WebApp.Controllers.Dynamic
 				if (salesUnitProjectManager != null && salesUnitProjectManager.Email.HasValue())
 					ccRecipientEmails.Add(salesUnitProjectManager.Email);
 			}
+
+			AddStopFixedCc(ccRecipientEmails);
 
 			await unitOfWork.Repository<Notification>().AddAsync(new Notification
 			{
@@ -1722,97 +1983,106 @@ namespace WebApp.Controllers.Dynamic
 			}, cn);
 		}
 
-		private string BuildStopReviewNotificationBody(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment)
+		private sealed record StopMailInfo(
+			long PurchaseRequestNumber, long? OrderNo, string? PartCode, string? PartName, decimal RequiredQty,
+			string? OrderItemComment, string? BuyerName, int? ProductionOrderNumber, string? DlTitle, bool HasSalesExpert);
+
+		/// <summary>اطلاعات کامل کالا/درخواست برای ایمیل‌های توقف (معادل SendStopRequestNotifications در HTS).</summary>
+		private async Task<StopMailInfo?> LoadStopMailInfoAsync(long? openOrderRequestId, CancellationToken cn)
+		{
+			return await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => o.Id == openOrderRequestId)
+				.Select(o => new StopMailInfo(
+					o.PurchaseRequestNumber,
+					o.OrderNo,
+					o.Part.Code,
+					o.Part.Name,
+					o.RequiredQty,
+					o.OrderItemComment,
+					o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.NameFa
+						: null,
+					o.ProductionOrderNumber,
+					o.Dl != null ? o.Dl.Title : null,
+					o.SalesUnitSalesExpertId != null))
+				.FirstOrDefaultAsync(cn);
+		}
+
+		private static string BuildStopRequestItems(StopMailInfo info, string? stopReason)
 		{
 			var sb = new StringBuilder();
-			sb.AppendLine("<div style='text-align:center;direction:rtl'>");
-			sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>");
-			sb.AppendLine("<tr style='background: #000aa0'>");
-			sb.AppendLine("<td><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td>");
-			sb.AppendLine("</tr>");
-			sb.AppendLine("<tr><td>");
-			sb.AppendLine($"توقف درخواست خرید توسط <strong>{CurrentUserFullName}</strong> بررسی شد");
-			sb.AppendLine("<ul>");
-			sb.AppendLine($"<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>");
-			sb.AppendLine($"<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>");
-			sb.AppendLine($"<li>نتیجه بررسی: <strong style='color:red'>{comment.StopCheckingResult?.ToDisplay()}</strong></li>");
-			sb.AppendLine($"<li>توضیحات: <strong>{comment.StopCheckingComment}</strong></li>");
-			
-			if (comment.IsNeedToUpdateBom)
-				sb.AppendLine("<li>نیاز به بروزرسانی BOM: <strong style='color:red'>بلی</strong></li>");
-			
-			if (comment.IsNeedToDeleteBom)
-				sb.AppendLine("<li>نیاز به حذف BOM: <strong style='color:red'>بلی</strong></li>");
-			
-			if (!string.IsNullOrEmpty(comment.ProjectManagerApproximateCommentShamsiDate))
-				sb.AppendLine($"<li>تاریخ تقریبی اعمال نظر: <strong>{comment.ProjectManagerApproximateCommentShamsiDate}</strong></li>");
-			
-			sb.AppendLine("</ul>");
-			sb.AppendLine("</td></tr>");
-			sb.AppendLine("</table>");
-			sb.AppendLine("</div>");
+			sb.AppendLine($"<li>شماره درخواست خرید : <strong>{info.PurchaseRequestNumber}</strong></li>");
+			sb.AppendLine($"<li>شماره سفارش : <strong>{info.OrderNo}</strong></li>");
+			sb.AppendLine($"<li>کد کالا : <strong>{info.PartCode}</strong></li>");
+			sb.AppendLine($"<li>عنوان کالا : <strong>{info.PartName}</strong></li>");
+			sb.AppendLine($"<li>مقدار درخواست : <strong>{info.RequiredQty}</strong></li>");
+			sb.AppendLine($"<li>توضیحات درخواست : <strong>{info.OrderItemComment}</strong></li>");
+			sb.AppendLine($"<li>مسئول خرید : <strong>{info.BuyerName}</strong></li>");
+			sb.AppendLine($"<li>علت توقف : <strong style='color:red'>{stopReason}</strong></li>");
+			if (info.HasSalesExpert)
+			{
+				sb.AppendLine($"<li>شماره سفارش ساخت : <strong>{info.ProductionOrderNumber}</strong></li>");
+				sb.AppendLine($"<li>تفصیل : <strong>{info.DlTitle}</strong></li>");
+			}
 			return sb.ToString();
 		}
 
-		private string BuildStopInitNotificationBody(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment)
+		private static string BuildStopTypeOperatorItems(OpenOrderRequestComment comment)
 		{
 			var sb = new StringBuilder();
-			sb.AppendLine("<div style='text-align:center;direction:rtl'>");
-			sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>");
-			sb.AppendLine("<tr style='background: #000aa0'>");
-			sb.AppendLine("<td><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td>");
-			sb.AppendLine("</tr>");
-			sb.AppendLine("<tr><td>");
-			sb.AppendLine($"بدینوسیله اعلام می گردد توقف جدیدی توسط <strong style='color:red'>{CurrentUserFullNameFn}</strong> در ماژول درخواست های باز و با مشخصات ذیل ثبت گردید، خواهشمند است نسبت به بررسی و ادامه روند آن اقدام فرمایید");
-			sb.AppendLine("<ul>");
-			sb.AppendLine($"<li>شماره درخواست خرید: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>");
-			sb.AppendLine($"<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>");
-			sb.AppendLine($"<li>توضیحات: <strong>{comment.StopCheckingComment}</strong></li>");
-
-			sb.AppendLine("<li>");
-			sb.AppendLine($"نوع توقف : <strong style='color:red'>{(comment.StopType.HasValue ? comment.StopType.Value.ToDisplay() : "نامشخص")}</strong>");
-			sb.AppendLine("</li>");
-
-			sb.AppendLine("<li>");
-			sb.AppendLine($"عامل توقف : <strong style='color:red'>{comment?.StopOperator?.NameFa ?? "-"}</strong>");
-			sb.AppendLine("</li>");
-
-			sb.AppendLine("</ul>");
-			sb.AppendLine("</td></tr>");
-			sb.AppendLine("</table>");
-			sb.AppendLine("</div>");
+			sb.AppendLine($"<li>نوع توقف : <strong style='color:red'>{(comment.StopType.HasValue ? comment.StopType.Value.ToDisplay() : "نامشخص")}</strong></li>");
+			sb.AppendLine($"<li>عامل توقف : <strong style='color:red'>{comment.StopOperator?.NameFa ?? "-"}</strong></li>");
 			return sb.ToString();
+		}
+
+		private string BuildStopReviewNotificationBody(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment, StopMailInfo info, string message)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine(message);
+			sb.AppendLine("<br /><br />");
+			sb.AppendLine("<ul>");
+			sb.Append(BuildStopTypeOperatorItems(comment));
+			sb.AppendLine($"<li>نتیجه بررسی علت توقف : <strong style='color:red'>{comment.StopCheckingResult?.ToDisplay()}</strong></li>");
+			if (comment.StopCheckingComment.HasValue())
+				sb.AppendLine($"<li>توضیحات بررسی : <strong>{comment.StopCheckingComment}</strong></li>");
+
+			if (!string.IsNullOrEmpty(comment.ProjectManagerApproximateCommentShamsiDate))
+				sb.AppendLine($"<li>تاریخ تقریبی اعمال نظر مدیر پروژه/ کارفرما : <strong style='color:red'>{comment.ProjectManagerApproximateCommentShamsiDate}</strong></li>");
+
+			if (comment.IsNeedToUpdateBom)
+				sb.AppendLine("<li>نیاز به اصلاح BOM : <strong style='color:red'>بلی</strong></li>");
+
+			if (comment.IsNeedToDeleteBom)
+				sb.AppendLine("<li>نیاز به حذف BOM : <strong style='color:red'>بلی</strong></li>");
+
+			sb.Append(BuildStopRequestItems(info, comment.CommentValue));
+			sb.AppendLine("</ul>");
+			return ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString());
+		}
+
+		private string BuildStopInitNotificationBody(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment, StopMailInfo info)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine($"بدینوسیله اعلام می گردد توقف جدیدی توسط <strong style='color:red'>{CurrentUserFullNameFn}</strong> در ماژول درخواست های باز و با مشخصات ذیل ثبت گردید، خواهشمند است نسبت به بررسی و ادامه روند آن اقدام فرمایید");
+			sb.AppendLine("<br /><br />");
+			sb.AppendLine("<ul>");
+			sb.Append(BuildStopTypeOperatorItems(comment));
+			sb.Append(BuildStopRequestItems(info, comment.CommentValue));
+			sb.AppendLine("</ul>");
+			return ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString());
 		}
 
 		private async Task CreateStopRequesterDecisionNotification(OpenOrderRequest openOrderRequest, OpenOrderRequestComment comment, CancellationToken cn)
 		{
-			// Notification to stop operator and beneficiaries
-			var recipientIds = new List<long>();
 			var recipientEmails = new List<string>();
 			var ccRecipientEmails = new List<string>();
 			var userData = await userService.GetAll();
 
 			if (comment.StopOperatorId.HasValue)
-				recipientIds.Add(comment.StopOperatorId.Value);
-
-			if (!string.IsNullOrEmpty(comment.BeneficiariesIds))
 			{
-				var ids = comment.BeneficiariesIds.Split(',', StringSplitOptions.RemoveEmptyEntries)
-					.Select(long.Parse);
-				recipientIds.AddRange(ids);
+				var stopOperator = userData.FirstOrDefault(u => u.Id == comment.StopOperatorId);
+				AddEmail(recipientEmails, UserNotifyEmail(stopOperator));
 			}
-
-			var title = "تصمیم درخواست‌کننده توقف";
-			var body = $@"
-				<div style='text-align:center;direction:rtl'>
-					درخواست‌کننده توقف تصمیم خود را اعلام کرد
-					<ul>
-						<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-						<li>وضعیت: <strong>{comment.StopCheckingStatus?.ToDisplay()}</strong></li>
-						<li>توضیحات: <strong>{comment.StopCheckingStatusComment}</strong></li>
-					</ul>
-				</div>
-			";
 
 			if (CurrentUserEmail.HasValue())
 				ccRecipientEmails.Add(CurrentUserEmail);
@@ -1830,7 +2100,7 @@ namespace WebApp.Controllers.Dynamic
 
 			if (comment.BeneficiariesIds.HasValue())
 			{
-				var beneficiariesIds = comment.BeneficiariesIds.Split(',').Where(p => !p.HasValue()).Select(long.Parse).ToList();
+				var beneficiariesIds = comment.BeneficiariesIds.Split(',').Where(p => p.HasValue()).Select(long.Parse).ToList();
 
 				var beneficiariesEmails = userData.Where(p => beneficiariesIds.Contains((long)p.Id)).Select(p => p.Email).ToArray();
 				if (beneficiariesEmails.Any())
@@ -1838,10 +2108,10 @@ namespace WebApp.Controllers.Dynamic
 			}
 
 			if (!string.IsNullOrEmpty(openOrderRequest.RequestedPersonelEmail))
-				ccRecipientEmails.AddRange(openOrderRequest.RequestedPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+				ccRecipientEmails.AddRange(SplitEmailList(openOrderRequest.RequestedPersonelEmail));
 
 			if (!string.IsNullOrEmpty(openOrderRequest.RequestedEngineeringPersonelEmail))
-				ccRecipientEmails.AddRange(openOrderRequest.RequestedEngineeringPersonelEmail.Split(',', StringSplitOptions.RemoveEmptyEntries));
+				ccRecipientEmails.AddRange(SplitEmailList(openOrderRequest.RequestedEngineeringPersonelEmail));
 
 			if (openOrderRequest.EngineeringAcceptUserId.HasValue)
 			{
@@ -1856,6 +2126,55 @@ namespace WebApp.Controllers.Dynamic
 				if (salesUnitProjectManager != null && salesUnitProjectManager.Email.HasValue())
 					ccRecipientEmails.Add(salesUnitProjectManager.Email);
 			}
+
+			var actor = CurrentUserFullNameFn ?? CurrentUserFullName;
+			var decisionStatus = (int?)openOrderRequest.StopStatus ?? 0;
+			string title;
+			string message;
+			switch (decisionStatus)
+			{
+				case (int)OpenOrderRequestStopStatusEnum.RestartStopCauseCheck:
+					title = "تعیین وضعیت درخواست کننده توقف درخواست خرید";
+					message = $"بدینوسیله اعلام می گردد توقفی با مشخصات ذیل در ماژول درخواست های باز توسط {actor} بررسی و <strong style='color:blue'>راه اندازی مجدد</strong> گردید، مراتب جهت هرگونه اقدام مقتضی به عرض می رسد.";
+					AddEmail(recipientEmails, buyCategoryPurchaseResponsibleEmail);
+					break;
+				case (int)OpenOrderRequestStopStatusEnum.CheckStopFactorReRegisterStop:
+					title = "تعیین وضعیت درخواست کننده توقف درخواست خرید";
+					message = $"بدینوسیله اعلام می گردد توقفی <strong style='color:red'>بصورت مجدد</strong> با مشخصات ذیل در ماژول درخواست های باز توسط {actor} بررسی گردید، خواهشمند است نسبت به ادامه روند آن اقدام فرمایید.";
+					break;
+				case (int)OpenOrderRequestStopStatusEnum.StoppingFactorForDeletionRequest:
+					title = "تعیین وضعیت درخواست کننده توقف درخواست خرید";
+					message = $"بدینوسیله اعلام می گردد توقفی <strong style='color:red'>بعلت عدم بررسی توسط عامل توقف</strong> با مشخصات ذیل توسط {actor} به کارتابل واحد صنایع منتسب گردید، لذا خواهشمند است در رابطه با 'حذف / ثبت توقف مجدد درخوایت' اقدامات لازم را مبذول فرمایید.";
+					var industrialMembers = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.Industrial", cn);
+					foreach (var member in industrialMembers)
+						AddEmail(recipientEmails, member.Email);
+					break;
+				default:
+					title = "تصمیم درخواست‌کننده توقف";
+					message = "درخواست‌کننده توقف تصمیم خود را اعلام کرد";
+					break;
+			}
+
+			var stopInfo = await LoadStopMailInfoAsync(openOrderRequest.Id, cn);
+			if (stopInfo == null)
+				return;
+			comment.StopOperator ??= userData.FirstOrDefault(u => u.Id == comment.StopOperatorId);
+
+			var bodySb = new StringBuilder();
+			bodySb.AppendLine(message);
+			bodySb.AppendLine("<br /><br />");
+			bodySb.AppendLine("<ul>");
+			bodySb.Append(BuildStopTypeOperatorItems(comment));
+			if (decisionStatus != (int)OpenOrderRequestStopStatusEnum.CheckStopFactorReRegisterStop)
+				bodySb.AppendLine($"<li>نتیجه بررسی علت توقف : <strong style='color:red'>{comment.StopCheckingResult?.ToDisplay()}</strong></li>");
+			bodySb.AppendLine($"<li>وضعیت : <strong>{comment.StopCheckingStatus?.ToDisplay()}</strong></li>");
+			if (comment.StopCheckingStatusComment.HasValue())
+				bodySb.AppendLine($"<li>توضیحات : <strong>{comment.StopCheckingStatusComment}</strong></li>");
+			bodySb.Append(BuildStopRequestItems(stopInfo, comment.CommentValue));
+			bodySb.AppendLine("</ul>");
+			var body = ProductionOrderItemNotificationHelper.BuildEmailShell(bodySb.ToString());
+
+			AddStopFixedCc(ccRecipientEmails);
 
 			await unitOfWork.Repository<Notification>().AddAsync(new Notification
 			{
@@ -1873,84 +2192,252 @@ namespace WebApp.Controllers.Dynamic
 			}, cn);
 		}
 
+		/// <summary>
+		/// HTS DoStartStopOperation وقتی IsStop=false: ایمیل فقط اگر ایمیل درخواست‌کننده پر باشد.
+		/// گیرنده: درخواست‌کننده + متولی خرید + ذینفع مهندسی + کاربر تایید مهندسی.
+		/// متن: همان فهرست کالای HTS، با قالب ایمیل کامنت درخواست خرید.
+		/// </summary>
 		private async Task CreateTriggeringNotification(OpenOrderRequest openOrderRequest, CancellationToken cn)
 		{
-			var recipientEmails = new List<string>();
-			
-			if (!string.IsNullOrEmpty(openOrderRequest.RequestedPersonelEmail))
-				recipientEmails.AddRange(openOrderRequest.RequestedPersonelEmail.Split(';', StringSplitOptions.RemoveEmptyEntries));
-			
-			if (!string.IsNullOrEmpty(openOrderRequest.RequestedEngineeringPersonelEmail))
-				recipientEmails.AddRange(openOrderRequest.RequestedEngineeringPersonelEmail.Split(';', StringSplitOptions.RemoveEmptyEntries));
+			if (!openOrderRequest.RequestedPersonelEmail.HasValue())
+				return;
 
-			var users = await userService.TableNoTracking
-				.Where(u => recipientEmails.Contains(u.Email))
-				.ToListAsync(cn);
-
-			var title = "راه اندازی درخواست خرید";
-			var body = $@"
-				<div style='direction:rtl;text-align:right'>
-					کاربر گرامی درخواست کالای شما توسط واحد صنایع راه اندازی شده است
-					<ul>
-						<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-						<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>
-					</ul>
-				</div>
-			";
-
-			foreach (var user in users)
-			{
-				await unitOfWork.Repository<Notification>().AddAsync(new Notification
+			var row = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => o.Id == openOrderRequest.Id)
+				.Select(o => new
 				{
-					Type = NotificationType.Appliaction,
-					Title = title,
-					Body = body,
-					EntityId = openOrderRequest.Id,
-					OwnerId = user.Id!.Value,
-					ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
-					IsRead = false
-				}, cn);
+					o.Id,
+					o.PurchaseRequestNumber,
+					o.OrderNo,
+					o.RequiredQty,
+					o.OrderQty,
+					o.SumSendQty,
+					o.FactoredCount,
+					o.SupplyShamsiDate,
+					o.NeedDateShamsiDate,
+					o.OrderItemComment,
+					PartCode = o.Part.Code,
+					PartName = o.Part.Name,
+					BuyerName = o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.NameFa
+						: null
+				})
+				.FirstOrDefaultAsync(cn);
+
+			if (row?.Id == null)
+				return;
+
+			var to = new List<string>();
+			foreach (var email in SplitEmailList(openOrderRequest.RequestedPersonelEmail))
+				AddEmail(to, email);
+			foreach (var email in SplitEmailList(openOrderRequest.RequestedEngineeringPersonelEmail))
+				AddEmail(to, email);
+
+			var responsible = await unitOfWork.Repository<BuyCategoryItem>().TableNoTracking
+				.Where(c => c.PartId == openOrderRequest.PartId && c.BuyCategory.PurchaseResponsible != null)
+				.Select(c => new
+				{
+					c.BuyCategory.PurchaseResponsible!.Email,
+					c.BuyCategory.PurchaseResponsible.Username
+				})
+				.FirstOrDefaultAsync(cn);
+			if (responsible != null)
+				AddEmail(to, responsible.Email.HasValue() ? responsible.Email : responsible.Username);
+
+			if (openOrderRequest.EngineeringAcceptUserId is > 0)
+			{
+				var engineer = await userService.TableNoTracking
+					.Where(u => u.Id == openOrderRequest.EngineeringAcceptUserId)
+					.Select(u => new { u.Email, u.Username })
+					.FirstOrDefaultAsync(cn);
+				if (engineer != null)
+					AddEmail(to, engineer.Email.HasValue() ? engineer.Email : engineer.Username);
 			}
+
+			if (to.Count == 0)
+				return;
+
+			var actor = CurrentUserFullNameFn ?? CurrentUserFullName ?? "";
+			var body = BuildTriggeringNotificationBody(
+				row.PartCode, row.PartName, row.RequiredQty, row.OrderQty, row.SumSendQty, row.FactoredCount,
+				row.SupplyShamsiDate, row.NeedDateShamsiDate, row.PurchaseRequestNumber, row.OrderNo,
+				row.BuyerName, row.OrderItemComment, actor);
+
+			await unitOfWork.Repository<Notification>().AddAsync(new Notification
+			{
+				Type = NotificationType.Email,
+				Title = "راه اندازی درخواست خرید",
+				Body = body,
+				EntityId = openOrderRequest.Id,
+				OwnerId = CurrentUserId ?? 1,
+				ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
+				IsRead = false,
+				IsSend = false,
+				ToEmails = to
+			}, cn);
 
 			await unitOfWork.SaveChangesAsync(cn);
 		}
 
-		private async Task CreateNewAttachmentNotification(OpenOrderRequest openOrderRequest, OpenOrderRequestAttachment attachment, CancellationToken cn)
+		private static string BuildTriggeringNotificationBody(
+			string? partCode, string? partName, decimal requiredQty, decimal? orderQty, decimal? sumSendQty, decimal factoredCount,
+			string? supplyDate, string? needDate, long purchaseRequestNumber, long? orderNo,
+			string? buyerName, string? orderItemComment, string actor)
 		{
-			// TODO: به واحد تولید اعلان داده شود
-			var productionEmails = new List<string> { "Sohrabi.z", "golestaneh.a", "Eftekhari.a", "Estaki.a" }
-				.Select(e => e + "@havayar.com");
+			var sb = new StringBuilder();
+			sb.AppendLine("کاربر گرامی درخواست کالای شما توسط واحد صنایع راه اندازی شده است");
+			sb.AppendLine("<br /><br />");
+			sb.AppendLine("<ul>");
+			sb.AppendLine($"<li>کد کالا : <strong>{partCode}</strong></li>");
+			sb.AppendLine($"<li>عنوان کالا : <strong>{partName}</strong></li>");
+			sb.AppendLine($"<li>تعداد درخواست : <strong>{requiredQty}</strong></li>");
+			sb.AppendLine($"<li>تعداد سفارش : <strong>{orderQty}</strong></li>");
+			sb.AppendLine($"<li>تعداد برگ ارسال : <strong>{sumSendQty}</strong></li>");
+			sb.AppendLine($"<li>تعداد خرید شده : <strong>{factoredCount}</strong></li>");
+			sb.AppendLine($"<li>تاریخ تامین : <strong>{supplyDate}</strong></li>");
+			sb.AppendLine($"<li>تاریخ نیاز : <strong>{needDate}</strong></li>");
+			sb.AppendLine($"<li>شماره درخواست خرید : <strong>{purchaseRequestNumber}</strong></li>");
+			sb.AppendLine($"<li>شماره سفارش خرید : <strong>{orderNo}</strong></li>");
+			sb.AppendLine($"<li>مسئول خرید : <strong>{buyerName}</strong></li>");
+			sb.AppendLine($"<li>توضیحات : <strong>{orderItemComment}</strong></li>");
+			sb.AppendLine("</ul>");
+			sb.AppendLine($"راه اندازی توسط : {actor}<br>");
+			return ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString());
+		}
 
-			var users = await userService.TableNoTracking
-				.Where(u => productionEmails.Contains(u.Email))
-				.ToListAsync(cn);
-
-			var title = "اعلام ایجاد پیوست درخواست باز";
-			var body = $@"
-				<div style='direction:rtl;text-align:right'>
-					مدرک/مدارک جدیدی جهت درخواست باز آپلود گردید
-					<ul>
-						<li>شماره درخواست: <strong>{openOrderRequest.PurchaseRequestNumber}</strong></li>
-						<li>شماره سفارش: <strong>{openOrderRequest.OrderNo}</strong></li>
-						<li>نوع مدرک: <strong>{attachment.FileType?.ToDisplay()}</strong></li>
-					</ul>
-				</div>
-			";
-
-			foreach (var user in users)
-			{
-				await unitOfWork.Repository<Notification>().AddAsync(new Notification
+		/// <summary>
+		/// HTS SendNewAttachmentsEmailNotification: با آپلود پیوست، یک ایمیل «اعلان ثبت پیوست درخواست باز».
+		/// گیرنده متولی خرید؛ اگر عضو گروه همتا باشد بقیهٔ همان گروه هم گیرنده می‌شوند.
+		/// رونوشت: صنایع + رونوشت ثابت. اگر متولی ایمیل نداشته باشد، رونوشت گیرنده می‌شود.
+		/// </summary>
+		private async Task SendUploadedAttachmentEmailAsync(OpenOrderRequest openOrderRequest, CancellationToken cn)
+		{
+			var row = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => o.Id == openOrderRequest.Id)
+				.Select(o => new
 				{
-					Type = NotificationType.Appliaction,
-					Title = title,
-					Body = body,
-					EntityId = openOrderRequest.Id,
-					OwnerId = user.Id!.Value,
-					ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
-					IsRead = false
-				}, cn);
+					o.Id,
+					o.PurchaseRequestNumber,
+					o.OrderNo,
+					o.IsStop,
+					PartCode = o.Part.Code,
+					PartName = o.Part.Name,
+					BuyerId = o.Part.BuyCategory != null ? o.Part.BuyCategory.PurchaseResponsibleId : null,
+					BuyerEmail = o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.Email
+						: null,
+					BuyerUsername = o.Part.BuyCategory != null && o.Part.BuyCategory.PurchaseResponsible != null
+						? o.Part.BuyCategory.PurchaseResponsible.Username
+						: null
+				})
+				.FirstOrDefaultAsync(cn);
+			if (row?.Id == null)
+				return;
+
+			var to = new List<string>();
+			AddEmail(to, row.BuyerEmail.HasValue() ? row.BuyerEmail : row.BuyerUsername);
+
+			var peers = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.AutoAcceptPeerTo", cn);
+			if (to.Count > 0 && peers.Any(p => p.Email.HasValue() && to.Any(t => t.Contains(p.Email.Split('@')[0], StringComparison.OrdinalIgnoreCase))))
+			{
+				foreach (var peer in peers)
+					AddEmail(to, peer.Email);
 			}
 
+			var cc = new List<string>();
+			foreach (var member in await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.Industrial", cn))
+				AddEmail(cc, member.Email);
+			foreach (var member in await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.AutoAcceptFixedCc", cn))
+				AddEmail(cc, member.Email);
+
+			if (to.Count == 0)
+			{
+				foreach (var email in cc)
+					AddEmail(to, email);
+				cc.Clear();
+			}
+			else
+			{
+				cc.RemoveAll(c => to.Any(t => string.Equals(t, c, StringComparison.OrdinalIgnoreCase)));
+			}
+
+			if (to.Count == 0)
+				return;
+
+			var sb = new StringBuilder();
+			sb.AppendLine("بدینوسیله اعلام میگردد، مدرک/مدارک جدیدی جهت درخواست باز، با مشخصات ذیل آپلود گردید");
+			sb.AppendLine("<br><br>شما می توانید با مراجعه به سیستم جامع / سیستم تدارکات / عملیات / درخواست های باز / پیوست مدارک از جزییات آن اطلاع یابید<br><br>");
+			sb.AppendLine("<ul>");
+			sb.AppendLine($"<li>شماره درخواست : <strong>{row.PurchaseRequestNumber}</strong></li>");
+			sb.AppendLine($"<li>شماره سفارش : <strong>{row.OrderNo}</strong></li>");
+			if (row.IsStop)
+				sb.AppendLine("<li>وضعیت درخواست : <strong style='color:red'>متوقف شده</strong></li>");
+			sb.AppendLine($"<li>کد کالا : <strong>{row.PartCode}</strong></li>");
+			sb.AppendLine($"<li>عنوان کالا : <strong>{row.PartName}</strong></li>");
+			sb.AppendLine("</ul>");
+
+			await unitOfWork.Repository<Notification>().AddAsync(new Notification
+			{
+				Type = NotificationType.Email,
+				Title = "اعلان ثبت پیوست درخواست باز",
+				Body = ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString()),
+				EntityId = row.Id,
+				OwnerId = row.BuyerId is > 0 ? row.BuyerId.Value : (CurrentUserId ?? 1),
+				ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={row.Id}",
+				IsRead = false,
+				IsSend = false,
+				ToEmails = to,
+				CcEmails = cc.Count == 0 ? null : cc
+			}, cn);
+			await unitOfWork.SaveChangesAsync(cn);
+		}
+
+		/// <summary>
+		/// HTS SendNewAttachmentNotificationEmailToProduction.
+		/// گیرندگان گروه Sup.OpenOrderRequest.ProductionAttachment (قدیم: Sohrabi.z، golestaneh.a، Eftekhari.a، Estaki.a).
+		/// </summary>
+		private async Task CreateProductionAttachmentEmailAsync(OpenOrderRequest openOrderRequest, CancellationToken cn)
+		{
+			var members = await _notificationGroupService.GetGroupMembersAsync("Sup.OpenOrderRequest.ProductionAttachment", cn);
+			var to = new List<string>();
+			foreach (var member in members)
+				AddEmail(to, member.Email);
+			if (to.Count == 0)
+				return;
+
+			var row = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => o.Id == openOrderRequest.Id)
+				.Select(o => new
+				{
+					o.PurchaseRequestNumber,
+					o.OrderNo,
+					PartCode = o.Part.Code,
+					PartName = o.Part.Name
+				})
+				.FirstOrDefaultAsync(cn);
+
+			var sb = new StringBuilder();
+			sb.AppendLine("بدینوسیله اعلام میگردد، مدرک/مدارک جدیدی جهت درخواست باز، با مشخصات ذیل آپلود گردید");
+			sb.AppendLine("<br><br>شما می توانید با مراجعه به سیستم جامع گروه صنعتی هوایار / سیستم تدارکات / عملیات / درخواست های باز / پیوست مدارک از جزییات آن اطلاع یابید<br><br>");
+			sb.AppendLine("<ul>");
+			sb.AppendLine($"<li>شماره درخواست : <strong>{row?.PurchaseRequestNumber}</strong></li>");
+			sb.AppendLine($"<li>شماره سفارش : <strong>{row?.OrderNo}</strong></li>");
+			sb.AppendLine($"<li>کد کالا : <strong>{row?.PartCode}</strong></li>");
+			sb.AppendLine($"<li>عنوان کالا : <strong>{row?.PartName}</strong></li>");
+			sb.AppendLine("</ul>");
+
+			await unitOfWork.Repository<Notification>().AddAsync(new Notification
+			{
+				Type = NotificationType.Email,
+				Title = "اعلام ایجاد پیوست درخواست باز",
+				Body = ProductionOrderItemNotificationHelper.BuildEmailShell(sb.ToString()),
+				EntityId = openOrderRequest.Id,
+				OwnerId = CurrentUserId ?? 1,
+				ViewPath = $"/Panel/Sup/OpenOrderRequest/Edit?id={openOrderRequest.Id}",
+				IsRead = false,
+				IsSend = false,
+				ToEmails = to
+			}, cn);
 			await unitOfWork.SaveChangesAsync(cn);
 		}
 
@@ -2206,13 +2693,54 @@ namespace WebApp.Controllers.Dynamic
 
 		#region AddRequsted
 		[HttpGet("[action]")]
-		public async Task<IActionResult> AddRequestedPersonelPartial(long openOrderRequestId, CancellationToken cn)
+		public async Task<IActionResult> AddRequestedPersonelPartial(long? openOrderRequestId, string? openOrderRequestIds, bool loadExisting, CancellationToken cn)
 		{
-			ViewBag.OpenOrderRequestId = openOrderRequestId;
-			//دریافت نفرات ثابت 
-			 var  staticPersonels = await userService.GetUsersByRoleName("Sup.OpenOrderRequest.ConfigManageStaticPersonel");
+			var ids = ParseOpenOrderRequestIds(openOrderRequestId, openOrderRequestIds);
+			ViewBag.OpenOrderRequestId = ids.FirstOrDefault();
+
+			var staticPersonels = await userService.GetUsersByRoleName("Sup.OpenOrderRequest.ConfigManageStaticPersonel");
 			ViewBag.StaticPersonels = staticPersonels?.Select(c => c.Id) ?? [];
+
+			var requestedPersonelIds = new List<long>();
+			var requestedEngineeringPersonelIds = new List<long>();
+			if (loadExisting && ids.Count > 0)
+			{
+				var rows = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+					.Where(x => x.Id != null && ids.Contains(x.Id.Value))
+					.Select(x => new { x.RequestedPersonelIds, x.RequestedEngineeringPersonelIds })
+					.ToListAsync(cn);
+
+				requestedPersonelIds = rows
+					.SelectMany(r => r.RequestedPersonelIds ?? new List<long>())
+					.Distinct()
+					.ToList();
+				requestedEngineeringPersonelIds = rows
+					.SelectMany(r => r.RequestedEngineeringPersonelIds ?? new List<long>())
+					.Distinct()
+					.ToList();
+			}
+
+			ViewBag.RequestedPersonelIds = requestedPersonelIds.Count == 0 ? null : string.Join(",", requestedPersonelIds);
+			ViewBag.RequestedEngineeringPersonelIds = requestedEngineeringPersonelIds.Count == 0 ? null : string.Join(",", requestedEngineeringPersonelIds);
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_AddRequestedPersonelPartial.cshtml");
+		}
+
+		private static List<long> ParseOpenOrderRequestIds(long? openOrderRequestId, string? openOrderRequestIds)
+		{
+			var ids = new List<long>();
+			if (openOrderRequestId is > 0)
+				ids.Add(openOrderRequestId.Value);
+
+			if (string.IsNullOrWhiteSpace(openOrderRequestIds))
+				return ids;
+
+			foreach (var part in openOrderRequestIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+			{
+				if (long.TryParse(part, out var id) && id > 0 && !ids.Contains(id))
+					ids.Add(id);
+			}
+
+			return ids;
 		}
 
 		/// <summary>HTS صفحه 76 «تنظیمات درخواست های باز» — DoOperation پرسنل (FullAccess صفحه 76: گروه‌های 430 و 28).</summary>
@@ -2242,50 +2770,34 @@ namespace WebApp.Controllers.Dynamic
 				if (openOrderRequests.Count != request.OpenOrderRequestIds.Length)
 					return BadRequest("برخی از درخواست‌های باز یافت نشدند.");
 
+				var personelIds = request.RequestedPersonelIds ?? new List<long>();
+				var engineeringIds = request.RequestedEngineeringPersonelIds ?? new List<long>();
+				var updatePersonel = request.ReplaceExisting || personelIds.Count > 0;
+				var updateEngineering = request.ReplaceExisting || engineeringIds.Count > 0;
+
 				// 4. بارگذاری کاربران مورد نیاز (با حذف تکراری‌ها)
-				var allPersonelIds = request.RequestedPersonelIds
-				    .Cast<long?>()
-				    .Concat(request.RequestedEngineeringPersonelIds.Cast<long?>())
-				    .Where(id => id.HasValue)
-				    .Select(id => id.Value)
+				var allPersonelIds = personelIds
+				    .Concat(engineeringIds)
 				    .Distinct()
 				    .ToArray();
 
-				var users = await userService.TableNoTracking
-				    .Where(u => allPersonelIds.Contains(u.Id.Value))
-				    .ToDictionaryAsync(u => u.Id, cancellationToken); // دیکشنری برای دسترسی سریع
+				var users = allPersonelIds.Length == 0
+					? new Dictionary<long?, User>()
+					: await userService.TableNoTracking
+						.Where(u => allPersonelIds.Contains(u.Id.Value))
+						.ToDictionaryAsync(u => u.Id, cancellationToken);
 
-				// 5. به‌روزرسانی هر رکورد
+				// 5. به‌روزرسانی هر رکورد — با ReplaceExisting لیست ذخیره‌شده جایگزین می‌شود (حذف اسم هم می‌ماند)
 				foreach (var openOrderRequest in openOrderRequests)
 				{
-					// به‌روزرسانی مهندسین
-					if (request.RequestedEngineeringPersonelIds.Any())
-					{
-						var engUsers = request.RequestedEngineeringPersonelIds
-						    .Where(id => users.ContainsKey(id))
-						    .Select(id => users[id])
-						    .ToList();
+					if (updateEngineering)
+						ApplyRequestedPersonel(openOrderRequest, engineeringIds, users, engineering: true);
 
-						openOrderRequest.RequestedEngineeringPersonelIds = request.RequestedEngineeringPersonelIds;
-						openOrderRequest.RequestedEngineeringPersonel = string.Join("، ", engUsers.Select(u => u.NameFa));
-						openOrderRequest.RequestedEngineeringPersonelEmail = string.Join("; ", engUsers.Select(u => u.Email));
-					}
+					if (updatePersonel)
+						ApplyRequestedPersonel(openOrderRequest, personelIds, users, engineering: false);
 
-					// به‌روزرسانی پرسنل عادی
-					if (request.RequestedPersonelIds.Any())
-					{
-						var normalUsers = request.RequestedPersonelIds
-						    .Where(id => users.ContainsKey(id))
-						    .Select(id => users[id])
-						    .ToList();
-
-						openOrderRequest.RequestedPersonelIds = request.RequestedPersonelIds;
-						openOrderRequest.RequestedPersonel = string.Join("، ", normalUsers.Select(u => u.NameFa));
-						openOrderRequest.RequestedPersonelEmail = string.Join("; ", normalUsers.Select(u => u.Email));
-					}
-
-					// تنظیم تاریخ ثبت (فقط در صورتی که خالی باشد)
-					openOrderRequest.RequestedPersonelRegShamsiDate ??= DateTime.Now.ToShamsiDate();
+					if (personelIds.Count > 0 || engineeringIds.Count > 0)
+						openOrderRequest.RequestedPersonelRegShamsiDate ??= DateTime.Now.ToShamsiDate();
 				}
 
 				// 6. ذخیره‌سازی یکپارچه
@@ -2314,11 +2826,34 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("فرم ارسال به پیمانکار", ActionAccessType.View, ActionAccessItemType.Custom)]
-		public IActionResult SendToSupplierPartial(long openOrderRequestId)
+		public async Task<IActionResult> SendToSupplierPartial(long openOrderRequestId, string? ids, CancellationToken cn)
 		{
 			if (!CanSendToSupplier)
 				return AccessDenied("شما دسترسی ارسال به پیمانکار را ندارید");
 
+			// لیست درخواست‌هایی که واقعاً ارسال می‌شوند (جلوگیری از ارسال ناخواسته ردیف‌های انتخاب‌شدهٔ قبلی)
+			var requestIds = (ids ?? string.Empty)
+				.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+				.Select(s => long.TryParse(s, out var v) ? v : 0)
+				.Where(v => v > 0)
+				.Distinct()
+				.ToList();
+			if (requestIds.Count == 0 && openOrderRequestId > 0)
+				requestIds.Add(openOrderRequestId);
+
+			var rows = await unitOfWork.Repository<OpenOrderRequest>().TableNoTracking
+				.Where(o => requestIds.Contains(o.Id!.Value))
+				.Select(o => new SendToSupplierPreviewRow
+				{
+					PurchaseRequestNumber = o.PurchaseRequestNumber,
+					PartCode = o.Part.Code,
+					PartName = o.Part.Name,
+					Project = o.OrderItemComment,
+					ProductionOrderNumber = o.ProductionOrderNumber
+				})
+				.ToListAsync(cn);
+
+			ViewBag.PreviewRows = rows;
 			ViewBag.OpenOrderRequestId = openOrderRequestId;
 			return PartialView(@"\Views\Panel\Sup\OpenOrderRequest\_SendToSupplierPartial.cshtml");
 		}
@@ -2353,6 +2888,9 @@ namespace WebApp.Controllers.Dynamic
 				if (request.SupplierId <= 0)
 					return BadRequest("تامین‌کننده را انتخاب کنید");
 
+				if (request.SendingCount is not > 0)
+					return BadRequest("تعداد سفارش را وارد کنید");
+
 				var supplier = await unitOfWork.Repository<Supplier>().Table
 					.Include(s => s.Party)
 					.FirstOrDefaultAsync(s => s.Id == request.SupplierId, cn);
@@ -2366,6 +2904,8 @@ namespace WebApp.Controllers.Dynamic
 				var ids = request.OpenOrderRequestIds.Distinct().ToArray();
 				var openOrderRequests = await unitOfWork.Repository<OpenOrderRequest>().Table
 					.Include(o => o.Part)
+						.ThenInclude(p => p.BuyCategory)
+							.ThenInclude(b => b!.PurchaseResponsible)
 					.Where(o => ids.Contains(o.Id!.Value))
 					.ToListAsync(cn);
 
@@ -2376,14 +2916,21 @@ namespace WebApp.Controllers.Dynamic
 				var senderId = CurrentUserId;
 				var companyName = supplier.Party?.FullName ?? supplier.Prefix ?? toEmail;
 				var subject = "سفارش ساخت - لطفا Replay نفرمایید";
-				var body = BuildSendToSupplierBody(openOrderRequests, companyName, request.Message);
-				var ccEmails = await CollectSendToSupplierCcEmails(openOrderRequests, cn);
+
+				var priorSends = await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().TableNoTracking
+					.Where(e => ids.Contains(e.OpenOrderRequestId))
+					.Select(e => new { e.OpenOrderRequestId, e.SupplierId })
+					.ToListAsync(cn);
+
+				var bodyRows = new List<SendToSupplierBodyRow>();
 				var notificationFileIds = new List<long>();
+				var historyRows = new List<OpenOrderRequestEmailToSupplier>();
 
 				foreach (var item in openOrderRequests)
 				{
-					item.Changed = false;
-					item.ManCompanyId = request.SupplierId;
+					var letterCount = item.ManCompanyId is long currentCompanyId
+						? priorSends.Count(p => p.OpenOrderRequestId == item.Id && p.SupplierId == currentCompanyId)
+						: 0;
 
 					var packs = await CollectSendToSupplierAttachmentPacksAsync(item.Id!.Value, item.PartId, cn);
 					foreach (var fileId in packs.SelectMany(p => p.FileIds))
@@ -2392,47 +2939,92 @@ namespace WebApp.Controllers.Dynamic
 							notificationFileIds.Add(fileId);
 					}
 
-					if (packs.Count == 0)
+					var buyer = item.Part?.BuyCategory?.PurchaseResponsible;
+					var itemComment = item.Part?.Code?.StartsWith("14750") == true ? item.OrderItemComment : null;
+					bodyRows.Add(new SendToSupplierBodyRow
 					{
-						await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(new OpenOrderRequestEmailToSupplier
-						{
-							OpenOrderRequestId = item.Id!.Value,
-							SupplierId = request.SupplierId,
-							SendMiladiDateTime = now,
-							SendShamsiDateTime = now.ToShamsiDateTime(),
-							SenderUserId = senderId,
-							ToEmail = toEmail,
-							Subject = subject,
-							Body = body,
-							Comment = string.IsNullOrWhiteSpace(request.Message) ? "ارسال شده بدون فایل پیوست" : request.Message,
-							SendingCount = request.SendingCount ?? item.RequiredQty
-						}, cn);
-					}
-					else
+						PurchaseRequestNumber = item.PurchaseRequestNumber,
+						OrderNo = item.OrderNo,
+						ProductionOrderNumber = item.ProductionOrderNumber,
+						PartCode = item.Part?.Code,
+						PartName = item.Part?.Name,
+						Project = item.OrderItemComment,
+						NeedDate = item.NeedDateShamsiDate,
+						BuyerName = buyer?.NameFa.HasValue() == true ? buyer.NameFa : buyer?.Name,
+						LetterVersion = letterCount + 1,
+						ItemComment = itemComment,
+						AttachmentComments = string.Join(" - ", packs.Select(p => p.Comment).Where(c => c.HasValue()))
+					});
+
+					var lastPack = packs.Count == 0 ? null : packs[^1];
+					historyRows.Add(new OpenOrderRequestEmailToSupplier
 					{
-						foreach (var pack in packs)
-						{
-							await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(new OpenOrderRequestEmailToSupplier
-							{
-								OpenOrderRequestId = item.Id!.Value,
-								SupplierId = request.SupplierId,
-								SendMiladiDateTime = now,
-								SendShamsiDateTime = now.ToShamsiDateTime(),
-								SenderUserId = senderId,
-								ToEmail = toEmail,
-								Subject = subject,
-								Body = body,
-								Comment = string.IsNullOrWhiteSpace(request.Message)
-									? pack.Comment
-									: request.Message,
-								SendingCount = request.SendingCount ?? item.RequiredQty,
-								AttachmentId = pack.OpenOrderAttachmentFileId,
-								PartAttachmentId = pack.PartAttachmentFileId,
-								EdmsDocumentAttachmentId = pack.EdmsDocumentFileId
-							}, cn);
-						}
-					}
+						OpenOrderRequestId = item.Id!.Value,
+						SupplierId = request.SupplierId,
+						SendMiladiDateTime = now,
+						SendShamsiDateTime = now.ToShamsiDateTime(),
+						SenderUserId = senderId,
+						ToEmail = toEmail,
+						Subject = subject,
+						Comment = lastPack == null ? "ارسال شده بدون فایل پیوست" : null,
+						SendingCount = request.SendingCount,
+						AttachmentId = lastPack?.OpenOrderAttachmentFileId,
+						PartAttachmentId = lastPack?.PartAttachmentFileId,
+						EdmsDocumentAttachmentId = lastPack?.EdmsDocumentFileId
+					});
+
+					item.Changed = false;
+					item.ManCompanyId = request.SupplierId;
 				}
+
+				var body = BuildSendToSupplierBody(bodyRows, companyName, request.SendingCount);
+				foreach (var history in historyRows)
+					history.Body = body;
+
+				var toEmails = new List<string>();
+				AddEmail(toEmails, toEmail);
+				foreach (var item in openOrderRequests)
+				{
+					var buyer = item.Part?.BuyCategory?.PurchaseResponsible;
+					AddEmail(toEmails, buyer?.Email.HasValue() == true ? buyer.Email : buyer?.Username);
+				}
+
+				var senderIsBagheri = string.Equals(CurrentUserName, "bagheri.h", StringComparison.OrdinalIgnoreCase);
+				if (senderIsBagheri || toEmails.Any(e => e.Contains("bagheri.h", StringComparison.OrdinalIgnoreCase)))
+					AddEmail(toEmails, "bagheri.h@havayar.com");
+				else
+				{
+					AddEmail(toEmails, "sharifi.b@havayar.com");
+					AddEmail(toEmails, "Ashrafi.m@havayar.com");
+					AddEmail(toEmails, "Abdollahi.a@havayar.com");
+				}
+
+				if (toEmails.Any(e => e.Contains("bagheri.h@", StringComparison.OrdinalIgnoreCase)))
+				{
+					AddEmail(toEmails, "Shahpordeli.s@havayar.com");
+					AddEmail(toEmails, "Sohrabi.za@havayar.com");
+				}
+				else if (toEmails.Any(e => e.Contains("shahpordeli.s@", StringComparison.OrdinalIgnoreCase)))
+				{
+					AddEmail(toEmails, "bagheri.h@havayar.com");
+					AddEmail(toEmails, "Sohrabi.za@havayar.com");
+				}
+				else if (toEmails.Any(e => e.Contains("sohrabi.za@", StringComparison.OrdinalIgnoreCase)))
+				{
+					AddEmail(toEmails, "bagheri.h@havayar.com");
+					AddEmail(toEmails, "Shahpordeli.s@havayar.com");
+				}
+
+				var ccEmails = await CollectSendToSupplierCcEmails(openOrderRequests, cn);
+
+				if (openOrderRequests.Any(o => o.Part?.BuyCategory?.Title?.Contains("تابلو برق") == true))
+				{
+					RemoveEmailLocalParts(toEmails, "sharifi.b", "mohammadzadeh.m", "maroufkhani.m", "masoumi.s", "abdollahi.a", "mehrafzoon");
+					RemoveEmailLocalParts(ccEmails, "sharifi.b", "ashrafi.m", "maroufkhani.m", "masoumi.s", "abdollahi.a", "mehrafzoon");
+				}
+
+				foreach (var history in historyRows)
+					await unitOfWork.Repository<OpenOrderRequestEmailToSupplier>().AddAsync(history, cn);
 
 				await unitOfWork.Repository<Notification>().AddAsync(new Notification
 				{
@@ -2442,7 +3034,7 @@ namespace WebApp.Controllers.Dynamic
 					EntityId = openOrderRequests[0].Id,
 					OwnerId = senderId ?? 1,
 					ViewPath = "/Panel/Sup/OpenOrderRequest/List",
-					ToEmails = new List<string> { toEmail! },
+					ToEmails = toEmails,
 					CcEmails = ccEmails.Count == 0 ? null : ccEmails,
 					AttachmentFileIds = notificationFileIds.Count == 0 ? null : notificationFileIds,
 					IsRead = false
@@ -2465,8 +3057,11 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		/// <summary>
-		/// معادل HTS GetAttachmentModel برای ارسال به پیمانکار:
-		/// پیوست درخواست باز + پیوست کالای اصلی (انواع فنی) + مدارک مهندسی VPIS.
+		/// معادل HTS <c>OpenOrderRequestAttachmentService.GetAttachmentModel(List)</c> که ارسال به پیمانکار صدا می‌زند:
+		/// پیوست درخواست باز (غیر از «Add automatically by system»)،
+		/// آخرین نسخهٔ اصلی مدارک کالا از انواع Data Sheet / Detail Drawing / Wiring Diagram / Technical Documents،
+		/// و فایل اصلی مدرک مهندسی آخرین VPIS، اگر همان شرط قابل‌قبول بودن پیوست مدارک درخواست باز را داشته باشد
+		/// و پروژه خاتمه‌یافته یا لغوشده نباشد (HTS وضعیت ۵ و ۶).
 		/// </summary>
 		private async Task<List<SendToSupplierAttachmentPack>> CollectSendToSupplierAttachmentPacksAsync(
 			long openOrderRequestId,
@@ -2528,12 +3123,13 @@ namespace WebApp.Controllers.Dynamic
 					.ThenInclude(pv => pv.ProjectName)
 				.Include(v => v.Project)
 				.Include(v => v.Document)
-				.Where(v => v.OpenOrderRequestId == openOrderRequestId && v.IsLatest)
+					.ThenInclude(d => d!.Comments)
+				.Where(v => v.OpenOrderRequestId == openOrderRequestId && v.IsLatest && v.DocumentId != null)
 				.ToListAsync(cn);
 
 			foreach (var link in vpisLinks)
 			{
-				if (!OpenOrderRequestVpisRules.IsEligibleForOpenOrderLink(link.Document, link.ProjectVpis, link.Project))
+				if (!IsSendToSupplierEngineeringDocument(link))
 					continue;
 				if (link.Document?.MainFileId is not long mainFileId || mainFileId <= 0)
 					continue;
@@ -2547,6 +3143,24 @@ namespace WebApp.Controllers.Dynamic
 			}
 
 			return packs;
+		}
+
+		/// <summary>
+		/// فایل اصلی مدرک آخرین VPIS فقط وقتی به ایمیل پیمانکار می‌رود که
+		/// همان شرط قابل‌قبول بودن پیوست مدارک درخواست باز را داشته باشد
+		/// و پروژه خاتمه‌یافته یا لغوشده نباشد.
+		/// </summary>
+		private static bool IsSendToSupplierEngineeringDocument(OpenOrderRequestVpis link)
+		{
+			if (!OpenOrderRequestVpisRules.IsEligibleForOpenOrderLink(link.Document, link.ProjectVpis, link.Project))
+				return false;
+
+			var project = link.ProjectVpis?.ProjectName ?? link.Project;
+			if (project == null)
+				return false;
+
+			return project.Status != ProjectStatusEnum.Completed
+				&& project.Status != ProjectStatusEnum.Canceled;
 		}
 
 		private sealed class SendToSupplierAttachmentPack
@@ -2609,6 +3223,7 @@ namespace WebApp.Controllers.Dynamic
 
 		private async Task<List<string>> CollectSendToSupplierCcEmails(List<OpenOrderRequest> requests, CancellationToken cn)
 		{
+			var cc = new List<string> { "Maroufkhani.m@havayar.com" };
 			var userIds = requests
 				.SelectMany(r => new[] { r.SalesUnitSalesExpertId, r.SalesUnitSalesManagerId, r.SalesUnitProjectManagerId })
 				.Where(id => id.HasValue)
@@ -2616,60 +3231,107 @@ namespace WebApp.Controllers.Dynamic
 				.Distinct()
 				.ToList();
 
-			var partIds = requests.Select(r => r.PartId).Distinct().ToList();
-			var purchaseEmails = await unitOfWork.Repository<BuyCategoryItem>().TableNoTracking
-				.Include(c => c.BuyCategory)
-					.ThenInclude(bc => bc.PurchaseResponsible)
-				.Where(c => c.PartId != null && partIds.Contains(c.PartId.Value)
-					&& c.BuyCategory.PurchaseResponsible != null
-					&& c.BuyCategory.PurchaseResponsible.Email != null)
-				.Select(c => c.BuyCategory.PurchaseResponsible!.Email!)
+			if (userIds.Count == 0)
+				return cc;
+
+			var users = await userService.TableNoTracking
+				.Where(u => userIds.Contains(u.Id!.Value))
+				.Select(u => new { u.Email, u.Username })
 				.ToListAsync(cn);
 
-			var userEmails = userIds.Count == 0
-				? new List<string>()
-				: await userService.TableNoTracking
-					.Where(u => userIds.Contains(u.Id!.Value) && u.Email != null)
-					.Select(u => u.Email!)
-					.ToListAsync(cn);
+			foreach (var user in users)
+				AddEmail(cc, user.Email.HasValue() ? user.Email : user.Username);
 
-			return userEmails.Concat(purchaseEmails)
-				.Where(e => e.HasValue())
-				.Select(e => e.Trim())
-				.Distinct(StringComparer.OrdinalIgnoreCase)
-				.ToList();
+			return cc;
 		}
 
-		private static string BuildSendToSupplierBody(List<OpenOrderRequest> requests, string companyName, string? extraMessage)
+		private static void RemoveEmailLocalParts(List<string> emails, params string[] localParts)
+		{
+			emails.RemoveAll(email => localParts.Any(part =>
+				email.Contains(part, StringComparison.OrdinalIgnoreCase)));
+		}
+
+		public sealed class SendToSupplierPreviewRow
+		{
+			public long PurchaseRequestNumber { get; set; }
+			public string? PartCode { get; set; }
+			public string? PartName { get; set; }
+			public string? Project { get; set; }
+			public int? ProductionOrderNumber { get; set; }
+		}
+
+		private sealed class SendToSupplierBodyRow
+		{
+			public string? Project { get; set; }
+			public long PurchaseRequestNumber { get; set; }
+			public long? OrderNo { get; set; }
+			public int? ProductionOrderNumber { get; set; }
+			public string? PartCode { get; set; }
+			public string? PartName { get; set; }
+			public string? NeedDate { get; set; }
+			public string? BuyerName { get; set; }
+			public int LetterVersion { get; set; }
+			public string? ItemComment { get; set; }
+			public string? AttachmentComments { get; set; }
+		}
+
+		private static string BuildSendToSupplierBody(List<SendToSupplierBodyRow> rows, string companyName, decimal? sendingCount)
 		{
 			var sb = new StringBuilder();
-			sb.AppendLine("<div style='margin:0 auto;width:100%;direction:rtl;font-family:tahoma;font-size:9pt'>");
-			sb.AppendLine("<b>با سلام و احترام</b><br/><br/>");
+			sb.AppendLine("<div style='margin: 0 auto; width: 100%;direction:rtl; font-family:tahoma; font-size:9pt'>");
+			sb.AppendLine("<b>با سلام و احترام</b>");
+			sb.AppendLine("<br><br><br>");
 			sb.AppendLine("از : گروه صنعتی هوایار<br/><br/>");
-			sb.AppendLine("به : " + companyName + "<br/><br/>");
-			sb.AppendLine("<table border='1' style='direction:rtl;width:100%;border-color:whitesmoke;font-family:tahoma;font-size:9pt'>");
-			sb.AppendLine("<tr style='background-color:#e0e0e0'>");
-			sb.AppendLine("<td>ش درخواست</td><td>ش سفارش</td><td>ش سفارش ساخت</td><td>کد کالا</td><td>عنوان کالا</td><td>تعداد درخواست</td><td>تاریخ نیاز</td></tr>");
-			foreach (var item in requests)
+			sb.AppendLine("به : " + companyName);
+			sb.AppendLine("<br><br>");
+			sb.AppendLine("<table border='1' title='سفارش ساخت' style='direction: rtl;width:100%;border-color: whitesmoke; border-width: 1px;font-family:tahoma; font-size:9pt'>");
+			sb.AppendLine("<tr style='background-color: #e0e0e0'>");
+			sb.AppendLine("<td style='width: 150px;'>ش درخواست</td>");
+			sb.AppendLine("<td style='width: 150px;'>ش سفارش</td>");
+			sb.AppendLine("<td style='width: 150px;'>ش سفارش ساخت</td>");
+			sb.AppendLine("<td style='width: 100px;'>کد کالا</td>");
+			sb.AppendLine("<td style='width: 400px;'>عنوان کالا</td>");
+			sb.AppendLine("<td style='width: 250px;'>پروژه</td>");
+			sb.AppendLine("<td style='width: 120px;'>تعداد درخواست</td>");
+			sb.AppendLine("<td style='width: 100px;'>تاریخ نیاز</td>");
+			sb.AppendLine("<td style='width: 100px;'>مسئول خرید</td>");
+			sb.AppendLine("<td style='width: 75px;'>نسخه نامه</td>");
+			sb.AppendLine("<td>توضیحات</td>");
+			sb.AppendLine("</tr>");
+
+			var qty = sendingCount?.ToString() ?? "";
+			foreach (var item in rows)
 			{
 				sb.AppendLine("<tr>");
 				sb.AppendLine("<td>" + item.PurchaseRequestNumber + "</td>");
 				sb.AppendLine("<td>" + (item.OrderNo?.ToString() ?? "") + "</td>");
 				sb.AppendLine("<td>" + (item.ProductionOrderNumber?.ToString() ?? "") + "</td>");
-				sb.AppendLine("<td>" + (item.Part?.Code ?? "") + "</td>");
-				sb.AppendLine("<td>" + (item.Part?.Name ?? "") + "</td>");
-				sb.AppendLine("<td>" + item.RequiredQty + "</td>");
-				sb.AppendLine("<td style='direction:ltr'>" + (item.NeedDateShamsiDate ?? "") + "</td>");
+				sb.AppendLine("<td>" + (item.PartCode ?? "") + "</td>");
+				sb.AppendLine("<td>" + (item.PartName ?? "") + "</td>");
+				sb.AppendLine("<td>" + System.Net.WebUtility.HtmlEncode(item.Project ?? "") + "</td>");
+				sb.AppendLine("<td>" + qty + "</td>");
+				sb.AppendLine("<td style='direction:ltr'>" + (item.NeedDate ?? "") + "</td>");
+				sb.AppendLine("<td>" + (item.BuyerName ?? "") + "</td>");
+				sb.AppendLine("<td>" + item.LetterVersion + "</td>");
+				sb.AppendLine("<td>" + (item.ItemComment ?? "") + "</td>");
 				sb.AppendLine("</tr>");
+
+				if (item.AttachmentComments.HasValue())
+				{
+					sb.AppendLine("<tr>");
+					sb.AppendLine("<td colspan='11'><strong>علت تغییر/بارگذاری : </strong>" + item.AttachmentComments + "</td>");
+					sb.AppendLine("</tr>");
+				}
 			}
+
 			sb.AppendLine("</table>");
-			if (extraMessage.HasValue())
-			{
-				sb.AppendLine("<br/><div>" + extraMessage + "</div>");
-			}
-			sb.AppendLine("<br/>پیمانکار متعهد می‌باشد تا در طول مدت گارانتی، در صورت بروز خرابی در اقلام مورد سفارش، نسبت به تعویض یا تعمیر اقلام (در صورت تایید کارفرما) اقدام نماید.");
-			sb.AppendLine("<br/>لطفا در صورت عدم امکان تحویل در تاریخ نیاز اعلام‌شده، مراتب را حداکثر چهار ساعت پس از دریافت درخواست با مسئول خرید اعلام فرمایید.");
-			sb.AppendLine("<br/><br/>**** لطفا این ایمیل را Replay نفرمایید ****");
+			sb.AppendLine("<br><br><br>");
+			sb.AppendLine("پیمانکار متعهد می باشد تا در طول مدت گارانتی ، در صورت بروز برخی خرابی در اقلام مورد سفارش، نسبت به تعویض و یا تعمیر اقلام (در صورت تایید کارفرما) اقدام نماید <br> و در غیر اینصورت کلیه خسارت های وارده به کارفرما ناشی از عدم اجرای این بند توسط پیمانکار می باشد،<br> از ضمانت های پیمانکار که نزد کارفرما موجود است ، به میزان مصوب برداشت خواهد شد. ،");
+			sb.AppendLine("ضمنا هزینه های دوره گارانتی بعهده پیمانکار می باشد.");
+			sb.AppendLine("<br><br>");
+			sb.AppendLine("لطفا در صورت عدم امکان تحویل سفارش در تاریخ نیاز اعلام شده، مراتب را حداکثر چهار ساعت پس از دریافت درخواست با مسئول خرید اعلام فرمایید <br> و عدم اعلام شما به منزله توافق با تاریخ نیاز اعلام شده می باشد.");
+			sb.AppendLine("<br><br>");
+			sb.AppendLine("**** لطفا این ایمیل را Replay نفرمایید ****");
 			sb.AppendLine("</div>");
 			return sb.ToString();
 		}
@@ -2697,6 +3359,33 @@ namespace WebApp.Controllers.Dynamic
 			public long[] OpenOrderRequestIds { get; set; }
 			public List<long> RequestedPersonelIds { get; set; } = new();
 			public List<long> RequestedEngineeringPersonelIds { get; set; } = new();
+			/// <summary>وقتی مودال اسامی ذخیره‌شده را نشان می‌دهد، لیست خالی هم باید نام‌ها را پاک کند.</summary>
+			public bool ReplaceExisting { get; set; }
+		}
+
+		private static void ApplyRequestedPersonel(OpenOrderRequest row, List<long> ids, Dictionary<long?, User> users, bool engineering)
+		{
+			var selected = ids
+				.Where(id => users.ContainsKey(id))
+				.Select(id => users[id])
+				.ToList();
+			var names = selected.Count == 0 ? null : string.Join("، ", selected.Select(u => u.NameFa));
+			var emails = selected.Count == 0
+				? null
+				: string.Join("; ", selected.Select(u => u.Email).Where(e => !string.IsNullOrWhiteSpace(e)));
+
+			if (engineering)
+			{
+				row.RequestedEngineeringPersonelIds = ids;
+				row.RequestedEngineeringPersonel = names;
+				row.RequestedEngineeringPersonelEmail = emails;
+			}
+			else
+			{
+				row.RequestedPersonelIds = ids;
+				row.RequestedPersonel = names;
+				row.RequestedPersonelEmail = emails;
+			}
 		}
 		public class SaveCommentRequest
 		{
@@ -2709,6 +3398,24 @@ namespace WebApp.Controllers.Dynamic
 		{
 			public long OpenOrderRequestId { get; set; }
 			public string? SalesUnitConfirmationComment { get; set; }
+		}
+
+		public class EngineeringAcceptBulkRequest
+		{
+			public List<long>? Ids { get; set; }
+		}
+
+		public class EngineeringAcceptBulkResult
+		{
+			public int AcceptedCount { get; set; }
+			public List<long> AcceptedIds { get; set; } = [];
+			public List<EngineeringAcceptBulkFailure> Failed { get; set; } = [];
+		}
+
+		public class EngineeringAcceptBulkFailure
+		{
+			public long Id { get; set; }
+			public string? Message { get; set; }
 		}
 
 		public class StopOperationRequest

@@ -158,7 +158,8 @@ namespace WebApp.Controllers.Dynamic
 			if (part == null)
 				return;
 
-			part.DesignTypeIsRoutine = entity.DesignType == PartExtraInfoDesignTypeEnum.Routine;
+			part.DesignTypeIsRoutine = entity.DesignType == PartExtraInfoDesignTypeEnum.Routine
+				|| entity.DesignType == PartExtraInfoDesignTypeEnum.DryerRoutine;
 			await unitOfWork.Repository<Part>().UpdateAsync(part, cn, true);
 		}
 

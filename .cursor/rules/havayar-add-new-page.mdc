@@ -51,11 +51,18 @@ If something must happen automatically whenever a specific entity is added/updat
 
 - **File:** `WebApp/Actions/{Module}/{EntityName}Action.cs`. It **must** live in the `WebApp` project/assembly — `WebApp/Program.cs` registers actions with `builder.Services.AddEntityActions(typeof(Program).Assembly)`, which only scans that one assembly. An action class placed under `Data`/`Services` will never be discovered.
 - Plain class; primary-constructor DI works (e.g. `(IUnitOfWork unitOfWork)`). Implementing `IEntityAction<TEntity>` is **optional** — it's a default-interface-methods marker with no-op defaults, used by some Action classes (`ProjectAction`) but not required (`ProductionOrderItemAction` skips it and still works).
-- Decorate each hook method with `[EntityAction(typeof(EntityName), EntityActionTrigger.<Trigger>, "UniqueActionName", "Persian description", Priority = N)]`, method signature `Task MethodName(EntityName entity, CancellationToken ct)`.
-- Available triggers (`Data.Contracts.Actions.EntityActionTrigger`): `BeforeAdd`, `AfterAdd`, `BeforeUpdate`, `AfterUpdate`, `BeforeDelete`, `AfterDelete`, `BeforeSave` (before Add/Update is decided), `AfterSave` (after either).
-- `Priority` (default `100`, lower runs first) orders multiple actions on the same entity+trigger.
-- **These run automatically — the controller never calls them.** `Repository<TEntity>` (`Data/Repositories/Repository.cs`) invokes the matching trigger via `IEntityActionInvoker` inside every `SaveAsync`/`AddAsync`/`UpdateAsync`/`DeleteAsync` (and their sync equivalents). Any code path that goes through `unitOfWork.Repository<TEntity>()...` — this controller, another controller, an import job, a background task — gets the hook for free.
-- Current limitation: `Repository<TEntity>` always passes `oldEntity = null` to the invoker, so don't rely on an "old entity" parameter actually being populated in Before/After-Update hooks, even though the method signature supports it.
+- Decorate each hook method with `[EntityAction(typeof(EntityName), EntityActionTrigger.<Trigger>, "UniqueActionName", "Persian description", Priority = N)]`, method signature `Task MethodName(EntityName entity, CancellationToken ct)`. To read the stored row, add a second parameter of the same entity type: `Task MethodName(EntityName entity, EntityName? oldEntity, CancellationToken ct)` — the first entity-typed parameter is the new values, the second is `oldEntity`. Do not re-query the database or keep `_previous` fields on the action for this.
+- Available triggers (`Data.Contracts.Actions.EntityActionTrigger`): `BeforeAdd`, `AfterAdd`, `BeforeUpdate`, `AfterUpdate`, `BeforeDelete`, `AfterDelete`, `BeforeSave`, `AfterSave`.
+- **`BeforeSave` / `AfterSave` run for both Add and Update**, fired inside `Repository.AddAsync` / `UpdateAsync` (and sync `Add` / `Update`) — not only inside `SaveAsync`. `SaveAsync` / `Save` only decide Add or Update. Order:
+  - Add: `BeforeSave` → `BeforeAdd` → persist → `AfterAdd` → `AfterSave`
+  - Update: `BeforeSave` → `BeforeUpdate` → persist → `AfterUpdate` → `AfterSave`
+  - Delete: `BeforeDelete` → persist → `AfterDelete` (no Save triggers)
+  Register logic on `BeforeSave` **or** on `BeforeAdd` + `BeforeUpdate`, not both for the same logic (it would run twice).
+- `oldEntity` is `null` on Add and holds the stored row on Update (for `BeforeSave`, `BeforeUpdate`, `AfterUpdate`, `AfterSave`). It is `null` for Delete triggers. Use `oldEntity == null` to mean "new row": throwing validations that legacy rows would fail belong under `oldEntity == null`, while derived/computed fields can run on both. Send emails/notifications only when `oldEntity == null` or a relevant field changed (compare with `oldEntity`), otherwise every edit re-sends them.
+- `Priority` (default `100`, lower runs first) orders multiple actions on the same entity+trigger; ties are ordered by class and method name. `IsActive = false` on the attribute disables a hook.
+- **These run automatically — the controller never calls them.** `Repository<TEntity>` (`Data/Repositories/Repository.cs`) invokes the matching trigger via `IEntityActionInvoker` inside `SaveAsync`/`AddAsync`/`UpdateAsync`/`DeleteAsync` (and their sync equivalents). Any code path in the **WebApp** that goes through `unitOfWork.Repository<TEntity>()...` gets the hook for free. Passing `InvokeAction: false` skips all triggers (use it when a hook updates another entity to avoid loops).
+- **Hooks do not run in `App.BackgroundJob` or `App.Real`.** Each host registers only its own assembly (`AddEntityActions(typeof(Program).Assembly)`) and all Actions live in `WebApp`. Bulk/field helpers (`AddRange*`, `UpdateRange*`, `DeleteRange*`, `DeleteWhereAsync`, `UpdateFields*`, `BulkUpdateField*`, `UpdateFieldByRawSql`) and `EntityRepository` also bypass hooks.
+- Hooks run after the row is committed when `saveNow` is true and are not wrapped in a transaction. Validate in `BeforeAdd` / `BeforeUpdate` / `BeforeSave`, never in an `After*` hook, otherwise the row is saved and the user still gets an error.
 
   ```csharp
   // WebApp/Actions/Edms/ProjectAction.cs (real example)
@@ -155,6 +162,7 @@ Canonical fix: `WebApp/Controllers/Dynamic/Cng/CngPartPriceController.cs` + `Cng
   - Use `Html.EntitySelector<TRelatedEntity>(...)` for FK picker fields (see `ProductionOrderItem/Edit.cshtml` for the full call signature with filter/projection/display-format arguments).
   - **Price / مبلغ fields:** `type="text"` (not number) + `data-money="true"`. `initMoneyInputs` adds thousand separators. See `havayar-js-jquery-conventions.mdc` §6.
   - **Time / ساعت fields (clock HH:MM, not Shamsi date):** `type="text"` + `data-time="true"` (`__:__` mask). See `havayar-js-jquery-conventions.mdc` §6. Canonical: `Sale/OrderDetailSerial/MonitoringEdit.cshtml`.
+  - **File fields:** `[DisplayInfo(SystemType.File)]` goes on the `FileEntity` navigation. `FileId` stays a bare `long?`. `entity-prop-name` is the navigation name. See `havayar-file-field.mdc`.
   - **Child rows (embedded grid or ListByParentId tab):** افزودن / ویرایش is a `$.confirm` modal; the list table `ajax.reload`s. `addPage` may open the child **list** from the parent toolbar (پیوست / یادداشت), never the child New/Edit. Canonical: `Sale/TenderPart/ListByParentId.cshtml`, `Sale/TenderAttachment/ListByParentId.cshtml`. See `havayar-js-jquery-conventions.mdc` §5.
   - No `Layout = ...` needed — `WebApp/Views/Panel/_ViewStart.cshtml` sets `_PanelLayout.cshtml` automatically.
   - No separate `wwwroot/js` file — the page's JS is the inline `<script>` block (see `havayar-js-jquery-conventions.mdc` for the required shape).
@@ -164,11 +172,16 @@ Canonical fix: `WebApp/Controllers/Dynamic/Cng/CngPartPriceController.cs` + `Cng
         <label class=''>تاریخ پایان تست</label>
         <input class='form-control' data-bind='testingEndShamsiDate' data-persionDatePicker="true"
             persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-            value='@Model?.TestingEndMiladiDate' />
+            value='@(Model?.TestingEndMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))' />
         <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
     </div>
     ```
-  - **Shamsi date fields:** the `value` attribute is bound to the entity's **Miladi (Gregorian)** date property (e.g. `@Model?.TestingEndMiladiDate`), while `data-bind` uses the **Shamsi** property name (e.g. `data-bind='testingEndShamsiDate'`). `dataBind` handles the Shamsi ↔ Miladi conversion automatically (see `havayar-js-jquery-conventions.mdc` §6) — never point `value` at the Shamsi property or `data-bind` at the Miladi property.
+  - **Shamsi date fields** are a property pair on the entity and in the database. The stem is identical; only `Shamsi` / `Miladi` changes:
+    - `{Stem}ShamsiDate` — `string`, `[DisplayInfo("{Stem}MiladiDate", true, SystemType.DateShamsi)]`. This is `data-bind` (must contain the substring `shamsi`).
+    - `{Stem}MiladiDate` — `DateTime?`, `[Column(TypeName = "date")]`, hidden from the default grid. This is the input `value`, formatted invariant `yyyy-MM-dd`.
+    - Example: `NeedDateShamsiDate` / `NeedDateMiladiDate`, `TestingEndShamsiDate` / `TestingEndMiladiDate`.
+    - `dataBind` posts the Shamsi text and the Miladi date (`path.replace("shamsi","miladi")` in `site.js`). A single `DateTime` column, or a Shamsi string named `*InText`, does not participate in that conversion.
+    - Full markup: `havayar-js-jquery-conventions.mdc` §6.
   - **Boolean checkboxes:** ASP.NET Core rejects `asp-for` on `<input type="checkbox">` when the property is `bool?` (`InvalidOperationException`). Check the entity type first. For `bool?` (common on HTS-migrated BIT columns) never use `asp-for`; use `data-bind` plus `@(Model?.Prop == true ? "checked" : "")`. For non-nullable `bool`, `asp-for` is allowed. Full rule: `havayar-checkbox-nullable-bool.mdc`. Canonical: `Sale/OrderDetailSerial/Edit.cshtml`. Form Builder must emit the `checked` pattern, not `asp-for`, for Boolean fields.
 
 ## Step 7 — Restart / permission rescan

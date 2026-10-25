@@ -172,3 +172,8 @@ Mirror the email audience with `NotifitactionBuilder` rules on `ProcessDocument`
 8. CC list comes from module setting, not `mirlohi.m` literals in C#.
 9. Files live in `FileEntity`; no Session; notify moves off `1_Temp`; delete-notify moves to `2_History`.
 10. No SQL trigger; numbering/last-status/revision are EntityAction.
+
+
+## 10. Announcement recipients corrected (2026-10-11)
+
+The announcement email goes to the **users** in `EditingUsers` (HTS `editingOrganizationUnitIds` are user ids), not to every person of an org unit. The announcement table prints `ProcessExecuterOrgUnits` titles in the «مجری فرآیند» column.

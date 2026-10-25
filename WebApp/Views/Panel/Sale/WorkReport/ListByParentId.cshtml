@@ -41,21 +41,36 @@
 				<thead>
 					<tr class="fw-bold fs-6 text-muted">
 						<th style="min-width:160px;">عملیات</th>
-						<th style="min-width:100px;">شماره</th>
-						<th style="min-width:100px;">ماموریت</th>
-						<th style="min-width:250px;">کارشناس</th>
-						<th style="min-width:120px;">کد قطعه</th>
-						<th style="min-width:300px;">نام قطعه</th>
+						<th style="min-width:100px;">شماره اندیکاتور</th>
+						<th style="min-width:100px;">ارسال لینک رضایت سنجی</th>
+						<th style="min-width:100px;">شماره گزارش</th>
+						<th style="min-width:250px;">کارشناسان ماموریت</th>
+						<th style="min-width:120px;">کد کالا</th>
+						<th style="min-width:300px;">عنوان کالا</th>
 						<th style="min-width:110px;">سریال</th>
 						<th style="min-width:250px;">شرح خرابی</th>
-						<th style="min-width:250px;">کد عملیاتی</th>
-						<th style="min-width:100px;">شروع</th>
+						<th style="min-width:250px;">کدهای عملیاتی</th>
+						<th style="min-width:100px;">تاریخ شروع سرویس</th>
 						<th style="min-width:100px;">ساعت شروع</th>
-						<th style="min-width:100px;">پایان</th>
-						<th style="min-width:100px;">ساعت پایان</th>
-						<th style="min-width:100px;">ساعت کارکرد</th>
-						<th style="min-width:140px;">نتیجه</th>
-				
+						<th style="min-width:100px;">تاریخ پایان سرویس</th>
+						<th style="min-width:100px;">پایان سرویس</th>
+						<th style="min-width:160px;">شرح درخواست</th>
+						<th style="min-width:160px;">شرح موانع اجرایی</th>
+						<th style="min-width:100px;">کارکرد</th>
+						<th style="min-width:100px;">ساعت کارکرد زیر بار</th>
+						<th style="min-width:100px;">شدت جریان زیر بار</th>
+						<th style="min-width:100px;">شدت جریان بدون بار</th>
+						<th style="min-width:100px;">حداکثر فشار کاری</th>
+						<th style="min-width:100px;">حداقل فشار کاری</th>
+						<th style="min-width:100px;">دمای محیط</th>
+						<th style="min-width:100px;">دمای دستگاه</th>
+						<th style="min-width:100px;">ولتاژ تابلو برق</th>
+						<th style="min-width:120px;">مقدار دیوپوینت درایر</th>
+						<th style="min-width:100px;">وضعیت کمپرسورخانه</th>
+						<th style="min-width:100px;">وضعیت تابلو برق</th>
+						<th style="min-width:100px;">وضعیت پایپینگ</th>
+						<th style="min-width:80px;">تاریخ ایجاد</th>
+						<th style="min-width:80px;">زمان ایجاد</th>
 					</tr>
 				</thead>
 				<tbody></tbody>
@@ -65,7 +80,27 @@
 </div>
 <script>
 	const srWorkReportParentId = @parentId;
-	const wrMissionResult = { 140: 'انجام شده', 141: 'انجام نشده', 142: 'انجام شده با نقص' };
+
+	function wrCheck(v) {
+		return v === true ? '<i class="fa fa-check text-success"></i>' : '';
+	}
+
+	function wrCreatedDate(v) {
+		if (v == null || v === '') return '-';
+		const s = String(v);
+		const i = s.indexOf(' ');
+		return i < 0 ? s : s.substring(0, i);
+	}
+
+	function wrCreatedTime(v) {
+		if (v == null || v === '') return '-';
+		const s = String(v);
+		const i = s.indexOf(' ');
+		if (i < 0) return '-';
+		const time = s.substring(i + 1);
+		return time.length > 5 ? time.substring(0, 5) : time;
+	}
+
 	const srWorkReportTable = $$('#srWorkReportChildTable').DataTable({
 		serverSide: false,
 		autoWidth: false,
@@ -99,8 +134,15 @@
 						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '" title="حذف"><i class="fa fa-trash"></i></button>';
 				}
 			},
+			{ data: 'serviceRequestId', defaultContent: '-', width: '100px' },
+			{
+				data: 'isSurveyLinkSended',
+				defaultContent: '',
+				width: '100px',
+				className: 'text-center',
+				render: function (v) { return wrCheck(v); }
+			},
 			{ data: 'reportNumber', defaultContent: '-', width: '100px' },
-			{ data: 'hokmNumber', defaultContent: '-', width: '100px' },
 			{ data: 'expertName', defaultContent: '-', width: '250px', render: renderEllipsisCell },
 			{ data: 'partCode', defaultContent: '-', width: '120px' },
 			{ data: 'partName', defaultContent: '-', width: '300px', render: renderEllipsisCell },
@@ -111,13 +153,41 @@
 			{ data: 'serviceStartTime', defaultContent: '-', width: '100px' },
 			{ data: 'serviceEndShamsiDate', defaultContent: '-', width: '100px' },
 			{ data: 'serviceEndTime', defaultContent: '-', width: '100px' },
+			{ data: 'requestDescription', defaultContent: '-', width: '160px', render: renderEllipsisCell },
+			{ data: 'executiveBarriersDescription', defaultContent: '-', width: '160px', render: renderEllipsisCell },
 			{ data: 'totalRunTime', defaultContent: '-', width: '100px' },
+			{ data: 'workHoursUnderload', defaultContent: '-', width: '100px' },
+			{ data: 'flowIntensityUnderload', defaultContent: '-', width: '100px' },
+			{ data: 'flowIntensityWithoutLoad', defaultContent: '-', width: '100px' },
+			{ data: 'maximumWorkingPressure', defaultContent: '-', width: '100px' },
+			{ data: 'minimumWorkingPressure', defaultContent: '-', width: '100px' },
+			{ data: 'environmentTemperature', defaultContent: '-', width: '100px' },
+			{ data: 'deviceTemperature', defaultContent: '-', width: '100px' },
+			{ data: 'voltagePowerGrid', defaultContent: '-', width: '100px' },
+			{ data: 'amountDryerDewpoint', defaultContent: '-', width: '120px' },
 			{
-				data: 'missionResult',
-				width: '140px',
-				render: function (v) { return wrMissionResult[v] || v || '-'; }
-			}
-			
+				data: 'compressorHouseStatus',
+				defaultContent: '',
+				width: '100px',
+				className: 'text-center',
+				render: function (v) { return wrCheck(v); }
+			},
+			{
+				data: 'electricalPanelStatus',
+				defaultContent: '',
+				width: '100px',
+				className: 'text-center',
+				render: function (v) { return wrCheck(v); }
+			},
+			{
+				data: 'pipingStatus',
+				defaultContent: '',
+				width: '100px',
+				className: 'text-center',
+				render: function (v) { return wrCheck(v); }
+			},
+			{ data: 'createdOnShamsiDateTime', defaultContent: '-', width: '80px', render: function (v) { return wrCreatedDate(v); } },
+			{ data: 'createdOnShamsiDateTime', defaultContent: '-', width: '80px', render: function (v) { return wrCreatedTime(v); } }
 		]
 	});
 

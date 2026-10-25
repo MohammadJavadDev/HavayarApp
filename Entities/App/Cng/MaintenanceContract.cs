@@ -88,6 +88,35 @@ namespace Entities.App.Cng
 		[DisplayInfo(null, true, type: SystemType.String)]
 		[MaxLength(2048)]
 		public string? Comment { get; set; }
+
+		/// <summary>نام فرم برای dataBind. ستون دیتابیس همان StartDateInText است.</summary>
+		[NotMapped]
+		public string? StartDateShamsiDate
+		{
+			get => StartDateInText;
+			set => StartDateInText = value;
+		}
+
+		[NotMapped]
+		public DateTime? StartDateMiladiDate
+		{
+			get => StartDate;
+			set => StartDate = value;
+		}
+
+		[NotMapped]
+		public string? EndDateShamsiDate
+		{
+			get => EndDateInText;
+			set => EndDateInText = value;
+		}
+
+		[NotMapped]
+		public DateTime? EndDateMiladiDate
+		{
+			get => EndDate;
+			set => EndDate = value;
+		}
 	}
 
 	public class MaintenanceContractConfiguration : IEntityTypeConfiguration<MaintenanceContract>

@@ -26,9 +26,9 @@
 			"ProjectVpisSelector",
 			c => c.IsActive == Entities.Base.IsActiveEnum.Active
 				&& c.IsConfidential == false
-				&& c.Status != ProjectStatusEnum.StartNotStarted
 				&& c.Status != ProjectStatusEnum.Canceled
-				&& c.Status != ProjectStatusEnum.Stopped,
+				&& c.Status != ProjectStatusEnum.Loss
+				&& c.Status != ProjectStatusEnum.Win,
 				c => new { Id = c.Id, ProjectName = c.ProjectName, Code = c.Code },
 				c => new { c.ProjectName, c.Code },
 			"{ProjectCode} - {ProjectName}",

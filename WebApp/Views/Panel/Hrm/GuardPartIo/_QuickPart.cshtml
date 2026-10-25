@@ -1,0 +1,21 @@
+@using Common.Utilities
+@using Entities.App.Hrm.Enums
+
+<div class="row g-3">
+	<div class="col-md-8 form-group-inline">
+		<label class="form-label fw-bold required">عنوان</label>
+		<input class="form-control" data-bind="title" data-required="true" maxlength="256" />
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+	<div class="col-md-4 form-group-inline">
+		<label class="form-label fw-bold required">واحد شمارش</label>
+		<select class="form-control" data-bind="enumerationUnit" data-required="true">
+			<option value="">لطفا انتخاب کنید</option>
+			@foreach (var v in Enum.GetValues<GuardPartUnitEnum>())
+			{
+				<option value="@((int)v)">@v.ToDisplay()</option>
+			}
+		</select>
+		<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+	</div>
+</div>

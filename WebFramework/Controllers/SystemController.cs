@@ -47,6 +47,9 @@ namespace WebFramework.Controllers.SystemControllers
         [HttpPost("[action]")]
         public async Task<IActionResult> FetchDataProfile(DataTableRequest request , CancellationToken ct)
         {
+            if (await AgencyMissionPriceProfileBlockedAsync(request.profileId))
+                return BadRequest("نمایش هزینه ماموریت برای دسترسی نمایندگی مجاز نیست");
+
             var res = await _service.FetchDataProfile(request , ct);
 
 
@@ -202,7 +205,8 @@ namespace WebFramework.Controllers.SystemControllers
         [HttpPost("[action]")]
         public async Task<IActionResult> ExportToExcelProfile(DataTableRequest request)
         {
-
+            if (await AgencyMissionPriceProfileBlockedAsync(request.profileId))
+                return BadRequest("نمایش هزینه ماموریت برای دسترسی نمایندگی مجاز نیست");
 
             var licensePath = _webHostEnvironment.WebRootPath + "\\Aspose.Total.NET.lic";
             var memoryStream = new MemoryStream();
@@ -248,6 +252,16 @@ namespace WebFramework.Controllers.SystemControllers
 		public async Task<IActionResult> ListSystemEnums()
 		{
 			return Ok( _entityMetadataCache.GetAllSystemEnums());
+		}
+
+		private async Task<bool> AgencyMissionPriceProfileBlockedAsync(long? profileId)
+		{
+			if (IsAdministrator || profileId is not > 0)
+				return false;
+			if (!CurrentUserHasAnyRole("نمایندگی ها", "نمایندگان فروش"))
+				return false;
+			var profile = await queryService.GetReportAsync(profileId.Value);
+			return profile?.Name is "AfterSales_ServiceRequest_List" or "AfterSales_Sale_ServiceRequestPart";
 		}
 
 

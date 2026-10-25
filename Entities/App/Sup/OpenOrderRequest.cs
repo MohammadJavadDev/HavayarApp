@@ -1,4 +1,4 @@
-using Common.Attributes;
+﻿using Common.Attributes;
 using Entities.App.Edms;
 using Entities.App.FIN;
 using Entities.App.Gnr;
@@ -76,23 +76,27 @@ namespace Entities.App.Sup
 
 
 		[DisplayName("تعداد ارسال شده")]
-		[DisplayInfo(null, true, type: SystemType.Long)]
-		public long? SumSendQty { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Decimal)]
+		[Column(TypeName = "decimal(18,3)")]
+		public decimal? SumSendQty { get; set; }
 
 
 		[DisplayName("تعداد رسیده شده")]
-		[DisplayInfo(null, true, type: SystemType.Int, required: true)]
-		public int FactoredCount { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Decimal, required: true)]
+		[Column(TypeName = "decimal(18,3)")]
+		public decimal FactoredCount { get; set; }
 
 
 		[DisplayName("تعداد سفارش")]
-		[DisplayInfo(null, true, type: SystemType.Int)]
-		public int? OrderQty { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Decimal)]
+		[Column(TypeName = "decimal(18,3)")]
+		public decimal? OrderQty { get; set; }
 
 
 		[DisplayName("تعداد نیاز")]
-		[DisplayInfo(null, true, type: SystemType.Int, required: true)]
-		public int RequiredQty { get; set; }
+		[DisplayInfo(null, true, type: SystemType.Decimal, required: true)]
+		[Column(TypeName = "decimal(18,3)")]
+		public decimal RequiredQty { get; set; }
 
 
 		[DisplayName("توضیحات")]

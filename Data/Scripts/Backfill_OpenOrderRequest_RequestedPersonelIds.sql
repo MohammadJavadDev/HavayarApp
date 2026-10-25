@@ -4,6 +4,8 @@ Backfill_OpenOrderRequest_RequestedPersonelIds.sql
 ================================================================================
 تکمیل RequestedPersonelIds / RequestedEngineeringPersonelIds از جدول فرزند HTS.
 UserCategoryId 2829 = عادی، 2830 = مهندسی.
+RequestedPersonel_FK = HRM_Personel.Personel_ID است، نه Gnr_User.User_ID.
+نگاشت از طریق Gnr_User.Personel_FK انجام می‌شود؛ وگرنه شناسه پرتال شخص دیگری ذخیره می‌شود.
 بدون جدول فرزند جدید. شناسه‌های جاافتاده ادغام می‌شوند.
 UTF-8 with BOM؛ sqlcmd -f 65001 -x
 ================================================================================
@@ -25,18 +27,31 @@ BEGIN TRY
     IF OBJECT_ID('tempdb..#HtsRp') IS NOT NULL DROP TABLE #HtsRp;
     IF OBJECT_ID('tempdb..#Agg') IS NOT NULL DROP TABLE #Agg;
 
-    SELECT CAST(ou.User_ID AS INT) AS OldUserId, nu.Id AS NewUserId
+    -- RequestedPersonel_FK به Personel_ID اشاره می‌کند، نه User_ID
+    ;WITH Ranked AS (
+        SELECT
+            CAST(ou.Personel_FK AS INT) AS OldUserId,
+            nu.Id AS NewUserId,
+            ROW_NUMBER() OVER (
+                PARTITION BY ou.Personel_FK
+                ORDER BY
+                    CASE WHEN LOWER(nu.Username) = LOWER(ou.Username) THEN 0 ELSE 1 END,
+                    CASE WHEN nu.IsActive = 1 THEN 0 ELSE 1 END,
+                    nu.Id
+            ) AS rn
+        FROM [TMS].[TotalSystem].[dbo].[Gnr_User] ou
+        INNER JOIN [system].[User] nu
+            ON LOWER(nu.Username) = LOWER(ou.Username)
+            OR (
+                ou.ActiveDirectoryUsername IS NOT NULL
+                AND LOWER(nu.Username) = LOWER(ou.ActiveDirectoryUsername)
+            )
+        WHERE ou.Personel_FK IS NOT NULL
+    )
+    SELECT OldUserId, NewUserId
     INTO #UserMap
-    FROM [TMS].[TotalSystem].[dbo].[Gnr_User] ou
-    INNER JOIN [system].[User] nu ON nu.Username = ou.Username;
-
-    INSERT INTO #UserMap (OldUserId, NewUserId)
-    SELECT CAST(ou.User_ID AS INT), nu.Id
-    FROM [TMS].[TotalSystem].[dbo].[Gnr_User] ou
-    INNER JOIN [system].[User] nu
-        ON ou.ActiveDirectoryUsername IS NOT NULL
-       AND LOWER(nu.Username) = LOWER(ou.ActiveDirectoryUsername)
-    WHERE NOT EXISTS (SELECT 1 FROM #UserMap m WHERE m.OldUserId = CAST(ou.User_ID AS INT));
+    FROM Ranked
+    WHERE rn = 1;
 
     CREATE UNIQUE CLUSTERED INDEX IX_UserMap ON #UserMap(OldUserId);
 

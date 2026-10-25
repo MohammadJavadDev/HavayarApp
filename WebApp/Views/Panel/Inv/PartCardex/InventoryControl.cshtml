@@ -1,0 +1,52 @@
+@{
+	ViewData["Title"] = "کنترل موجودی";
+}
+
+<div class="card mb-4">
+	<div class="card-header">
+		<h3 class="card-title mb-0">فیلتر</h3>
+	</div>
+	<div class="card-body row g-3 align-items-end">
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label">از تاریخ</label>
+			<input class="form-control" id="icFromDate" data-persionDatePicker="true" value="@ViewBag.FromDate"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"persianDigit":false}' />
+		</div>
+		<div class="col-md-3 form-group-inline">
+			<label class="form-label">تا تاریخ</label>
+			<input class="form-control" id="icToDate" data-persionDatePicker="true" value="@ViewBag.ToDate"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"persianDigit":false}' />
+		</div>
+		<div class="col-md-2">
+			<button type="button" class="btn btn-primary w-100" data-action="icSearch">
+				<i class="fa fa-search"></i> جستجو
+			</button>
+		</div>
+	</div>
+</div>
+
+<datatableprofile unicode="entities.app.inv.partcardex" profile-names="Pln_InventoryControl_Report,Pln_InventoryControl_OtherUnits_Report"></datatableprofile>
+
+<script>
+	function icNormalizeShamsiDate(value) {
+		let text = value == null ? '' : String(value);
+		if (typeof MJUtil !== 'undefined' && MJUtil.toEnglishNumbers)
+			text = MJUtil.toEnglishNumbers(text) || '';
+		text = String(text).trim().replace(/-/g, '/');
+		const match = text.match(/^(\d{4}\/\d{1,2}\/\d{1,2})/);
+		return match ? match[1] : '';
+	}
+
+	page.$pageEl.on('click', '[data-action="icSearch"]', function () {
+		const $select = $$('[data-action="dataProfile"]');
+		$select.attr('data-query-params', JSON.stringify({
+			FromDate: icNormalizeShamsiDate($$('#icFromDate').val()),
+			ToDate: icNormalizeShamsiDate($$('#icToDate').val())
+		}));
+
+		const table = $select.data('dtProfileTable') || self.table;
+		if (table && table.ajax) {
+			table.ajax.reload(null, false);
+		}
+	});
+</script>

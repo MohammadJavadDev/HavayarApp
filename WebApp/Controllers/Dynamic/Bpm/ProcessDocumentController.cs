@@ -41,6 +41,11 @@ namespace WebApp.Controllers.Dynamic
 
 		private const long MaxFileSizeBytes = 20L * 1024 * 1024;
 
+		private const string MsgNoFileSelected = "فایلی انتخاب نشده است";
+		private const string MsgFileTooLarge = "حجم فایل ارسالی از حداکثر حجم مجاز بیشتر است";
+		private static string MsgEmpty(string caption) => $"({caption}) نمیتواند خالی باشد";
+		private static string MsgInvalid(string caption) => $"مقدار فیلد ({caption}) نامعتبر است.";
+
 		private static readonly ProcessDocumentStatusEnum[] RequesterEditableStatuses =
 		[
 			ProcessDocumentStatusEnum.Issue,
@@ -73,7 +78,7 @@ namespace WebApp.Controllers.Dynamic
 			var entity = CreateNew();
 			CopyRequesterFields(entity, processDocument);
 			ClearManageFields(entity);
-			entity.Id = 0;
+			entity.Id = null;
 			entity.HtsId = 0;
 			entity.LastStatus = null;
 			entity.LastStatusUserId = null;
@@ -272,7 +277,7 @@ namespace WebApp.Controllers.Dynamic
 				return BadRequest("درخواست یافت نشد");
 			if (!CanViewRequester(existing))
 				return BadRequest("دسترسی به این درخواست را ندارید");
-			if (!CanEditRequester(existing))
+			if (!CanCancelRequester(existing))
 				return BadRequest("لغو این درخواست در وضعیت فعلی مجاز نیست");
 
 			await AddStatusLogAsync(id, ProcessDocumentStatusEnum.CancelRequest, cn);
@@ -334,7 +339,13 @@ namespace WebApp.Controllers.Dynamic
 			return entity.CreatedById == CurrentUserId || entity.ModifiedById == CurrentUserId;
 		}
 
+		// ادمین در هر وضعیتی می‌تواند فیلدها و فایل‌ها را اصلاح کند
 		private bool CanEditRequester(ProcessDocument entity)
+		{
+			return IsAdministrator || CanCancelRequester(entity);
+		}
+
+		private bool CanCancelRequester(ProcessDocument entity)
 		{
 			if (entity.Id is null or 0)
 				return true;
@@ -367,9 +378,9 @@ namespace WebApp.Controllers.Dynamic
 				.Include(c => c.FinalPdfFile)
 				.Include(c => c.CommentFile)
 				.Include(c => c.StatusLogs)
-				.Include(c => c.EditingOrgUnits).ThenInclude(x => x.OrgUnit)
+				.Include(c => c.EditingUsers).ThenInclude(x => x.User)
 				.Include(c => c.ExecuterOrgUnits).ThenInclude(x => x.OrgUnit)
-				.Include(c => c.ProcessExecuters).ThenInclude(x => x.User)
+				.Include(c => c.ProcessExecuterOrgUnits).ThenInclude(x => x.OrgUnit)
 				.Include(c => c.BeneficiaryOrgUnits).ThenInclude(x => x.OrgUnit)
 				.Include(c => c.NotificationRecipients).ThenInclude(x => x.User)
 				.Include(c => c.RelatedOrgUnits).ThenInclude(x => x.OrgUnit)
@@ -379,12 +390,30 @@ namespace WebApp.Controllers.Dynamic
 				return new ProcessDocument();
 
 			if (entity.StatusLogs != null)
+			{
 				entity.StatusLogs = entity.StatusLogs.OrderBy(x => x.Id).ToList();
 
+				// HTS «کاربر ایجادکننده» = Gnr_User.FullName (نام فارسی)، نه نام ورود.
+				var logUserIds = entity.StatusLogs.Where(x => x.CreatedById != null).Select(x => x.CreatedById!.Value).Distinct().ToList();
+				if (logUserIds.Count > 0)
+				{
+					var names = await userService.TableNoTracking
+						.Where(u => logUserIds.Contains(u.Id!.Value))
+						.Select(u => new { u.Id, u.NameFa })
+						.ToListAsync(cn);
+					foreach (var log in entity.StatusLogs)
+					{
+						var fa = names.FirstOrDefault(n => n.Id == log.CreatedById)?.NameFa;
+						if (!string.IsNullOrWhiteSpace(fa))
+							log.CreatedByName = fa;
+					}
+				}
+			}
+
 			FillJunctionBindFields(entity);
-			entity.EditingOrgUnits = [];
+			entity.EditingUsers = [];
 			entity.ExecuterOrgUnits = [];
-			entity.ProcessExecuters = [];
+			entity.ProcessExecuterOrgUnits = [];
 			entity.BeneficiaryOrgUnits = [];
 			entity.NotificationRecipients = [];
 			entity.RelatedOrgUnits = [];
@@ -403,7 +432,7 @@ namespace WebApp.Controllers.Dynamic
 			var canEdit = isNew || CanEditRequester(entity);
 			ViewBag.IsManage = false;
 			ViewBag.CanEdit = canEdit;
-			ViewBag.CanCancel = canEdit && !isNew;
+			ViewBag.CanCancel = !isNew && CanCancelRequester(entity);
 			ViewBag.CanSaveManage = false;
 			ViewBag.CanChangeStatus = false;
 			ViewBag.CanEditProcess = false;
@@ -467,9 +496,9 @@ namespace WebApp.Controllers.Dynamic
 			entity.FinalPdfFile = null;
 			entity.CommentFile = null;
 			entity.StatusLogs = new List<ProcessDocumentStatusLog>();
-			entity.EditingOrgUnits = new List<ProcessDocumentEditingOrgUnit>();
+			entity.EditingUsers = new List<ProcessDocumentEditingUser>();
 			entity.ExecuterOrgUnits = new List<ProcessDocumentExecuterOrgUnit>();
-			entity.ProcessExecuters = new List<ProcessDocumentProcessExecuter>();
+			entity.ProcessExecuterOrgUnits = new List<ProcessDocumentProcessExecuterOrgUnit>();
 			entity.BeneficiaryOrgUnits = new List<ProcessDocumentBeneficiaryOrgUnit>();
 			entity.NotificationRecipients = new List<ProcessDocumentNotificationRecipient>();
 			entity.RelatedOrgUnits = new List<ProcessDocumentRelatedOrgUnit>();
@@ -477,18 +506,19 @@ namespace WebApp.Controllers.Dynamic
 
 		private async Task<string?> ValidateRequesterAsync(ProcessDocument entity, bool isNew, CancellationToken cn)
 		{
+			// متن پیام‌ها عیناً از MessagesLibrary.fa-IR / CaptionsLibrary.fa-IR در HTS
 			if (!Enum.IsDefined(entity.RequestType))
-				return "نوع درخواست نامعتبر است";
+				return MsgEmpty("نوع درخواست");
 			if (!Enum.IsDefined(entity.AccessLevel))
-				return "سطح دسترسی الزامی است";
+				return MsgEmpty("سطح محرمانگی");
 			if (!Enum.IsDefined(entity.Source))
-				return "ورودی سند الزامی است";
-			if (!Enum.IsDefined(entity.Priority))
-				return "فوریت الزامی است";
+				return MsgEmpty("ورودی درخواست");
 			if (entity.RequesterUserId <= 0)
-				return "درخواست‌کننده الزامی است";
+				return MsgEmpty("درخواست کننده");
+			if (!Enum.IsDefined(entity.Priority))
+				return MsgInvalid("فوریت رسیدگی");
 			if (string.IsNullOrWhiteSpace(entity.Comment))
-				return "شرح درخواست الزامی است";
+				return MsgInvalid("شرح درخواست");
 			if (entity.CreatedOrganizationUnitId <= 0)
 				return "واحد سازمانی کاربر جاری مشخص نیست";
 
@@ -496,7 +526,7 @@ namespace WebApp.Controllers.Dynamic
 			if (needsParent)
 			{
 				if (entity.ParentId is null or 0)
-					return "انتخاب سند والد برای حذف و بازنگری الزامی است";
+					return MsgEmpty("سند");
 
 				var parent = await unitOfWork.Repository<ProcessDocument>().TableNoTracking
 					.FirstOrDefaultAsync(c => c.Id == entity.ParentId, cn);
@@ -522,27 +552,16 @@ namespace WebApp.Controllers.Dynamic
 				}
 			}
 
-			if (entity.RequestType is ProcessDocumentRequestTypeEnum.ProcessAutomation
-				or ProcessDocumentRequestTypeEnum.MechanizedProcessChange)
-			{
-				if (string.IsNullOrWhiteSpace(entity.DocumentTitle))
-					entity.DocumentTitle = entity.RequestType.ToDisplay();
-			}
-			else if (string.IsNullOrWhiteSpace(entity.DocumentTitle))
-			{
-				return "عنوان سند الزامی است";
-			}
+			// HTS bpmDocument_validatePropertyGrid: نوع سند همیشه الزامی است و عنوان خالی
+			// (برای هر نوع درخواست) با متن نوع درخواست پر می‌شود. در دادهٔ HTS نیز هیچ سندی بدون نوع سند نیست.
+			if (entity.DocumentType == null || !Enum.IsDefined(entity.DocumentType.Value))
+				return MsgEmpty("نوع سند");
+
+			if (string.IsNullOrWhiteSpace(entity.DocumentTitle))
+				entity.DocumentTitle = entity.RequestType.ToDisplay();
 
 			if (entity.DocumentTitle.Length > 128)
 				return "عنوان سند حداکثر ۱۲۸ کاراکتر است";
-
-			var documentTypeRequired = entity.RequestType is not ProcessDocumentRequestTypeEnum.ProcessAutomation
-				and not ProcessDocumentRequestTypeEnum.MechanizedProcessChange;
-			if (documentTypeRequired)
-			{
-				if (entity.DocumentType == null || !Enum.IsDefined(entity.DocumentType.Value))
-					return "نوع سند الزامی است";
-			}
 
 			if (entity.RequestType == ProcessDocumentRequestTypeEnum.Create
 				&& entity.DocumentType != null
@@ -558,7 +577,7 @@ namespace WebApp.Controllers.Dynamic
 				if (mainFile == null)
 					return "فایل اصلی یافت نشد";
 				if (mainFile.Size > MaxFileSizeBytes)
-					return "حجم فایل اصلی بیشتر از ۲۰ مگابایت است";
+					return MsgFileTooLarge;
 			}
 
 			if (entity.TempFileId is > 0)
@@ -568,7 +587,7 @@ namespace WebApp.Controllers.Dynamic
 				if (tempFile == null)
 					return "فایل متفرقه یافت نشد";
 				if (tempFile.Size > MaxFileSizeBytes)
-					return "حجم فایل متفرقه بیشتر از ۲۰ مگابایت است";
+					return MsgFileTooLarge;
 			}
 
 			return null;
@@ -630,12 +649,12 @@ namespace WebApp.Controllers.Dynamic
 
 		private static void FillJunctionBindFields(ProcessDocument entity)
 		{
-			entity.EditingOrgUnitIds = JoinIds(entity.EditingOrgUnits?.Select(x => x.OrgUnitId));
-			entity.EditingOrgUnitNames = JoinNames(entity.EditingOrgUnits?.Select(x => x.OrgUnit?.Title));
+			entity.EditingUserIds = JoinIds(entity.EditingUsers?.Select(x => x.UserId));
+			entity.EditingUserNames = JoinNames(entity.EditingUsers?.Select(x => x.User?.NameFa ?? x.User?.Name));
 			entity.ExecuterOrgUnitIds = JoinIds(entity.ExecuterOrgUnits?.Select(x => x.OrgUnitId));
 			entity.ExecuterOrgUnitNames = JoinNames(entity.ExecuterOrgUnits?.Select(x => x.OrgUnit?.Title));
-			entity.ProcessExecuterIds = JoinIds(entity.ProcessExecuters?.Select(x => x.UserId));
-			entity.ProcessExecuterNames = JoinNames(entity.ProcessExecuters?.Select(x => x.User?.NameFa ?? x.User?.Name));
+			entity.ProcessExecuterOrgUnitIds = JoinIds(entity.ProcessExecuterOrgUnits?.Select(x => x.OrgUnitId));
+			entity.ProcessExecuterOrgUnitNames = JoinNames(entity.ProcessExecuterOrgUnits?.Select(x => x.OrgUnit?.Title));
 			entity.BeneficiaryOrgUnitIds = JoinIds(entity.BeneficiaryOrgUnits?.Select(x => x.OrgUnitId));
 			entity.BeneficiaryOrgUnitNames = JoinNames(entity.BeneficiaryOrgUnits?.Select(x => x.OrgUnit?.Title));
 			entity.NotificationRecipientIds = JoinIds(entity.NotificationRecipients?.Select(x => x.UserId));

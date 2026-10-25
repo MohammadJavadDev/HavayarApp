@@ -1,6 +1,7 @@
 ﻿using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
+using WebApp.Framework.ViewAs;
 using Data.Contracts;
 using Data.Repositories;
 using Data.SystemAuth;
@@ -32,7 +33,10 @@ namespace WebApp.Controllers.SystemControllers
 		IActiveDirectoryService activeDirectoryService,
 		IOnlineUserService onlineUserService,
 		IWebHostEnvironment env,
-			IConfiguration config) : BaseController
+			IConfiguration config,
+			IAuthService authService,
+			ViewAsSessionStore viewAsSessions,
+			Data.ApplicationDbContext dbContext) : BaseController
 	{
 
 
@@ -311,6 +315,8 @@ namespace WebApp.Controllers.SystemControllers
 					AuthorizationType = AuthorizationTypeEnum.ActiveDirectory,
 					RoleIds = request.RoleIds ?? existingUser.RoleIds,
 					Email = adUserInfo.Email,
+					NameFa = existingUser.NameFa,
+					PartyId = existingUser.PartyId,
 				}, cn);
 
 				return Ok(new { isSuccess = true, data = user, message = "کاربر با موفقیت به‌روزرسانی شد." });
@@ -319,6 +325,98 @@ namespace WebApp.Controllers.SystemControllers
 			{
 				return BadRequest(new { isSuccess = false, message = $"خطا در به‌روزرسانی کاربر: {ex.Message}" });
 			}
+		}
+
+		[HttpPost("/panel/User/StartViewAs")]
+		[ActionDisplayName("مشاهده پنل با دسترسی کاربر", ActionAccessType.View, ActionAccessItemType.Custom)]
+		public IActionResult StartViewAs(StartViewAsRequest request)
+		{
+			if (request == null || request.Id <= 0)
+				return BadRequest("کاربر مشخص نیست.");
+
+			var adminId = User.Identity?.GetUserId() ?? 0;
+			if (adminId <= 0)
+				return BadRequest("نشست شما معتبر نیست.");
+
+			var user = service.TableNoTracking.FirstOrDefault(u => u.Id == request.Id);
+			if (user == null)
+				return BadRequest("کاربر پیدا نشد.");
+
+			if (user.IsActive != IsActiveEnum.Active)
+				return BadRequest("این کاربر غیرفعال است و پنل برای او باز نمی‌شود.");
+
+			onlineUserService.RefreshUserRoleAccesses(request.Id);
+
+			var token = authService.GenerateToken(user);
+			var targetName = string.IsNullOrWhiteSpace(user.NameFa) ? user.Name : user.NameFa;
+			var session = viewAsSessions.Create(adminId, request.Id, targetName ?? user.Username, token);
+
+			return Ok(new { url = "/?viewAs=" + session.Id, name = session.TargetName });
+		}
+
+		[HttpPost("/panel/User/CopyAccess")]
+		[ActionDisplayName("ایجاد دسترسی مشابه کاربر دیگر", ActionAccessType.Api, ActionAccessItemType.Update)]
+		public async Task<IActionResult> CopyAccess(CopyUserAccessRequest request, CancellationToken cn)
+		{
+			if (request == null || request.TargetUserId <= 0 || request.SourceUserId <= 0)
+				return BadRequest("کاربر مقصد یا مبدأ مشخص نیست.");
+			if (request.TargetUserId == request.SourceUserId)
+				return BadRequest("کاربر مبدأ و مقصد نمی‌توانند یکسان باشند.");
+
+			var target = await service.TableNoTracking.FirstOrDefaultAsync(u => u.Id == request.TargetUserId, cn);
+			if (target == null)
+				return BadRequest("کاربر مقصد یافت نشد.");
+
+			var source = await service.TableNoTracking.FirstOrDefaultAsync(u => u.Id == request.SourceUserId, cn);
+			if (source == null)
+				return BadRequest("کاربر مبدأ یافت نشد.");
+
+			var sourceIds = (source.RoleIds ?? []).Distinct().ToList();
+			var sourceNames = (source.Roles ?? []).ToList();
+
+			// نام نقش‌ها را از جدول نقش بگیر تا شناسه و نام همیشه هم‌خوان باشند
+			var roles = await dbContext.Set<Role>().AsNoTracking()
+				.Where(r => sourceIds.Contains(r.Id.Value) || sourceNames.Contains(r.Name))
+				.Select(r => new { Id = r.Id.Value, r.Name })
+				.ToListAsync(cn);
+
+			var roleIds = request.RemoveExisting ? new List<long>() : (target.RoleIds ?? []).Distinct().ToList();
+			var roleNames = request.RemoveExisting ? new List<string>() : (target.Roles ?? []).ToList();
+
+			var addedCount = 0;
+			foreach (var role in roles)
+			{
+				var idExists = roleIds.Contains(role.Id);
+				var nameExists = roleNames.Contains(role.Name, StringComparer.OrdinalIgnoreCase);
+				if (!idExists) { roleIds.Add(role.Id); }
+				if (!nameExists) { roleNames.Add(role.Name); }
+				if (!idExists || !nameExists) addedCount++;
+			}
+
+			await service.AddAndUpdateUserAsync(new()
+			{
+				Id = target.Id,
+				Name = target.Name,
+				Password = target.Password,
+				Username = target.Username,
+				ProfileUrl = target.ProfileUrl,
+				Roles = roleNames,
+				AuthorizationType = target.AuthorizationType,
+				RoleIds = roleIds,
+				Email = target.Email,
+				NameFa = target.NameFa,
+				PartyId = target.PartyId,
+			}, cn);
+
+			try { await onlineUserService.RefreshUserRoleAccessesAsync(target.Id.Value, cn); }
+			catch { /* با ورود بعدی کاربر کش تازه می‌شود */ }
+
+			return Ok(new
+			{
+				message = $"دسترسی‌ها اعمال شد. {addedCount} نقش جدید اضافه شد.",
+				roleIds,
+				roles = roleNames
+			});
 		}
 
 		[HttpGet("/panel/User/OnlineUsers")]
@@ -342,6 +440,18 @@ namespace WebApp.Controllers.SystemControllers
 				return BadRequest($"خطا در دریافت کاربران آنلاین: {ex.Message}");
 			}
 		}
+	}
+
+	public class CopyUserAccessRequest
+	{
+		public long TargetUserId { get; set; }
+		public long SourceUserId { get; set; }
+		public bool RemoveExisting { get; set; }
+	}
+
+	public class StartViewAsRequest
+	{
+		public long Id { get; set; }
 	}
 
 	public class AdUserRequest

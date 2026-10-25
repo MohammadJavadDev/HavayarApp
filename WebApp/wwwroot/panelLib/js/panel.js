@@ -75,6 +75,9 @@ connection.on("ReceiveNotification", message => {
 
 	CalculationCountUnreadNotifications();
 
+	if (window.DashboardNotifications)
+		window.DashboardNotifications.reload();
+
 });
 
 
@@ -219,18 +222,20 @@ class QueryDesigner {
           this.eventScripts = {
                        onSelectedRow: '',
                        onRowAdded: '',
+                       legend: '',
                    };
           this.actionOptionsDefualt = [
                { dataActionName: "new", enable: true, title:"جدید" },
                { dataActionName: "edit", enable: true, title:"ویرایش" },
                { dataActionName: "delete", enable: true, title:"حذف" },
                { dataActionName: "exportExcell", enable: true, title:"خروجی اکسل" },
-               { dataActionName: "defaultMultiSelect", enable: false, title:"امکان انتخاب چندتایی" },
+               { dataActionName: "defaultMultiSelect", enable: false, title:"انتخاب چندتایی پیش‌فرض" },
 
           ];
           this.sqlEditor = null;
           this.onSelectedRowEditor = null;
           this.onRowAddedEditor = null;
+          this.legendEditor = null;
 
           this.init();
      }
@@ -258,6 +263,7 @@ class QueryDesigner {
 
           this.initonSelectedRowEditor();
           this.initonOnRowAddedEditor();
+          this.initLegendEditor();
 
           this.loadCustomActionButtons();
           this.loadEventScripts();
@@ -297,6 +303,19 @@ class QueryDesigner {
          
 
           this.onRowAddedEditor.setValue(script);
+     }
+
+     initLegendEditor(script = "") {
+          this.legendEditor = ace.edit('scriptLegend');
+          this.legendEditor.setTheme('ace/theme/chrome');
+          this.legendEditor.session.setMode('ace/mode/json');
+
+          this.legendEditor.getSession().on('change', () => {
+               this.eventScripts['legend'] = this.legendEditor.getValue();
+               this._refreshEventBadge('legend');
+          });
+
+          this.legendEditor.setValue(script);
      }
 
      initSqlEditor(query = "") {
@@ -636,10 +655,14 @@ class QueryDesigner {
           this.onSelectedRowEditor.setValue(this.eventScripts.onSelectedRow || '');
 
           this.onRowAddedEditor.setValue(this.eventScripts.onRowAdded || '');
- 
+
+          const legendValue = this.eventScripts.legend || '';
+          this.legendEditor?.setValue(legendValue);
+          this.eventScripts.legend = legendValue;
 
           this._refreshEventBadge('onSelectedRow');
           this._refreshEventBadge('onRowAdded');
+          this._refreshEventBadge('legend');
      }
 
      /**
@@ -684,6 +707,19 @@ class QueryDesigner {
                          valid: false,
                          error: `خطای syntax در رویداد ${label}: ${e.message}`,
                     };
+               }
+          }
+
+          // راهنمای رنگ‌ها: آرایه JSON با color و label
+          const legend = (this.eventScripts.legend || '').trim();
+          if (legend) {
+               try {
+                    const arr = JSON.parse(legend);
+                    if (!Array.isArray(arr)) throw new Error('باید آرایه باشد');
+                    const bad = arr.findIndex(i => !i || !i.color || !i.label);
+                    if (bad >= 0) throw new Error(`آیتم ${bad + 1} باید color و label داشته باشد`);
+               } catch (e) {
+                    return { valid: false, error: `خطا در legend: ${e.message}` };
                }
           }
 
@@ -782,6 +818,10 @@ class QueryDesigner {
     // var cellIdx = 2;
     // $row.find('td').eq(cellIdx).css('font-weight', 'bold');
 }`,
+               legend: `[
+  { "color": "#0FF135", "text": "#111111", "label": "تأیید نهایی" },
+  { "color": "#E01629", "text": "#ffffff", "label": "رد شده" }
+]`,
           };
 
           return templates[eventName] || `function(ctx) {\n    // کد رویداد ${eventName}\n}`;

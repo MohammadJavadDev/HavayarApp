@@ -48,6 +48,10 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Add(ProductionOrderDelay productionOrderDelay, CancellationToken cn)
 		{
 			NormalizeDelayDays(productionOrderDelay);
+			var rejected = await RejectIfOutsideDelayCycleAsync(productionOrderDelay, cn);
+			if (rejected != null)
+				return rejected;
+
 			var entity = await unitOfWork.Repository<ProductionOrderDelay>().SaveAsync(productionOrderDelay, cn, true);
 			await SendDelayNotificationAsync(entity, isNew: true, cn);
 			return Ok(entity);
@@ -58,6 +62,11 @@ namespace WebApp.Controllers.Dynamic
 		public async Task<IActionResult> Update(ProductionOrderDelay productionOrderDelay, CancellationToken cn)
 		{
 			NormalizeDelayDays(productionOrderDelay);
+			var rejected = await RejectIfOutsideDelayCycleAsync(productionOrderDelay, cn);
+			if (rejected != null)
+				return rejected;
+
+			await PreserveJustificationAsync(productionOrderDelay, cn);
 			var entity = await unitOfWork.Repository<ProductionOrderDelay>().UpdateAsync(productionOrderDelay, cn, true);
 			await SendDelayNotificationAsync(entity, isNew: false, cn);
 			return Ok(entity);
@@ -103,6 +112,9 @@ namespace WebApp.Controllers.Dynamic
 		{
 			var newEntity = new ProductionOrderDelay();
 
+			if (productionOrderId == ProductionOrder.PlanningEquipmentOrderId)
+				productionOrderId = null;
+
 			if (productionOrderId != null && productionOrderId > 0)
 			{
 				var productionOrder = unitOfWork.Repository<ProductionOrder>().TableNoTracking
@@ -126,6 +138,33 @@ namespace WebApp.Controllers.Dynamic
 		public IActionResult List()
 		{
 			return View(@"\Views\Panel\Pln\ProductionOrderDelay\List.cshtml");
+		}
+
+		[HttpPost("[action]")]
+		[ActionDisplayName("ذخیره توجیه تاخیر", ActionAccessType.Api, ActionAccessItemType.Save)]
+		public async Task<IActionResult> SaveJustification(long id, string? justificationComment, CancellationToken cn)
+		{
+			if (string.IsNullOrWhiteSpace(justificationComment))
+				return BadRequest("توضیحات توجیه را وارد کنید.");
+
+			var repo = unitOfWork.Repository<ProductionOrderDelay>();
+			var delay = await repo.TableNoTracking
+				.FirstOrDefaultAsync(d => d.Id == id, cn);
+			if (delay == null)
+				return NotFound();
+
+			if (!await CurrentUserCanJustifyAsync(delay.DelayResponsible, cn))
+				return BadRequest("این تاخیر برای عامل توقف شما نیست.");
+
+			var now = DateTime.Now;
+			delay.JustificationComment = justificationComment.Trim();
+			delay.JustificationMiladiDateTime = now;
+			delay.JustificationShamsiDateTime = now.ToShamsiDateTime();
+			delay.TrusteeName = CurrentUserFullName;
+
+			var entity = await repo.UpdateAsync(delay, cn, true);
+			await SendJustificationNotificationAsync(entity, cn);
+			return Ok(entity);
 		}
 
 		[HttpGet("[action]")]
@@ -190,22 +229,29 @@ namespace WebApp.Controllers.Dynamic
 
 		[HttpPost("[action]")]
 		[ActionDisplayName("خارج کردن از سیکل تاخیر", ActionAccessType.Api, ActionAccessItemType.Update)]
-		public async Task<IActionResult> ExcludeFromDelayCycle(long productionOrderId, CancellationToken cn)
+		public async Task<IActionResult> ExcludeFromDelayCycle(ExcludeFromDelayCycleRequest? request, CancellationToken cn)
 		{
-			if (productionOrderId <= 0)
+			if (request == null || request.ProductionOrderId <= 0)
 				return BadRequest("سفارش ساخت انتخاب نشده است");
 
+			if (request.ProductionOrderId == ProductionOrder.PlanningEquipmentOrderId)
+				return BadRequest("تجهیزات برنامه‌ریزی در سیکل تأخیرات قرار نمی‌گیرد.");
+
+			var comment = request.DelayNotCalculatedComment?.Trim();
+			if (string.IsNullOrWhiteSpace(comment))
+				return BadRequest("علت پروژه‌ای شدن را وارد کنید.");
+			if (comment.Length > 1024)
+				return BadRequest("علت پروژه‌ای شدن حداکثر ۱۰۲۴ نویسه است.");
+
 			var order = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
-				.FirstOrDefaultAsync(c => c.Id == productionOrderId, cn);
+				.FirstOrDefaultAsync(c => c.Id == request.ProductionOrderId, cn);
 
 			if (order == null)
 				return BadRequest("سفارش ساخت یافت نشد");
 
-			if (!order.DelayNotCalculated)
-			{
-				order.DelayNotCalculated = true;
-				order = await unitOfWork.Repository<ProductionOrder>().UpdateAsync(order, cn, true);
-			}
+			order.DelayNotCalculated = true;
+			order.DelayNotCalculatedComment = comment;
+			order = await unitOfWork.Repository<ProductionOrder>().UpdateAsync(order, cn, true);
 
 			return Ok(order);
 		}
@@ -249,8 +295,36 @@ namespace WebApp.Controllers.Dynamic
 			ViewBag.CalculatedDelayRange = await CalculateOrderDelayRangeAsync(productionOrderId, cn);
 		}
 
+		private async Task<IActionResult?> RejectIfOutsideDelayCycleAsync(ProductionOrderDelay delay, CancellationToken cn)
+		{
+			if (delay.ProductionOrderId is null or 0)
+				return BadRequest("قلم بدون سفارش ساخت در سیکل تأخیرات قرار نمی‌گیرد.");
+
+			if (delay.ProductionOrderId == ProductionOrder.PlanningEquipmentOrderId)
+				return BadRequest("تجهیزات برنامه‌ریزی در سیکل تأخیرات قرار نمی‌گیرد.");
+
+			if (delay.ProductionOrderItemId is > 0)
+			{
+				var itemOrderId = await unitOfWork.Repository<ProductionOrderItem>().TableNoTracking
+					.Where(i => i.Id == delay.ProductionOrderItemId)
+					.Select(i => i.ProductionOrderId)
+					.FirstOrDefaultAsync(cn);
+
+				if (itemOrderId == null)
+					return BadRequest("قلم بدون سفارش ساخت در سیکل تأخیرات قرار نمی‌گیرد.");
+
+				if (itemOrderId == ProductionOrder.PlanningEquipmentOrderId)
+					return BadRequest("تجهیزات برنامه‌ریزی در سیکل تأخیرات قرار نمی‌گیرد.");
+			}
+
+			return null;
+		}
+
 		private async Task<object?> CalculateOrderDelayRangeAsync(long productionOrderId, CancellationToken cn)
 		{
+			if (productionOrderId == ProductionOrder.PlanningEquipmentOrderId)
+				return null;
+
 			var today = DateTime.Today;
 			var orderEligibility = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
 				.Where(po => po.Id == productionOrderId)
@@ -376,6 +450,123 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
+		private async Task PreserveJustificationAsync(ProductionOrderDelay delay, CancellationToken cn)
+		{
+			if (delay.Id is null or 0)
+				return;
+
+			var existing = await unitOfWork.Repository<ProductionOrderDelay>().TableNoTracking
+				.FirstOrDefaultAsync(c => c.Id == delay.Id, cn);
+			if (existing == null)
+				return;
+
+			delay.HtsId = existing.HtsId;
+			delay.JustificationComment = existing.JustificationComment;
+			delay.JustificationMiladiDateTime = existing.JustificationMiladiDateTime;
+			delay.JustificationShamsiDateTime = existing.JustificationShamsiDateTime;
+			delay.TrusteeName = existing.TrusteeName;
+		}
+
+		private async Task<List<DelayResponsibleEnum>> GetCurrentUserDelayResponsiblesAsync(CancellationToken cn)
+		{
+			var userId = CurrentUserId;
+			if (userId is null or 0)
+				return [];
+
+			var rows = await unitOfWork.Repository<ProductionOrderDelayResponsibleUser>().TableNoTracking
+				.ToListAsync(cn);
+
+			return rows
+				.Where(r => r.UserIds != null && r.UserIds.Contains(userId.Value))
+				.Select(r => r.DelayResponsible)
+				.Distinct()
+				.ToList();
+		}
+
+		private async Task<bool> CurrentUserCanJustifyAsync(DelayResponsibleEnum delayResponsible, CancellationToken cn)
+		{
+			var factors = await GetCurrentUserDelayResponsiblesAsync(cn);
+			return factors.Contains(delayResponsible);
+		}
+
+		private async Task SendJustificationNotificationAsync(ProductionOrderDelay delay, CancellationToken cn)
+		{
+			try
+			{
+				var productionOrder = delay.ProductionOrder;
+				if (productionOrder == null && delay.ProductionOrderId.HasValue)
+				{
+					productionOrder = await unitOfWork.Repository<ProductionOrder>().TableNoTracking
+						.FirstOrDefaultAsync(c => c.Id == delay.ProductionOrderId, cn);
+				}
+
+				var responsible = await unitOfWork.Repository<ProductionOrderDelayResponsibleUser>().TableNoTracking
+					.FirstOrDefaultAsync(c => c.DelayResponsible == delay.DelayResponsible, cn);
+
+				var toEmails = new List<string>();
+				if (responsible?.UsersEmail != null)
+				{
+					toEmails.AddRange(responsible.UsersEmail.Where(e => !string.IsNullOrWhiteSpace(e)));
+				}
+
+				if (CurrentUserEmail.HasValue())
+					toEmails.Add(CurrentUserEmail!);
+
+				toEmails = toEmails
+					.Where(e => !string.IsNullOrWhiteSpace(e))
+					.Distinct(StringComparer.OrdinalIgnoreCase)
+					.ToList();
+
+				if (toEmails.Count == 0)
+					return;
+
+				var orderNumber = productionOrder?.ProductionOrderNumber?.ToString() ?? "-";
+				var title = $"اعلان توجیه تاخیر سفارش ساخت شماره {orderNumber}";
+
+				await unitOfWork.Repository<Notification>().AddAsync(new Notification
+				{
+					Type = NotificationType.Email,
+					Title = title,
+					Body = BuildJustificationNotificationBody(delay, orderNumber),
+					EntityId = delay.Id,
+					OwnerId = CurrentUserId ?? 0,
+					ViewPath = "/Panel/ProductionOrderDelay/List",
+					IsRead = false,
+					IsSend = false,
+					ToEmails = toEmails,
+					CcEmails = new List<string>()
+				}, cn);
+
+				await unitOfWork.SaveChangesAsync(cn);
+			}
+			catch
+			{
+				// شکست اعلان نباید ذخیره توجیه را متوقف کند
+			}
+		}
+
+		private static string BuildJustificationNotificationBody(ProductionOrderDelay delay, string orderNumber)
+		{
+			var sb = new StringBuilder();
+			sb.AppendLine("<div style='text-align:center;direction:rtl'>");
+			sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl' width='100%'>");
+			sb.AppendLine("<tr style='background: #000aa0'><td colspan='2'><div style='font-size:14.0pt;font-family:Zar;color:#FFFFFF;text-align:center'>گروه صنعتی هوایار</div></td></tr>");
+			sb.AppendLine("<tr><td colspan='2'><div style='font-size:12pt;font-family:Zar;text-align:right;direction:rtl'>");
+			sb.Append($"احتراماَ توجیه تاخیر سفارش ساخت شماره <strong>{orderNumber}</strong> توسط <strong>{delay.TrusteeName ?? "-"}</strong> ثبت گردید.");
+			sb.AppendLine("</div></td></tr>");
+			sb.AppendLine($"<tr><td>شماره سفارش ساخت</td><td>{orderNumber}</td></tr>");
+			sb.AppendLine($"<tr><td>عامل توقف</td><td>{delay.DelayResponsible.ToDisplay()}</td></tr>");
+			sb.AppendLine($"<tr><td>تعداد روز تاخیر</td><td>{delay.DelayDays?.ToString() ?? "-"}</td></tr>");
+			sb.AppendLine($"<tr><td>تاریخ شروع تاخیر</td><td>{delay.DelayStartShamsiDate ?? "-"}</td></tr>");
+			sb.AppendLine($"<tr><td>تاریخ پایان تاخیر</td><td>{delay.DelayEndShamsiDate ?? "-"}</td></tr>");
+			sb.AppendLine($"<tr><td>علت تاخیر</td><td>{(string.IsNullOrWhiteSpace(delay.DelayReason) ? "-" : delay.DelayReason)}</td></tr>");
+			sb.AppendLine($"<tr><td>متولی توجیه</td><td>{delay.TrusteeName ?? "-"}</td></tr>");
+			sb.AppendLine($"<tr><td>تاریخ توجیه</td><td>{delay.JustificationShamsiDateTime ?? "-"}</td></tr>");
+			sb.AppendLine($"<tr><td>توضیحات توجیه</td><td>{delay.JustificationComment}</td></tr>");
+			sb.AppendLine("</table></div>");
+			return sb.ToString();
+		}
+
 		private async Task SendDelayNotificationAsync(ProductionOrderDelay delay, bool isNew, CancellationToken cn)
 		{
 			try
@@ -496,7 +687,9 @@ namespace WebApp.Controllers.Dynamic
 				.ToListAsync(cn);
 
 			var today = DateTime.Today;
-			var canCalculateDelay = !order.ProjectManagerId.HasValue && !order.DelayNotCalculated;
+			var canCalculateDelay = order.Id != ProductionOrder.PlanningEquipmentOrderId
+				&& !order.ProjectManagerId.HasValue
+				&& !order.DelayNotCalculated;
 
 			// اقلام ارسالی به صنایع که ملاک ورود به کارتابل صنایع و محاسبه تاریخ مجاز هستند
 			var eligibleItems = items
@@ -614,6 +807,12 @@ namespace WebApp.Controllers.Dynamic
 
 			return 0;
 		}
+	}
+
+	public class ExcludeFromDelayCycleRequest
+	{
+		public long ProductionOrderId { get; set; }
+		public string? DelayNotCalculatedComment { get; set; }
 	}
 
 	public class ProductionOrderDetailsDto

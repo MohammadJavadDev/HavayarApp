@@ -1,0 +1,306 @@
+@{
+	ViewData["Title"] = "داشبورد مدارک مهندسی";
+}
+
+<style>
+	#edmsDocDashPage .edd-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#edmsDocDashPage .edd-summary-card {
+		min-height: 120px;
+	}
+
+	#edmsDocDashPage .edd-card-def {
+		font-size: 0.8rem;
+		line-height: 1.5;
+		margin-top: 0.5rem;
+	}
+
+	#edmsDocDashPage .edd-hold {
+		color: var(--bs-warning);
+	}
+
+	#edmsDocDashPage .edd-inprocess {
+		color: var(--bs-primary);
+	}
+
+	#edmsDocDashPage svg text {
+		font-family: inherit !important;
+	}
+</style>
+
+<div id="edmsDocDashPage" dir="rtl">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">داشبورد مدارک مهندسی</h3>
+					<div class="text-muted fs-7">
+						توزیع وضعیت مدارک و پروژه‌های EDMS — <span class="fw-semibold">وضعیت همین لحظه</span>
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadEdmsDocDash">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+			</div>
+		</div>
+		<div class="card-body">
+			<div class="text-muted fs-7">
+				زمان محاسبه: <span class="ltr d-inline-block" id="eddAsOf">-</span>
+				<span class="mx-2">|</span>
+				<span id="eddMetricKind">وضعیت همین لحظه</span>
+			</div>
+			<div class="text-muted fs-8 mt-2" id="eddFilterDescription"></div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4" id="eddCardsRow">
+		<div class="col-md-3">
+			<div class="card edd-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">کل مدارک</div>
+					<div class="edd-summary-value" id="eddTotalDocuments">-</div>
+					<div class="text-muted edd-card-def" data-card-def="totalDocuments"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card edd-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">معلق</div>
+					<div class="edd-summary-value edd-hold" id="eddHoldDocuments">-</div>
+					<div class="text-muted edd-card-def" data-card-def="holdDocuments"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card edd-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">کل پروژه‌ها</div>
+					<div class="edd-summary-value" id="eddTotalProjects">-</div>
+					<div class="text-muted edd-card-def" data-card-def="totalProjects"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-3">
+			<div class="card edd-summary-card">
+				<div class="card-body py-4">
+					<div class="text-muted">پروژه‌های در جریان</div>
+					<div class="edd-summary-value edd-inprocess" id="eddInProcessProjects">-</div>
+					<div class="text-muted edd-card-def" data-card-def="inProcessProjects"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-7">
+			<div class="card h-100">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">توزیع وضعیت مدارک</h3>
+						<div class="text-muted fs-8 mt-1">وضعیت مدارک</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="eddDocumentStatusChart" style="min-height:420px"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5">
+			<div class="card h-100">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">توزیع وضعیت پروژه‌ها</h3>
+						<div class="text-muted fs-8 mt-1">وضعیت پروژه‌ها</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="eddProjectStatusChart" style="min-height:420px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Edms/EdmsDocumentDashboard/GetData';
+	const $page = $$('#edmsDocDashPage');
+	const $loadButton = $$('#btnLoadEdmsDocDash');
+
+	let documentStatusChart = null;
+	let projectStatusChart = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 0
+		});
+	}
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function renderOrUpdateChart(existing, elementId, options) {
+		if (existing) {
+			existing.updateOptions(options);
+			return existing;
+		}
+		const chart = new ApexCharts($$('#' + elementId)[0], options);
+		chart.render();
+		return chart;
+	}
+
+	function barOptions(categories, data, height) {
+		return {
+			chart: { type: 'bar', height: height || 420, fontFamily: 'inherit', toolbar: { show: false } },
+			plotOptions: { bar: { horizontal: true, barHeight: '70%' } },
+			series: [{ name: 'تعداد', data: data }],
+			colors: ['#009ef7'],
+			xaxis: { categories: categories },
+			yaxis: { labels: { maxWidth: 220 } },
+			legend: { show: false },
+			dataLabels: {
+				enabled: true,
+				formatter: function (v) { return Number(v).toLocaleString('fa-IR'); }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function donutOptions(labels, data, height) {
+		return {
+			chart: { type: 'donut', height: height || 420, fontFamily: 'inherit' },
+			labels: labels.length ? labels : ['بدون داده'],
+			series: data.length ? data : [0],
+			legend: { position: 'bottom' },
+			dataLabels: {
+				enabled: true,
+				formatter: function (val, opts) {
+					const count = opts.w.config.series[opts.seriesIndex];
+					return Number(count).toLocaleString('fa-IR');
+				}
+			},
+			tooltip: {
+				y: { formatter: function (v) { return Number(v).toLocaleString('fa-IR'); } }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function applyCardDefinitions(cards) {
+		const map = {};
+		(cards || []).forEach(function (card) {
+			map[card.key] = card;
+		});
+
+		$$('#eddCardsRow [data-card-def]').each(function () {
+			const key = $(this).attr('data-card-def');
+			const card = map[key];
+			$(this).text(card && card.definition ? card.definition : '');
+		});
+	}
+
+	function renderCards(report) {
+		$$('#eddTotalDocuments').text(formatNumber(report.totalDocuments));
+		$$('#eddHoldDocuments').text(formatNumber(report.holdDocuments));
+		$$('#eddTotalProjects').text(formatNumber(report.totalProjects));
+		$$('#eddInProcessProjects').text(formatNumber(report.inProcessProjects));
+		$$('#eddAsOf').text(report.asOfShamsiDateTime || '-');
+		$$('#eddMetricKind').text(report.metricKindLabel || 'وضعیت همین لحظه');
+		$$('#eddFilterDescription').text(report.filterDescription || '');
+		applyCardDefinitions(report.cards);
+	}
+
+	function renderDocumentChart(report) {
+		const slices = report.documentStatusSlices || [];
+		const labels = slices.map(function (s) { return s.label; });
+		const data = slices.map(function (s) { return Number(s.count || 0); });
+		const height = Math.max(420, slices.length * 32);
+		$$('#eddDocumentStatusChart').css('min-height', height + 'px');
+		documentStatusChart = renderOrUpdateChart(
+			documentStatusChart,
+			'eddDocumentStatusChart',
+			barOptions(labels, data, height)
+		);
+	}
+
+	function renderProjectChart(report) {
+		const slices = report.projectStatusSlices || [];
+		const labels = slices.map(function (s) { return s.label; });
+		const data = slices.map(function (s) { return Number(s.count || 0); });
+		projectStatusChart = renderOrUpdateChart(
+			projectStatusChart,
+			'eddProjectStatusChart',
+			donutOptions(labels, data, 420)
+		);
+	}
+
+	function renderReport(report) {
+		renderCards(report || {});
+		whenApexReady(function () {
+			renderDocumentChart(report || {});
+			renderProjectChart(report || {});
+		});
+	}
+
+	function loadReport() {
+		const $btn = $loadButton.block();
+		$page.find('.card').first().block();
+
+		$$.post(dataUrl, {}, function (response) {
+			$btn.block(false);
+			$page.find('.card').first().block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderReport(unwrap(response) || {});
+		});
+	}
+
+	$loadButton.on('click', loadReport);
+	loadReport();
+</script>

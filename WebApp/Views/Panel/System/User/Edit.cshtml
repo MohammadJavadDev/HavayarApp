@@ -10,6 +10,7 @@
 
 
      var systemRoles =   serviceRole.TableNoTracking.Select(c => new { c.Id, c.Name, c.Title }).ToArray();
+     long copyAccessTargetId = Model?.Id ?? 0;
      var userProfileImage = "/file/profile-image/" + Model?.ProfileUrl;
 }
 
@@ -171,10 +172,45 @@
 
                     </select>
                 </div>
-                <div class="col-md-6 mt-10">
+                <div class="col-md-6 mt-10 d-flex gap-2">
                     <button type="button" id="saveUser" class="btn btn-primary">ذخیره</button>
+                    @if (Model?.Id > 0)
+                    {
+                        <button type="button" id="openPanelAsUser" class="btn btn-warning">باز شدن با دسترسی کاربر</button>
+                        <button type="button" id="copyAccessFromUser" class="btn btn-info">ایجاد دسترسی مشابه کاربر دیگر</button>
+                    }
                 </div>
 
+                @if (Model?.Id > 0)
+                {
+                    <div class="col-md-12 mt-5 d-none" id="copyAccessPanel">
+                        <div class="border rounded p-4">
+                            <div class="row">
+                                <div class="col-md-6 form-group-inline">
+                                    <label class="form-label fw-bold">کاربر مرجع (جستجو با نام، نام فارسی یا نام کاربری)</label>
+                                    @(Html.EntitySelector<User>(
+                                        "CopyAccessSourceSelector",
+                                        c => c.IsActive == IsActiveEnum.Active && c.Id != copyAccessTargetId,
+                                        c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa ?? c.Name, Username = c.Username },
+                                        c => new { c.Name, c.NameFa, c.Username },
+                                        "{NameFa} ({Username})"
+                                    ))
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input" id="copyAccessRemoveExisting" />
+                                        <label class="form-check-label" for="copyAccessRemoveExisting">حذف دسترسی‌های قبلی</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-12 text-muted mb-3">اگر تیک نخورد، نقش‌های کاربر مرجع به نقش‌های فعلی اضافه می‌شود (نقش تکراری اضافه نمی‌شود).</div>
+                                <div class="col-md-12 d-flex gap-2">
+                                    <button type="button" class="btn btn-primary" id="applyCopyAccess">اعمال</button>
+                                    <button type="button" class="btn btn-light" id="cancelCopyAccess">انصراف</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
 
             </div>
         
@@ -237,6 +273,71 @@
 
              toastr.success("ذخیره سازی با موفقیت انجام شد .");
          })
+     });
+
+     $$("#copyAccessFromUser").on("click", function () {
+         $$("#copyAccessPanel").toggleClass("d-none");
+     });
+
+     $$("#cancelCopyAccess").on("click", function () {
+         $$("#copyAccessPanel").addClass("d-none");
+     });
+
+     $$("#applyCopyAccess").on("click", function () {
+         const targetId = $$("[data-bind='Id']").first().val();
+         const sourceId = $$("#CopyAccessSourceSelector .entity-selector-value").val();
+         const removeExisting = $$("#copyAccessRemoveExisting").is(":checked");
+
+         if (!targetId || targetId === "0") {
+             toastr.error("ابتدا کاربر را ذخیره کنید.");
+             return;
+         }
+         if (!sourceId) {
+             toastr.error("کاربر مرجع را انتخاب کنید.", "خطا");
+             return;
+         }
+
+         const $btn = $(this).block();
+         $$.post("/panel/User/CopyAccess", {
+             targetUserId: targetId,
+             sourceUserId: sourceId,
+             removeExisting: removeExisting
+         }, function (res) {
+             $btn.block(false);
+             if (!res.isSuccess) return toastr.error(res.message, "خطا");
+             toastr.success(res.message);
+             appController.refreshCurrentPage();
+         });
+     });
+
+     $$("#openPanelAsUser").on("click", function () {
+         const id = $$("[data-bind='Id']").first().val();
+         if (!id || id === "0") {
+             toastr.error("ابتدا کاربر را ذخیره کنید.");
+             return;
+         }
+
+         const popup = window.open("about:blank", "havayarViewAs" + id, "width=1440,height=900,left=40,top=30,resizable=yes,scrollbars=yes");
+         if (!popup) {
+             toastr.error("مرورگر پنجره جدید را بست. اجازه پنجره بازشو را بدهید.");
+             return;
+         }
+
+         const $btn = $(this).block();
+         $$.post("/panel/User/StartViewAs", { id: id }, function (r) {
+             $btn.block(false);
+             if (!r.isSuccess || !r.data || !r.data.url) {
+                 popup.close();
+                 toastr.error((r && r.message) || "باز کردن پنل کاربر انجام نشد.", "خطا");
+                 return;
+             }
+             try {
+                 if (popup.closed) return;
+                 popup.location.href = r.data.url;
+             } catch (e) {
+                 toastr.error("پنجره بررسی بسته شد.");
+             }
+         });
      });
 
 </script>

@@ -6,6 +6,7 @@ using Data.Services.QueryBuilderServices;
 using Data.SystemAuth;
 using Entities.Auth;
 using Entities.Base;
+using Entities.Base.Menu;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,8 @@ public class DashboardCardController(
 	IUnitOfWork unitOfWork,
 	IDistributedCache cache,
 	IAccessMemoryStorage accessMemoryStorage,
-	IQueryService queryService) : BaseController
+	IQueryService queryService,
+	IMenuBuilderService menuBuilderService) : BaseController
 {
 	private static readonly TimeSpan CardsCacheTtl = TimeSpan.FromHours(1);
 	private static readonly TimeSpan CountCacheTtl = TimeSpan.FromMinutes(3);
@@ -83,24 +85,146 @@ public class DashboardCardController(
 		if (CurrentUserId == null)
 			return Unauthorized();
 
-		var lists = GetAccessibleLists()
-			.GroupBy(l => l.ControllerDisplayName ?? l.ControllerName ?? "", StringComparer.OrdinalIgnoreCase)
-			.OrderBy(g => g.Key)
+		var profileEntities = GetEntitiesWithAccessibleProfiles();
+		var menuPlacement = BuildMenuPlacement();
+
+		var entries = GetAccessibleLists()
+			.Where(l => !string.IsNullOrWhiteSpace(l.EntityName)
+			            && (profileEntities == null || profileEntities.Contains(l.EntityName!)))
+			.GroupBy(l => l.Path, StringComparer.OrdinalIgnoreCase)
+			.Select(g => g.First())
+			.Select(l =>
+			{
+				var fallbackTitle = l.ControllerDisplayName ?? l.ControllerName ?? l.Path;
+				if (menuPlacement.TryGetValue(l.Path, out var place))
+					return new { Info = l, Group = place.Group, Title = place.Title, Order = place.Order };
+				return new { Info = l, Group = OtherGroupTitle, Title = fallbackTitle, Order = int.MaxValue };
+			})
+			.ToList();
+
+		var lists = entries
+			.GroupBy(e => e.Group, StringComparer.OrdinalIgnoreCase)
+			.OrderBy(g => g.Key == OtherGroupTitle ? 1 : 0)
+			.ThenBy(g => g.Min(e => e.Order))
 			.Select(g => new
 			{
 				groupTitle = g.Key,
-				items = g.Select(i => new
-				{
-					path = i.Path,
-					entityName = i.EntityName,
-					title = i.ControllerDisplayName,
-					controllerName = i.ControllerName
-				}).ToList()
+				items = g.OrderBy(e => e.Order)
+					.ThenBy(e => e.Title, StringComparer.CurrentCulture)
+					.Select(e => new
+					{
+						path = e.Info.Path,
+						entityName = e.Info.EntityName,
+						title = e.Title,
+						controllerName = e.Info.ControllerName
+					}).ToList()
 			})
 			.ToList();
 
 		return Ok(lists);
 	}
+
+	private const string OtherGroupTitle = "سایر صفحات";
+
+	/// <summary>
+	/// Entities for which the current user has at least one data profile (null = no restriction, e.g. administrator).
+	/// </summary>
+	private HashSet<string>? GetEntitiesWithAccessibleProfiles()
+	{
+		if (IsAdministrator)
+			return null;
+
+		return (sdk.CurrentUser?.RoleAccess ?? [])
+			.Where(c => c.ActionAccessType == ActionAccessType.DataProfile
+				&& !string.IsNullOrWhiteSpace(c.EntityName)
+				&& c.RowId != null)
+			.Select(c => c.EntityName!)
+			.ToHashSet(StringComparer.OrdinalIgnoreCase);
+	}
+
+	/// <summary>
+	/// Maps a normalized page path to the group/title it has in the user's menu(s),
+	/// so the add-card dialog is grouped exactly like the sidebar menu.
+	/// The first menu (the one shown by default) wins when a page appears in several menus.
+	/// </summary>
+	private Dictionary<string, MenuPlacement> BuildMenuPlacement()
+	{
+		var result = new Dictionary<string, MenuPlacement>(StringComparer.OrdinalIgnoreCase);
+		var order = 0;
+
+		List<SystemMenu> menus;
+		try
+		{
+			menus = menuBuilderService.GetMenuByRole(sdk) ?? [];
+		}
+		catch
+		{
+			return result;
+		}
+
+		foreach (var menu in menus)
+		{
+			if (menu.Id == null)
+				continue;
+
+			List<SystemMenuItem> items;
+			try
+			{
+				items = menuBuilderService.GetMenuItems(menu.Id, sdk) ?? [];
+			}
+			catch
+			{
+				continue;
+			}
+
+			Walk(items, [], menu.Title?.Trim() ?? string.Empty);
+		}
+
+		return result;
+
+		void Walk(List<SystemMenuItem>? nodes, List<string> ancestors, string menuTitle)
+		{
+			if (nodes == null)
+				return;
+
+			foreach (var node in nodes)
+			{
+				if (node == null)
+					continue;
+
+				var text = (node.Text ?? string.Empty).Trim();
+				if (node.Children is { Count: > 0 })
+				{
+					var next = new List<string>(ancestors);
+					if (text.Length > 0)
+						next.Add(text);
+					Walk(node.Children, next, menuTitle);
+					continue;
+				}
+
+				if (string.IsNullOrWhiteSpace(node.Path) || node.Path == "#" || text.Length == 0)
+					continue;
+
+				var path = NormalizePath(node.Path);
+				var q = path.IndexOf('?');
+				if (q >= 0)
+					path = path[..q];
+				if (path.Length > 1 && path.EndsWith('/'))
+					path = path[..^1];
+
+				if (result.ContainsKey(path))
+					continue;
+
+				var group = ancestors.Count > 0
+					? string.Join(" › ", ancestors)
+					: (menuTitle.Length > 0 ? menuTitle : OtherGroupTitle);
+
+				result[path] = new MenuPlacement(group, text, order++);
+			}
+		}
+	}
+
+	private sealed record MenuPlacement(string Group, string Title, int Order);
 
 	[HttpGet("profiles")]
 	public IActionResult GetProfiles([FromQuery] string entityName)
@@ -399,7 +523,6 @@ public class DashboardCardController(
 			roleAccess.Any(ra =>
 				ra.ActionAccessType == ActionAccessType.View
 				&& ra.ActionAccessItemType == ActionAccessItemType.List
-				&& string.Equals(ra.DisplayName, "لیست اطلاعات", StringComparison.Ordinal)
 				&& PathsMatch(item.Path, ra.Path, item.ControllerName)))
 			.ToList();
 	}

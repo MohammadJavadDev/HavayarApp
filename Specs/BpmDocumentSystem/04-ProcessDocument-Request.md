@@ -125,3 +125,15 @@ Cancel button: `Swal.fire` then `$$.post('cancelRequest', { id })`.
 7. Main/temp uploads are `FileEntity`, max 1 each, max 20 MB, no Session bag.
 8. Posted `ProcessOwnerId` from a tampered form is ignored on this controller.
 9. No `location.reload()`, no `alert()`, tab-scoped `$$`.
+
+## 8. HTS parity pass (2026-10-10) — overrides earlier sections where they conflict
+
+Sources: `_BpmDocument.cshtml`, `BpmDocumentController`, `BpmDocumentModel`, `GeneralSystemProfiles`, `CaptionsLibrary.fa-IR`, `MessagesLibrary.fa-IR`. Only the **Request** profile and the non-manage mode of `Edit.cshtml` are affected; Manage and Published are reviewed separately.
+
+- **Grid (`Bpm_ProcessDocument_Request`)**, in order: شماره درخواست, آخرین وضعیت, عنوان سند, کد سند, شماره بازنگری, نوع درخواست, نوع سند, سطح محرمانگی, ورودی درخواست, فوریت رسیدگی, مالک فرآیند, تایید کننده, تصویب کننده, درخواست کننده, تاریخ ایجاد (default sort, descending), کاربر ایجادکننده, شرح درخواست. User columns show `NameFa` (HTS `FullName`). Seed: `Patch_ProcessDocument_Request_HtsColumns.sql` (apply with `sqlcmd -x`, the JS contains `$(...)`).
+- **Toolbar:** جدید, اصلاح, لغو درخواست, خروجی اکسل (kept by decision), «دریافت ف اصلی», «دانلود فایل متفرقه». Edit/cancel are disabled for a row unless status ∈ {1, 2, 9} and the user is admin or creator (hidden `t1_CanEdit`). Download buttons need the file id.
+- **Row color** on the ردیف cell by last status: 11 `#ffc080`, 9 `lightgreen`, 10 `#6e85da`, 16 `#eba7ec`.
+- **Form (request mode):** نوع درخواست, سند (1720/1721), نوع سند, عنوان سند, سطح محرمانگی, ورودی درخواست, فوریت رسیدگی, درخواست کننده, شرح درخواست, پیوست (ها): فایل اصلی*, فایل متفرقه. No page heading and **no شماره سند field** (the number is generated/copied by the server). The گردش table shows وضعیت, کامنت, کاربر ایجادکننده (NameFa), تاریخ ایجاد.
+- **Validation (HTS order and wording):** `({0}) نمیتواند خالی باشد` for نوع درخواست, سند, نوع سند, عنوان سند, سطح محرمانگی, ورودی درخواست, درخواست کننده; `مقدار فیلد ({0}) نامعتبر است.` for فوریت رسیدگی and شرح درخواست; file size `حجم فایل ارسالی از حداکثر حجم مجاز بیشتر است`.
+- **Deviation from §2 above (HTS real behaviour):** نوع سند is **always** required (HTS' `shouldBeCheckDocumentType` is true for every type, and no HTS row has a null type). An empty عنوان سند is filled with the request-type text for **every** request type, not only 1722/1723.
+- Not changed: cartable filter, status logs, parent copy, revision bump, number generation, download rules.

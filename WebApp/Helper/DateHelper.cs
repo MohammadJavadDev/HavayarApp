@@ -2,10 +2,10 @@
 
 public static class DateHelper
 {
-	public static DateTime ToMiladiDateTimeWithSplitData(this string persianDate)
+	public static DateTime? ToMiladiDateTimeWithSplitData(this string persianDate)
 	{
 		if (string.IsNullOrEmpty(persianDate))
-			throw new ArgumentException("تاریخ وارد شده معتبر نیست");
+			return null;
 
 		persianDate = persianDate.Trim();
 

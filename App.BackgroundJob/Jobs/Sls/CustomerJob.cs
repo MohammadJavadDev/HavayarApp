@@ -6,8 +6,10 @@ using Entities.App.Gnr;
 using Entities.App.Sale;
 using Entities.App.SLS;
 using Entities.Base;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Services.Job;
+using System.Data;
 using System.Linq;
 
 namespace App.BackgroundJob.Jobs.Sls
@@ -135,8 +137,8 @@ namespace App.BackgroundJob.Jobs.Sls
 
 				await unitOfWork.SaveChangesAsync(cn);
 
-				var industryRows = await db.Database.ExecuteSqlRawAsync(SyncIndustryFromHtsSql, cn);
-				await jobLogger?.LogInfoAsync($"صنعت مشتری از شرکت HTS به‌روز شد: {industryRows}", cn);
+				// نوع صنعت مشتری (از HTS) جدا و کم‌دفعه‌تر در SyncCustomerIndustryFromHts به‌روز می‌شود،
+				// نه در هر اجرای این جاب؛ چون هر بار روی linked server [TMS] سنگین است.
 				await jobLogger?.LogInfoAsync("همگام‌سازی مشتریان با موفقیت انجام شد", cn);
 			}
 			catch (Exception ex)
@@ -148,24 +150,71 @@ namespace App.BackgroundJob.Jobs.Sls
 
 		/// <summary>
 		/// مثل چاپ قدیمی: نوع صنعت از Gnr_ManCompany.IndustryHdr شرکت مشتری (Party.HamkaranId = Hamkaran_ManCompany_FK).
+		/// زمان‌بندی پیش‌فرض: ساعتی (JobDiscoveryService).
+		/// </summary>
+		[JobHandler(
+			"همگام‌سازی نوع صنعت مشتری از HTS",
+			"نوع صنعت مشتریان را از Gnr_ManCompany شرکت HTS (linked server TMS) می‌خواند و در SLS.Customer.IndustryId می‌نویسد.")]
+		public async Task SyncCustomerIndustryFromHts(IJobLogger? jobLogger = null, CancellationToken cn = default)
+		{
+			try
+			{
+				await jobLogger?.LogInfoAsync("شروع همگام‌سازی نوع صنعت مشتریان از HTS", cn);
+
+				// UPDATE شامل خواندن linked server است؛ زمان بیشتر از پیش‌فرض ۳۰ ثانیه
+				db.Database.SetCommandTimeout(300);
+
+				var updatedRows = new SqlParameter("@updatedRows", SqlDbType.Int) { Direction = ParameterDirection.Output };
+				await db.Database.ExecuteSqlRawAsync(SyncIndustryFromHtsSql, new object[] { updatedRows }, cn);
+
+				var updated = updatedRows.Value is int count ? count : 0;
+				await jobLogger?.LogInfoAsync($"صنعت مشتری از شرکت HTS به‌روز شد: {updated}", cn);
+			}
+			catch (Exception ex)
+			{
+				await jobLogger?.LogExceptionAsync(ex, cn);
+				throw;
+			}
+		}
+
+		/// <summary>
+		/// قبلاً برای هر مشتری یک OUTER APPLY روی [TMS] اجرا می‌شد (هزاران رفت‌وبرگشت راه دور در هر اجرا).
+		/// حالا یک بار کل نگاشت «شرکت راهکاران → کد صنعت» (اولین ردیف هر شرکت با کمترین ManCompany_ID)
+		/// در #HtsIndustry خوانده می‌شود و UPDATE فقط روی جدول‌های محلی join می‌شود.
 		/// </summary>
 		private const string SyncIndustryFromHtsSql = """
+			SET NOCOUNT ON;
+
+			IF OBJECT_ID('tempdb..#HtsIndustry') IS NOT NULL DROP TABLE #HtsIndustry;
+
+			SELECT x.HamkaranCompanyId, x.IndustryCode
+			INTO #HtsIndustry
+			FROM (
+				SELECT CAST(mc.Hamkaran_ManCompany_FK AS BIGINT) AS HamkaranCompanyId,
+				       CAST(mc.IndustryHdr_FK AS BIGINT) AS IndustryCode,
+				       ROW_NUMBER() OVER (
+				           PARTITION BY CAST(mc.Hamkaran_ManCompany_FK AS BIGINT)
+				           ORDER BY mc.ManCompany_ID) AS rn
+				FROM [TMS].[TotalSystem].[dbo].[Gnr_ManCompany] mc
+				WHERE mc.Hamkaran_ManCompany_FK IS NOT NULL
+				  AND mc.Hamkaran_ManCompany_FK <> 0
+				  AND mc.IndustryHdr_FK IS NOT NULL
+			) x
+			WHERE x.rn = 1;
+
+			CREATE CLUSTERED INDEX IX_HtsIndustry ON #HtsIndustry (HamkaranCompanyId);
+
 			UPDATE c
 			SET c.IndustryId = ind.Id
 			FROM SLS.Customer c
 			INNER JOIN Gnr.Party p ON p.Id = c.PartyId
-			OUTER APPLY (
-				SELECT TOP (1) mc.IndustryHdr_FK
-				FROM [TMS].[TotalSystem].[dbo].[Gnr_ManCompany] mc
-				WHERE p.HamkaranId IS NOT NULL
-				  AND mc.Hamkaran_ManCompany_FK IS NOT NULL
-				  AND mc.Hamkaran_ManCompany_FK <> 0
-				  AND CAST(mc.Hamkaran_ManCompany_FK AS BIGINT) = p.HamkaranId
-				  AND mc.IndustryHdr_FK IS NOT NULL
-				ORDER BY mc.ManCompany_ID
-			) mc
-			INNER JOIN Gnr.PartyIndustry ind ON ind.Code = CAST(mc.IndustryHdr_FK AS BIGINT)
+			INNER JOIN #HtsIndustry h ON h.HamkaranCompanyId = p.HamkaranId
+			INNER JOIN Gnr.PartyIndustry ind ON ind.Code = h.IndustryCode
 			WHERE c.IndustryId IS NULL OR c.IndustryId <> ind.Id;
+
+			SET @updatedRows = @@ROWCOUNT;
+
+			DROP TABLE #HtsIndustry;
 			""";
 
 		private class AddCustomerDto

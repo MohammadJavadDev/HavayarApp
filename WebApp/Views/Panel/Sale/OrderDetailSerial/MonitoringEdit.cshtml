@@ -4,6 +4,7 @@
 	var canInventory = ViewBag.CanEditInventory as bool? == true;
 	var canExit = ViewBag.CanEditExit as bool? == true;
 	var canIndustries = ViewBag.CanEditIndustries as bool? == true;
+	var requireIndustriesFields = ViewBag.RequireIndustriesFields as bool? != false;
 	var partCode = Model?.OrderDetail?.Part?.Code ?? "-";
 	var partName = Model?.OrderDetail?.Part?.Name ?? "-";
 	var orderNo = Model?.OrderDetail?.Sale_Order?.OrderNumber?.ToString() ?? "-";
@@ -113,26 +114,26 @@
 				</h5>
 			</div>
 			<div class="col-md-4 form-group-inline">
-				<label class="form-label required">تاریخ راه‌اندازی</label>
-				<input class="form-control" data-bind="launchShamsiDate" data-required="true"
+				<label class="form-label@(requireIndustriesFields ? " required" : "")">تاریخ راه‌اندازی</label>
+				<input class="form-control" data-bind="launchShamsiDate" @(requireIndustriesFields ? "data-required=\"true\"" : "")
 					data-persionDatePicker="true"
 					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
 					value="@Model?.LaunchMiladiDate" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>
 			<div class="col-md-4 form-group-inline">
-				<label class="form-label required">گارانتی ساعتی</label>
-				<input class="form-control" type="text" data-bind="guaranteeTime" data-required="true" value="@Model?.GuaranteeTime" />
+				<label class="form-label@(requireIndustriesFields ? " required" : "")">گارانتی ساعتی</label>
+				<input class="form-control" type="text" data-bind="guaranteeTime" @(requireIndustriesFields ? "data-required=\"true\"" : "") value="@Model?.GuaranteeTime" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>
 			<div class="col-md-4 form-group-inline">
-				<label class="form-label required">گارانتی ارسال</label>
-				<input class="form-control" type="text" data-bind="guaranteeSendDay" data-required="true" value="@Model?.GuaranteeSendDay" />
+				<label class="form-label@(requireIndustriesFields ? " required" : "")">گارانتی ارسال</label>
+				<input class="form-control" type="text" data-bind="guaranteeSendDay" @(requireIndustriesFields ? "data-required=\"true\"" : "") value="@Model?.GuaranteeSendDay" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>
 			<div class="col-md-4 form-group-inline">
-				<label class="form-label required">گارانتی راه‌اندازی</label>
-				<input class="form-control" type="text" data-bind="guaranteeLaunchDay" data-required="true" value="@Model?.GuaranteeLaunchDay" />
+				<label class="form-label@(requireIndustriesFields ? " required" : "")">گارانتی راه‌اندازی</label>
+				<input class="form-control" type="text" data-bind="guaranteeLaunchDay" @(requireIndustriesFields ? "data-required=\"true\"" : "") value="@Model?.GuaranteeLaunchDay" />
 				<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 			</div>
 			<div class="col-md-4 form-group-inline d-flex align-items-center mt-8">

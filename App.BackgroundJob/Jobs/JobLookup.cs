@@ -58,6 +58,18 @@ internal static class JobLookup
 			isPreferred);
 	}
 
+	/// <summary>
+	/// خلاصه‌ی چند شناسه برای پیام لاگ (پیش‌فرض ۲۰ مورد اول). برای جلوگیری از نوشتن یک ردیف JobLog به ازای هر رکورد.
+	/// </summary>
+	public static string SummarizeIds<T>(IReadOnlyCollection<T> ids, int maxItems = 20)
+	{
+		if (ids.Count == 0)
+			return "-";
+
+		var preview = string.Join(", ", ids.Take(maxItems));
+		return ids.Count > maxItems ? $"{preview} ... (مجموع {ids.Count})" : preview;
+	}
+
 	private static TSource PickPreferred<TSource>(
 		IEnumerable<TSource> group,
 		Func<TSource, long?>? idSelector,

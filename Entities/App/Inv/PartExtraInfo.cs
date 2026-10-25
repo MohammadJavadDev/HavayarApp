@@ -549,6 +549,10 @@ namespace Entities.App.Inv
 
 		public decimal? OilCapacityQty { get; set; }
 
+		[DisplayName("Oil Capacity Liter")]
+		[DisplayInfo(null, false, type: SystemType.Decimal)]
+		public decimal? OilCapacityLiter { get; set; }
+
 		[DisplayName("FanElectroMotor")]
 		[DisplayInfo(null, false, type: SystemType.String)]
 		[StringLength(256)]

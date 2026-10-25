@@ -604,6 +604,15 @@ DECLARE @WhereIndustrial nvarchar(max) = N'
 WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
   AND [t1].[CheckStatus] IN (1904, 1905)';
 
+-- کارتابل صنایع: همان ۱۹۰۴/۱۹۰۵، به‌علاوه ردیف‌هایی که کاربر جاری ساخته یا ویرایش کرده (معادل HTS HasPlanningPermission).
+DECLARE @WhereIndustrialCartable nvarchar(max) = N'
+WHERE [t1].[IsDeleted] = 0 AND [t1].[IsLatestVersion] = 1
+  AND (
+        [t1].[CheckStatus] IN (1904, 1905)
+     OR [t1].[CreatedById] = TRY_CAST(@CurrentUserId AS BIGINT)
+     OR [t1].[ModifiedById] = TRY_CAST(@CurrentUserId AS BIGINT)
+  )';
+
 DECLARE @FiltersIndustrial nvarchar(max) = N'[{"Id":"id_poi_isdel","TableName":"Sale.ProductionOrderItem","ColumnName":"IsDeleted","DataType":"bit","Operator":"equals","Value":"false","LogicalOperator":""},{"Id":"id_poi_islat","TableName":"Sale.ProductionOrderItem","ColumnName":"IsLatestVersion","DataType":"bit","Operator":"equals","Value":"true","LogicalOperator":"AND"},{"Id":"id_poi_chk","TableName":"Sale.ProductionOrderItem","ColumnName":"CheckStatus","DataType":"int","Operator":"in","Value":"1904,1905","LogicalOperator":"AND"}]';
 
 DECLARE @WhereAllActive nvarchar(max) = N'
@@ -656,11 +665,11 @@ WHERE q.Name = N'productionorderitem_listinfonew';
 PRINT N'  productionorderitem_listinfonew (اطلاعات ما): WHERE کارتابل صنایع (1904/1905) اعمال شد';
 
 UPDATE q
-SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereIndustrial),
+SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereIndustrialCartable),
     q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE()
 FROM system.SavedQuery q
 WHERE q.Name = N'POI_Cartable_Industrial';
-PRINT N'  POI_Cartable_Industrial: WHERE روی CustomQuery اعمال شد';
+PRINT N'  POI_Cartable_Industrial: WHERE کارتابل صنایع به‌همراه ردیف‌های خود کاربر اعمال شد';
 
 UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereAllActive), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_All_Active';
 UPDATE q SET q.QueryJson = JSON_MODIFY(q.QueryJson, '$.CustomQuery', @BaseCustomQuery + @WhereEng), q.ModifiedById = 1, q.ModifiedByName = N'seed-poi-dataprofiles', q.ModifiedDateMiladiDateTime = GETDATE() FROM system.SavedQuery q WHERE q.Name = N'POI_Cartable_Engineering';

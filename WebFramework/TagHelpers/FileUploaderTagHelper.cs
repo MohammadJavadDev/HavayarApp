@@ -17,7 +17,7 @@ namespace WebFramework.TagHelpers
         // Dropzone settings
         public bool Multiple { get; set; } = false;
         public int MaxFiles { get; set; } = 1;
-        public int MaxFileSize { get; set; } = 10; // MB
+        public int MaxFileSize { get; set; } = 100; // MB
         public string? AcceptedFileTypes { get; set; } // e.g., "image/*,.pdf,.doc,.docx"
         public bool ShowPreview { get; set; } = true;
         public bool ShowDownload { get; set; } = true;

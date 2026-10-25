@@ -1,4 +1,4 @@
-/*
+﻿/*
 ================================================================================
 Seed_ProductionOrderItem_NotificationGroups.sql
 ================================================================================
@@ -8,6 +8,7 @@ Seed_ProductionOrderItem_NotificationGroups.sql
   Code                                              معادل HTS
   ------------------------------------------------  ---------------------------------------------------------
   Sale.ProductionOrderItem.Industrial               GetIndustrialStaticReceivers / گیرندگان isSendToPlanningUnitMode
+  Sale.ProductionOrderItem.ItemAdded                رونوشت اعلان افزودن قلم/اقلام سفارش ساخت (بخشی از GetStaticReceivers)
   Sale.ProductionOrderItem.ProductionStatusChange   GetChangeStatusStaticReceivers (CC اعلان تغییر وضعیت تولید)
   Sale.ProductionOrderItem.TestStart                گروه کاربری 540 (شروع تست ۲۲۰۹ برای سفارش دارای مدیر پروژه)
   Sale.ProductionOrderItem.SerialChangeQc           گروه کاربری 538 (تغییر سریال قلم دارای بازرسی)
@@ -29,6 +30,7 @@ DECLARE @SeedUser NVARCHAR(150) = N'seed-poi-notificationgroups';
 DECLARE @Groups TABLE (Code NVARCHAR(100), DisplayName NVARCHAR(200), Description NVARCHAR(1500));
 INSERT INTO @Groups (Code, DisplayName, Description) VALUES
  (N'Sale.ProductionOrderItem.Industrial',             N'سفارش ساخت - اقلام - واحد صنایع',                    N'گیرندگان اعلان ارجاع قلم به کارتابل صنایع (معادل لیست ثابت صنایع در HTS)'),
+ (N'Sale.ProductionOrderItem.ItemAdded',              N'سفارش ساخت - اقلام - افزودن قلم',                    N'رونوشت اعلان افزودن قلم/اقلام سفارش ساخت هنگام ورود به کارتابل صنایع'),
  (N'Sale.ProductionOrderItem.ProductionStatusChange', N'سفارش ساخت - اقلام - تغییر وضعیت تولید',             N'CC ثابت اعلان تغییر وضعیت تولید قلم (معادل GetChangeStatusStaticReceivers در HTS)'),
  (N'Sale.ProductionOrderItem.TestStart',              N'سفارش ساخت - اقلام - شروع تست (IT Support)',          N'اعلان شروع تست تولید (۲۲۰۹) برای سفارش‌های دارای مدیر پروژه (معادل گروه 540 در HTS)'),
  (N'Sale.ProductionOrderItem.SerialChangeQc',         N'سفارش ساخت - اقلام - تغییر سریال (کنترل کیفیت)',      N'اعلان تغییر سریال قلمی که بازرسی حین ساخت دارد (معادل گروه 538 در HTS)'),

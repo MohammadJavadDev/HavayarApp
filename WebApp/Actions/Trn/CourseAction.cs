@@ -53,6 +53,7 @@ namespace WebApp.Actions.Trn
 		}
 
 		// R2-guard — Capacity may not drop below the already-registered count (both tracks).
+		// RemainingCapacity is Capacity minus enrolled, so raising or lowering Capacity updates the leftover seats.
 		[EntityAction(typeof(Course), EntityActionTrigger.BeforeUpdate, "CheckCapacityNotBelowEnrolled", "کنترل عدم کاهش ظرفیت زیر تعداد ثبت‌نام‌شدگان", Priority = 1)]
 		public async Task CheckCapacityNotBelowEnrolled(Course entity, CancellationToken ct)
 		{
@@ -69,7 +70,8 @@ namespace WebApp.Actions.Trn
 			if (entity.Capacity < enrolled)
 				throw new Exception($"ظرفیت دوره ({entity.Capacity}) نمی‌تواند کمتر از تعداد ثبت‌نام‌شدگان ({enrolled}) باشد.");
 
-			await Task.CompletedTask;
+			var remaining = (short)(entity.Capacity - enrolled);
+			entity.RemainingCapacity = remaining < 0 ? (short)0 : remaining;
 		}
 	}
 }

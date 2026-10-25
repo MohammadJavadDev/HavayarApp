@@ -1,3 +1,4 @@
+using Common;
 using Common.Attributes;
 using Common.Auth.Enums;
 using Common.Utilities;
@@ -11,9 +12,13 @@ using Entities.App.Sale;
 using Entities.App.Sale.Enums;
 using Entities.Base;
 using Entities.Base.DataTable;
+using Entities.Base.Enums;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Services.ProductionOrderServices;
 using System.Text;
+using WebApp.Framework;
+using WebFramework.Api;
 using WebFramework.Filtters;
 using WebFramework.Page;
 
@@ -30,6 +35,16 @@ namespace WebApp.Controllers.Dynamic
 		ApplicationDbContext _context
 		) : BaseController
 	{
+		/// <summary>معادل HTS SendChangePartNotificationEmail — گیرندگان «ایجاد/تغییر در اقلام»</summary>
+		private const string FormulChangeAppliedGroup = "Bom.FormulChange.Applied";
+		/// <summary>گیرندگان اضافه وقتی قطعه در BOM قلم سفارش ساخت باز هم هست</summary>
+		private const string FormulChangeAppliedExtraGroup = "Bom.FormulChange.AppliedExtra";
+		/// <summary>CC ثابت اعلان اعمال تغییر BOM محصول</summary>
+		private const string FormulChangeAppliedCcGroup = "Bom.FormulChange.AppliedCc";
+		/// <summary>معادل HTS SendEmailNotificationForEngineeringRequests — To</summary>
+		private const string FormulChangeCartableGroup = "Bom.FormulChange.Cartable";
+		/// <summary>معادل HTS SendEmailNotificationForEngineeringRequests — CC صنایع</summary>
+		private const string FormulChangeCartableCcGroup = "Bom.FormulChange.CartableCc";
 		[HttpPost("[action]")]
 		[ActionDisplayName("ذخیره", ActionAccessType.Api, ActionAccessItemType.Save)]
 		public async Task<IActionResult> Save(FormulChangeRequest formulChangeRequest, CancellationToken cn)
@@ -52,8 +67,11 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("درج", ActionAccessType.Api, ActionAccessItemType.Create)]
 		public async Task<IActionResult> Add(FormulChangeRequest formulChangeRequest, CancellationToken cn)
 		{
+			// درخواست جدید همیشه از «ثبت اولیه» شروع می‌شود؛ وضعیت ارسالی کلاینت نادیده گرفته می‌شود
+			formulChangeRequest.Status = FormulChangeRequestStatusEnum.InitialRegistration;
 			var entity = await unitOfWork.Repository<FormulChangeRequest>().SaveAsync(formulChangeRequest, cn, true);
 			await SaveComment(entity);
+			await SendEngineeringCartableEmailAsync(entity, cn);
 			return Ok(entity);
 		}
 
@@ -61,12 +79,43 @@ namespace WebApp.Controllers.Dynamic
 		[ActionDisplayName("ویرایش", ActionAccessType.Api, ActionAccessItemType.Update)]
 		public async Task<IActionResult> Update(FormulChangeRequest formulChangeRequest, CancellationToken cn)
 		{
+			#region کنترل دسترسی و مجاز بودن تغییر وضعیت (معادل PermissionType های 80/81/82/84 در HTS)
+
+			var stored = await unitOfWork.Repository<FormulChangeRequest>().TableNoTracking
+				.Where(c => c.Id == formulChangeRequest.Id)
+				.Select(c => new { c.Status })
+				.FirstOrDefaultAsync(cn);
+			if (stored == null)
+				return BadRequest("درخواست مورد نظر یافت نشد");
+
+			var oldStatus = stored.Status;
+			var newStatus = formulChangeRequest.Status;
+			Func<string, bool> hasRole = CurrentUserHasRole;
+
+			if (newStatus != oldStatus
+				&& (!newStatus.HasValue || !FormulChangeRequestWorkflow.GetNextStatuses(oldStatus).Contains(newStatus.Value)))
+				return BadRequest($"تغییر وضعیت از «{oldStatus?.ToDisplay()}» به «{newStatus?.ToDisplay()}» مجاز نیست");
+
+			if (!FormulChangeRequestWorkflow.HasStageRole(IsAdministrator, hasRole, oldStatus))
+				return AccessDenied("شما دسترسی لازم برای اقدام روی این مرحله از درخواست را ندارید");
+
+			#endregion
+
 			var entity = await unitOfWork.Repository<FormulChangeRequest>().UpdateAsync(formulChangeRequest, cn, true);
 			await SaveComment(entity);
 			if (entity.Status == FormulChangeRequestStatusEnum.EndOperation)
 				 await ChangeBom(entity, cn);
+			else if (entity.Status.HasValue && entity.Status != oldStatus)
+				await SendStatusChangeEmailAsync(entity, oldStatus, entity.Status.Value, cn);
 			return Ok(entity);
 		}
+
+		/// <summary>پاسخ استاندارد عدم دسترسی: { isSuccess:false, statusCode:UnAuthorized, message } با HTTP 403.</summary>
+		private IActionResult AccessDenied(string message)
+			=> new JsonResult(new ApiResult(false, ApiResultStatusCode.UnAuthorized, message))
+			{
+				StatusCode = StatusCodes.Status403Forbidden
+			};
 
 		[HttpGet("[action]")]
 		[ActionDisplayName("حذف", ActionAccessType.Api, ActionAccessItemType.Delete)]
@@ -295,7 +344,7 @@ namespace WebApp.Controllers.Dynamic
 
 			#region ارسال ایمیل اطلاع رسانی نهایی
 
-			SendChangePartNotificationEmail(entity);
+			await SendChangePartNotificationEmailAsync(entity, cn);
 
 			#endregion
 
@@ -345,20 +394,229 @@ namespace WebApp.Controllers.Dynamic
 			}
 		}
 
-		private void SendChangePartNotificationEmail(FormulChangeRequest entity)
+		/// <summary>
+		/// معادل HTS SendChangePartNotificationEmail: پس از افزودن/ویرایش/حذف قلم BOM محصول، ایمیل «ایجاد/تغییر در اقلام».
+		/// </summary>
+		private async Task SendChangePartNotificationEmailAsync(FormulChangeRequest entity, CancellationToken cn)
 		{
-			var content = GetNotificationEmailMessage(entity, out var partCode, out var hasProductionOrderItemRecord, true);
-			
-			if(hasProductionOrderItemRecord)
+			try
 			{
+				var content = GetNotificationEmailMessage(entity, out var partCode, out var hasProductionOrderItemRecord, true);
+				if (!content.HasValue())
+					return;
 
+				var to = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, FormulChangeAppliedGroup, cn);
+				if (hasProductionOrderItemRecord)
+					to.AddRange(await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, FormulChangeAppliedExtraGroup, cn));
+
+				var cc = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, FormulChangeAppliedCcGroup, cn);
+				cc.AddRange(await GetPartFamilyEmailsAsync(partCode, cn));
+
+				await ProductionOrderItemNotificationHelper.QueueEmailAsync(
+					unitOfWork,
+					"ایجاد/تغییر در اقلام",
+					content,
+					to,
+					cc,
+					entity.Id,
+					CurrentUserId ?? 0,
+					entity.Id is > 0 ? $"Panel/Bom/FormulChangeRequest/Edit/{entity.Id}" : null,
+					cn);
 			}
-		
-			//TODO Complete SendEmail
+			catch
+			{
+				// شکست اعلان نباید اعمال BOM را متوقف کند
+			}
 		}
 
-		private string GetNotificationEmailMessage(FormulChangeRequest entity, out string partCode, out bool hasProductionOrderItemRecord, bool changedPart = false)
+		/// <summary>
+		/// معادل HTS SendEmailNotificationForEngineeringRequests: با ثبت درخواست، مهندسی (To) و صنایع (CC) کارتابل را می‌بینند.
+		/// </summary>
+		private async Task SendEngineeringCartableEmailAsync(FormulChangeRequest entity, CancellationToken cn)
 		{
+			try
+			{
+				var content = GetNotificationEmailMessage(entity, out _, out _, false);
+				if (!content.HasValue())
+					return;
+
+				var to = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, FormulChangeCartableGroup, cn);
+				var cc = await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, FormulChangeCartableCcGroup, cn);
+
+				await ProductionOrderItemNotificationHelper.QueueEmailAsync(
+					unitOfWork,
+					"درخواست مشاهده کارتابل",
+					content,
+					to,
+					cc,
+					entity.Id,
+					CurrentUserId ?? 0,
+					entity.Id is > 0 ? $"Panel/Bom/FormulChangeRequest/Edit/{entity.Id}" : null,
+					cn);
+			}
+			catch
+			{
+				// شکست اعلان نباید ثبت درخواست را متوقف کند
+			}
+		}
+
+		/// <summary>
+		/// معادل HTS SendCommentNotificationEmail: پس از هر تغییر وضعیت، کاربران نقشِ مرحلهٔ بعد (برنامه‌ریزی / QC / مهندسی / اعمال نهایی)
+		/// ایمیل «درخواست مشاهده کارتابل» می‌گیرند تا در سیستم اقدام کنند. در عدم تایید برنامه‌ریزی گیرنده ایجادکنندهٔ درخواست است.
+		/// ایجادکننده در CC همهٔ این ایمیل‌ها است و شخص اقدام‌کننده از گیرندگان حذف می‌شود.
+		/// </summary>
+		private async Task SendStatusChangeEmailAsync(FormulChangeRequest entity, FormulChangeRequestStatusEnum? from, FormulChangeRequestStatusEnum to, CancellationToken cn)
+		{
+			try
+			{
+				// ارسال مجدد پس از «عدم تایید برنامه ریزی» مثل ثبت درخواست تازه به کارتابل مهندسی می‌رود
+				if (to == FormulChangeRequestStatusEnum.InitialRegistration)
+				{
+					await SendEngineeringCartableEmailAsync(entity, cn);
+					return;
+				}
+
+				var content = GetNotificationEmailMessage(entity, out _, out _, false, from, to);
+				if (!content.HasValue())
+					return;
+
+				var creatorId = await unitOfWork.Repository<FormulChangeRequest>().TableNoTracking
+					.Where(c => c.Id == entity.Id)
+					.Select(c => c.CreatedById)
+					.FirstOrDefaultAsync(cn);
+				string? creatorEmail = null;
+				if (creatorId.HasValue)
+				{
+					creatorEmail = await _context.Users.AsNoTracking()
+						.Where(u => u.Id == creatorId)
+						.Select(u => u.Email)
+						.FirstOrDefaultAsync(cn);
+				}
+
+				var toList = new List<string>();
+				var notifyRole = FormulChangeRequestWorkflow.GetNotifyRole(to);
+				if (notifyRole != null)
+					toList.AddRange(await ProductionOrderItemNotificationHelper.GetRoleEmailsAsync(_context, notifyRole, cn));
+				else if (creatorEmail.HasValue())
+					toList.Add(creatorEmail!);
+
+				var cc = new List<string>();
+				if (creatorEmail.HasValue())
+					cc.Add(creatorEmail!);
+				cc.AddRange(await ProductionOrderItemNotificationHelper.GetGroupEmailsAsync(unitOfWork, FormulChangeCartableCcGroup, cn));
+
+				// شخص اقدام‌کننده نیازی به ایمیل ندارد
+				var actorEmail = CurrentUserEmail;
+				if (actorEmail.HasValue())
+				{
+					toList.RemoveAll(e => string.Equals(e, actorEmail, StringComparison.OrdinalIgnoreCase));
+					cc.RemoveAll(e => string.Equals(e, actorEmail, StringComparison.OrdinalIgnoreCase));
+				}
+
+				await ProductionOrderItemNotificationHelper.QueueEmailAsync(
+					unitOfWork,
+					"درخواست مشاهده کارتابل",
+					content,
+					toList,
+					cc,
+					entity.Id,
+					CurrentUserId ?? 0,
+					entity.Id is > 0 ? $"Panel/Bom/FormulChangeRequest/Edit/{entity.Id}" : null,
+					cn);
+			}
+			catch
+			{
+				// شکست اعلان نباید تغییر وضعیت را متوقف کند
+			}
+		}
+
+		private string BuildAbsoluteRequestUrl(long? id)
+		{
+			var config = HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>();
+			var baseUrl = config["WebAppBaseUrl"];
+			if (!baseUrl.HasValue())
+				baseUrl = "https://portal.havayar.com";
+			return $"{baseUrl!.TrimEnd('/')}/Panel/Bom/FormulChangeRequest/Edit?id={id}";
+		}
+
+		/// <summary>معادل HTS PartService.GetEmailAddressByPartCode — CC بر اساس پیشوند کد محصول مادر.</summary>
+		private async Task<List<string>> GetPartFamilyEmailsAsync(string? partCode, CancellationToken cn)
+		{
+			if (!partCode.HasValue())
+				return new List<string>();
+
+			var productCodes = await (
+				from item in _context.vw_ProductItems.AsNoTracking()
+				join formul in _context.Set<ProductFormul>().AsNoTracking() on item.ProductFormulId equals formul.Id
+				join product in _context.Set<Part>().AsNoTracking() on formul.ProductId equals product.Id
+				where item.PardCode == partCode && product.Code != null
+				select product.Code!
+			).Distinct().ToListAsync(cn);
+
+			var usernames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (var code in productCodes)
+			{
+				if (code.Length < 6)
+					continue;
+				if (PartFamilyUsernames.TryGetValue(code[..6], out var family))
+				{
+					foreach (var username in family)
+						usernames.Add(username);
+				}
+			}
+
+			if (usernames.Count == 0)
+				return new List<string>();
+
+			var nameList = usernames.ToList();
+			return await _context.Users.AsNoTracking()
+				.Where(u => u.IsActive == IsActiveEnum.Active && u.Username != null && nameList.Contains(u.Username))
+				.Select(u => u.Email != null && u.Email != "" ? u.Email : u.Username + "@havayar.com")
+				.ToListAsync(cn);
+		}
+
+		private static readonly Dictionary<string, string[]> PartFamilyUsernames = new(StringComparer.OrdinalIgnoreCase)
+		{
+			["180110"] = ["kadkhodaei.v", "Mirlohi.a", "vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+			["180117"] = ["m.nikpour", "marashi.m", "azami.s", "Asgari.v", "norouzi.m", "Sazvar.m"],
+			["180143"] = ["m.nikpour", "marashi.m", "azami.s", "Asgari.v", "norouzi.m", "Sazvar.m"],
+			["180141"] = ["mahani.b", "golestaneh.m", "Ahmadpour.s", "ebrahimi.f"],
+			["180190"] = ["javadian.p", "Samii.m", "Saeedi.m", "Bamimohammadi.gh", "kadkhodaei.v"],
+			["180195"] = ["javadian.p", "Samii.m", "Saeedi.m", "Bamimohammadi.gh", "kadkhodaei.v"],
+			["180112"] = ["javadian.p", "Samii.m", "Saeedi.m", "Bamimohammadi.gh", "kadkhodaei.v"],
+			["180130"] = ["javadian.p", "Samii.m", "Saeedi.m", "Bamimohammadi.gh", "kadkhodaei.v"],
+			["180214"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180215"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180213"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180223"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180224"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180225"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180610"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180611"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180612"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180613"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180614"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180711"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180710"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180812"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["180910"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["181012"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["181110"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["181510"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["181610"] = ["Ghorbani.z", "Neysari.n", "Kondori.v", "Erfani.m", "Nikzaban.a", "kadkhodaei.v"],
+			["182110"] = ["bagheri.m", "noroozi.s", "sharifi.mo", "Rostampoor.a"],
+			["400810"] = ["vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+			["180410"] = ["vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+			["180217"] = ["vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+			["180140"] = ["vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+			["180310"] = ["vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+			["181115"] = ["vatanchi.a", "kalhor.m", "khalili.s", "masoudi.l", "piri.m", "masoumi.s"],
+		};
+
+		private string GetNotificationEmailMessage(FormulChangeRequest entity, out string partCode, out bool hasProductionOrderItemRecord, bool changedPart = false,
+			FormulChangeRequestStatusEnum? statusFrom = null, FormulChangeRequestStatusEnum? statusTo = null)
+		{
+			var isStatusChange = statusTo.HasValue;
 			partCode = null;
 			hasProductionOrderItemRecord = false;
 
@@ -394,6 +652,12 @@ namespace WebApp.Controllers.Dynamic
 			content.AppendLine("<div  style='font-size:14.0pt;font-family:Zar;color:#1F497D;text-align:right;direction:rtl'>");
 			content.AppendLine("با سلام و احترام <br />");
 
+			if (isStatusChange)
+			{
+				content.Append($"وضعیت درخواست ویرایش اقلام فرمول شماره <strong>'{item.Id}'</strong> ");
+				content.Append($"از <strong>'{statusFrom?.ToDisplay()}'</strong> به <strong>'{statusTo?.ToDisplay()}'</strong> تغییر کرد.");
+				content.Append("<br /><br />");
+			}
 
 			var hasAlternativePart = item.ReplacementPartId.HasValue;
 
@@ -403,28 +667,32 @@ namespace WebApp.Controllers.Dynamic
 			{
 				content.Append(changedPart ? "تغییر قطعه " : "درخواست تغییر قطعه ");
 
-				content.Append($"<strong>'{item.Part?.Code} - {item.Part.Name}'</strong> ");
+				content.Append($"<strong>'{item.Part?.Code} - {item.Part?.Name}'</strong> ");
 				content.Append("<br/>");
 
 				content.Append("با قطعه ");
-				content.Append($"<strong>'{item.ReplacementPart.Code} - {item.ReplacementPart.Name}'</strong> ");
+				content.Append($"<strong>'{item.ReplacementPart?.Code} - {item.ReplacementPart?.Name}'</strong> ");
 			}
 			else
 			{
-				if (entity.OperationType == FormulChangeRequestOperationTypeEnum.Deleted)
+				if (item.OperationType == FormulChangeRequestOperationTypeEnum.Deleted)
 					content.Append(changedPart ? "حذف قطعه " : "درخواست حذف قطعه ");
 				else
 					content.Append(changedPart ? "ایجاد قطعه " : "درخواست ایجاد قطعه ");
 
-				content.Append($"<strong>'{item.Part.Code} - {item.Part.Name}'</strong> ");
+				content.Append($"<strong>'{item.Part?.Code} - {item.Part?.Name}'</strong> ");
 				content.Append("<br/>");
 			}
 
-			if (item.ChangedProductGroupNames.HasValue())
+			var groupNames = changedPart ? item.ChangedProductGroupNames : item.ProductGroupNames;
+			var productNames = changedPart ? item.ChangedProductFormulNames : item.ProductFormulNames;
+			var formulaNames = changedPart ? item.ChangedFormulNames : null;
+
+			if (groupNames.HasValue())
 			{
 				content.Append("در گروه محصول(های) ");
 				content.Append("<ul>");
-				foreach (var groupItem in item.ChangedProductGroupNames.Split(","))
+				foreach (var groupItem in groupNames.Split(","))
 				{
 					content.Append("<li>");
 					content.Append($"<strong>{groupItem}</strong>");
@@ -433,11 +701,11 @@ namespace WebApp.Controllers.Dynamic
 				content.Append("</ul>");
 			}
 
-			if (item.ChangedProductFormulNames.HasValue())
+			if (productNames.HasValue())
 			{
 				content.Append("در محصول(های) ");
 				content.Append("<ul>");
-				foreach (var productItem in item.ChangedProductFormulNames.Split(","))
+				foreach (var productItem in productNames.Split(","))
 				{
 					content.Append("<li>");
 					content.Append($"<strong>{productItem}</strong>");
@@ -445,30 +713,32 @@ namespace WebApp.Controllers.Dynamic
 				}
 				content.Append("</ul>");
 			}
-			else if (!item.ChangedProductGroupNames.HasValue() && item.ChangedFormulNames.HasValue())
+			else if (!groupNames.HasValue() && formulaNames.HasValue())
+			{
+				content.Append("در فرمول(های) ");
+				content.Append("<ul>");
+				foreach (var formulaItem in formulaNames.Split(","))
 				{
-					content.Append("در فرمول(های) ");
-
-					content.Append("<ul>");
-					foreach (var formulaItem in item.ChangedFormulNames.Split(","))
-					{
-						content.Append("<li>");
-						content.Append($"<strong>{formulaItem}</strong>");
-						content.Append("</li>");
-					}
-					content.Append("</ul>");
+					content.Append("<li>");
+					content.Append($"<strong>{formulaItem}</strong>");
+					content.Append("</li>");
 				}
+				content.Append("</ul>");
+			}
 				content.Append("<br />");
 
 				content.Append($"بواسطه <strong>'{CurrentUserFullNameFn}'</strong> ");
 				content.Append($"در تاریخ <strong>'{DateTime.Now.ToShamsiDateTime()}'</strong> ");
-				content.Append(changedPart ? "انجام گردید " : "ایجاد گردید ");
+				if (isStatusChange)
+					content.Append("ثبت گردید ");
+				else
+					content.Append(changedPart ? "انجام گردید " : "ایجاد گردید ");
 
 			 
 
 			#region  اقلام سفارش ساخت جهت اعلان به مهندسی BOM بررسی قلم تغییر یافته در  
 
-			var partId = entity.ReplacementPartId ?? entity.PartId;
+			var partId = item.ReplacementPartId ?? item.PartId;
 				var productionOrderItemBomList = unitOfWork.Repository<ProductionOrderItemBom>()
 						.TableNoTracking
 						.Where(p => !p.ProductionOrderItem.IsDeleted &&
@@ -518,8 +788,19 @@ namespace WebApp.Controllers.Dynamic
 
 				#endregion
 
-				
-			
+			if (isStatusChange)
+			{
+				if (entity.Description.HasValue())
+				{
+					content.Append("<br /><br />");
+					content.Append($"توضیحات : <strong>{System.Net.WebUtility.HtmlEncode(entity.Description)}</strong>");
+				}
+
+				content.Append("<br /><br />");
+				content.Append("لطفاً جهت بررسی و اقدام، درخواست را در سیستم مشاهده فرمایید.");
+				content.Append("<br />");
+				content.Append($"<a href='{System.Net.WebUtility.HtmlEncode(BuildAbsoluteRequestUrl(item.Id))}'>مشاهده درخواست</a>");
+			}
 
 			content.Append("</div>");
 			content.Append("</td>");

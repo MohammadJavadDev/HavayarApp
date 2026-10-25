@@ -102,7 +102,7 @@ SELECT
     v.Weight AS WeightFactor, v.ClassDocument AS DocClassEnum, v.Type AS DocTypeEnum,
     v.Displaying AS DisciplineEnum,
     v.FirstDegreeDocumentMiladiDate AS FirstIssueDate, v.ReplaceMiladiDate AS RePlanDate,
-    v.ProducerId AS MainResponsibleId, v.ReviewerNames AS Responsible,
+    v.ProducerId AS MainResponsibleId, v.ReviewersId,
     v.ProducerId, v.ApproverId,
     p.Id AS ProjectId, p.Code AS ProjectCode, p.Name AS ProjectName,
     p.ProjectIsVendoriType AS IsVendorProject,
@@ -114,7 +114,7 @@ FROM Edms.ProjectVpis v
 INNER JOIN Edms.Project p ON p.Id = v.ProjectNameId
 LEFT JOIN Hrm.OrgUnit ou ON ou.Id = p.SubjectUnitId
 WHERE ISNULL(v.IsActive, 1) <> 2 AND ISNULL(p.IsActive, 1) <> 2
-  AND p.Status NOT IN (0, 2); -- قدیم: شروع‌نشده(3)/خاتمه‌یافته(5)
+  AND p.Status NOT IN (0, 2, 4); -- شروع‌نشده(0) / خاتمه‌یافته(2) / متوقف‌شده(4)
 
 IF OBJECT_ID('tempdb..#Documents') IS NOT NULL DROP TABLE #Documents;
 SELECT d.Id, d.DocumentVpisId, d.Revision, d.GoalOfProduction, d.HourPrePerson,
@@ -188,7 +188,7 @@ SELECT
         WHEN lv.LastNonReplayStatus = 17 THEN
             CASE WHEN lv.CntAll <= 2 THEN N'Not Issued' ELSE lc.LastClientTitle END
         WHEN lv.LastNonReplayStatus = 21 THEN
-            CASE WHEN lv.CntAll <= 2 THEN N'Re Issued' ELSE lc.LastClientTitle END
+            CASE WHEN lv.CntAll <= 2 THEN N'ReIssued' ELSE lc.LastClientTitle END
         ELSE N'Not Issued'
     END AS ValidStatus
 INTO #RevisionValidStatus
@@ -436,8 +436,9 @@ SELECT
     vb.ProjectCode, vb.ProjectName, vb.BeneficiaryUnit,
     vb.DocumentNumber, vb.DocumentTitle,
     CASE vb.DisciplineEnum WHEN 0 THEN 'GN' ELSE CAST(vb.DisciplineEnum AS VARCHAR(10)) END AS Disipline,
-    vb.MainResponsibleId, vb.Responsible,
-    checker.FullNameEn AS Checker,
+    vb.MainResponsibleId,
+    producer.FullNameEn AS Responsible,
+    checker.Checker AS Checker,
     approver.FullNameEn AS Approver,
     CAST(ISNULL(gpf.Progress,0) * ISNULL(vb.WeightFactor,0) / 100.0 AS DECIMAL(18,4)) AS OverallProgress,
     vb.WeightFactor,
@@ -488,7 +489,12 @@ SELECT
     vis.InternalStatus,
     vb.IsVendorProject
 FROM #VpisBase vb
-LEFT JOIN UserEn checker ON checker.Id = vb.ProducerId
+LEFT JOIN UserEn producer ON producer.Id = vb.ProducerId
+OUTER APPLY (
+    SELECT STRING_AGG(u.FullNameEn, ',') AS Checker
+    FROM STRING_SPLIT(ISNULL(vb.ReviewersId, N''), ',') s
+    INNER JOIN UserEn u ON u.Id = TRY_CAST(LTRIM(RTRIM(s.value)) AS BIGINT)
+) checker
 LEFT JOIN UserEn approver ON approver.Id = vb.ApproverId
 LEFT JOIN #Documents d0 ON d0.DocumentVpisId = vb.VpisId AND d0.RevIndex = 0
 LEFT JOIN LastVpisComment lvc ON lvc.DocumentVpisId = vb.VpisId

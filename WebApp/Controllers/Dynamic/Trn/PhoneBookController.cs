@@ -113,13 +113,11 @@ namespace WebApp.Controllers.Dynamic
 				{
 					Id = c.Id,
 					CompanyId = c.CompanyId,
-					FirstName = c.FirstName,
-					LastName = c.LastName,
-					Position = c.Position,
-					InnerPhone = c.InnerPhone,
-					DirectPhone = c.DirectPhone,
-					Mobile = c.Mobile,
-					Email = c.Email
+					DepartmentTitle = c.DepartmentTitle,
+					PhoneNumber = c.PhoneNumber,
+					FaxNumber = c.FaxNumber,
+					CreatedByName = c.CreatedByName,
+					CreatedOnShamsiDateTime = c.CreatedOnShamsiDateTime
 				})
 				.ToListAsync(cn);
 
@@ -144,12 +142,10 @@ namespace WebApp.Controllers.Dynamic
 	{
 		public long? Id { get; set; }
 		public long? CompanyId { get; set; }
-		public string? FirstName { get; set; }
-		public string? LastName { get; set; }
-		public string? Position { get; set; }
-		public string? InnerPhone { get; set; }
-		public string? DirectPhone { get; set; }
-		public string? Mobile { get; set; }
-		public string? Email { get; set; }
+		public string? DepartmentTitle { get; set; }
+		public string? PhoneNumber { get; set; }
+		public string? FaxNumber { get; set; }
+		public string? CreatedByName { get; set; }
+		public string? CreatedOnShamsiDateTime { get; set; }
 	}
 }

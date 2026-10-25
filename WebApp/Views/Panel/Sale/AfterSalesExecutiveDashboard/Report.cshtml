@@ -1,0 +1,341 @@
+@using Common.Utilities
+@{
+	ViewData["Title"] = "داشبورد خدمات پس از فروش";
+	var today = DateTime.Today;
+	var todayShamsi = today.ToShamsiDate();
+	var firstDayOfYear = string.Concat(todayShamsi.Split('/')[0], "/01/01");
+}
+
+<style>
+	#afterSalesExecPage .ased-summary-value {
+		font-size: 1.5rem;
+		font-weight: 700;
+	}
+
+	#afterSalesExecPage .ased-summary-card {
+		min-height: 120px;
+	}
+
+	#afterSalesExecPage .ased-definition {
+		font-size: 0.75rem;
+		line-height: 1.5;
+		margin-top: 0.5rem;
+	}
+
+	#afterSalesExecPage svg text {
+		font-family: inherit !important;
+	}
+</style>
+
+<div id="afterSalesExecPage">
+
+	<div class="card mb-4">
+		<div class="card-header align-items-center">
+			<div class="card-title">
+				<div>
+					<h3 class="mb-1">داشبورد مدیریتی خدمات پس از فروش</h3>
+					<div class="text-muted fs-7">
+						مانده‌های قابل‌اتکا همین لحظه؛ بازه تاریخ فقط روی نمودار «ثبت‌شده در بازه» اعمال می‌شود
+					</div>
+				</div>
+			</div>
+			<div class="card-toolbar flex-wrap gap-2">
+				<button type="button" class="btn btn-sm btn-primary" id="btnLoadAfterSalesExec">
+					<i class="ki-duotone ki-magnifier fs-4"></i> نمایش
+				</button>
+			</div>
+		</div>
+		<div class="card-body row g-3 align-items-end">
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">از تاریخ (روند ثبت)</label>
+				<input class="form-control ltr" id="asedFromDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">تا تاریخ (روند ثبت)</label>
+				<input class="form-control ltr" id="asedToDate" data-persionDatePicker="true"
+					persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose":true,"initialValue":false,"timePicker":{"enabled":false}}' />
+			</div>
+			<div class="col-md-4">
+				<div class="text-muted fs-7" id="asedAsOfText">زمان محاسبه: -</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="text-muted fs-7 mb-3" id="asedStockLabel">وضعیت همین لحظه</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-md-4">
+			<div class="card ased-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">منتظر اعزام</div>
+					<div class="ased-summary-value text-warning" id="asedWaitingCount">-</div>
+					<div class="text-muted ased-definition" id="asedWaitingDefinition"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4">
+			<div class="card ased-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">تعمیر باز</div>
+					<div class="ased-summary-value text-primary" id="asedOpenRepairsCount">-</div>
+					<div class="text-muted ased-definition" id="asedOpenRepairsDefinition"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-4" id="asedCngCardWrap">
+			<div class="card ased-summary-card h-100">
+				<div class="card-body py-4">
+					<div class="text-muted">تعمیر باز جایگاه CNG</div>
+					<div class="ased-summary-value text-success" id="asedOpenCngCount">-</div>
+					<div class="text-muted ased-definition" id="asedOpenCngDefinition"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4">
+		<div class="col-lg-6">
+			<div class="card h-100">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">تعمیر باز به تفکیک وضعیت</h3>
+						<div class="text-muted fs-8 mt-1">وضعیت تعمیرات باز</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="asedOpenRepairsChart" style="min-height:360px"></div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-6" id="asedCngChartWrap">
+			<div class="card h-100">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">تعمیر باز جایگاه CNG به تفکیک وضعیت</h3>
+						<div class="text-muted fs-8 mt-1">وضعیت تعمیرات باز جایگاه CNG</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="asedOpenCngChart" style="min-height:360px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="row g-3 mb-4" id="asedTrendWrap">
+		<div class="col-12">
+			<div class="card">
+				<div class="card-header">
+					<div>
+						<h3 class="card-title mb-0">ثبت‌شده در بازه</h3>
+						<div class="text-muted fs-8 mt-1" id="asedTrendSubtitle">درخواست پشتیبانی غیرصوری به تفکیک ماه شمسی ایجاد</div>
+					</div>
+				</div>
+				<div class="card-body">
+					<div id="asedRegisteredTrendChart" style="min-height:380px"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<script src="~/panelLib/plugins/custom/apexcharts/apexcharts.bundle.js"></script>
+<script>
+	const dataUrl = '/Panel/Sale/AfterSalesExecutiveDashboard/GetData';
+	const firstDayOfYear = '@firstDayOfYear';
+	const todayShamsi = '@todayShamsi';
+
+	const $page = $$('#afterSalesExecPage');
+	const $fromDate = $$('#asedFromDate');
+	const $toDate = $$('#asedToDate');
+	const $loadButton = $$('#btnLoadAfterSalesExec');
+
+	let openRepairsChart = null;
+	let openCngChart = null;
+	let registeredTrendChart = null;
+
+	function escapeHtml(value) {
+		const element = document.createElement('div');
+		element.textContent = value == null ? '' : String(value);
+		return element.innerHTML;
+	}
+
+	function formatNumber(value) {
+		if (value === null || value === undefined || value === '') return '-';
+		const number = Number(value);
+		if (!Number.isFinite(number)) return escapeHtml(value);
+		return number.toLocaleString('fa-IR', { maximumFractionDigits: 0 });
+	}
+
+	function unwrap(response) {
+		return response && response.data !== undefined ? response.data : response;
+	}
+
+	function errorMessage(response) {
+		return (response && (response.message || response.Message)) || 'خطا در دریافت اطلاعات';
+	}
+
+	function getFilter() {
+		return {
+			fromDateShamsi: $fromDate.val() || null,
+			toDateShamsi: $toDate.val() || null
+		};
+	}
+
+	function whenApexReady(callback) {
+		if (typeof window.ApexCharts !== 'undefined') {
+			callback();
+			return;
+		}
+
+		let attempts = 0;
+		const timer = setInterval(function () {
+			attempts++;
+			if (typeof window.ApexCharts !== 'undefined') {
+				clearInterval(timer);
+				callback();
+			} else if (attempts > 100) {
+				clearInterval(timer);
+				toastr.error('کتابخانه نمودار بارگذاری نشد.', 'خطا');
+			}
+		}, 100);
+	}
+
+	function renderOrUpdateChart(existing, elementId, options) {
+		const el = $$('#' + elementId)[0];
+		if (!el) return existing;
+		if (existing) {
+			existing.updateOptions(options);
+			return existing;
+		}
+		const chart = new ApexCharts(el, options);
+		chart.render();
+		return chart;
+	}
+
+	function donutOptions(labels, series, title) {
+		return {
+			chart: { type: 'donut', height: 360, fontFamily: 'inherit', toolbar: { show: false } },
+			labels: labels,
+			series: series,
+			legend: { position: 'bottom', fontFamily: 'inherit' },
+			dataLabels: {
+				enabled: true,
+				formatter: function (val, opts) {
+					const count = opts.w.config.series[opts.seriesIndex];
+					return Number(count).toLocaleString('fa-IR');
+				}
+			},
+			tooltip: {
+				y: { formatter: function (v) { return Number(v).toLocaleString('fa-IR'); } }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' },
+			title: title ? { text: title, align: 'center', style: { fontSize: '12px', fontWeight: 400 } } : undefined
+		};
+	}
+
+	function columnOptions(categories, data) {
+		return {
+			chart: { type: 'bar', height: 380, fontFamily: 'inherit', toolbar: { show: false } },
+			plotOptions: { bar: { columnWidth: '55%' } },
+			series: [{ name: 'ثبت‌شده', data: data }],
+			colors: ['#009ef7'],
+			xaxis: { categories: categories },
+			legend: { show: false },
+			dataLabels: {
+				enabled: true,
+				formatter: function (v) { return Number(v).toLocaleString('fa-IR'); }
+			},
+			yaxis: {
+				labels: { formatter: function (v) { return Number(v).toLocaleString('fa-IR'); } }
+			},
+			noData: { text: 'داده‌ای برای نمایش وجود ندارد' }
+		};
+	}
+
+	function renderOpenRepairsChart(rows) {
+		const labels = (rows || []).map(function (r) { return r.name; });
+		const series = (rows || []).map(function (r) { return Number(r.count || 0); });
+		openRepairsChart = renderOrUpdateChart(openRepairsChart, 'asedOpenRepairsChart', donutOptions(labels, series));
+	}
+
+	function renderOpenCngChart(rows) {
+		const labels = (rows || []).map(function (r) { return r.name; });
+		const series = (rows || []).map(function (r) { return Number(r.count || 0); });
+		openCngChart = renderOrUpdateChart(openCngChart, 'asedOpenCngChart', donutOptions(labels, series));
+	}
+
+	function renderRegisteredTrendChart(rows) {
+		const categories = (rows || []).map(function (r) { return r.name; });
+		const data = (rows || []).map(function (r) { return Number(r.count || 0); });
+		registeredTrendChart = renderOrUpdateChart(registeredTrendChart, 'asedRegisteredTrendChart', columnOptions(categories, data));
+	}
+
+	function renderReport(report) {
+		$$('#asedAsOfText').text('زمان محاسبه: ' + (report.computedAtShamsiDateTime || '-'));
+		$$('#asedStockLabel').text(report.stockLabel || 'وضعیت همین لحظه');
+
+		$$('#asedWaitingCount').text(formatNumber(report.waitingToDispatchCount));
+		$$('#asedWaitingDefinition').text(report.waitingToDispatchDefinition || '');
+
+		$$('#asedOpenRepairsCount').text(formatNumber(report.openRepairsCount));
+		$$('#asedOpenRepairsDefinition').text(report.openRepairsDefinition || '');
+
+		if (report.includeCngStatusChart) {
+			$$('#asedCngCardWrap').removeClass('d-none');
+			$$('#asedCngChartWrap').removeClass('d-none');
+			$$('#asedOpenCngCount').text(formatNumber(report.openCngRepairsCount));
+			$$('#asedOpenCngDefinition').text(report.openCngRepairsDefinition || '');
+		} else {
+			$$('#asedCngCardWrap').addClass('d-none');
+			$$('#asedCngChartWrap').addClass('d-none');
+		}
+
+		if (report.includeRegisteredTrend) {
+			$$('#asedTrendWrap').removeClass('d-none');
+			const from = report.trendFromDateShamsi || '';
+			const to = report.trendToDateShamsi || '';
+			$$('#asedTrendSubtitle').text(
+				(report.registeredTrendDefinition || 'ثبت‌شده در بازه') +
+				(from && to ? ' — بازه ' + from + ' تا ' + to : '')
+			);
+		} else {
+			$$('#asedTrendWrap').addClass('d-none');
+		}
+
+		whenApexReady(function () {
+			renderOpenRepairsChart(report.openRepairsByStatus || []);
+			if (report.includeCngStatusChart) {
+				renderOpenCngChart(report.openCngRepairsByStatus || []);
+			}
+			if (report.includeRegisteredTrend) {
+				renderRegisteredTrendChart(report.registeredByShamsiMonth || []);
+			}
+		});
+	}
+
+	function loadReport() {
+		$loadButton.prop('disabled', true);
+		const $blockTarget = $page.find('.card').first();
+		$blockTarget.block();
+
+		$$.post(dataUrl, getFilter(), function (response) {
+			$loadButton.prop('disabled', false);
+			$blockTarget.block(false);
+
+			if (!response || response.isSuccess === false) {
+				toastr.error(errorMessage(response), 'خطا');
+				return;
+			}
+
+			renderReport(unwrap(response) || {});
+		});
+	}
+
+	$fromDate.val(firstDayOfYear);
+	$toDate.val(todayShamsi);
+	$loadButton.on('click', loadReport);
+	loadReport();
+</script>

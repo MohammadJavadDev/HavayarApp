@@ -20,6 +20,8 @@ namespace WebApp.Controllers.SystemControllers
 	{
  
 		[HttpPost("upload/{entityType}/{entityPropName}")]
+		[RequestSizeLimit(110L * 1024 * 1024)]
+		[RequestFormLimits(MultipartBodyLengthLimit = 110L * 1024 * 1024)]
 		public async Task<IActionResult> Upload(IFormFile file, string entityType, string entityPropName, long? entityId, CancellationToken ct)
 		{
 

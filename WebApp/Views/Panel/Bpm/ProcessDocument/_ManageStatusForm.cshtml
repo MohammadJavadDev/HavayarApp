@@ -1,0 +1,375 @@
+@using Entities.App.Bpm
+@using Entities.App.Bpm.Enums
+@using Entities.App.Hrm
+@using Entities.Auth
+@using Entities.Base
+@using WebApp.Controllers.Dynamic
+@model ProcessDocument
+@{
+	// معادل property grid «بررسی / تایید» در _BpmManageDocument.cshtml (HTS) — ردیف‌ها بر اساس وضعیت بعدی نمایش داده می‌شوند.
+	var canEditProcess = (bool)(ViewBag.CanEditProcess ?? false);
+	var showForceNotify = (bool)(ViewBag.ShowForceNotify ?? false);
+	var showMainFileSlot = (bool)(ViewBag.ShowMainFileSlot ?? false);
+	var showFinalFileSlot = (bool)(ViewBag.ShowFinalFileSlot ?? false);
+	var showCommentFileSlot = (bool)(ViewBag.ShowCommentFileSlot ?? false);
+	var allowedNext = ViewBag.AllowedNextStatuses as List<ProcessDocumentStatusOption> ?? new List<ProcessDocumentStatusOption>();
+	string Dt(DateTime? d) => d?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+}
+
+<div id="manageStatusRoot" class="row g-3">
+	<input type="hidden" data-bind="id" value="@Model?.Id" />
+	<input type="hidden" data-bind="documentNumber" value="@Model?.DocumentNumber" />
+
+	<div class="col-md-6 form-group-inline" data-row="status">
+		<label class="form-label fw-bold required">وضعیت</label>
+		<select class="form-control" data-bind="nextStatus" id="msNextStatus">
+			<option value="">انتخاب نمایید</option>
+			@foreach (var item in allowedNext)
+			{
+				<option value="@item.Value">@item.Text</option>
+			}
+		</select>
+	</div>
+
+	@if (showForceNotify)
+	{
+		<div class="col-md-6 form-group-inline align-content-center" data-row="force" style="display:none">
+			<div class="form-check">
+				<input class="form-check-input" type="checkbox" id="msForce" />
+				<label class="form-check-label form-label fw-bold" for="msForce">عدم گردش فرآیند و ابلاغ</label>
+			</div>
+		</div>
+	}
+
+	@if (canEditProcess)
+	{
+		<div class="col-md-6 form-group-inline" data-row="type" style="display:none">
+			<label class="form-label fw-bold">نوع سند</label>
+			<select class="form-control" data-bind="documentType" asp-for="DocumentType"
+					asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentTypeEnum))">
+				<option value="">انتخاب نمایید</option>
+			</select>
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="processSet" style="display:none">
+			<label class="form-label fw-bold">مجموعه فرآیندی</label>
+			<select class="form-control" data-bind="processSet" asp-for="ProcessSet"
+					asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentProcessSetEnum))">
+				<option value="">انتخاب نمایید</option>
+			</select>
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="owner" style="display:none">
+			<label class="form-label fw-bold">مالک فرآیند</label>
+			@(Html.EntitySelector<User>(
+				"MsProcessOwnerSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+				c => new { c.Name, c.NameFa },
+				"{NameFa}",
+				"processOwnerId",
+				"",
+				Model?.ProcessOwnerId?.ToString()))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="approver" style="display:none">
+			<label class="form-label fw-bold">تایید کننده</label>
+			@(Html.EntitySelector<User>(
+				"MsApproverSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+				c => new { c.Name, c.NameFa },
+				"{NameFa}",
+				"approverId",
+				"",
+				Model?.ApproverId?.ToString()))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="finalApprover" style="display:none">
+			<label class="form-label fw-bold">تصویب کننده</label>
+			@(Html.EntitySelector<User>(
+				"MsFinalApproverSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+				c => new { c.Name, c.NameFa },
+				"{NameFa}",
+				"finalApproverId",
+				"",
+				Model?.FinalApproverId?.ToString()))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="forecast" style="display:none">
+			<label class="form-label fw-bold">تاریخ پیش بینی انجام درخواست</label>
+			<input class="form-control ltr" data-bind="completionForecastShamsiDate" data-persionDatePicker="true"
+				   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				   value="@Dt(Model?.CompletionForecastMiladiDate)" readonly />
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="title" style="display:none">
+			<label class="form-label fw-bold">عنوان سند</label>
+			<input class="form-control" data-bind="documentTitle" maxlength="128" value="@Model?.DocumentTitle" />
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="access" style="display:none">
+			<label class="form-label fw-bold">سطح محرمانگی</label>
+			<select class="form-control" data-bind="accessLevel" asp-for="AccessLevel"
+					asp-items="Html.GetEnumSelectList(typeof(ProcessDocumentAccessLevelEnum))"></select>
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="notifyDate" style="display:none">
+			<label class="form-label fw-bold">تاریخ ابلاغ</label>
+			<input class="form-control ltr" data-bind="notificationShamsiDate" data-persionDatePicker="true"
+				   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				   value="@Dt(Model?.NotificationMiladiDate)" readonly />
+		</div>
+
+		<div class="col-md-12 form-group-inline" data-row="related" style="display:none">
+			<label class="form-label fw-bold">مستندات مرتبط</label>
+			<input class="form-control" data-bind="relatedDocumentsText" maxlength="1024" value="@Model?.RelatedDocumentsText" />
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="editingTeam" style="display:none">
+			<label class="form-label fw-bold">تیم بازنگری/تدوین</label>
+			@(Html.EntitySelector<User>(
+				"MsEditingUsersSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+				c => new { c.Name, c.NameFa },
+				"{NameFa}",
+				"editingUserIds",
+				"editingUserNames",
+				Model?.EditingUserIds,
+				false,
+				true))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="executerUnits" style="display:none">
+			<label class="form-label fw-bold">واحدهای دریافت کننده ابلاغ</label>
+			@(Html.EntitySelector<OrgUnit>(
+				"MsExecuterOrgUnitsSelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"executerOrgUnitIds",
+				"executerOrgUnitNames",
+				Model?.ExecuterOrgUnitIds,
+				false,
+				true))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="recipients" style="display:none">
+			<label class="form-label fw-bold">دریافت کنندگان ابلاغ</label>
+			@(Html.EntitySelector<User>(
+				"MsNotificationRecipientsSelector",
+				c => c.IsActive == IsActiveEnum.Active,
+				c => new { Id = c.Id, Name = c.Name, NameFa = c.NameFa },
+				c => new { c.Name, c.NameFa },
+				"{NameFa}",
+				"notificationRecipientIds",
+				"notificationRecipientNames",
+				Model?.NotificationRecipientIds,
+				false,
+				true))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="processExecuter" style="display:none">
+			<label class="form-label fw-bold">مجری فرآیند</label>
+			@(Html.EntitySelector<OrgUnit>(
+				"MsProcessExecuterOrgUnitsSelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"processExecuterOrgUnitIds",
+				"processExecuterOrgUnitNames",
+				Model?.ProcessExecuterOrgUnitIds,
+				false,
+				true))
+		</div>
+
+		<div class="col-md-6 form-group-inline" data-row="relatedUnits" style="display:none">
+			<label class="form-label fw-bold">واحد مرتبط</label>
+			@(Html.EntitySelector<OrgUnit>(
+				"MsRelatedOrgUnitsSelector",
+				c => c.IsActive == IsActiveEnum.Active && c.Title != null && !c.Title.Contains("*"),
+				c => new { Id = c.Id, Title = c.Title },
+				c => new { c.Title },
+				"{Title}",
+				"relatedOrgUnitIds",
+				"relatedOrgUnitNames",
+				Model?.RelatedOrgUnitIds,
+				false,
+				true))
+		</div>
+	}
+
+	<div class="col-md-12 form-group-inline" data-row="comment">
+		<label class="form-label fw-bold">توضیحات</label>
+		<textarea class="form-control" data-bind="statusLogComment" rows="3"></textarea>
+	</div>
+
+	<div class="col-md-6 form-group-inline" data-row="send" style="display:none">
+		<label class="form-label fw-bold">زمان ارسال</label>
+		<input class="form-control ltr" data-bind="statusLogSendShamsiDate" data-persionDatePicker="true"
+			   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}' readonly />
+	</div>
+
+	<div class="col-md-6 form-group-inline" data-row="receive" style="display:none">
+		<label class="form-label fw-bold">زمان دریافت</label>
+		<input class="form-control ltr" data-bind="statusLogReceiveShamsiDate" data-persionDatePicker="true"
+			   persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}' readonly />
+	</div>
+
+	<span class="section-box-title" data-row="attachments" style="display:none">پیوست (ها)</span>
+
+	<div class="col-md-4 form-group-inline" data-row="mainFile" style="display:none">
+		<fileuploader bind="mainFileId"
+					  Label="فایل اصلی" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="MainFile"
+					  max-file-size="20"
+					  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+	</div>
+
+	<div class="col-md-4 form-group-inline" data-row="finalFile" style="display:none">
+		<fileuploader bind="finalFileId"
+					  Label="فایل نهایی" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="FinalFile"
+					  max-file-size="20"
+					  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+	</div>
+
+	<div class="col-md-4 form-group-inline" data-row="finalPdfFile" style="display:none">
+		<fileuploader bind="finalPdfFileId"
+					  Label="فایل نهایی (PDF)" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="FinalPdfFile"
+					  max-file-size="20"
+					  accepted-file-types=".pdf"></fileuploader>
+	</div>
+
+	<div class="col-md-4 form-group-inline" data-row="commentFile" style="display:none">
+		<fileuploader bind="commentFileId"
+					  Label="فایل کامنت" entity-type="@typeof(ProcessDocument).FullName" entity-prop-name="CommentFile"
+					  max-file-size="10"
+					  accepted-file-types=".pdf,.doc,.docx,.xls,.xlsx,.rar,.zip,.jpg,.jpeg,.png"></fileuploader>
+	</div>
+</div>
+
+<script>
+	// ردیف‌ها و اعتبارسنجی عیناً مطابق bpmManageDocument_cmbStatus_onChange / bpmManageDocument_validatePropertyGrid در HTS
+	const msCfg = {
+		lastStatus: @((int)(Model?.LastStatus ?? 0)),
+		requestType: @((int)(Model?.RequestType ?? 0)),
+		requestTypeDelete: @((int)ProcessDocumentRequestTypeEnum.Delete),
+		documentTypeForm: @((int)ProcessDocumentTypeEnum.F),
+		canEditProcess: @(canEditProcess ? "true" : "false"),
+		showForce: @(showForceNotify ? "true" : "false"),
+		showMain: @(showMainFileSlot ? "true" : "false"),
+		showFinal: @(showFinalFileSlot ? "true" : "false"),
+		showComment: @(showCommentFileSlot ? "true" : "false")
+	};
+	const msRejectIds = [9, 12, 14, 17, 21];
+
+	const $msRoot = $('#manageStatusRoot');
+	const msRow = function (name) { return $msRoot.find('[data-row="' + name + '"]'); };
+	const msVal = function (bind) { return ($msRoot.find('[data-bind="' + bind + '"]').val() || '').toString().trim(); };
+	const msIsForce = function () { return $msRoot.find('#msForce').is(':checked'); };
+
+	function msApplyState() {
+		const status = msVal('nextStatus');
+		const force = msIsForce();
+		const show10 = status === '10' || status === '24';
+		const show18 = status === '18' || force;
+
+		msRow('force').toggle(status === '10' && msCfg.showForce);
+		['type', 'processSet', 'owner', 'approver', 'finalApprover', 'forecast'].forEach(function (n) { msRow(n).toggle(show10); });
+		['title', 'access', 'notifyDate', 'related', 'editingTeam', 'executerUnits', 'recipients', 'processExecuter', 'relatedUnits']
+			.forEach(function (n) { msRow(n).toggle(show18); });
+
+		const showFinal = msCfg.showFinal || force;
+		msRow('mainFile').toggle(msCfg.showMain);
+		msRow('finalFile').toggle(showFinal);
+		msRow('finalPdfFile').toggle(showFinal);
+		msRow('commentFile').toggle(msCfg.showComment);
+		msRow('send').toggle(msCfg.showComment);
+		msRow('receive').toggle(msCfg.showComment);
+		msRow('attachments').toggle(msCfg.showMain || showFinal || msCfg.showComment);
+	}
+
+	function msApplyForce() {
+		const force = msIsForce();
+		$msRoot.find('#msNextStatus').prop('disabled', force);
+		if (force) {
+			$msRoot.find('#msNextStatus').val('');
+			['MsProcessOwnerSelector', 'MsApproverSelector', 'MsFinalApproverSelector'].forEach(function (id) {
+				const $w = $('#' + id);
+				$w.find('.entity-selector-value').val('').trigger('change');
+				$w.find('.entity-selector-input').val('');
+			});
+		}
+		msApplyState();
+	}
+
+	function msValidate() {
+		const warn = function (msg) { toastr.warning(msg, 'هشدار'); return false; };
+		const empty = function (caption) { return '(' + caption + ') نمیتواند خالی باشد'; };
+		const noFile = 'فایلی انتخاب نشده است';
+		const status = msVal('nextStatus');
+		const force = msIsForce();
+		const visible = function (n) { return msRow(n).is(':visible'); };
+		const hasFile = function (bind) { return !!msVal(bind); };
+
+		if (msCfg.canEditProcess && !msVal('documentType'))
+			return warn(empty('نوع سند'));
+		if (!force && !status)
+			return warn(empty('وضعیت'));
+		if (!force && msRejectIds.indexOf(Number(status)) !== -1 && !msVal('statusLogComment'))
+			return warn(empty('توضیحات'));
+		if (Number(status) === 11 && visible('mainFile') && !hasFile('mainFileId'))
+			return warn(noFile);
+		if (force && !msVal('notificationShamsiDate'))
+			return warn(empty('تاریخ ابلاغ'));
+
+		if (status === '10' || status === '24') {
+			if (!force) {
+				if (!msVal('processSet')) return warn(empty('مجموعه فرآیندی'));
+				if (!msVal('processOwnerId')) return warn(empty('مالک فرآیند'));
+				if (!msVal('approverId')) return warn(empty('تایید کننده'));
+				if (!msVal('finalApproverId')) return warn(empty('تصویب کننده'));
+			}
+		}
+
+		if (!force && visible('forecast') && !msVal('completionForecastShamsiDate'))
+			return warn(empty('تاریخ پیش بینی انجام درخواست'));
+
+		if (msCfg.requestType !== msCfg.requestTypeDelete && visible('finalFile') && !hasFile('finalFileId'))
+			return warn(noFile);
+		if (Number(msVal('documentType')) !== msCfg.documentTypeForm && msCfg.requestType !== msCfg.requestTypeDelete
+			&& visible('finalPdfFile') && !hasFile('finalPdfFileId'))
+			return warn(noFile);
+		if (visible('commentFile') && !hasFile('commentFileId'))
+			return warn(noFile);
+		return true;
+	}
+
+	$msRoot.on('change', '#msNextStatus', msApplyState);
+	$msRoot.on('change', '#msForce', msApplyForce);
+	msApplyState();
+
+	$msRoot.data('api', {
+		submit: function ($btn, done) {
+			if (!msValidate()) return;
+			const model = $msRoot.dataBind();
+			const force = msIsForce();
+			model.id = msVal('id');
+			model.nextStatus = force ? null : Number(msVal('nextStatus'));
+			model.ignoreProcessAndForceNotification = force;
+			$btn.block();
+			$$.post('/Panel/Bpm/ProcessDocument/ChangeStatus', model, function (r) {
+				$btn.block(false);
+				if (!r || !r.isSuccess) {
+					toastr.error((r && r.message) || 'عملیات انجام نشد', 'خطا');
+					return;
+				}
+				done(r);
+			});
+		}
+	});
+</script>

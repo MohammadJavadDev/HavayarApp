@@ -303,16 +303,18 @@
 		const minimumDate = '@minimumDate';
 		const todayShamsi = '@todayShamsi';
 
-		// رنگ‌های نمودار عیناً مطابق گزارش سیستم قدیم، کلید = مقدار DelayResponsibleEnum
+		// رنگ‌های نمودار عیناً مطابق گزارش سیستم قدیم، کلید = مقدار DelayResponsibleEnum.
+		// فقط هگز: ApexCharts 3.41 در Fill.hexToRgba هر رنگی که با # شروع نشود را #999999 می‌کند،
+		// در حالی که دایره راهنما همان نام CSS را نشان می‌دهد (زرد راهنما، خاکستری روی برش).
 		const unitColors = {
-			752: 'silver',
-			753: 'orange',
-			754: 'yellow',
-			755: 'tan',
+			752: '#c0c0c0', // silver
+			753: '#ffa500', // orange
+			754: '#ffff00', // yellow
+			755: '#d2b48c', // tan
 			2376: '#c9a227',
 			756: '#69a169',
-			2422: 'slategray',
-			757: 'purple',
+			2422: '#708090', // slategray
+			757: '#800080', // purple
 			758: '#a6a6a6',
 			2423: '#1a72ed',
 			2540: '#3c87f0',
@@ -325,8 +327,8 @@
 			2430: '#cedaeb',
 			2431: '#e4ecf7',
 			759: '#d0c7e8',
-			760: 'brown',
-			761: 'pink'
+			760: '#a52a2a', // brown
+			761: '#ffc0cb' // pink
 		};
 
 		const $page = $$('#timelyDeliveryPage');
@@ -459,7 +461,7 @@
 			const onTime = Number(report.onTimeDeliveryPercentage);
 			labels.push('تحویل بموقع');
 			series.push(onTime);
-			colors.push(onTime < 0 ? 'red' : '#9de219');
+			colors.push(onTime < 0 ? '#ff0000' : '#9de219');
 
 			const options = {
 				chart: { type: 'pie', height: 520, fontFamily: 'inherit' },

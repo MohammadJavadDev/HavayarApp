@@ -6,11 +6,8 @@
 
 @{
 
-	var holdOwnerSelectorId = $"HOLDOwnerSelector_{Guid.NewGuid():N}";
 	var statusItems = Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums));
-	var legalHolderItems = Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentLegalHolderEnum));
 	var selectedStatusValue = Model?.Status.HasValue == true ? ((int)Model.Status.Value).ToString() : null;
-	var selectedLegalHolderValue = Model?.LegalHolder.HasValue == true ? ((int)Model.LegalHolder.Value).ToString() : null;
 	bool canEdit = false;
 	if(ViewData["CanEditDocument"] != null)
 	{
@@ -35,7 +32,7 @@ align-content-center'>
 		{
 			 
 			<fileuploader bind="comments.attachmentId" file-id="@Model?.AttachmentId" file-entity="@Model?.Attachment"
-					    Label="پیوست" entity-type="@typeof(DocumentComment).FullName" entity-prop-name="Attachment" max-file-size="50"
+					    Label="پیوست" entity-type="@typeof(DocumentComment).FullName" entity-prop-name="Attachment" max-file-size="100"
 				accepted-file-types=".rar,.zip,.pdf,.excel,.word"></fileuploader>
 		}
 		else
@@ -91,17 +88,10 @@ align-content-center'>
 			<div class="form-control-plaintext">
 				@if (Model?.Status.HasValue == true)
 				{
-					var statusClass = Model?.Status switch
-					{
-						DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
-						DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
-						DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-						DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
-						DocumentStatusEnums.Archived => "badge-light-dark",
-						_ => "badge-light"
-					};
+					var statusClass = DocumentStatusPalette.BadgeClass(Model?.Status);
+					var statusStyle = DocumentStatusPalette.BadgeStyle(Model?.Status);
 
-					<span class="badge @statusClass">@Model.Status.Value.ToDisplay()</span>
+					<span class="@statusClass" style="@statusStyle">@Model.Status.Value.ToDisplay()</span>
 				}
 				else
 				{
@@ -131,172 +121,71 @@ align-content-center'>
 				{
 					<span class="text-muted">-</span>
 				}
+				@if (!string.IsNullOrWhiteSpace(Model?.ReceivedTransmittalNumber))
+				{
+					<div class="text-muted mt-1">شماره کامنت شیت دریافتی: <span class="ltr">@Model.ReceivedTransmittalNumber</span></div>
+				}
 			</div>
 		}
 	</div>
 	 
-	@if (Model != null && Model?.LegalHolder != null)
+	@if (Model != null && Model?.LegalHolder != null && !canEdit)
 	{
 		<div class='col-md-2'>
-		
-			@if (canEdit)
-			{
-				<label class='form-label'>متولی Hold</label>
-				<select class='form-control' data-bind='comments.legalHolder' data-hold-field="legalHolder">
-					<option value="" selected="@(selectedLegalHolderValue == null ? "selected" : (string?)null)">
-						انتخاب کنید...
-					</option>
-					@foreach (var item in legalHolderItems)
-					{
-						<option value="@item.Value"
-							selected="@(item.Value == selectedLegalHolderValue ? "selected" : (string?)null)">@item.Text</option>
-					}
-				</select>
-				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-			}
-			else
-			{
-				<div class="form-control-plaintext">
-					@if (Model.LegalHolder.HasValue)
-					{
-						 	<span class="badge badge-light-info">@Model.LegalHolder.Value.ToDisplay()</span>
-					}
-					else
-					{
-						<span class="text-muted">-</span>
-					}
-				</div>
-			}
-		</div>
-	}else if(canEdit)
-	{
-			<div class='col-md-2'>
 			<label class='form-label'>متولی Hold</label>
-			<select class='form-control' data-bind='comments.legalHolder' data-hold-field="legalHolder">
-				<option value="" selected="@(selectedLegalHolderValue == null ? "selected" : (string?)null)">
-					انتخاب کنید...
-				</option>
-				@foreach (var item in legalHolderItems)
+			<div class="form-control-plaintext">
+				@if (Model.LegalHolder.HasValue)
 				{
-					<option value="@item.Value"
-						   selected="@(item.Value == selectedLegalHolderValue ? "selected" : (string?)null)">@item.Text</option>
+					<span class="badge badge-light-info">@Model.LegalHolder.Value.ToDisplay()</span>
 				}
-			</select>
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+				else
+				{
+					<span class="text-muted">-</span>
+				}
+			</div>
 		</div>
-
 	}
 
- 
-	
-	@if (Model != null && Model?.HOLDOwnerId != null)
+	@if (Model != null && Model?.HOLDOwnerId != null && !canEdit)
 	{
 		<div class="col-md-2">
-			
-			@if (canEdit)
-			{
-				<label class="form-label">مسئول Hold</label>
-				@(Html.EntitySelector<User>
-						(
-						holdOwnerSelectorId,
-						c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-						c => new
-						{
-							Id = c.Id,
-							Name = c.Name,
-
-						},
-						c => new { c.Username, c.Name },
-						"{Name}",
-						"comments.holdOwnerId",
-						null,
-						Model?.HOLDOwnerId?.ToString()
-						))
-					}
-			else
-			{
-				<div class="form-control-plaintext">
-					@if (Model.HOLDOwnerId.HasValue && Model.HOLDOwnerId.Value > 0)
-					{
-						@* Try to get user name from navigation property if loaded, otherwise show ID *@
-						@if (Model.HOLDOwner != null && !string.IsNullOrWhiteSpace(Model.HOLDOwner.Name))
-						{
-							 	<span>@Model.HOLDOwner.Name</span>
-						}
-						else
-						{
-							<span class="text-muted">شناسه کاربر: @Model.HOLDOwnerId.Value</span>
-						}
-					}
-					else
-					{
-						<span class="text-muted">-</span>
-					}
-				</div>
-			}
-		</div>
-	}else if(canEdit)
-	{
-			<div class="col-md-2">
 			<label class="form-label">مسئول Hold</label>
-			@(Html.EntitySelector<User>
-					(
-					holdOwnerSelectorId,
-					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-					c => new
+			<div class="form-control-plaintext">
+				@if (Model.HOLDOwnerId.HasValue && Model.HOLDOwnerId.Value > 0)
+				{
+					@if (Model.HOLDOwner != null && !string.IsNullOrWhiteSpace(Model.HOLDOwner.Name))
 					{
-						Id = c.Id,
-						Name = c.Name,
-
-					},
-					c => new { c.Username, c.Name },
-					"{Name}",
-					"comments.holdOwnerId",
-					null,
-					Model?.HOLDOwnerId?.ToString()
-					))
-		</div>
-	}
-
- 
-
-
-	@if (Model != null && Model?.HoldDetails != null)
-	{
-		<div class='col-md-2'>
-		
-			@if (canEdit)
-			{
-					<label class='form-label'>توضیحات Hold</label>
-				<input class='form-control' data-bind='comments.holdDetails' asp-for='HoldDetails'
-					data-hold-field="holdDetails" />
-				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-			}
-			else
-			{
-				<div class="form-control-plaintext">
-					@if (!string.IsNullOrWhiteSpace(Model.HoldDetails))
-					{
-						<span>@Model.HoldDetails</span>
+						<span>@Model.HOLDOwner.Name</span>
 					}
 					else
 					{
-						<span class="text-muted">-</span>
+						<span class="text-muted">شناسه کاربر: @Model.HOLDOwnerId.Value</span>
 					}
-				</div>
-			}
+				}
+				else
+				{
+					<span class="text-muted">-</span>
+				}
+			</div>
 		</div>
 	}
-	else if(canEdit)
+
+	@if (Model != null && Model?.HoldDetails != null && !canEdit)
 	{
 		<div class='col-md-2'>
 			<label class='form-label'>توضیحات Hold</label>
-			<input class='form-control' data-bind='comments.holdDetails' asp-for='HoldDetails'
-				  data-hold-field="holdDetails" />
-			<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
+			<div class="form-control-plaintext">
+				@if (!string.IsNullOrWhiteSpace(Model.HoldDetails))
+				{
+					<span>@Model.HoldDetails</span>
+				}
+				else
+				{
+					<span class="text-muted">-</span>
+				}
+			</div>
 		</div>
-	
-}
+	}
 
 	@if(Model !=null && canEdit == false && Model?.CreatedByName !=null)
 	{

@@ -269,3 +269,8 @@ Skip when `Comment == "Created by system owner"` (HTS trigger guard) — only re
 7. EF migration applies without creating SQL triggers.
 8. No `IProcessDocumentService` / `Data/Services/Bpm`.
 9. `Qa_CorrectiveAction` FK absent.
+
+
+## 9. Junction semantics corrected (2026-10-11)
+
+HTS stores `EditingOrganizationUnitIds` («تیم بازنگری/تدوین») as **user ids** and `ProcessExecuterIds` («مجری فرآیند») as **org-unit ids**; the first model had them inverted. New tables `Bpm.ProcessDocumentEditingUser` (`UserId`) and `Bpm.ProcessDocumentProcessExecuterOrgUnit` (`OrgUnitId`) (migration `AddProcessDocumentEditingUserAndExecuterOrgUnit`) replace `ProcessDocumentEditingOrgUnit` / `ProcessDocumentProcessExecuter`, which stay in the schema unused until a later cleanup. Data: `Backfill_ProcessDocument_EditingUsers_ExecuterOrgUnits.sql` (955 editing users, 200 executer org units; 21 HTS org-unit tokens have no Hamkaran mapping); the sync script writes the new tables.

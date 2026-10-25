@@ -617,10 +617,33 @@ namespace Data.Services.QueryBuilderServices
 				orderByQuery = $"[{colForSort?.Alliance ?? colForSort.ColumnName}] {dir}";
 			}
 
-			   
+			orderByQuery = AppendPrimaryKeyTiebreaker(orderByQuery, columns);
 
 			return await _schemaService.ExecuteQueryWithPaginationAsync(query , criteriaQuery , orderByQuery, sqlParams, offset.Value, limit.Value);
 			 
+		}
+
+		/// <summary>
+		/// مرتب‌سازی غیریکتا با OFFSET ردیف‌های هم‌رتبه را بین صفحات تکرار یا حذف می‌کند.
+		/// کلید اصلی همیشه به‌عنوان معیار آخر اضافه می‌شود.
+		/// </summary>
+		private static string AppendPrimaryKeyTiebreaker(string orderByQuery, List<QueryColumn> columns)
+		{
+			if (string.IsNullOrWhiteSpace(orderByQuery) || columns == null)
+				return orderByQuery;
+
+			var pk = columns.FirstOrDefault(c => c.PrimaryKey);
+			var pkName = pk?.Alliance ?? pk?.ColumnName;
+			if (string.IsNullOrWhiteSpace(pkName))
+				return orderByQuery;
+
+			var alreadyOrdered = orderByQuery.Split(',')
+				.Select(part => part.Trim().TrimStart('[').Split(']')[0].Split(' ')[0])
+				.Any(name => string.Equals(name, pkName, StringComparison.OrdinalIgnoreCase));
+			if (alreadyOrdered)
+				return orderByQuery;
+
+			return orderByQuery + ", [" + pkName.Replace("]", "]]") + "] ASC";
 		}
 
 		private static bool IsDateColumnType(string? type)
@@ -1333,12 +1356,24 @@ namespace Data.Services.QueryBuilderServices
 	public Dictionary<string, string> ExtractParameterValuesFromRequest(DataTableRequest request)
         {
             var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (request?.searchBuilder?.criteria == null) return dict;
-            foreach (var c in request.searchBuilder.criteria)
+            if (request?.searchBuilder?.criteria != null)
             {
-                if (!string.IsNullOrEmpty(c.data) && c.value != null && c.value.Count > 0)
-                    dict[c.data] = c.value[0] ?? "";
+                foreach (var c in request.searchBuilder.criteria)
+                {
+                    if (!string.IsNullOrEmpty(c.data) && c.value != null && c.value.Count > 0)
+                        dict[c.data] = c.value[0] ?? "";
+                }
             }
+
+            if (request?.parameters != null)
+            {
+                foreach (var pair in request.parameters)
+                {
+                    if (!string.IsNullOrEmpty(pair.Key))
+                        dict[pair.Key] = pair.Value ?? "";
+                }
+            }
+
             return dict;
         }
 

@@ -18,12 +18,14 @@ namespace Entities.App.Trn
 		[MaxLength(256)]
 		public string? Title { get; set; }
 
-		[DisplayName("شرح پیگیری")]
-		[DisplayInfo(null, true, type: SystemType.String, required: true)]
+		[DisplayName("توضیحات")]
+		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? Description { get; set; }
 
-		// Standard Shamsi/Miladi pair (same shape as ServiceRequest.ContactShamsiDate/ContactMiladiDate):
-		// Shamsi string bound via data-bind, Miladi DateTime bound via value="@Model?.TodoMiladiDate".
+		[DisplayName("انجام شد")]
+		[DisplayInfo(null, true, type: SystemType.Boolean)]
+		public bool IsDone { get; set; }
+
 		[DisplayName("تاریخ پیگیری شمسی")]
 		[DisplayInfo(null, true, type: SystemType.String)]
 		public string? TodoShamsiDate { get; set; }

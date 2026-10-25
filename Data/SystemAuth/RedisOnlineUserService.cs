@@ -6,6 +6,7 @@ using Entities.Base;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -23,6 +24,8 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	private readonly string _userIdsKey = "OnlineUsers:UserIds";
 	private readonly TimeSpan _expiration = TimeSpan.FromHours(24);
 	private readonly TimeSpan _userExpiration = TimeSpan.FromMinutes(30);
+	private readonly TimeSpan _memoryTtl = TimeSpan.FromSeconds(45);
+	private readonly ConcurrentDictionary<long, MemoryUser> _memoryUsers = new();
 
 	// برای primitive types و collections ساده
 	private static readonly JsonSerializerOptions SimpleJsonOptions = new()
@@ -130,6 +133,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 			if (userDto.ConnectionIds.Count == 0)
 			{
 				await _redis.RemoveAsync(GetUserKey(userId), ct);
+				ForgetUser(userId);
 				await RemoveUserIdFromOnlineListAsync(userId, ct);
 			}
 			else
@@ -181,13 +185,20 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	{
 		try
 		{
+			var cached = GetCachedUser(userId);
+			if (cached != null)
+				return cached;
+
 			var userKey = GetUserKey(userId);
 			var userJson = await _redis.GetStringAsync(userKey, ct);
 
 			if (string.IsNullOrEmpty(userJson))
 				return null;
 
-			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+			var user = JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+			if (user != null)
+				RememberUser(userId, user);
+			return user;
 		}
 		catch (Exception ex)
 		{
@@ -204,6 +215,10 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	{
 		try
 		{
+			var cached = GetCachedUser(userId);
+			if (cached != null)
+				return cached;
+
 			var userKey = GetUserKey(userId);
 			var userJson = _redis.GetString(userKey);
 
@@ -213,7 +228,10 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 				return AddOnlineUser(userId, null);
 			}
 
-			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+			var user = JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+			if (user != null)
+				RememberUser(userId, user);
+			return user;
 		}
 		catch (Exception ex)
 		{
@@ -321,6 +339,13 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		{
 			Console.WriteLine($"Error refreshing user role accesses {userId}: {ex.Message}");
 		}
+	}
+
+	public async Task RefreshAllOnlineUsersRoleAccessesAsync(CancellationToken ct = default)
+	{
+		var userIds = await GetOnlineUserIdsAsync(ct);
+		foreach (var userId in userIds)
+			await RefreshUserRoleAccessesAsync(userId, ct);
 	}
 
 	/// <summary>
@@ -455,12 +480,19 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	/// </summary>
 	private OnlineUserDto? GetOrLoadUser(long userId)
 	{
+		var cached = GetCachedUser(userId);
+		if (cached != null)
+			return cached;
+
 		var userKey = GetUserKey(userId);
 		var userJson = _redis.GetString(userKey);
 
 		if (!string.IsNullOrEmpty(userJson))
 		{
-			return JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+			var user = JsonSerializer.Deserialize<OnlineUserDto>(userJson, ComplexJsonOptions);
+			if (user != null)
+				RememberUser(userId, user);
+			return user;
 		}
 
 		return LoadUserFromDatabase(userId);
@@ -552,6 +584,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		{
 			AbsoluteExpirationRelativeToNow = _userExpiration
 		}, ct);
+		RememberUser(userId, user);
 	}
 
 	/// <summary>
@@ -566,6 +599,7 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 		{
 			AbsoluteExpirationRelativeToNow = _userExpiration
 		});
+		RememberUser(userId, user);
 	}
 
 	/// <summary>
@@ -678,6 +712,40 @@ public sealed class RedisOnlineUserService : IOnlineUserService
 	/// ساخت کلید Redis برای کاربر
 	/// </summary>
 	private string GetUserKey(long userId) => $"{_keyPrefix}User:{userId}";
+
+	private OnlineUserDto? GetCachedUser(long userId)
+	{
+		if (!_memoryUsers.TryGetValue(userId, out var entry))
+			return null;
+
+		if (DateTime.UtcNow - entry.LoadedUtc > _memoryTtl)
+		{
+			_memoryUsers.TryRemove(userId, out _);
+			return null;
+		}
+
+		return entry.User;
+	}
+
+	private void RememberUser(long userId, OnlineUserDto user)
+	{
+		_memoryUsers[userId] = new MemoryUser
+		{
+			User = user,
+			LoadedUtc = DateTime.UtcNow
+		};
+	}
+
+	private void ForgetUser(long userId)
+	{
+		_memoryUsers.TryRemove(userId, out _);
+	}
+
+	private sealed class MemoryUser
+	{
+		public required OnlineUserDto User { get; init; }
+		public DateTime LoadedUtc { get; init; }
+	}
 
 	#endregion
 }

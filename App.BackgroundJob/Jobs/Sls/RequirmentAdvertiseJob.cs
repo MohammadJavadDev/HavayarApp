@@ -151,6 +151,7 @@ namespace App.BackgroundJob.Jobs.Sls
 							Budget = rahkaranRA?.IsBudget ?? false,
 							RepresentativeDetails = rahkaranRA.CustomerAgentInfo,
 							RepresentativeContactNumber = rahkaranRA.CustomerAgentPhone,
+							ProductionOrderNumber = rahkaranRA.ProductionNumber.HasValue ? (long?)rahkaranRA.ProductionNumber.Value : null,
 							Description = rahkaranRA.Comments,
 							PreInvoiceAmountRial = rahkaranRA.PreInvoiceAmountInRial.HasValue ? (long?)rahkaranRA.PreInvoiceAmountInRial.Value : null,
 							PreInvoiceAmount = rahkaranRA.PreInvoiceAmountInForeignCurrency,
@@ -251,6 +252,13 @@ namespace App.BackgroundJob.Jobs.Sls
 						if (existRA.RepresentativeContactNumber != rahkaranRA.CustomerAgentPhone)
 						{
 							existRA.RepresentativeContactNumber = rahkaranRA.CustomerAgentPhone;
+							isModified = true;
+						}
+
+						var newProductionOrderNumber = rahkaranRA.ProductionNumber.HasValue ? (long?)rahkaranRA.ProductionNumber.Value : null;
+						if (existRA.ProductionOrderNumber != newProductionOrderNumber)
+						{
+							existRA.ProductionOrderNumber = newProductionOrderNumber;
 							isModified = true;
 						}
 
@@ -465,13 +473,17 @@ namespace App.BackgroundJob.Jobs.Sls
 				var newItems = new List<RequirmentAdvertiseItem>();
 				int updatedItemsCount = 0;
 				int skippedItemsCount = 0;
+				// هشدارهای تکراری (والد/کالای یافت‌نشده) در هر اجرا یک‌جا گزارش می‌شوند، نه یک ردیف JobLog برای هر قلم
+				var missingMasterRefs = new HashSet<long>();
+				var missingProductRefs = new HashSet<long>();
+				int itemsWithMissingProductCount = 0;
 
 				foreach (var rahkaranItem in rahkaranItems)
 				{
 					// پیدا کردن RequirmentAdvertiseId بر اساس _MasterRef
 					if (!requirmentAdvertiseMap.TryGetValue(rahkaranItem._MasterRef, out var requirmentAdvertiseId))
 					{
-						await jobLogger?.LogWarningAsync($"اعلام نیازمندی والد با HamkaranId {rahkaranItem._MasterRef} برای قلم یافت نشد", 0, cn);
+						missingMasterRefs.Add(rahkaranItem._MasterRef);
 						skippedItemsCount++;
 						continue;
 					}
@@ -484,7 +496,8 @@ namespace App.BackgroundJob.Jobs.Sls
 					}
 					else if (rahkaranItem.ProductIdRef.HasValue)
 					{
-						await jobLogger?.LogWarningAsync($"کالا با HamkaranId {rahkaranItem.ProductIdRef} برای قلم یافت نشد", 0, cn);
+						missingProductRefs.Add(rahkaranItem.ProductIdRef.Value);
+						itemsWithMissingProductCount++;
 					}
 
 					if (!appItemsDict.TryGetValue(rahkaranItem.Sale_RequirmentAdvertiseItemID, out var existItem))
@@ -531,7 +544,18 @@ namespace App.BackgroundJob.Jobs.Sls
 
 				if (skippedItemsCount > 0)
 				{
-					await jobLogger?.LogWarningAsync($"تعداد {skippedItemsCount} قلم به دلیل عدم وجود اعلام نیازمندی والد رد شد", 0, cn);
+					await jobLogger?.LogWarningAsync(
+						$"تعداد {skippedItemsCount} قلم به دلیل عدم وجود اعلام نیازمندی والد رد شد (والدهای یافت‌نشده: {JobLookup.SummarizeIds(missingMasterRefs)})",
+						0,
+						cn);
+				}
+
+				if (itemsWithMissingProductCount > 0)
+				{
+					await jobLogger?.LogWarningAsync(
+						$"تعداد {itemsWithMissingProductCount} قلم کالای متناظر در پایگاه داده برنامه نداشت (کالاهای یافت‌نشده HamkaranId: {JobLookup.SummarizeIds(missingProductRefs)})",
+						0,
+						cn);
 				}
 
 				if (newItems.Any())

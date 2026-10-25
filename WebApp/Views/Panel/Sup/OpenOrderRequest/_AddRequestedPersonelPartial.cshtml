@@ -1,5 +1,8 @@
 ﻿@using Entities.Auth
- 
+@{
+	var requestedPersonelIds = ViewBag.RequestedPersonelIds as string;
+	var requestedEngineeringPersonelIds = ViewBag.RequestedEngineeringPersonelIds as string;
+}
 
 <div class="row">
 	<input type="hidden" data-bind="openOrderRequestId" value="@ViewBag.OpenOrderRequestId" />
@@ -20,9 +23,9 @@
 				"{NameFa} {Email}",
 				"requestedPersonelIds",
 				null,
-				 null,
-				 false,
-				 true
+				requestedPersonelIds,
+				false,
+				true
 				))
 	</div>
 
@@ -42,7 +45,7 @@
 				"{NameFa} {Email}",
 				"requestedEngineeringPersonelIds",
 				null,
-				null,
+				requestedEngineeringPersonelIds,
 				false,
 				true
 				))

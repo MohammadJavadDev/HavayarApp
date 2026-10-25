@@ -965,7 +965,7 @@ var FormBuilderApp = (function () {
 		$$('#editPropertyRegex').val(propData.regex || '');
 		$$('#editPropertyRegexError').val(propData.regexInvalidError || '');
 		$$('#editPropertyFileTypes').val(propData.fileTypes || '');
-		$$('#editPropertyMaxFileSize').val(propData.maxFileSize || 10);
+		$$('#editPropertyMaxFileSize').val(propData.maxFileSize || 50);
 		$$('#editPropertyAutoStart').val(propData.autoNumberStart || 1);
 		$$('#editPropertyAutoStep').val(propData.autoNumberStep || 1);
 		$$('#editPropertyRelatedEntity').val(propData.relatedEntityFullName || '');
@@ -1149,7 +1149,7 @@ var FormBuilderApp = (function () {
 
 		if (systemType === 'File') {
 			propData.fileTypes = $$('#editPropertyFileTypes').val();
-			propData.maxFileSize = parseInt($$('#editPropertyMaxFileSize').val()) || 10;
+			propData.maxFileSize = parseInt($$('#editPropertyMaxFileSize').val()) || 50;
 		}
 
 		if (systemType === 'AutoNumber') {
@@ -1646,7 +1646,7 @@ var FormBuilderApp = (function () {
 		$$('#nestedEditPropertyRegex').val(propData.regex || '');
 		$$('#nestedEditPropertyRegexError').val(propData.regexInvalidError || '');
 		$$('#nestedEditPropertyFileTypes').val(propData.fileTypes || '');
-		$$('#nestedEditPropertyMaxFileSize').val(propData.maxFileSize || 10);
+		$$('#nestedEditPropertyMaxFileSize').val(propData.maxFileSize || 50);
 		$$('#nestedEditPropertyRelatedEntity').val(propData.relatedEntityFullName || '');
 		$$('#nestedEditPropertyDisplayTemplate').val(propData.displayTemplate || '');
 		$$('#nestedEditPropertyEnumName').val(propData.enumName || '');
@@ -1748,7 +1748,7 @@ var FormBuilderApp = (function () {
 
 		if (systemType === 'File') {
 			propData.fileTypes = $$('#nestedEditPropertyFileTypes').val();
-			propData.maxFileSize = parseInt($$('#nestedEditPropertyMaxFileSize').val()) || 10;
+			propData.maxFileSize = parseInt($$('#nestedEditPropertyMaxFileSize').val()) || 50;
 		}
 
 		if (systemType === 'Entity') {

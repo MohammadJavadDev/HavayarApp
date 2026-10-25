@@ -1,28 +1,21 @@
-@using Entities.App.Trn
+@using System.Collections.Generic
+@using System.Linq
 @using Entities.App.Gnr
+@using Entities.App.Gnr.Enums
+@using Entities.App.Trn
 @model Company
 
 <div class="card shadow-sm border-0">
 
      <div class="form-action-buttons border-bottom p-3">
-          <form-action-buttons entity-type="typeof(Company)">
-               @if (Model?.Id > 0)
-               {
-                    <form-action-button color-class="btn-active-icon-dark btn-color-primary" icon-class="fa fa-phone" action-name="phoneBooks" title="دفتر تلفن"></form-action-button>
-                    <form-action-button color-class="btn-active-icon-dark btn-color-info" icon-class="fa fa-users" action-name="keyParticipants" title="افراد کلیدی"></form-action-button>
-                    <form-action-button color-class="btn-active-icon-dark btn-color-success" icon-class="fa fa-link" action-name="connectors" title="رابطین"></form-action-button>
-                    <form-action-button color-class="btn-active-icon-dark btn-color-warning" icon-class="fa fa-clipboard-list" action-name="todoLists" title="تاریخچه مذاکرات"></form-action-button>
-               }
-          </form-action-buttons>
+          <form-action-buttons entity-type="typeof(Company)"></form-action-buttons>
      </div>
 
      <div class="card-body">
 
           <div class="row mb-4">
                <div class="col-12">
-                    <h4 class="fw-bold text-dark mb-0">
-                         مشتری حقوقی / شرکت
-                    </h4>
+                    <h4 class="fw-bold text-dark mb-0">شرکت</h4>
                </div>
           </div>
 
@@ -30,138 +23,581 @@
 
           <div class="row g-3">
 
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold required'>عنوان شرکت</label>
-                    <input class='form-control' data-bind='title' data-required="true"
-                           asp-for='Title' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>مدیرعامل</label>
-                    <input class='form-control' data-bind='ceoName'
-                           asp-for='CeoName' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class="form-label fw-bold">طرف حساب مرتبط</label>
+               <div class='col-md-6 form-group-inline'>
+                    <label class="form-label fw-bold">نام شرکت از سیستم ارتباط با مشتری</label>
                     @(Html.EntitySelector<Party>(
-                                        "PartySelector",
-                                        c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-                                        c => new
-                                        {
-                                             Id = c.Id,
-                                             Title = c.CompanyName ?? c.FullName
-                                        },
-                                        c => new { c.CompanyName, c.FullName },
-                                        "{Title}",
-                                        "PartyId",
-                                        Model?.Party != null ? (Model.Party.CompanyName ?? Model.Party.FullName) : null,
-                                        Model?.PartyId?.ToString()
-                                        ))
+                         "PartySelector",
+                         c => c.IsActive == Entities.Base.IsActiveEnum.Active && c.Type == PartyTypeEnum.Legal,
+                         c => new
+                         {
+                              Id = c.Id,
+                              Title = c.CompanyName ?? c.FullName
+                         },
+                         c => new { c.CompanyName, c.FullName },
+                         "{Title}",
+                         "PartyId",
+                         Model?.Party != null ? (Model.Party.CompanyName ?? Model.Party.FullName) : null,
+                         Model?.PartyId?.ToString()
+                    ))
                     <div data-invalidmessagespan class="my-1 mx-1"> <span class="text-danger"></span> </div>
                </div>
 
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>وب‌سایت</label>
-                    <input class='form-control' dir="ltr" data-bind='website'
-                           asp-for='Website' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>ایمیل</label>
-                    <input class='form-control' dir="ltr" data-bind='email'
-                           asp-for='Email' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>تلفن</label>
-                    <input class='form-control' dir="ltr" data-bind='phone'
-                           asp-for='Phone' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>فکس</label>
-                    <input class='form-control' dir="ltr" data-bind='fax'
-                           asp-for='Fax' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-4 form-group-inline'>
-                    <label class='form-label fw-bold'>نوع فعالیت</label>
-                    <input class='form-control' data-bind='activityKind'
-                           asp-for='ActivityKind' />
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
                <div class='col-md-6 form-group-inline'>
-                    <label class='form-label fw-bold'>آدرس</label>
-                    <textarea class='form-control' data-bind='address'
-                              asp-for='Address'>@Model?.Address</textarea>
-                    <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
-               </div>
-
-               <div class='col-md-6 form-group-inline'>
-                    <label class='form-label fw-bold'>توضیحات</label>
-                    <textarea class='form-control' data-bind='description'
-                              asp-for='Description'>@Model?.Description</textarea>
+                    <label class='form-label fw-bold'>عنوان (انگلیسی)</label>
+                    <input class='form-control ltr' dir="ltr" data-bind='titleInLatin' asp-for='TitleInLatin' />
                     <div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
                </div>
 
           </div>
 
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm" id="phoneBookCard">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">دفترچه تلفن</h5>
+          <button type="button" class="btn btn-sm btn-primary" data-action="addPhoneBook">افزودن</button>
+     </div>
+     <div class="card-body table-responsive">
+          <table class="table table-striped table-row-bordered gy-2 w-100" id="phoneBookTable">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>واحد سازمانی</th>
+                         <th>شماره تماس</th>
+                         <th>فکس</th>
+                         <th>ایجاد کننده</th>
+                         <th>تاریخ ایجاد</th>
+                         <th style="width:70px;">حذف</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm" id="keyParticipantCard">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">مدیران و افراد کلیدی</h5>
+          <button type="button" class="btn btn-sm btn-primary" data-action="addKeyParticipant">افزودن</button>
+     </div>
+     <div class="card-body table-responsive">
+          <table class="table table-striped table-row-bordered gy-2 w-100" id="keyParticipantTable">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>نام</th>
+                         <th>نام خانوادگی</th>
+                         <th>سمت</th>
+                         <th>تلفن مستقیم</th>
+                         <th>شماره تماس</th>
+                         <th>شماره موبایل</th>
+                         <th>فکس</th>
+                         <th>تاییدیه فکس</th>
+                         <th>ایمیل</th>
+                         <th>ایجاد کننده</th>
+                         <th>تاریخ ایجاد</th>
+                         <th style="width:110px;">عملیات</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm" id="connectorCard">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">رابطین</h5>
+          <button type="button" class="btn btn-sm btn-primary" data-action="addConnector">افزودن</button>
+     </div>
+     <div class="card-body table-responsive">
+          <table class="table table-striped table-row-bordered gy-2 w-100" id="connectorTable">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>نام</th>
+                         <th>نام خانوادگی</th>
+                         <th>سمت</th>
+                         <th>تلفن مستقیم</th>
+                         <th>فکس</th>
+                         <th>تاییدیه فکس</th>
+                         <th>شماره موبایل</th>
+                         <th>ایمیل</th>
+                         <th>توضیحات</th>
+                         <th>ایجاد کننده</th>
+                         <th>تاریخ ایجاد</th>
+                         <th style="width:110px;">عملیات</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
+     </div>
+</div>
+
+<div class="card mt-4 border-0 shadow-sm" id="todoCard">
+     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold">سوابق</h5>
+          <button type="button" class="btn btn-sm btn-primary" data-action="addTodo">افزودن</button>
+     </div>
+     <div class="card-body table-responsive">
+          <table class="table table-striped table-row-bordered gy-2 w-100" id="todoTable">
+               <thead>
+                    <tr class="fw-bold fs-6 text-muted">
+                         <th>عنوان</th>
+                         <th>توضیحات</th>
+                         <th>ایجاد کننده</th>
+                         <th>تاریخ ایجاد</th>
+                         <th>ساعت</th>
+                         <th>انجام شد</th>
+                    </tr>
+               </thead>
+               <tbody></tbody>
+          </table>
      </div>
 </div>
 
 <div class="card mt-4 border-0 shadow-sm">
      <div class="card-body">
           <div class="row text-muted">
-
                <div class="col-md-3">
                     <span class="fw-bold">ایجاد کننده :</span>
                     <span data-bind="createdByName">@Model?.CreatedByName</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">تاریخ ایجاد :</span>
                     <span data-bind="createdOnShamsiDateTime">@Model?.CreatedOnShamsiDateTime</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">ویرایش کننده :</span>
                     <span data-bind="modifiedByName">@Model?.ModifiedByName</span>
                </div>
-
                <div class="col-md-3">
                     <span class="fw-bold">تاریخ ویرایش :</span>
                     <span data-bind="modifiedDateShamsiDateTime">@Model?.ModifiedDateShamsiDateTime</span>
                </div>
-
           </div>
      </div>
 </div>
+
 <script>
-     function getCompanyId() {
-          return $$('[data-bind="id"]').val();
+@{
+     var phoneBookRows = Model?.PhoneBooks ?? new List<PhoneBook>();
+     var keyRows = Model?.KeyParticipants ?? new List<KeyParticipant>();
+     var connectorRows = Model?.ConnectorParticipants ?? new List<ConnectorParticipant>();
+     var todoRows = Model?.TodoLists ?? new List<TodoList>();
+}
+     let phoneBooks = @Html.Raw(Json.Serialize(phoneBookRows.Select(p => new {
+          p.Id,
+          p.DepartmentTitle,
+          p.PhoneNumber,
+          p.FaxNumber,
+          p.CreatedByName,
+          p.CreatedOnShamsiDateTime,
+          p.IsActive
+     })));
+     let keyParticipants = @Html.Raw(Json.Serialize(keyRows.Select(p => new {
+          p.Id,
+          p.FirstName,
+          p.LastName,
+          p.Position,
+          p.DirectPhoneNumber,
+          p.PhoneNumber,
+          p.MobileNumber,
+          p.FaxNumber,
+          p.ConfirmedFaxNumber,
+          p.Email,
+          p.CreatedByName,
+          p.CreatedOnShamsiDateTime,
+          p.IsActive
+     })));
+     let connectors = @Html.Raw(Json.Serialize(connectorRows.Select(p => new {
+          p.Id,
+          p.FirstName,
+          p.LastName,
+          p.Position,
+          p.DirectPhoneNumber,
+          p.FaxNumber,
+          p.ConfirmedFaxNumber,
+          p.MobileNumber,
+          p.Email,
+          p.Description,
+          p.CreatedByName,
+          p.CreatedOnShamsiDateTime,
+          p.IsActive
+     })));
+     let todoLists = @Html.Raw(Json.Serialize(todoRows.Select(p => new {
+          p.Id,
+          p.Title,
+          p.Description,
+          p.IsDone,
+          p.CreatedByName,
+          p.CreatedOnShamsiDateTime,
+          p.CreatedOnMiladiDateTime,
+          p.IsActive
+     })));
+
+     phoneBooks = phoneBooks || [];
+     keyParticipants = keyParticipants || [];
+     connectors = connectors || [];
+     todoLists = todoLists || [];
+
+     function escapeHtml(text) {
+          if (text === null || text === undefined) return '';
+          return String(text)
+               .replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;');
      }
 
-     function openSubPage(urlTemplate) {
-          const id = getCompanyId();
-          if (!id || id === '0') {
-               toastr.error('ابتدا شرکت را ذخیره کنید');
-               return;
+     function cell(value) {
+          const text = value === null || value === undefined || value === '' ? '' : value;
+          return '<td>' + escapeHtml(text) + '</td>';
+     }
+
+     function dateText(value) {
+          if (!value) return '';
+          return String(value).split(' ')[0];
+     }
+
+     function timeText(value) {
+          if (!value) return '';
+          const date = new Date(value);
+          if (isNaN(date.getTime())) return '';
+          const pad = function (n) { return String(n).padStart(2, '0'); };
+          return pad(date.getHours()) + ':' + pad(date.getMinutes()) + ':' + pad(date.getSeconds());
+     }
+
+     function iconButtons(editAction, deleteAction, index) {
+          return '<td class="text-center text-nowrap">'
+               + '<button type="button" class="btn btn-sm btn-icon btn-light-warning me-1" data-action="' + editAction + '" data-index="' + index + '" title="ویرایش"><i class="fa fa-edit"></i></button>'
+               + '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="' + deleteAction + '" data-index="' + index + '" title="حذف"><i class="fa fa-trash"></i></button>'
+               + '</td>';
+     }
+
+     function renderPhoneBooks() {
+          const html = phoneBooks.map(function (row, index) {
+               return '<tr>'
+                    + cell(row.departmentTitle)
+                    + cell(row.phoneNumber)
+                    + cell(row.faxNumber)
+                    + cell(row.createdByName)
+                    + cell(dateText(row.createdOnShamsiDateTime))
+                    + '<td class="text-center"><button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deletePhoneBook" data-index="' + index + '" title="حذف"><i class="fa fa-trash"></i></button></td>'
+                    + '</tr>';
+          }).join('');
+          $$('#phoneBookTable tbody').html(html);
+     }
+
+     function renderKeyParticipants() {
+          const html = keyParticipants.map(function (row, index) {
+               return '<tr>'
+                    + cell(row.firstName)
+                    + cell(row.lastName)
+                    + cell(row.position)
+                    + cell(row.directPhoneNumber)
+                    + cell(row.phoneNumber)
+                    + cell(row.mobileNumber)
+                    + cell(row.faxNumber)
+                    + cell(row.confirmedFaxNumber)
+                    + cell(row.email)
+                    + cell(row.createdByName)
+                    + cell(dateText(row.createdOnShamsiDateTime))
+                    + iconButtons('editKeyParticipant', 'deleteKeyParticipant', index)
+                    + '</tr>';
+          }).join('');
+          $$('#keyParticipantTable tbody').html(html);
+     }
+
+     function renderConnectors() {
+          const html = connectors.map(function (row, index) {
+               return '<tr>'
+                    + cell(row.firstName)
+                    + cell(row.lastName)
+                    + cell(row.position)
+                    + cell(row.directPhoneNumber)
+                    + cell(row.faxNumber)
+                    + cell(row.confirmedFaxNumber)
+                    + cell(row.mobileNumber)
+                    + cell(row.email)
+                    + cell(row.description)
+                    + cell(row.createdByName)
+                    + cell(dateText(row.createdOnShamsiDateTime))
+                    + iconButtons('editConnector', 'deleteConnector', index)
+                    + '</tr>';
+          }).join('');
+          $$('#connectorTable tbody').html(html);
+     }
+
+     function renderTodos() {
+          const html = todoLists.map(function (row) {
+               const done = row.isDone
+                    ? '<td class="text-center"><i class="fa fa-check text-success"></i></td>'
+                    : '<td></td>';
+               return '<tr>'
+                    + cell(row.title)
+                    + cell(row.description)
+                    + cell(row.createdByName)
+                    + cell(dateText(row.createdOnShamsiDateTime))
+                    + cell(timeText(row.createdOnMiladiDateTime))
+                    + done
+                    + '</tr>';
+          }).join('');
+          $$('#todoTable tbody').html(html);
+     }
+
+     function renderAll() {
+          renderPhoneBooks();
+          renderKeyParticipants();
+          renderConnectors();
+          renderTodos();
+     }
+
+     function fieldInput(label, field, value) {
+          return '<div class="col-md-4 form-group-inline mb-3">'
+               + '<label class="form-label fw-bold">' + label + '</label>'
+               + '<input type="text" class="form-control" data-field="' + field + '" value="' + escapeHtml(value || '') + '" />'
+               + '</div>';
+     }
+
+     function readField($content, field) {
+          return $.trim($content.find('[data-field="' + field + '"]').val() || '');
+     }
+
+     function requireField($content, field, label) {
+          const value = readField($content, field);
+          if (!value) {
+               toastr.error('(' + label + ') نمیتواند خالی باشد', 'هشدار');
+               return null;
           }
-          appController.addPage(urlTemplate.replace('{id}', encodeURIComponent(id)));
+          return value;
+     }
+
+     function openContactModal(title, fieldsHtml, row, onSave) {
+          $.confirm({
+               title: title,
+               content: '<div class="container-fluid"><div class="row">' + fieldsHtml + '</div></div>',
+               rtl: true,
+               columnClass: 'col-md-10',
+               buttons: {
+                    save: {
+                         text: row ? 'ویرایش' : 'افزودن',
+                         btnClass: 'btn-primary',
+                         action: function () {
+                              const $content = this.$content;
+                              const position = requireField($content, 'position', 'سمت');
+                              if (position === null) return false;
+                              const directPhoneNumber = requireField($content, 'directPhoneNumber', 'تلفن مستقیم');
+                              if (directPhoneNumber === null) return false;
+                              const mobileNumber = requireField($content, 'mobileNumber', 'شماره موبایل');
+                              if (mobileNumber === null) return false;
+                              onSave($content, {
+                                   firstName: readField($content, 'firstName'),
+                                   lastName: readField($content, 'lastName'),
+                                   position: position,
+                                   directPhoneNumber: directPhoneNumber,
+                                   faxNumber: readField($content, 'faxNumber'),
+                                   confirmedFaxNumber: readField($content, 'confirmedFaxNumber'),
+                                   mobileNumber: mobileNumber,
+                                   email: readField($content, 'email')
+                              });
+                         }
+                    },
+                    cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+               }
+          });
+     }
+
+     function keyFields(row) {
+          const current = row || {};
+          return fieldInput('نام', 'firstName', current.firstName)
+               + fieldInput('نام خانوادگی', 'lastName', current.lastName)
+               + fieldInput('سمت', 'position', current.position)
+               + fieldInput('تلفن مستقیم', 'directPhoneNumber', current.directPhoneNumber)
+               + fieldInput('فکس', 'faxNumber', current.faxNumber)
+               + fieldInput('تایید فکس', 'confirmedFaxNumber', current.confirmedFaxNumber)
+               + fieldInput('شماره موبایل', 'mobileNumber', current.mobileNumber)
+               + fieldInput('ایمیل 1', 'email', current.email)
+               + fieldInput('ایمیل 2', 'phoneNumber', current.phoneNumber);
+     }
+
+     function connectorFields(row) {
+          const current = row || {};
+          return fieldInput('نام', 'firstName', current.firstName)
+               + fieldInput('نام خانوادگی', 'lastName', current.lastName)
+               + fieldInput('سمت', 'position', current.position)
+               + fieldInput('تلفن مستقیم', 'directPhoneNumber', current.directPhoneNumber)
+               + fieldInput('فکس', 'faxNumber', current.faxNumber)
+               + fieldInput('تایید فکس', 'confirmedFaxNumber', current.confirmedFaxNumber)
+               + fieldInput('شماره موبایل', 'mobileNumber', current.mobileNumber)
+               + fieldInput('ایمیل', 'email', current.email);
+     }
+
+     function confirmDelete(onYes) {
+          Swal.fire({
+               title: 'حذف',
+               text: 'آیا از حذف این ردیف مطمئن هستید؟',
+               icon: 'warning',
+               showCancelButton: true,
+               confirmButtonText: 'بله',
+               cancelButtonText: 'خیر'
+          }).then(function (result) {
+               if (!result.isConfirmed) return;
+               onYes();
+          });
+     }
+
+     page.$pageEl.on('click', '[data-action="addPhoneBook"]', function () {
+          const html = '<div class="container-fluid"><div class="row">'
+               + fieldInput('واحد سازمانی', 'departmentTitle', '')
+               + fieldInput('شماره تماس', 'phoneNumber', '')
+               + fieldInput('فکس', 'faxNumber', '')
+               + '</div></div>';
+          $.confirm({
+               title: 'دفترچه تلفن',
+               content: html,
+               rtl: true,
+               buttons: {
+                    save: {
+                         text: 'افزودن',
+                         btnClass: 'btn-primary',
+                         action: function () {
+                              const $content = this.$content;
+                              phoneBooks.push({
+                                   id: 0,
+                                   departmentTitle: readField($content, 'departmentTitle'),
+                                   phoneNumber: readField($content, 'phoneNumber'),
+                                   faxNumber: readField($content, 'faxNumber')
+                              });
+                              renderPhoneBooks();
+                         }
+                    },
+                    cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+               }
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="deletePhoneBook"]', function () {
+          const index = Number($(this).data('index'));
+          confirmDelete(function () {
+               phoneBooks.splice(index, 1);
+               renderPhoneBooks();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="addKeyParticipant"]', function () {
+          openContactModal('مدیران و افراد کلیدی', keyFields(null), null, function ($content, row) {
+               row.id = 0;
+               row.phoneNumber = readField($content, 'phoneNumber');
+               keyParticipants.push(row);
+               renderKeyParticipants();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="editKeyParticipant"]', function () {
+          const index = Number($(this).data('index'));
+          const current = keyParticipants[index];
+          openContactModal('مدیران و افراد کلیدی', keyFields(current), current, function ($content, row) {
+               row.id = current.id;
+               row.phoneNumber = readField($content, 'phoneNumber');
+               row.createdByName = current.createdByName;
+               row.createdOnShamsiDateTime = current.createdOnShamsiDateTime;
+               row.isActive = current.isActive;
+               keyParticipants[index] = row;
+               renderKeyParticipants();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="deleteKeyParticipant"]', function () {
+          const index = Number($(this).data('index'));
+          confirmDelete(function () {
+               keyParticipants.splice(index, 1);
+               renderKeyParticipants();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="addConnector"]', function () {
+          openContactModal('رابطین', connectorFields(null), null, function (_$content, row) {
+               row.id = 0;
+               row.description = '';
+               connectors.push(row);
+               renderConnectors();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="editConnector"]', function () {
+          const index = Number($(this).data('index'));
+          const current = connectors[index];
+          openContactModal('رابطین', connectorFields(current), current, function (_$content, row) {
+               row.id = current.id;
+               row.description = current.description;
+               row.createdByName = current.createdByName;
+               row.createdOnShamsiDateTime = current.createdOnShamsiDateTime;
+               row.isActive = current.isActive;
+               connectors[index] = row;
+               renderConnectors();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="deleteConnector"]', function () {
+          const index = Number($(this).data('index'));
+          confirmDelete(function () {
+               connectors.splice(index, 1);
+               renderConnectors();
+          });
+     });
+
+     page.$pageEl.on('click', '[data-action="addTodo"]', function () {
+          const html = '<div class="container-fluid"><div class="row">'
+               + '<div class="col-md-12 form-group-inline mb-3"><label class="form-label fw-bold">عنوان</label><input type="text" class="form-control" data-field="title" /></div>'
+               + '<div class="col-md-12 form-group-inline mb-3"><label class="form-label fw-bold">توضیحات</label><textarea class="form-control" data-field="description" rows="3"></textarea></div>'
+               + '<div class="col-md-12 form-group-inline mb-3"><label class="form-check-label fw-bold"><input type="checkbox" class="form-check-input ms-2" data-field="isDone" /> انجام شد</label></div>'
+               + '</div></div>';
+          $.confirm({
+               title: 'سوابق',
+               content: html,
+               rtl: true,
+               buttons: {
+                    save: {
+                         text: 'افزودن',
+                         btnClass: 'btn-primary',
+                         action: function () {
+                              const $content = this.$content;
+                              const title = requireField($content, 'title', 'عنوان');
+                              if (title === null) return false;
+                              const description = $content.find('[data-field="description"]').val() || '';
+                              if (String(description).indexOf('09') >= 0) {
+                                   toastr.error('مجاز به وارد کردن شماره تلفن همراه در فیلد توضیحات نیستید!', 'هشدار');
+                                   return false;
+                              }
+                              todoLists.push({
+                                   id: 0,
+                                   title: title,
+                                   description: description,
+                                   isDone: $content.find('[data-field="isDone"]').is(':checked')
+                              });
+                              renderTodos();
+                         }
+                    },
+                    cancel: { text: 'انصراف', btnClass: 'btn-secondary' }
+               }
+          });
+     });
+
+     function replaceRows(data) {
+          if (!data) return;
+          phoneBooks = data.phoneBooks || [];
+          keyParticipants = data.keyParticipants || [];
+          connectors = data.connectorParticipants || [];
+          todoLists = data.todoLists || [];
+          renderAll();
      }
 
      function savefn($btnAction) {
           if (validateError(page.$pageEl)) return;
 
           const model = page.$pageEl.dataBind();
+          model.phoneBooks = phoneBooks;
+          model.keyParticipants = keyParticipants;
+          model.connectorParticipants = connectors;
+          model.todoLists = todoLists;
           const $btn = $($btnAction.element).block();
 
           $$.post('save', model, function (r) {
@@ -174,6 +610,7 @@
 
                toastr.success('ذخیره سازی با موفقیت انجام شد');
                page.$pageEl.dataBind(r.data);
+               replaceRows(r.data);
                $btnAction.baseaction();
           });
      }
@@ -181,16 +618,6 @@
      self.FormActionButtons.save.onclick(function () { savefn(this); });
      self.FormActionButtons.saveandnew.onclick(function () { savefn(this); });
      self.FormActionButtons.saveandclose.onclick(function () { savefn(this); });
-     if (self.FormActionButtons.phoneBooks) {
-          self.FormActionButtons.phoneBooks.onclick(function () { openSubPage('/Panel/Trn/PhoneBook/ListByCompanyId?companyId={id}'); });
-     }
-     if (self.FormActionButtons.keyParticipants) {
-          self.FormActionButtons.keyParticipants.onclick(function () { openSubPage('/Panel/Trn/KeyParticipant/ListByCompanyId?companyId={id}'); });
-     }
-     if (self.FormActionButtons.connectors) {
-          self.FormActionButtons.connectors.onclick(function () { openSubPage('/Panel/Trn/ConnectorParticipant/ListByCompanyId?companyId={id}'); });
-     }
-     if (self.FormActionButtons.todoLists) {
-          self.FormActionButtons.todoLists.onclick(function () { openSubPage('/Panel/Trn/TodoList/ListByCompanyId?companyId={id}'); });
-     }
+
+     renderAll();
 </script>

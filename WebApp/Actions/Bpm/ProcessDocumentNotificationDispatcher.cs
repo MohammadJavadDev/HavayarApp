@@ -286,12 +286,13 @@ namespace WebApp.Actions.Bpm
 			var beneficiaryIds = document.BeneficiaryOrgUnits.Select(x => x.OrgUnitId).Distinct().ToList();
 			var executerIds = document.ExecuterOrgUnits.Select(x => x.OrgUnitId).Distinct().ToList();
 			var recipientUserIds = document.NotificationRecipients.Select(x => x.UserId).Where(id => id > 0).Distinct().ToList();
-			var editingOrgUnitIds = document.EditingOrgUnits.Select(x => x.OrgUnitId).Distinct().ToList();
+			// HTS: «تیم بازنگری/تدوین» شناسهٔ کاربران است و ایمیل ابلاغ به همان کاربران می‌رود.
+				var editingUserIds = document.EditingUsers.Select(x => x.UserId).Distinct().ToList();
 
 			if (beneficiaryIds.Count == 0
 				&& executerIds.Count == 0
 				&& recipientUserIds.Count == 0
-				&& editingOrgUnitIds.Count == 0)
+				&& editingUserIds.Count == 0)
 				return;
 
 			var body = BuildAnnouncementHtml(document, log, announcementNumber, now, isPrivate);
@@ -307,7 +308,7 @@ namespace WebApp.Actions.Bpm
 
 			await AddOrgUnitEmailsAsync(to, inAppUserIds, unitIds, ct);
 			await AddUserIdEmailsAsync(to, inAppUserIds, recipientUserIds, ct);
-			await AddOrgUnitEmailsAsync(to, inAppUserIds, editingOrgUnitIds, ct);
+			await AddUserIdEmailsAsync(to, inAppUserIds, editingUserIds, ct);
 
 			AddSettingEmails(cc, settings?.AnnouncementAlwaysCc);
 
@@ -591,11 +592,11 @@ namespace WebApp.Actions.Bpm
 				.Include(d => d.Approver)
 				.Include(d => d.FinalApprover)
 				.Include(d => d.StatusLogs)
-				.Include(d => d.EditingOrgUnits)
+				.Include(d => d.EditingUsers)
 				.Include(d => d.ExecuterOrgUnits)
 				.Include(d => d.BeneficiaryOrgUnits)
 				.Include(d => d.NotificationRecipients)
-				.Include(d => d.ProcessExecuters).ThenInclude(x => x.User)
+				.Include(d => d.ProcessExecuterOrgUnits).ThenInclude(x => x.OrgUnit)
 				.Include(d => d.MainFile)
 				.Include(d => d.TempFile)
 				.Include(d => d.FinalFile)
@@ -616,14 +617,13 @@ namespace WebApp.Actions.Bpm
 
 		private static string WrapStatusEmail(string innerRowHtml)
 		{
+			// td بدون فونت در Outlook به Times New Roman برمی‌گردد؛ استایل پایه را از طریق <style> هم اعمال می‌کند (در EmailJob).
 			var sb = new StringBuilder();
-			sb.AppendLine("<div style='width: 100%;text-align:center;direction:rtl'>");
-			sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl'  width='100%' >");
-			sb.AppendLine("<tr style='background: #000aa0'>");
-			sb.AppendLine("<td>");
-			sb.AppendLine("<div  style='font-size:14.0pt;font-family:Tahoma;color:#FFFFFF;text-align:center;direction:rtl'>");
-			sb.AppendLine("گروه صنعتی هوایار");
-			sb.AppendLine("</div>");
+			sb.AppendLine($"<div dir='rtl' style='width:100%;text-align:center;{MailCellBase}'>");
+			sb.AppendLine($"<table dir='rtl' border='1' cellspacing='0' cellpadding='5' width='100%' style='width:100%;text-align:right;border-collapse:collapse;{MailCellBase}font-size:11pt'>");
+			sb.AppendLine("<tr bgcolor='#000aa0' style='background:#000aa0'>");
+			sb.AppendLine($"<td bgcolor='#000aa0' style='background:#000aa0;color:#FFFFFF;font-size:14pt;text-align:center;padding:8px;{MailCellBase}'>");
+			sb.AppendLine("<font color='#FFFFFF' face='Tahoma'>گروه صنعتی هوایار</font>");
 			sb.AppendLine("</td>");
 			sb.AppendLine("</tr>");
 			sb.AppendLine(innerRowHtml);
@@ -800,6 +800,20 @@ namespace WebApp.Actions.Bpm
 			return sb.ToString();
 		}
 
+		private const string MailFont = "font-family:Tahoma,Arial,sans-serif;";
+		private const string MailCellBase = MailFont + "direction:rtl;";
+
+		/// <summary>متن امن برای HTML ایمیل (جلوگیری از به‌هم‌ریختن جدول با کاراکترهای &lt; &gt; &amp; و حفظ خط جدید).</summary>
+		private static string H(object? value)
+		{
+			var text = value?.ToString();
+			if (string.IsNullOrWhiteSpace(text))
+				return "";
+			return System.Net.WebUtility.HtmlEncode(text.Trim())
+				.Replace("\r\n", "<br />")
+				.Replace("\n", "<br />");
+		}
+
 		private static string BuildAnnouncementHtml(
 			ProcessDocument document,
 			ProcessDocumentStatusLog log,
@@ -809,45 +823,53 @@ namespace WebApp.Actions.Bpm
 		{
 			var year = now.ToShamsiDate()[..4];
 			var executerNames = string.Join("، ",
-				document.ProcessExecuters
-					.Select(x => UserDisplay(x.User))
-					.Where(n => !string.IsNullOrWhiteSpace(n) && n != "-"));
+				document.ProcessExecuterOrgUnits
+					.Select(x => x.OrgUnit?.Title)
+					.Where(n => !string.IsNullOrWhiteSpace(n)));
+
+			// Outlook (موتور Word) فونت/جهت را از table یا div به td ارث نمی‌دهد؛ پس هر td/th استایل خودش را دارد.
+			const string headCell = "border:1px solid #9a9a9a;padding:6px 4px;background:#e6e8f5;font-size:11pt;font-weight:bold;text-align:center;" + MailCellBase;
+			const string bodyCell = "border:1px solid #9a9a9a;padding:6px 4px;font-size:11pt;text-align:center;vertical-align:middle;" + MailCellBase;
 
 			var sb = new StringBuilder();
-			sb.AppendLine("<div style='text-align:center;direction:rtl'>");
-			sb.AppendLine("<table border='1' cellspacing='0' cellpadding='5' style='text-align:right; direction: rtl'  width='100%' >");
-			sb.AppendLine("<tr style='background: #000aa0'><td colspan='2'>");
-			sb.AppendLine("<div  style='font-size:14.0pt;font-family:Tahoma;color:#FFFFFF;text-align:center;direction:rtl'>گروه صنعتی هوایار</div>");
+			sb.AppendLine($"<div dir='rtl' style='width:100%;text-align:center;{MailCellBase}'>");
+			sb.AppendLine($"<table dir='rtl' border='0' cellspacing='0' cellpadding='0' width='100%' style='width:100%;border-collapse:collapse;border:1px solid #9a9a9a;{MailCellBase}'>");
+			sb.AppendLine($"<tr><td colspan='2' bgcolor='#000aa0' style='background:#000aa0;color:#FFFFFF;padding:8px;font-size:14pt;text-align:center;{MailCellBase}'>");
+			sb.AppendLine("<font color='#FFFFFF' face='Tahoma'>گروه صنعتی هوایار</font>");
 			sb.AppendLine("</td></tr>");
 			sb.AppendLine("<tr>");
-			sb.AppendLine("<td style='width:80%'><div  style='font-size:14.0pt;font-family:Tahoma;text-align:center;direction:rtl'>");
+			sb.AppendLine($"<td width='75%' style='width:75%;padding:8px;border:1px solid #9a9a9a;font-size:13pt;text-align:center;{MailCellBase}'>");
 			sb.AppendLine("<strong>ابلاغیه</strong><br />");
 			sb.AppendLine("<strong>مستندات سیستم مدیریت یکپارچه</strong><br />");
-			sb.AppendLine("آخرین ویرایش مستندات زیر در سامانه جامع هوایار بارگذاری گردیده و از تاریخ ابلاغ لازم الاجرا می‏باشند.");
-			sb.AppendLine("</div></td>");
-			sb.AppendLine("<td style='width:20%'><div  style='font-size:13.0pt;font-family:Tahoma;text-align:right;direction:rtl'>");
-			sb.AppendLine($"شماره ابلاغیه : {announcementNumber:000}-{year}<br />");
-			sb.AppendLine($"تاریخ : {now.ToShamsiDate()}");
-			sb.AppendLine("</div></td></tr>");
-			sb.AppendLine("<tr><td colspan='2'>");
-			sb.AppendLine("<table style ='font-family:Tahoma;font-size:14.0pt;width:100%; text-align:center' border='1'>");
+			sb.AppendLine("آخرین ویرایش مستندات زیر در سامانه جامع هوایار بارگذاری گردیده و از تاریخ ابلاغ لازم الاجرا می\u200cباشند.");
+			sb.AppendLine("</td>");
+			sb.AppendLine($"<td width='25%' style='width:25%;padding:8px;border:1px solid #9a9a9a;font-size:12pt;text-align:right;white-space:nowrap;{MailCellBase}'>");
+			sb.AppendLine($"شماره ابلاغیه : <span dir='ltr' style='direction:ltr;unicode-bidi:embed'>{announcementNumber:000}-{year}</span><br />");
+			sb.AppendLine($"تاریخ : <span dir='ltr' style='direction:ltr;unicode-bidi:embed'>{H(now.ToShamsiDate())}</span>");
+			sb.AppendLine("</td></tr>");
+			sb.AppendLine("<tr><td colspan='2' style='padding:6px'>");
+			sb.AppendLine($"<table dir='rtl' border='1' cellspacing='0' cellpadding='4' width='100%' style='width:100%;border-collapse:collapse;border:1px solid #9a9a9a;{MailCellBase}'>");
 			sb.AppendLine("<tr>");
-			sb.AppendLine("<th>شرح اقدام</th><th>نام سند / سیستم</th><th>کد سند</th><th>مجموعه فرآیندی</th>");
-			sb.AppendLine("<th>مالک مجموعه فرآیندی</th><th>واحدهای مجری/ همکار</th><th>توضیحات</th>");
+			foreach (var title in new[] { "شرح اقدام", "نام سند / سیستم", "کد سند", "مجموعه فرآیندی", "مالک مجموعه فرآیندی", "واحدهای مجری/ همکار", "توضیحات" })
+				sb.AppendLine($"<th style='{headCell}'>{title}</th>");
 			sb.AppendLine("</tr><tr>");
-			sb.AppendLine($"<td>{document.RequestType.ToDisplay()}</td>");
-			sb.AppendLine($"<td>{document.DocumentTitle}</td>");
-			sb.AppendLine($"<td>{document.DocumentNumber}</td>");
-			sb.AppendLine($"<td>{FormatProcessSet(document)}</td>");
-			sb.AppendLine($"<td>{UserDisplay(document.ProcessOwner)}</td>");
-			sb.AppendLine($"<td>{executerNames}</td>");
-			sb.AppendLine($"<td>{log.Comment ?? LatestLog(document)?.Comment}</td>");
+			foreach (var cell in new[]
+			{
+				H(document.RequestType.ToDisplay()),
+				H(document.DocumentTitle),
+				H(document.DocumentNumber),
+				H(FormatProcessSet(document)),
+				H(UserDisplay(document.ProcessOwner)),
+				H(executerNames),
+				H(log.Comment ?? LatestLog(document)?.Comment)
+			})
+				sb.AppendLine($"<td style='{bodyCell}'>{cell}</td>");
 			sb.AppendLine("</tr></table>");
 
 			if (isPrivate)
 			{
-				sb.AppendLine("<table style ='font-family:Tahoma;font-size:10pt;width:100%'><tr>");
-				sb.AppendLine("<td style='text-align:right;font-size:8pt;color:#4c8fbd'>");
+				sb.AppendLine($"<table dir='rtl' border='0' width='100%' style='width:100%;{MailCellBase}'><tr>");
+				sb.AppendLine($"<td style='text-align:right;font-size:9pt;color:#4c8fbd;padding:6px 0;{MailCellBase}'>");
 				sb.AppendLine($"جهت مشاهده و دریافت فایل به آدرس <strong>سامانه جامع هوایار / سیستم مدیریت اسناد / اسناد فرآیندی / لیست اسناد فرآیندی</strong> مراجعه نموده و فایل، با شناسه <strong>{document.Id}</strong> را دانلود نمایید");
 				sb.AppendLine("</td></tr></table>");
 			}

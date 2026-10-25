@@ -27,7 +27,7 @@
 			<table class="table table-striped table-row-bordered gy-2 nowrap" id="srMissionChildTable">
 				<thead>
 					<tr class="fw-bold fs-6 text-muted">
-						<th style="min-width:90px;">عملیات</th>
+						<th style="min-width:125px;">عملیات</th>
 						<th style="min-width:100px;">شماره اندیکاتور</th>
 						<th style="min-width:160px;">کارشناس</th>
 						<th style="min-width:140px;">مرکز هزینه</th>
@@ -44,6 +44,11 @@
 						<th style="min-width:70px;">نهار</th>
 						<th style="min-width:100px;">هزینه شام</th>
 						<th style="min-width:70px;">شام</th>
+						<th style="min-width:90px;">فاکتور صبحانه</th>
+						<th style="min-width:90px;">فاکتور ناهار</th>
+						<th style="min-width:90px;">فاکتور شام</th>
+						<th style="min-width:110px;">هزینه هتل</th>
+						<th style="min-width:80px;">فاکتور هتل</th>
 						<th style="min-width:100px;">حق شب</th>
 						<th style="min-width:70px;">ضریب شب</th>
 						<th style="min-width:110px;">مبلغ اضافه کاری</th>
@@ -53,6 +58,7 @@
 						<th style="min-width:100px;">حق تعطیل کاری</th>
 						<th style="min-width:110px;">ایاب ذهاب شخصی</th>
 						<th style="min-width:110px;">ایاب ذهاب سواری</th>
+						<th style="min-width:110px;">سایر هزینه</th>
 					</tr>
 				</thead>
 				<tbody></tbody>
@@ -93,10 +99,13 @@
 			{
 				data: 'id',
 				orderable: false,
-				width: '90px',
+				width: '125px',
 				className: 'text-center',
-				render: function (id) {
-					return '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
+				render: function (id, type, row) {
+					const printBtn = '<button type="button" class="btn btn-sm btn-icon btn-light-primary" data-action="printChild" data-id="' + id + '" title="چاپ ماموریت"><i class="fa fa-print"></i></button>';
+					if (row && row.canModify === false) return printBtn;
+					return printBtn + ' '
+						+ '<button type="button" class="btn btn-sm btn-icon btn-light-warning" data-action="editChild" data-id="' + id + '"><i class="fa fa-edit"></i></button> '
 						+ '<button type="button" class="btn btn-sm btn-icon btn-light-danger" data-action="deleteChild" data-id="' + id + '"><i class="fa fa-trash"></i></button>';
 				}
 			},
@@ -122,6 +131,35 @@
 			{ data: 'lunch', defaultContent: '-', width: '70px' },
 			{ data: 'dinnerFee', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
 			{ data: 'dinner', defaultContent: '-', width: '70px' },
+			{
+				data: 'hasFactorBreakfast',
+				defaultContent: '',
+				width: '70px',
+				className: 'text-center dt-ellipsis-skip',
+				render: function (v) { return v === true ? '<i class="fa fa-check text-success"></i>' : ''; }
+			},
+			{
+				data: 'hasFactorLunch',
+				defaultContent: '',
+				width: '70px',
+				className: 'text-center dt-ellipsis-skip',
+				render: function (v) { return v === true ? '<i class="fa fa-check text-success"></i>' : ''; }
+			},
+			{
+				data: 'hasFactorDinner',
+				defaultContent: '',
+				width: '70px',
+				className: 'text-center dt-ellipsis-skip',
+				render: function (v) { return v === true ? '<i class="fa fa-check text-success"></i>' : ''; }
+			},
+			{ data: 'hotelCost', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
+			{
+				data: 'hasFactorHotel',
+				defaultContent: '',
+				width: '70px',
+				className: 'text-center dt-ellipsis-skip',
+				render: function (v) { return v === true ? '<i class="fa fa-check text-success"></i>' : ''; }
+			},
 			{ data: 'nightRight', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
 			{ data: 'nightRightFactor', defaultContent: '-', width: '70px' },
 			{ data: 'workOvertimeFee', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
@@ -142,7 +180,8 @@
 			{ data: 'missionHolidayRightFactor', defaultContent: '-', width: '90px' },
 			{ data: 'missionHolidayRight', defaultContent: '-', width: '100px', render: function (v) { return moneyCell(v); } },
 			{ data: 'transportationPersonal', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
-			{ data: 'transportationDriving', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } }
+			{ data: 'transportationDriving', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } },
+			{ data: 'otherCost', defaultContent: '-', width: '110px', render: function (v) { return moneyCell(v); } }
 		]
 	});
 
@@ -214,6 +253,29 @@
 		}).mask($fields);
 	}
 
+	const srMissionFactorPairs = [
+		{ flag: 'hasFactorBreakfast', count: 'breakfast', fee: 'breakfastFee' },
+		{ flag: 'hasFactorLunch', count: 'lunch', fee: 'lunchFee' },
+		{ flag: 'hasFactorDinner', count: 'dinner', fee: 'dinnerFee' }
+	];
+
+	function srMissionFactorChecked($root, flag) {
+		return $root.find('[data-bind="' + flag + '"]').prop('checked') === true;
+	}
+
+	function bindSrMissionFactorLocks($root) {
+		srMissionFactorPairs.forEach(function (pair) {
+			const $flag = $root.find('[data-bind="' + pair.flag + '"]');
+			const apply = function (clearCount) {
+				const checked = $flag.prop('checked') === true;
+				$root.find('[data-bind="' + pair.count + '"]').prop('disabled', checked);
+				if (checked && clearCount) setSrMissionField($root, pair.count, '');
+			};
+			apply(false);
+			$flag.off('change.factorLock').on('change.factorLock', function () { apply(true); });
+		});
+	}
+
 	function fillSrMissionSalaryFees($root, $btn) {
 		const personelId = $root.find('[data-bind="personelId"]').val();
 		const expertId = $root.find('[data-bind="expertId"]').val();
@@ -237,6 +299,8 @@
 				return;
 			}
 			['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+				const locked = srMissionFactorPairs.some(function (pair) { return pair.fee === key && srMissionFactorChecked($root, pair.flag); });
+				if (locked) return;
 				setSrMissionField($root, key, data[key]);
 			});
 			toastr.success('مبالغ حق ماموریت دریافت شد');
@@ -255,12 +319,14 @@
 		const missionRightFactor = srMissionVal(data, 'missionRightFactor');
 		if (breakfast == null && lunch == null && dinner == null)
 			return false;
-		setSrMissionField($root, 'breakfast', breakfast);
-		setSrMissionField($root, 'lunch', lunch);
-		setSrMissionField($root, 'dinner', dinner);
+		if (!srMissionFactorChecked($root, 'hasFactorBreakfast')) setSrMissionField($root, 'breakfast', breakfast);
+		if (!srMissionFactorChecked($root, 'hasFactorLunch')) setSrMissionField($root, 'lunch', lunch);
+		if (!srMissionFactorChecked($root, 'hasFactorDinner')) setSrMissionField($root, 'dinner', dinner);
 		setSrMissionField($root, 'nightRightFactor', nightRightFactor);
 		setSrMissionField($root, 'missionRightFactor', missionRightFactor);
 		['breakfastFee', 'lunchFee', 'dinnerFee', 'nightRight', 'workOvertimeFee', 'missionRight', 'missionHolidayRight'].forEach(function (key) {
+			const locked = srMissionFactorPairs.some(function (pair) { return pair.fee === key && srMissionFactorChecked($root, pair.flag); });
+			if (locked) return;
 			const fee = srMissionVal(data, key);
 			if (fee == null) return;
 			setSrMissionField($root, key, fee);
@@ -355,6 +421,9 @@
 							const $content = this.$content;
 							if (validateError($content)) return false;
 							const model = normalizeSrMissionModel($content.dataBind());
+							srMissionFactorPairs.forEach(function (pair) {
+								if (srMissionFactorChecked($content, pair.flag)) model[pair.count] = null;
+							});
 							const selfConfirm = this;
 							const $saveBtn = $(this.buttons.save.el).block();
 							$$.post('/Panel/Sale/Mission/save', model, function (resp) {
@@ -379,6 +448,7 @@
 						if (typeof initTimeInputs === 'function')
 							initTimeInputs(selfConfirm.$body);
 						initSrMissionDurationFields(selfConfirm.$body);
+						bindSrMissionFactorLocks(selfConfirm.$body);
 						selfConfirm.$body.find('.entity-selector-wrapper').each(function () {
 							if (!$(this).data('readonly') && typeof $(this).entitySelector === 'function')
 								$(this).entitySelector();
@@ -397,6 +467,10 @@
 
 	$$('#srMissionChildCard').on('click', '[data-action="newChild"]', function () { openSrMissionModal(null); });
 	$$('#srMissionChildCard').on('click', '[data-action="editChild"]', function () { openSrMissionModal($(this).data('id')); });
+	$$('#srMissionChildCard').on('click', '[data-action="printChild"]', function () {
+		const id = $(this).data('id');
+		appController.addPage('/System/ReportBuilder/ViewReportByName/SaleMission?missionId={\'values\':[\'' + id + '\'],\'condition\':\'=\'}&autoRun=True');
+	});
 	$$('#srMissionChildCard').on('click', '[data-action="deleteChild"]', function () {
 		const id = $(this).data('id');
 		Swal.fire({ title: 'حذف', text: 'آیا از حذف این ردیف مطمئن هستید؟', icon: 'warning', showCancelButton: true, confirmButtonText: 'بله', cancelButtonText: 'خیر' })

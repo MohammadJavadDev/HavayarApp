@@ -1,0 +1,238 @@
+@{
+	ViewBag.Title = "N2 Generator Sizing";
+}
+
+<style>
+	#n2GeneratorPage {
+		direction: ltr;
+		text-align: left;
+	}
+
+	#n2GeneratorPage .n2-block {
+		border: 1px solid #b9b9b9;
+		border-radius: 15px;
+		padding: 12px;
+		margin-bottom: 1rem;
+	}
+
+	#n2GeneratorPage .n2-inputs {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	#n2GeneratorPage .n2-results h4,
+	#n2GeneratorPage .n2-results h6 {
+		margin-bottom: 0.35rem;
+	}
+
+	#n2GeneratorPage .resultlabel {
+		margin-left: 15px;
+		color: green;
+		font-weight: bold;
+		vertical-align: inherit;
+	}
+
+	#n2GeneratorPage .sectiontitle {
+		text-align: center;
+		background-color: #dfdfdf;
+		padding: 5px 0;
+		margin: 0.75rem 0 0.5rem;
+	}
+</style>
+
+<div id="n2GeneratorPage" dir="ltr">
+	<div class="card mb-4">
+		<div class="card-header">
+			<h3 class="card-title mb-0">N2 Generator Sizing</h3>
+		</div>
+		<div class="card-body">
+			<div class="row g-3 align-items-start">
+				<div class="col-md-4">
+					<div class="n2-block n2-inputs">
+						<label for="txt1">Inlet Pressure (barg)</label>
+						<input id="txt1" class="form-control ltr" type="text" autocomplete="off" />
+
+						<label for="txt2">Inlet Temperature(°C)</label>
+						<input id="txt2" class="form-control ltr" type="text" autocomplete="off" />
+
+						<label for="txt3">Product Range</label>
+						<select id="txt3" class="form-control">
+							<option value="" selected="selected">Select Product Range</option>
+							<option value="Oxymat">Oxymat</option>
+						</select>
+
+						<label for="txt5">Consumer's Required N2 Flow(Nm3/hr)</label>
+						<input id="txt5" class="form-control ltr" type="text" autocomplete="off" />
+
+						<label for="txt6">Consumer's Required N2 Purity(%)</label>
+						<select id="txt6" class="form-control">
+							<option value="95" selected="selected">95</option>
+							<option value="97">97</option>
+							<option value="98">98</option>
+							<option value="99">99</option>
+							<option value="99.5">99.5</option>
+							<option value="99.6">99.6</option>
+							<option value="99.7">99.7</option>
+							<option value="99.8">99.8</option>
+							<option value="99.9">99.9</option>
+							<option value="99.95">99.95</option>
+							<option value="99.96">99.96</option>
+							<option value="99.97">99.97</option>
+							<option value="99.98">99.98</option>
+							<option value="99.99">99.99</option>
+							<option value="99.995">99.995</option>
+							<option value="99.996">99.996</option>
+							<option value="99.997">99.997</option>
+							<option value="99.998">99.998</option>
+							<option value="99.999">99.999</option>
+							<option value="99.9995">99.9995</option>
+							<option value="99.9996">99.9996</option>
+							<option value="99.9997">99.9997</option>
+							<option value="99.9998">99.9998</option>
+							<option value="99.9999">99.9999</option>
+						</select>
+
+						<label for="txt7">N2 Generators on Duty</label>
+						<select id="txt7" class="form-control">
+							<option value="1" selected="selected">1</option>
+							<option value="2">2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+							<option value="5">5</option>
+							<option value="6">6</option>
+							<option value="7">7</option>
+							<option value="8">8</option>
+							<option value="9">9</option>
+							<option value="10">10</option>
+						</select>
+
+						<label for="txt8">CMS Manufacturer</label>
+						<select id="txt8" class="form-control">
+							<option value="SHE" selected="selected">SHE</option>
+							<option value="Kurary">Kurary</option>
+						</select>
+
+						<label for="txt9">Air Consumption Method</label>
+						<select id="txt9" class="form-control">
+							<option value="Max 0% more than required" selected="selected">Max 0% more than required</option>
+							<option value="Full Capacity">Full Capacity</option>
+						</select>
+
+						<label for="txt10">N2 Generator Model</label>
+						<select id="txt10" class="form-control">
+							<option value="" selected="selected">Select N2 Generator Model</option>
+						</select>
+
+						<button type="button" class="btn btn-primary mt-2" data-action="n2Calculate">Calculate</button>
+					</div>
+				</div>
+				<div class="col-md-8">
+					<div class="n2-block n2-results">
+						<h6>N2 Delivery Pressure (barg): <label id="lbl1" class="resultlabel"></label></h6>
+						<h4 class="sectiontitle">N2 Generator</h4>
+						<h6>Required CMS per Generator (Lit): <label id="lbl5" class="resultlabel"></label></h6>
+						<h6>Required CMS per Generator (Kg): <label id="lbl6" class="resultlabel"></label></h6>
+						<h6>N2 Generator Model: <label id="lbl7" class="resultlabel"></label></h6>
+						<h6>Capacity Ratio: 1 Size Less Than Required Model / Required Capacity (%): <label id="lbl8" class="resultlabel"></label></h6>
+						<h6>Capacity Ratio: Selected Model / Required Capacity (%): <label id="lbl9" class="resultlabel"></label></h6>
+						<h6>Required CMS Filling per Generator (Kg): <label id="lbl10" class="resultlabel"></label></h6>
+						<h6>Tower Net Volume (One tower) (Lit): <label id="lbl11" class="resultlabel"></label></h6>
+						<h6>Total Available N2 Flow (Nm3/hr): <label id="lbl12" class="resultlabel"></label></h6>
+						<h6>N2 Generators Dry Air Consumption (Nm3/hr): <label id="lbl13" class="resultlabel"></label></h6>
+						<h4 class="sectiontitle">Dry Air Receiver</h4>
+						<h6>Required Dry Air Receiver Size (lit): <label id="lbl14" class="resultlabel"></label></h6>
+						<h6>Required Dry Air Receiver Model for Each N2 Generator (lit): <label id="lbl16" class="resultlabel"></label> | <label id="lbl15" class="resultlabel"></label></h6>
+						<h4 class="sectiontitle">N2 Receiver</h4>
+						<h6>Required N2 Receiver Size: <label id="lbl17" class="resultlabel"></label></h6>
+						<h6>Required N2 Receiver Model: <label id="lbl18" class="resultlabel"></label> | <label id="lbl19" class="resultlabel"></label></h6>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+	const oxymatModels = [
+		'N-4500x2', 'N-3150x2', 'N-4500x1', 'N-3150x1', 'N-2650x1', 'N-1850x1',
+		'N-1000x1', 'N-800x1', 'N-600x1', 'N-350x1', 'N-225x1', 'N-150x1',
+		'N-75x1', 'N-40x1'
+	];
+
+	const shePurityWarning = "Since you choosed Consumer's Required N2 Purity greater that 99.99, CMS Manufactor can't be SHE!";
+
+	function selectedText(selector) {
+		const $option = $$(selector).find('option:selected');
+		return $option.length ? $option.text() : '';
+	}
+
+	function checkTxt6() {
+		const purity = parseFloat(selectedText('#txt6'));
+		if (purity > 99.9999 && parseInt($$('#txt2').val(), 10))
+			$$('#txt2').val('30');
+	}
+
+	function fillModels() {
+		const $models = $$('#txt10');
+		$models.find('option:not(:first)').remove();
+		if (selectedText('#txt3') !== 'Oxymat')
+			return;
+		oxymatModels.forEach(function (model) {
+			$models.append($('<option></option>').val(model).text(model));
+		});
+	}
+
+	function errorMessage(response) {
+		return response?.message || response?.Message || 'Request failed.';
+	}
+
+	page.$pageEl.on('change', '#txt3', fillModels);
+	page.$pageEl.on('change', '#txt6', checkTxt6);
+
+	page.$pageEl.on('click', '[data-action="n2Calculate"]', function () {
+		const purity = parseFloat(selectedText('#txt6'));
+		if (purity > 99.99 && selectedText('#txt8') === 'SHE') {
+			toastr.warning(shePurityWarning);
+			return;
+		}
+
+		const $btn = $(this);
+		$btn.prop('disabled', true);
+		$btn.block();
+		$$.post('/Panel/Eng/N2GeneratorSizing/Calculate', {
+			inletPressure: $$('#txt1').val(),
+			inletTemperature: $$('#txt2').val(),
+			productRange: selectedText('#txt3'),
+			requiredN2Flow: $$('#txt5').val(),
+			purity: selectedText('#txt6'),
+			generatorsOnDuty: selectedText('#txt7'),
+			cmsManufacturer: selectedText('#txt8'),
+			airConsumptionMethod: selectedText('#txt9'),
+			n2GeneratorModel: selectedText('#txt10')
+		}, function (r) {
+			$btn.block(false);
+			$btn.prop('disabled', false);
+			if (!r || r.isSuccess === false) {
+				toastr.error(errorMessage(r), 'N2 Generator');
+				return;
+			}
+			const d = (r && r.data !== undefined ? r.data : r) || {};
+			$$('#lbl1').text(d.deliveryPressure ?? '');
+			$$('#lbl5').text(d.requiredCmsPerGeneratorLit ?? '');
+			$$('#lbl6').text(d.requiredCmsPerGeneratorKg ?? '');
+			$$('#lbl7').text(d.n2GeneratorModel ?? '');
+			$$('#lbl8').text(d.capacityRatioOneSizeLess ?? '');
+			$$('#lbl9').text(d.capacityRatioSelected ?? '');
+			$$('#lbl10').text(d.requiredCmsFillingPerGenerator ?? '');
+			$$('#lbl11').text(d.towerNetVolume ?? '');
+			$$('#lbl12').text(d.totalAvailableN2Flow ?? '');
+			$$('#lbl13').text(d.dryAirConsumption ?? '');
+			$$('#lbl14').text(d.requiredDryAirReceiverSize ?? '');
+			$$('#lbl15').text(d.dryAirReceiverRange ?? '');
+			$$('#lbl16').text(d.dryAirReceiverModel ?? '');
+			$$('#lbl17').text(d.requiredN2ReceiverSize ?? '');
+			$$('#lbl18').text(d.n2ReceiverRange ?? '');
+			$$('#lbl19').text(d.n2ReceiverModel ?? '');
+		});
+	});
+</script>

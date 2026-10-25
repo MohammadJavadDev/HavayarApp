@@ -17,7 +17,10 @@ Mappings:
   CostCenterId: Acc_CostCenter.Hamkaran_CostCenter_FK -> Gnr.CostCenter.HamkaranId, else Title; NULL if unmatched
   PassengerId / DriverId: HRM_Personel.Hamkaran_Personel_FK -> Hcm.Personel.HamkaranId, else PrsCode -> Code; NULL if unmatched
   BranchId, TypeId, OutdoorCarServiceId, StatusId: copy HTS lookup ids as-is (StatusId 0 stays 0)
-  NeedDate / NeedDateInText / CreatedDateInText / DoneDateTimeInText: copy as stored (no year-778 fix)
+  NeedDateShamsiDate / NeedDateMiladiDate: HTS NeedDateInText is the Shamsi text.
+    HTS NeedDate is Miladi when YEAR >= 1900. Years 1300-1599 are Shamsi stuffed into the date
+    column and are converted with dbo.fn_ShamsiToMiladiDate. Year 778 stays Shamsi text with NULL Miladi.
+  CreatedDateInText / DoneDateTimeInText: copy as stored (no year-778 fix)
   CreatedOnMiladiDateTime <- HTS CreatedDate; CreatedOnShamsiDateTime <- CreatedDateInText when present
   IsActive = 1
 
@@ -157,9 +160,9 @@ BEGIN TRY
     SELECT
         CAST(c.Id AS BIGINT) AS HtsId,
         CAST(c.TypeId AS INT) AS TypeId,
-        CAST(c.NeedDate AS DATE) AS NeedDate,
+        CAST(c.NeedDate AS DATE) AS NeedDateMiladiDate,
         LEFT(NULLIF(LTRIM(RTRIM(c.NeedTime)), N''), 5) AS NeedTime,
-        NULLIF(LTRIM(RTRIM(c.NeedDateInText)), N'') AS NeedDateInText,
+        NULLIF(LTRIM(RTRIM(c.NeedDateInText)), N'') AS NeedDateShamsiDate,
         CASE WHEN c.PassengerId IS NULL THEN NULL ELSE pmPass.NewPersonelId END AS PassengerId,
         CAST(c.PassengerId AS INT) AS OldPassengerId,
         CAST(c.CountPeople AS SMALLINT) AS CountPeople,
@@ -189,14 +192,37 @@ BEGIN TRY
     LEFT JOIN #PersonelMap pmDrv ON c.DriverId IS NOT NULL AND pmDrv.OldPersonelId = CAST(c.DriverId AS INT)
     LEFT JOIN #UserMap umc ON umc.OldUserId = CAST(c.CreatedUserId AS INT);
 
+    /* Shamsi text is the source label. Miladi is a real Gregorian date (year >= 1900). */
+    UPDATE #HdrSrc
+    SET NeedDateShamsiDate =
+        CONVERT(nvarchar(4), YEAR(NeedDateMiladiDate)) + N'/'
+        + RIGHT(N'0' + CONVERT(nvarchar(2), MONTH(NeedDateMiladiDate)), 2) + N'/'
+        + RIGHT(N'0' + CONVERT(nvarchar(2), DAY(NeedDateMiladiDate)), 2)
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND YEAR(NeedDateMiladiDate) BETWEEN 1300 AND 1599
+      AND (NeedDateShamsiDate IS NULL OR NeedDateShamsiDate NOT LIKE N'1[34][0-9][0-9]/[0-9][0-9]/[0-9][0-9]');
+
+    UPDATE #HdrSrc
+    SET NeedDateMiladiDate = dbo.fn_ShamsiToMiladiDate(REPLACE(NeedDateShamsiDate, N'-', N'/'), N'/')
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND YEAR(NeedDateMiladiDate) < 1900
+      AND REPLACE(NeedDateShamsiDate, N'-', N'/') LIKE N'1[34][0-9][0-9]/[0-9][0-9]/[0-9][0-9]'
+      AND TRY_CAST(LEFT(REPLACE(NeedDateShamsiDate, N'-', N'/'), 4) AS int) >= 1354
+      AND dbo.fn_ShamsiToMiladiDate(REPLACE(NeedDateShamsiDate, N'-', N'/'), N'/') IS NOT NULL;
+
+    UPDATE #HdrSrc
+    SET NeedDateMiladiDate = NULL
+    WHERE NeedDateMiladiDate IS NOT NULL
+      AND YEAR(NeedDateMiladiDate) < 1900;
+
     PRINT N'Syncing CarRequest headers (unmapped passenger/driver/costcenter -> NULL; unmapped creator -> Id 1)...';
 
     /* ========== Headers: UPDATE then INSERT (skip HtsId = 0 targets) ========== */
     UPDATE t SET
         t.TypeId = s.TypeId,
-        t.NeedDate = s.NeedDate,
+        t.NeedDateMiladiDate = s.NeedDateMiladiDate,
         t.NeedTime = s.NeedTime,
-        t.NeedDateInText = s.NeedDateInText,
+        t.NeedDateShamsiDate = s.NeedDateShamsiDate,
         t.PassengerId = s.PassengerId,
         t.CountPeople = s.CountPeople,
         t.CostCenterId = s.CostCenterId,
@@ -225,13 +251,13 @@ BEGIN TRY
     PRINT N'  CarRequest updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(20));
 
     INSERT INTO Srv.CarRequest (
-        HtsId, TypeId, NeedDate, NeedTime, NeedDateInText, PassengerId, CountPeople, CostCenterId,
+        HtsId, TypeId, NeedDateMiladiDate, NeedTime, NeedDateShamsiDate, PassengerId, CountPeople, CostCenterId,
         DriverId, OutdoorCarServiceId, Destination, LastComment, Description, StatusId, WaitingTime,
         DoneDateTimeInText, BranchId, CreatedDateInText,
         CreatedById, CreatedByName, CreatedOnMiladiDateTime, CreatedOnShamsiDateTime,
         ModifiedById, ModifiedByName, ModifiedDateMiladiDateTime, ModifiedDateShamsiDateTime, IsActive)
     SELECT
-        s.HtsId, s.TypeId, s.NeedDate, s.NeedTime, s.NeedDateInText, s.PassengerId, s.CountPeople, s.CostCenterId,
+        s.HtsId, s.TypeId, s.NeedDateMiladiDate, s.NeedTime, s.NeedDateShamsiDate, s.PassengerId, s.CountPeople, s.CostCenterId,
         s.DriverId, s.OutdoorCarServiceId, s.Destination, s.LastComment, s.Description, s.StatusId, s.WaitingTime,
         s.DoneDateTimeInText, s.BranchId, s.CreatedDateInText,
         s.CreatedById, s.CreatedByName, s.CreatedOnMiladiDateTime, s.CreatedOnShamsiDateTime,
@@ -328,7 +354,7 @@ BEGIN TRY
         (SELECT COUNT(*) FROM Srv.CarRequest WHERE HtsId <> 0 AND StatusId = 0) AS StatusIdZero,
         (SELECT COUNT(*) FROM Srv.CarRequest
          WHERE HtsId <> 0
-           AND (YEAR(NeedDate) < 1900 OR NeedDateInText LIKE N'778%')) AS NeedDateAnomalies;
+           AND (NeedDateMiladiDate IS NULL OR YEAR(NeedDateMiladiDate) < 1900 OR NeedDateShamsiDate LIKE N'778%')) AS NeedDateAnomalies;
 
     PRINT N'Sync_SrvCarRequest_FromTotalSystem completed.';
 

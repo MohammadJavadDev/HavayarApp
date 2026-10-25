@@ -15,26 +15,36 @@
 	}
 
 	var statusText = Model.Status.HasValue ? Model.Status.Value.ToDisplay() : "-";
-	var statusClass = Model?.Status switch
+	var statusClass = DocumentStatusPalette.BadgeClass(Model?.Status);
+	var statusStyle = DocumentStatusPalette.BadgeStyle(Model?.Status);
+
+	var canDeleteFiles = sdk.HasRole("Edms.Document.EditRev");
+
+	var isNewDoc = Model.Id == null || Model?.Status == DocumentStatusEnums.NotIssue;
+
+	// برگشت به کارتابل تهیه‌کننده: نظر بررسی‌کننده / تاییدکننده / DCC، یا رد DCC
+	var returnedToProducer = Model?.Status is DocumentStatusEnums.CommentedByReviewer
+		or DocumentStatusEnums.CommentedByApprover
+		or DocumentStatusEnums.CommentedByDcc
+		or DocumentStatusEnums.RejectByDcc;
+
+	var holdFileReplace = Model?.Status is DocumentStatusEnums.Hold or DocumentStatusEnums.UnHold;
+
+	var actionFlags = ViewData["ActionFlags"] as WebApp.ViewModels.Edms.DocumentEditActionFlags;
+	var producerCanSave = actionFlags?.CanSaveAndClose == true;
+
+	if (!canDeleteFiles && (isNewDoc || ((returnedToProducer || holdFileReplace) && producerCanSave)))
 	{
-		DocumentStatusEnums.ApproveByReviewer or DocumentStatusEnums.ApproveByApprover or DocumentStatusEnums.ApproveByClient or DocumentStatusEnums.ApprovedByDcc or DocumentStatusEnums.ApprovedBySale or DocumentStatusEnums.ApprovedAsNoteByClient or DocumentStatusEnums.ApprovedAsNoteByClient => "badge-light-success",
-		DocumentStatusEnums.RejectByReviewer or DocumentStatusEnums.RejectByApprover or DocumentStatusEnums.RejectByClient or DocumentStatusEnums.RejectedBySale => "badge-light-danger",
-		DocumentStatusEnums.Hold or DocumentStatusEnums.HoldByProject => "badge-light-warning",
-		DocumentStatusEnums.CommentedByReviewer or DocumentStatusEnums.CommentedByApprover or DocumentStatusEnums.CommentedByClient or DocumentStatusEnums.CommentedBySale => "badge-light-info",
-		DocumentStatusEnums.Archived => "badge-light-dark",
-		_ => "badge-light"
-	};
-
-	var canDelteFiels = sdk.HasRole("Edms.Document.EditRev");
-
-	var isNewDoc = Model.Id == null  ||  Model?.Status == DocumentStatusEnums.NotIssue;
-
-	if (canDelteFiels == false && isNewDoc)
-	{
-		canDelteFiels = true;
+		canDeleteFiles = true;
 	}
+
+	var canEditReplySheet = returnedToProducer && producerCanSave;
+
+	var vpisProducerName = ViewData["VpisProducerName"] as string ?? "-";
+	var vpisReviewerNames = ViewData["VpisReviewerNames"] as string ?? "-";
+	var vpisApproverName = ViewData["VpisApproverName"] as string ?? "-";
 }
-<div id="DocumentRevisionEditor">
+<div id="DocumentRevisionEditor" data-transmittal-attachment-id="@(ViewData["TransmittalAttachmentId"] ?? 0)" data-reply-transmittal-attachment-id="@(ViewData["ReplyTransmittalAttachmentId"] ?? 0)">
 	 
      <div class="card shadow-sm my-1">
 		<div class="card-body row g-4">
@@ -50,7 +60,7 @@
 						<span class="fw-bold">ریویژن</span>
 						<span class="badge badge-light-primary">@Model?.Revision</span>
 						<span class="text-muted">وضعیت:</span>
-						<span class="badge @statusClass">@statusText</span>
+						<span class="@statusClass" style="@statusStyle">@statusText</span>
 					</div>
 					<div class="text-muted small">
 						آخرین ویرایش: <span class="rtl">@(Model?.ModifiedDateShamsiDateTime ?? "-")</span>
@@ -67,20 +77,21 @@
 			</div>
 
 			<div class='col-md-4 form-group-inline'>
-				<label class='form-label'>نفر-ساعت</label>
-				<input class='form-control' data-bind='hourPrePerson' data-invalidMessage='فقط عدد'
-					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='HourPrePerson' />
+				<label class='form-label required'>نفر-ساعت (ساعت:دقیقه)</label>
+				<input class='form-control ltr' type='text' id='HourPrePerson' name='HourPrePerson' data-bind='hourPrePerson' data-duration-hm='true' required
+					placeholder='__:__' value='@Common.Utilities.MinutesFromHourMinJsonConverter.MinToHourMin(Model?.HourPrePerson, hourLength: 2)' />
 				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
 			<div class='col-md-4 form-group-inline'>
-				<label class='form-label'>تاریخ انتشار/ارسال</label>
-				<input class='form-control' data-bind='publicationShamsiDate' data-persionDatePicker="true"
+				<label class='form-label required'>تاریخ انتشار/ارسال</label>
+				<input class='form-control' data-bind='publicationShamsiDate' required data-persionDatePicker="true"
 					persion-datetimepicker='{"format": "YYYY/MM/DD","autoClose": true,"initialValue": false}'
-					value='@Model?.PublicationShamsiDate' />
+					value='@Model?.PublicationMiladiDate' />
+				<div data-invalidmessagespan class='my-1 mx-1'> <span class='text-danger'></span> </div>
 			</div>
 
-			<div class='col-md-4 form-group-inline'>
+			<div class='col-md-4 form-group-inline d-none'>
 				<label class='form-label'>رویژن</label>
 				<input class='form-control' data-bind='revision' data-invalidMessage='فقط عدد'
 					data-inputmask="'regex':'^[\u06F0-\u06F90-9]+$' , 'placeholder' : ''" asp-for='Revision' disabled />
@@ -89,46 +100,21 @@
 		
 
 			<div class="col-md-4 form-group-inline">
-				<label class="form-label">بررسی کننده</label>
-				@(Html.EntitySelector<User>
-					(
-					"ReviewerSelector",
-					c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-					c => new
-					{
-							Id = c.Id,
-							Name = c.Name,
+				<label class="form-label">تهیه کننده</label>
+				<input class="form-control" value="@vpisProducerName" readonly tabindex="-1" />
+			</div>
 
-					},
-					c => new { c.Username, c.Name },
-					"{Name}",
-					"reviewerId",
-					null,
-					Model?.ReviewerId?.ToString()
-					))
+			<div class="col-md-4 form-group-inline">
+				<label class="form-label">بررسی کننده</label>
+				<input class="form-control" value="@vpisReviewerNames" readonly tabindex="-1" />
 			</div>
 
 			<div class="col-md-4 form-group-inline">
 				<label class="form-label">تایید کننده</label>
-				@(Html.EntitySelector<User>
-				(
-				"ApproverSelector",
-				c => c.IsActive == Entities.Base.IsActiveEnum.Active,
-				c => new
-				{
-						Id = c.Id,
-						Name = c.Name,
-
-				},
-				c => new { c.Username, c.Name },
-				"{Name}",
-				"approverId",
-				null,
-				Model?.ApproverId?.ToString()
-				))
+				<input class="form-control" value="@vpisApproverName" readonly tabindex="-1" />
 			</div>
 
-				<div class='col-md-4 form-group-inline'>
+				<div class='col-md-4 form-group-inline d-none'>
 				<label class='form-label'>وضعیت مدرک</label>
 				<select class='form-control' data-bind='status' asp-for='Status'
 					   asp-items="Html.GetEnumSelectList(typeof(Entities.App.Edms.Enums.DocumentStatusEnums))"
@@ -146,46 +132,46 @@
 			<div class='col-md-6 '>
 				<fileuploader bind="mainFileId" file-id="@Model?.MainFileId" file-entity="@Model?.MainFile"
 						    label="فایل اصلی" entity-type="@typeof(Document).FullName" entity-prop-name="MainFile" bindid="mainFile"
-						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
+						    max-file-size="100" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx" show-delete="@canDeleteFiles"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="motherFileId" file-id="@Model?.MotherFileId" file-entity="@Model?.MotherFile"
 						    label="فایل مادر" entity-type="@typeof(Document).FullName" entity-prop-name="MotherFile" bindid="motherFile"
-						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
+						    max-file-size="100" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx" show-delete="@canDeleteFiles"></fileuploader>
 			</div>
 
 			<div class='col-md-6'>
 				<fileuploader bind="secondaryFileId" file-id="@Model?.SecondaryFileId" file-entity="@Model?.SecondaryFile"
 						    label="فایل ثانوی" entity-type="@typeof(Document).FullName" entity-prop-name="SecondaryFile" bindid="secondaryFile"
-						    max-file-size="50" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx" show-delete="@canDelteFiels"></fileuploader>
+						    max-file-size="100" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx" show-delete="@canDeleteFiles"></fileuploader>
 			</div>
 
-			@* ReplySheet file is collected only via Add ReplySheet action (modal), not during normal edit *@
-			@if (Model?.ReplySheetId.HasValue == true && Model.ReplySheetId.Value > 0)
-			{
+			 
 				<div class='col-md-6'>
-					<label class="form-label">فایل ReplySheet</label>
-					<div class="d-flex align-items-center gap-2">
-						<a href="/File/download/@Model.ReplySheetId.Value" class="btn btn-sm btn-light-primary" target="_blank">
-							<i class="ki-file-down ki-solid fs-2"></i>
-							دانلود
-						</a>
-					</div>
+					<fileuploader bind="replySheetId" file-id="@Model?.ReplySheetId" file-entity="@Model?.ReplySheet"
+							    label="فایل ReplySheet" entity-type="@typeof(Document).FullName" entity-prop-name="ReplySheet" bindid="replySheet"
+							    max-file-size="100" accepted-file-types=".rar,.zip,.pdf,.excel,.word,.docx,.xls,.xlsx" show-delete="true"></fileuploader>
 				</div>
-			}
-			@if (Model?.SecondReplySheetId.HasValue == true && Model.SecondReplySheetId.Value > 0)
-			{
-				<div class='col-md-6'>
-					<label class="form-label">فایل ReplySheet دوم</label>
-					<div class="d-flex align-items-center gap-2">
-						<a href="/File/download/@Model.SecondReplySheetId.Value" class="btn btn-sm btn-light-primary" target="_blank">
-							<i class="ki-file-down ki-solid fs-2"></i>
-							دانلود
-						</a>
+
+				@if (Model?.SecondReplySheetId is > 0)
+				{
+					<div class='col-md-6'>
+						<label class='form-label'>فایل ثانوی ReplySheet</label>
+						<div class="border rounded p-3 min-h-75px d-flex align-items-center justify-content-between gap-3">
+							<div class="d-flex align-items-center gap-2 text-break">
+								<i class="ki-duotone ki-file fs-2x text-primary"></i>
+								<span>@(Model.SecondReplySheet?.OriginalName ?? $"فایل شماره {Model.SecondReplySheetId}")</span>
+							</div>
+							<a href="/File/download/@Model.SecondReplySheetId" class="btn btn-sm btn-light-primary" target="_blank" rel="noopener" title="دانلود فایل ثانوی ReplySheet">
+								<i class="ki-duotone ki-arrow-down fs-5"></i>
+								<span>دانلود</span>
+							</a>
+						</div>
 					</div>
-				</div>
-			}
+				}
+			 
+		 
 
 		
 
@@ -218,7 +204,7 @@
 	</div>
  
 	@{
-		var actionFlags = ViewData["ActionFlags"] as WebApp.ViewModels.Edms.DocumentEditActionFlags
+		  actionFlags = ViewData["ActionFlags"] as WebApp.ViewModels.Edms.DocumentEditActionFlags
 			?? new WebApp.ViewModels.Edms.DocumentEditActionFlags();
 	}
 	<script type="application/json" id="documentActionFlags">@Html.Raw(Json.Serialize(actionFlags))</script>

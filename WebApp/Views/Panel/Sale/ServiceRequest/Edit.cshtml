@@ -146,6 +146,13 @@
 			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
 		</div>
 		<div class="col-md-4 form-group-inline">
+			<label class="form-label fw-bold">تاریخ اعزام</label>
+			<input class="form-control" data-bind="dispatchShamsiDate" data-persionDatePicker="true"
+				persion-datetimepicker='{"format":"YYYY/MM/DD","autoClose": true,"initialValue": false}'
+				value="@(Model?.DispatchMiladiDate?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))" />
+			<div data-invalidmessagespan class="my-1 mx-1"><span class="text-danger"></span></div>
+		</div>
+		<div class="col-md-4 form-group-inline">
 			<label class="form-label fw-bold">نام منطقه</label>
 			@(Html.EntitySelector<Zone>(
 				"ServiceRequestDispatchZoneSelector",
@@ -163,7 +170,7 @@
 			<label class="form-label fw-bold required">کارشناس</label>
 			@(Html.EntitySelector<Personel>(
 				"ServiceRequestExpertPersonelSelector",
-				c => c.IsActive == IsActiveEnum.Active,
+				c => c.IsActive != IsActiveEnum.Deleted,
 				c => new { Id = c.Id, Name = c.Name, Family = c.Family, Code = c.Code },
 				c => new { c.Name, c.Family, c.Code },
 				"{Name} {Family}",
