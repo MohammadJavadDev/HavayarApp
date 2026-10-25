@@ -170,7 +170,7 @@ namespace WebApp.Controllers.Dynamic
 					ProductionStepTitle = c.ProductionStep.ToDisplay(),
 					SendToIndustrialShamsiDate = ToShamsi(c.SendToIndustrialMiladiDate, c.SendToIndustrialShamsiDate),
 					PreparationShamsiDate = ToShamsi(c.PreparationMiladiDate, c.PreparationShamsiDate),
-					Days = DaysUntilToday(c.PreparationMiladiDate)
+					Days = DaysUntilToday(c.PreparationMiladiDate, c.PreparationShamsiDate)
 				})
 				.ToList();
 		}
@@ -211,7 +211,7 @@ namespace WebApp.Controllers.Dynamic
 					ProductionStepTitle = c.ProductionStep.ToDisplay(),
 					SendToIndustrialShamsiDate = ToShamsi(c.SendToIndustrialMiladiDate, c.SendToIndustrialShamsiDate),
 					AgreedDeliverShamsiDate = ToShamsi(c.AgreedDeliverDate, null),
-					Days = DaysUntilToday(c.SendToIndustrialMiladiDate)
+					Days = DaysUntilToday(c.SendToIndustrialMiladiDate, c.SendToIndustrialShamsiDate)
 				})
 				.ToList();
 		}
@@ -259,7 +259,7 @@ namespace WebApp.Controllers.Dynamic
 					BranchTitle = OrUnknown(c.BranchTitle),
 					SalesExpertName = c.SalesExpertName,
 					DlTitle = OrUnknown(c.DlTitle),
-					Days = DaysUntilToday(c.PurchaseRequestMiladiDate)
+					Days = DaysUntilToday(c.PurchaseRequestMiladiDate, c.PurchaseRequestShamsiDate)
 				})
 				.ToList();
 		}
@@ -289,7 +289,8 @@ namespace WebApp.Controllers.Dynamic
 					SalesExpertName = c.SalesUnitSalesExpert.NameFa ?? c.SalesUnitSalesExpert.Name,
 					DlTitle = c.Dl.Title,
 					c.StopStatus,
-					c.StopMiladiDate
+					c.StopMiladiDate,
+					c.StopShamsiDate
 				})
 				.ToListAsync(cn);
 
@@ -319,7 +320,7 @@ namespace WebApp.Controllers.Dynamic
 						SupplyCommentShamsiDate = supplyComment.ShamsiDate,
 						SupplyComment = supplyComment.Comment,
 						StopStatusTitle = c.StopStatus?.ToDisplay(),
-						Days = DaysUntilToday(c.StopMiladiDate)
+						Days = DaysUntilToday(c.StopMiladiDate, c.StopShamsiDate)
 					};
 				})
 				.ToList();
@@ -406,10 +407,15 @@ namespace WebApp.Controllers.Dynamic
 		}
 
 		/// <summary>
-		/// معادل DATEDIFF(DAY, date, GETDATE()) در نمایه‌ها: اختلاف روز تقویمی تا امروز
+		/// معادل DATEDIFF(DAY, date, GETDATE()) در نمایه‌ها: اختلاف روز تقویمی تا امروز.
+		/// رکوردهای منتقل‌شده از HTS گاهی فقط تاریخ شمسی دارند (مثلاً StopShamsiDate بدون StopMiladiDate)،
+		/// پس اگر تاریخ میلادی خالی بود از تاریخ شمسی استفاده می‌شود.
 		/// </summary>
-		private static int? DaysUntilToday(DateTime? date)
-			=> date.HasValue ? (DateTime.Today - date.Value.Date).Days : null;
+		private static int? DaysUntilToday(DateTime? miladi, string? shamsi)
+		{
+			var date = miladi ?? ParseShamsiDate(shamsi);
+			return date.HasValue ? (DateTime.Today - date.Value.Date).Days : null;
+		}
 
 		private static string? ToShamsi(DateTime? miladi, string? shamsi)
 			=> miladi?.ToShamsiDate() ?? shamsi;
