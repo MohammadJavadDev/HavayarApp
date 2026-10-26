@@ -1614,6 +1614,12 @@
                     value: function _attachInputElementEvents() {
                         var that = this;
                         var closePickerHandler = function closePickerHandler(e) {
+                            // Container click handlers run before this body handler and re-render the
+                            // picker, detaching the clicked button (e.g. next/prev month). A detached
+                            // target came from inside the picker, so keep it open.
+                            if (!e.target.isConnected) {
+                                return;
+                            }
                             if (!$(e.target).is(that.elem) && !$(e.target).is(that.model.view.$container) && $(e.target).closest(that.model.view.$container).length == 0 && !$(e.target).is($(that.elem).children())) {
                                 that.model.api.hide();
                                 $('body').unbind('click', closePickerHandler);
